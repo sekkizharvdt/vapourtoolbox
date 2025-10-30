@@ -95,11 +95,12 @@ export default defineConfig({
     },
     // Application server
     {
-      // Use production server in CI (faster startup), dev server locally (hot reload)
-      command: process.env.CI ? 'pnpm start' : 'pnpm dev',
+      // CI: Serve static build with serve (output: 'export' in next.config.ts)
+      // Local: Use dev server for hot reload
+      command: process.env.CI ? 'npx serve@latest out -l 3001' : 'pnpm dev',
       url: 'http://localhost:3001',
       reuseExistingServer: !process.env.CI, // Don't reuse in CI
-      timeout: process.env.CI ? 60 * 1000 : 120 * 1000, // Production server starts faster
+      timeout: process.env.CI ? 30 * 1000 : 120 * 1000, // Static server starts instantly
       env: {
         // Firebase Client Configuration (required by app)
         NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'fake-api-key-for-emulator',
