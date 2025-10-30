@@ -15,8 +15,8 @@ if (!admin.apps.length) {
   });
 }
 
-const auth = admin.auth();
-const db = admin.firestore();
+const auth: admin.auth.Auth = admin.auth();
+const db: admin.firestore.Firestore = admin.firestore();
 
 export interface TestUser {
   uid: string;

@@ -69,7 +69,7 @@ test.describe('Entities Page', () => {
     await expect(errorMessage.first()).toBeVisible();
   });
 
-  test.skip('should create new entity', async ({ page }) => {
+  test.skip('should create new entity', async () => {
     // TODO: Implement full entity creation test
     // This requires:
     // 1. Authentication
@@ -77,15 +77,15 @@ test.describe('Entities Page', () => {
     // 3. Cleanup after test
   });
 
-  test.skip('should edit existing entity', async ({ page }) => {
+  test.skip('should edit existing entity', async () => {
     // TODO: Implement entity editing test
   });
 
-  test.skip('should delete entity', async ({ page }) => {
+  test.skip('should delete entity', async () => {
     // TODO: Implement entity deletion test
   });
 
-  test.skip('should search/filter entities', async ({ page }) => {
+  test.skip('should search/filter entities', async () => {
     // TODO: Implement search test
   });
 });
