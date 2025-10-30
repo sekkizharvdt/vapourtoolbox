@@ -1,0 +1,17 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+echo "🔍 Running pre-commit checks..."
+
+# Run pre-deployment checks (skip build and schema for speed)
+node scripts/preflight/pre-deployment-check.js --skip-build --skip-schema
+
+# If checks fail, prevent commit
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "❌ Pre-commit checks failed. Fix critical issues before committing."
+  echo "   To skip this check (not recommended), use: git commit --no-verify"
+  exit 1
+fi
+
+echo "✅ Pre-commit checks passed!"
