@@ -45,8 +45,8 @@ export async function loginUser(page: Page, user: TestUser): Promise<void> {
   // Ensure user exists
   await createTestUser(user);
 
-  // Create custom token
-  const customToken = await createCustomToken(user.uid);
+  // Create custom token WITH custom claims
+  const customToken = await createCustomToken(user.uid, user.customClaims);
 
   // Navigate to app (loads Firebase)
   await page.goto('/');

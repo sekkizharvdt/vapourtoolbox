@@ -26,11 +26,14 @@ export interface TestUser {
 }
 
 /**
- * Create a custom auth token for testing
+ * Create a custom auth token for testing with custom claims
  */
-export async function createCustomToken(userId: string): Promise<string> {
+export async function createCustomToken(
+  userId: string,
+  customClaims?: Record<string, any>
+): Promise<string> {
   try {
-    const token = await auth.createCustomToken(userId);
+    const token = await auth.createCustomToken(userId, customClaims);
     return token;
   } catch (error) {
     console.error('Error creating custom token:', error);
