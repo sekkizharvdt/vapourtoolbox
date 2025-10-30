@@ -50,8 +50,10 @@ export function initializeFirebase() {
       if (useEmulator && process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL) {
         try {
           const [host, port] = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL.split(':');
-          connectFirestoreEmulator(db, host, parseInt(port));
-          console.log('✅ Connected to Firestore Emulator');
+          if (host && port) {
+            connectFirestoreEmulator(db, host, parseInt(port));
+            console.log('✅ Connected to Firestore Emulator');
+          }
         } catch (error) {
           console.warn('Firestore emulator already connected');
         }
