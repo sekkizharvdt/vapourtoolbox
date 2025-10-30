@@ -197,6 +197,20 @@ jobs:
       - name: Install Firebase Tools
         run: npm install -g firebase-tools
 
+      - name: Build app for E2E tests
+        run: cd apps/web && pnpm build
+        env:
+          # Firebase configuration needed for build
+          NEXT_PUBLIC_FIREBASE_API_KEY: fake-api-key-for-emulator
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: localhost
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: vapour-toolbox
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: vapour-toolbox.appspot.com
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: '000000000000'
+          NEXT_PUBLIC_FIREBASE_APP_ID: '1:000000000000:web:fakefakefakefake'
+          NEXT_PUBLIC_USE_EMULATOR: 'true'
+          NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL: http://localhost:9099
+          NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL: localhost:8080
+
       - name: Run E2E tests
         run: cd apps/web && pnpm test:e2e --project=chromium
         env:

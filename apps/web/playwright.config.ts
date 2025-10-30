@@ -95,10 +95,11 @@ export default defineConfig({
     },
     // Application server
     {
-      command: 'pnpm dev',
+      // Use production server in CI (faster startup), dev server locally (hot reload)
+      command: process.env.CI ? 'pnpm start' : 'pnpm dev',
       url: 'http://localhost:3001',
       reuseExistingServer: !process.env.CI, // Don't reuse in CI
-      timeout: 120 * 1000,
+      timeout: process.env.CI ? 60 * 1000 : 120 * 1000, // Production server starts faster
       env: {
         // Firebase Client Configuration (required by app)
         NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'fake-api-key-for-emulator',
