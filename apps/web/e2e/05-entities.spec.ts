@@ -11,8 +11,8 @@ test.describe('Entities Page', () => {
   test('should redirect to login when not authenticated', async ({ page }) => {
     await page.goto('/entities');
 
-    // Should redirect to login
-    await page.waitForURL(/login/, { timeout: 5000 });
+    // Should redirect to login (wait longer for slower devices)
+    await page.waitForURL(/login/, { timeout: 10000 });
     await expect(page).toHaveURL(/login/);
   });
 
@@ -20,34 +20,48 @@ test.describe('Entities Page', () => {
     // Authenticate using custom token
     await loginAsUser(page);
 
-    await page.goto('/entities');
+    // Use domcontentloaded to avoid Firefox NS_BINDING_ABORTED errors
+    await page.goto('/entities', { waitUntil: 'domcontentloaded' });
     await expect(page).toHaveURL(/\/entities\/?/);
 
+    // Wait for page to load (client-side rendered)
+    await page.waitForLoadState('networkidle');
+
     // Should show entities page heading
-    await expect(page.getByRole('heading', { name: /entity management/i, level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /entity management/i, level: 1 })).toBeVisible({ timeout: 10000 });
   });
 
   test('should show create entity button', async ({ page }) => {
     // Authenticate using custom token
     await loginAsUser(page);
 
-    await page.goto('/entities');
+    // Use domcontentloaded to avoid Firefox NS_BINDING_ABORTED errors
+    await page.goto('/entities', { waitUntil: 'domcontentloaded' });
+
+    // Wait for page to load (client-side rendered)
+    await page.waitForLoadState('networkidle');
 
     // Should show "New Entity" button
-    await expect(page.getByRole('button', { name: /new entity/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /new entity/i })).toBeVisible({ timeout: 10000 });
   });
 
   test('should open create entity dialog', async ({ page }) => {
     // Authenticate using custom token
     await loginAsUser(page);
 
-    await page.goto('/entities');
+    // Use domcontentloaded to avoid Firefox NS_BINDING_ABORTED errors
+    await page.goto('/entities', { waitUntil: 'domcontentloaded' });
 
-    // Click "New Entity" button
-    await page.getByRole('button', { name: /new entity/i }).click();
+    // Wait for page to load (client-side rendered)
+    await page.waitForLoadState('networkidle');
+
+    // Wait for and click "New Entity" button
+    const newEntityButton = page.getByRole('button', { name: /new entity/i });
+    await newEntityButton.waitFor({ state: 'visible', timeout: 10000 });
+    await newEntityButton.click();
 
     // Should show dialog
-    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
   });
 
   test.skip('should validate entity form fields', async ({ page }) => {

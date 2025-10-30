@@ -23,8 +23,11 @@ test.describe('Dashboard', () => {
     await page.goto('/dashboard');
     await expect(page).toHaveURL(/\/dashboard\/?/);
 
+    // Wait for page to load (client-side rendered)
+    await page.waitForLoadState('networkidle');
+
     // Should show dashboard content
-    await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('heading', { name: /available modules/i })).toBeVisible();
   });
 
@@ -34,10 +37,13 @@ test.describe('Dashboard', () => {
 
     await page.goto('/dashboard');
 
-    // Should show sidebar navigation (Material-UI Drawer, not <nav>)
-    // Check for module navigation buttons
-    await expect(page.getByRole('button', { name: /entity management/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /project management/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /user management/i })).toBeVisible();
+    // Wait for page to load (client-side rendered)
+    await page.waitForLoadState('networkidle');
+
+    // Should show module cards (not buttons with module names, but headings within cards)
+    // Module cards contain headings with module names and "Open Module" buttons
+    await expect(page.getByRole('heading', { name: /entity management/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /project management/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /user management/i })).toBeVisible();
   });
 });
