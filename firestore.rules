@@ -1,0 +1,444 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================
+    // Helper Functions
+    // ============================================
+
+    /**
+     * Check if user is authenticated
+     */
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    /**
+     * Check if user has specific role
+     * Fixed: Use hasAny() to check array values, not 'in' operator
+     */
+    function hasRole(role) {
+      return isAuthenticated() &&
+             request.auth.token.roles != null &&
+             request.auth.token.roles.hasAny([role]);
+    }
+
+    /**
+     * Check if user has any of the specified roles
+     */
+    function hasAnyRole(roles) {
+      return isAuthenticated() &&
+             request.auth.token.roles.hasAny(roles);
+    }
+
+    /**
+     * Check if user has specific permission (bitwise)
+     * Permission flags are defined in packages/types/src/permissions.ts
+     * Note: Firestore rules don't support bitwise operators, so we use modulo arithmetic
+     */
+    function hasPermission(permissionBit) {
+      return isAuthenticated() &&
+             request.auth.token.permissions != null &&
+             math.floor(request.auth.token.permissions / permissionBit) % 2 == 1;
+    }
+
+    /**
+     * Check if user is from internal domain (@vapourdesal.com)
+     */
+    function isInternalUser() {
+      return isAuthenticated() &&
+             request.auth.token.domain == 'internal';
+    }
+
+    /**
+     * Check if user is external (CLIENT_PM)
+     */
+    function isExternalUser() {
+      return isAuthenticated() &&
+             request.auth.token.domain == 'external';
+    }
+
+    /**
+     * Check if user is CLIENT_PM (external client project manager)
+     * CLIENT_PM users can view procurement data for assigned projects only
+     */
+    function isClientPM() {
+      return isExternalUser() &&
+             hasRole('CLIENT_PM') &&
+             hasPermission(131072); // VIEW_PROCUREMENT permission (bit 17)
+    }
+
+    /**
+     * Check if user is SUPER_ADMIN
+     */
+    function isSuperAdmin() {
+      return hasRole('SUPER_ADMIN');
+    }
+
+    /**
+     * Check if user owns the resource
+     */
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    /**
+     * Check if user is assigned to project
+     * PERFORMANCE FIX: Use custom claims instead of get() to avoid Firestore reads
+     */
+    function isAssignedToProject(projectId) {
+      return isAuthenticated() &&
+             request.auth.token.assignedProjects != null &&
+             request.auth.token.assignedProjects.hasAny([projectId]);
+    }
+
+    // ============================================
+    // Users Collection
+    // ============================================
+
+    match /users/{userId} {
+      // Read: Users can read their own profile, or have MANAGE_USERS permission
+      allow read: if isOwner(userId) ||
+                     hasPermission(1); // MANAGE_USERS
+
+      // Create: Users can create their own pending profile during first sign-in
+      //         OR users with MANAGE_USERS permission can create any user
+      allow create: if (isOwner(userId) &&
+                       request.resource.data.status == 'pending' &&
+                       request.resource.data.isActive == false &&
+                       request.resource.data.roles.size() == 0) ||
+                      (hasPermission(1) && isInternalUser()); // MANAGE_USERS
+
+      // Update: Users can update their own preferences, or have MANAGE_USERS permission
+      allow update: if (isOwner(userId) &&
+                       request.resource.data.diff(resource.data)
+                         .affectedKeys()
+                         .hasOnly(['preferences', 'photoURL', 'lastLoginAt'])) ||
+                      hasPermission(1); // MANAGE_USERS
+
+      // Delete: Only SUPER_ADMIN can delete users
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
+    // Entities Collection (Vendors/Customers/Partners)
+    // ============================================
+
+    match /entities/{entityId} {
+      // Read: Users with VIEW_ENTITIES permission (32)
+      //       All internal users should have this permission
+      allow read: if hasPermission(32) && // VIEW_ENTITIES
+                     isInternalUser();
+
+      // Create: Users with CREATE_ENTITIES permission (64)
+      allow create: if hasPermission(64) && // CREATE_ENTITIES
+                       isInternalUser();
+
+      // Update: Users with EDIT_ENTITIES permission (128)
+      allow update: if hasPermission(128) && // EDIT_ENTITIES
+                       isInternalUser();
+
+      // Delete: Users with DELETE_ENTITIES permission (256)
+      //         Most sensitive operation - typically only managers/admins
+      allow delete: if hasPermission(256) && // DELETE_ENTITIES
+                       isInternalUser();
+    }
+
+    // ============================================
+    // Projects Collection
+    // ============================================
+
+    match /projects/{projectId} {
+      // Read: Internal users assigned to project OR have VIEW_PROJECTS permission
+      //       External users (CLIENT_PM) assigned to project
+      allow read: if (isInternalUser() && (
+                       isAssignedToProject(projectId) ||
+                       hasPermission(16) // VIEW_PROJECTS
+                     )) ||
+                     (isExternalUser() && isAssignedToProject(projectId));
+
+      // Create: Only internal users with MANAGE_PROJECTS permission
+      allow create: if hasPermission(8) && // MANAGE_PROJECTS
+                       isInternalUser();
+
+      // Update: Only internal users with MANAGE_PROJECTS permission
+      allow update: if hasPermission(8) && // MANAGE_PROJECTS
+                       isInternalUser();
+
+      // Delete: Only SUPER_ADMIN
+      allow delete: if isSuperAdmin();
+
+      // ============================================
+      // Project Subcollections
+      // ============================================
+
+      // Time Stats (read-only aggregated data)
+      match /time_stats/{statId} {
+        allow read: if isInternalUser() && (
+                       isAssignedToProject(projectId) ||
+                       hasPermission(16) // VIEW_PROJECTS
+                     );
+        allow write: if false; // Written by Cloud Functions only
+      }
+
+      // Procurement Stats (read by CLIENT_PM and internal users)
+      match /procurement_stats/{statId} {
+        allow read: if (isInternalUser() && (
+                         isAssignedToProject(projectId) ||
+                         hasPermission(16) // VIEW_PROJECTS
+                       )) ||
+                       (isExternalUser() && isAssignedToProject(projectId));
+        allow write: if false; // Written by Cloud Functions only
+      }
+    }
+
+    // ============================================
+    // Time Entries Collection
+    // ============================================
+
+    match /timeEntries/{entryId} {
+      // Read: Internal users - own entries OR have MANAGE_TIME_TRACKING permission
+      allow read: if isInternalUser() && (
+                     isOwner(resource.data.userId) ||
+                     hasPermission(4096) // MANAGE_TIME_TRACKING (bit 12)
+                   );
+
+      // Create: Internal users can create their own entries
+      allow create: if isInternalUser() &&
+                       isOwner(request.resource.data.userId) &&
+                       isAssignedToProject(request.resource.data.projectId);
+
+      // Update: Internal users - own entries (if not approved) OR have MANAGE_TIME_TRACKING
+      allow update: if isInternalUser() && (
+                       (isOwner(resource.data.userId) &&
+                        resource.data.status != 'APPROVED') ||
+                       hasPermission(4096) // MANAGE_TIME_TRACKING (bit 12)
+                     );
+
+      // Delete: Only users with MANAGE_TIME_TRACKING permission
+      allow delete: if hasPermission(4096) && isInternalUser(); // MANAGE_TIME_TRACKING (bit 12)
+    }
+
+    // ============================================
+    // Accounting Collections
+    // ============================================
+
+    match /invoices/{invoiceId} {
+      // Only internal users with accounting permissions
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+      allow create: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow delete: if isSuperAdmin();
+    }
+
+    match /payments/{paymentId} {
+      // Read: Internal users with VIEW_ACCOUNTING OR external CLIENT_PM for their projects
+      allow read: if (isInternalUser() && hasPermission(32768)) || // VIEW_ACCOUNTING (bit 15)
+                     (isExternalUser() &&
+                      hasPermission(131072) && // VIEW_PROCUREMENT (bit 17) - CLIENT_PM can view payments
+                      isAssignedToProject(resource.data.projectId));
+
+      allow create, update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow delete: if isSuperAdmin();
+    }
+
+    match /ledgerEntries/{entryId} {
+      // Only internal accounting users
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+      allow create: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow write: if false; // Ledger is mostly read-only
+    }
+
+    // ============================================
+    // Procurement Collections
+    // ============================================
+
+    match /purchaseRequisitions/{prId} {
+      // Read: Internal users OR external CLIENT_PM for their projects
+      allow read: if (isInternalUser()) ||
+                     (isExternalUser() &&
+                      hasPermission(131072) && // VIEW_PROCUREMENT (bit 17)
+                      isAssignedToProject(resource.data.projectId));
+
+      allow create: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow delete: if isSuperAdmin();
+    }
+
+    match /rfqs/{rfqId} {
+      // Read: Internal users OR external CLIENT_PM for their projects
+      allow read: if (isInternalUser()) ||
+                     (isExternalUser() &&
+                      hasPermission(131072) && // VIEW_PROCUREMENT (bit 17)
+                      isAssignedToProject(resource.data.projectId));
+
+      allow create: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow delete: if isSuperAdmin();
+    }
+
+    match /purchaseOrders/{poId} {
+      // Read: Internal users OR external CLIENT_PM for their projects
+      allow read: if (isInternalUser()) ||
+                     (isExternalUser() &&
+                      hasPermission(131072) && // VIEW_PROCUREMENT (bit 17)
+                      isAssignedToProject(resource.data.projectId));
+
+      allow create: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow delete: if isSuperAdmin();
+    }
+
+    match /quotations/{quoteId} {
+      // Read: Internal users OR external CLIENT_PM for their projects
+      allow read: if (isInternalUser()) ||
+                     (isExternalUser() &&
+                      hasPermission(131072) && // VIEW_PROCUREMENT (bit 17)
+                      isAssignedToProject(resource.data.projectId));
+
+      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
+    // Estimation Collections
+    // ============================================
+
+    match /estimates/{estimateId} {
+      // Only internal users with estimation permissions
+      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+      allow create: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+      allow update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+      allow delete: if isSuperAdmin();
+    }
+
+    match /costBreakdowns/{breakdownId} {
+      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+      allow create, update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
+    // Company Settings
+    // ============================================
+
+    match /company/{docId} {
+      // Read: All authenticated internal users
+      allow read: if isInternalUser();
+
+      // Write: Only SUPER_ADMIN and DIRECTOR
+      allow write: if isSuperAdmin() || hasRole('DIRECTOR');
+    }
+
+    // ============================================
+    // Leave Requests
+    // ============================================
+
+    match /leaveRequests/{requestId} {
+      // Read: Own requests OR have APPROVE_LEAVES permission
+      allow read: if isInternalUser() && (
+                     isOwner(resource.data.userId) ||
+                     hasPermission(512) // APPROVE_LEAVES
+                   );
+
+      // Create: Users can create their own leave requests
+      allow create: if isInternalUser() &&
+                       isOwner(request.resource.data.userId);
+
+      // Update: Own requests (if not approved) OR have APPROVE_LEAVES
+      allow update: if isInternalUser() && (
+                       (isOwner(resource.data.userId) &&
+                        resource.data.status == 'PENDING') ||
+                       hasPermission(512) // APPROVE_LEAVES
+                     );
+
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
+    // On-Duty Records
+    // ============================================
+
+    match /onDutyRecords/{recordId} {
+      allow read: if isInternalUser() && (
+                     isOwner(resource.data.userId) ||
+                     hasPermission(1024) // MANAGE_ON_DUTY
+                   );
+
+      allow create, update: if hasPermission(1024) && isInternalUser(); // MANAGE_ON_DUTY
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
+    // Audit Logs (read-only for most users)
+    // ============================================
+
+    match /auditLogs/{logId} {
+      allow read: if isSuperAdmin() || hasRole('DIRECTOR');
+      allow write: if false; // Written by Cloud Functions only
+    }
+
+    // ============================================
+    // Invitations Collection (CLIENT_PM invites)
+    // ============================================
+
+    match /invitations/{invitationId} {
+      // Read: User can read their own invitation (by email)
+      // Admin can read all invitations with MANAGE_USERS permission
+      allow read: if (isAuthenticated() &&
+                      request.auth.token.email == resource.data.email) ||
+                     (hasPermission(1) && isInternalUser()); // MANAGE_USERS
+
+      // Create: Only internal users with MANAGE_USERS permission
+      allow create: if hasPermission(1) && isInternalUser() &&
+                       request.resource.data.role == 'CLIENT_PM' &&
+                       request.resource.data.status == 'pending' &&
+                       request.resource.data.assignedProjects.size() > 0;
+
+      // Update: User can accept their invitation OR admin can update
+      allow update: if (isAuthenticated() &&
+                       request.auth.token.email == resource.data.email &&
+                       request.resource.data.status == 'accepted' &&
+                       resource.data.status == 'pending') ||
+                      (hasPermission(1) && isInternalUser());
+
+      // Delete: Only admins can delete invitations
+      allow delete: if hasPermission(1) && isInternalUser();
+    }
+
+    // ============================================
+    // Notifications Collection (In-App Only)
+    // ============================================
+
+    match /notifications/{notificationId} {
+      // Read: Users can only read their own notifications
+      allow read: if isAuthenticated() &&
+                     isOwner(resource.data.userId);
+
+      // Create: Only Cloud Functions or users with MANAGE_USERS permission
+      // In practice, most notifications are created by Cloud Functions
+      allow create: if hasPermission(1) && isInternalUser(); // MANAGE_USERS
+
+      // Update: Users can update their own notification status (mark as read/archived)
+      // Only allowed to update status, readAt, and archivedAt fields
+      allow update: if isAuthenticated() &&
+                       isOwner(resource.data.userId) &&
+                       request.resource.data.diff(resource.data)
+                         .affectedKeys()
+                         .hasOnly(['status', 'readAt', 'archivedAt']);
+
+      // Delete: Users can delete their own notifications OR admins
+      allow delete: if (isAuthenticated() && isOwner(resource.data.userId)) ||
+                       hasPermission(1); // MANAGE_USERS
+    }
+
+    // ============================================
+    // Default: Deny all
+    // ============================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

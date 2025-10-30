@@ -1,7 +1,7 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
 echo "🔍 Running pre-commit checks..."
+
+# Run lint-staged (format and lint changed files)
+pnpm lint-staged
 
 # Run pre-deployment checks (skip build and schema for speed)
 node scripts/preflight/pre-deployment-check.js --skip-build --skip-schema

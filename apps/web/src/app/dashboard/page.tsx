@@ -1,0 +1,105 @@
+'use client';
+
+import { Box, Container, Typography } from '@mui/material';
+import { useAuth } from '@/contexts/AuthContext';
+import { MODULES } from '@vapour/constants';
+import { ModuleCard } from '@/components/dashboard/ModuleCard';
+import type { UserRole } from '@vapour/types';
+
+export default function DashboardPage() {
+  const { user, claims } = useAuth();
+  const userRoles = claims?.roles || [];
+
+  // Filter modules based on user roles and status
+  const accessibleModules = Object.values(MODULES).filter((module) => {
+    // If module has no role restrictions, show to all users
+    if (module.roles === 'ALL') return true;
+
+    // Check if user has any of the required roles
+    return module.roles.some((role) => userRoles.includes(role as UserRole));
+  });
+
+  // Separate modules by status for better organization
+  const activeModules = accessibleModules.filter((m) => m.status === 'active');
+  const comingSoonModules = accessibleModules.filter((m) => m.status === 'coming_soon');
+
+  return (
+    <Container maxWidth="xl">
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Welcome back, {user?.displayName || 'User'}
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Select a module to get started
+        </Typography>
+      </Box>
+
+      {/* Active Modules */}
+      {activeModules.length > 0 && (
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h6" component="h2" gutterBottom sx={{ mb: 2 }}>
+            Available Modules
+          </Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                md: 'repeat(2, 1fr)',
+                lg: 'repeat(3, 1fr)',
+                xl: 'repeat(4, 1fr)',
+              },
+              gap: 3,
+            }}
+          >
+            {activeModules.map((module) => (
+              <ModuleCard key={module.id} module={module} />
+            ))}
+          </Box>
+        </Box>
+      )}
+
+      {/* Coming Soon Modules */}
+      {comingSoonModules.length > 0 && (
+        <Box>
+          <Typography variant="h6" component="h2" gutterBottom sx={{ mb: 2 }}>
+            Coming Soon
+          </Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                md: 'repeat(2, 1fr)',
+                lg: 'repeat(3, 1fr)',
+                xl: 'repeat(4, 1fr)',
+              },
+              gap: 3,
+            }}
+          >
+            {comingSoonModules.map((module) => (
+              <ModuleCard key={module.id} module={module} />
+            ))}
+          </Box>
+        </Box>
+      )}
+
+      {/* No modules available */}
+      {accessibleModules.length === 0 && (
+        <Box
+          sx={{
+            textAlign: 'center',
+            py: 8,
+          }}
+        >
+          <Typography variant="h6" color="text.secondary">
+            No modules available for your role
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Please contact your administrator for access
+          </Typography>
+        </Box>
+      )}
+    </Container>
+  );
+}

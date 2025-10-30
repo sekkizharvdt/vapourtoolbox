@@ -1,0 +1,24 @@
+echo "🔍 Validating commit message..."
+
+# Run commitlint
+pnpm commitlint --edit $1
+
+# If validation fails, prevent commit
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "❌ Commit message does not follow conventional commit format."
+  echo ""
+  echo "📝 Format: <type>(<scope>): <subject>"
+  echo ""
+  echo "Examples:"
+  echo "  feat: Add user authentication"
+  echo "  fix: Resolve entity loading issue"
+  echo "  docs: Update README"
+  echo "  chore: Update dependencies"
+  echo ""
+  echo "Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+  echo ""
+  exit 1
+fi
+
+echo "✅ Commit message is valid!"
