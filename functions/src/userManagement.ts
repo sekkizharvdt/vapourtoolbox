@@ -1,4 +1,6 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import type { FirestoreEvent, Change } from 'firebase-functions/v2/firestore';
+import type { DocumentSnapshot } from 'firebase-admin/firestore';
 import * as admin from 'firebase-admin';
 import {
   auditUserAction,
@@ -25,42 +27,42 @@ import {
 // Permission flags - MUST match packages/constants/src/permissions.ts EXACTLY
 const PERMISSION_FLAGS = {
   // User Management (bits 0-2)
-  MANAGE_USERS: 1 << 0,        // 1
-  VIEW_USERS: 1 << 1,          // 2
-  MANAGE_ROLES: 1 << 2,        // 4
+  MANAGE_USERS: 1 << 0, // 1
+  VIEW_USERS: 1 << 1, // 2
+  MANAGE_ROLES: 1 << 2, // 4
 
   // Project Management (bits 3-4)
-  MANAGE_PROJECTS: 1 << 3,     // 8
-  VIEW_PROJECTS: 1 << 4,       // 16
+  MANAGE_PROJECTS: 1 << 3, // 8
+  VIEW_PROJECTS: 1 << 4, // 16
 
   // Entity Management (bits 5-8)
-  VIEW_ENTITIES: 1 << 5,       // 32
-  CREATE_ENTITIES: 1 << 6,     // 64
-  EDIT_ENTITIES: 1 << 7,       // 128
-  DELETE_ENTITIES: 1 << 8,     // 256
+  VIEW_ENTITIES: 1 << 5, // 32
+  CREATE_ENTITIES: 1 << 6, // 64
+  EDIT_ENTITIES: 1 << 7, // 128
+  DELETE_ENTITIES: 1 << 8, // 256
 
   // Company Settings (bit 9)
   MANAGE_COMPANY_SETTINGS: 1 << 9, // 512
 
   // Analytics & Reporting (bits 10-11)
-  VIEW_ANALYTICS: 1 << 10,     // 1024
-  EXPORT_DATA: 1 << 11,        // 2048
+  VIEW_ANALYTICS: 1 << 10, // 1024
+  EXPORT_DATA: 1 << 11, // 2048
 
   // Time Tracking (bits 12-13)
   MANAGE_TIME_TRACKING: 1 << 12, // 4096
-  VIEW_TIME_TRACKING: 1 << 13,   // 8192
+  VIEW_TIME_TRACKING: 1 << 13, // 8192
 
   // Accounting (bits 14-15)
-  MANAGE_ACCOUNTING: 1 << 14,  // 16384
-  VIEW_ACCOUNTING: 1 << 15,    // 32768
+  MANAGE_ACCOUNTING: 1 << 14, // 16384
+  VIEW_ACCOUNTING: 1 << 15, // 32768
 
   // Procurement (bits 16-17)
   MANAGE_PROCUREMENT: 1 << 16, // 65536
-  VIEW_PROCUREMENT: 1 << 17,   // 131072
+  VIEW_PROCUREMENT: 1 << 17, // 131072
 
   // Estimation (bits 18-19)
-  MANAGE_ESTIMATION: 1 << 18,  // 262144
-  VIEW_ESTIMATION: 1 << 19,    // 524288
+  MANAGE_ESTIMATION: 1 << 18, // 262144
+  VIEW_ESTIMATION: 1 << 19, // 524288
 };
 
 // Helper to get all permissions (for SUPER_ADMIN)
@@ -94,9 +96,7 @@ const ROLE_PERMISSIONS: Record<string, number> = {
     PERMISSION_FLAGS.VIEW_ESTIMATION,
 
   HR_ADMIN:
-    PERMISSION_FLAGS.MANAGE_USERS |
-    PERMISSION_FLAGS.VIEW_USERS |
-    PERMISSION_FLAGS.MANAGE_ROLES,
+    PERMISSION_FLAGS.MANAGE_USERS | PERMISSION_FLAGS.VIEW_USERS | PERMISSION_FLAGS.MANAGE_ROLES,
 
   FINANCE_MANAGER:
     PERMISSION_FLAGS.VIEW_PROJECTS |
@@ -126,8 +126,7 @@ const ROLE_PERMISSIONS: Record<string, number> = {
     PERMISSION_FLAGS.MANAGE_ESTIMATION |
     PERMISSION_FLAGS.VIEW_ESTIMATION,
 
-  ENGINEER:
-    PERMISSION_FLAGS.VIEW_ESTIMATION,
+  ENGINEER: PERMISSION_FLAGS.VIEW_ESTIMATION,
 
   PROCUREMENT_MANAGER:
     PERMISSION_FLAGS.VIEW_PROJECTS |
@@ -139,13 +138,11 @@ const ROLE_PERMISSIONS: Record<string, number> = {
     PERMISSION_FLAGS.MANAGE_ESTIMATION |
     PERMISSION_FLAGS.VIEW_ESTIMATION,
 
-  SITE_ENGINEER:
-    PERMISSION_FLAGS.VIEW_PROCUREMENT,
+  SITE_ENGINEER: PERMISSION_FLAGS.VIEW_PROCUREMENT,
 
   TEAM_MEMBER: 0, // No special permissions
 
-  CLIENT_PM:
-    PERMISSION_FLAGS.VIEW_PROCUREMENT,
+  CLIENT_PM: PERMISSION_FLAGS.VIEW_PROCUREMENT,
 };
 
 // Calculate combined permissions from multiple roles
@@ -178,14 +175,17 @@ function getUserDomain(email: string): 'internal' | 'external' {
  * - Firestore Security Rules enforcement
  * - Real-time permission validation
  */
-export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) => {
+export const onUserUpdate = onDocumentWritten(
+  'users/{userId}',
+  async (event: FirestoreEvent<Change<DocumentSnapshot> | undefined, { userId: string }>) => {
     const userId = event.params.userId;
     const change = event.data;
 
     // If document was deleted, clear custom claims
     if (!change || !change.after || !change.after.exists) {
       try {
-        const previousData = change && change.before && change.before.exists ? change.before.data() : null;
+        const previousData =
+          change && change.before && change.before.exists ? change.before.data() : null;
 
         await admin.auth().setCustomUserClaims(userId, null);
         console.log(`Cleared custom claims for deleted user: ${userId}`);
@@ -220,10 +220,12 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
     const isNewDocument = !previousData;
 
     // Check what changed (needed for audit logging)
-    const rolesChanged = !isNewDocument && JSON.stringify(userData?.roles) !== JSON.stringify(previousData?.roles);
+    const rolesChanged =
+      !isNewDocument && JSON.stringify(userData?.roles) !== JSON.stringify(previousData?.roles);
     const statusChanged = !isNewDocument && userData?.status !== previousData?.status;
     const emailChanged = !isNewDocument && userData?.email !== previousData?.email;
-    const permissionsChanged = !isNewDocument && userData?.permissions !== previousData?.permissions;
+    const permissionsChanged =
+      !isNewDocument && userData?.permissions !== previousData?.permissions;
 
     // Only update claims if relevant fields changed (but always process new documents)
     if (!isNewDocument) {
@@ -300,11 +302,7 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
       // === AUDIT LOGGING ===
       // Track role changes
       if (!isNewDocument && rolesChanged) {
-        const roleChanges = calculateFieldChanges(
-          previousData || {},
-          userData,
-          ['roles']
-        );
+        const roleChanges = calculateFieldChanges(previousData || {}, userData, ['roles']);
 
         await auditRoleChange({
           action: 'ROLE_ASSIGNED',
@@ -324,11 +322,9 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
 
       // Track permission changes
       if (!isNewDocument && permissionsChanged) {
-        const permissionChanges = calculateFieldChanges(
-          previousData || {},
-          { permissions },
-          ['permissions']
-        );
+        const permissionChanges = calculateFieldChanges(previousData || {}, { permissions }, [
+          'permissions',
+        ]);
 
         await auditPermissionChange({
           action: 'CLAIMS_UPDATED',
@@ -358,11 +354,13 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
           actorId: 'system',
           actorEmail: 'system@vapourdesal.com',
           actorName: 'System',
-          changes: [{
-            field: 'status',
-            oldValue: previousData?.status || 'unknown',
-            newValue: userData.status,
-          }],
+          changes: [
+            {
+              field: 'status',
+              oldValue: previousData?.status || 'unknown',
+              newValue: userData.status,
+            },
+          ],
           metadata: {
             triggeredBy: 'onUserUpdate',
           },
@@ -388,7 +386,6 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
           severity: 'INFO',
         });
       }
-
     } catch (error) {
       console.error(`Error updating custom claims for user ${userId}:`, error);
 
@@ -399,4 +396,5 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
 
       throw error; // Re-throw to mark function as failed
     }
-});
+  }
+);
