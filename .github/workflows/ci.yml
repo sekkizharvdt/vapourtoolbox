@@ -77,13 +77,13 @@ jobs:
       - name: Build web application
         run: pnpm build
         env:
-          # Public environment variables only (no secrets!)
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
-          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          # Firebase client configuration (public - safe to expose)
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyCxzqzAUTT3Ouiv-szpfO1Au4LwEMnP-4w
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: vapour-toolbox.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: vapour-toolbox
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: vapour-toolbox.firebasestorage.app
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 697891123609
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:697891123609:web:334e56be149a056f252308
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -201,13 +201,13 @@ jobs:
       - name: Build app for E2E tests
         run: cd apps/web && pnpm build
         env:
-          # Firebase configuration needed for build
-          NEXT_PUBLIC_FIREBASE_API_KEY: fake-api-key-for-emulator
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: localhost
+          # Use production Firebase config for build (emulator config used at runtime)
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyCxzqzAUTT3Ouiv-szpfO1Au4LwEMnP-4w
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: vapour-toolbox.firebaseapp.com
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: vapour-toolbox
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: vapour-toolbox.appspot.com
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: '000000000000'
-          NEXT_PUBLIC_FIREBASE_APP_ID: '1:000000000000:web:fakefakefakefake'
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: vapour-toolbox.firebasestorage.app
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 697891123609
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:697891123609:web:334e56be149a056f252308
           NEXT_PUBLIC_USE_EMULATOR: 'true'
           NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL: http://localhost:9099
           NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL: localhost:8080
