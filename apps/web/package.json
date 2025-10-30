@@ -7,27 +7,34 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
+    "@mui/icons-material": "^7.3.4",
+    "@mui/material": "^7.3.4",
     "@vapour/constants": "workspace:*",
     "@vapour/firebase": "workspace:*",
     "@vapour/types": "workspace:*",
     "@vapour/ui": "workspace:*",
     "@vapour/validation": "workspace:*",
-    "@mui/material": "^7.3.4",
-    "@mui/icons-material": "^7.3.4",
+    "firebase": "^11.2.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "firebase": "^11.2.0"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@types/node": "^22.10.1",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",
     "eslint": "^9.17.0",
     "eslint-config-next": "^15.1.0",
+    "playwright": "^1.56.1",
     "typescript": "^5.7.2"
   }
 }

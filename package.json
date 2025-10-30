@@ -14,7 +14,11 @@
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "type-check": "turbo type-check",
     "clean": "turbo clean && rm -rf node_modules",
-    "prepare": "husky"
+    "prepare": "husky",
+    "emulator": "firebase emulators:start",
+    "emulator:seed": "node scripts/emulator/seed-test-data.js",
+    "test:e2e": "cd apps/web && pnpm test:e2e",
+    "test:e2e:ui": "cd apps/web && pnpm test:e2e:ui"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.1.0",
