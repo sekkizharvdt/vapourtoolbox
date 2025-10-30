@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:  # Allow manual deployment
+  workflow_dispatch: # Allow manual deployment
 
 # Only one deployment at a time
 concurrency:
@@ -33,7 +33,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 10.19.0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
