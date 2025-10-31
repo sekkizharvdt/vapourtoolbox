@@ -12,9 +12,9 @@ import {
   MenuItem,
   FormControlLabel,
   Checkbox,
-  Grid,
   Alert,
   Box,
+  Grid,
 } from '@mui/material';
 import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -194,7 +194,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
         <Box sx={{ pt: 2 }}>
           <Grid container spacing={2}>
             {/* Account Code */}
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 label="Account Code"
                 value={code}
@@ -207,7 +207,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
             </Grid>
 
             {/* Account Name */}
-            <Grid item xs={12} sm={8}>
+            <Grid size={{ xs: 12, sm: 8 }}>
               <TextField
                 label="Account Name"
                 value={name}
@@ -219,7 +219,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
             </Grid>
 
             {/* Description */}
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 label="Description"
                 value={description}
@@ -232,7 +232,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
             </Grid>
 
             {/* Account Type */}
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth required>
                 <InputLabel>Account Type</InputLabel>
                 <Select
@@ -241,7 +241,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
                   onChange={(e) => {
                     const newType = e.target.value as AccountType;
                     setAccountType(newType);
-                    setAccountCategory(ACCOUNT_CATEGORIES[newType][0]);
+                    setAccountCategory(ACCOUNT_CATEGORIES[newType][0]!);
                   }}
                 >
                   <MenuItem value="ASSET">Asset</MenuItem>
@@ -254,7 +254,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
             </Grid>
 
             {/* Account Category */}
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth required>
                 <InputLabel>Account Category</InputLabel>
                 <Select
@@ -272,7 +272,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
             </Grid>
 
             {/* Opening Balance & Currency */}
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 label="Opening Balance"
                 type="number"
@@ -283,7 +283,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth>
                 <InputLabel>Currency</InputLabel>
                 <Select value={currency} label="Currency" onChange={(e) => setCurrency(e.target.value)}>
@@ -296,7 +296,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
             </Grid>
 
             {/* Checkboxes */}
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <FormControlLabel
                 control={<Checkbox checked={isGroup} onChange={(e) => setIsGroup(e.target.checked)} />}
                 label="Group Account (has sub-accounts)"
@@ -304,7 +304,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
             </Grid>
 
             {/* GST Account */}
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <FormControlLabel
                 control={<Checkbox checked={isGSTAccount} onChange={(e) => setIsGSTAccount(e.target.checked)} />}
                 label="GST Account"
@@ -313,7 +313,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
 
             {isGSTAccount && (
               <>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth>
                     <InputLabel>GST Type</InputLabel>
                     <Select value={gstType} label="GST Type" onChange={(e) => setGstType(e.target.value as 'CGST' | 'SGST' | 'IGST' | 'CESS')}>
@@ -325,7 +325,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
                   </FormControl>
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth>
                     <InputLabel>GST Direction</InputLabel>
                     <Select
@@ -342,7 +342,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
             )}
 
             {/* TDS Account */}
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <FormControlLabel
                 control={<Checkbox checked={isTDSAccount} onChange={(e) => setIsTDSAccount(e.target.checked)} />}
                 label="TDS Account"
@@ -350,7 +350,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
             </Grid>
 
             {isTDSAccount && (
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <TextField
                   label="TDS Section"
                   value={tdsSection}
@@ -363,7 +363,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
             )}
 
             {/* Bank Account */}
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <FormControlLabel
                 control={<Checkbox checked={isBankAccount} onChange={(e) => setIsBankAccount(e.target.checked)} />}
                 label="Bank Account"
@@ -372,7 +372,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
 
             {isBankAccount && (
               <>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     label="Bank Name"
                     value={bankName}
@@ -383,7 +383,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     label="Account Number"
                     value={accountNumber}
@@ -393,7 +393,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
                   />
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <TextField
                     label="IFSC Code"
                     value={ifscCode}

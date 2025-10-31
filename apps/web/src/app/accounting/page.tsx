@@ -1,6 +1,6 @@
 'use client';
 
-import { Container, Typography, Box, Grid, Card, CardContent, CardActions, Button } from '@mui/material';
+import { Container, Typography, Box, Card, CardContent, CardActions, Button, Grid } from '@mui/material';
 import {
   AccountBalance as AccountBalanceIcon,
   Receipt as ReceiptIcon,
@@ -100,7 +100,7 @@ export default function AccountingPage() {
 
       <Grid container spacing={3}>
         {modules.map((module) => (
-          <Grid item xs={12} sm={6} md={4} key={module.path}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={module.path}>
             <Card
               sx={{
                 height: '100%',
