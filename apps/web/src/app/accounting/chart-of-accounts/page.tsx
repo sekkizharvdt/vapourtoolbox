@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Container,
   Typography,
@@ -18,13 +18,19 @@ import {
   CircularProgress,
   Alert,
   Stack,
+  Card,
+  CardContent,
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Add as AddIcon,
   Refresh as RefreshIcon,
-  Download as ImportIcon,
   AccountTree as TreeIcon,
+  AccountBalance as AssetIcon,
+  TrendingDown as LiabilityIcon,
+  AccountBalanceWallet as EquityIcon,
+  TrendingUp as IncomeIcon,
+  MoneyOff as ExpenseIcon,
 } from '@mui/icons-material';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -34,13 +40,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting, canManageChartOfAccounts } from '@vapour/constants';
 import { AccountTreeView } from '@/components/accounting/AccountTreeView';
 import { CreateAccountDialog } from '@/components/accounting/CreateAccountDialog';
-import { ImportCOADialog } from '@/components/accounting/ImportCOADialog';
+import { initializeChartOfAccounts } from '@/lib/initializeChartOfAccounts';
 
 export default function ChartOfAccountsPage() {
-  const { claims } = useAuth();
+  const { claims, user } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [initializing, setInitializing] = useState(false);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,11 +55,58 @@ export default function ChartOfAccountsPage() {
 
   // Dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   // Permissions
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
   const canManage = claims?.permissions ? canManageChartOfAccounts(claims.permissions) : false;
+
+  // Calculate statistics from accounts
+  const statistics = useMemo(() => {
+    const assetCount = accounts.filter((a) => a.accountType === 'ASSET').length;
+    const liabilityCount = accounts.filter((a) => a.accountType === 'LIABILITY').length;
+    const equityCount = accounts.filter((a) => a.accountType === 'EQUITY').length;
+    const incomeCount = accounts.filter((a) => a.accountType === 'INCOME').length;
+    const expenseCount = accounts.filter((a) => a.accountType === 'EXPENSE').length;
+    const activeCount = accounts.filter((a) => a.isActive).length;
+    const groupCount = accounts.filter((a) => a.isGroup).length;
+    const leafCount = accounts.filter((a) => !a.isGroup).length;
+
+    return {
+      assetCount,
+      liabilityCount,
+      equityCount,
+      incomeCount,
+      expenseCount,
+      activeCount,
+      groupCount,
+      leafCount,
+      totalCount: accounts.length,
+    };
+  }, [accounts]);
+
+  // Auto-initialize Chart of Accounts if empty
+  useEffect(() => {
+    if (!hasViewAccess || !canManage || !user) return;
+
+    const initializeIfEmpty = async () => {
+      if (accounts.length === 0 && !loading && !initializing) {
+        console.log('[ChartOfAccounts] Accounts collection is empty, initializing...');
+        setInitializing(true);
+
+        const result = await initializeChartOfAccounts(user.uid);
+
+        if (!result.success) {
+          setError(`Failed to initialize Chart of Accounts: ${result.error}`);
+        } else if (result.accountsCreated > 0) {
+          console.log(`[ChartOfAccounts] Initialized ${result.accountsCreated} accounts`);
+        }
+
+        setInitializing(false);
+      }
+    };
+
+    initializeIfEmpty();
+  }, [accounts.length, hasViewAccess, canManage, user, loading, initializing]);
 
   // Load accounts from Firestore
   useEffect(() => {
@@ -164,19 +218,10 @@ export default function ChartOfAccountsPage() {
               Chart of Accounts
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {accounts.length} accounts • Hierarchical account structure
+              {statistics.totalCount} total • {statistics.activeCount} active • {statistics.groupCount} groups • {statistics.leafCount} accounts
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
-            {canManage && accounts.length === 0 && (
-              <Button
-                variant="outlined"
-                startIcon={<ImportIcon />}
-                onClick={() => setImportDialogOpen(true)}
-              >
-                Import Indian COA
-              </Button>
-            )}
             {canManage && (
               <Button
                 variant="contained"
@@ -189,6 +234,87 @@ export default function ChartOfAccountsPage() {
           </Stack>
         </Stack>
       </Box>
+
+      {/* Statistics Cards */}
+      {accounts.length > 0 && (
+        <Stack direction="row" spacing={2} sx={{ mb: 3, overflow: 'auto' }}>
+          <Card sx={{ minWidth: 200, flexGrow: 1 }}>
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <AssetIcon sx={{ fontSize: 40, color: 'success.main' }} />
+                <Box>
+                  <Typography variant="h4" component="div">
+                    {statistics.assetCount}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Assets
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+          <Card sx={{ minWidth: 200, flexGrow: 1 }}>
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <LiabilityIcon sx={{ fontSize: 40, color: 'error.main' }} />
+                <Box>
+                  <Typography variant="h4" component="div">
+                    {statistics.liabilityCount}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Liabilities
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+          <Card sx={{ minWidth: 200, flexGrow: 1 }}>
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <EquityIcon sx={{ fontSize: 40, color: 'info.main' }} />
+                <Box>
+                  <Typography variant="h4" component="div">
+                    {statistics.equityCount}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Equity
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+          <Card sx={{ minWidth: 200, flexGrow: 1 }}>
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <IncomeIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+                <Box>
+                  <Typography variant="h4" component="div">
+                    {statistics.incomeCount}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Income
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+          <Card sx={{ minWidth: 200, flexGrow: 1 }}>
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <ExpenseIcon sx={{ fontSize: 40, color: 'warning.main' }} />
+                <Box>
+                  <Typography variant="h4" component="div">
+                    {statistics.expenseCount}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Expenses
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Stack>
+      )}
 
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
@@ -240,39 +366,35 @@ export default function ChartOfAccountsPage() {
       )}
 
       {/* Loading State */}
-      {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+      {(loading || initializing) && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 8 }}>
           <CircularProgress />
+          {initializing && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+              Initializing Chart of Accounts with Indian COA template...
+            </Typography>
+          )}
         </Box>
       )}
 
-      {/* Empty State */}
-      {!loading && accounts.length === 0 && (
+      {/* Empty State (should not occur after auto-init) */}
+      {!loading && !initializing && accounts.length === 0 && (
         <Paper sx={{ p: 8, textAlign: 'center' }}>
           <TreeIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" gutterBottom>
             No Chart of Accounts
           </Typography>
           <Typography variant="body2" color="text.secondary" paragraph>
-            Get started by importing the Indian Chart of Accounts template or create accounts manually.
+            The Chart of Accounts will be automatically initialized when you have the required permissions.
           </Typography>
           {canManage && (
-            <Stack direction="row" spacing={2} justifyContent="center" sx={{ mt: 3 }}>
-              <Button
-                variant="contained"
-                startIcon={<ImportIcon />}
-                onClick={() => setImportDialogOpen(true)}
-              >
-                Import Indian COA
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={() => setCreateDialogOpen(true)}
-              >
-                Create Manually
-              </Button>
-            </Stack>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              Create Account
+            </Button>
           )}
         </Paper>
       )}
@@ -298,10 +420,6 @@ export default function ChartOfAccountsPage() {
         open={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
         accounts={accounts}
-      />
-      <ImportCOADialog
-        open={importDialogOpen}
-        onClose={() => setImportDialogOpen(false)}
       />
     </Container>
   );

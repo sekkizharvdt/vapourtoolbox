@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -7,6 +7,7 @@ import {
   Stack,
   Collapse,
   Paper,
+  Button,
 } from '@mui/material';
 import {
   ChevronRight as ChevronRightIcon,
@@ -16,6 +17,8 @@ import {
   AccountBalanceWallet as EquityIcon,
   TrendingUp as IncomeIcon,
   MoneyOff as ExpenseIcon,
+  UnfoldMore as ExpandAllIcon,
+  UnfoldLess as CollapseAllIcon,
 } from '@mui/icons-material';
 import type { Account, AccountTreeNode } from '@vapour/types';
 
@@ -25,6 +28,27 @@ interface AccountTreeViewProps {
 
 export function AccountTreeView({ accounts }: AccountTreeViewProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  // Collect all account IDs that have children
+  const accountsWithChildren = useMemo(() => {
+    const withChildren = new Set<string>();
+    accounts.forEach((account) => {
+      if (account.isGroup) {
+        withChildren.add(account.id);
+      }
+    });
+    return withChildren;
+  }, [accounts]);
+
+  // Expand all accounts with children
+  const handleExpandAll = () => {
+    setExpanded(new Set(accountsWithChildren));
+  };
+
+  // Collapse all accounts
+  const handleCollapseAll = () => {
+    setExpanded(new Set());
+  };
 
   // Build tree structure from flat account list
   const buildTree = (accounts: Account[]): AccountTreeNode[] => {
@@ -164,7 +188,7 @@ export function AccountTreeView({ accounts }: AccountTreeViewProps) {
 
             {/* Special Account Badges */}
             <Stack direction="row" spacing={0.5}>
-              {account.isGSTAccount && (
+              {account.isGSTAccount && account.gstType && account.gstDirection && (
                 <Chip
                   label={`${account.gstType} ${account.gstDirection}`}
                   size="small"
@@ -254,9 +278,10 @@ export function AccountTreeView({ accounts }: AccountTreeViewProps) {
 
   return (
     <Box>
-      {/* Legend */}
-      <Box sx={{ mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-        <Stack direction="row" spacing={3} flexWrap="wrap">
+      {/* Header with Expand/Collapse Controls */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+        {/* Legend */}
+        <Stack direction="row" spacing={3} flexWrap="wrap" sx={{ flexGrow: 1 }}>
           <Stack direction="row" spacing={0.5} alignItems="center">
             <AssetIcon fontSize="small" sx={{ color: 'success.main' }} />
             <Typography variant="caption">Assets</Typography>
@@ -278,7 +303,27 @@ export function AccountTreeView({ accounts }: AccountTreeViewProps) {
             <Typography variant="caption">Expenses</Typography>
           </Stack>
         </Stack>
-      </Box>
+
+        {/* Expand/Collapse Controls */}
+        <Stack direction="row" spacing={1}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<ExpandAllIcon />}
+            onClick={handleExpandAll}
+          >
+            Expand All
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<CollapseAllIcon />}
+            onClick={handleCollapseAll}
+          >
+            Collapse All
+          </Button>
+        </Stack>
+      </Stack>
 
       {/* Tree */}
       <Box>{tree.map((account) => renderAccount(account))}</Box>
