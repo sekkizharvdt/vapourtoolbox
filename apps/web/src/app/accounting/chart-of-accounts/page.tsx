@@ -90,7 +90,7 @@ export default function ChartOfAccountsPage() {
 
     const initializeIfEmpty = async () => {
       if (accounts.length === 0 && !loading && !initializing) {
-        console.log('[ChartOfAccounts] Accounts collection is empty, initializing...');
+        console.warn('[ChartOfAccounts] Accounts collection is empty, initializing...');
         setInitializing(true);
 
         const result = await initializeChartOfAccounts(user.uid);
@@ -98,7 +98,7 @@ export default function ChartOfAccountsPage() {
         if (!result.success) {
           setError(`Failed to initialize Chart of Accounts: ${result.error}`);
         } else if (result.accountsCreated > 0) {
-          console.log(`[ChartOfAccounts] Initialized ${result.accountsCreated} accounts`);
+          console.warn(`[ChartOfAccounts] Initialized ${result.accountsCreated} accounts`);
         }
 
         setInitializing(false);

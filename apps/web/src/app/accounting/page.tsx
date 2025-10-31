@@ -3,11 +3,14 @@
 import { Container, Typography, Box, Card, CardContent, CardActions, Button, Grid } from '@mui/material';
 import {
   AccountBalance as AccountBalanceIcon,
-  Receipt as ReceiptIcon,
   TrendingUp as TrendingUpIcon,
   Description as ReportIcon,
   SwapHoriz as TransferIcon,
   CurrencyExchange as ForexIcon,
+  LibraryBooks as JournalIcon,
+  Article as InvoiceIcon,
+  RequestQuote as BillIcon,
+  List as TransactionsIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,11 +39,28 @@ export default function AccountingPage() {
       path: '/accounting/chart-of-accounts',
     },
     {
-      title: 'Transactions',
-      description: 'View and manage all financial transactions',
-      icon: <ReceiptIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      title: 'Journal Entries',
+      description: 'Create and manage general journal entries for double-entry bookkeeping',
+      icon: <JournalIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/journal-entries',
+    },
+    {
+      title: 'Customer Invoices',
+      description: 'Create and track customer invoices with GST calculations',
+      icon: <InvoiceIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/invoices',
+    },
+    {
+      title: 'Vendor Bills',
+      description: 'Manage vendor bills with GST and TDS calculations',
+      icon: <BillIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/bills',
+    },
+    {
+      title: 'All Transactions',
+      description: 'View and filter all financial transactions in one place',
+      icon: <TransactionsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/transactions',
-      comingSoon: true,
     },
     {
       title: 'Currency & Forex',
