@@ -224,6 +224,14 @@ service cloud.firestore {
     // Accounting Collections
     // ============================================
 
+    match /accounts/{accountId} {
+      // Chart of Accounts - Only internal users with accounting permissions
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+      allow create: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow delete: if isSuperAdmin();
+    }
+
     match /invoices/{invoiceId} {
       // Only internal users with accounting permissions
       allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
