@@ -221,11 +221,12 @@ export function Sidebar({
                         />
                       )}
                       {/* Lock icon for company settings (to be shown after setup complete) */}
-                      {false && !collapsed && module.id === 'company-settings' && (
+                      {/* TODO: Enable after setup complete feature is implemented */}
+                      {/* {!collapsed && module.id === 'company-settings' && (
                         <Tooltip title="Setup complete - Admin access only">
                           <LockIcon sx={{ fontSize: 16, color: 'text.secondary', ml: 1 }} />
                         </Tooltip>
-                      )}
+                      )} */}
                     </ListItemButton>
                   </Tooltip>
                 </ListItem>
