@@ -174,18 +174,56 @@ export default function ChartOfAccountsPage() {
     return () => unsubscribe();
   }, [hasViewAccess]);
 
-  // Filter accounts
-  const filteredAccounts = accounts.filter((account) => {
-    const matchesSearch =
-      searchTerm === '' ||
-      account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      account.code.includes(searchTerm) ||
-      (account.description && account.description.toLowerCase().includes(searchTerm.toLowerCase()));
+  // Tree-aware filtering to maintain hierarchy
+  const filteredAccounts = useMemo(() => {
+    // If no filters, return all accounts
+    if (searchTerm === '' && accountTypeFilter === 'all') {
+      return accounts;
+    }
 
-    const matchesType = accountTypeFilter === 'all' || account.accountType === accountTypeFilter;
+    // Create a map for quick account lookup by ID
+    const accountMap = new Map<string, Account>();
+    accounts.forEach((acc) => accountMap.set(acc.id, acc));
 
-    return matchesSearch && matchesType;
-  });
+    // Helper function to get all ancestors of an account
+    const getAncestors = (accountId: string): Set<string> => {
+      const ancestors = new Set<string>();
+      let current = accountMap.get(accountId);
+
+      while (current?.parentAccountId) {
+        ancestors.add(current.parentAccountId);
+        current = accountMap.get(current.parentAccountId);
+      }
+
+      return ancestors;
+    };
+
+    // Find accounts matching the filter criteria
+    const matchingAccountIds = new Set<string>();
+    accounts.forEach((account) => {
+      const matchesSearch =
+        searchTerm === '' ||
+        account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        account.code.includes(searchTerm) ||
+        (account.description && account.description.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      const matchesType = accountTypeFilter === 'all' || account.accountType === accountTypeFilter;
+
+      if (matchesSearch && matchesType) {
+        matchingAccountIds.add(account.id);
+      }
+    });
+
+    // Include all ancestors of matching accounts to maintain tree structure
+    const accountsToInclude = new Set<string>(matchingAccountIds);
+    matchingAccountIds.forEach((accountId) => {
+      const ancestors = getAncestors(accountId);
+      ancestors.forEach((ancestorId) => accountsToInclude.add(ancestorId));
+    });
+
+    // Filter accounts to include only those in our set
+    return accounts.filter((account) => accountsToInclude.has(account.id));
+  }, [accounts, searchTerm, accountTypeFilter]);
 
   const handleRefresh = () => {
     setLoading(true);

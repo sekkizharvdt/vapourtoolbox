@@ -19,28 +19,54 @@ export interface InitializationResult {
  * @param userId - ID of the user triggering initialization (for audit trail)
  * @returns Promise with initialization result
  */
-export async function initializeChartOfAccounts(userId: string): Promise<InitializationResult> {
+export async function initializeChartOfAccounts(userId: string, forceReinit = false): Promise<InitializationResult> {
   try {
     const { db } = getFirebase();
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
 
     // Check if accounts already exist
     const snapshot = await getDocs(accountsRef);
-    if (!snapshot.empty) {
+    if (!snapshot.empty && !forceReinit) {
+      console.log('[initializeChartOfAccounts] Accounts already exist, skipping initialization');
       return {
         success: true,
         accountsCreated: 0,
       };
     }
 
+    if (forceReinit && !snapshot.empty) {
+      console.log('[initializeChartOfAccounts] FORCE REINIT - Deleting existing accounts...');
+      const batch = writeBatch(db);
+      snapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+      console.log('[initializeChartOfAccounts] Deleted', snapshot.size, 'accounts');
+    }
+
     // Initialize with Indian COA template using batch writes
     // Firestore batch limit is 500 operations, we have 48 accounts
+
+    // First pass: Create a map to find parent accounts by name
+    const accountNameToId = new Map<string, string>();
+    for (const templateAccount of INDIAN_COA_TEMPLATE) {
+      const accountId = `acc-${templateAccount.code}`;
+      accountNameToId.set(templateAccount.name, accountId);
+    }
+
     const batch = writeBatch(db);
     let accountsCreated = 0;
 
     for (const templateAccount of INDIAN_COA_TEMPLATE) {
       const accountId = `acc-${templateAccount.code}`;
       const accountDocRef = doc(accountsRef, accountId);
+
+      // Determine parent account ID by looking up the accountGroup name
+      let parentAccountId: string | null = null;
+      if (templateAccount.accountGroup && templateAccount.accountGroup !== templateAccount.name) {
+        // Find the parent account by name
+        parentAccountId = accountNameToId.get(templateAccount.accountGroup) || null;
+      }
 
       batch.set(accountDocRef, {
         code: templateAccount.code,
@@ -66,7 +92,7 @@ export async function initializeChartOfAccounts(userId: string): Promise<Initial
         accountNumber: null,
         ifscCode: null,
         branch: null,
-        parentAccountId: null,
+        parentAccountId,
         createdAt: serverTimestamp(),
         createdBy: userId,
         updatedAt: serverTimestamp(),
