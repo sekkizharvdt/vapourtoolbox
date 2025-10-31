@@ -24,11 +24,17 @@ test.describe('Entities Page', () => {
     await page.goto('/entities', { waitUntil: 'domcontentloaded' });
     await expect(page).toHaveURL(/\/entities\/?/);
 
-    // Wait for page to load (client-side rendered)
-    await page.waitForLoadState('networkidle');
+    // Wait for page to load - don't use networkidle as Firestore keeps persistent connection
+    // Instead, wait for either the loading spinner to disappear or the heading to appear
+    await Promise.race([
+      page.getByRole('heading', { name: /entity management/i, level: 1 }).waitFor({ state: 'visible', timeout: 15000 }),
+      page.getByText('Access Denied').waitFor({ state: 'visible', timeout: 15000 }),
+    ]).catch(() => {
+      // If both fail, continue - next assertion will catch the issue
+    });
 
     // Should show entities page heading
-    await expect(page.getByRole('heading', { name: /entity management/i, level: 1 })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /entity management/i, level: 1 })).toBeVisible({ timeout: 5000 });
   });
 
   test('should show create entity button', async ({ page }) => {
@@ -38,11 +44,11 @@ test.describe('Entities Page', () => {
     // Use domcontentloaded to avoid Firefox NS_BINDING_ABORTED errors
     await page.goto('/entities', { waitUntil: 'domcontentloaded' });
 
-    // Wait for page to load (client-side rendered)
-    await page.waitForLoadState('networkidle');
+    // Wait for page to render - don't use networkidle as Firestore keeps persistent connection
+    await page.getByRole('heading', { name: /entity management/i, level: 1 }).waitFor({ state: 'visible', timeout: 15000 });
 
     // Should show "New Entity" button
-    await expect(page.getByRole('button', { name: /new entity/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /new entity/i })).toBeVisible({ timeout: 5000 });
   });
 
   test('should open create entity dialog', async ({ page }) => {
@@ -52,8 +58,8 @@ test.describe('Entities Page', () => {
     // Use domcontentloaded to avoid Firefox NS_BINDING_ABORTED errors
     await page.goto('/entities', { waitUntil: 'domcontentloaded' });
 
-    // Wait for page to load (client-side rendered)
-    await page.waitForLoadState('networkidle');
+    // Wait for page to render - don't use networkidle as Firestore keeps persistent connection
+    await page.getByRole('heading', { name: /entity management/i, level: 1 }).waitFor({ state: 'visible', timeout: 15000 });
 
     // Wait for and click "New Entity" button
     const newEntityButton = page.getByRole('button', { name: /new entity/i });
