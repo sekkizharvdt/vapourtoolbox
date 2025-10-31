@@ -47,7 +47,15 @@ export const PERMISSION_FLAGS = {
   MANAGE_ESTIMATION: 1 << 18,  // 262144
   VIEW_ESTIMATION: 1 << 19,    // 524288
 
-  // Reserved for future use (bits 20-31)
+  // Granular Accounting Permissions (bits 20-25)
+  MANAGE_CHART_OF_ACCOUNTS: 1 << 20, // 1048576 - Create/edit accounts
+  CREATE_TRANSACTIONS: 1 << 21,       // 2097152 - Create transactions
+  APPROVE_TRANSACTIONS: 1 << 22,      // 4194304 - Approve transactions
+  VIEW_FINANCIAL_REPORTS: 1 << 23,    // 8388608 - View P&L, Balance Sheet, etc.
+  MANAGE_COST_CENTRES: 1 << 24,       // 16777216 - Manage project cost centres
+  MANAGE_FOREX: 1 << 25,              // 33554432 - Manage currency and forex settings
+
+  // Reserved for future use (bits 26-31)
 } as const;
 
 /**
@@ -75,6 +83,12 @@ export const PERMISSION_BITS = {
   VIEW_PROCUREMENT: 131072,
   MANAGE_ESTIMATION: 262144,
   VIEW_ESTIMATION: 524288,
+  MANAGE_CHART_OF_ACCOUNTS: 1048576,
+  CREATE_TRANSACTIONS: 2097152,
+  APPROVE_TRANSACTIONS: 4194304,
+  VIEW_FINANCIAL_REPORTS: 8388608,
+  MANAGE_COST_CENTRES: 16777216,
+  MANAGE_FOREX: 33554432,
 } as const;
 
 /**
@@ -124,6 +138,42 @@ export function canDeleteEntities(permissions: number): boolean {
 }
 
 /**
+ * Accounting permission helpers
+ * Granular accounting permissions for Chart of Accounts, transactions, reports, etc.
+ */
+export function canViewAccounting(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.VIEW_ACCOUNTING);
+}
+
+export function canManageAccounting(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
+}
+
+export function canManageChartOfAccounts(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.MANAGE_CHART_OF_ACCOUNTS);
+}
+
+export function canCreateTransactions(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.CREATE_TRANSACTIONS);
+}
+
+export function canApproveTransactions(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.APPROVE_TRANSACTIONS);
+}
+
+export function canViewFinancialReports(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS);
+}
+
+export function canManageCostCentres(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.MANAGE_COST_CENTRES);
+}
+
+export function canManageForex(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.MANAGE_FOREX);
+}
+
+/**
  * Role to Permissions Mapping
  * SINGLE SOURCE OF TRUTH - Used by both client and Cloud Function
  *
@@ -152,7 +202,13 @@ export const ROLE_PERMISSIONS: Record<string, number> = {
     PERMISSION_FLAGS.MANAGE_PROCUREMENT |
     PERMISSION_FLAGS.VIEW_PROCUREMENT |
     PERMISSION_FLAGS.MANAGE_ESTIMATION |
-    PERMISSION_FLAGS.VIEW_ESTIMATION,
+    PERMISSION_FLAGS.VIEW_ESTIMATION |
+    PERMISSION_FLAGS.MANAGE_CHART_OF_ACCOUNTS |
+    PERMISSION_FLAGS.CREATE_TRANSACTIONS |
+    PERMISSION_FLAGS.APPROVE_TRANSACTIONS |
+    PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS |
+    PERMISSION_FLAGS.MANAGE_COST_CENTRES |
+    PERMISSION_FLAGS.MANAGE_FOREX,
 
   HR_ADMIN:
     PERMISSION_FLAGS.MANAGE_USERS |
@@ -165,12 +221,19 @@ export const ROLE_PERMISSIONS: Record<string, number> = {
     PERMISSION_FLAGS.EXPORT_DATA |
     PERMISSION_FLAGS.VIEW_TIME_TRACKING |
     PERMISSION_FLAGS.MANAGE_ACCOUNTING |
-    PERMISSION_FLAGS.VIEW_ACCOUNTING,
+    PERMISSION_FLAGS.VIEW_ACCOUNTING |
+    PERMISSION_FLAGS.MANAGE_CHART_OF_ACCOUNTS |
+    PERMISSION_FLAGS.CREATE_TRANSACTIONS |
+    PERMISSION_FLAGS.APPROVE_TRANSACTIONS |
+    PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS |
+    PERMISSION_FLAGS.MANAGE_COST_CENTRES |
+    PERMISSION_FLAGS.MANAGE_FOREX,
 
   ACCOUNTANT:
     PERMISSION_FLAGS.VIEW_TIME_TRACKING |
-    PERMISSION_FLAGS.MANAGE_ACCOUNTING |
-    PERMISSION_FLAGS.VIEW_ACCOUNTING,
+    PERMISSION_FLAGS.VIEW_ACCOUNTING |
+    PERMISSION_FLAGS.CREATE_TRANSACTIONS |
+    PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS,
 
   PROJECT_MANAGER:
     PERMISSION_FLAGS.MANAGE_PROJECTS |
