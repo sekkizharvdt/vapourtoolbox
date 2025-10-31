@@ -69,7 +69,13 @@
       "Bash(netstat:*)",
       "Bash(gh run:*)",
       "Bash(pnpm exec eslint:*)",
-      "Bash(timeout /t 120 /nobreak)"
+      "Bash(timeout /t 120 /nobreak)",
+      "Bash(if [ -d \"apps/web/src/app/accounting\" ])",
+      "Bash(then echo \"EXISTS\")",
+      "Bash(else echo \"DOES NOT EXIST\")",
+      "Bash(fi)",
+      "Bash(pnpm list:*)",
+      "Bash(gh workflow run:*)"
     ],
     "deny": [],
     "ask": []

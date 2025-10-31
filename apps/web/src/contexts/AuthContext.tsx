@@ -82,61 +82,78 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { auth } = getFirebase();
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          // Get token (use cached version for fast initial load)
-          // Only force refresh if token is older than 5 minutes
-          const idTokenResult = await firebaseUser.getIdTokenResult(false);
+      try {
+        if (firebaseUser) {
+          console.log('[AuthContext] User authenticated, validating claims...');
+          try {
+            // Get token (use cached version for fast initial load)
+            // Only force refresh if token is older than 5 minutes
+            const idTokenResult = await firebaseUser.getIdTokenResult(false);
 
-          // Check if token is older than 5 minutes
-          const tokenAge = Date.now() - new Date(idTokenResult.issuedAtTime).getTime();
-          const FIVE_MINUTES = 5 * 60 * 1000;
+            // Check if token is older than 5 minutes
+            const tokenAge = Date.now() - new Date(idTokenResult.issuedAtTime).getTime();
+            const FIVE_MINUTES = 5 * 60 * 1000;
 
-          // If token is old, refresh it in background (don't block UI)
-          if (tokenAge > FIVE_MINUTES) {
-            firebaseUser.getIdTokenResult(true).catch(() => {
-              // Ignore refresh errors - we'll use cached token
-            });
-          }
+            // If token is old, refresh it in background (don't block UI)
+            if (tokenAge > FIVE_MINUTES) {
+              firebaseUser.getIdTokenResult(true).catch(() => {
+                // Ignore refresh errors - we'll use cached token
+              });
+            }
 
-          // Validate claims structure
-          const result = validateClaims(idTokenResult.claims);
+            // Validate claims structure
+            const result = validateClaims(idTokenResult.claims);
 
-          if (result.status === 'pending') {
-            // User authenticated but no claims yet - awaiting admin approval
+            if (result.status === 'pending') {
+              // User authenticated but no claims yet - awaiting admin approval
+              console.log('[AuthContext] User pending approval');
+              setUser(firebaseUser);
+              setClaims(null); // No claims yet
+              setLoading(false);
+              // Dashboard layout will redirect to /pending-approval
+              return;
+            }
+
+            if (result.status === 'invalid') {
+              // Claims exist but are malformed - security issue
+              console.error('[AuthContext] User has invalid custom claims. Signing out.');
+              await firebaseSignOut(auth);
+              setUser(null);
+              setClaims(null);
+              setLoading(false);
+              return;
+            }
+
+            // Valid claims
+            console.log('[AuthContext] User has valid claims');
             setUser(firebaseUser);
-            setClaims(null); // No claims yet
+            setClaims(result.claims);
             setLoading(false);
-            // Dashboard layout will redirect to /pending-approval
-            return;
-          }
-
-          if (result.status === 'invalid') {
-            // Claims exist but are malformed - security issue
-            console.error('User has invalid custom claims. Signing out.');
-            await firebaseSignOut(auth);
+          } catch (error) {
+            console.error('[AuthContext] Error validating user claims:', error);
+            // Ensure loading is set to false even on error
+            try {
+              await firebaseSignOut(auth);
+            } catch (signOutError) {
+              console.error('[AuthContext] Error signing out after validation failure:', signOutError);
+            }
             setUser(null);
             setClaims(null);
             setLoading(false);
-            return;
           }
-
-          // Valid claims
-          setUser(firebaseUser);
-          setClaims(result.claims);
-          setLoading(false);
-        } catch (error) {
-          console.error('Error validating user claims:', error);
-          await firebaseSignOut(auth);
+        } else {
+          console.log('[AuthContext] No user authenticated');
           setUser(null);
           setClaims(null);
+          setLoading(false);
         }
-      } else {
+      } catch (error) {
+        // Catch any unexpected errors in the outer try block
+        console.error('[AuthContext] Unexpected error in auth state change handler:', error);
         setUser(null);
         setClaims(null);
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
     return () => unsubscribe();

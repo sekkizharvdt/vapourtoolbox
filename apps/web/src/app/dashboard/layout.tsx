@@ -56,9 +56,39 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
-  // Show nothing while checking auth
+  // Show loading indicator while checking auth
   if (loading) {
-    return null;
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+        }}
+      >
+        <Box sx={{ textAlign: 'center' }}>
+          <Box
+            component="div"
+            sx={{
+              width: 40,
+              height: 40,
+              margin: '0 auto 16px',
+              border: '4px solid',
+              borderColor: 'primary.main',
+              borderTopColor: 'transparent',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              '@keyframes spin': {
+                '0%': { transform: 'rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg)' },
+              },
+            }}
+          />
+          <Box sx={{ color: 'text.secondary' }}>Loading...</Box>
+        </Box>
+      </Box>
+    );
   }
 
   // Don't render if not authenticated or pending approval (will redirect)
