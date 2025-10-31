@@ -385,16 +385,33 @@ export default function ChartOfAccountsPage() {
             No Chart of Accounts
           </Typography>
           <Typography variant="body2" color="text.secondary" paragraph>
-            The Chart of Accounts will be automatically initialized when you have the required permissions.
+            Initialize with the Indian Chart of Accounts template or create accounts manually.
           </Typography>
           {canManage && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateDialogOpen(true)}
-            >
-              Create Account
-            </Button>
+            <Stack direction="row" spacing={2} justifyContent="center">
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={async () => {
+                  if (!user) return;
+                  setInitializing(true);
+                  const result = await initializeChartOfAccounts(user.uid);
+                  if (!result.success) {
+                    setError(`Failed to initialize: ${result.error}`);
+                  }
+                  setInitializing(false);
+                }}
+              >
+                Initialize Indian COA
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateDialogOpen(true)}
+              >
+                Create Manually
+              </Button>
+            </Stack>
           )}
         </Paper>
       )}
