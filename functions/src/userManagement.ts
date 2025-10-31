@@ -244,17 +244,13 @@ export const onUserUpdate = onDocumentWritten(
     const rolesChanged =
       !isNewDocument && JSON.stringify(userData?.roles) !== JSON.stringify(previousData?.roles);
     const statusChanged = !isNewDocument && userData?.status !== previousData?.status;
-    const emailChanged = !isNewDocument && userData?.email !== previousData?.email;
     const permissionsChanged =
       !isNewDocument && userData?.permissions !== previousData?.permissions;
 
-    // Only update claims if relevant fields changed (but always process new documents)
-    if (!isNewDocument) {
-      if (!rolesChanged && !statusChanged && !emailChanged && !permissionsChanged) {
-        // No relevant changes, skip claim update
-        return;
-      }
-    }
+    // ALWAYS recalculate permissions from roles to ensure they stay in sync
+    // This ensures that when permission definitions change, all users automatically
+    // get updated permissions on their next document write.
+    // The small performance cost is worth the reliability gain.
 
     // Skip if user doesn't have email (shouldn't happen, but defensive)
     if (!userData?.email) {
