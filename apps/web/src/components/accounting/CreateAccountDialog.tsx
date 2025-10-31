@@ -316,7 +316,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
                 <Grid item xs={12} sm={6}>
                   <FormControl fullWidth>
                     <InputLabel>GST Type</InputLabel>
-                    <Select value={gstType} label="GST Type" onChange={(e) => setGstType(e.target.value as any)}>
+                    <Select value={gstType} label="GST Type" onChange={(e) => setGstType(e.target.value as 'CGST' | 'SGST' | 'IGST' | 'CESS')}>
                       <MenuItem value="CGST">CGST</MenuItem>
                       <MenuItem value="SGST">SGST</MenuItem>
                       <MenuItem value="IGST">IGST</MenuItem>
@@ -331,7 +331,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
                     <Select
                       value={gstDirection}
                       label="GST Direction"
-                      onChange={(e) => setGstDirection(e.target.value as any)}
+                      onChange={(e) => setGstDirection(e.target.value as 'INPUT' | 'OUTPUT')}
                     >
                       <MenuItem value="INPUT">Input (Paid)</MenuItem>
                       <MenuItem value="OUTPUT">Output (Collected)</MenuItem>

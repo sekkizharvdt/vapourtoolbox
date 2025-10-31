@@ -13,7 +13,6 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Chip,
   IconButton,
   Tooltip,
   CircularProgress,
