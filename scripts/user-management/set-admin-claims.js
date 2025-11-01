@@ -39,13 +39,13 @@ async function setAdminClaims() {
     // Set custom claims
     await admin.auth().setCustomUserClaims(userId, {
       roles: ['SUPER_ADMIN'],
-      permissions: 2147483647, // All permissions (binary: 01111111111111111111111111111111)
+      permissions: 67108863, // All permissions (26 bits: 11111111111111111111111111)
       domain: 'internal'
     });
 
     console.log('\n✅ SUCCESS! Custom claims set:');
     console.log('   Roles: [SUPER_ADMIN]');
-    console.log('   Permissions: 2147483647 (all permissions)');
+    console.log('   Permissions: 67108863 (all 26 permissions)');
     console.log('   Domain: internal\n');
 
     // Verify claims were set

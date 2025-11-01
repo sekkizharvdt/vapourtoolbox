@@ -31,7 +31,7 @@ test.describe('Dashboard', () => {
     await expect(page.getByRole('heading', { name: /available modules/i })).toBeVisible();
   });
 
-  test('should show navigation menu', async ({ page }) => {
+  test('should show application module cards', async ({ page }) => {
     // Authenticate using custom token
     await loginAsUser(page);
 
@@ -40,10 +40,10 @@ test.describe('Dashboard', () => {
     // Wait for page to load (client-side rendered)
     await page.waitForLoadState('networkidle');
 
-    // Should show module cards (not buttons with module names, but headings within cards)
+    // Should show APPLICATION module cards (core modules like Entity Management are sidebar-only)
     // Module cards contain headings with module names and "Open Module" buttons
-    await expect(page.getByRole('heading', { name: /entity management/i })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole('heading', { name: /project management/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /user management/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /time tracking/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /document management/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /accounting/i })).toBeVisible();
   });
 });

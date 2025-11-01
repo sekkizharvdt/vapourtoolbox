@@ -11,7 +11,7 @@ export const TEST_USERS = {
     displayName: 'Test Admin',
     customClaims: {
       roles: ['SUPER_ADMIN'],
-      permissions: 1048575, // All permissions (getAllPermissions())
+      permissions: 67108863, // All permissions (getAllPermissions() - 26 bits)
       domain: 'internal',
       assignedProjects: [],
       department: 'Engineering',
@@ -23,7 +23,7 @@ export const TEST_USERS = {
     displayName: 'Test User',
     customClaims: {
       roles: ['SUPER_ADMIN'],
-      permissions: 1048575, // All permissions for testing
+      permissions: 67108863, // All permissions for testing (26 bits)
       domain: 'internal',
       assignedProjects: [],
       department: 'Engineering',
