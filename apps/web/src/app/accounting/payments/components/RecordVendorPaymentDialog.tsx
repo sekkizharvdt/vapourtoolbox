@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@/components/common/forms/FormDialog';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
+import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { getFirebase } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, Timestamp, query, where, getDocs } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -71,6 +72,7 @@ export function RecordVendorPaymentDialog({
   const [bankAccountId, setBankAccountId] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [reference, setReference] = useState<string>('');
+  const [projectId, setProjectId] = useState<string | null>(null);
 
   // TDS fields
   const [tdsDeducted, setTdsDeducted] = useState<boolean>(false);
@@ -156,6 +158,7 @@ export function RecordVendorPaymentDialog({
         setBankAccountId(editingPayment.bankAccountId || '');
         setDescription(editingPayment.description || '');
         setReference(editingPayment.reference || '');
+        setProjectId(editingPayment.projectId || null);
         setTdsDeducted(editingPayment.tdsDeducted);
         setTdsSection(editingPayment.tdsSection || '');
         setTdsAmount(editingPayment.tdsAmount || 0);
@@ -171,6 +174,7 @@ export function RecordVendorPaymentDialog({
         setBankAccountId('');
         setDescription('');
         setReference('');
+        setProjectId(null);
         setTdsDeducted(false);
         setTdsSection('');
         setTdsAmount(0);
@@ -278,6 +282,8 @@ export function RecordVendorPaymentDialog({
         totalAmount: amount,
         description: description || `Payment to ${entityName}`,
         reference,
+        projectId: projectId || undefined,
+        costCentreId: projectId || undefined, // Same as projectId for consistency
         status: 'POSTED',
         createdAt: Timestamp.now() as any,
         updatedAt: Timestamp.now() as any,
@@ -357,6 +363,15 @@ export function RecordVendorPaymentDialog({
               filterByRole="VENDOR"
               label="Vendor"
               required
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <ProjectSelector
+              value={projectId}
+              onChange={setProjectId}
+              label="Project / Cost Centre"
+              onlyActive
             />
           </Grid>
 
