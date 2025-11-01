@@ -167,16 +167,19 @@ export function generateBillLedgerEntries(
   }
 
   // Credit: Vendor Account (Accounts Payable)
-  const vendorPayable = bill.totalAmount || 0;
+  // If TDS deducted, vendor gets net amount (totalAmount - TDS)
+  const tdsAmount = (bill.tdsDeducted && bill.tdsAmount) ? bill.tdsAmount : 0;
+  const vendorPayable = (bill.totalAmount || 0) - tdsAmount;
+
   entries.push({
     accountId: vendorAccountId,
     debit: 0,
     credit: vendorPayable,
-    description: `Bill ${bill.transactionNumber || ''} - Vendor payable`,
+    description: `Bill ${bill.transactionNumber || ''} - Vendor payable (net)`,
     costCentreId: bill.projectId,
   });
 
-  // Credit: TDS Payable (reduces vendor payable)
+  // Credit: TDS Payable
   if (bill.tdsDeducted && bill.tdsAmount && tdsPayableAccountId) {
     entries.push({
       accountId: tdsPayableAccountId,

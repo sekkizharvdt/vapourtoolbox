@@ -34,6 +34,8 @@ import type { VendorBill, LineItem, TransactionStatus } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { calculateGST, getGSTRateSuggestions } from '@/lib/accounting/gstCalculator';
 import { calculateTDS, getCommonTDSSections, type TDSSection } from '@/lib/accounting/tdsCalculator';
+import { getSystemAccountIds, validateSystemAccounts } from '@/lib/accounting/systemAccountResolver';
+import { generateBillLedgerEntries, validateLedgerBalance } from '@/lib/accounting/transactionHelpers';
 
 interface CreateBillDialogProps {
   open: boolean;
@@ -247,9 +249,54 @@ export function CreateBillDialog({
 
       const { db } = getFirebase();
 
+      // 1. Fetch system account IDs
+      const systemAccounts = await getSystemAccountIds(db);
+
+      // 2. Validate required accounts exist
+      const validation = validateSystemAccounts(systemAccounts, 'VENDOR_BILL');
+      if (!validation.valid) {
+        setError(`Missing required accounts: ${validation.missingAccounts.join(', ')}. Please check Chart of Accounts.`);
+        setLoading(false);
+        return;
+      }
+
       // Convert string dates to Date objects for Firestore
       const billDate = new Date(date);
       const billDueDate = dueDate ? new Date(dueDate) : undefined;
+
+      // Generate transaction number
+      const transactionNumber = editingBill?.transactionNumber || await generateTransactionNumber('VENDOR_BILL');
+
+      // 3. Generate ledger entries
+      const ledgerEntries = generateBillLedgerEntries(
+        {
+          transactionNumber,
+          entityName,
+          subtotal,
+          taxAmount: gstDetails?.totalGST || 0,
+          totalAmount,
+          gstDetails: gstDetails as any,
+          tdsDeducted,
+          tdsAmount,
+          projectId,
+        },
+        systemAccounts.accountsPayable!,
+        systemAccounts.expenses!,
+        {
+          cgst: systemAccounts.cgstInput,
+          sgst: systemAccounts.sgstInput,
+          igst: systemAccounts.igstInput,
+        },
+        tdsDeducted ? systemAccounts.tdsPayable : undefined
+      );
+
+      // 4. Validate entries balance
+      const { balanced, totalDebits, totalCredits } = validateLedgerBalance(ledgerEntries);
+      if (!balanced) {
+        setError(`Ledger entries don't balance! Debits: ₹${totalDebits.toFixed(2)}, Credits: ₹${totalCredits.toFixed(2)}`);
+        setLoading(false);
+        return;
+      }
 
       const bill: Partial<VendorBill> = {
         type: 'VENDOR_BILL',
@@ -269,8 +316,8 @@ export function CreateBillDialog({
         tdsAmount,
         totalAmount,
         amount: totalAmount,
-        transactionNumber: editingBill?.transactionNumber || await generateTransactionNumber('VENDOR_BILL'),
-        entries: [], // Ledger entries will be generated when posted
+        transactionNumber,
+        entries: ledgerEntries,
         createdAt: editingBill?.createdAt || Timestamp.now(),
         updatedAt: Timestamp.now(),
         currency: 'INR',

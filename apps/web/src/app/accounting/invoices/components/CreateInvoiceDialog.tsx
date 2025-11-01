@@ -31,6 +31,8 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { CustomerInvoice, LineItem, TransactionStatus } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { calculateGST, getGSTRateSuggestions } from '@/lib/accounting/gstCalculator';
+import { getSystemAccountIds, validateSystemAccounts } from '@/lib/accounting/systemAccountResolver';
+import { generateInvoiceLedgerEntries, validateLedgerBalance } from '@/lib/accounting/transactionHelpers';
 
 interface CreateInvoiceDialogProps {
   open: boolean;
@@ -217,9 +219,50 @@ export function CreateInvoiceDialog({
 
       const { db } = getFirebase();
 
+      // 1. Fetch system account IDs
+      const systemAccounts = await getSystemAccountIds(db);
+
+      // 2. Validate required accounts exist
+      const validation = validateSystemAccounts(systemAccounts, 'CUSTOMER_INVOICE');
+      if (!validation.valid) {
+        setError(`Missing required accounts: ${validation.missingAccounts.join(', ')}. Please check Chart of Accounts.`);
+        setLoading(false);
+        return;
+      }
+
       // Convert string dates to Date objects for Firestore
       const invoiceDate = new Date(date);
       const invoiceDueDate = dueDate ? new Date(dueDate) : undefined;
+
+      // Generate transaction number
+      const transactionNumber = editingInvoice?.transactionNumber || await generateTransactionNumber('CUSTOMER_INVOICE');
+
+      // 3. Generate ledger entries
+      const ledgerEntries = generateInvoiceLedgerEntries(
+        {
+          transactionNumber,
+          entityName,
+          subtotal,
+          taxAmount: gstDetails?.totalGST || 0,
+          totalAmount,
+          gstDetails: gstDetails as any,
+        },
+        systemAccounts.accountsReceivable!,
+        systemAccounts.revenue!,
+        {
+          cgst: systemAccounts.cgstPayable,
+          sgst: systemAccounts.sgstPayable,
+          igst: systemAccounts.igstPayable,
+        }
+      );
+
+      // 4. Validate entries balance
+      const { balanced, totalDebits, totalCredits } = validateLedgerBalance(ledgerEntries);
+      if (!balanced) {
+        setError(`Ledger entries don't balance! Debits: ₹${totalDebits.toFixed(2)}, Credits: ₹${totalCredits.toFixed(2)}`);
+        setLoading(false);
+        return;
+      }
 
       const invoice: Partial<CustomerInvoice> = {
         type: 'CUSTOMER_INVOICE',
@@ -236,8 +279,8 @@ export function CreateInvoiceDialog({
         gstDetails: gstDetails as any,
         totalAmount,
         amount: totalAmount,
-        transactionNumber: editingInvoice?.transactionNumber || await generateTransactionNumber('CUSTOMER_INVOICE'),
-        entries: [], // Ledger entries will be generated when posted
+        transactionNumber,
+        entries: ledgerEntries,
         createdAt: editingInvoice?.createdAt || Timestamp.now(),
         updatedAt: Timestamp.now(),
         currency: 'INR',
