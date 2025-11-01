@@ -232,30 +232,13 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    match /invoices/{invoiceId} {
-      // Only internal users with accounting permissions
+    match /transactions/{transactionId} {
+      // Unified transactions collection for all transaction types
+      // Includes: CUSTOMER_INVOICE, VENDOR_BILL, JOURNAL_ENTRY, CUSTOMER_PAYMENT, VENDOR_PAYMENT
       allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
       allow create: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
       allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
       allow delete: if isSuperAdmin();
-    }
-
-    match /payments/{paymentId} {
-      // Read: Internal users with VIEW_ACCOUNTING OR external CLIENT_PM for their projects
-      allow read: if (isInternalUser() && hasPermission(32768)) || // VIEW_ACCOUNTING (bit 15)
-                     (isExternalUser() &&
-                      hasPermission(131072) && // VIEW_PROCUREMENT (bit 17) - CLIENT_PM can view payments
-                      isAssignedToProject(resource.data.projectId));
-
-      allow create, update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
-      allow delete: if isSuperAdmin();
-    }
-
-    match /ledgerEntries/{entryId} {
-      // Only internal accounting users
-      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
-      allow create: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
-      allow write: if false; // Ledger is mostly read-only
     }
 
     // ============================================
