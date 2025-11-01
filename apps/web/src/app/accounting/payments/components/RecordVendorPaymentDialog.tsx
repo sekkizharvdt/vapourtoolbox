@@ -1,0 +1,585 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import {
+  TextField,
+  Grid,
+  MenuItem,
+  Box,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Stack,
+  Checkbox,
+  FormControlLabel,
+} from '@mui/material';
+import { FormDialog, FormDialogActions } from '@/components/common/forms/FormDialog';
+import { EntitySelector } from '@/components/common/forms/EntitySelector';
+import { getFirebase } from '@/lib/firebase';
+import { collection, addDoc, updateDoc, doc, Timestamp, query, where, getDocs } from 'firebase/firestore';
+import { COLLECTIONS } from '@vapour/firebase';
+import type { VendorPayment, VendorBill, PaymentAllocation, PaymentMethod } from '@vapour/types';
+import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
+import { formatCurrency } from '@/lib/accounting/transactionHelpers';
+import { processPaymentAllocations } from '@/lib/accounting/paymentHelpers';
+
+interface RecordVendorPaymentDialogProps {
+  open: boolean;
+  onClose: () => void;
+  editingPayment?: VendorPayment | null;
+}
+
+const PAYMENT_METHODS: PaymentMethod[] = [
+  'CASH',
+  'CHEQUE',
+  'BANK_TRANSFER',
+  'UPI',
+  'CREDIT_CARD',
+  'DEBIT_CARD',
+  'OTHER',
+];
+
+const TDS_SECTIONS = [
+  { code: '194C', name: 'Contractors - 2%', rate: 2 },
+  { code: '194J', name: 'Professional Services - 10%', rate: 10 },
+  { code: '194H', name: 'Commission/Brokerage - 5%', rate: 5 },
+  { code: '194I', name: 'Rent - 10%', rate: 10 },
+  { code: '194A', name: 'Interest (Other than Securities) - 10%', rate: 10 },
+];
+
+export function RecordVendorPaymentDialog({
+  open,
+  onClose,
+  editingPayment,
+}: RecordVendorPaymentDialogProps) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Form fields
+  const [paymentDate, setPaymentDate] = useState<string>(() => new Date().toISOString().split('T')[0] || '');
+  const [entityId, setEntityId] = useState<string | null>(null);
+  const [entityName, setEntityName] = useState<string>('');
+  const [amount, setAmount] = useState<number>(0);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('BANK_TRANSFER');
+  const [chequeNumber, setChequeNumber] = useState<string>('');
+  const [upiTransactionId, setUpiTransactionId] = useState<string>('');
+  const [bankAccountId, setBankAccountId] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
+  const [reference, setReference] = useState<string>('');
+
+  // TDS fields
+  const [tdsDeducted, setTdsDeducted] = useState<boolean>(false);
+  const [tdsSection, setTdsSection] = useState<string>('');
+  const [tdsAmount, setTdsAmount] = useState<number>(0);
+
+  // Bill allocation
+  const [outstandingBills, setOutstandingBills] = useState<VendorBill[]>([]);
+  const [allocations, setAllocations] = useState<PaymentAllocation[]>([]);
+
+  // Fetch outstanding bills when vendor changes
+  useEffect(() => {
+    async function fetchOutstandingBills() {
+      if (!entityId) {
+        setOutstandingBills([]);
+        setAllocations([]);
+        return;
+      }
+
+      const { db } = getFirebase();
+      const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
+      const q = query(
+        transactionsRef,
+        where('type', '==', 'VENDOR_BILL'),
+        where('entityId', '==', entityId),
+        where('status', 'in', ['POSTED', 'APPROVED'])
+      );
+
+      const snapshot = await getDocs(q);
+      const bills: VendorBill[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data() as VendorBill;
+        // Only include bills with outstanding amounts
+        if ((data.totalAmount || 0) > 0) {
+          bills.push({ ...data, id: doc.id });
+        }
+      });
+
+      setOutstandingBills(bills);
+
+      // Initialize allocations
+      const initialAllocations: PaymentAllocation[] = bills.map(bill => ({
+        invoiceId: bill.id!, // Using invoiceId field for bills as well (generic)
+        invoiceNumber: bill.transactionNumber || '',
+        originalAmount: bill.totalAmount || 0,
+        allocatedAmount: 0,
+        remainingAmount: bill.totalAmount || 0,
+      }));
+      setAllocations(initialAllocations);
+    }
+
+    fetchOutstandingBills();
+  }, [entityId]);
+
+  // Calculate TDS when section changes
+  useEffect(() => {
+    if (tdsDeducted && tdsSection) {
+      const section = TDS_SECTIONS.find(s => s.code === tdsSection);
+      if (section) {
+        const totalBillAmount = allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
+        const calculatedTds = (totalBillAmount * section.rate) / 100;
+        setTdsAmount(calculatedTds);
+      }
+    } else {
+      setTdsAmount(0);
+    }
+  }, [tdsDeducted, tdsSection, allocations]);
+
+  // Reset form when dialog opens/closes
+  useEffect(() => {
+    if (open) {
+      if (editingPayment) {
+        const dateStr = editingPayment.paymentDate instanceof Date
+          ? (editingPayment.paymentDate.toISOString().split('T')[0] || '')
+          : (typeof editingPayment.paymentDate === 'string' ? editingPayment.paymentDate : '');
+        setPaymentDate(dateStr || (new Date().toISOString().split('T')[0] || ''));
+        setEntityId(editingPayment.entityId ?? null);
+        setEntityName(editingPayment.entityName || '');
+        setAmount(editingPayment.totalAmount || 0);
+        setPaymentMethod(editingPayment.paymentMethod);
+        setChequeNumber(editingPayment.chequeNumber || '');
+        setUpiTransactionId(editingPayment.upiTransactionId || '');
+        setBankAccountId(editingPayment.bankAccountId || '');
+        setDescription(editingPayment.description || '');
+        setReference(editingPayment.reference || '');
+        setTdsDeducted(editingPayment.tdsDeducted);
+        setTdsSection(editingPayment.tdsSection || '');
+        setTdsAmount(editingPayment.tdsAmount || 0);
+        setAllocations(editingPayment.billAllocations || []);
+      } else {
+        setPaymentDate(new Date().toISOString().split('T')[0] || '');
+        setEntityId(null);
+        setEntityName('');
+        setAmount(0);
+        setPaymentMethod('BANK_TRANSFER');
+        setChequeNumber('');
+        setUpiTransactionId('');
+        setBankAccountId('');
+        setDescription('');
+        setReference('');
+        setTdsDeducted(false);
+        setTdsSection('');
+        setTdsAmount(0);
+        setAllocations([]);
+      }
+      setError('');
+    }
+  }, [open, editingPayment]);
+
+  const handleAllocationChange = (billId: string, allocatedAmount: number) => {
+    setAllocations(prev => prev.map(allocation => {
+      if (allocation.invoiceId === billId) {
+        return {
+          ...allocation,
+          allocatedAmount,
+          remainingAmount: allocation.originalAmount - allocatedAmount,
+        };
+      }
+      return allocation;
+    }));
+  };
+
+  // Auto-distribute payment across bills
+  const handleAutoAllocate = () => {
+    let remaining = amount;
+    const newAllocations = allocations.map(allocation => {
+      if (remaining <= 0) {
+        return { ...allocation, allocatedAmount: 0 };
+      }
+
+      const toAllocate = Math.min(remaining, allocation.originalAmount);
+      remaining -= toAllocate;
+
+      return {
+        ...allocation,
+        allocatedAmount: toAllocate,
+        remainingAmount: allocation.originalAmount - toAllocate,
+      };
+    });
+
+    setAllocations(newAllocations);
+  };
+
+  const handleSubmit = async () => {
+    // Validation
+    if (!entityId) {
+      setError('Please select a vendor');
+      return;
+    }
+
+    if (!paymentDate) {
+      setError('Please select a payment date');
+      return;
+    }
+
+    if (amount <= 0) {
+      setError('Amount must be greater than zero');
+      return;
+    }
+
+    if (paymentMethod === 'CHEQUE' && !chequeNumber) {
+      setError('Please enter cheque number');
+      return;
+    }
+
+    if (paymentMethod === 'UPI' && !upiTransactionId) {
+      setError('Please enter UPI transaction ID');
+      return;
+    }
+
+    if (tdsDeducted && !tdsSection) {
+      setError('Please select TDS section');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const { db } = getFirebase();
+
+      // Generate transaction number for new payments
+      let transactionNumber = editingPayment?.transactionNumber;
+      if (!editingPayment) {
+        transactionNumber = await generateTransactionNumber('VENDOR_PAYMENT');
+      }
+
+      // Only include allocations with non-zero amounts
+      const validAllocations = allocations.filter(a => a.allocatedAmount > 0);
+
+      const paymentData = {
+        type: 'VENDOR_PAYMENT',
+        transactionNumber: transactionNumber || '',
+        entityId,
+        entityName,
+        paymentDate,
+        paymentMethod,
+        chequeNumber: paymentMethod === 'CHEQUE' ? chequeNumber : undefined,
+        upiTransactionId: paymentMethod === 'UPI' ? upiTransactionId : undefined,
+        bankAccountId: bankAccountId || undefined,
+        billAllocations: validAllocations,
+        tdsDeducted,
+        tdsAmount: tdsDeducted ? tdsAmount : undefined,
+        tdsSection: tdsDeducted ? tdsSection : undefined,
+        totalAmount: amount,
+        description: description || `Payment to ${entityName}`,
+        reference,
+        status: 'POSTED',
+        createdAt: Timestamp.now() as any,
+        updatedAt: Timestamp.now() as any,
+        // Required BaseTransaction fields
+        date: paymentDate as any,
+        amount,
+        currency: 'INR',
+        baseAmount: amount,
+        entries: [],
+        attachments: [],
+        createdBy: 'current-user', // TODO: Get from auth context
+      } as any;
+
+      if (editingPayment?.id) {
+        // Update existing payment
+        await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingPayment.id), {
+          ...paymentData,
+          updatedAt: Timestamp.now(),
+        });
+      } else {
+        // Create new payment
+        await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), paymentData);
+      }
+
+      // Update bill statuses based on allocations
+      await processPaymentAllocations(db, validAllocations);
+
+      onClose();
+    } catch (err) {
+      console.error('[RecordVendorPaymentDialog] Error saving payment:', err);
+      setError('Failed to save payment. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalAllocated = allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
+  const unallocated = amount - totalAllocated;
+  const netPayment = amount - (tdsDeducted ? tdsAmount : 0);
+
+  return (
+    <FormDialog
+      open={open}
+      onClose={onClose}
+      title={editingPayment ? 'Edit Vendor Payment' : 'Record Vendor Payment'}
+      maxWidth="lg"
+    >
+      <Box sx={{ p: 2 }}>
+        {error && (
+          <Typography color="error" sx={{ mb: 2 }}>
+            {error}
+          </Typography>
+        )}
+
+        <Grid container spacing={3}>
+          {/* Payment Details */}
+          <Grid size={{ xs: 12 }}>
+            <Typography variant="h6" gutterBottom>Payment Details</Typography>
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              fullWidth
+              label="Payment Date"
+              type="date"
+              value={paymentDate}
+              onChange={(e) => setPaymentDate(e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+              required
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <EntitySelector
+              value={entityId}
+              onChange={setEntityId}
+              filterByRole="VENDOR"
+              label="Vendor"
+              required
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              fullWidth
+              label="Payment Amount"
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+              slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+              required
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              fullWidth
+              select
+              label="Payment Method"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+              required
+            >
+              {PAYMENT_METHODS.map((method) => (
+                <MenuItem key={method} value={method}>
+                  {method.replace('_', ' ')}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+
+          {paymentMethod === 'CHEQUE' && (
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                label="Cheque Number"
+                value={chequeNumber}
+                onChange={(e) => setChequeNumber(e.target.value)}
+                required
+              />
+            </Grid>
+          )}
+
+          {paymentMethod === 'UPI' && (
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                label="UPI Transaction ID"
+                value={upiTransactionId}
+                onChange={(e) => setUpiTransactionId(e.target.value)}
+                required
+              />
+            </Grid>
+          )}
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              fullWidth
+              label="Bank Account (Paid from)"
+              value={bankAccountId}
+              onChange={(e) => setBankAccountId(e.target.value)}
+              placeholder="Select bank account"
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              fullWidth
+              label="Reference"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              placeholder="External reference number"
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              fullWidth
+              label="Description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              multiline
+              rows={2}
+              placeholder="Payment description or notes"
+            />
+          </Grid>
+
+          {/* TDS Section */}
+          <Grid size={{ xs: 12 }}>
+            <Typography variant="h6" gutterBottom>TDS (Tax Deducted at Source)</Typography>
+          </Grid>
+
+          <Grid size={{ xs: 12 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={tdsDeducted}
+                  onChange={(e) => setTdsDeducted(e.target.checked)}
+                />
+              }
+              label="TDS Deducted"
+            />
+          </Grid>
+
+          {tdsDeducted && (
+            <>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  select
+                  label="TDS Section"
+                  value={tdsSection}
+                  onChange={(e) => setTdsSection(e.target.value)}
+                  required
+                >
+                  {TDS_SECTIONS.map((section) => (
+                    <MenuItem key={section.code} value={section.code}>
+                      {section.code} - {section.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="TDS Amount"
+                  type="number"
+                  value={tdsAmount}
+                  onChange={(e) => setTdsAmount(parseFloat(e.target.value) || 0)}
+                  slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                  helperText="Auto-calculated based on TDS section rate"
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <Paper sx={{ p: 2, bgcolor: 'info.light' }}>
+                  <Typography variant="body2">
+                    <strong>Net Payment to Vendor:</strong> {formatCurrency(netPayment)}
+                    <br />
+                    (Payment Amount: {formatCurrency(amount)} - TDS: {formatCurrency(tdsAmount)})
+                  </Typography>
+                </Paper>
+              </Grid>
+            </>
+          )}
+
+          {/* Bill Allocation */}
+          {outstandingBills.length > 0 && (
+            <>
+              <Grid size={{ xs: 12 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="h6">Allocate to Bills</Typography>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Allocated: {formatCurrency(totalAllocated)} | Unallocated: {formatCurrency(unallocated)}
+                    </Typography>
+                    <button type="button" onClick={handleAutoAllocate} style={{ marginLeft: 8 }}>
+                      Auto Allocate
+                    </button>
+                  </Box>
+                </Stack>
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <TableContainer component={Paper} variant="outlined">
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Bill Number</TableCell>
+                        <TableCell>Date</TableCell>
+                        <TableCell align="right">Bill Amount</TableCell>
+                        <TableCell align="right">Allocate Amount</TableCell>
+                        <TableCell align="right">Remaining</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {outstandingBills.map((bill, index) => {
+                        const allocation = allocations[index];
+                        return (
+                          <TableRow key={bill.id}>
+                            <TableCell>{bill.transactionNumber}</TableCell>
+                            <TableCell>
+                              {new Date(bill.date).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell align="right">
+                              {formatCurrency(allocation?.originalAmount || 0)}
+                            </TableCell>
+                            <TableCell align="right">
+                              <TextField
+                                type="number"
+                                size="small"
+                                value={allocation?.allocatedAmount || 0}
+                                onChange={(e) => handleAllocationChange(
+                                  bill.id!,
+                                  parseFloat(e.target.value) || 0
+                                )}
+                                slotProps={{ htmlInput: { min: 0, max: allocation?.originalAmount || 0, step: 0.01 } }}
+                                sx={{ width: 120 }}
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              {formatCurrency(allocation?.remainingAmount || 0)}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Grid>
+            </>
+          )}
+        </Grid>
+      </Box>
+
+      <FormDialogActions
+        onCancel={onClose}
+        onSubmit={handleSubmit}
+        submitLabel={editingPayment ? 'Update Payment' : 'Record Payment'}
+        loading={loading}
+      />
+    </FormDialog>
+  );
+}

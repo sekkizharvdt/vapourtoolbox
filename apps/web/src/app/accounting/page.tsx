@@ -11,6 +11,7 @@ import {
   Article as InvoiceIcon,
   RequestQuote as BillIcon,
   List as TransactionsIcon,
+  Payment as PaymentIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -55,6 +56,12 @@ export default function AccountingPage() {
       description: 'Manage vendor bills with GST and TDS calculations',
       icon: <BillIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/bills',
+    },
+    {
+      title: 'Payments',
+      description: 'Record customer receipts and vendor payments with allocation',
+      icon: <PaymentIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/payments',
     },
     {
       title: 'All Transactions',

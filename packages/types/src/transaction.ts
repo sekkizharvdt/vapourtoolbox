@@ -29,7 +29,16 @@ export type TransactionType =
 /**
  * Transaction Status
  */
-export type TransactionStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'POSTED' | 'VOID';
+export type TransactionStatus =
+  | 'DRAFT'
+  | 'PENDING_APPROVAL'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'POSTED'
+  | 'VOID'
+  | 'UNPAID'
+  | 'PARTIALLY_PAID'
+  | 'PAID';
 
 /**
  * Payment Method
@@ -136,11 +145,14 @@ export interface CustomerPayment extends BaseTransaction {
   entityId: string; // MUST be a customer
 
   // Payment details
-  paymentDate: Date;
+  paymentDate: Date | string;
   paymentMethod: PaymentMethod;
   chequeNumber?: string;
   upiTransactionId?: string;
   bankAccountId?: string; // Which bank account received payment
+
+  // Amounts
+  totalAmount: number; // Total payment amount
 
   // Invoice allocation
   invoiceAllocations: PaymentAllocation[]; // Which invoices this payment settles
@@ -196,11 +208,14 @@ export interface VendorPayment extends BaseTransaction {
   entityId: string; // MUST be a vendor
 
   // Payment details
-  paymentDate: Date;
+  paymentDate: Date | string;
   paymentMethod: PaymentMethod;
   chequeNumber?: string;
   upiTransactionId?: string;
   bankAccountId?: string; // Which bank account made payment
+
+  // Amounts
+  totalAmount: number; // Total payment amount
 
   // Bill allocation
   billAllocations: PaymentAllocation[]; // Which bills this payment settles
