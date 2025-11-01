@@ -212,6 +212,23 @@ export interface LedgerEntry {
 }
 
 /**
+ * Line Item for invoices and bills
+ */
+export interface LineItem {
+  id?: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  gstRate?: number;
+  gstAmount?: number;
+  hsnCode?: string;
+  sacCode?: string;
+  accountId?: string;
+  costCentreId?: string;
+}
+
+/**
  * GST Details for transactions
  */
 export interface GSTDetails {

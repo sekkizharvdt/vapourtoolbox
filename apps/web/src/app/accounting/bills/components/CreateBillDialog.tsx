@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TextField,
   Grid,
@@ -30,7 +30,7 @@ import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { getFirebase } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, Timestamp, getDoc } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { VendorBill, LineItem } from '@vapour/types';
+import type { VendorBill, LineItem, TransactionStatus } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { calculateGST, getGSTRateSuggestions } from '@/lib/accounting/gstCalculator';
 import { calculateTDS, getCommonTDSSections, type TDSSection } from '@/lib/accounting/tdsCalculator';
@@ -50,14 +50,14 @@ export function CreateBillDialog({
   const [error, setError] = useState('');
 
   // Form fields
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dueDate, setDueDate] = useState('');
+  const [date, setDate] = useState<string>(() => new Date().toISOString().split('T')[0] || '');
+  const [dueDate, setDueDate] = useState<string>('');
   const [entityId, setEntityId] = useState<string | null>(null);
-  const [entityName, setEntityName] = useState('');
-  const [description, setDescription] = useState('');
-  const [reference, setReference] = useState('');
+  const [entityName, setEntityName] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
+  const [reference, setReference] = useState<string>('');
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [status, setStatus] = useState<'DRAFT' | 'APPROVED' | 'PAID' | 'OVERDUE'>('DRAFT');
+  const [status, setStatus] = useState<TransactionStatus>('DRAFT');
   const [tdsDeducted, setTdsDeducted] = useState(false);
   const [tdsSection, setTdsSection] = useState<TDSSection>('194C');
   const [vendorPAN, setVendorPAN] = useState('');
@@ -109,20 +109,23 @@ export function CreateBillDialog({
   useEffect(() => {
     if (open) {
       if (editingBill) {
-        setDate(editingBill.date);
-        setDueDate(editingBill.dueDate || '');
-        setEntityId(editingBill.entityId || null);
+        // Convert Date to string for date inputs
+        const dateStr = editingBill.date instanceof Date ? (editingBill.date.toISOString().split('T')[0] || '') : (typeof editingBill.date === 'string' ? editingBill.date : '');
+        const dueDateStr = editingBill.dueDate ? (editingBill.dueDate instanceof Date ? (editingBill.dueDate.toISOString().split('T')[0] || '') : (typeof editingBill.dueDate === 'string' ? editingBill.dueDate : '')) : '';
+        setDate(dateStr || (new Date().toISOString().split('T')[0] || ''));
+        setDueDate(dueDateStr || '');
+        setEntityId(editingBill.entityId ?? null);
         setEntityName(editingBill.entityName || '');
         setDescription(editingBill.description || '');
         setReference(editingBill.reference || '');
-        setProjectId(editingBill.projectId || null);
+        setProjectId(editingBill.projectId ?? null);
         setStatus(editingBill.status);
         setTdsDeducted(editingBill.tdsDeducted || false);
-        setTdsSection(editingBill.tdsDetails?.section || '194C');
+        setTdsSection((editingBill.tdsDetails?.section as TDSSection) || '194C');
         setVendorPAN(editingBill.tdsDetails?.panNumber || '');
         setLineItems(editingBill.lineItems || []);
       } else {
-        setDate(new Date().toISOString().split('T')[0]);
+        setDate(new Date().toISOString().split('T')[0] || '');
         setDueDate('');
         setEntityId(null);
         setEntityName('');
@@ -172,12 +175,17 @@ export function CreateBillDialog({
 
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
     const newLineItems = [...lineItems];
-    newLineItems[index] = { ...newLineItems[index], [field]: value };
+    const item = newLineItems[index];
+    if (!item) return;
+
+    newLineItems[index] = { ...item, [field]: value };
 
     // Recalculate amount
     if (field === 'quantity' || field === 'unitPrice') {
-      const item = newLineItems[index];
-      item.amount = item.quantity * item.unitPrice;
+      const updatedItem = newLineItems[index];
+      if (updatedItem) {
+        updatedItem.amount = (updatedItem.quantity || 0) * (updatedItem.unitPrice || 0);
+      }
     }
 
     setLineItems(newLineItems);
@@ -188,31 +196,35 @@ export function CreateBillDialog({
   const taxableAmount = subtotal;
 
   // Calculate GST
-  let gstDetails;
-  if (companyState && vendorState && taxableAmount > 0) {
-    const avgGstRate = lineItems.reduce((sum, item) => sum + (item.gstRate || 0), 0) / lineItems.length;
-    gstDetails = calculateGST({
-      taxableAmount,
-      gstRate: avgGstRate,
-      sourceState: vendorState,
-      destinationState: companyState,
-    });
-  }
+  const gstDetails = React.useMemo(() => {
+    if (companyState && vendorState && taxableAmount > 0) {
+      const avgGstRate = lineItems.reduce((sum, item) => sum + (item.gstRate || 0), 0) / lineItems.length;
+      return calculateGST({
+        taxableAmount,
+        gstRate: avgGstRate,
+        sourceState: vendorState,
+        destinationState: companyState,
+      });
+    }
+    return undefined;
+  }, [companyState, vendorState, taxableAmount, lineItems]);
 
   const gstAmount = gstDetails?.totalGST || 0;
   const amountBeforeTDS = subtotal + gstAmount;
 
   // Calculate TDS
-  let tdsDetails;
-  let tdsAmount = 0;
-  if (tdsDeducted && amountBeforeTDS > 0) {
-    tdsDetails = calculateTDS({
-      amount: amountBeforeTDS,
-      section: tdsSection,
-      panNumber: vendorPAN,
-    });
-    tdsAmount = tdsDetails.tdsAmount;
-  }
+  const tdsDetails = React.useMemo(() => {
+    if (tdsDeducted && amountBeforeTDS > 0) {
+      return calculateTDS({
+        amount: amountBeforeTDS,
+        section: tdsSection,
+        panNumber: vendorPAN,
+      });
+    }
+    return undefined;
+  }, [tdsDeducted, amountBeforeTDS, tdsSection, vendorPAN]);
+
+  const tdsAmount = tdsDetails?.tdsAmount || 0;
 
   const totalAmount = amountBeforeTDS - tdsAmount;
 
@@ -235,21 +247,25 @@ export function CreateBillDialog({
 
       const { db } = getFirebase();
 
+      // Convert string dates to Date objects for Firestore
+      const billDate = new Date(date);
+      const billDueDate = dueDate ? new Date(dueDate) : undefined;
+
       const bill: Partial<VendorBill> = {
         type: 'VENDOR_BILL',
-        date,
-        dueDate: dueDate || null,
+        date: billDate as any, // Firestore will convert to Timestamp
+        dueDate: billDueDate as any,
         entityId,
         entityName,
         description,
-        reference,
-        projectId,
+        reference: reference || undefined,
+        projectId: projectId || undefined,
         status,
         lineItems,
         subtotal,
-        gstDetails,
+        gstDetails: gstDetails as any,
         tdsDeducted,
-        tdsDetails,
+        tdsDetails: tdsDetails as any,
         tdsAmount,
         totalAmount,
         amount: totalAmount,
@@ -257,7 +273,10 @@ export function CreateBillDialog({
         entries: [], // Ledger entries will be generated when posted
         createdAt: editingBill?.createdAt || Timestamp.now(),
         updatedAt: Timestamp.now(),
-      };
+        currency: 'INR',
+        baseAmount: totalAmount,
+        attachments: [],
+      } as any;
 
       if (editingBill?.id) {
         // Update existing bill
@@ -295,7 +314,7 @@ export function CreateBillDialog({
       }
     >
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
             fullWidth
             label="Date"
@@ -306,7 +325,7 @@ export function CreateBillDialog({
             InputLabelProps={{ shrink: true }}
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
             fullWidth
             label="Due Date"
@@ -316,7 +335,7 @@ export function CreateBillDialog({
             InputLabelProps={{ shrink: true }}
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <EntitySelector
             value={entityId}
             onChange={setEntityId}
@@ -325,22 +344,23 @@ export function CreateBillDialog({
             filterByRole="VENDOR"
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
             fullWidth
             label="Status"
             select
             value={status}
-            onChange={(e) => setStatus(e.target.value as 'DRAFT' | 'APPROVED' | 'PAID' | 'OVERDUE')}
+            onChange={(e) => setStatus(e.target.value as TransactionStatus)}
             required
           >
             <MenuItem value="DRAFT">Draft</MenuItem>
+            <MenuItem value="PENDING_APPROVAL">Pending Approval</MenuItem>
             <MenuItem value="APPROVED">Approved</MenuItem>
-            <MenuItem value="PAID">Paid</MenuItem>
-            <MenuItem value="OVERDUE">Overdue</MenuItem>
+            <MenuItem value="POSTED">Posted</MenuItem>
+            <MenuItem value="VOID">Void</MenuItem>
           </TextField>
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <TextField
             fullWidth
             label="Description"
@@ -350,7 +370,7 @@ export function CreateBillDialog({
             rows={2}
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
             fullWidth
             label="Reference / Invoice Number"
@@ -359,7 +379,7 @@ export function CreateBillDialog({
             helperText="Vendor's invoice number"
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <ProjectSelector
             value={projectId}
             onChange={setProjectId}
@@ -367,7 +387,7 @@ export function CreateBillDialog({
           />
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Box sx={{ mt: 2 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
               <Typography variant="h6">Line Items</Typography>
@@ -551,7 +571,7 @@ export function CreateBillDialog({
           </Box>
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Paper variant="outlined" sx={{ p: 2 }}>
             <FormControlLabel
               control={
@@ -564,7 +584,7 @@ export function CreateBillDialog({
             />
             {tdsDeducted && (
               <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     fullWidth
                     label="TDS Section"
@@ -580,7 +600,7 @@ export function CreateBillDialog({
                     ))}
                   </TextField>
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     fullWidth
                     label="Vendor PAN"

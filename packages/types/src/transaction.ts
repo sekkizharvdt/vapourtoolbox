@@ -75,6 +75,7 @@ export interface BaseTransaction {
   rejectionReason?: string;
 
   // References
+  reference?: string; // Alternative reference field
   referenceNumber?: string; // External reference (PO number, invoice number, etc.)
   relatedTransactionIds?: string[]; // Links to related transactions
 
@@ -164,6 +165,7 @@ export interface VendorBill extends BaseTransaction {
   billDate: Date;
   dueDate?: Date;
   vendorInvoiceNumber: string; // Vendor's invoice/bill number
+  reference?: string; // Alternative reference field
 
   // Line items
   lineItems: InvoiceLineItem[];

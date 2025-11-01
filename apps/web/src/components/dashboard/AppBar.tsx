@@ -15,6 +15,7 @@ import {
   Menu as MenuIcon,
   Notifications as NotificationsIcon,
   AccountCircle as AccountCircleIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { ThemeToggle } from '@vapour/ui';
 import { useState } from 'react';
@@ -55,6 +56,10 @@ export function DashboardAppBar({ onMenuClick, sidebarWidth }: DashboardAppBarPr
     router.push('/login');
   };
 
+  const handleHome = () => {
+    router.push('/dashboard');
+  };
+
   return (
     <MuiAppBar
       position="fixed"
@@ -83,6 +88,10 @@ export function DashboardAppBar({ onMenuClick, sidebarWidth }: DashboardAppBarPr
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton color="inherit" onClick={handleHome} title="Home / Dashboard">
+            <HomeIcon />
+          </IconButton>
+
           <ThemeToggle />
 
           <IconButton color="inherit">

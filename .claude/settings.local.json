@@ -76,7 +76,11 @@
       "Bash(fi)",
       "Bash(pnpm list:*)",
       "Bash(gh workflow run:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(timeout /t 60 /nobreak)",
+      "Bash(firebase projects:list:*)",
+      "Bash(GOOGLE_CLOUD_PROJECT=vapour-toolbox node:*)",
+      "Bash(pnpm exec tsc:*)"
     ],
     "deny": [],
     "ask": []

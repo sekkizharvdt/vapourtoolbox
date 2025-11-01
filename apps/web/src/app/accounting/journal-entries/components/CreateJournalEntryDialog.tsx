@@ -29,7 +29,7 @@ import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { getFirebase } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { JournalEntry, LedgerEntry } from '@vapour/types';
+import type { JournalEntry, LedgerEntry, TransactionStatus } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { validateLedgerEntries, calculateBalance } from '@/lib/accounting/ledgerValidator';
 
@@ -53,35 +53,36 @@ export function CreateJournalEntryDialog({
   const [error, setError] = useState('');
 
   // Form fields
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [description, setDescription] = useState('');
-  const [reference, setReference] = useState('');
+  const [date, setDate] = useState<string>(() => new Date().toISOString().split('T')[0] || '');
+  const [description, setDescription] = useState<string>('');
+  const [reference, setReference] = useState<string>('');
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [status, setStatus] = useState<'DRAFT' | 'POSTED'>('DRAFT');
+  const [status, setStatus] = useState<TransactionStatus>('DRAFT');
   const [entries, setEntries] = useState<LedgerEntryForm[]>([
-    { accountId: '', debit: 0, credit: 0, description: '', costCentreId: null },
-    { accountId: '', debit: 0, credit: 0, description: '', costCentreId: null },
+    { accountId: '', debit: 0, credit: 0, description: '', costCentreId: undefined },
+    { accountId: '', debit: 0, credit: 0, description: '', costCentreId: undefined },
   ]);
 
   // Reset form when dialog opens/closes or editing entry changes
   useEffect(() => {
     if (open) {
       if (editingEntry) {
-        setDate(editingEntry.date);
+        const dateStr = editingEntry.date instanceof Date ? (editingEntry.date.toISOString().split('T')[0] || '') : (typeof editingEntry.date === 'string' ? editingEntry.date : '');
+        setDate(dateStr || (new Date().toISOString().split('T')[0] || ''));
         setDescription(editingEntry.description || '');
-        setReference(editingEntry.reference || '');
-        setProjectId(editingEntry.projectId || null);
+        setReference(editingEntry.referenceNumber || '');
+        setProjectId(editingEntry.projectId ?? null);
         setStatus(editingEntry.status);
         setEntries(editingEntry.entries || []);
       } else {
-        setDate(new Date().toISOString().split('T')[0]);
+        setDate(new Date().toISOString().split('T')[0] || '');
         setDescription('');
         setReference('');
         setProjectId(null);
         setStatus('DRAFT');
         setEntries([
-          { accountId: '', debit: 0, credit: 0, description: '', costCentreId: null },
-          { accountId: '', debit: 0, credit: 0, description: '', costCentreId: null },
+          { accountId: '', debit: 0, credit: 0, description: '', costCentreId: undefined },
+          { accountId: '', debit: 0, credit: 0, description: '', costCentreId: undefined },
         ]);
       }
       setError('');
@@ -91,7 +92,7 @@ export function CreateJournalEntryDialog({
   const addEntry = () => {
     setEntries([
       ...entries,
-      { accountId: '', debit: 0, credit: 0, description: '', costCentreId: null },
+      { accountId: '', debit: 0, credit: 0, description: '', costCentreId: undefined },
     ]);
   };
 
@@ -103,9 +104,12 @@ export function CreateJournalEntryDialog({
     setEntries(entries.filter((_, i) => i !== index));
   };
 
-  const updateEntry = (index: number, field: keyof LedgerEntryForm, value: string | number | null) => {
+  const updateEntry = (index: number, field: keyof LedgerEntryForm, value: string | number | null | undefined) => {
     const newEntries = [...entries];
-    newEntries[index] = { ...newEntries[index], [field]: value };
+    const currentEntry = newEntries[index];
+    if (currentEntry) {
+      newEntries[index] = { ...currentEntry, [field]: value };
+    }
     setEntries(newEntries);
   };
 
@@ -125,19 +129,28 @@ export function CreateJournalEntryDialog({
       const { db } = getFirebase();
       const balance = calculateBalance(entries);
 
+      // Convert string date to Date object for Firestore
+      const journalDate = new Date(date);
+
       const journalEntry: Partial<JournalEntry> = {
         type: 'JOURNAL_ENTRY',
-        date,
+        date: journalDate as any,
+        journalDate: journalDate as any,
         description,
-        reference,
-        projectId,
+        referenceNumber: reference || undefined,
+        projectId: projectId || undefined,
         status,
         entries,
         amount: balance.totalDebits,
         transactionNumber: editingEntry?.transactionNumber || await generateTransactionNumber('JOURNAL_ENTRY'),
         createdAt: editingEntry?.createdAt || Timestamp.now(),
         updatedAt: Timestamp.now(),
-      };
+        currency: 'INR',
+        baseAmount: balance.totalDebits,
+        attachments: [],
+        journalType: 'GENERAL',
+        isReversed: false,
+      } as any;
 
       if (editingEntry?.id) {
         // Update existing entry
@@ -178,7 +191,7 @@ export function CreateJournalEntryDialog({
       }
     >
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
             fullWidth
             label="Date"
@@ -189,20 +202,23 @@ export function CreateJournalEntryDialog({
             InputLabelProps={{ shrink: true }}
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
             fullWidth
             label="Status"
             select
             value={status}
-            onChange={(e) => setStatus(e.target.value as 'DRAFT' | 'POSTED')}
+            onChange={(e) => setStatus(e.target.value as TransactionStatus)}
             required
           >
             <MenuItem value="DRAFT">Draft</MenuItem>
+            <MenuItem value="PENDING_APPROVAL">Pending Approval</MenuItem>
+            <MenuItem value="APPROVED">Approved</MenuItem>
             <MenuItem value="POSTED">Posted</MenuItem>
+            <MenuItem value="VOID">Void</MenuItem>
           </TextField>
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <TextField
             fullWidth
             label="Description"
@@ -212,7 +228,7 @@ export function CreateJournalEntryDialog({
             rows={2}
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
             fullWidth
             label="Reference"
@@ -221,7 +237,7 @@ export function CreateJournalEntryDialog({
             helperText="Invoice number, PO number, etc."
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <ProjectSelector
             value={projectId}
             onChange={setProjectId}
@@ -229,7 +245,7 @@ export function CreateJournalEntryDialog({
           />
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Box sx={{ mt: 2 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
               <Typography variant="h6">Ledger Entries</Typography>
@@ -260,7 +276,7 @@ export function CreateJournalEntryDialog({
                       <TableCell>
                         <AccountSelector
                           value={entry.accountId}
-                          onChange={(accountId) => updateEntry(index, 'accountId', accountId)}
+                          onChange={(accountId) => updateEntry(index, 'accountId', accountId || '')}
                           label=""
                           required
                           excludeGroups
@@ -296,10 +312,9 @@ export function CreateJournalEntryDialog({
                       </TableCell>
                       <TableCell>
                         <ProjectSelector
-                          value={entry.costCentreId}
-                          onChange={(costCentreId) => updateEntry(index, 'costCentreId', costCentreId)}
+                          value={entry.costCentreId ?? null}
+                          onChange={(costCentreId) => updateEntry(index, 'costCentreId', costCentreId ?? undefined)}
                           label=""
-                          size="small"
                         />
                       </TableCell>
                       <TableCell align="right">

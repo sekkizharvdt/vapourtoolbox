@@ -10,8 +10,12 @@ export default function DashboardPage() {
   const { user, claims } = useAuth();
   const userRoles = claims?.roles || [];
 
-  // Filter modules based on user roles and status
+  // Filter modules based on user roles, status, and category
+  // ONLY show application modules on dashboard (core modules are in sidebar only)
   const accessibleModules = Object.values(MODULES).filter((module) => {
+    // Only show application modules (not core modules)
+    if (module.category !== 'application') return false;
+
     // If module has no role restrictions, show to all users
     if (module.roles === 'ALL') return true;
 
@@ -19,9 +23,14 @@ export default function DashboardPage() {
     return module.roles.some((role) => userRoles.includes(role as UserRole));
   });
 
-  // Separate modules by status for better organization
-  const activeModules = accessibleModules.filter((m) => m.status === 'active');
-  const comingSoonModules = accessibleModules.filter((m) => m.status === 'coming_soon');
+  // Separate modules by status and sort by priority
+  const activeModules = accessibleModules
+    .filter((m) => m.status === 'active')
+    .sort((a, b) => (a.priority || 999) - (b.priority || 999));
+
+  const comingSoonModules = accessibleModules
+    .filter((m) => m.status === 'coming_soon')
+    .sort((a, b) => (a.priority || 999) - (b.priority || 999));
 
   return (
     <Container maxWidth="xl">

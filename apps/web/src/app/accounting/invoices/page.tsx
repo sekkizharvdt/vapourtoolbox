@@ -34,13 +34,13 @@ import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { CreateInvoiceDialog } from './components/CreateInvoiceDialog';
 
 export default function InvoicesPage() {
-  const { userData } = useAuth();
+  const { claims } = useAuth();
   const [invoices, setInvoices] = useState<CustomerInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<CustomerInvoice | null>(null);
 
-  const canManage = hasPermission(userData?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
+  const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
   // Real-time listener for invoices
   useEffect(() => {
@@ -163,10 +163,10 @@ export default function InvoicesPage() {
                       label={invoice.status}
                       size="small"
                       color={
-                        invoice.status === 'PAID' ? 'success' :
-                        invoice.status === 'SENT' ? 'info' :
+                        invoice.status === 'POSTED' ? 'success' :
+                        invoice.status === 'APPROVED' ? 'info' :
                         invoice.status === 'DRAFT' ? 'default' :
-                        invoice.status === 'OVERDUE' ? 'error' :
+                        invoice.status === 'REJECTED' ? 'error' :
                         'warning'
                       }
                     />

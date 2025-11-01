@@ -34,13 +34,13 @@ import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { CreateBillDialog } from './components/CreateBillDialog';
 
 export default function BillsPage() {
-  const { userData } = useAuth();
+  const { claims } = useAuth();
   const [bills, setBills] = useState<VendorBill[]>([]);
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<VendorBill | null>(null);
 
-  const canManage = hasPermission(userData?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
+  const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
   // Real-time listener for bills
   useEffect(() => {
@@ -167,10 +167,10 @@ export default function BillsPage() {
                       label={bill.status}
                       size="small"
                       color={
-                        bill.status === 'PAID' ? 'success' :
+                        bill.status === 'POSTED' ? 'success' :
                         bill.status === 'APPROVED' ? 'info' :
                         bill.status === 'DRAFT' ? 'default' :
-                        bill.status === 'OVERDUE' ? 'error' :
+                        bill.status === 'VOID' ? 'error' :
                         'warning'
                       }
                     />

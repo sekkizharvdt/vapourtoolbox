@@ -29,30 +29,9 @@ interface AccountTreeViewProps {
 export function AccountTreeView({ accounts }: AccountTreeViewProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  // Collect all account IDs that have children
-  const accountsWithChildren = useMemo(() => {
-    const withChildren = new Set<string>();
-    accounts.forEach((account) => {
-      if (account.isGroup) {
-        withChildren.add(account.id);
-      }
-    });
-    return withChildren;
-  }, [accounts]);
-
-  // Expand all accounts with children
-  const handleExpandAll = () => {
-    setExpanded(new Set(accountsWithChildren));
-  };
-
-  // Collapse all accounts
-  const handleCollapseAll = () => {
-    setExpanded(new Set());
-  };
-
-  // Build tree structure from flat account list
-  const buildTree = (accounts: Account[]): AccountTreeNode[] => {
-    const tree: AccountTreeNode[] = [];
+  // Build tree structure from flat account list (memoized)
+  const tree = useMemo(() => {
+    const treeResult: AccountTreeNode[] = [];
     const accountMap = new Map<string, AccountTreeNode>();
 
     // First pass: create all nodes
@@ -69,11 +48,11 @@ export function AccountTreeView({ accounts }: AccountTreeViewProps) {
           parent.children.push(node);
         } else {
           // Parent not found, add to root
-          tree.push(node);
+          treeResult.push(node);
         }
       } else {
         // Root level account
-        tree.push(node);
+        treeResult.push(node);
       }
     });
 
@@ -87,8 +66,35 @@ export function AccountTreeView({ accounts }: AccountTreeViewProps) {
       });
     };
 
-    sortChildren(tree);
-    return tree;
+    sortChildren(treeResult);
+    return treeResult;
+  }, [accounts]);
+
+  // Collect all account IDs that actually have children in the tree
+  const accountsWithChildren = useMemo(() => {
+    const withChildren = new Set<string>();
+
+    const collectParents = (nodes: AccountTreeNode[]) => {
+      nodes.forEach((node) => {
+        if (node.children && node.children.length > 0) {
+          withChildren.add(node.id);
+          collectParents(node.children);
+        }
+      });
+    };
+
+    collectParents(tree);
+    return withChildren;
+  }, [tree]);
+
+  // Expand all accounts with children
+  const handleExpandAll = () => {
+    setExpanded(new Set(accountsWithChildren));
+  };
+
+  // Collapse all accounts
+  const handleCollapseAll = () => {
+    setExpanded(new Set());
   };
 
   const toggleExpand = (accountId: string) => {
@@ -265,8 +271,6 @@ export function AccountTreeView({ accounts }: AccountTreeViewProps) {
       </Box>
     );
   };
-
-  const tree = buildTree(accounts);
 
   if (tree.length === 0) {
     return (

@@ -33,13 +33,13 @@ import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { CreateJournalEntryDialog } from './components/CreateJournalEntryDialog';
 
 export default function JournalEntriesPage() {
-  const { userData } = useAuth();
+  const { claims } = useAuth();
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
 
-  const canManage = hasPermission(userData?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
+  const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
   // Real-time listener for journal entries
   useEffect(() => {

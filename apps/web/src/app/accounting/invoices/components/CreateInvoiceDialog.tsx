@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TextField,
   Grid,
@@ -28,7 +28,7 @@ import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { getFirebase } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, Timestamp, getDoc } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { CustomerInvoice, LineItem } from '@vapour/types';
+import type { CustomerInvoice, LineItem, TransactionStatus } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { calculateGST, getGSTRateSuggestions } from '@/lib/accounting/gstCalculator';
 
@@ -47,14 +47,14 @@ export function CreateInvoiceDialog({
   const [error, setError] = useState('');
 
   // Form fields
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dueDate, setDueDate] = useState('');
+  const [date, setDate] = useState<string>(() => new Date().toISOString().split('T')[0] || '');
+  const [dueDate, setDueDate] = useState<string>('');
   const [entityId, setEntityId] = useState<string | null>(null);
-  const [entityName, setEntityName] = useState('');
-  const [description, setDescription] = useState('');
-  const [reference, setReference] = useState('');
+  const [entityName, setEntityName] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
+  const [reference, setReference] = useState<string>('');
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [status, setStatus] = useState<'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE'>('DRAFT');
+  const [status, setStatus] = useState<TransactionStatus>('DRAFT');
   const [lineItems, setLineItems] = useState<LineItem[]>([
     {
       description: '',
@@ -102,17 +102,20 @@ export function CreateInvoiceDialog({
   useEffect(() => {
     if (open) {
       if (editingInvoice) {
-        setDate(editingInvoice.date);
-        setDueDate(editingInvoice.dueDate || '');
-        setEntityId(editingInvoice.entityId || null);
+        // Convert Date to string for date inputs
+        const dateStr = editingInvoice.date instanceof Date ? (editingInvoice.date.toISOString().split('T')[0] || '') : (typeof editingInvoice.date === 'string' ? editingInvoice.date : '');
+        const dueDateStr = editingInvoice.dueDate ? (editingInvoice.dueDate instanceof Date ? (editingInvoice.dueDate.toISOString().split('T')[0] || '') : (typeof editingInvoice.dueDate === 'string' ? editingInvoice.dueDate : '')) : '';
+        setDate(dateStr || (new Date().toISOString().split('T')[0] || ''));
+        setDueDate(dueDateStr || '');
+        setEntityId(editingInvoice.entityId ?? null);
         setEntityName(editingInvoice.entityName || '');
         setDescription(editingInvoice.description || '');
-        setReference(editingInvoice.reference || '');
-        setProjectId(editingInvoice.projectId || null);
+        setReference(editingInvoice.referenceNumber || '');
+        setProjectId(editingInvoice.projectId ?? null);
         setStatus(editingInvoice.status);
         setLineItems(editingInvoice.lineItems || []);
       } else {
-        setDate(new Date().toISOString().split('T')[0]);
+        setDate(new Date().toISOString().split('T')[0] || '');
         setDueDate('');
         setEntityId(null);
         setEntityName('');
@@ -159,12 +162,17 @@ export function CreateInvoiceDialog({
 
   const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
     const newLineItems = [...lineItems];
-    newLineItems[index] = { ...newLineItems[index], [field]: value };
+    const item = newLineItems[index];
+    if (!item) return;
+
+    newLineItems[index] = { ...item, [field]: value };
 
     // Recalculate amount
     if (field === 'quantity' || field === 'unitPrice') {
-      const item = newLineItems[index];
-      item.amount = item.quantity * item.unitPrice;
+      const updatedItem = newLineItems[index];
+      if (updatedItem) {
+        updatedItem.amount = (updatedItem.quantity || 0) * (updatedItem.unitPrice || 0);
+      }
     }
 
     setLineItems(newLineItems);
@@ -175,16 +183,18 @@ export function CreateInvoiceDialog({
   const taxableAmount = subtotal;
 
   // Calculate GST
-  let gstDetails;
-  if (companyState && customerState && taxableAmount > 0) {
-    const avgGstRate = lineItems.reduce((sum, item) => sum + (item.gstRate || 0), 0) / lineItems.length;
-    gstDetails = calculateGST({
-      taxableAmount,
-      gstRate: avgGstRate,
-      sourceState: companyState,
-      destinationState: customerState,
-    });
-  }
+  const gstDetails = React.useMemo(() => {
+    if (companyState && customerState && taxableAmount > 0) {
+      const avgGstRate = lineItems.reduce((sum, item) => sum + (item.gstRate || 0), 0) / lineItems.length;
+      return calculateGST({
+        taxableAmount,
+        gstRate: avgGstRate,
+        sourceState: companyState,
+        destinationState: customerState,
+      });
+    }
+    return undefined;
+  }, [companyState, customerState, taxableAmount, lineItems]);
 
   const totalAmount = subtotal + (gstDetails?.totalGST || 0);
 
@@ -207,26 +217,39 @@ export function CreateInvoiceDialog({
 
       const { db } = getFirebase();
 
+      // Convert string dates to Date objects for Firestore
+      const invoiceDate = new Date(date);
+      const invoiceDueDate = dueDate ? new Date(dueDate) : undefined;
+
       const invoice: Partial<CustomerInvoice> = {
         type: 'CUSTOMER_INVOICE',
-        date,
-        dueDate: dueDate || null,
+        date: invoiceDate as any,
+        dueDate: invoiceDueDate as any,
         entityId,
         entityName,
         description,
-        reference,
-        projectId,
+        referenceNumber: reference || undefined,
+        projectId: projectId || undefined,
         status,
         lineItems,
         subtotal,
-        gstDetails,
+        gstDetails: gstDetails as any,
         totalAmount,
         amount: totalAmount,
         transactionNumber: editingInvoice?.transactionNumber || await generateTransactionNumber('CUSTOMER_INVOICE'),
         entries: [], // Ledger entries will be generated when posted
         createdAt: editingInvoice?.createdAt || Timestamp.now(),
         updatedAt: Timestamp.now(),
-      };
+        currency: 'INR',
+        baseAmount: totalAmount,
+        attachments: [],
+        invoiceDate: invoiceDate as any,
+        paymentTerms: 'Net 30',
+        paidAmount: 0,
+        outstandingAmount: totalAmount,
+        paymentStatus: 'UNPAID',
+        taxAmount: gstDetails?.totalGST || 0,
+      } as any;
 
       if (editingInvoice?.id) {
         // Update existing invoice
@@ -264,7 +287,7 @@ export function CreateInvoiceDialog({
       }
     >
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
             fullWidth
             label="Date"
@@ -275,7 +298,7 @@ export function CreateInvoiceDialog({
             InputLabelProps={{ shrink: true }}
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
             fullWidth
             label="Due Date"
@@ -285,7 +308,7 @@ export function CreateInvoiceDialog({
             InputLabelProps={{ shrink: true }}
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <EntitySelector
             value={entityId}
             onChange={setEntityId}
@@ -294,22 +317,23 @@ export function CreateInvoiceDialog({
             filterByRole="CUSTOMER"
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
             fullWidth
             label="Status"
             select
             value={status}
-            onChange={(e) => setStatus(e.target.value as 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE')}
+            onChange={(e) => setStatus(e.target.value as TransactionStatus)}
             required
           >
             <MenuItem value="DRAFT">Draft</MenuItem>
-            <MenuItem value="SENT">Sent</MenuItem>
-            <MenuItem value="PAID">Paid</MenuItem>
-            <MenuItem value="OVERDUE">Overdue</MenuItem>
+            <MenuItem value="PENDING_APPROVAL">Pending Approval</MenuItem>
+            <MenuItem value="APPROVED">Approved</MenuItem>
+            <MenuItem value="POSTED">Posted</MenuItem>
+            <MenuItem value="VOID">Void</MenuItem>
           </TextField>
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <TextField
             fullWidth
             label="Description"
@@ -319,7 +343,7 @@ export function CreateInvoiceDialog({
             rows={2}
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <TextField
             fullWidth
             label="Reference"
@@ -328,7 +352,7 @@ export function CreateInvoiceDialog({
             helperText="PO number, job reference, etc."
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <ProjectSelector
             value={projectId}
             onChange={setProjectId}
@@ -336,7 +360,7 @@ export function CreateInvoiceDialog({
           />
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Box sx={{ mt: 2 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
               <Typography variant="h6">Line Items</Typography>

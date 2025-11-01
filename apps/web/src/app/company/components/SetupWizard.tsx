@@ -140,7 +140,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
       case 0: // Basic Info
         return (
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 required
                 fullWidth
@@ -150,7 +150,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
                 helperText="The name your company operates under"
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 required
                 fullWidth
@@ -166,7 +166,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
       case 1: // Contact
         return (
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 required
                 fullWidth
@@ -175,7 +175,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
                 onChange={handleChange('street')}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 required
                 fullWidth
@@ -184,7 +184,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
                 onChange={handleChange('city')}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 required
                 fullWidth
@@ -193,7 +193,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
                 onChange={handleChange('state')}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 required
                 fullWidth
@@ -202,7 +202,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
                 onChange={handleChange('postalCode')}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 required
                 fullWidth
@@ -211,7 +211,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
                 onChange={handleChange('country')}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 required
                 fullWidth
@@ -220,7 +220,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
                 onChange={handleChange('phone')}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 required
                 fullWidth
@@ -230,7 +230,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
                 onChange={handleChange('email')}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
                 label="Website"
@@ -245,12 +245,12 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
       case 2: // Tax IDs
         return (
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Alert severity="info">
                 Enter your company&apos;s tax identification numbers. All fields are optional.
               </Alert>
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
                 label="GSTIN"
@@ -259,7 +259,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
                 helperText="Goods and Services Tax Identification Number"
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="PAN"
@@ -268,7 +268,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
                 helperText="Permanent Account Number"
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="TAN"
@@ -283,7 +283,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
       case 3: // Banking
         return (
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 required
                 fullWidth
@@ -292,7 +292,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
                 onChange={handleChange('bankName')}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 required
                 fullWidth
@@ -301,7 +301,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
                 onChange={handleChange('accountNumber')}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 required
                 fullWidth
@@ -316,7 +316,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
       case 4: // Fiscal
         return (
           <Grid container spacing={3}>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 required
                 fullWidth
@@ -333,7 +333,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
                 ))}
               </TextField>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 required
                 fullWidth
