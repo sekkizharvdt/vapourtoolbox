@@ -34,6 +34,13 @@ import {
   createPaymentWithAllocationsAtomic,
   updatePaymentWithAllocationsAtomic,
 } from '@/lib/accounting/paymentHelpers';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  logPaymentCreated,
+  logPaymentUpdated,
+  createAuditFieldChanges,
+  type AuditUserContext,
+} from '@/lib/accounting/auditLogger';
 
 interface RecordCustomerPaymentDialogProps {
   open: boolean;
@@ -65,6 +72,7 @@ export function RecordCustomerPaymentDialog({
   onClose,
   editingPayment,
 }: RecordCustomerPaymentDialogProps) {
+  const { user, claims } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -296,7 +304,7 @@ export function RecordCustomerPaymentDialog({
         baseAmount,
         entries: [],
         attachments: [],
-        createdBy: 'current-user', // TODO: Get from auth context
+        createdBy: user?.uid || 'system',
       };
 
       // Add exchange rate if foreign currency
@@ -319,6 +327,14 @@ export function RecordCustomerPaymentDialog({
         paymentData.costCentreId = projectId; // Same as projectId for consistency
       }
 
+      // Prepare audit user context
+      const auditUser: AuditUserContext = {
+        userId: user?.uid || 'system',
+        userEmail: user?.email || 'unknown',
+        userName: user?.displayName || user?.email || 'Unknown User',
+        userRoles: claims?.roles || [],
+      };
+
       if (editingPayment?.id) {
         // Update existing payment atomically
         const oldAllocations = editingPayment.invoiceAllocations || [];
@@ -332,9 +348,31 @@ export function RecordCustomerPaymentDialog({
           oldAllocations,
           validAllocations
         );
+
+        // Log payment update to audit trail
+        const changes = createAuditFieldChanges(
+          editingPayment as unknown as Record<string, unknown>,
+          paymentData as Record<string, unknown>
+        );
+        await logPaymentUpdated(db, auditUser, editingPayment.id, transactionNumber || '', changes);
       } else {
         // Create new payment atomically with invoice status updates
-        await createPaymentWithAllocationsAtomic(db, paymentData, validAllocations);
+        const paymentId = await createPaymentWithAllocationsAtomic(
+          db,
+          paymentData,
+          validAllocations
+        );
+
+        // Log payment creation to audit trail
+        await logPaymentCreated(
+          db,
+          auditUser,
+          paymentId,
+          transactionNumber || '',
+          parseFloat(amount) || 0,
+          currency,
+          entityId || ''
+        );
       }
 
       onClose();

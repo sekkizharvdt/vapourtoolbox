@@ -6,7 +6,7 @@
  * the Chart of Accounts for specific account types and properties.
  */
 
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 
 export interface SystemAccountIds {
@@ -39,12 +39,12 @@ let cacheTimestamp: number = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export async function getSystemAccountIds(
-  db: any,
+  db: Firestore,
   forceRefresh = false
 ): Promise<SystemAccountIds> {
   // Return cached result if valid
   const now = Date.now();
-  if (!forceRefresh && cachedAccounts && (now - cacheTimestamp) < CACHE_TTL) {
+  if (!forceRefresh && cachedAccounts && now - cacheTimestamp < CACHE_TTL) {
     return cachedAccounts;
   }
 
@@ -193,7 +193,9 @@ export async function getSystemAccountIds(
     return accounts;
   } catch (error) {
     console.error('[systemAccountResolver] Error fetching system accounts:', error);
-    throw new Error('Failed to fetch system accounts. Please ensure Chart of Accounts is initialized.');
+    throw new Error(
+      'Failed to fetch system accounts. Please ensure Chart of Accounts is initialized.'
+    );
   }
 }
 

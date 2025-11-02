@@ -14,6 +14,8 @@ import {
   where,
   getDocs,
   writeBatch,
+  type Firestore,
+  type DocumentData,
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { PaymentAllocation, TransactionStatus } from '@vapour/types';
@@ -27,7 +29,7 @@ import type { PaymentAllocation, TransactionStatus } from '@vapour/types';
  * - PAID: Full amount received
  */
 export async function updateTransactionStatusAfterPayment(
-  db: any,
+  db: Firestore,
   transactionId: string,
   paidAmount: number
 ): Promise<void> {
@@ -76,7 +78,7 @@ export async function updateTransactionStatusAfterPayment(
  * Process payment allocations and update invoice/bill statuses
  */
 export async function processPaymentAllocations(
-  db: any,
+  db: Firestore,
   allocations: PaymentAllocation[]
 ): Promise<void> {
   const updatePromises = allocations
@@ -93,7 +95,7 @@ export async function processPaymentAllocations(
  * Queries all payments allocated to this transaction
  */
 export async function getOutstandingAmount(
-  db: any,
+  db: Firestore,
   transactionId: string,
   transactionType: 'CUSTOMER_INVOICE' | 'VENDOR_BILL'
 ): Promise<{ totalAmount: number; amountPaid: number; outstanding: number }> {
@@ -147,7 +149,7 @@ export async function getOutstandingAmount(
  * Validate payment allocation doesn't exceed invoice/bill amount
  */
 export async function validatePaymentAllocation(
-  db: any,
+  db: Firestore,
   transactionId: string,
   newAllocation: number,
   transactionType: 'CUSTOMER_INVOICE' | 'VENDOR_BILL'
@@ -183,8 +185,8 @@ export async function validatePaymentAllocation(
  * This ensures either all operations succeed or all fail (no partial updates)
  */
 export async function createPaymentWithAllocationsAtomic(
-  db: any,
-  paymentData: any,
+  db: Firestore,
+  paymentData: DocumentData,
   allocations: PaymentAllocation[]
 ): Promise<string> {
   const batch = writeBatch(db);
@@ -247,9 +249,9 @@ export async function createPaymentWithAllocationsAtomic(
  * Atomically update an existing payment and recalculate invoice/bill statuses
  */
 export async function updatePaymentWithAllocationsAtomic(
-  db: any,
+  db: Firestore,
   paymentId: string,
-  paymentData: any,
+  paymentData: DocumentData,
   oldAllocations: PaymentAllocation[],
   newAllocations: PaymentAllocation[]
 ): Promise<void> {
