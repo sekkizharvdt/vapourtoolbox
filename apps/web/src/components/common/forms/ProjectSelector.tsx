@@ -38,11 +38,18 @@ export function ProjectSelector({
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Load projects from Firestore
   useEffect(() => {
     const { db } = getFirebase();
     const projectsRef = collection(db, COLLECTIONS.PROJECTS);
+
+    console.log(`[ProjectSelector] Loading projects (onlyActive: ${onlyActive})`);
+    setLoadError(null);
+
+    // Track cleanup function for fallback query
+    let fallbackCleanup: (() => void) | null = null;
 
     // Build query
     let q = query(projectsRef, orderBy('name', 'asc'));
@@ -50,56 +57,166 @@ export function ProjectSelector({
       q = query(projectsRef, where('isActive', '==', true), orderBy('name', 'asc'));
     }
 
-    // Subscribe to real-time updates
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const projectsData: Project[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        projectsData.push({
-          id: doc.id,
-          code: data.code,
-          name: data.name,
-          description: data.description,
-          status: data.status || 'PLANNING',
-          priority: data.priority || 'MEDIUM',
-          client: data.client || {
-            entityId: data.clientEntityId || '',
-            entityName: data.clientEntity || '',
-            contactPerson: '',
-            contactEmail: '',
-            contactPhone: '',
-          },
-          projectManager: data.projectManager || {
-            userId: '',
-            userName: '',
-          },
-          team: data.team || [],
-          dates: data.dates || {
-            startDate: data.startDate,
-            endDate: data.endDate,
-          },
-          budget: data.budget,
-          tags: data.tags || [],
-          category: data.category,
-          location: data.location,
-          ownerId: data.ownerId || data.createdBy || '',
-          visibility: data.visibility || 'team',
-          lastActivityAt: data.lastActivityAt,
-          lastActivityBy: data.lastActivityBy,
-          progress: data.progress,
-          isActive: data.isActive ?? true,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          createdBy: data.createdBy || '',
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-          updatedBy: data.updatedBy,
-        } as Project);
-      });
+    // Subscribe to real-time updates with error handling
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        try {
+          console.log(`[ProjectSelector] Query successful. Found ${snapshot.size} projects.`);
+          const projectsData: Project[] = [];
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            projectsData.push({
+              id: doc.id,
+              code: data.code,
+              name: data.name,
+              description: data.description,
+              status: data.status || 'PLANNING',
+              priority: data.priority || 'MEDIUM',
+              client: data.client || {
+                entityId: data.clientEntityId || '',
+                entityName: data.clientEntity || '',
+                contactPerson: '',
+                contactEmail: '',
+                contactPhone: '',
+              },
+              projectManager: data.projectManager || {
+                userId: '',
+                userName: '',
+              },
+              team: data.team || [],
+              dates: data.dates || {
+                startDate: data.startDate,
+                endDate: data.endDate,
+              },
+              budget: data.budget,
+              tags: data.tags || [],
+              category: data.category,
+              location: data.location,
+              ownerId: data.ownerId || data.createdBy || '',
+              visibility: data.visibility || 'team',
+              lastActivityAt: data.lastActivityAt,
+              lastActivityBy: data.lastActivityBy,
+              progress: data.progress,
+              isActive: data.isActive ?? true,
+              createdAt: data.createdAt?.toDate() || new Date(),
+              createdBy: data.createdBy || '',
+              updatedAt: data.updatedAt?.toDate() || new Date(),
+              updatedBy: data.updatedBy,
+            } as Project);
+          });
 
-      setProjects(projectsData);
-      setLoading(false);
-    });
+          setProjects(projectsData);
+          setLoading(false);
+          setLoadError(null);
+        } catch (error) {
+          console.error('[ProjectSelector] Error processing snapshot data:', error);
+          setLoadError('Failed to load projects. Please try again.');
+          setLoading(false);
+        }
+      },
+      (error) => {
+        console.error('[ProjectSelector] Firestore query error:', error);
+        console.error('[ProjectSelector] Error code:', error.code);
+        console.error('[ProjectSelector] Error message:', error.message);
 
-    return () => unsubscribe();
+        // If the primary query fails (likely due to missing index), try fallback
+        if (error.code === 'failed-precondition' || error.message.includes('index')) {
+          console.warn(
+            '[ProjectSelector] Primary query failed (likely missing index). Trying fallback query without where clause.'
+          );
+
+          // Fallback: load all projects without where filter, then filter client-side
+          const fallbackQuery = query(projectsRef, orderBy('name', 'asc'));
+          fallbackCleanup = onSnapshot(
+            fallbackQuery,
+            (snapshot) => {
+              try {
+                console.log(
+                  `[ProjectSelector] Fallback query successful. Found ${snapshot.size} projects.`
+                );
+                const projectsData: Project[] = [];
+                snapshot.forEach((doc) => {
+                  const data = doc.data();
+
+                  // Client-side filter for active projects if needed
+                  if (onlyActive && !data.isActive) {
+                    return;
+                  }
+
+                  projectsData.push({
+                    id: doc.id,
+                    code: data.code,
+                    name: data.name,
+                    description: data.description,
+                    status: data.status || 'PLANNING',
+                    priority: data.priority || 'MEDIUM',
+                    client: data.client || {
+                      entityId: data.clientEntityId || '',
+                      entityName: data.clientEntity || '',
+                      contactPerson: '',
+                      contactEmail: '',
+                      contactPhone: '',
+                    },
+                    projectManager: data.projectManager || {
+                      userId: '',
+                      userName: '',
+                    },
+                    team: data.team || [],
+                    dates: data.dates || {
+                      startDate: data.startDate,
+                      endDate: data.endDate,
+                    },
+                    budget: data.budget,
+                    tags: data.tags || [],
+                    category: data.category,
+                    location: data.location,
+                    ownerId: data.ownerId || data.createdBy || '',
+                    visibility: data.visibility || 'team',
+                    lastActivityAt: data.lastActivityAt,
+                    lastActivityBy: data.lastActivityBy,
+                    progress: data.progress,
+                    isActive: data.isActive ?? true,
+                    createdAt: data.createdAt?.toDate() || new Date(),
+                    createdBy: data.createdBy || '',
+                    updatedAt: data.updatedAt?.toDate() || new Date(),
+                    updatedBy: data.updatedBy,
+                  } as Project);
+                });
+
+                setProjects(projectsData);
+                setLoading(false);
+                setLoadError(null);
+                console.warn(
+                  '[ProjectSelector] Using fallback query. Consider deploying Firestore indexes for better performance.'
+                );
+              } catch (error) {
+                console.error('[ProjectSelector] Error processing fallback snapshot data:', error);
+                setLoadError('Failed to load projects. Please try again.');
+                setLoading(false);
+              }
+            },
+            (fallbackError) => {
+              console.error('[ProjectSelector] Fallback query also failed:', fallbackError);
+              setLoadError('Unable to load projects. Please contact support.');
+              setLoading(false);
+            }
+          );
+        } else {
+          // If error is not index-related, just set error and stop loading
+          setLoadError('Failed to load projects. Please try again.');
+          setLoading(false);
+        }
+      }
+    );
+
+    // Cleanup function
+    return () => {
+      unsubscribe();
+      if (fallbackCleanup) {
+        fallbackCleanup();
+      }
+    };
   }, [onlyActive]);
 
   // Update selected project when value changes
@@ -157,8 +274,8 @@ export function ProjectSelector({
           {...params}
           label={label}
           required={required}
-          error={error}
-          helperText={helperText}
+          error={error || !!loadError}
+          helperText={loadError || helperText}
           InputProps={{
             ...params.InputProps,
             endAdornment: (
