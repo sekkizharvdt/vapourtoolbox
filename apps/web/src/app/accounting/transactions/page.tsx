@@ -20,11 +20,9 @@ import {
   FormControl,
   InputLabel,
   Select,
+  TablePagination,
 } from '@mui/material';
-import {
-  Visibility as ViewIcon,
-  FilterList as FilterIcon,
-} from '@mui/icons-material';
+import { Visibility as ViewIcon, FilterList as FilterIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
@@ -40,15 +38,14 @@ export default function TransactionsPage() {
   const [filterType, setFilterType] = useState<TransactionType | 'ALL'>('ALL');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
 
   // Real-time listener for transactions
   useEffect(() => {
     const { db } = getFirebase();
     const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    const q = query(
-      transactionsRef,
-      orderBy('date', 'desc')
-    );
+    const q = query(transactionsRef, orderBy('date', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const transactionsData: BaseTransaction[] = [];
@@ -78,7 +75,8 @@ export default function TransactionsPage() {
     // Search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      const entityName = 'entityName' in txn ? (txn as { entityName?: string }).entityName : undefined;
+      const entityName =
+        'entityName' in txn ? (txn as { entityName?: string }).entityName : undefined;
       return (
         txn.transactionNumber?.toLowerCase().includes(searchLower) ||
         txn.description?.toLowerCase().includes(searchLower) ||
@@ -89,6 +87,21 @@ export default function TransactionsPage() {
 
     return true;
   });
+
+  // Paginate filtered transactions
+  const paginatedTransactions = filteredTransactions.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
+
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
   const getTransactionTypeLabel = (type: TransactionType): string => {
     const labels: Record<TransactionType, string> = {
@@ -198,7 +211,7 @@ export default function TransactionsPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredTransactions.length === 0 ? (
+            {paginatedTransactions.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} align="center">
                   <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
@@ -209,11 +222,9 @@ export default function TransactionsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredTransactions.map((txn) => (
+              paginatedTransactions.map((txn) => (
                 <TableRow key={txn.id} hover>
-                  <TableCell>
-                    {new Date(txn.date).toLocaleDateString()}
-                  </TableCell>
+                  <TableCell>{new Date(txn.date).toLocaleDateString()}</TableCell>
                   <TableCell>
                     <Chip
                       label={getTransactionTypeLabel(txn.type)}
@@ -222,18 +233,14 @@ export default function TransactionsPage() {
                     />
                   </TableCell>
                   <TableCell>{txn.transactionNumber}</TableCell>
-                  <TableCell>{'entityName' in txn ? (txn as { entityName?: string }).entityName || '-' : '-'}</TableCell>
+                  <TableCell>
+                    {'entityName' in txn ? (txn as { entityName?: string }).entityName || '-' : '-'}
+                  </TableCell>
                   <TableCell>{txn.description || '-'}</TableCell>
                   <TableCell>{txn.reference || '-'}</TableCell>
-                  <TableCell align="right">
-                    {formatCurrency(txn.amount)}
-                  </TableCell>
+                  <TableCell align="right">{formatCurrency(txn.amount)}</TableCell>
                   <TableCell>
-                    <Chip
-                      label={txn.status}
-                      size="small"
-                      color={getStatusColor(txn.status)}
-                    />
+                    <Chip label={txn.status} size="small" color={getStatusColor(txn.status)} />
                   </TableCell>
                   <TableCell align="right">
                     <Tooltip title="View Details">
@@ -247,6 +254,15 @@ export default function TransactionsPage() {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 50, 100]}
+          component="div"
+          count={filteredTransactions.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
       </TableContainer>
 
       <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
