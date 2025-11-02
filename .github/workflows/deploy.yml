@@ -1,10 +1,7 @@
 name: Deploy - Production
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch: # Allow manual deployment
+  workflow_dispatch: # Manual deployment only
 
 # Only one deployment at a time
 concurrency:
