@@ -60,7 +60,7 @@ export async function getSystemAccountIds(
       where('isSystemAccount', '==', true)
     );
     const arDocs = await getDocs(arQuery);
-    if (!arDocs.empty) {
+    if (!arDocs.empty && arDocs.docs[0]) {
       accounts.accountsReceivable = arDocs.docs[0].id;
     }
 
@@ -72,7 +72,7 @@ export async function getSystemAccountIds(
       where('isSystemAccount', '==', true)
     );
     const revDocs = await getDocs(revenueQuery);
-    if (!revDocs.empty) {
+    if (!revDocs.empty && revDocs.docs[0]) {
       accounts.revenue = revDocs.docs[0].id;
     }
 
@@ -85,7 +85,7 @@ export async function getSystemAccountIds(
       where('gstDirection', '==', 'OUTPUT')
     );
     const cgstPayableDocs = await getDocs(cgstPayableQuery);
-    if (!cgstPayableDocs.empty) {
+    if (!cgstPayableDocs.empty && cgstPayableDocs.docs[0]) {
       accounts.cgstPayable = cgstPayableDocs.docs[0].id;
     }
 
@@ -97,7 +97,7 @@ export async function getSystemAccountIds(
       where('gstDirection', '==', 'OUTPUT')
     );
     const sgstPayableDocs = await getDocs(sgstPayableQuery);
-    if (!sgstPayableDocs.empty) {
+    if (!sgstPayableDocs.empty && sgstPayableDocs.docs[0]) {
       accounts.sgstPayable = sgstPayableDocs.docs[0].id;
     }
 
@@ -109,7 +109,7 @@ export async function getSystemAccountIds(
       where('gstDirection', '==', 'OUTPUT')
     );
     const igstPayableDocs = await getDocs(igstPayableQuery);
-    if (!igstPayableDocs.empty) {
+    if (!igstPayableDocs.empty && igstPayableDocs.docs[0]) {
       accounts.igstPayable = igstPayableDocs.docs[0].id;
     }
 
@@ -121,7 +121,7 @@ export async function getSystemAccountIds(
       where('isSystemAccount', '==', true)
     );
     const apDocs = await getDocs(apQuery);
-    if (!apDocs.empty) {
+    if (!apDocs.empty && apDocs.docs[0]) {
       accounts.accountsPayable = apDocs.docs[0].id;
     }
 
@@ -133,7 +133,7 @@ export async function getSystemAccountIds(
       where('isSystemAccount', '==', true)
     );
     const expDocs = await getDocs(expenseQuery);
-    if (!expDocs.empty) {
+    if (!expDocs.empty && expDocs.docs[0]) {
       accounts.expenses = expDocs.docs[0].id;
     }
 
@@ -146,7 +146,7 @@ export async function getSystemAccountIds(
       where('gstDirection', '==', 'INPUT')
     );
     const cgstInputDocs = await getDocs(cgstInputQuery);
-    if (!cgstInputDocs.empty) {
+    if (!cgstInputDocs.empty && cgstInputDocs.docs[0]) {
       accounts.cgstInput = cgstInputDocs.docs[0].id;
     }
 
@@ -158,7 +158,7 @@ export async function getSystemAccountIds(
       where('gstDirection', '==', 'INPUT')
     );
     const sgstInputDocs = await getDocs(sgstInputQuery);
-    if (!sgstInputDocs.empty) {
+    if (!sgstInputDocs.empty && sgstInputDocs.docs[0]) {
       accounts.sgstInput = sgstInputDocs.docs[0].id;
     }
 
@@ -170,7 +170,7 @@ export async function getSystemAccountIds(
       where('gstDirection', '==', 'INPUT')
     );
     const igstInputDocs = await getDocs(igstInputQuery);
-    if (!igstInputDocs.empty) {
+    if (!igstInputDocs.empty && igstInputDocs.docs[0]) {
       accounts.igstInput = igstInputDocs.docs[0].id;
     }
 
@@ -182,7 +182,7 @@ export async function getSystemAccountIds(
       where('isTDSAccount', '==', true)
     );
     const tdsDocs = await getDocs(tdsQuery);
-    if (!tdsDocs.empty) {
+    if (!tdsDocs.empty && tdsDocs.docs[0]) {
       accounts.tdsPayable = tdsDocs.docs[0].id;
     }
 

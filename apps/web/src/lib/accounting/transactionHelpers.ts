@@ -254,6 +254,27 @@ export function calculateLineItemsTotal(
 }
 
 /**
+ * Validate that ledger entries balance (total debits = total credits)
+ */
+export function validateLedgerBalance(entries: LedgerEntry[]): {
+  balanced: boolean;
+  totalDebits: number;
+  totalCredits: number;
+} {
+  const totalDebits = entries.reduce((sum, entry) => sum + (entry.debit || 0), 0);
+  const totalCredits = entries.reduce((sum, entry) => sum + (entry.credit || 0), 0);
+
+  // Use toFixed for floating point comparison
+  const balanced = parseFloat(totalDebits.toFixed(2)) === parseFloat(totalCredits.toFixed(2));
+
+  return {
+    balanced,
+    totalDebits: parseFloat(totalDebits.toFixed(2)),
+    totalCredits: parseFloat(totalCredits.toFixed(2)),
+  };
+}
+
+/**
  * Format currency for display
  */
 export function formatCurrency(amount: number, currency: string = 'INR'): string {

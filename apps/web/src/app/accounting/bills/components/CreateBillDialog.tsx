@@ -278,7 +278,7 @@ export function CreateBillDialog({
           gstDetails: gstDetails as any,
           tdsDeducted,
           tdsAmount,
-          projectId,
+          projectId: projectId ?? undefined,
         },
         systemAccounts.accountsPayable!,
         systemAccounts.expenses!,
