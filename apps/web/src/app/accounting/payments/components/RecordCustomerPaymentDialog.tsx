@@ -20,9 +20,23 @@ import { FormDialog, FormDialogActions } from '@/components/common/forms/FormDia
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { getFirebase } from '@/lib/firebase';
-import { collection, addDoc, updateDoc, doc, Timestamp, query, where, getDocs } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
+  Timestamp,
+  query,
+  where,
+  getDocs,
+} from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { CustomerPayment, CustomerInvoice, PaymentAllocation, PaymentMethod } from '@vapour/types';
+import type {
+  CustomerPayment,
+  CustomerInvoice,
+  PaymentAllocation,
+  PaymentMethod,
+} from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { processPaymentAllocations } from '@/lib/accounting/paymentHelpers';
@@ -34,13 +48,22 @@ interface RecordCustomerPaymentDialogProps {
 }
 
 const PAYMENT_METHODS: PaymentMethod[] = [
-  'CASH',
-  'CHEQUE',
   'BANK_TRANSFER',
   'UPI',
   'CREDIT_CARD',
   'DEBIT_CARD',
+  'CHEQUE',
+  'CASH',
   'OTHER',
+];
+
+const CURRENCIES = [
+  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
+  { code: 'USD', symbol: '$', name: 'US Dollar' },
+  { code: 'EUR', symbol: '€', name: 'Euro' },
+  { code: 'GBP', symbol: '£', name: 'British Pound' },
+  { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham' },
+  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
 ];
 
 export function RecordCustomerPaymentDialog({
@@ -52,10 +75,15 @@ export function RecordCustomerPaymentDialog({
   const [error, setError] = useState('');
 
   // Form fields
-  const [paymentDate, setPaymentDate] = useState<string>(() => new Date().toISOString().split('T')[0] || '');
+  const [paymentDate, setPaymentDate] = useState<string>(
+    () => new Date().toISOString().split('T')[0] || ''
+  );
   const [entityId, setEntityId] = useState<string | null>(null);
   const [entityName, setEntityName] = useState<string>('');
-  const [amount, setAmount] = useState<number>(0);
+  const [amount, setAmount] = useState<string>(''); // Changed to string to avoid leading zero
+  const [currency, setCurrency] = useState<string>('INR');
+  const [exchangeRate, setExchangeRate] = useState<string>('1');
+  const [baseAmount, setBaseAmount] = useState<number>(0); // Amount in INR
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('BANK_TRANSFER');
   const [chequeNumber, setChequeNumber] = useState<string>('');
   const [upiTransactionId, setUpiTransactionId] = useState<string>('');
@@ -67,6 +95,13 @@ export function RecordCustomerPaymentDialog({
   // Invoice allocation
   const [outstandingInvoices, setOutstandingInvoices] = useState<CustomerInvoice[]>([]);
   const [allocations, setAllocations] = useState<PaymentAllocation[]>([]);
+
+  // Calculate base amount (INR) when amount or exchange rate changes
+  useEffect(() => {
+    const amountNum = parseFloat(amount) || 0;
+    const rateNum = parseFloat(exchangeRate) || 1;
+    setBaseAmount(amountNum * rateNum);
+  }, [amount, exchangeRate]);
 
   // Fetch outstanding invoices when customer changes
   useEffect(() => {
@@ -99,7 +134,7 @@ export function RecordCustomerPaymentDialog({
       setOutstandingInvoices(invoices);
 
       // Initialize allocations
-      const initialAllocations: PaymentAllocation[] = invoices.map(invoice => ({
+      const initialAllocations: PaymentAllocation[] = invoices.map((invoice) => ({
         invoiceId: invoice.id!,
         invoiceNumber: invoice.transactionNumber || '',
         originalAmount: invoice.totalAmount || 0,
@@ -116,13 +151,19 @@ export function RecordCustomerPaymentDialog({
   useEffect(() => {
     if (open) {
       if (editingPayment) {
-        const dateStr = editingPayment.paymentDate instanceof Date
-          ? (editingPayment.paymentDate.toISOString().split('T')[0] || '')
-          : (typeof editingPayment.paymentDate === 'string' ? editingPayment.paymentDate : '');
-        setPaymentDate(dateStr || (new Date().toISOString().split('T')[0] || ''));
+        const dateStr =
+          editingPayment.paymentDate instanceof Date
+            ? editingPayment.paymentDate.toISOString().split('T')[0] || ''
+            : typeof editingPayment.paymentDate === 'string'
+              ? editingPayment.paymentDate
+              : '';
+        setPaymentDate(dateStr || new Date().toISOString().split('T')[0] || '');
         setEntityId(editingPayment.entityId ?? null);
         setEntityName(editingPayment.entityName || '');
-        setAmount(editingPayment.totalAmount || 0);
+        setAmount(String(editingPayment.totalAmount || ''));
+        setCurrency((editingPayment as any).currency || 'INR');
+        setExchangeRate(String((editingPayment as any).exchangeRate || '1'));
+        setBaseAmount(editingPayment.baseAmount || editingPayment.totalAmount || 0);
         setPaymentMethod(editingPayment.paymentMethod);
         setChequeNumber(editingPayment.chequeNumber || '');
         setUpiTransactionId(editingPayment.upiTransactionId || '');
@@ -135,7 +176,10 @@ export function RecordCustomerPaymentDialog({
         setPaymentDate(new Date().toISOString().split('T')[0] || '');
         setEntityId(null);
         setEntityName('');
-        setAmount(0);
+        setAmount('');
+        setCurrency('INR');
+        setExchangeRate('1');
+        setBaseAmount(0);
         setPaymentMethod('BANK_TRANSFER');
         setChequeNumber('');
         setUpiTransactionId('');
@@ -150,22 +194,24 @@ export function RecordCustomerPaymentDialog({
   }, [open, editingPayment]);
 
   const handleAllocationChange = (invoiceId: string, allocatedAmount: number) => {
-    setAllocations(prev => prev.map(allocation => {
-      if (allocation.invoiceId === invoiceId) {
-        return {
-          ...allocation,
-          allocatedAmount,
-          remainingAmount: allocation.originalAmount - allocatedAmount,
-        };
-      }
-      return allocation;
-    }));
+    setAllocations((prev) =>
+      prev.map((allocation) => {
+        if (allocation.invoiceId === invoiceId) {
+          return {
+            ...allocation,
+            allocatedAmount,
+            remainingAmount: allocation.originalAmount - allocatedAmount,
+          };
+        }
+        return allocation;
+      })
+    );
   };
 
   // Auto-distribute payment across invoices
   const handleAutoAllocate = () => {
-    let remaining = amount;
-    const newAllocations = allocations.map(allocation => {
+    let remaining = baseAmount; // Use base amount in INR for allocation
+    const newAllocations = allocations.map((allocation) => {
       if (remaining <= 0) {
         return { ...allocation, allocatedAmount: 0 };
       }
@@ -195,9 +241,18 @@ export function RecordCustomerPaymentDialog({
       return;
     }
 
-    if (amount <= 0) {
+    const amountNum = parseFloat(amount);
+    if (!amountNum || amountNum <= 0) {
       setError('Amount must be greater than zero');
       return;
+    }
+
+    if (currency !== 'INR') {
+      const rateNum = parseFloat(exchangeRate);
+      if (!rateNum || rateNum <= 0) {
+        setError('Exchange rate must be greater than zero');
+        return;
+      }
     }
 
     if (paymentMethod === 'CHEQUE' && !chequeNumber) {
@@ -223,37 +278,52 @@ export function RecordCustomerPaymentDialog({
       }
 
       // Only include allocations with non-zero amounts
-      const validAllocations = allocations.filter(a => a.allocatedAmount > 0);
+      const validAllocations = allocations.filter((a) => a.allocatedAmount > 0);
 
-      const paymentData = {
+      const paymentData: any = {
         type: 'CUSTOMER_PAYMENT',
         transactionNumber: transactionNumber || '',
         entityId,
         entityName,
         paymentDate,
         paymentMethod,
-        chequeNumber: paymentMethod === 'CHEQUE' ? chequeNumber : undefined,
-        upiTransactionId: paymentMethod === 'UPI' ? upiTransactionId : undefined,
-        bankAccountId: bankAccountId || undefined,
         invoiceAllocations: validAllocations,
         depositedToBankAccountId: bankAccountId || '', // Required field
-        totalAmount: amount,
+        totalAmount: baseAmount,
         description: description || `Payment from ${entityName}`,
         reference,
-        projectId: projectId || undefined,
-        costCentreId: projectId || undefined, // Same as projectId for consistency
         status: 'POSTED',
         createdAt: Timestamp.now() as any,
         updatedAt: Timestamp.now() as any,
         // Required BaseTransaction fields
         date: paymentDate as any,
-        amount,
-        currency: 'INR',
-        baseAmount: amount,
+        amount: parseFloat(amount) || 0,
+        currency,
+        baseAmount,
         entries: [],
         attachments: [],
         createdBy: 'current-user', // TODO: Get from auth context
-      } as any;
+      };
+
+      // Add exchange rate if foreign currency
+      if (currency !== 'INR') {
+        paymentData.exchangeRate = parseFloat(exchangeRate) || 1;
+      }
+
+      // Only add optional fields if they have values
+      if (paymentMethod === 'CHEQUE' && chequeNumber) {
+        paymentData.chequeNumber = chequeNumber;
+      }
+      if (paymentMethod === 'UPI' && upiTransactionId) {
+        paymentData.upiTransactionId = upiTransactionId;
+      }
+      if (bankAccountId) {
+        paymentData.bankAccountId = bankAccountId;
+      }
+      if (projectId) {
+        paymentData.projectId = projectId;
+        paymentData.costCentreId = projectId; // Same as projectId for consistency
+      }
 
       if (editingPayment?.id) {
         // Update existing payment
@@ -279,7 +349,7 @@ export function RecordCustomerPaymentDialog({
   };
 
   const totalAllocated = allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
-  const unallocated = amount - totalAllocated;
+  const unallocated = baseAmount - totalAllocated;
 
   return (
     <FormDialog
@@ -298,7 +368,9 @@ export function RecordCustomerPaymentDialog({
         <Grid container spacing={3}>
           {/* Payment Details */}
           <Grid size={{ xs: 12 }}>
-            <Typography variant="h6" gutterBottom>Payment Details</Typography>
+            <Typography variant="h6" gutterBottom>
+              Payment Details
+            </Typography>
           </Grid>
 
           <Grid size={{ xs: 12, md: 6 }}>
@@ -338,11 +410,56 @@ export function RecordCustomerPaymentDialog({
               label="Amount Received"
               type="number"
               value={amount}
-              onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+              onChange={(e) => setAmount(e.target.value)}
               slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
               required
             />
           </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              fullWidth
+              select
+              label="Currency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              required
+            >
+              {CURRENCIES.map((curr) => (
+                <MenuItem key={curr.code} value={curr.code}>
+                  {curr.code} - {curr.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+
+          {currency !== 'INR' && (
+            <>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Exchange Rate (Bank Conversion)"
+                  type="number"
+                  value={exchangeRate}
+                  onChange={(e) => setExchangeRate(e.target.value)}
+                  slotProps={{ htmlInput: { min: 0, step: 0.0001 } }}
+                  helperText={`1 ${currency} = ${exchangeRate} INR`}
+                  required
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Base Amount (INR)"
+                  type="number"
+                  value={baseAmount.toFixed(2)}
+                  disabled
+                  helperText="Calculated amount in INR"
+                />
+              </Grid>
+            </>
+          )}
 
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField
@@ -425,7 +542,8 @@ export function RecordCustomerPaymentDialog({
                   <Typography variant="h6">Allocate to Invoices</Typography>
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Allocated: {formatCurrency(totalAllocated)} | Unallocated: {formatCurrency(unallocated)}
+                      Allocated: {formatCurrency(totalAllocated)} | Unallocated:{' '}
+                      {formatCurrency(unallocated)}
                     </Typography>
                     <button type="button" onClick={handleAutoAllocate} style={{ marginLeft: 8 }}>
                       Auto Allocate
@@ -452,9 +570,7 @@ export function RecordCustomerPaymentDialog({
                         return (
                           <TableRow key={invoice.id}>
                             <TableCell>{invoice.transactionNumber}</TableCell>
-                            <TableCell>
-                              {new Date(invoice.date).toLocaleDateString()}
-                            </TableCell>
+                            <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
                             <TableCell align="right">
                               {formatCurrency(allocation?.originalAmount || 0)}
                             </TableCell>
@@ -463,11 +579,19 @@ export function RecordCustomerPaymentDialog({
                                 type="number"
                                 size="small"
                                 value={allocation?.allocatedAmount || 0}
-                                onChange={(e) => handleAllocationChange(
-                                  invoice.id!,
-                                  parseFloat(e.target.value) || 0
-                                )}
-                                slotProps={{ htmlInput: { min: 0, max: allocation?.originalAmount || 0, step: 0.01 } }}
+                                onChange={(e) =>
+                                  handleAllocationChange(
+                                    invoice.id!,
+                                    parseFloat(e.target.value) || 0
+                                  )
+                                }
+                                slotProps={{
+                                  htmlInput: {
+                                    min: 0,
+                                    max: allocation?.originalAmount || 0,
+                                    step: 0.01,
+                                  },
+                                }}
                                 sx={{ width: 120 }}
                               />
                             </TableCell>
