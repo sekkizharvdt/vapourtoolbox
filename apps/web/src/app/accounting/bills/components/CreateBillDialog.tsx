@@ -20,10 +20,7 @@ import {
   Checkbox,
   FormControlLabel,
 } from '@mui/material';
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-} from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { FormDialog, FormDialogActions } from '@/components/common/forms/FormDialog';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
@@ -33,9 +30,12 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill, LineItem, TransactionStatus } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { calculateGST, getGSTRateSuggestions } from '@/lib/accounting/gstCalculator';
-import { calculateTDS, getCommonTDSSections, type TDSSection } from '@/lib/accounting/tdsCalculator';
-import { getSystemAccountIds, validateSystemAccounts } from '@/lib/accounting/systemAccountResolver';
-import { generateBillLedgerEntries, validateLedgerBalance } from '@/lib/accounting/transactionHelpers';
+import {
+  calculateTDS,
+  getCommonTDSSections,
+  type TDSSection,
+} from '@/lib/accounting/tdsCalculator';
+import { generateBillGLEntries, type BillGLInput } from '@/lib/accounting/glEntryGenerator';
 
 interface CreateBillDialogProps {
   open: boolean;
@@ -43,11 +43,7 @@ interface CreateBillDialogProps {
   editingBill?: VendorBill | null;
 }
 
-export function CreateBillDialog({
-  open,
-  onClose,
-  editingBill,
-}: CreateBillDialogProps) {
+export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -112,9 +108,20 @@ export function CreateBillDialog({
     if (open) {
       if (editingBill) {
         // Convert Date to string for date inputs
-        const dateStr = editingBill.date instanceof Date ? (editingBill.date.toISOString().split('T')[0] || '') : (typeof editingBill.date === 'string' ? editingBill.date : '');
-        const dueDateStr = editingBill.dueDate ? (editingBill.dueDate instanceof Date ? (editingBill.dueDate.toISOString().split('T')[0] || '') : (typeof editingBill.dueDate === 'string' ? editingBill.dueDate : '')) : '';
-        setDate(dateStr || (new Date().toISOString().split('T')[0] || ''));
+        const dateStr =
+          editingBill.date instanceof Date
+            ? editingBill.date.toISOString().split('T')[0] || ''
+            : typeof editingBill.date === 'string'
+              ? editingBill.date
+              : '';
+        const dueDateStr = editingBill.dueDate
+          ? editingBill.dueDate instanceof Date
+            ? editingBill.dueDate.toISOString().split('T')[0] || ''
+            : typeof editingBill.dueDate === 'string'
+              ? editingBill.dueDate
+              : ''
+          : '';
+        setDate(dateStr || new Date().toISOString().split('T')[0] || '');
         setDueDate(dueDateStr || '');
         setEntityId(editingBill.entityId ?? null);
         setEntityName(editingBill.entityName || '');
@@ -200,7 +207,8 @@ export function CreateBillDialog({
   // Calculate GST
   const gstDetails = React.useMemo(() => {
     if (companyState && vendorState && taxableAmount > 0) {
-      const avgGstRate = lineItems.reduce((sum, item) => sum + (item.gstRate || 0), 0) / lineItems.length;
+      const avgGstRate =
+        lineItems.reduce((sum, item) => sum + (item.gstRate || 0), 0) / lineItems.length;
       return calculateGST({
         taxableAmount,
         gstRate: avgGstRate,
@@ -241,7 +249,7 @@ export function CreateBillDialog({
         return;
       }
 
-      if (lineItems.length === 0 || lineItems.every(item => item.amount === 0)) {
+      if (lineItems.length === 0 || lineItems.every((item) => item.amount === 0)) {
         setError('Please add at least one line item with an amount');
         setLoading(false);
         return;
@@ -249,51 +257,33 @@ export function CreateBillDialog({
 
       const { db } = getFirebase();
 
-      // 1. Fetch system account IDs
-      const systemAccounts = await getSystemAccountIds(db);
-
-      // 2. Validate required accounts exist
-      const validation = validateSystemAccounts(systemAccounts, 'VENDOR_BILL');
-      if (!validation.valid) {
-        setError(`Missing required accounts: ${validation.missingAccounts.join(', ')}. Please check Chart of Accounts.`);
-        setLoading(false);
-        return;
-      }
-
       // Convert string dates to Date objects for Firestore
       const billDate = new Date(date);
       const billDueDate = dueDate ? new Date(dueDate) : undefined;
 
       // Generate transaction number
-      const transactionNumber = editingBill?.transactionNumber || await generateTransactionNumber('VENDOR_BILL');
+      const transactionNumber =
+        editingBill?.transactionNumber || (await generateTransactionNumber('VENDOR_BILL'));
 
-      // 3. Generate ledger entries
-      const ledgerEntries = generateBillLedgerEntries(
-        {
-          transactionNumber,
-          entityName,
-          subtotal,
-          taxAmount: gstDetails?.totalGST || 0,
-          totalAmount,
-          gstDetails: gstDetails as any,
-          tdsDeducted,
-          tdsAmount,
-          projectId: projectId ?? undefined,
-        },
-        systemAccounts.accountsPayable!,
-        systemAccounts.expenses!,
-        {
-          cgst: systemAccounts.cgstInput,
-          sgst: systemAccounts.sgstInput,
-          igst: systemAccounts.igstInput,
-        },
-        tdsDeducted ? systemAccounts.tdsPayable : undefined
-      );
+      // Generate GL entries using new GL entry generator
+      const glInput: BillGLInput = {
+        transactionId: editingBill?.id || '',
+        transactionNumber,
+        transactionDate: Timestamp.fromDate(billDate),
+        subtotal,
+        lineItems,
+        gstDetails: gstDetails as any,
+        tdsDetails: tdsDeducted ? (tdsDetails as any) : undefined,
+        currency: 'INR',
+        description: description || `Bill from ${entityName}`,
+        entityId,
+        projectId: projectId || undefined,
+      };
 
-      // 4. Validate entries balance
-      const { balanced, totalDebits, totalCredits } = validateLedgerBalance(ledgerEntries);
-      if (!balanced) {
-        setError(`Ledger entries don't balance! Debits: ₹${totalDebits.toFixed(2)}, Credits: ₹${totalCredits.toFixed(2)}`);
+      const glResult = await generateBillGLEntries(db, glInput);
+
+      if (!glResult.success) {
+        setError(`Failed to generate GL entries: ${glResult.errors.join(', ')}`);
         setLoading(false);
         return;
       }
@@ -317,7 +307,8 @@ export function CreateBillDialog({
         totalAmount,
         amount: totalAmount,
         transactionNumber,
-        entries: ledgerEntries,
+        entries: glResult.entries,
+        glGeneratedAt: Timestamp.now(),
         createdAt: editingBill?.createdAt || Timestamp.now(),
         updatedAt: Timestamp.now(),
         currency: 'INR',
@@ -436,13 +427,14 @@ export function CreateBillDialog({
 
         <Grid size={{ xs: 12 }}>
           <Box sx={{ mt: 2 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              sx={{ mb: 2 }}
+            >
               <Typography variant="h6">Line Items</Typography>
-              <Button
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={addLineItem}
-              >
+              <Button size="small" startIcon={<AddIcon />} onClick={addLineItem}>
                 Add Item
               </Button>
             </Stack>
@@ -452,12 +444,22 @@ export function CreateBillDialog({
                 <TableHead>
                   <TableRow>
                     <TableCell width="30%">Description</TableCell>
-                    <TableCell width="10%" align="right">Qty</TableCell>
-                    <TableCell width="15%" align="right">Unit Price</TableCell>
-                    <TableCell width="10%" align="right">GST %</TableCell>
+                    <TableCell width="10%" align="right">
+                      Qty
+                    </TableCell>
+                    <TableCell width="15%" align="right">
+                      Unit Price
+                    </TableCell>
+                    <TableCell width="10%" align="right">
+                      GST %
+                    </TableCell>
                     <TableCell width="10%">HSN Code</TableCell>
-                    <TableCell width="15%" align="right">Amount</TableCell>
-                    <TableCell width="10%" align="right">Actions</TableCell>
+                    <TableCell width="15%" align="right">
+                      Amount
+                    </TableCell>
+                    <TableCell width="10%" align="right">
+                      Actions
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -478,7 +480,9 @@ export function CreateBillDialog({
                           size="small"
                           type="number"
                           value={item.quantity}
-                          onChange={(e) => updateLineItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                          onChange={(e) =>
+                            updateLineItem(index, 'quantity', parseFloat(e.target.value) || 0)
+                          }
                           inputProps={{ min: 0, step: 0.01 }}
                         />
                       </TableCell>
@@ -488,7 +492,9 @@ export function CreateBillDialog({
                           size="small"
                           type="number"
                           value={item.unitPrice}
-                          onChange={(e) => updateLineItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                          onChange={(e) =>
+                            updateLineItem(index, 'unitPrice', parseFloat(e.target.value) || 0)
+                          }
                           inputProps={{ min: 0, step: 0.01 }}
                         />
                       </TableCell>
@@ -498,7 +504,9 @@ export function CreateBillDialog({
                           size="small"
                           select
                           value={item.gstRate}
-                          onChange={(e) => updateLineItem(index, 'gstRate', parseFloat(e.target.value))}
+                          onChange={(e) =>
+                            updateLineItem(index, 'gstRate', parseFloat(e.target.value))
+                          }
                         >
                           {getGSTRateSuggestions().map((rate) => (
                             <MenuItem key={rate} value={rate}>
@@ -516,9 +524,7 @@ export function CreateBillDialog({
                         />
                       </TableCell>
                       <TableCell align="right">
-                        <Typography variant="body2">
-                          {item.amount.toFixed(2)}
-                        </Typography>
+                        <Typography variant="body2">{item.amount.toFixed(2)}</Typography>
                       </TableCell>
                       <TableCell align="right">
                         <IconButton
@@ -549,7 +555,9 @@ export function CreateBillDialog({
                         <>
                           <TableRow>
                             <TableCell colSpan={5} align="right">
-                              <Typography variant="body2">CGST ({gstDetails.cgstRate}%):</Typography>
+                              <Typography variant="body2">
+                                CGST ({gstDetails.cgstRate}%):
+                              </Typography>
                             </TableCell>
                             <TableCell align="right">
                               <Typography variant="body2">
@@ -560,7 +568,9 @@ export function CreateBillDialog({
                           </TableRow>
                           <TableRow>
                             <TableCell colSpan={5} align="right">
-                              <Typography variant="body2">SGST ({gstDetails.sgstRate}%):</Typography>
+                              <Typography variant="body2">
+                                SGST ({gstDetails.sgstRate}%):
+                              </Typography>
                             </TableCell>
                             <TableCell align="right">
                               <Typography variant="body2">

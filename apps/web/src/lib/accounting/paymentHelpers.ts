@@ -19,6 +19,11 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { PaymentAllocation, TransactionStatus } from '@vapour/types';
+import {
+  generateCustomerPaymentGLEntries,
+  generateVendorPaymentGLEntries,
+  type PaymentGLInput,
+} from './glEntryGenerator';
 
 /**
  * Update invoice/bill status based on payment allocations
@@ -183,6 +188,7 @@ export async function validatePaymentAllocation(
 /**
  * Atomically create a payment and update invoice/bill statuses using batch writes
  * This ensures either all operations succeed or all fail (no partial updates)
+ * Also generates GL entries for the payment
  */
 export async function createPaymentWithAllocationsAtomic(
   db: Firestore,
@@ -192,11 +198,44 @@ export async function createPaymentWithAllocationsAtomic(
   const batch = writeBatch(db);
 
   try {
-    // 1. Create the payment document
-    const paymentRef = doc(collection(db, COLLECTIONS.TRANSACTIONS));
-    batch.set(paymentRef, paymentData);
+    // 1. Generate GL entries for the payment
+    const paymentType = paymentData.type as 'CUSTOMER_PAYMENT' | 'VENDOR_PAYMENT';
+    const glInput: PaymentGLInput = {
+      transactionId: '', // Will be set after payment creation
+      transactionNumber: paymentData.transactionNumber || '',
+      transactionDate: paymentData.transactionDate || Timestamp.now(),
+      amount: paymentData.amount || 0,
+      currency: paymentData.currency || 'INR',
+      paymentMethod: paymentData.paymentMethod || 'BANK_TRANSFER',
+      bankAccountId: paymentData.bankAccountId,
+      description: paymentData.description || '',
+      entityId: paymentData.entityId || '',
+      projectId: paymentData.projectId,
+    };
 
-    // 2. Update each invoice/bill status in the same batch
+    let glResult;
+    if (paymentType === 'CUSTOMER_PAYMENT') {
+      glResult = await generateCustomerPaymentGLEntries(db, glInput);
+    } else if (paymentType === 'VENDOR_PAYMENT') {
+      glResult = await generateVendorPaymentGLEntries(db, glInput);
+    } else {
+      throw new Error(`Invalid payment type: ${paymentType}`);
+    }
+
+    if (!glResult.success) {
+      throw new Error(`GL entry generation failed: ${glResult.errors.join(', ')}`);
+    }
+
+    // 2. Create the payment document with GL entries
+    const paymentRef = doc(collection(db, COLLECTIONS.TRANSACTIONS));
+    const paymentDataWithGL = {
+      ...paymentData,
+      entries: glResult.entries,
+      glGeneratedAt: Timestamp.now(),
+    };
+    batch.set(paymentRef, paymentDataWithGL);
+
+    // 3. Update each invoice/bill status in the same batch
     for (const allocation of allocations) {
       if (allocation.allocatedAmount <= 0) continue;
 
@@ -229,10 +268,10 @@ export async function createPaymentWithAllocationsAtomic(
       });
     }
 
-    // 3. Commit all operations atomically
+    // 4. Commit all operations atomically
     await batch.commit();
     console.log(
-      '[createPaymentWithAllocationsAtomic] Successfully created payment and updated invoices atomically'
+      '[createPaymentWithAllocationsAtomic] Successfully created payment with GL entries and updated invoices atomically'
     );
 
     return paymentRef.id;
@@ -247,6 +286,7 @@ export async function createPaymentWithAllocationsAtomic(
 
 /**
  * Atomically update an existing payment and recalculate invoice/bill statuses
+ * Also regenerates GL entries for the updated payment
  */
 export async function updatePaymentWithAllocationsAtomic(
   db: Firestore,
@@ -258,11 +298,44 @@ export async function updatePaymentWithAllocationsAtomic(
   const batch = writeBatch(db);
 
   try {
-    // 1. Update the payment document
-    const paymentRef = doc(db, COLLECTIONS.TRANSACTIONS, paymentId);
-    batch.update(paymentRef, paymentData);
+    // 1. Generate GL entries for the updated payment
+    const paymentType = paymentData.type as 'CUSTOMER_PAYMENT' | 'VENDOR_PAYMENT';
+    const glInput: PaymentGLInput = {
+      transactionId: paymentId,
+      transactionNumber: paymentData.transactionNumber || '',
+      transactionDate: paymentData.transactionDate || Timestamp.now(),
+      amount: paymentData.amount || 0,
+      currency: paymentData.currency || 'INR',
+      paymentMethod: paymentData.paymentMethod || 'BANK_TRANSFER',
+      bankAccountId: paymentData.bankAccountId,
+      description: paymentData.description || '',
+      entityId: paymentData.entityId || '',
+      projectId: paymentData.projectId,
+    };
 
-    // 2. Revert old allocations
+    let glResult;
+    if (paymentType === 'CUSTOMER_PAYMENT') {
+      glResult = await generateCustomerPaymentGLEntries(db, glInput);
+    } else if (paymentType === 'VENDOR_PAYMENT') {
+      glResult = await generateVendorPaymentGLEntries(db, glInput);
+    } else {
+      throw new Error(`Invalid payment type: ${paymentType}`);
+    }
+
+    if (!glResult.success) {
+      throw new Error(`GL entry generation failed: ${glResult.errors.join(', ')}`);
+    }
+
+    // 2. Update the payment document with new GL entries
+    const paymentRef = doc(db, COLLECTIONS.TRANSACTIONS, paymentId);
+    const paymentDataWithGL = {
+      ...paymentData,
+      entries: glResult.entries,
+      glGeneratedAt: Timestamp.now(),
+    };
+    batch.update(paymentRef, paymentDataWithGL);
+
+    // 3. Revert old allocations
     for (const allocation of oldAllocations) {
       if (allocation.allocatedAmount <= 0) continue;
 
@@ -291,7 +364,7 @@ export async function updatePaymentWithAllocationsAtomic(
       }
     }
 
-    // 3. Apply new allocations
+    // 4. Apply new allocations
     for (const allocation of newAllocations) {
       if (allocation.allocatedAmount <= 0) continue;
 
@@ -323,10 +396,10 @@ export async function updatePaymentWithAllocationsAtomic(
       });
     }
 
-    // 4. Commit all operations atomically
+    // 5. Commit all operations atomically
     await batch.commit();
     console.log(
-      '[updatePaymentWithAllocationsAtomic] Successfully updated payment and invoice statuses atomically'
+      '[updatePaymentWithAllocationsAtomic] Successfully updated payment with GL entries and invoice statuses atomically'
     );
   } catch (error) {
     console.error(

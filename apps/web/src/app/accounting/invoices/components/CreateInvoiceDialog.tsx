@@ -18,10 +18,7 @@ import {
   Stack,
   Button,
 } from '@mui/material';
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-} from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { FormDialog, FormDialogActions } from '@/components/common/forms/FormDialog';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
@@ -31,8 +28,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { CustomerInvoice, LineItem, TransactionStatus } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { calculateGST, getGSTRateSuggestions } from '@/lib/accounting/gstCalculator';
-import { getSystemAccountIds, validateSystemAccounts } from '@/lib/accounting/systemAccountResolver';
-import { generateInvoiceLedgerEntries, validateLedgerBalance } from '@/lib/accounting/transactionHelpers';
+import { generateInvoiceGLEntries, type InvoiceGLInput } from '@/lib/accounting/glEntryGenerator';
 
 interface CreateInvoiceDialogProps {
   open: boolean;
@@ -40,11 +36,7 @@ interface CreateInvoiceDialogProps {
   editingInvoice?: CustomerInvoice | null;
 }
 
-export function CreateInvoiceDialog({
-  open,
-  onClose,
-  editingInvoice,
-}: CreateInvoiceDialogProps) {
+export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInvoiceDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -105,9 +97,20 @@ export function CreateInvoiceDialog({
     if (open) {
       if (editingInvoice) {
         // Convert Date to string for date inputs
-        const dateStr = editingInvoice.date instanceof Date ? (editingInvoice.date.toISOString().split('T')[0] || '') : (typeof editingInvoice.date === 'string' ? editingInvoice.date : '');
-        const dueDateStr = editingInvoice.dueDate ? (editingInvoice.dueDate instanceof Date ? (editingInvoice.dueDate.toISOString().split('T')[0] || '') : (typeof editingInvoice.dueDate === 'string' ? editingInvoice.dueDate : '')) : '';
-        setDate(dateStr || (new Date().toISOString().split('T')[0] || ''));
+        const dateStr =
+          editingInvoice.date instanceof Date
+            ? editingInvoice.date.toISOString().split('T')[0] || ''
+            : typeof editingInvoice.date === 'string'
+              ? editingInvoice.date
+              : '';
+        const dueDateStr = editingInvoice.dueDate
+          ? editingInvoice.dueDate instanceof Date
+            ? editingInvoice.dueDate.toISOString().split('T')[0] || ''
+            : typeof editingInvoice.dueDate === 'string'
+              ? editingInvoice.dueDate
+              : ''
+          : '';
+        setDate(dateStr || new Date().toISOString().split('T')[0] || '');
         setDueDate(dueDateStr || '');
         setEntityId(editingInvoice.entityId ?? null);
         setEntityName(editingInvoice.entityName || '');
@@ -187,7 +190,8 @@ export function CreateInvoiceDialog({
   // Calculate GST
   const gstDetails = React.useMemo(() => {
     if (companyState && customerState && taxableAmount > 0) {
-      const avgGstRate = lineItems.reduce((sum, item) => sum + (item.gstRate || 0), 0) / lineItems.length;
+      const avgGstRate =
+        lineItems.reduce((sum, item) => sum + (item.gstRate || 0), 0) / lineItems.length;
       return calculateGST({
         taxableAmount,
         gstRate: avgGstRate,
@@ -211,7 +215,7 @@ export function CreateInvoiceDialog({
         return;
       }
 
-      if (lineItems.length === 0 || lineItems.every(item => item.amount === 0)) {
+      if (lineItems.length === 0 || lineItems.every((item) => item.amount === 0)) {
         setError('Please add at least one line item with an amount');
         setLoading(false);
         return;
@@ -219,47 +223,32 @@ export function CreateInvoiceDialog({
 
       const { db } = getFirebase();
 
-      // 1. Fetch system account IDs
-      const systemAccounts = await getSystemAccountIds(db);
-
-      // 2. Validate required accounts exist
-      const validation = validateSystemAccounts(systemAccounts, 'CUSTOMER_INVOICE');
-      if (!validation.valid) {
-        setError(`Missing required accounts: ${validation.missingAccounts.join(', ')}. Please check Chart of Accounts.`);
-        setLoading(false);
-        return;
-      }
-
       // Convert string dates to Date objects for Firestore
       const invoiceDate = new Date(date);
       const invoiceDueDate = dueDate ? new Date(dueDate) : undefined;
 
       // Generate transaction number
-      const transactionNumber = editingInvoice?.transactionNumber || await generateTransactionNumber('CUSTOMER_INVOICE');
+      const transactionNumber =
+        editingInvoice?.transactionNumber || (await generateTransactionNumber('CUSTOMER_INVOICE'));
 
-      // 3. Generate ledger entries
-      const ledgerEntries = generateInvoiceLedgerEntries(
-        {
-          transactionNumber,
-          entityName,
-          subtotal,
-          taxAmount: gstDetails?.totalGST || 0,
-          totalAmount,
-          gstDetails: gstDetails as any,
-        },
-        systemAccounts.accountsReceivable!,
-        systemAccounts.revenue!,
-        {
-          cgst: systemAccounts.cgstPayable,
-          sgst: systemAccounts.sgstPayable,
-          igst: systemAccounts.igstPayable,
-        }
-      );
+      // Generate GL entries using new GL entry generator
+      const glInput: InvoiceGLInput = {
+        transactionId: editingInvoice?.id || '',
+        transactionNumber,
+        transactionDate: Timestamp.fromDate(invoiceDate),
+        subtotal,
+        lineItems,
+        gstDetails: gstDetails as any,
+        currency: 'INR',
+        description: description || `Invoice for ${entityName}`,
+        entityId,
+        projectId: projectId || undefined,
+      };
 
-      // 4. Validate entries balance
-      const { balanced, totalDebits, totalCredits } = validateLedgerBalance(ledgerEntries);
-      if (!balanced) {
-        setError(`Ledger entries don't balance! Debits: ₹${totalDebits.toFixed(2)}, Credits: ₹${totalCredits.toFixed(2)}`);
+      const glResult = await generateInvoiceGLEntries(db, glInput);
+
+      if (!glResult.success) {
+        setError(`Failed to generate GL entries: ${glResult.errors.join(', ')}`);
         setLoading(false);
         return;
       }
@@ -280,7 +269,8 @@ export function CreateInvoiceDialog({
         totalAmount,
         amount: totalAmount,
         transactionNumber,
-        entries: ledgerEntries,
+        entries: glResult.entries,
+        glGeneratedAt: Timestamp.now(),
         createdAt: editingInvoice?.createdAt || Timestamp.now(),
         updatedAt: Timestamp.now(),
         currency: 'INR',
@@ -405,13 +395,14 @@ export function CreateInvoiceDialog({
 
         <Grid size={{ xs: 12 }}>
           <Box sx={{ mt: 2 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              sx={{ mb: 2 }}
+            >
               <Typography variant="h6">Line Items</Typography>
-              <Button
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={addLineItem}
-              >
+              <Button size="small" startIcon={<AddIcon />} onClick={addLineItem}>
                 Add Item
               </Button>
             </Stack>
@@ -421,12 +412,22 @@ export function CreateInvoiceDialog({
                 <TableHead>
                   <TableRow>
                     <TableCell width="30%">Description</TableCell>
-                    <TableCell width="10%" align="right">Qty</TableCell>
-                    <TableCell width="15%" align="right">Unit Price</TableCell>
-                    <TableCell width="10%" align="right">GST %</TableCell>
+                    <TableCell width="10%" align="right">
+                      Qty
+                    </TableCell>
+                    <TableCell width="15%" align="right">
+                      Unit Price
+                    </TableCell>
+                    <TableCell width="10%" align="right">
+                      GST %
+                    </TableCell>
                     <TableCell width="10%">HSN Code</TableCell>
-                    <TableCell width="15%" align="right">Amount</TableCell>
-                    <TableCell width="10%" align="right">Actions</TableCell>
+                    <TableCell width="15%" align="right">
+                      Amount
+                    </TableCell>
+                    <TableCell width="10%" align="right">
+                      Actions
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -447,7 +448,9 @@ export function CreateInvoiceDialog({
                           size="small"
                           type="number"
                           value={item.quantity}
-                          onChange={(e) => updateLineItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                          onChange={(e) =>
+                            updateLineItem(index, 'quantity', parseFloat(e.target.value) || 0)
+                          }
                           inputProps={{ min: 0, step: 0.01 }}
                         />
                       </TableCell>
@@ -457,7 +460,9 @@ export function CreateInvoiceDialog({
                           size="small"
                           type="number"
                           value={item.unitPrice}
-                          onChange={(e) => updateLineItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                          onChange={(e) =>
+                            updateLineItem(index, 'unitPrice', parseFloat(e.target.value) || 0)
+                          }
                           inputProps={{ min: 0, step: 0.01 }}
                         />
                       </TableCell>
@@ -467,7 +472,9 @@ export function CreateInvoiceDialog({
                           size="small"
                           select
                           value={item.gstRate}
-                          onChange={(e) => updateLineItem(index, 'gstRate', parseFloat(e.target.value))}
+                          onChange={(e) =>
+                            updateLineItem(index, 'gstRate', parseFloat(e.target.value))
+                          }
                         >
                           {getGSTRateSuggestions().map((rate) => (
                             <MenuItem key={rate} value={rate}>
@@ -485,9 +492,7 @@ export function CreateInvoiceDialog({
                         />
                       </TableCell>
                       <TableCell align="right">
-                        <Typography variant="body2">
-                          {item.amount.toFixed(2)}
-                        </Typography>
+                        <Typography variant="body2">{item.amount.toFixed(2)}</Typography>
                       </TableCell>
                       <TableCell align="right">
                         <IconButton
@@ -518,7 +523,9 @@ export function CreateInvoiceDialog({
                         <>
                           <TableRow>
                             <TableCell colSpan={5} align="right">
-                              <Typography variant="body2">CGST ({gstDetails.cgstRate}%):</Typography>
+                              <Typography variant="body2">
+                                CGST ({gstDetails.cgstRate}%):
+                              </Typography>
                             </TableCell>
                             <TableCell align="right">
                               <Typography variant="body2">
@@ -529,7 +536,9 @@ export function CreateInvoiceDialog({
                           </TableRow>
                           <TableRow>
                             <TableCell colSpan={5} align="right">
-                              <Typography variant="body2">SGST ({gstDetails.sgstRate}%):</Typography>
+                              <Typography variant="body2">
+                                SGST ({gstDetails.sgstRate}%):
+                              </Typography>
                             </TableCell>
                             <TableCell align="right">
                               <Typography variant="body2">
