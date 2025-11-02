@@ -1,6 +1,7 @@
 module.exports = {
   // Only lint TypeScript files in our actual project (exclude inputs/ and e2e/)
-  // NOTE: ESLint temporarily disabled due to config migration from v8 to v9
+  // NOTE: ESLint temporarily disabled in pre-commit due to v9 migration (eslint.config.js)
+  // CI uses `turbo lint` which handles ESLint v9 correctly
   'apps/**/!(e2e)/**/*.{ts,tsx}': ['pnpm exec prettier --write'],
   'apps/**/!(e2e)/*.{ts,tsx}': ['pnpm exec prettier --write'],
   'packages/**/*.{ts,tsx}': ['pnpm exec prettier --write'],

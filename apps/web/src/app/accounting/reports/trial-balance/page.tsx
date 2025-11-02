@@ -14,7 +14,8 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { getFirebase, COLLECTIONS } from '@vapour/firebase';
+import { getFirebase } from '@/lib/firebase';
+import { COLLECTIONS } from '@vapour/firebase';
 
 interface AccountBalance {
   id: string;

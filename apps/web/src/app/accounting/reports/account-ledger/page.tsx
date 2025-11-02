@@ -18,8 +18,9 @@ import {
   MenuItem,
   SelectChangeEvent,
 } from '@mui/material';
-import { collection, getDocs, query, orderBy, where, Timestamp } from 'firebase/firestore';
-import { getFirebase, COLLECTIONS } from '@vapour/firebase';
+import { collection, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
+import { getFirebase } from '@/lib/firebase';
+import { COLLECTIONS } from '@vapour/firebase';
 
 interface Account {
   id: string;
