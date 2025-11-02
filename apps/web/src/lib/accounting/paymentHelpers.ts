@@ -4,7 +4,17 @@
  * Utilities for managing payment allocations and updating invoice/bill statuses
  */
 
-import { doc, getDoc, updateDoc, Timestamp, query, collection, where, getDocs } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  Timestamp,
+  query,
+  collection,
+  where,
+  getDocs,
+  writeBatch,
+} from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { PaymentAllocation, TransactionStatus } from '@vapour/types';
 
@@ -50,9 +60,14 @@ export async function updateTransactionStatusAfterPayment(
       updatedAt: Timestamp.now(),
     });
 
-    console.log(`[updateTransactionStatusAfterPayment] Updated ${transactionId} to ${newStatus} (paid: ${newTotalPaid}/${totalAmount})`);
+    console.log(
+      `[updateTransactionStatusAfterPayment] Updated ${transactionId} to ${newStatus} (paid: ${newTotalPaid}/${totalAmount})`
+    );
   } catch (error) {
-    console.error('[updateTransactionStatusAfterPayment] Error updating transaction status:', error);
+    console.error(
+      '[updateTransactionStatusAfterPayment] Error updating transaction status:',
+      error
+    );
     throw error;
   }
 }
@@ -65,13 +80,9 @@ export async function processPaymentAllocations(
   allocations: PaymentAllocation[]
 ): Promise<void> {
   const updatePromises = allocations
-    .filter(allocation => allocation.allocatedAmount > 0)
-    .map(allocation =>
-      updateTransactionStatusAfterPayment(
-        db,
-        allocation.invoiceId,
-        allocation.allocatedAmount
-      )
+    .filter((allocation) => allocation.allocatedAmount > 0)
+    .map((allocation) =>
+      updateTransactionStatusAfterPayment(db, allocation.invoiceId, allocation.allocatedAmount)
     );
 
   await Promise.all(updatePromises);
@@ -100,21 +111,17 @@ export async function getOutstandingAmount(
 
     // Query all payments for this invoice/bill
     const paymentsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    const paymentType = transactionType === 'CUSTOMER_INVOICE' ? 'CUSTOMER_PAYMENT' : 'VENDOR_PAYMENT';
-    const q = query(
-      paymentsRef,
-      where('type', '==', paymentType),
-      where('status', '==', 'POSTED')
-    );
+    const paymentType =
+      transactionType === 'CUSTOMER_INVOICE' ? 'CUSTOMER_PAYMENT' : 'VENDOR_PAYMENT';
+    const q = query(paymentsRef, where('type', '==', paymentType), where('status', '==', 'POSTED'));
 
     const paymentsSnapshot = await getDocs(q);
     let totalPaid = 0;
 
     paymentsSnapshot.forEach((doc) => {
       const paymentData = doc.data();
-      const allocationsField = transactionType === 'CUSTOMER_INVOICE'
-        ? 'invoiceAllocations'
-        : 'billAllocations';
+      const allocationsField =
+        transactionType === 'CUSTOMER_INVOICE' ? 'invoiceAllocations' : 'billAllocations';
       const allocations = paymentData[allocationsField] || [];
 
       // Find allocations for this specific transaction
@@ -146,11 +153,7 @@ export async function validatePaymentAllocation(
   transactionType: 'CUSTOMER_INVOICE' | 'VENDOR_BILL'
 ): Promise<{ valid: boolean; error?: string }> {
   try {
-    const { outstanding } = await getOutstandingAmount(
-      db,
-      transactionId,
-      transactionType
-    );
+    const { outstanding } = await getOutstandingAmount(db, transactionId, transactionType);
 
     if (newAllocation > outstanding) {
       return {
@@ -172,5 +175,162 @@ export async function validatePaymentAllocation(
       valid: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     };
+  }
+}
+
+/**
+ * Atomically create a payment and update invoice/bill statuses using batch writes
+ * This ensures either all operations succeed or all fail (no partial updates)
+ */
+export async function createPaymentWithAllocationsAtomic(
+  db: any,
+  paymentData: any,
+  allocations: PaymentAllocation[]
+): Promise<string> {
+  const batch = writeBatch(db);
+
+  try {
+    // 1. Create the payment document
+    const paymentRef = doc(collection(db, COLLECTIONS.TRANSACTIONS));
+    batch.set(paymentRef, paymentData);
+
+    // 2. Update each invoice/bill status in the same batch
+    for (const allocation of allocations) {
+      if (allocation.allocatedAmount <= 0) continue;
+
+      // Get current invoice data to calculate new status
+      const invoiceRef = doc(db, COLLECTIONS.TRANSACTIONS, allocation.invoiceId);
+      const invoiceDoc = await getDoc(invoiceRef);
+
+      if (!invoiceDoc.exists()) {
+        throw new Error(`Invoice ${allocation.invoiceId} not found`);
+      }
+
+      const invoiceData = invoiceDoc.data();
+      const totalAmount = invoiceData.totalAmount || 0;
+      const previouslyPaid = invoiceData.amountPaid || 0;
+      const newTotalPaid = previouslyPaid + allocation.allocatedAmount;
+
+      let newStatus: TransactionStatus;
+      if (newTotalPaid >= totalAmount) {
+        newStatus = 'PAID';
+      } else if (newTotalPaid > 0) {
+        newStatus = 'PARTIALLY_PAID';
+      } else {
+        newStatus = 'UNPAID';
+      }
+
+      batch.update(invoiceRef, {
+        status: newStatus,
+        amountPaid: newTotalPaid,
+        updatedAt: Timestamp.now(),
+      });
+    }
+
+    // 3. Commit all operations atomically
+    await batch.commit();
+    console.log(
+      '[createPaymentWithAllocationsAtomic] Successfully created payment and updated invoices atomically'
+    );
+
+    return paymentRef.id;
+  } catch (error) {
+    console.error(
+      '[createPaymentWithAllocationsAtomic] Atomic operation failed, rolling back:',
+      error
+    );
+    throw error; // Batch automatically rolls back on error
+  }
+}
+
+/**
+ * Atomically update an existing payment and recalculate invoice/bill statuses
+ */
+export async function updatePaymentWithAllocationsAtomic(
+  db: any,
+  paymentId: string,
+  paymentData: any,
+  oldAllocations: PaymentAllocation[],
+  newAllocations: PaymentAllocation[]
+): Promise<void> {
+  const batch = writeBatch(db);
+
+  try {
+    // 1. Update the payment document
+    const paymentRef = doc(db, COLLECTIONS.TRANSACTIONS, paymentId);
+    batch.update(paymentRef, paymentData);
+
+    // 2. Revert old allocations
+    for (const allocation of oldAllocations) {
+      if (allocation.allocatedAmount <= 0) continue;
+
+      const invoiceRef = doc(db, COLLECTIONS.TRANSACTIONS, allocation.invoiceId);
+      const invoiceDoc = await getDoc(invoiceRef);
+
+      if (invoiceDoc.exists()) {
+        const invoiceData = invoiceDoc.data();
+        const totalAmount = invoiceData.totalAmount || 0;
+        const previouslyPaid = (invoiceData.amountPaid || 0) - allocation.allocatedAmount;
+
+        let newStatus: TransactionStatus;
+        if (previouslyPaid >= totalAmount) {
+          newStatus = 'PAID';
+        } else if (previouslyPaid > 0) {
+          newStatus = 'PARTIALLY_PAID';
+        } else {
+          newStatus = 'UNPAID';
+        }
+
+        batch.update(invoiceRef, {
+          status: newStatus,
+          amountPaid: previouslyPaid,
+          updatedAt: Timestamp.now(),
+        });
+      }
+    }
+
+    // 3. Apply new allocations
+    for (const allocation of newAllocations) {
+      if (allocation.allocatedAmount <= 0) continue;
+
+      const invoiceRef = doc(db, COLLECTIONS.TRANSACTIONS, allocation.invoiceId);
+      const invoiceDoc = await getDoc(invoiceRef);
+
+      if (!invoiceDoc.exists()) {
+        throw new Error(`Invoice ${allocation.invoiceId} not found`);
+      }
+
+      const invoiceData = invoiceDoc.data();
+      const totalAmount = invoiceData.totalAmount || 0;
+      const previouslyPaid = invoiceData.amountPaid || 0;
+      const newTotalPaid = previouslyPaid + allocation.allocatedAmount;
+
+      let newStatus: TransactionStatus;
+      if (newTotalPaid >= totalAmount) {
+        newStatus = 'PAID';
+      } else if (newTotalPaid > 0) {
+        newStatus = 'PARTIALLY_PAID';
+      } else {
+        newStatus = 'UNPAID';
+      }
+
+      batch.update(invoiceRef, {
+        status: newStatus,
+        amountPaid: newTotalPaid,
+        updatedAt: Timestamp.now(),
+      });
+    }
+
+    // 4. Commit all operations atomically
+    await batch.commit();
+    console.log(
+      '[updatePaymentWithAllocationsAtomic] Successfully updated payment and invoice statuses atomically'
+    );
+  } catch (error) {
+    console.error(
+      '[updatePaymentWithAllocationsAtomic] Atomic operation failed, rolling back:',
+      error
+    );
+    throw error;
   }
 }

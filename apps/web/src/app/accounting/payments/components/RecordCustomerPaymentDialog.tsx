@@ -20,16 +20,7 @@ import { FormDialog, FormDialogActions } from '@/components/common/forms/FormDia
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { getFirebase } from '@/lib/firebase';
-import {
-  collection,
-  addDoc,
-  updateDoc,
-  doc,
-  Timestamp,
-  query,
-  where,
-  getDocs,
-} from 'firebase/firestore';
+import { collection, Timestamp, query, where, getDocs } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type {
   CustomerPayment,
@@ -39,7 +30,10 @@ import type {
 } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
-import { processPaymentAllocations } from '@/lib/accounting/paymentHelpers';
+import {
+  createPaymentWithAllocationsAtomic,
+  updatePaymentWithAllocationsAtomic,
+} from '@/lib/accounting/paymentHelpers';
 
 interface RecordCustomerPaymentDialogProps {
   open: boolean;
@@ -326,18 +320,22 @@ export function RecordCustomerPaymentDialog({
       }
 
       if (editingPayment?.id) {
-        // Update existing payment
-        await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingPayment.id), {
-          ...paymentData,
-          updatedAt: Timestamp.now(),
-        });
+        // Update existing payment atomically
+        const oldAllocations = editingPayment.invoiceAllocations || [];
+        await updatePaymentWithAllocationsAtomic(
+          db,
+          editingPayment.id,
+          {
+            ...paymentData,
+            updatedAt: Timestamp.now(),
+          },
+          oldAllocations,
+          validAllocations
+        );
       } else {
-        // Create new payment
-        await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), paymentData);
+        // Create new payment atomically with invoice status updates
+        await createPaymentWithAllocationsAtomic(db, paymentData, validAllocations);
       }
-
-      // Update invoice statuses based on allocations
-      await processPaymentAllocations(db, validAllocations);
 
       onClose();
     } catch (err) {
