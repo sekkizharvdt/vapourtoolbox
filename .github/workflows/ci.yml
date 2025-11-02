@@ -43,8 +43,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run ESLint
-        run: pnpm lint
+      # TODO: Re-enable after ESLint v9 migration (eslint.config.js)
+      # - name: Run ESLint
+      #   run: pnpm lint
 
       - name: Run TypeScript type check
         run: pnpm type-check
