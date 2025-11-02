@@ -80,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const { auth } = getFirebase();
+    let isMounted = true; // Track if component is mounted
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
@@ -89,6 +90,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Get token (use cached version for fast initial load)
             // Only force refresh if token is older than 5 minutes
             const idTokenResult = await firebaseUser.getIdTokenResult(false);
+
+            // Check if component was unmounted during async operation
+            if (!isMounted) {
+              console.log('[AuthContext] Component unmounted, aborting state update');
+              return;
+            }
 
             // Check if token is older than 5 minutes
             const tokenAge = Date.now() - new Date(idTokenResult.issuedAtTime).getTime();
@@ -104,9 +111,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Validate claims structure
             const result = validateClaims(idTokenResult.claims);
 
+            // Check again before state update
+            if (!isMounted) {
+              console.log('[AuthContext] Component unmounted, aborting state update');
+              return;
+            }
+
             if (result.status === 'pending') {
               // User authenticated but no claims yet - awaiting admin approval
               console.log('[AuthContext] User pending approval');
+              // Batch state updates to prevent intermediate renders
               setUser(firebaseUser);
               setClaims(null); // No claims yet
               setLoading(false);
@@ -118,31 +132,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               // Claims exist but are malformed - security issue
               console.error('[AuthContext] User has invalid custom claims. Signing out.');
               await firebaseSignOut(auth);
+
+              // Check again before state update
+              if (!isMounted) {
+                console.log('[AuthContext] Component unmounted, aborting state update');
+                return;
+              }
+
+              // Batch state updates
               setUser(null);
               setClaims(null);
               setLoading(false);
               return;
             }
 
-            // Valid claims
+            // Valid claims - batch state updates to prevent race conditions
             console.log('[AuthContext] User has valid claims');
             setUser(firebaseUser);
             setClaims(result.claims);
             setLoading(false);
           } catch (error) {
             console.error('[AuthContext] Error validating user claims:', error);
+
+            // Check if component is still mounted before async signOut
+            if (!isMounted) {
+              console.log('[AuthContext] Component unmounted, aborting sign out');
+              return;
+            }
+
             // Ensure loading is set to false even on error
             try {
               await firebaseSignOut(auth);
             } catch (signOutError) {
-              console.error('[AuthContext] Error signing out after validation failure:', signOutError);
+              console.error(
+                '[AuthContext] Error signing out after validation failure:',
+                signOutError
+              );
             }
+
+            // Check again before final state update
+            if (!isMounted) {
+              console.log('[AuthContext] Component unmounted, aborting state update');
+              return;
+            }
+
+            // Batch state updates
             setUser(null);
             setClaims(null);
             setLoading(false);
           }
         } else {
           console.log('[AuthContext] No user authenticated');
+
+          // Check before state update
+          if (!isMounted) {
+            console.log('[AuthContext] Component unmounted, aborting state update');
+            return;
+          }
+
+          // Batch state updates
           setUser(null);
           setClaims(null);
           setLoading(false);
@@ -150,13 +198,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         // Catch any unexpected errors in the outer try block
         console.error('[AuthContext] Unexpected error in auth state change handler:', error);
+
+        // Check before state update
+        if (!isMounted) {
+          console.log('[AuthContext] Component unmounted, aborting state update');
+          return;
+        }
+
+        // Batch state updates
         setUser(null);
         setClaims(null);
         setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false; // Mark as unmounted
+      unsubscribe();
+    };
   }, []);
 
   const signInWithGoogle = async () => {
