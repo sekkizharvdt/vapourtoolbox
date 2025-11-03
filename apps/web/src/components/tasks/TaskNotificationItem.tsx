@@ -39,7 +39,9 @@ export default function TaskNotificationItem({
 }: TaskNotificationItemProps) {
   const router = useRouter();
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (
+    priority: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (priority) {
       case 'URGENT':
         return 'error';
@@ -53,7 +55,9 @@ export default function TaskNotificationItem({
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (
+    status: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (status) {
       case 'completed':
         return 'success';
@@ -154,14 +158,14 @@ export default function TaskNotificationItem({
             <Chip
               label={notification.priority}
               size="small"
-              color={getPriorityColor(notification.priority) as any}
+              color={getPriorityColor(notification.priority)}
             />
 
             {/* Status */}
             <Chip
               label={getStatusText(notification.status)}
               size="small"
-              color={getStatusColor(notification.status) as any}
+              color={getStatusColor(notification.status)}
               variant="outlined"
             />
 

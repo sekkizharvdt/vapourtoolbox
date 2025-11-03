@@ -88,7 +88,14 @@
       "Bash(del \"C:\\Users\\sekki\\VDT-Unified\\apps\\web\\src\\components\\common\\ErrorBoundary.tsx\")",
       "Bash(git push:*)",
       "Bash(pnpm exec next lint:*)",
-      "Bash(del \"C:\\Users\\sekki\\VDT-Unified\\packages\\constants\\src\\roles.ts\")"
+      "Bash(del \"C:\\Users\\sekki\\VDT-Unified\\packages\\constants\\src\\roles.ts\")",
+      "Bash(git log:*)",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "Bash(nul)",
+      "Bash(del \"apps\\web\\src\\app\\procurement\\purchase-requests\\[id]\\page.tsx\")",
+      "Bash(del \"apps\\web\\src\\app\\procurement\\purchase-requests\\[id]\\ViewPurchaseRequestClient.tsx\")",
+      "Bash(git show:*)"
     ],
     "deny": [],
     "ask": []

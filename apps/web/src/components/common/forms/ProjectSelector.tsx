@@ -224,7 +224,9 @@ export function ProjectSelector({
     }
   }, [value, projects]);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (
+    status: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (status) {
       case 'ACTIVE':
         return 'success';
@@ -257,7 +259,7 @@ export function ProjectSelector({
               <Chip
                 label={option.status}
                 size="small"
-                color={getStatusColor(option.status) as any}
+                color={getStatusColor(option.status)}
                 sx={{ height: 20, fontSize: '0.7rem' }}
               />
             </div>

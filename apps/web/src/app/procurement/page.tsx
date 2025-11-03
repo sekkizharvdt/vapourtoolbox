@@ -107,7 +107,12 @@ export default function ProcurementPage() {
     },
   ];
 
-  const quickActions = [
+  const quickActions: Array<{
+    label: string;
+    icon: React.ReactNode;
+    onClick: () => void;
+    color: 'inherit' | 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning';
+  }> = [
     {
       label: 'New Purchase Request',
       icon: <AddIcon />,
@@ -161,7 +166,7 @@ export default function ProcurementPage() {
               <Button
                 key={index}
                 variant="contained"
-                color={action.color as any}
+                color={action.color}
                 startIcon={action.icon}
                 onClick={action.onClick}
                 sx={{ mb: 1 }}

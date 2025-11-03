@@ -163,8 +163,8 @@ export function RecordCustomerPaymentDialog({
         setEntityId(editingPayment.entityId ?? null);
         setEntityName(editingPayment.entityName || '');
         setAmount(String(editingPayment.totalAmount || ''));
-        setCurrency((editingPayment as any).currency || 'INR');
-        setExchangeRate(String((editingPayment as any).exchangeRate || '1'));
+        setCurrency(editingPayment.currency || 'INR');
+        setExchangeRate(String(editingPayment.exchangeRate || '1'));
         setBaseAmount(editingPayment.baseAmount || editingPayment.totalAmount || 0);
         setPaymentMethod(editingPayment.paymentMethod);
         setChequeNumber(editingPayment.chequeNumber || '');
@@ -295,10 +295,10 @@ export function RecordCustomerPaymentDialog({
         description: description || `Payment from ${entityName}`,
         reference,
         status: 'POSTED',
-        createdAt: Timestamp.now() as any,
-        updatedAt: Timestamp.now() as any,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
         // Required BaseTransaction fields
-        date: paymentDate as any,
+        date: Timestamp.fromDate(new Date(paymentDate)),
         amount: parseFloat(amount) || 0,
         currency,
         baseAmount,

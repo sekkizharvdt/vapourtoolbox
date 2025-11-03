@@ -36,7 +36,13 @@ import {
   Edit as EditIcon,
   Visibility as ViewIcon,
 } from '@mui/icons-material';
-import { collection, query, orderBy, onSnapshot, limit as firestoreLimit } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  limit as firestoreLimit,
+} from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity, Status } from '@vapour/types';
@@ -77,11 +83,7 @@ export default function EntitiesPage() {
 
     // Build query - don't filter by isDeleted here to handle legacy entities
     // We'll filter deleted entities on the client side
-    const q = query(
-      entitiesRef,
-      orderBy('createdAt', 'desc'),
-      firestoreLimit(100)
-    );
+    const q = query(entitiesRef, orderBy('createdAt', 'desc'), firestoreLimit(100));
 
     // Subscribe to real-time updates
     const unsubscribe = onSnapshot(
@@ -124,7 +126,9 @@ export default function EntitiesPage() {
       const matchesStatus = statusFilter === 'all' || entity.status === statusFilter;
 
       // Role filter
-      const matchesRole = roleFilter === 'all' || entity.roles.includes(roleFilter as any);
+      const matchesRole =
+        roleFilter === 'all' ||
+        entity.roles.includes(roleFilter.toUpperCase() as 'VENDOR' | 'CUSTOMER');
 
       return matchesSearch && matchesStatus && matchesRole;
     })
@@ -442,19 +446,13 @@ export default function EntitiesPage() {
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">
-                        {entity.contactPerson}
-                      </Typography>
+                      <Typography variant="body2">{entity.contactPerson}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">
-                        {entity.email}
-                      </Typography>
+                      <Typography variant="body2">{entity.email}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">
-                        {entity.phone}
-                      </Typography>
+                      <Typography variant="body2">{entity.phone}</Typography>
                     </TableCell>
                     <TableCell>
                       <Chip

@@ -255,8 +255,8 @@ export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInv
 
       const invoice: Partial<CustomerInvoice> = {
         type: 'CUSTOMER_INVOICE',
-        date: invoiceDate as any,
-        dueDate: invoiceDueDate as any,
+        date: invoiceDate ? Timestamp.fromDate(invoiceDate) : Timestamp.now(),
+        dueDate: invoiceDueDate ? Timestamp.fromDate(invoiceDueDate) : Timestamp.now(),
         entityId,
         entityName,
         description,
@@ -265,7 +265,7 @@ export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInv
         status,
         lineItems,
         subtotal,
-        gstDetails: gstDetails as any,
+        gstDetails,
         totalAmount,
         amount: totalAmount,
         transactionNumber,
@@ -276,7 +276,7 @@ export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInv
         currency: 'INR',
         baseAmount: totalAmount,
         attachments: [],
-        invoiceDate: invoiceDate as any,
+        invoiceDate: invoiceDate ? Timestamp.fromDate(invoiceDate) : Timestamp.now(),
         paymentTerms: 'Net 30',
         paidAmount: 0,
         outstandingAmount: totalAmount,

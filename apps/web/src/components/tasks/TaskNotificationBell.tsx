@@ -73,7 +73,9 @@ export default function TaskNotificationBell({
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (
+    priority: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (priority) {
       case 'URGENT':
         return 'error';
@@ -206,7 +208,7 @@ export default function TaskNotificationBell({
                     <Chip
                       label={notification.priority}
                       size="small"
-                      color={getPriorityColor(notification.priority) as any}
+                      color={getPriorityColor(notification.priority)}
                       sx={{ height: 20, fontSize: '0.7rem' }}
                     />
                     <Chip

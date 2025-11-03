@@ -290,8 +290,8 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
 
       const bill: Partial<VendorBill> = {
         type: 'VENDOR_BILL',
-        date: billDate as any, // Firestore will convert to Timestamp
-        dueDate: billDueDate as any,
+        date: billDate ? Timestamp.fromDate(billDate) : Timestamp.now(),
+        dueDate: billDueDate ? Timestamp.fromDate(billDueDate) : Timestamp.now(),
         entityId,
         entityName,
         description,
@@ -300,9 +300,9 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
         status,
         lineItems,
         subtotal,
-        gstDetails: gstDetails as any,
+        gstDetails,
         tdsDeducted,
-        tdsDetails: tdsDetails as any,
+        tdsDetails,
         tdsAmount,
         totalAmount,
         amount: totalAmount,

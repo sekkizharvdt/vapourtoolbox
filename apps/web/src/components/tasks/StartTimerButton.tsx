@@ -77,7 +77,9 @@ export default function StartTimerButton({
     return null;
   }
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (
+    priority: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (priority) {
       case 'URGENT':
         return 'error';
@@ -119,7 +121,7 @@ export default function StartTimerButton({
                 <Chip
                   label={taskNotification.priority}
                   size="small"
-                  color={getPriorityColor(taskNotification.priority) as any}
+                  color={getPriorityColor(taskNotification.priority)}
                 />
                 <Chip label={taskNotification.category} size="small" variant="outlined" />
               </Stack>
