@@ -4,12 +4,12 @@
  * Auto-syncs user custom claims when Firestore user documents are updated
  */
 
-import {onDocumentWritten} from 'firebase-functions/v2/firestore';
-import {onCall, HttpsError} from 'firebase-functions/v2/https';
-import {logger} from 'firebase-functions/v2';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
-import {UserRole} from './types/user';
-import {calculatePermissions} from './utils/permissions';
+import { UserRole } from './types/user';
+import { calculatePermissions } from './utils/permissions';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -57,12 +57,7 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
     return null;
   }
 
-  const {
-    roles,
-    status,
-    isActive,
-    email,
-  } = userData;
+  const { roles, status, isActive, email, permissions: userPermissions } = userData;
 
   // Validate required fields
   if (!email) {
@@ -81,8 +76,11 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
     Array.isArray(roles) &&
     roles.length > 0
   ) {
-    // Calculate permissions from roles
-    const permissions = calculatePermissions(roles as UserRole[]);
+    // Use permissions from Firestore if set, otherwise calculate from roles
+    const permissions =
+      typeof userPermissions === 'number'
+        ? userPermissions
+        : calculatePermissions(roles as UserRole[]);
 
     const customClaims = {
       roles,
@@ -148,19 +146,13 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
 export const syncUserClaims = onCall(async (request) => {
   // Only admins can trigger manual sync
   if (!request.auth || !request.auth.token.roles?.includes('SUPER_ADMIN')) {
-    throw new HttpsError(
-      'permission-denied',
-      'Only SUPER_ADMIN can manually sync user claims'
-    );
+    throw new HttpsError('permission-denied', 'Only SUPER_ADMIN can manually sync user claims');
   }
 
   const { userId } = request.data;
 
   if (!userId) {
-    throw new HttpsError(
-      'invalid-argument',
-      'userId is required'
-    );
+    throw new HttpsError('invalid-argument', 'userId is required');
   }
 
   try {
@@ -168,27 +160,18 @@ export const syncUserClaims = onCall(async (request) => {
     const userDoc = await admin.firestore().collection('users').doc(userId).get();
 
     if (!userDoc.exists) {
-      throw new HttpsError(
-        'not-found',
-        `User document not found: ${userId}`
-      );
+      throw new HttpsError('not-found', `User document not found: ${userId}`);
     }
 
     const userData = userDoc.data();
     if (!userData) {
-      throw new HttpsError(
-        'internal',
-        'User document has no data'
-      );
+      throw new HttpsError('internal', 'User document has no data');
     }
 
-    const { roles, status, isActive, email } = userData;
+    const { roles, status, isActive, email, permissions: userPermissions } = userData;
 
     if (!email) {
-      throw new HttpsError(
-        'failed-precondition',
-        'User has no email address'
-      );
+      throw new HttpsError('failed-precondition', 'User has no email address');
     }
 
     const domain = email.endsWith('@vapourdesal.com') ? 'internal' : 'external';
@@ -200,7 +183,11 @@ export const syncUserClaims = onCall(async (request) => {
       Array.isArray(roles) &&
       roles.length > 0
     ) {
-      const permissions = calculatePermissions(roles as UserRole[]);
+      // Use permissions from Firestore if set, otherwise calculate from roles
+      const permissions =
+        typeof userPermissions === 'number'
+          ? userPermissions
+          : calculatePermissions(roles as UserRole[]);
 
       await admin.auth().setCustomUserClaims(userId, {
         roles,
@@ -227,9 +214,6 @@ export const syncUserClaims = onCall(async (request) => {
     }
   } catch (error) {
     logger.error(`Error in syncUserClaims for ${userId}:`, error);
-    throw new HttpsError(
-      'internal',
-      'Failed to sync claims'
-    );
+    throw new HttpsError('internal', 'Failed to sync claims');
   }
 });
