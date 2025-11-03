@@ -80,7 +80,15 @@
       "Bash(timeout /t 60 /nobreak)",
       "Bash(firebase projects:list:*)",
       "Bash(GOOGLE_CLOUD_PROJECT=vapour-toolbox node:*)",
-      "Bash(pnpm exec tsc:*)"
+      "Bash(pnpm exec tsc:*)",
+      "Bash(timeout /t 15 /nobreak)",
+      "Bash(npx tsc:*)",
+      "Bash(git reset:*)",
+      "Bash(pnpm exec prettier:*)",
+      "Bash(del \"C:\\Users\\sekki\\VDT-Unified\\apps\\web\\src\\components\\common\\ErrorBoundary.tsx\")",
+      "Bash(git push:*)",
+      "Bash(pnpm exec next lint:*)",
+      "Bash(del \"C:\\Users\\sekki\\VDT-Unified\\packages\\constants\\src\\roles.ts\")"
     ],
     "deny": [],
     "ask": []

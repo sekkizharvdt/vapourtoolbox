@@ -1,12 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Container, Box, Typography, Card, CardContent, Button, CircularProgress, Grid } from '@mui/material';
+import {
+  Container,
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  Button,
+  CircularProgress,
+  Grid,
+} from '@mui/material';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import SetupWizard from './components/SetupWizard';
 import { Edit as EditIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
+import { PERMISSION_FLAGS, hasPermission } from '@vapour/constants';
 
 interface CompanySettings {
   setupComplete: boolean;
@@ -46,8 +56,10 @@ export default function CompanySettingsPage() {
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
 
-  // Check if user is SUPER_ADMIN
-  const isSuperAdmin = claims?.roles?.includes('SUPER_ADMIN') || false;
+  // Check if user has MANAGE_COMPANY_SETTINGS permission
+  const canManageSettings = claims?.permissions
+    ? hasPermission(claims.permissions, PERMISSION_FLAGS.MANAGE_COMPANY_SETTINGS)
+    : false;
 
   useEffect(() => {
     loadSettings();
@@ -74,7 +86,14 @@ export default function CompanySettingsPage() {
   if (loading) {
     return (
       <Container maxWidth="xl">
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '60vh',
+          }}
+        >
           <CircularProgress />
         </Box>
       </Container>
@@ -98,11 +117,12 @@ export default function CompanySettingsPage() {
             <CheckCircleIcon color="success" fontSize="small" />
             <Typography variant="body2" color="text.secondary">
               Setup completed
-              {settings.setupCompletedAt && ` on ${settings.setupCompletedAt.toDate().toLocaleDateString()}`}
+              {settings.setupCompletedAt &&
+                ` on ${settings.setupCompletedAt.toDate().toLocaleDateString()}`}
             </Typography>
           </Box>
         </Box>
-        {isSuperAdmin && (
+        {canManageSettings && (
           <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setEditMode(true)}>
             Edit Settings
           </Button>
@@ -128,9 +148,7 @@ export default function CompanySettingsPage() {
                 <Typography variant="subtitle2" color="text.secondary">
                   Legal Name
                 </Typography>
-                <Typography variant="body1">
-                  {settings.legalName}
-                </Typography>
+                <Typography variant="body1">{settings.legalName}</Typography>
               </Box>
             </CardContent>
           </Card>
@@ -174,9 +192,7 @@ export default function CompanySettingsPage() {
                     <Typography variant="subtitle2" color="text.secondary">
                       Website
                     </Typography>
-                    <Typography variant="body1">
-                      {settings.contact.website}
-                    </Typography>
+                    <Typography variant="body1">{settings.contact.website}</Typography>
                   </>
                 )}
               </Box>
@@ -219,9 +235,7 @@ export default function CompanySettingsPage() {
                     <Typography variant="subtitle2" color="text.secondary">
                       TAN
                     </Typography>
-                    <Typography variant="body1">
-                      {settings.taxIds.tan}
-                    </Typography>
+                    <Typography variant="body1">{settings.taxIds.tan}</Typography>
                   </>
                 )}
               </Box>
@@ -254,9 +268,7 @@ export default function CompanySettingsPage() {
                 <Typography variant="subtitle2" color="text.secondary">
                   IFSC Code
                 </Typography>
-                <Typography variant="body1">
-                  {settings.banking.ifscCode}
-                </Typography>
+                <Typography variant="body1">{settings.banking.ifscCode}</Typography>
               </Box>
             </CardContent>
           </Card>
@@ -274,15 +286,15 @@ export default function CompanySettingsPage() {
                   Fiscal Year Start
                 </Typography>
                 <Typography variant="body1" sx={{ mb: 2 }}>
-                  {new Date(2000, settings.fiscalYearStartMonth - 1, 1).toLocaleString('default', { month: 'long' })}
+                  {new Date(2000, settings.fiscalYearStartMonth - 1, 1).toLocaleString('default', {
+                    month: 'long',
+                  })}
                 </Typography>
 
                 <Typography variant="subtitle2" color="text.secondary">
                   Base Currency
                 </Typography>
-                <Typography variant="body1">
-                  {settings.baseCurrency}
-                </Typography>
+                <Typography variant="body1">{settings.baseCurrency}</Typography>
               </Box>
             </CardContent>
           </Card>

@@ -37,26 +37,19 @@ function validateClaims(claims: unknown): ClaimsValidationResult {
 
   const claimsObj = claims as Record<string, unknown>;
 
-  // If no roles property exists at all, user is pending approval
-  if (!claimsObj.roles) {
+  // If no permissions property exists, user is pending approval
+  if (typeof claimsObj.permissions !== 'number') {
     return { status: 'pending' };
   }
 
-  // If roles exists but is invalid, this is a security issue
-  if (!Array.isArray(claimsObj.roles) || claimsObj.roles.length === 0) {
-    console.error('Invalid claims: malformed roles array', claims);
-    return { status: 'invalid' };
+  // If permissions is 0, user has no permissions (pending approval)
+  if (claimsObj.permissions === 0) {
+    return { status: 'pending' };
   }
 
   // Check domain field
   if (!claimsObj.domain || !['internal', 'external'].includes(claimsObj.domain as string)) {
     console.error('Invalid claims: missing or invalid domain field', claims);
-    return { status: 'invalid' };
-  }
-
-  // Check permissions number
-  if (typeof claimsObj.permissions !== 'number') {
-    console.error('Invalid claims: missing or invalid permissions field', claims);
     return { status: 'invalid' };
   }
 
@@ -254,7 +247,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           photoURL: result.user.photoURL || '',
           status: 'pending',
           isActive: false,
-          roles: [],
           permissions: 0, // No permissions until admin approves
           domain: domain,
           assignedProjects: [],

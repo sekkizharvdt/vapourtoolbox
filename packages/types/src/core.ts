@@ -1,7 +1,9 @@
 // Core enums and constants
 
 /**
- * User roles in the system
+ * @deprecated UserRole has been removed in favor of pure permissions-based access control.
+ * Use the permissions field with bitwise flags instead.
+ * This type is kept for backward compatibility only and will be removed in a future version.
  */
 export type UserRole =
   | 'SUPER_ADMIN'

@@ -136,7 +136,7 @@ export function ModuleLayout({ children, permissionCheck, moduleName }: ModuleLa
       <Sidebar
         mobileOpen={mobileOpen}
         onMobileClose={handleDrawerToggle}
-        userRoles={claims?.roles || []}
+        userPermissions={claims?.permissions || 0}
         collapsed={sidebarCollapsed}
         onToggleCollapse={handleSidebarToggle}
       />

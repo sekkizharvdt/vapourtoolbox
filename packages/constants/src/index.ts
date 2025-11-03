@@ -4,7 +4,6 @@
 export * from './modules';
 export * from './work-areas';
 export * from './departments';
-export * from './roles';
 export * from './statuses';
 export * from './currencies';
 export * from './config';

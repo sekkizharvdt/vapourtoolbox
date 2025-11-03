@@ -100,15 +100,12 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
   return (
     <Box sx={{ display: 'flex' }}>
-      <DashboardAppBar
-        onMenuClick={handleDrawerToggle}
-        sidebarWidth={sidebarWidth}
-      />
+      <DashboardAppBar onMenuClick={handleDrawerToggle} sidebarWidth={sidebarWidth} />
 
       <Sidebar
         mobileOpen={mobileOpen}
         onMobileClose={handleDrawerToggle}
-        userRoles={claims?.roles || []}
+        userPermissions={claims?.permissions || 0}
         collapsed={sidebarCollapsed}
         onToggleCollapse={handleSidebarToggle}
       />
@@ -122,10 +119,11 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           ml: { xs: 0, md: `${sidebarWidth}px` },
           minHeight: '100vh',
           bgcolor: 'background.default',
-          transition: (theme) => theme.transitions.create(['margin', 'width'], {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.enteringScreen,
-          }),
+          transition: (theme) =>
+            theme.transitions.create(['margin', 'width'], {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
         }}
       >
         <Toolbar /> {/* Spacer for AppBar */}

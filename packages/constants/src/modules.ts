@@ -2,8 +2,6 @@
 // Priority Order: Time Tracking → Documents → Procurement → Proposals → Accounting → Estimation
 // Includes 9 active modules + 2 coming soon placeholders
 
-import type { UserRole } from '@vapour/types';
-
 export type ModuleStatus = 'active' | 'coming_soon' | 'beta';
 
 export interface ModuleDefinition {
@@ -15,7 +13,7 @@ export interface ModuleDefinition {
   color: string;
   path: string;
   status: ModuleStatus;
-  roles: UserRole[] | 'ALL';
+  requiredPermissions?: number; // Bitwise permission flags required for access (undefined = no permission check)
   estimatedRelease?: string;
   category: 'core' | 'application';
   priority?: number; // Lower number = higher priority (1 = highest)
@@ -28,10 +26,12 @@ export interface ModuleDefinition {
  * PRIORITY ORDER (for dashboard display):
  * 1. Time Tracking (highest priority - all users)
  * 2. Document Management (all users)
- * 3. Procurement (role-based)
- * 4. Accounting (role-based)
- * 5. Estimation (role-based)
+ * 3. Procurement (permission-based)
+ * 4. Accounting (permission-based)
+ * 5. Estimation (permission-based)
  * 6. Thermal Desalination (coming soon)
+ *
+ * NOTE: Import PERMISSION_FLAGS from @vapour/constants to use these values
  */
 export const MODULES: Record<string, ModuleDefinition> = {
   // ===== CORE MODULES (Sidebar only, no dashboard cards) =====
@@ -44,7 +44,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#3B82F6', // Blue
     path: '/users',
     status: 'active',
-    roles: ['SUPER_ADMIN', 'HR_ADMIN', 'DIRECTOR'],
+    requiredPermissions: 1, // MANAGE_USERS
     category: 'core',
   },
 
@@ -56,7 +56,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#10B981', // Green
     path: '/entities',
     status: 'active',
-    roles: ['SUPER_ADMIN', 'FINANCE_MANAGER', 'PROCUREMENT_MANAGER', 'DIRECTOR'],
+    requiredPermissions: 32, // VIEW_ENTITIES
     category: 'core',
   },
 
@@ -68,7 +68,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#8B5CF6', // Purple
     path: '/projects',
     status: 'active',
-    roles: ['SUPER_ADMIN', 'PROJECT_MANAGER', 'DIRECTOR', 'ENGINEERING_HEAD'],
+    requiredPermissions: 16, // VIEW_PROJECTS
     category: 'core',
   },
 
@@ -80,7 +80,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#6B7280', // Gray
     path: '/company',
     status: 'active',
-    roles: ['SUPER_ADMIN', 'DIRECTOR'],
+    requiredPermissions: 512, // MANAGE_COMPANY_SETTINGS
     category: 'core',
   },
 
@@ -95,7 +95,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#0891B2', // Vapour Cyan
     path: '/time',
     status: 'active',
-    roles: 'ALL',
+    // No requiredPermissions - accessible by all users
     category: 'application',
     priority: 1, // HIGHEST PRIORITY
   },
@@ -108,8 +108,8 @@ export const MODULES: Record<string, ModuleDefinition> = {
     icon: 'Description',
     color: '#7C3AED', // Purple
     path: '/documents',
-    status: 'active', // Changed from coming_soon
-    roles: 'ALL',
+    status: 'active',
+    // No requiredPermissions - accessible by all users
     category: 'application',
     priority: 2,
   },
@@ -123,7 +123,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#EC4899', // Pink
     path: '/procurement',
     status: 'active',
-    roles: ['SUPER_ADMIN', 'PROCUREMENT_MANAGER', 'PROJECT_MANAGER', 'DIRECTOR'],
+    requiredPermissions: 131072, // VIEW_PROCUREMENT
     category: 'application',
     priority: 3,
   },
@@ -137,7 +137,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#F59E0B', // Amber
     path: '/accounting',
     status: 'active',
-    roles: ['SUPER_ADMIN', 'FINANCE_MANAGER', 'ACCOUNTANT', 'DIRECTOR'],
+    requiredPermissions: 32768, // VIEW_ACCOUNTING
     category: 'application',
     priority: 4,
   },
@@ -151,7 +151,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#6366F1', // Indigo
     path: '/estimation',
     status: 'active',
-    roles: ['SUPER_ADMIN', 'ENGINEERING_HEAD', 'ENGINEER', 'PROJECT_MANAGER', 'DIRECTOR'],
+    requiredPermissions: 524288, // VIEW_ESTIMATION
     category: 'application',
     priority: 5,
   },
@@ -167,7 +167,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#10B981', // Green
     path: '/proposals',
     status: 'coming_soon',
-    roles: ['SUPER_ADMIN', 'DIRECTOR', 'PROJECT_MANAGER', 'ENGINEERING_HEAD'],
+    requiredPermissions: 8, // MANAGE_PROJECTS (for creating proposals)
     category: 'application',
     estimatedRelease: 'Q1 2026',
     priority: 6,
@@ -182,7 +182,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#EF4444', // Red
     path: '/thermal',
     status: 'coming_soon',
-    roles: ['SUPER_ADMIN', 'ENGINEERING_HEAD', 'ENGINEER', 'PROJECT_MANAGER', 'DIRECTOR'],
+    requiredPermissions: 524288, // VIEW_ESTIMATION (engineering calculations)
     category: 'application',
     estimatedRelease: 'Q2 2026',
     priority: 7,
@@ -197,12 +197,15 @@ export function getModulesByCategory(category: 'core' | 'application') {
 }
 
 /**
- * Get modules accessible by user roles
+ * Get modules accessible by user permissions
+ * Import PERMISSION_FLAGS from @vapour/constants and use hasPermission helper
  */
-export function getModulesByRoles(userRoles: UserRole[]) {
+export function getModulesByPermissions(userPermissions: number) {
   return Object.values(MODULES).filter((module) => {
-    if (module.roles === 'ALL') return true;
-    return userRoles.some((role) => module.roles.includes(role));
+    // If no permission required, accessible by all
+    if (module.requiredPermissions === undefined) return true;
+    // Check if user has required permissions using bitwise AND
+    return (userPermissions & module.requiredPermissions) === module.requiredPermissions;
   });
 }
 
@@ -218,4 +221,14 @@ export function getActiveModules() {
  */
 export function getModuleById(id: string): ModuleDefinition | undefined {
   return Object.values(MODULES).find((module) => module.id === id);
+}
+
+/**
+ * Check if user has access to a specific module
+ */
+export function hasModuleAccess(moduleId: string, userPermissions: number): boolean {
+  const module = getModuleById(moduleId);
+  if (!module) return false;
+  if (module.requiredPermissions === undefined) return true;
+  return (userPermissions & module.requiredPermissions) === module.requiredPermissions;
 }

@@ -31,13 +31,12 @@ import {
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
-import type { UserRole } from '@vapour/types';
 import { MODULES } from '@vapour/constants';
 
 interface SidebarProps {
   mobileOpen: boolean;
   onMobileClose: () => void;
-  userRoles?: UserRole[];
+  userPermissions?: number;
   collapsed: boolean;
   onToggleCollapse: () => void;
 }
@@ -53,9 +52,9 @@ const moduleIcons: Record<string, React.ReactNode> = {
   'company-settings': <BusinessCenterIcon />,
   'time-tracking': <ScheduleIcon />,
   'document-management': <DescriptionIcon />,
-  'procurement': <ShoppingCartIcon />,
-  'accounting': <AccountBalanceIcon />,
-  'estimation': <CalculateIcon />,
+  procurement: <ShoppingCartIcon />,
+  accounting: <AccountBalanceIcon />,
+  estimation: <CalculateIcon />,
 };
 
 // Category definitions for sidebar organization
@@ -91,7 +90,7 @@ const SIDEBAR_CATEGORIES: CategoryConfig[] = [
 export function Sidebar({
   mobileOpen,
   onMobileClose,
-  userRoles = [],
+  userPermissions = 0,
   collapsed,
   onToggleCollapse,
 }: SidebarProps) {
@@ -100,11 +99,13 @@ export function Sidebar({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Filter modules based on user roles and active status
+  // Filter modules based on user permissions and active status
   const accessibleModules = Object.values(MODULES).filter((module) => {
     if (module.status !== 'active') return false;
-    if (module.roles === 'ALL') return true;
-    return module.roles.some((role) => userRoles.includes(role as UserRole));
+    // If no permission required, accessible by all
+    if (module.requiredPermissions === undefined) return true;
+    // Check if user has required permissions using bitwise AND
+    return (userPermissions & module.requiredPermissions) === module.requiredPermissions;
   });
 
   // Group modules by category
@@ -142,7 +143,13 @@ export function Sidebar({
               justifyContent: 'center',
             }}
           >
-            <Image src="/logo.png" alt="VDT Logo" width={32} height={32} style={{ objectFit: 'contain' }} />
+            <Image
+              src="/logo.png"
+              alt="VDT Logo"
+              width={32}
+              height={32}
+              style={{ objectFit: 'contain' }}
+            />
           </Box>
         ) : (
           <Box

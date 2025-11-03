@@ -15,32 +15,22 @@ service cloud.firestore {
     }
 
     /**
-     * Check if user has specific role
-     * Fixed: Use hasAny() to check array values, not 'in' operator
-     */
-    function hasRole(role) {
-      return isAuthenticated() &&
-             request.auth.token.roles != null &&
-             request.auth.token.roles.hasAny([role]);
-    }
-
-    /**
-     * Check if user has any of the specified roles
-     */
-    function hasAnyRole(roles) {
-      return isAuthenticated() &&
-             request.auth.token.roles.hasAny(roles);
-    }
-
-    /**
      * Check if user has specific permission (bitwise)
-     * Permission flags are defined in packages/types/src/permissions.ts
+     * Permission flags are defined in packages/constants/src/permissions.ts
      * Note: Firestore rules don't support bitwise operators, so we use modulo arithmetic
      */
     function hasPermission(permissionBit) {
       return isAuthenticated() &&
              request.auth.token.permissions != null &&
              math.floor(request.auth.token.permissions / permissionBit) % 2 == 1;
+    }
+
+    /**
+     * Check if user has MANAGE_USERS permission (permission bit 1)
+     * This is the highest level admin permission
+     */
+    function isAdmin() {
+      return hasPermission(1); // MANAGE_USERS
     }
 
     /**
@@ -52,28 +42,11 @@ service cloud.firestore {
     }
 
     /**
-     * Check if user is external (CLIENT_PM)
+     * Check if user is external
      */
     function isExternalUser() {
       return isAuthenticated() &&
              request.auth.token.domain == 'external';
-    }
-
-    /**
-     * Check if user is CLIENT_PM (external client project manager)
-     * CLIENT_PM users can view procurement data for assigned projects only
-     */
-    function isClientPM() {
-      return isExternalUser() &&
-             hasRole('CLIENT_PM') &&
-             hasPermission(131072); // VIEW_PROCUREMENT permission (bit 17)
-    }
-
-    /**
-     * Check if user is SUPER_ADMIN
-     */
-    function isSuperAdmin() {
-      return hasRole('SUPER_ADMIN');
     }
 
     /**
@@ -107,7 +80,7 @@ service cloud.firestore {
       allow create: if (isOwner(userId) &&
                        request.resource.data.status == 'pending' &&
                        request.resource.data.isActive == false &&
-                       request.resource.data.roles.size() == 0) ||
+                       request.resource.data.permissions == 0) ||
                       (hasPermission(1) && isInternalUser()); // MANAGE_USERS
 
       // Update: Users can update their own preferences, or have MANAGE_USERS permission
@@ -117,8 +90,8 @@ service cloud.firestore {
                          .hasOnly(['preferences', 'photoURL', 'lastLoginAt'])) ||
                       hasPermission(1); // MANAGE_USERS
 
-      // Delete: Only SUPER_ADMIN can delete users
-      allow delete: if isSuperAdmin();
+      // Delete: Only admins can delete users
+      allow delete: if isAdmin();
     }
 
     // ============================================
@@ -166,8 +139,8 @@ service cloud.firestore {
       allow update: if hasPermission(8) && // MANAGE_PROJECTS
                        isInternalUser();
 
-      // Delete: Only SUPER_ADMIN
-      allow delete: if isSuperAdmin();
+      // Delete: Only admins
+      allow delete: if isAdmin();
 
       // ============================================
       // Project Subcollections
@@ -318,8 +291,8 @@ service cloud.firestore {
       // Read: All authenticated internal users
       allow read: if isInternalUser();
 
-      // Write: Only SUPER_ADMIN and DIRECTOR
-      allow write: if isSuperAdmin() || hasRole('DIRECTOR');
+      // Write: Only users with MANAGE_COMPANY_SETTINGS permission
+      allow write: if hasPermission(512) && isInternalUser(); // MANAGE_COMPANY_SETTINGS (bit 9)
     }
 
     // ============================================
@@ -366,7 +339,7 @@ service cloud.firestore {
     // ============================================
 
     match /auditLogs/{logId} {
-      allow read: if isSuperAdmin() || hasRole('DIRECTOR');
+      allow read: if isAdmin(); // Only users with MANAGE_USERS permission
       allow write: if false; // Written by Cloud Functions only
     }
 
@@ -383,7 +356,6 @@ service cloud.firestore {
 
       // Create: Only internal users with MANAGE_USERS permission
       allow create: if hasPermission(1) && isInternalUser() &&
-                       request.resource.data.role == 'CLIENT_PM' &&
                        request.resource.data.status == 'pending' &&
                        request.resource.data.assignedProjects.size() > 0;
 

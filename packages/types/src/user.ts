@@ -1,7 +1,7 @@
 // User Management Types
 
 import { Timestamp } from 'firebase/firestore';
-import { UserRole, Department } from './core';
+import { Department } from './core';
 import { UserStatus, TimestampFields } from './common';
 
 /**
@@ -9,7 +9,6 @@ import { UserStatus, TimestampFields } from './common';
  * Optimized for 1000-byte limit using bitwise permissions
  */
 export interface CustomClaims {
-  roles: UserRole[];
   department?: Department;
   permissions: number; // Bitwise permissions (see permissions.ts)
   domain: 'internal' | 'external'; // vapourdesal.com vs external domains
@@ -24,8 +23,7 @@ export interface User extends TimestampFields {
   displayName: string;
   photoURL?: string;
 
-  // Roles and permissions
-  roles: UserRole[];
+  // Permissions and department
   department?: Department;
   permissions: number; // Bitwise permissions (see permissions.ts)
   jobTitle?: string;

@@ -8,8 +8,6 @@ import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
-import { UserRole } from './types/user';
-import { calculatePermissions } from './utils/permissions';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -26,11 +24,10 @@ admin.initializeApp();
  * Sync Custom Claims on User Update
  *
  * Triggers whenever a user document in Firestore is updated
- * Automatically sets custom claims based on user roles, status, and domain
+ * Automatically sets custom claims based on user permissions, status, and domain
  *
  * Custom Claims Structure:
  * {
- *   roles: string[],          // User roles (e.g., ['SUPER_ADMIN', 'ENGINEER'])
  *   permissions: number,      // Bitwise permission flags
  *   domain: 'internal' | 'external'  // User domain
  * }
@@ -57,7 +54,7 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
     return null;
   }
 
-  const { roles, status, isActive, email, permissions: userPermissions } = userData;
+  const { status, isActive, email, permissions } = userData;
 
   // Validate required fields
   if (!email) {
@@ -68,22 +65,9 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
   // Determine domain from email
   const domain = email.endsWith('@vapourdesal.com') ? 'internal' : 'external';
 
-  // Only set claims for active users with roles
-  if (
-    status === 'active' &&
-    isActive === true &&
-    roles &&
-    Array.isArray(roles) &&
-    roles.length > 0
-  ) {
-    // Use permissions from Firestore if set, otherwise calculate from roles
-    const permissions =
-      typeof userPermissions === 'number'
-        ? userPermissions
-        : calculatePermissions(roles as UserRole[]);
-
+  // Only set claims for active users with permissions
+  if (status === 'active' && isActive === true && typeof permissions === 'number') {
     const customClaims = {
-      roles,
       permissions,
       domain,
     };
@@ -95,15 +79,12 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
       // Check if claims actually changed (avoid unnecessary updates)
       const currentClaims = user.customClaims || {};
       const claimsChanged =
-        JSON.stringify(currentClaims.roles) !== JSON.stringify(roles) ||
-        currentClaims.permissions !== permissions ||
-        currentClaims.domain !== domain;
+        currentClaims.permissions !== permissions || currentClaims.domain !== domain;
 
       if (claimsChanged) {
         await admin.auth().setCustomUserClaims(userId, customClaims);
         logger.info(`Updated claims for user ${userId}:`, {
           email,
-          roles,
           permissions,
           domain,
         });
@@ -117,7 +98,7 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
       return null;
     }
   } else {
-    // User is pending, inactive, or has no roles - remove claims
+    // User is pending, inactive, or has no permissions - remove claims
     try {
       const user = await admin.auth().getUser(userId);
 
@@ -144,9 +125,19 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
  *   await syncClaims({ userId: 'abc123' });
  */
 export const syncUserClaims = onCall(async (request) => {
-  // Only admins can trigger manual sync
-  if (!request.auth || !request.auth.token.roles?.includes('SUPER_ADMIN')) {
-    throw new HttpsError('permission-denied', 'Only SUPER_ADMIN can manually sync user claims');
+  // Only users with MANAGE_USERS permission can trigger manual sync
+  if (!request.auth || !request.auth.token.permissions) {
+    throw new HttpsError('permission-denied', 'Authentication required');
+  }
+
+  const userPermissions = request.auth.token.permissions as number;
+  const MANAGE_USERS = 1; // PERMISSION_FLAGS.MANAGE_USERS
+
+  if ((userPermissions & MANAGE_USERS) !== MANAGE_USERS) {
+    throw new HttpsError(
+      'permission-denied',
+      'MANAGE_USERS permission required to sync user claims'
+    );
   }
 
   const { userId } = request.data;
@@ -168,7 +159,7 @@ export const syncUserClaims = onCall(async (request) => {
       throw new HttpsError('internal', 'User document has no data');
     }
 
-    const { roles, status, isActive, email, permissions: userPermissions } = userData;
+    const { status, isActive, email, permissions } = userData;
 
     if (!email) {
       throw new HttpsError('failed-precondition', 'User has no email address');
@@ -176,21 +167,8 @@ export const syncUserClaims = onCall(async (request) => {
 
     const domain = email.endsWith('@vapourdesal.com') ? 'internal' : 'external';
 
-    if (
-      status === 'active' &&
-      isActive === true &&
-      roles &&
-      Array.isArray(roles) &&
-      roles.length > 0
-    ) {
-      // Use permissions from Firestore if set, otherwise calculate from roles
-      const permissions =
-        typeof userPermissions === 'number'
-          ? userPermissions
-          : calculatePermissions(roles as UserRole[]);
-
+    if (status === 'active' && isActive === true && typeof permissions === 'number') {
       await admin.auth().setCustomUserClaims(userId, {
-        roles,
         permissions,
         domain,
       });
@@ -202,14 +180,14 @@ export const syncUserClaims = onCall(async (request) => {
       return {
         success: true,
         message: 'Claims synced successfully',
-        claims: { roles, permissions, domain },
+        claims: { permissions, domain },
       };
     } else {
       await admin.auth().setCustomUserClaims(userId, null);
 
       return {
         success: true,
-        message: 'Claims removed (user inactive or no roles)',
+        message: 'Claims removed (user inactive or no permissions set)',
       };
     }
   } catch (error) {
