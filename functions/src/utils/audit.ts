@@ -14,9 +14,7 @@ const COLLECTIONS = {
  * Create an audit log entry
  * This function is used throughout Cloud Functions to track all sensitive operations
  */
-export async function createAuditLog(
-  params: CreateAuditLogParams
-): Promise<string> {
+export async function createAuditLog(params: CreateAuditLogParams): Promise<string> {
   const db = admin.firestore();
 
   // Generate audit log ID
@@ -28,7 +26,7 @@ export async function createAuditLog(
     actorId: params.actorId || 'system',
     actorEmail: params.actorEmail || 'system@vapourdesal.com',
     actorName: params.actorName || 'System',
-    actorRoles: params.actorRoles || [],
+    actorPermissions: params.actorPermissions || 0,
 
     // Action details
     action: params.action,
@@ -71,7 +69,9 @@ export async function createAuditLog(
   // Save audit log
   await auditLogRef.set(auditLog);
 
-  console.log(`[AUDIT] ${params.action} | ${params.entityType}:${params.entityId} | Actor: ${auditLog.actorEmail}`);
+  console.log(
+    `[AUDIT] ${params.action} | ${params.entityType}:${params.entityId} | Actor: ${auditLog.actorEmail}`
+  );
 
   return auditLogRef.id;
 }
@@ -137,7 +137,7 @@ export async function getActorFromAuth(userId: string): Promise<{
   actorId: string;
   actorEmail: string;
   actorName: string;
-  actorRoles: string[];
+  actorPermissions: number;
 }> {
   try {
     const user = await admin.auth().getUser(userId);
@@ -147,7 +147,7 @@ export async function getActorFromAuth(userId: string): Promise<{
       actorId: userId,
       actorEmail: user.email || 'unknown@vapourdesal.com',
       actorName: user.displayName || 'Unknown User',
-      actorRoles: (customClaims.roles as string[]) || [],
+      actorPermissions: (customClaims.permissions as number) || 0,
     };
   } catch (error) {
     console.error(`Failed to get actor info for user ${userId}:`, error);
@@ -155,7 +155,7 @@ export async function getActorFromAuth(userId: string): Promise<{
       actorId: userId,
       actorEmail: 'unknown@vapourdesal.com',
       actorName: 'Unknown User',
-      actorRoles: [],
+      actorPermissions: 0,
     };
   }
 }
