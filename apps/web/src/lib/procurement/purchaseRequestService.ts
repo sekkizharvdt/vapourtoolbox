@@ -417,14 +417,14 @@ export async function updatePurchaseRequest(
   try {
     const docRef = doc(db, COLLECTIONS.PURCHASE_REQUESTS, prId);
 
-    const updateData: Partial<PurchaseRequest> = {
+    const updateData = {
       ...updates,
       requiredBy: updates.requiredBy ? Timestamp.fromDate(updates.requiredBy) : undefined,
       updatedAt: Timestamp.now(),
       updatedBy: userId,
     };
 
-    await updateDoc(docRef, updateData as any);
+    await updateDoc(docRef, updateData);
   } catch (error) {
     console.error('[updatePurchaseRequest] Error:', error);
     throw new Error('Failed to update purchase request');

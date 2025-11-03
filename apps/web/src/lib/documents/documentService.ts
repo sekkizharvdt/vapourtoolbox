@@ -321,13 +321,13 @@ export async function searchDocuments(
 // ============================================================================
 
 export async function getDocumentsByEntity(
-  entityType: string,
+  entityType: DocumentRecord['entityType'],
   entityId: string,
   onlyLatest = true
 ): Promise<DocumentRecord[]> {
   return (
     await searchDocuments({
-      entityType: entityType as any,
+      entityType,
       entityId,
       onlyLatest,
       orderBy: 'uploadedAt',

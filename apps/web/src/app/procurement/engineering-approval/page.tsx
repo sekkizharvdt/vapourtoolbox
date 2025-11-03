@@ -146,7 +146,9 @@ export default function EngineeringApprovalPage() {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (
+    priority: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (priority) {
       case 'URGENT':
         return 'error';
@@ -269,7 +271,7 @@ export default function EngineeringApprovalPage() {
                       <Chip
                         label={request.priority}
                         size="small"
-                        color={getPriorityColor(request.priority) as any}
+                        color={getPriorityColor(request.priority)}
                       />
                     </TableCell>
                     <TableCell>

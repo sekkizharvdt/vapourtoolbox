@@ -238,7 +238,7 @@ export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInv
         transactionDate: Timestamp.fromDate(invoiceDate),
         subtotal,
         lineItems,
-        gstDetails: gstDetails as any,
+        gstDetails,
         currency: 'INR',
         description: description || `Invoice for ${entityName}`,
         entityId,

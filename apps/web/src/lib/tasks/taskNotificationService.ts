@@ -418,7 +418,7 @@ export async function completeActionableTask(
       updates.completionConfirmed = true;
     }
 
-    await updateDoc(doc(db, COLLECTIONS.TASK_NOTIFICATIONS, taskNotificationId), updates as any);
+    await updateDoc(doc(db, COLLECTIONS.TASK_NOTIFICATIONS, taskNotificationId), updates);
   } catch (error) {
     console.error('[completeActionableTask] Error:', error);
     throw error;
