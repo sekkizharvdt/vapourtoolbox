@@ -1,9 +1,10 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // Removed output: 'export' to support dynamic routes
-  // Firebase Hosting supports Next.js dynamic routes via rewrites
+  output: 'export',
   reactStrictMode: true,
+  // Skip trailing slash to match Firebase cleanUrls
+  skipTrailingSlashRedirect: true,
   transpilePackages: [
     '@vapour/constants',
     '@vapour/firebase',
