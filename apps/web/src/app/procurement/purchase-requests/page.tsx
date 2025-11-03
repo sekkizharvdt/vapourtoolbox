@@ -36,7 +36,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PurchaseRequest } from '@vapour/types';
-import { getPurchaseRequests } from '@/lib/procurement/purchaseRequestService';
+import { listPurchaseRequests } from '@/lib/procurement/purchaseRequestService';
 
 export default function PurchaseRequestsPage() {
   const router = useRouter();
@@ -64,7 +64,7 @@ export default function PurchaseRequestsPage() {
 
     setLoading(true);
     try {
-      const data = await getPurchaseRequests({});
+      const data = await listPurchaseRequests({});
       setRequests(data);
     } catch (error) {
       console.error('[PurchaseRequestsPage] Error loading requests:', error);
@@ -83,7 +83,7 @@ export default function PurchaseRequestsPage() {
         (req) =>
           req.number.toLowerCase().includes(query) ||
           req.projectName?.toLowerCase().includes(query) ||
-          req.department?.toLowerCase().includes(query)
+          req.description?.toLowerCase().includes(query)
       );
     }
 
@@ -247,7 +247,7 @@ export default function PurchaseRequestsPage() {
               <TableRow>
                 <TableCell>PR Number</TableCell>
                 <TableCell>Project</TableCell>
-                <TableCell>Department</TableCell>
+                <TableCell>Description</TableCell>
                 <TableCell>Type</TableCell>
                 <TableCell>Category</TableCell>
                 <TableCell>Priority</TableCell>
@@ -276,7 +276,7 @@ export default function PurchaseRequestsPage() {
                       </Typography>
                     </TableCell>
                     <TableCell>{request.projectName || '-'}</TableCell>
-                    <TableCell>{request.department || '-'}</TableCell>
+                    <TableCell>{request.description || '-'}</TableCell>
                     <TableCell>
                       <Chip label={request.type} size="small" variant="outlined" />
                     </TableCell>

@@ -38,8 +38,12 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import type { CreatePurchaseRequestInput, PurchaseRequestItemInput } from '@vapour/types';
-import { createPurchaseRequest } from '@/lib/procurement/purchaseRequestService';
+import {
+  createPurchaseRequest,
+  submitPurchaseRequestForApproval,
+  type CreatePurchaseRequestInput,
+  type CreatePurchaseRequestItemInput,
+} from '@/lib/procurement/purchaseRequestService';
 import ExcelUploadDialog from '@/components/procurement/ExcelUploadDialog';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 
@@ -58,21 +62,18 @@ export default function NewPurchaseRequestPage() {
     category: 'RAW_MATERIAL' as 'SERVICE' | 'RAW_MATERIAL' | 'BOUGHT_OUT',
     projectId: '',
     projectName: '',
-    department: '',
+    title: '',
+    description: '',
     priority: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT',
-    requiredByDate: '',
-    purpose: '',
-    justification: '',
+    requiredBy: '',
   });
 
-  const [lineItems, setLineItems] = useState<PurchaseRequestItemInput[]>([
+  const [lineItems, setLineItems] = useState<CreatePurchaseRequestItemInput[]>([
     {
-      lineNumber: 1,
       description: '',
       quantity: 1,
       unit: 'NOS',
       equipmentCode: '',
-      remarks: '',
     },
   ]);
 
@@ -85,49 +86,43 @@ export default function NewPurchaseRequestPage() {
     }));
   };
 
-  const handleProjectSelect = (projectId: string, projectName: string) => {
+  const handleProjectSelect = (projectId: string | null) => {
     setFormData((prev) => ({
       ...prev,
-      projectId,
-      projectName,
+      projectId: projectId || '',
+      projectName: '', // TODO: Get project name from projectId
     }));
   };
 
   const handleLineItemChange = (index: number, field: string, value: any) => {
     const updatedItems = [...lineItems];
-    updatedItems[index] = {
-      ...updatedItems[index],
-      [field]: value,
-    };
-    setLineItems(updatedItems);
+    const item = updatedItems[index];
+    if (item) {
+      updatedItems[index] = {
+        ...item,
+        [field]: value,
+      };
+      setLineItems(updatedItems);
+    }
   };
 
   const handleAddLineItem = () => {
     setLineItems((prev) => [
       ...prev,
       {
-        lineNumber: prev.length + 1,
         description: '',
         quantity: 1,
         unit: 'NOS',
         equipmentCode: '',
-        remarks: '',
       },
     ]);
   };
 
   const handleRemoveLineItem = (index: number) => {
-    setLineItems((prev) => {
-      const updated = prev.filter((_, i) => i !== index);
-      // Renumber line items
-      return updated.map((item, i) => ({
-        ...item,
-        lineNumber: i + 1,
-      }));
-    });
+    setLineItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleImportFromExcel = (importedItems: PurchaseRequestItemInput[]) => {
+  const handleImportFromExcel = (importedItems: CreatePurchaseRequestItemInput[]) => {
     setLineItems(importedItems);
     setExcelDialogOpen(false);
   };
@@ -141,12 +136,12 @@ export default function NewPurchaseRequestPage() {
         setError('Please select a project');
         return false;
       }
-      if (!formData.department) {
-        setError('Please enter department');
+      if (!formData.title.trim()) {
+        setError('Please enter title');
         return false;
       }
-      if (!formData.purpose) {
-        setError('Please enter purpose');
+      if (!formData.description.trim()) {
+        setError('Please enter description');
         return false;
       }
       return true;
@@ -161,6 +156,7 @@ export default function NewPurchaseRequestPage() {
 
       for (let i = 0; i < lineItems.length; i++) {
         const item = lineItems[i];
+        if (!item) continue;
         if (!item.description.trim()) {
           setError(`Line ${i + 1}: Description is required`);
           return false;
@@ -203,20 +199,21 @@ export default function NewPurchaseRequestPage() {
       const input: CreatePurchaseRequestInput = {
         type: formData.type,
         category: formData.category,
-        projectId: formData.projectId || undefined,
-        projectName: formData.projectName || undefined,
-        department: formData.department,
+        projectId: formData.projectId,
+        projectName: formData.projectName,
+        title: formData.title,
+        description: formData.description,
         priority: formData.priority,
-        requiredByDate: formData.requiredByDate ? new Date(formData.requiredByDate) : undefined,
-        purpose: formData.purpose,
-        justification: formData.justification || undefined,
+        requiredBy: formData.requiredBy ? new Date(formData.requiredBy) : undefined,
         items: lineItems.filter((item) => item.description.trim() !== ''),
-        submittedBy: user.uid,
-        submittedByName: user.displayName || user.email || 'Unknown',
       };
 
-      const prId = await createPurchaseRequest(input);
-      router.push(`/procurement/purchase-requests/${prId}`);
+      const result = await createPurchaseRequest(
+        input,
+        user.uid,
+        user.displayName || user.email || 'Unknown'
+      );
+      router.push(`/procurement/purchase-requests/${result.prId}`);
     } catch (err) {
       console.error('[NewPurchaseRequest] Error saving draft:', err);
       setError(err instanceof Error ? err.message : 'Failed to save draft');
@@ -237,21 +234,29 @@ export default function NewPurchaseRequestPage() {
       const input: CreatePurchaseRequestInput = {
         type: formData.type,
         category: formData.category,
-        projectId: formData.projectId || undefined,
-        projectName: formData.projectName || undefined,
-        department: formData.department,
+        projectId: formData.projectId,
+        projectName: formData.projectName,
+        title: formData.title,
+        description: formData.description,
         priority: formData.priority,
-        requiredByDate: formData.requiredByDate ? new Date(formData.requiredByDate) : undefined,
-        purpose: formData.purpose,
-        justification: formData.justification || undefined,
+        requiredBy: formData.requiredBy ? new Date(formData.requiredBy) : undefined,
         items: lineItems,
-        submittedBy: user.uid,
-        submittedByName: user.displayName || user.email || 'Unknown',
-        submitImmediately: true, // Submit for approval
       };
 
-      const prId = await createPurchaseRequest(input);
-      router.push(`/procurement/purchase-requests/${prId}`);
+      const result = await createPurchaseRequest(
+        input,
+        user.uid,
+        user.displayName || user.email || 'Unknown'
+      );
+
+      // Submit for approval immediately
+      await submitPurchaseRequestForApproval(
+        result.prId,
+        user.uid,
+        user.displayName || user.email || 'Unknown'
+      );
+
+      router.push(`/procurement/purchase-requests/${result.prId}`);
     } catch (err) {
       console.error('[NewPurchaseRequest] Error submitting:', err);
       setError(err instanceof Error ? err.message : 'Failed to submit purchase request');
@@ -339,16 +344,27 @@ export default function NewPurchaseRequestPage() {
                 />
               )}
 
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                <TextField
-                  label="Department"
-                  value={formData.department}
-                  onChange={(e) => handleInputChange('department', e.target.value)}
-                  fullWidth
-                  required
-                  placeholder="e.g., Engineering, Procurement"
-                />
+              <TextField
+                label="Title"
+                value={formData.title}
+                onChange={(e) => handleInputChange('title', e.target.value)}
+                fullWidth
+                required
+                placeholder="e.g., Raw Materials for Project X"
+              />
 
+              <TextField
+                label="Description"
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                multiline
+                rows={3}
+                fullWidth
+                required
+                placeholder="Detailed description of the purchase request and its purpose"
+              />
+
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                 <TextField
                   select
                   label="Priority"
@@ -362,38 +378,17 @@ export default function NewPurchaseRequestPage() {
                   <MenuItem value="HIGH">High</MenuItem>
                   <MenuItem value="URGENT">Urgent</MenuItem>
                 </TextField>
+
+                <TextField
+                  label="Required By Date"
+                  type="date"
+                  value={formData.requiredBy}
+                  onChange={(e) => handleInputChange('requiredBy', e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  fullWidth
+                  helperText="When do you need these items?"
+                />
               </Stack>
-
-              <TextField
-                label="Required By Date"
-                type="date"
-                value={formData.requiredByDate}
-                onChange={(e) => handleInputChange('requiredByDate', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-                helperText="When do you need these items?"
-              />
-
-              <TextField
-                label="Purpose"
-                value={formData.purpose}
-                onChange={(e) => handleInputChange('purpose', e.target.value)}
-                multiline
-                rows={2}
-                fullWidth
-                required
-                placeholder="Brief description of why these items are needed"
-              />
-
-              <TextField
-                label="Justification (Optional)"
-                value={formData.justification}
-                onChange={(e) => handleInputChange('justification', e.target.value)}
-                multiline
-                rows={3}
-                fullWidth
-                placeholder="Detailed justification if required"
-              />
             </Stack>
           </Paper>
         )}
@@ -438,14 +433,13 @@ export default function NewPurchaseRequestPage() {
                     <TableCell width={100}>Quantity *</TableCell>
                     <TableCell width={100}>Unit *</TableCell>
                     <TableCell width={150}>Equipment Code</TableCell>
-                    <TableCell>Remarks</TableCell>
                     <TableCell width={60}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {lineItems.map((item, index) => (
                     <TableRow key={index}>
-                      <TableCell>{item.lineNumber}</TableCell>
+                      <TableCell>{index + 1}</TableCell>
                       <TableCell>
                         <TextField
                           value={item.description}
@@ -499,16 +493,6 @@ export default function NewPurchaseRequestPage() {
                           placeholder="Optional"
                           size="small"
                           fullWidth
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <TextField
-                          value={item.remarks || ''}
-                          onChange={(e) => handleLineItemChange(index, 'remarks', e.target.value)}
-                          placeholder="Optional"
-                          size="small"
-                          fullWidth
-                          multiline
                         />
                       </TableCell>
                       <TableCell>
@@ -566,20 +550,20 @@ export default function NewPurchaseRequestPage() {
                     </Typography>
                   )}
                   <Typography variant="body2">
-                    <strong>Department:</strong> {formData.department}
+                    <strong>Title:</strong> {formData.title}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Description:</strong> {formData.description}
                   </Typography>
                   <Typography variant="body2">
                     <strong>Priority:</strong> {formData.priority}
                   </Typography>
-                  {formData.requiredByDate && (
+                  {formData.requiredBy && (
                     <Typography variant="body2">
                       <strong>Required By:</strong>{' '}
-                      {new Date(formData.requiredByDate).toLocaleDateString()}
+                      {new Date(formData.requiredBy).toLocaleDateString()}
                     </Typography>
                   )}
-                  <Typography variant="body2">
-                    <strong>Purpose:</strong> {formData.purpose}
-                  </Typography>
                 </Stack>
               </Box>
 
@@ -601,9 +585,9 @@ export default function NewPurchaseRequestPage() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {lineItems.map((item) => (
-                        <TableRow key={item.lineNumber}>
-                          <TableCell>{item.lineNumber}</TableCell>
+                      {lineItems.map((item, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{index + 1}</TableCell>
                           <TableCell>{item.description}</TableCell>
                           <TableCell>{item.quantity}</TableCell>
                           <TableCell>{item.unit}</TableCell>

@@ -33,12 +33,12 @@ import {
   Close as CloseIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import type { PurchaseRequestItemInput } from '@vapour/types';
+import type { CreatePurchaseRequestItemInput } from '@/lib/procurement/purchaseRequestService';
 
 interface ExcelUploadDialogProps {
   open: boolean;
   onClose: () => void;
-  onItemsImported: (items: PurchaseRequestItemInput[]) => void;
+  onItemsImported: (items: CreatePurchaseRequestItemInput[]) => void;
 }
 
 interface ParsedItem {
@@ -109,14 +109,14 @@ export default function ExcelUploadDialog({
     }
   };
 
-  const parseClientSide = async (file: File) => {
+  const parseClientSide = async (_file: File) => {
     // TODO: Implement client-side Excel parsing using xlsx library
     // For now, return empty array (no mock data)
     setError('Excel parsing not yet implemented. Please enter items manually.');
     setParsedItems([]);
   };
 
-  const parseServerSide = async (file: File) => {
+  const parseServerSide = async (_file: File) => {
     // TODO: Upload to Cloud Function for parsing
     setError('Cloud Function parsing not yet implemented. Please enter items manually.');
     setParsedItems([]);
@@ -127,12 +127,10 @@ export default function ExcelUploadDialog({
   };
 
   const handleImport = () => {
-    const items: PurchaseRequestItemInput[] = parsedItems.map((item) => ({
-      lineNumber: item.lineNumber,
+    const items: CreatePurchaseRequestItemInput[] = parsedItems.map((item) => ({
       description: item.description,
       quantity: item.quantity,
       unit: item.unit,
-      remarks: item.remarks,
       equipmentCode: item.equipmentCode,
     }));
 

@@ -20,14 +20,12 @@ import {
 import {
   Description as DescriptionIcon,
   RequestQuote as RequestQuoteIcon,
-  LocalOffer as LocalOfferIcon,
   ShoppingCart as ShoppingCartIcon,
   CheckCircle as CheckCircleIcon,
   Inventory as InventoryIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface ProcurementStats {
   pendingPRs: number;
@@ -39,7 +37,6 @@ interface ProcurementStats {
 
 export default function ProcurementPage() {
   const router = useRouter();
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<ProcurementStats>({
     pendingPRs: 0,
