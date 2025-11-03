@@ -159,7 +159,7 @@ export default function StartTimerButton({
               Starting the timer will:
               <ul style={{ marginTop: 8, marginBottom: 0, paddingLeft: 20 }}>
                 <li>Stop any other active timers</li>
-                <li>Mark this task as "In Progress"</li>
+                <li>Mark this task as &quot;In Progress&quot;</li>
                 <li>Begin tracking your time</li>
               </ul>
             </Alert>
