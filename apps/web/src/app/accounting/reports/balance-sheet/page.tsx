@@ -5,7 +5,6 @@ import {
   Box,
   Paper,
   Typography,
-  Grid,
   TextField,
   Button,
   Table,
@@ -125,8 +124,17 @@ export default function BalanceSheetPage() {
         {report && (
           <>
             {/* Summary Cards */}
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={4}>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={3}
+              sx={{ mb: 3 }}
+              flexWrap="wrap"
+            >
+              <Box
+                sx={{
+                  flex: { xs: '1 1 100%', md: '1 1 calc(33.333% - 16px)' },
+                }}
+              >
                 <Paper sx={{ p: 3, bgcolor: 'info.lighter' }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Total Assets
@@ -135,8 +143,12 @@ export default function BalanceSheetPage() {
                     {formatCurrency(report.assets.totalAssets)}
                   </Typography>
                 </Paper>
-              </Grid>
-              <Grid item xs={12} md={4}>
+              </Box>
+              <Box
+                sx={{
+                  flex: { xs: '1 1 100%', md: '1 1 calc(33.333% - 16px)' },
+                }}
+              >
                 <Paper sx={{ p: 3, bgcolor: 'warning.lighter' }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Total Liabilities
@@ -145,8 +157,12 @@ export default function BalanceSheetPage() {
                     {formatCurrency(report.liabilities.totalLiabilities)}
                   </Typography>
                 </Paper>
-              </Grid>
-              <Grid item xs={12} md={4}>
+              </Box>
+              <Box
+                sx={{
+                  flex: { xs: '1 1 100%', md: '1 1 calc(33.333% - 16px)' },
+                }}
+              >
                 <Paper sx={{ p: 3, bgcolor: 'success.lighter' }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Total Equity
@@ -155,13 +171,13 @@ export default function BalanceSheetPage() {
                     {formatCurrency(report.equity.totalEquity)}
                   </Typography>
                 </Paper>
-              </Grid>
-            </Grid>
+              </Box>
+            </Stack>
 
             {/* Balance Sheet Table - Two Column Layout */}
-            <Grid container spacing={3}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} flexWrap="wrap">
               {/* Assets Column */}
-              <Grid item xs={12} md={6}>
+              <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 calc(50% - 12px)' } }}>
                 <TableContainer component={Paper}>
                   <Table size="small">
                     <TableHead>
@@ -276,10 +292,10 @@ export default function BalanceSheetPage() {
                     </TableBody>
                   </Table>
                 </TableContainer>
-              </Grid>
+              </Box>
 
               {/* Liabilities & Equity Column */}
-              <Grid item xs={12} md={6}>
+              <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 calc(50% - 12px)' } }}>
                 <TableContainer component={Paper}>
                   <Table size="small">
                     <TableHead>
@@ -407,8 +423,8 @@ export default function BalanceSheetPage() {
                     </TableBody>
                   </Table>
                 </TableContainer>
-              </Grid>
-            </Grid>
+              </Box>
+            </Stack>
 
             {/* Accounting Equation */}
             <Paper sx={{ p: 3, bgcolor: report.balanced ? 'success.lighter' : 'error.lighter' }}>

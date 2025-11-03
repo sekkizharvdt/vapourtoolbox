@@ -5,7 +5,6 @@ import {
   Box,
   Paper,
   Typography,
-  Grid,
   TextField,
   Button,
   Table,
@@ -131,8 +130,17 @@ export default function ProfitLossPage() {
         {report && (
           <>
             {/* Summary Cards */}
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={4}>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={3}
+              sx={{ mb: 3 }}
+              flexWrap="wrap"
+            >
+              <Box
+                sx={{
+                  flex: { xs: '1 1 100%', md: '1 1 calc(33.333% - 16px)' },
+                }}
+              >
                 <Paper sx={{ p: 3, bgcolor: 'success.lighter' }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Total Revenue
@@ -141,8 +149,12 @@ export default function ProfitLossPage() {
                     {formatCurrency(report.revenue.total)}
                   </Typography>
                 </Paper>
-              </Grid>
-              <Grid item xs={12} md={4}>
+              </Box>
+              <Box
+                sx={{
+                  flex: { xs: '1 1 100%', md: '1 1 calc(33.333% - 16px)' },
+                }}
+              >
                 <Paper sx={{ p: 3, bgcolor: 'error.lighter' }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Total Expenses
@@ -151,8 +163,12 @@ export default function ProfitLossPage() {
                     {formatCurrency(report.expenses.total)}
                   </Typography>
                 </Paper>
-              </Grid>
-              <Grid item xs={12} md={4}>
+              </Box>
+              <Box
+                sx={{
+                  flex: { xs: '1 1 100%', md: '1 1 calc(33.333% - 16px)' },
+                }}
+              >
                 <Paper
                   sx={{
                     p: 3,
@@ -171,8 +187,8 @@ export default function ProfitLossPage() {
                     Margin: {report.profitMargin.toFixed(2)}%
                   </Typography>
                 </Paper>
-              </Grid>
-            </Grid>
+              </Box>
+            </Stack>
 
             {/* Detailed P&L Table */}
             <TableContainer component={Paper}>
