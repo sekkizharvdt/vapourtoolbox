@@ -54,7 +54,7 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
 
   // Initialize form when user changes
   useEffect(() => {
-    if (user) {
+    if (user && open) {
       setDisplayName(user.displayName);
       setPhone(user.phone || '');
       setMobile(user.mobile || '');
@@ -65,7 +65,7 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
       setSaveSuccess(false);
       setError('');
     }
-  }, [user]);
+  }, [user, open]);
 
   // Permission toggle handler
   const togglePermission = (permission: number) => {
@@ -113,10 +113,10 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
 
       // Show success message
       setSaveSuccess(true);
-      onSuccess();
 
       // Auto-close after showing success message
       setTimeout(() => {
+        onSuccess();
         onClose();
       }, 4000); // Give user 4 seconds to read the token refresh message
     } catch (err: unknown) {

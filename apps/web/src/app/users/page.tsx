@@ -46,7 +46,7 @@ import type { User, UserStatus } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { EditUserDialog } from '@/components/admin/EditUserDialog';
 import { ApproveUserDialog } from '@/components/admin/ApproveUserDialog';
-import { PERMISSION_FLAGS, hasPermission } from '@vapour/constants';
+import { PERMISSION_FLAGS, hasPermission, getAllPermissions } from '@vapour/constants';
 
 export default function UserManagementPage() {
   const { claims } = useAuth();
@@ -151,6 +151,22 @@ export default function UserManagementPage() {
       default:
         return 'warning';
     }
+  };
+
+  // Get user role label based on permissions
+  const getUserRoleLabel = (permissions: number | undefined): string => {
+    if (!permissions || permissions === 0) return 'No permissions';
+    const allPermissions = getAllPermissions();
+    if (permissions === allPermissions) return 'Super Admin';
+    return 'User';
+  };
+
+  // Get role chip color
+  const getRoleColor = (permissions: number | undefined): 'primary' | 'default' | 'warning' => {
+    if (!permissions || permissions === 0) return 'warning';
+    const allPermissions = getAllPermissions();
+    if (permissions === allPermissions) return 'primary';
+    return 'default';
   };
 
   // Check user permissions - support both MANAGE_USERS and VIEW_USERS
@@ -334,7 +350,7 @@ export default function UserManagementPage() {
                   <TableRow>
                     <TableCell>Name</TableCell>
                     <TableCell>Email</TableCell>
-                    <TableCell>Permissions</TableCell>
+                    <TableCell>Role</TableCell>
                     <TableCell>Department</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Projects</TableCell>
@@ -362,9 +378,11 @@ export default function UserManagementPage() {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">
-                          {user.permissions ? `Permissions: ${user.permissions}` : 'No permissions'}
-                        </Typography>
+                        <Chip
+                          label={getUserRoleLabel(user.permissions)}
+                          size="small"
+                          color={getRoleColor(user.permissions)}
+                        />
                       </TableCell>
                       <TableCell>
                         {user.department && (
