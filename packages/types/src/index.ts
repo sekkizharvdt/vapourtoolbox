@@ -13,3 +13,6 @@ export * from './notification';
 export * from './audit';
 export * from './accounting';
 export * from './transaction';
+export * from './procurement';
+export * from './documents';
+export * from './task';
