@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import {
   Container,
   Typography,
@@ -256,10 +257,13 @@ export default function UserManagementPage() {
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     {user.photoURL && (
-                      <img
+                      <Image
                         src={user.photoURL}
                         alt={user.displayName}
-                        style={{ width: 40, height: 40, borderRadius: '50%' }}
+                        width={40}
+                        height={40}
+                        style={{ borderRadius: '50%' }}
+                        unoptimized
                       />
                     )}
                     <div>
@@ -363,10 +367,13 @@ export default function UserManagementPage() {
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           {user.photoURL && (
-                            <img
+                            <Image
                               src={user.photoURL}
                               alt={user.displayName}
-                              style={{ width: 32, height: 32, borderRadius: '50%' }}
+                              width={32}
+                              height={32}
+                              style={{ borderRadius: '50%' }}
+                              unoptimized
                             />
                           )}
                           <Typography variant="body2">{user.displayName}</Typography>

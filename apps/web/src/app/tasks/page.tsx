@@ -97,6 +97,7 @@ export default function TasksPage() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Handlers

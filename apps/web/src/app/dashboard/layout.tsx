@@ -46,7 +46,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
     if (user && claims) {
       hasRedirected.current = false;
     }
-  }, [user, claims, loading]);
+  }, [user, claims, loading, router]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);

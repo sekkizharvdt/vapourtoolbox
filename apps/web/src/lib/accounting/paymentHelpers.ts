@@ -66,10 +66,6 @@ export async function updateTransactionStatusAfterPayment(
       amountPaid: newTotalPaid,
       updatedAt: Timestamp.now(),
     });
-
-    console.log(
-      `[updateTransactionStatusAfterPayment] Updated ${transactionId} to ${newStatus} (paid: ${newTotalPaid}/${totalAmount})`
-    );
   } catch (error) {
     console.error(
       '[updateTransactionStatusAfterPayment] Error updating transaction status:',
@@ -270,9 +266,6 @@ export async function createPaymentWithAllocationsAtomic(
 
     // 4. Commit all operations atomically
     await batch.commit();
-    console.log(
-      '[createPaymentWithAllocationsAtomic] Successfully created payment with GL entries and updated invoices atomically'
-    );
 
     return paymentRef.id;
   } catch (error) {
@@ -398,9 +391,6 @@ export async function updatePaymentWithAllocationsAtomic(
 
     // 5. Commit all operations atomically
     await batch.commit();
-    console.log(
-      '[updatePaymentWithAllocationsAtomic] Successfully updated payment with GL entries and invoice statuses atomically'
-    );
   } catch (error) {
     console.error(
       '[updatePaymentWithAllocationsAtomic] Atomic operation failed, rolling back:',

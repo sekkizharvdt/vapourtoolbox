@@ -78,7 +78,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          console.log('[AuthContext] User authenticated, validating claims...');
           try {
             // Get token (use cached version for fast initial load)
             // Only force refresh if token is older than 5 minutes
@@ -86,7 +85,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // Check if component was unmounted during async operation
             if (!isMounted) {
-              console.log('[AuthContext] Component unmounted, aborting state update');
               return;
             }
 
@@ -106,13 +104,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // Check again before state update
             if (!isMounted) {
-              console.log('[AuthContext] Component unmounted, aborting state update');
               return;
             }
 
             if (result.status === 'pending') {
               // User authenticated but no claims yet - awaiting admin approval
-              console.log('[AuthContext] User pending approval');
               // Batch state updates to prevent intermediate renders
               setUser(firebaseUser);
               setClaims(null); // No claims yet
@@ -128,7 +124,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
               // Check again before state update
               if (!isMounted) {
-                console.log('[AuthContext] Component unmounted, aborting state update');
                 return;
               }
 
@@ -140,7 +135,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             // Valid claims - batch state updates to prevent race conditions
-            console.log('[AuthContext] User has valid claims');
             setUser(firebaseUser);
             setClaims(result.claims);
             setLoading(false);
@@ -149,7 +143,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // Check if component is still mounted before async signOut
             if (!isMounted) {
-              console.log('[AuthContext] Component unmounted, aborting sign out');
               return;
             }
 
@@ -165,7 +158,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // Check again before final state update
             if (!isMounted) {
-              console.log('[AuthContext] Component unmounted, aborting state update');
               return;
             }
 
@@ -175,11 +167,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setLoading(false);
           }
         } else {
-          console.log('[AuthContext] No user authenticated');
-
           // Check before state update
           if (!isMounted) {
-            console.log('[AuthContext] Component unmounted, aborting state update');
             return;
           }
 
@@ -194,7 +183,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Check before state update
         if (!isMounted) {
-          console.log('[AuthContext] Component unmounted, aborting state update');
           return;
         }
 

@@ -91,8 +91,6 @@ export async function logFinancialTransactionEvent(
 
     // Write to Firestore audit logs collection
     await addDoc(collection(db, COLLECTIONS.AUDIT_LOGS), auditLog);
-
-    console.log(`[AuditLogger] Logged ${action} on ${entityType} ${entityId}`);
   } catch (error) {
     // Don't throw errors from audit logging - log but don't block the operation
     console.error('[AuditLogger] Failed to write audit log:', error);

@@ -53,10 +53,12 @@ export default function PurchaseRequestsPage() {
 
   useEffect(() => {
     loadRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     applyFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requests, searchQuery, statusFilter, typeFilter, categoryFilter]);
 
   const loadRequests = async () => {
@@ -105,7 +107,9 @@ export default function PurchaseRequestsPage() {
     setFilteredRequests(filtered);
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (
+    status: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (status) {
       case 'DRAFT':
         return 'default';
@@ -124,7 +128,9 @@ export default function PurchaseRequestsPage() {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (
+    priority: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (priority) {
       case 'URGENT':
         return 'error';
@@ -287,14 +293,14 @@ export default function PurchaseRequestsPage() {
                       <Chip
                         label={request.priority}
                         size="small"
-                        color={getPriorityColor(request.priority) as any}
+                        color={getPriorityColor(request.priority)}
                       />
                     </TableCell>
                     <TableCell>
                       <Chip
                         label={request.status.replace('_', ' ')}
                         size="small"
-                        color={getStatusColor(request.status) as any}
+                        color={getStatusColor(request.status)}
                       />
                     </TableCell>
                     <TableCell>

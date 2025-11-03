@@ -19,7 +19,10 @@ export interface InitializationResult {
  * @param userId - ID of the user triggering initialization (for audit trail)
  * @returns Promise with initialization result
  */
-export async function initializeChartOfAccounts(userId: string, forceReinit = false): Promise<InitializationResult> {
+export async function initializeChartOfAccounts(
+  userId: string,
+  forceReinit = false
+): Promise<InitializationResult> {
   try {
     const { db } = getFirebase();
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
@@ -27,7 +30,6 @@ export async function initializeChartOfAccounts(userId: string, forceReinit = fa
     // Check if accounts already exist
     const snapshot = await getDocs(accountsRef);
     if (!snapshot.empty && !forceReinit) {
-      console.log('[initializeChartOfAccounts] Accounts already exist, skipping initialization');
       return {
         success: true,
         accountsCreated: 0,
@@ -35,13 +37,11 @@ export async function initializeChartOfAccounts(userId: string, forceReinit = fa
     }
 
     if (forceReinit && !snapshot.empty) {
-      console.log('[initializeChartOfAccounts] FORCE REINIT - Deleting existing accounts...');
       const batch = writeBatch(db);
       snapshot.docs.forEach((doc) => {
         batch.delete(doc.ref);
       });
       await batch.commit();
-      console.log('[initializeChartOfAccounts] Deleted', snapshot.size, 'accounts');
     }
 
     // Initialize with Indian COA template using batch writes
@@ -103,8 +103,6 @@ export async function initializeChartOfAccounts(userId: string, forceReinit = fa
 
     // Commit the batch
     await batch.commit();
-
-    console.log(`[initializeChartOfAccounts] Successfully initialized ${accountsCreated} accounts`);
 
     return {
       success: true,

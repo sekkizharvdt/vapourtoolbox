@@ -45,7 +45,6 @@ export function ProjectSelector({
     const { db } = getFirebase();
     const projectsRef = collection(db, COLLECTIONS.PROJECTS);
 
-    console.log(`[ProjectSelector] Loading projects (onlyActive: ${onlyActive})`);
     setLoadError(null);
 
     // Track cleanup function for fallback query
@@ -62,7 +61,6 @@ export function ProjectSelector({
       q,
       (snapshot) => {
         try {
-          console.log(`[ProjectSelector] Query successful. Found ${snapshot.size} projects.`);
           const projectsData: Project[] = [];
           snapshot.forEach((doc) => {
             const data = doc.data();
@@ -132,9 +130,6 @@ export function ProjectSelector({
             fallbackQuery,
             (snapshot) => {
               try {
-                console.log(
-                  `[ProjectSelector] Fallback query successful. Found ${snapshot.size} projects.`
-                );
                 const projectsData: Project[] = [];
                 snapshot.forEach((doc) => {
                   const data = doc.data();
