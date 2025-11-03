@@ -4,23 +4,22 @@ import { Box, Container, Typography } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 import { MODULES } from '@vapour/constants';
 import { ModuleCard } from '@/components/dashboard/ModuleCard';
-import type { UserRole } from '@vapour/types';
 
 export default function DashboardPage() {
   const { user, claims } = useAuth();
-  const userRoles = claims?.roles || [];
+  const userPermissions = claims?.permissions || 0;
 
-  // Filter modules based on user roles, status, and category
+  // Filter modules based on user permissions, status, and category
   // ONLY show application modules on dashboard (core modules are in sidebar only)
   const accessibleModules = Object.values(MODULES).filter((module) => {
     // Only show application modules (not core modules)
     if (module.category !== 'application') return false;
 
-    // If module has no role restrictions, show to all users
-    if (module.roles === 'ALL') return true;
+    // If no permission required, accessible by all
+    if (module.requiredPermissions === undefined) return true;
 
-    // Check if user has any of the required roles
-    return module.roles.some((role) => userRoles.includes(role as UserRole));
+    // Check if user has required permissions using bitwise AND
+    return (userPermissions & module.requiredPermissions) === module.requiredPermissions;
   });
 
   // Separate modules by status and sort by priority
@@ -102,7 +101,7 @@ export default function DashboardPage() {
           }}
         >
           <Typography variant="h6" color="text.secondary">
-            No modules available for your role
+            No modules available
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             Please contact your administrator for access

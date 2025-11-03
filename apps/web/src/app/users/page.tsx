@@ -32,10 +32,17 @@ import {
   PersonAdd as PersonAddIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { collection, query, where, orderBy, onSnapshot, limit as firestoreLimit } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  limit as firestoreLimit,
+} from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { User, UserStatus, UserRole } from '@vapour/types';
+import type { User, UserStatus } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { EditUserDialog } from '@/components/admin/EditUserDialog';
 import { ApproveUserDialog } from '@/components/admin/ApproveUserDialog';
@@ -58,7 +65,6 @@ export default function UserManagementPage() {
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all');
-  const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
 
   // Pagination
   const [page, setPage] = useState(0);
@@ -74,7 +80,12 @@ export default function UserManagementPage() {
 
     // Apply status filter
     if (statusFilter !== 'all') {
-      q = query(usersRef, where('status', '==', statusFilter), orderBy('createdAt', 'desc'), firestoreLimit(100));
+      q = query(
+        usersRef,
+        where('status', '==', statusFilter),
+        orderBy('createdAt', 'desc'),
+        firestoreLimit(100)
+      );
     }
 
     // Subscribe to real-time updates
@@ -113,17 +124,11 @@ export default function UserManagementPage() {
         (user.email || '').toLowerCase().includes(searchTerm.toLowerCase())
       : true;
 
-    // Role filter
-    const matchesRole = roleFilter === 'all' || (user.roles || []).includes(roleFilter);
-
-    return matchesSearch && matchesRole;
+    return matchesSearch;
   });
 
   // Pagination
-  const paginatedUsers = filteredUsers.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
+  const paginatedUsers = filteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -203,8 +208,20 @@ export default function UserManagementPage() {
 
         {/* Pending Users Section */}
         {pendingUsers.length > 0 && (
-          <Paper sx={{ p: 2, mb: 2, bgcolor: 'warning.50', border: '1px solid', borderColor: 'warning.main' }}>
-            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Paper
+            sx={{
+              p: 2,
+              mb: 2,
+              bgcolor: 'warning.50',
+              border: '1px solid',
+              borderColor: 'warning.main',
+            }}
+          >
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+            >
               <Chip label={pendingUsers.length} color="warning" size="small" />
               {pendingUsers.length === 1 ? 'User' : 'Users'} Awaiting Approval
             </Typography>
@@ -290,31 +307,6 @@ export default function UserManagementPage() {
                 <MenuItem value="inactive">Inactive</MenuItem>
               </Select>
             </FormControl>
-            <FormControl sx={{ minWidth: 200 }}>
-              <InputLabel>Role</InputLabel>
-              <Select
-                value={roleFilter}
-                label="Role"
-                onChange={(e) => {
-                  setRoleFilter(e.target.value as UserRole | 'all');
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="all">All Roles</MenuItem>
-                <MenuItem value="SUPER_ADMIN">Super Admin</MenuItem>
-                <MenuItem value="DIRECTOR">Director</MenuItem>
-                <MenuItem value="HR_ADMIN">HR Admin</MenuItem>
-                <MenuItem value="FINANCE_MANAGER">Finance Manager</MenuItem>
-                <MenuItem value="ACCOUNTANT">Accountant</MenuItem>
-                <MenuItem value="PROJECT_MANAGER">Project Manager</MenuItem>
-                <MenuItem value="ENGINEERING_HEAD">Engineering Head</MenuItem>
-                <MenuItem value="ENGINEER">Engineer</MenuItem>
-                <MenuItem value="PROCUREMENT_MANAGER">Procurement Manager</MenuItem>
-                <MenuItem value="SITE_ENGINEER">Site Engineer</MenuItem>
-                <MenuItem value="TEAM_MEMBER">Team Member</MenuItem>
-                <MenuItem value="CLIENT_PM">Client PM</MenuItem>
-              </Select>
-            </FormControl>
             <Tooltip title="Refresh">
               <IconButton onClick={() => window.location.reload()}>
                 <RefreshIcon />
@@ -342,7 +334,7 @@ export default function UserManagementPage() {
                   <TableRow>
                     <TableCell>Name</TableCell>
                     <TableCell>Email</TableCell>
-                    <TableCell>Roles</TableCell>
+                    <TableCell>Permissions</TableCell>
                     <TableCell>Department</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Projects</TableCell>
@@ -370,16 +362,9 @@ export default function UserManagementPage() {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                          {(user.roles || []).map((role) => (
-                            <Chip
-                              key={role}
-                              label={role.replace(/_/g, ' ')}
-                              size="small"
-                              variant="outlined"
-                            />
-                          ))}
-                        </Box>
+                        <Typography variant="body2">
+                          {user.permissions ? `Permissions: ${user.permissions}` : 'No permissions'}
+                        </Typography>
                       </TableCell>
                       <TableCell>
                         {user.department && (

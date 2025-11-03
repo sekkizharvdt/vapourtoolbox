@@ -12,12 +12,9 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Chip,
   Box,
   Alert,
   CircularProgress,
-  OutlinedInput,
-  SelectChangeEvent,
   Checkbox,
   Typography,
   Table,
@@ -31,7 +28,7 @@ import {
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { User, UserRole, Department, UserStatus } from '@vapour/types';
+import type { User, Department, UserStatus } from '@vapour/types';
 import { getDepartmentOptions, PERMISSION_FLAGS, hasPermission } from '@vapour/constants';
 
 interface EditUserDialogProps {
@@ -40,22 +37,6 @@ interface EditUserDialogProps {
   onClose: () => void;
   onSuccess: () => void;
 }
-
-// All available roles
-const ALL_ROLES: UserRole[] = [
-  'SUPER_ADMIN',
-  'DIRECTOR',
-  'HR_ADMIN',
-  'FINANCE_MANAGER',
-  'ACCOUNTANT',
-  'PROJECT_MANAGER',
-  'ENGINEERING_HEAD',
-  'ENGINEER',
-  'PROCUREMENT_MANAGER',
-  'SITE_ENGINEER',
-  'TEAM_MEMBER',
-  'CLIENT_PM',
-];
 
 export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialogProps) {
   const [loading, setLoading] = useState(false);
@@ -67,7 +48,6 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
   const [phone, setPhone] = useState('');
   const [mobile, setMobile] = useState('');
   const [jobTitle, setJobTitle] = useState('');
-  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>([]);
   const [department, setDepartment] = useState<Department | ''>('');
   const [status, setStatus] = useState<UserStatus>('active');
   const [permissions, setPermissions] = useState<number>(0);
@@ -79,7 +59,6 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
       setPhone(user.phone || '');
       setMobile(user.mobile || '');
       setJobTitle(user.jobTitle || '');
-      setSelectedRoles(user.roles);
       setDepartment(user.department || '');
       setStatus(user.status);
       setPermissions(user.permissions || 0);
@@ -101,22 +80,12 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
     });
   };
 
-  const handleRolesChange = (event: SelectChangeEvent<UserRole[]>) => {
-    const value = event.target.value;
-    setSelectedRoles(typeof value === 'string' ? [value as UserRole] : value);
-  };
-
   const handleSave = async () => {
     if (!user) return;
 
     // Validation
     if (!displayName.trim()) {
       setError('Display name is required');
-      return;
-    }
-
-    if (selectedRoles.length === 0) {
-      setError('At least one role is required');
       return;
     }
 
@@ -133,7 +102,6 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
         phone: phone.trim() || null,
         mobile: mobile.trim() || null,
         jobTitle: jobTitle.trim() || null,
-        roles: selectedRoles,
         department: department || null,
         status,
         permissions,
@@ -141,7 +109,7 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
       });
 
       // Note: Custom claims will be updated by Cloud Function trigger
-      // The Cloud Function will detect the roles change and update claims
+      // The Cloud Function will detect the permissions change and update claims
 
       // Show success message
       setSaveSuccess(true);
@@ -153,7 +121,8 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
       }, 4000); // Give user 4 seconds to read the token refresh message
     } catch (err: unknown) {
       console.error('Error updating user:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update user. Please try again.';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to update user. Please try again.';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -185,7 +154,9 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
             <strong>User updated successfully!</strong>
             <br />
             <br />
-            <strong>Important:</strong> The affected user must sign out and sign back in for permission changes to take effect. Firebase Authentication tokens are cached and will not reflect new permissions until refreshed.
+            <strong>Important:</strong> The affected user must sign out and sign back in for
+            permission changes to take effect. Firebase Authentication tokens are cached and will
+            not reflect new permissions until refreshed.
           </Alert>
         )}
 
@@ -232,30 +203,6 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
             fullWidth
           />
 
-          {/* Roles (Multi-select) */}
-          <FormControl fullWidth required>
-            <InputLabel>Roles</InputLabel>
-            <Select
-              multiple
-              value={selectedRoles}
-              onChange={handleRolesChange}
-              input={<OutlinedInput label="Roles" />}
-              renderValue={(selected) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {selected.map((role) => (
-                    <Chip key={role} label={role.replace(/_/g, ' ')} size="small" />
-                  ))}
-                </Box>
-              )}
-            >
-              {ALL_ROLES.map((role) => (
-                <MenuItem key={role} value={role}>
-                  {role.replace(/_/g, ' ')}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
           {/* Department */}
           <FormControl fullWidth>
             <InputLabel>Department</InputLabel>
@@ -299,11 +246,21 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell><strong>Module</strong></TableCell>
-                    <TableCell align="center"><strong>View</strong></TableCell>
-                    <TableCell align="center"><strong>Manage</strong></TableCell>
-                    <TableCell align="center"><strong>Edit</strong></TableCell>
-                    <TableCell align="center"><strong>Delete</strong></TableCell>
+                    <TableCell>
+                      <strong>Module</strong>
+                    </TableCell>
+                    <TableCell align="center">
+                      <strong>View</strong>
+                    </TableCell>
+                    <TableCell align="center">
+                      <strong>Manage</strong>
+                    </TableCell>
+                    <TableCell align="center">
+                      <strong>Edit</strong>
+                    </TableCell>
+                    <TableCell align="center">
+                      <strong>Delete</strong>
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -499,7 +456,10 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
                     <TableCell align="center">—</TableCell>
                     <TableCell align="center">
                       <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.MANAGE_COMPANY_SETTINGS)}
+                        checked={hasPermission(
+                          permissions,
+                          PERMISSION_FLAGS.MANAGE_COMPANY_SETTINGS
+                        )}
                         onChange={() => togglePermission(PERMISSION_FLAGS.MANAGE_COMPANY_SETTINGS)}
                         size="small"
                       />

@@ -83,7 +83,7 @@ export interface AuditLog {
   actorId: string;
   actorEmail: string;
   actorName: string;
-  actorRoles?: string[];
+  actorPermissions?: number; // Bitwise permission flags
 
   // Action details
   action: AuditAction;
@@ -121,7 +121,7 @@ export interface CreateAuditLogParams {
   actorId?: string;
   actorEmail?: string;
   actorName?: string;
-  actorRoles?: string[];
+  actorPermissions?: number; // Bitwise permission flags
 
   // Action details
   action: AuditAction;

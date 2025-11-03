@@ -24,7 +24,7 @@ export interface AuditUserContext {
   userId: string;
   userEmail: string;
   userName: string;
-  userRoles?: string[];
+  userPermissions?: number; // Bitwise permission flags
 }
 
 /**
@@ -60,7 +60,7 @@ export async function logFinancialTransactionEvent(
       actorId: user.userId,
       actorEmail: user.userEmail,
       actorName: user.userName,
-      actorRoles: user.userRoles,
+      actorPermissions: user.userPermissions,
 
       // Action details
       action,

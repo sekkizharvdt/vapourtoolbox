@@ -332,7 +332,7 @@ export function RecordCustomerPaymentDialog({
         userId: user?.uid || 'system',
         userEmail: user?.email || 'unknown',
         userName: user?.displayName || user?.email || 'Unknown User',
-        userRoles: claims?.roles || [],
+        userPermissions: claims?.permissions || 0,
       };
 
       if (editingPayment?.id) {

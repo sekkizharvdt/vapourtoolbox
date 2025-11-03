@@ -34,28 +34,20 @@ export default function ProfilePage() {
 
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Roles
+            Permissions
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {claims?.roles && claims.roles.length > 0 ? (
-              claims.roles.map((role) => (
-                <Chip key={role} label={role} size="small" />
-              ))
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                No roles assigned
-              </Typography>
-            )}
-          </Box>
+          <Typography variant="body1">
+            {claims?.permissions
+              ? `Permission level: ${claims.permissions}`
+              : 'No permissions assigned'}
+          </Typography>
         </Box>
 
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle2" color="text.secondary" gutterBottom>
             Department
           </Typography>
-          <Typography variant="body1">
-            {claims?.department || 'Not assigned'}
-          </Typography>
+          <Typography variant="body1">{claims?.department || 'Not assigned'}</Typography>
         </Box>
 
         <Box>
