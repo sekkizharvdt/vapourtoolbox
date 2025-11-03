@@ -16,6 +16,7 @@ import {
   Stack,
   IconButton,
   Tooltip,
+  TablePagination,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -39,6 +40,8 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<CustomerInvoice | null>(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
@@ -46,10 +49,7 @@ export default function InvoicesPage() {
   useEffect(() => {
     const { db } = getFirebase();
     const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    const q = query(
-      transactionsRef,
-      orderBy('date', 'desc')
-    );
+    const q = query(transactionsRef, orderBy('date', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const invoicesData: CustomerInvoice[] = [];
@@ -93,6 +93,18 @@ export default function InvoicesPage() {
     setEditingInvoice(null);
   };
 
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Paginate invoices in memory (simple client-side pagination)
+  const paginatedInvoices = invoices.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
   if (loading) {
     return (
       <Box sx={{ p: 3 }}>
@@ -106,11 +118,7 @@ export default function InvoicesPage() {
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4">Customer Invoices</Typography>
         {canManage && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleCreate}
-          >
+          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
             New Invoice
           </Button>
         )}
@@ -141,33 +149,31 @@ export default function InvoicesPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              invoices.map((invoice) => (
+              paginatedInvoices.map((invoice) => (
                 <TableRow key={invoice.id} hover>
-                  <TableCell>
-                    {new Date(invoice.date).toLocaleDateString()}
-                  </TableCell>
+                  <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
                   <TableCell>{invoice.transactionNumber}</TableCell>
                   <TableCell>{invoice.entityName || '-'}</TableCell>
                   <TableCell>{invoice.description || '-'}</TableCell>
-                  <TableCell align="right">
-                    {formatCurrency(invoice.subtotal || 0)}
-                  </TableCell>
+                  <TableCell align="right">{formatCurrency(invoice.subtotal || 0)}</TableCell>
                   <TableCell align="right">
                     {formatCurrency(invoice.gstDetails?.totalGST || 0)}
                   </TableCell>
-                  <TableCell align="right">
-                    {formatCurrency(invoice.totalAmount || 0)}
-                  </TableCell>
+                  <TableCell align="right">{formatCurrency(invoice.totalAmount || 0)}</TableCell>
                   <TableCell>
                     <Chip
                       label={invoice.status}
                       size="small"
                       color={
-                        invoice.status === 'POSTED' ? 'success' :
-                        invoice.status === 'APPROVED' ? 'info' :
-                        invoice.status === 'DRAFT' ? 'default' :
-                        invoice.status === 'REJECTED' ? 'error' :
-                        'warning'
+                        invoice.status === 'POSTED'
+                          ? 'success'
+                          : invoice.status === 'APPROVED'
+                            ? 'info'
+                            : invoice.status === 'DRAFT'
+                              ? 'default'
+                              : invoice.status === 'REJECTED'
+                                ? 'error'
+                                : 'warning'
                       }
                     />
                   </TableCell>
@@ -206,6 +212,15 @@ export default function InvoicesPage() {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          rowsPerPageOptions={[25, 50, 100]}
+          component="div"
+          count={invoices.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
       </TableContainer>
 
       <CreateInvoiceDialog

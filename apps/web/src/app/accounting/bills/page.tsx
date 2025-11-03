@@ -16,6 +16,7 @@ import {
   Stack,
   IconButton,
   Tooltip,
+  TablePagination,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -39,6 +40,8 @@ export default function BillsPage() {
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<VendorBill | null>(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
@@ -46,10 +49,7 @@ export default function BillsPage() {
   useEffect(() => {
     const { db } = getFirebase();
     const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    const q = query(
-      transactionsRef,
-      orderBy('date', 'desc')
-    );
+    const q = query(transactionsRef, orderBy('date', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const billsData: VendorBill[] = [];
@@ -93,6 +93,18 @@ export default function BillsPage() {
     setEditingBill(null);
   };
 
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Paginate bills in memory (simple client-side pagination)
+  const paginatedBills = bills.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
   if (loading) {
     return (
       <Box sx={{ p: 3 }}>
@@ -106,11 +118,7 @@ export default function BillsPage() {
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4">Vendor Bills</Typography>
         {canManage && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleCreate}
-          >
+          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
             New Bill
           </Button>
         )}
@@ -142,36 +150,34 @@ export default function BillsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              bills.map((bill) => (
+              paginatedBills.map((bill) => (
                 <TableRow key={bill.id} hover>
-                  <TableCell>
-                    {new Date(bill.date).toLocaleDateString()}
-                  </TableCell>
+                  <TableCell>{new Date(bill.date).toLocaleDateString()}</TableCell>
                   <TableCell>{bill.transactionNumber}</TableCell>
                   <TableCell>{bill.entityName || '-'}</TableCell>
                   <TableCell>{bill.description || '-'}</TableCell>
-                  <TableCell align="right">
-                    {formatCurrency(bill.subtotal || 0)}
-                  </TableCell>
+                  <TableCell align="right">{formatCurrency(bill.subtotal || 0)}</TableCell>
                   <TableCell align="right">
                     {formatCurrency(bill.gstDetails?.totalGST || 0)}
                   </TableCell>
                   <TableCell align="right">
                     {bill.tdsDeducted ? formatCurrency(bill.tdsAmount || 0) : '-'}
                   </TableCell>
-                  <TableCell align="right">
-                    {formatCurrency(bill.totalAmount || 0)}
-                  </TableCell>
+                  <TableCell align="right">{formatCurrency(bill.totalAmount || 0)}</TableCell>
                   <TableCell>
                     <Chip
                       label={bill.status}
                       size="small"
                       color={
-                        bill.status === 'POSTED' ? 'success' :
-                        bill.status === 'APPROVED' ? 'info' :
-                        bill.status === 'DRAFT' ? 'default' :
-                        bill.status === 'VOID' ? 'error' :
-                        'warning'
+                        bill.status === 'POSTED'
+                          ? 'success'
+                          : bill.status === 'APPROVED'
+                            ? 'info'
+                            : bill.status === 'DRAFT'
+                              ? 'default'
+                              : bill.status === 'VOID'
+                                ? 'error'
+                                : 'warning'
                       }
                     />
                   </TableCell>
@@ -210,6 +216,15 @@ export default function BillsPage() {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          rowsPerPageOptions={[25, 50, 100]}
+          component="div"
+          count={bills.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
       </TableContainer>
 
       <CreateBillDialog

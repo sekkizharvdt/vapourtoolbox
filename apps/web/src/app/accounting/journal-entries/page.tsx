@@ -16,6 +16,7 @@ import {
   Stack,
   IconButton,
   Tooltip,
+  TablePagination,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -38,6 +39,8 @@ export default function JournalEntriesPage() {
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
@@ -45,10 +48,7 @@ export default function JournalEntriesPage() {
   useEffect(() => {
     const { db } = getFirebase();
     const entriesRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    const q = query(
-      entriesRef,
-      orderBy('date', 'desc')
-    );
+    const q = query(entriesRef, orderBy('date', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const entriesData: JournalEntry[] = [];
@@ -92,6 +92,21 @@ export default function JournalEntriesPage() {
     setEditingEntry(null);
   };
 
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Paginate journal entries in memory
+  const paginatedEntries = journalEntries.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
+
   if (loading) {
     return (
       <Box sx={{ p: 3 }}>
@@ -105,11 +120,7 @@ export default function JournalEntriesPage() {
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4">Journal Entries</Typography>
         {canManage && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleCreate}
-          >
+          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
             New Journal Entry
           </Button>
         )}
@@ -138,25 +149,23 @@ export default function JournalEntriesPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              journalEntries.map((entry) => (
+              paginatedEntries.map((entry) => (
                 <TableRow key={entry.id} hover>
-                  <TableCell>
-                    {new Date(entry.date).toLocaleDateString()}
-                  </TableCell>
+                  <TableCell>{new Date(entry.date).toLocaleDateString()}</TableCell>
                   <TableCell>{entry.transactionNumber}</TableCell>
                   <TableCell>{entry.description || '-'}</TableCell>
                   <TableCell>{entry.reference || '-'}</TableCell>
-                  <TableCell align="right">
-                    {formatCurrency(entry.amount)}
-                  </TableCell>
+                  <TableCell align="right">{formatCurrency(entry.amount)}</TableCell>
                   <TableCell>
                     <Chip
                       label={entry.status}
                       size="small"
                       color={
-                        entry.status === 'POSTED' ? 'success' :
-                        entry.status === 'DRAFT' ? 'default' :
-                        'warning'
+                        entry.status === 'POSTED'
+                          ? 'success'
+                          : entry.status === 'DRAFT'
+                            ? 'default'
+                            : 'warning'
                       }
                     />
                   </TableCell>
@@ -190,6 +199,15 @@ export default function JournalEntriesPage() {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          rowsPerPageOptions={[25, 50, 100]}
+          component="div"
+          count={journalEntries.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
       </TableContainer>
 
       <CreateJournalEntryDialog

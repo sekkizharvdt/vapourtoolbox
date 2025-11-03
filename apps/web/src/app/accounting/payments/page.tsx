@@ -18,6 +18,7 @@ import {
   Tooltip,
   ToggleButtonGroup,
   ToggleButton,
+  TablePagination,
 } from '@mui/material';
 import {
   Visibility as ViewIcon,
@@ -47,6 +48,8 @@ export default function PaymentsPage() {
   const [customerPaymentDialogOpen, setCustomerPaymentDialogOpen] = useState(false);
   const [vendorPaymentDialogOpen, setVendorPaymentDialogOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
@@ -54,10 +57,7 @@ export default function PaymentsPage() {
   useEffect(() => {
     const { db } = getFirebase();
     const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    const q = query(
-      transactionsRef,
-      orderBy('paymentDate', 'desc')
-    );
+    const q = query(transactionsRef, orderBy('paymentDate', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const paymentsData: Payment[] = [];
@@ -116,12 +116,27 @@ export default function PaymentsPage() {
   };
 
   // Filter payments by type
-  const filteredPayments = payments.filter(payment => {
+  const filteredPayments = payments.filter((payment) => {
     if (paymentType === 'all') return true;
     if (paymentType === 'customer') return payment.type === 'CUSTOMER_PAYMENT';
     if (paymentType === 'vendor') return payment.type === 'VENDOR_PAYMENT';
     return true;
   });
+
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Paginate filtered payments
+  const paginatedPayments = filteredPayments.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   if (loading) {
     return (
@@ -191,12 +206,13 @@ export default function PaymentsPage() {
               <TableRow>
                 <TableCell colSpan={9} align="center">
                   <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
-                    No payments found. Click &quot;Customer Receipt&quot; or &quot;Vendor Payment&quot; to record a payment.
+                    No payments found. Click &quot;Customer Receipt&quot; or &quot;Vendor
+                    Payment&quot; to record a payment.
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              filteredPayments.map((payment) => (
+              paginatedPayments.map((payment) => (
                 <TableRow key={payment.id} hover>
                   <TableCell>
                     <Chip
@@ -206,31 +222,30 @@ export default function PaymentsPage() {
                       color={payment.type === 'CUSTOMER_PAYMENT' ? 'success' : 'primary'}
                     />
                   </TableCell>
-                  <TableCell>
-                    {new Date(payment.paymentDate).toLocaleDateString()}
-                  </TableCell>
+                  <TableCell>{new Date(payment.paymentDate).toLocaleDateString()}</TableCell>
                   <TableCell>{payment.transactionNumber}</TableCell>
                   <TableCell>{payment.entityName || '-'}</TableCell>
                   <TableCell>{payment.paymentMethod}</TableCell>
-                  <TableCell align="right">
-                    {formatCurrency(payment.totalAmount || 0)}
-                  </TableCell>
+                  <TableCell align="right">{formatCurrency(payment.totalAmount || 0)}</TableCell>
                   <TableCell>
                     {payment.paymentMethod === 'CHEQUE' && payment.chequeNumber
                       ? `Cheque #${payment.chequeNumber}`
                       : payment.paymentMethod === 'UPI' && payment.upiTransactionId
-                      ? `UPI: ${payment.upiTransactionId}`
-                      : payment.reference || '-'}
+                        ? `UPI: ${payment.upiTransactionId}`
+                        : payment.reference || '-'}
                   </TableCell>
                   <TableCell>
                     <Chip
                       label={payment.status}
                       size="small"
                       color={
-                        payment.status === 'POSTED' ? 'success' :
-                        payment.status === 'APPROVED' ? 'info' :
-                        payment.status === 'DRAFT' ? 'default' :
-                        'warning'
+                        payment.status === 'POSTED'
+                          ? 'success'
+                          : payment.status === 'APPROVED'
+                            ? 'info'
+                            : payment.status === 'DRAFT'
+                              ? 'default'
+                              : 'warning'
                       }
                     />
                   </TableCell>
@@ -264,18 +279,31 @@ export default function PaymentsPage() {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          rowsPerPageOptions={[25, 50, 100]}
+          component="div"
+          count={filteredPayments.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
       </TableContainer>
 
       <RecordCustomerPaymentDialog
         open={customerPaymentDialogOpen}
         onClose={handleCustomerPaymentDialogClose}
-        editingPayment={editingPayment?.type === 'CUSTOMER_PAYMENT' ? editingPayment as CustomerPayment : null}
+        editingPayment={
+          editingPayment?.type === 'CUSTOMER_PAYMENT' ? (editingPayment as CustomerPayment) : null
+        }
       />
 
       <RecordVendorPaymentDialog
         open={vendorPaymentDialogOpen}
         onClose={handleVendorPaymentDialogClose}
-        editingPayment={editingPayment?.type === 'VENDOR_PAYMENT' ? editingPayment as VendorPayment : null}
+        editingPayment={
+          editingPayment?.type === 'VENDOR_PAYMENT' ? (editingPayment as VendorPayment) : null
+        }
       />
     </Box>
   );
