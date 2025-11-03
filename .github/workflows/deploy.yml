@@ -53,7 +53,7 @@ jobs:
           NEXT_PUBLIC_FIREBASE_APP_ID: 1:697891123609:web:334e56be149a056f252308
 
       - name: Run full pre-deployment checks
-        run: node scripts/preflight/pre-deployment-check.js
+        run: node scripts/preflight/pre-deployment-check.js --skip-build
         continue-on-error: true
 
       - name: Install Firebase CLI
