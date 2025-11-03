@@ -33,11 +33,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
 
   // Reporter to use
-  reporter: [
-    ['html'],
-    ['list'],
-    ...(process.env.CI ? [['github'] as ['github']] : []),
-  ],
+  reporter: [['html'], ['list'], ...(process.env.CI ? [['github'] as ['github']] : [])],
 
   // Shared settings for all the projects below
   use: {
@@ -95,24 +91,33 @@ export default defineConfig({
     },
     // Application server
     {
-      // CI: Serve static build with serve (output: 'export' in next.config.ts)
+      // Use Next.js production server for both CI and local
+      // CI: Start Next.js server from build (.next directory)
       // Local: Use dev server for hot reload
-      command: process.env.CI ? 'npx serve@latest out -l 3001' : 'pnpm dev',
+      command: process.env.CI ? 'pnpm start' : 'pnpm dev',
       url: 'http://localhost:3001',
       reuseExistingServer: !process.env.CI, // Don't reuse in CI
-      timeout: process.env.CI ? 30 * 1000 : 120 * 1000, // Static server starts instantly
+      timeout: process.env.CI ? 60 * 1000 : 120 * 1000, // Give more time for Next.js server to start
       env: {
         // Firebase Client Configuration (required by app)
-        NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'fake-api-key-for-emulator',
-        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'localhost',
-        NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vapour-toolbox',
-        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'vapour-toolbox.appspot.com',
-        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '000000000000',
-        NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:000000000000:web:fakefakefakefake',
+        NEXT_PUBLIC_FIREBASE_API_KEY:
+          process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'fake-api-key-for-emulator',
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:
+          process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'localhost',
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID:
+          process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vapour-toolbox',
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:
+          process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'vapour-toolbox.appspot.com',
+        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:
+          process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '000000000000',
+        NEXT_PUBLIC_FIREBASE_APP_ID:
+          process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:000000000000:web:fakefakefakefake',
         // Use Firebase Emulator for tests
         NEXT_PUBLIC_USE_EMULATOR: process.env.NEXT_PUBLIC_USE_EMULATOR || 'true',
-        NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL: process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL || 'http://localhost:9099',
-        NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL: process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL || 'localhost:8080',
+        NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL:
+          process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL || 'http://localhost:9099',
+        NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL:
+          process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL || 'localhost:8080',
       },
     },
   ],
