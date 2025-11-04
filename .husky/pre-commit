@@ -3,6 +3,14 @@ echo "🔍 Running pre-commit checks..."
 # Run lint-staged (format and lint changed files)
 pnpm lint-staged
 
+# TypeScript type checking for web app
+echo "🔍 Running TypeScript type check..."
+pnpm exec tsc --noEmit --project apps/web/tsconfig.json
+if [ $? -ne 0 ]; then
+  echo "❌ TypeScript type check failed!"
+  exit 1
+fi
+
 # Run pre-deployment checks (skip build and schema for speed)
 node scripts/preflight/pre-deployment-check.js --skip-build --skip-schema
 

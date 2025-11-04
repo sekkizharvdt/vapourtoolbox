@@ -49,6 +49,16 @@ jobs:
       - name: Run TypeScript type check
         run: pnpm type-check
 
+      - name: Check for prohibited type casts
+        run: |
+          echo "🔍 Checking for 'as any' usage..."
+          if grep -r "as any" apps/web/src --include="*.ts" --include="*.tsx" | grep -v "node_modules"; then
+            echo "❌ Found 'as any' type casts! Please use proper typing instead."
+            echo "See docs/TYPESCRIPT_GUIDELINES.md for guidance."
+            exit 1
+          fi
+          echo "✅ No prohibited type casts found"
+
   # Job 2: Build
   build:
     name: Build Application

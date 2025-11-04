@@ -79,12 +79,12 @@ export default defineConfig({
   ],
 
   // Run Firebase Emulator and dev server before tests
-  webServer: [
+  webServer: process.env.SKIP_WEBSERVER ? undefined : [
     // Firebase Emulators (Auth + Firestore)
     {
       command: 'firebase emulators:start --only auth,firestore',
       port: 9099,
-      reuseExistingServer: !process.env.CI, // Don't reuse in CI
+      reuseExistingServer: true, // Always reuse - allows manual emulator start
       stdout: 'ignore',
       stderr: 'pipe',
       timeout: 60 * 1000,
@@ -96,7 +96,7 @@ export default defineConfig({
       // Local: Use dev server for hot reload
       command: process.env.CI ? 'pnpm start' : 'pnpm dev',
       url: 'http://localhost:3001',
-      reuseExistingServer: !process.env.CI, // Don't reuse in CI
+      reuseExistingServer: true, // Always reuse - allows manual server start
       timeout: process.env.CI ? 60 * 1000 : 120 * 1000, // Give more time for Next.js server to start
       env: {
         // Firebase Client Configuration (required by app)
