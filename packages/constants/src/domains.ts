@@ -15,7 +15,7 @@ export function getAllowedClientDomains(): string[] {
   // Check if running in browser
   if (typeof window !== 'undefined') {
     // Client-side: environment variable should be injected at build time
-    const envVar = (process.env as any).NEXT_PUBLIC_ALLOWED_CLIENT_DOMAINS;
+    const envVar = process.env.NEXT_PUBLIC_ALLOWED_CLIENT_DOMAINS;
     if (envVar) {
       return envVar
         .split(',')
@@ -24,7 +24,7 @@ export function getAllowedClientDomains(): string[] {
     }
   } else {
     // Server-side: can access process.env directly
-    const envVar = (process.env as any).NEXT_PUBLIC_ALLOWED_CLIENT_DOMAINS;
+    const envVar = process.env.NEXT_PUBLIC_ALLOWED_CLIENT_DOMAINS;
     if (envVar) {
       return envVar
         .split(',')

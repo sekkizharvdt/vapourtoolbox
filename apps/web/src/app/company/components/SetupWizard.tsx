@@ -87,7 +87,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
     setError('');
 
     try {
-      const settingsData = {
+      const settingsData: Record<string, any> = {
         setupComplete: true,
         companyName: formData.companyName,
         legalName: formData.legalName,
@@ -122,7 +122,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
 
       // Add createdAt only if this is a new setup
       if (!existingSettings) {
-        (settingsData as any).createdAt = serverTimestamp();
+        settingsData.createdAt = serverTimestamp();
       }
 
       await setDoc(doc(db, 'company', 'settings'), settingsData);

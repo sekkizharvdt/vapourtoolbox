@@ -71,6 +71,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [claims, setClaims] = useState<CustomClaims | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Expose auth loading state to window for E2E testing
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__authLoading = loading;
+    }
+  }, [loading]);
+
   useEffect(() => {
     const { auth } = getFirebase();
     let isMounted = true; // Track if component is mounted
