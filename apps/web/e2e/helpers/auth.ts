@@ -1,5 +1,13 @@
 import { Page } from '@playwright/test';
-import { createCustomToken, createTestUser, type TestUser } from './firebase-admin';
+import {
+  createCustomToken,
+  createTestUser,
+  clearFirestoreEmulator as clearEmulator,
+  type TestUser,
+} from './firebase-admin';
+
+// Re-export clearFirestoreEmulator for convenience
+export const clearFirestoreEmulator = clearEmulator;
 
 /**
  * Default test users
@@ -69,8 +77,12 @@ export async function loginUser(page: Page, user: TestUser): Promise<void> {
       const auth = (window as any).__firebaseAuth;
 
       // Import signInWithCustomToken from the Firebase Auth CDN
-      // @ts-expect-error - Dynamic CDN import not recognized by TypeScript
-      const { signInWithCustomToken } = await import('https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js');
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore - Dynamic CDN import not recognized by TypeScript
+      const firebaseAuthModule = await import(
+        'https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js'
+      );
+      const { signInWithCustomToken } = firebaseAuthModule;
 
       const userCredential = await signInWithCustomToken(auth, token);
 
@@ -98,8 +110,24 @@ export async function loginUser(page: Page, user: TestUser): Promise<void> {
     throw new Error(`Failed to sign in: ${signedIn.error}`);
   }
 
-  // Wait for auth state to propagate
-  await page.waitForTimeout(1000);
+  // Wait for auth state to fully propagate and loading to complete
+  // This is critical - the app's useAuth hook needs time to update its loading state
+  await page.evaluate(async () => {
+    // Wait for the auth loading state to become false
+    let attempts = 0;
+    while (attempts < 100) {
+      // Max 10 seconds
+      const authLoading = (window as any).__authLoading;
+      if (authLoading === false) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      attempts++;
+    }
+  });
+
+  // Additional safety buffer for React state updates
+  await page.waitForTimeout(500);
 
   console.log(`✅ Signed in as ${user.email} (${user.uid})`);
   console.log(`   Claims: ${JSON.stringify(signedIn.claims, null, 2)}`);
@@ -117,6 +145,13 @@ export async function loginAsAdmin(page: Page): Promise<void> {
  */
 export async function loginAsUser(page: Page): Promise<void> {
   await loginUser(page, TEST_USERS.user);
+}
+
+/**
+ * Alias for loginAsUser (for test compatibility)
+ */
+export async function loginAsTestUser(page: Page): Promise<void> {
+  await loginAsUser(page);
 }
 
 /**

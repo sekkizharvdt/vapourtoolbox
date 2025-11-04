@@ -533,5 +533,154 @@ node scripts/permissions/reset-permissions-to-roles.js
 
 ---
 
-**Last Updated**: October 2025
+## E2E Test Runner (NEW)
+
+Automated scripts to run Playwright E2E tests with proper setup and cleanup.
+
+### PowerShell (Windows)
+
+```powershell
+# Run all tests with default settings
+.\scripts\run-e2e-tests.ps1
+
+# Run specific test file
+.\scripts\run-e2e-tests.ps1 -TestFile "06-accounting-chart-of-accounts"
+
+# Run with different browser
+.\scripts\run-e2e-tests.ps1 -Project "firefox"
+
+# Kill existing servers and start fresh
+.\scripts\run-e2e-tests.ps1 -KillServers
+
+# Keep servers running after tests (for debugging)
+.\scripts\run-e2e-tests.ps1 -SkipCleanup
+
+# Combine options
+.\scripts\run-e2e-tests.ps1 -TestFile "06-accounting-chart-of-accounts" -Project "chromium" -KillServers
+```
+
+### Bash (Linux/Mac)
+
+```bash
+# Run all tests with default settings
+./scripts/run-e2e-tests.sh
+
+# Run specific test file
+./scripts/run-e2e-tests.sh --test-file "06-accounting-chart-of-accounts"
+
+# Run with different browser
+./scripts/run-e2e-tests.sh --project firefox
+
+# Kill existing servers and start fresh
+./scripts/run-e2e-tests.sh --kill-servers
+
+# Keep servers running after tests (for debugging)
+./scripts/run-e2e-tests.sh --skip-cleanup
+
+# Combine options
+./scripts/run-e2e-tests.sh --test-file "06-accounting-chart-of-accounts" --project chromium --kill-servers
+```
+
+### What the Script Does
+
+1. **Port Cleanup** (optional with `--kill-servers`/`-KillServers`):
+   - Stops any processes on port 8080 (Firestore emulator)
+   - Stops any processes on port 9099 (Auth emulator)
+   - Stops any processes on port 3001 (Next.js dev server)
+
+2. **Firebase Emulators**:
+   - Checks if emulators are already running
+   - Starts them if not running
+   - Waits for them to be ready (max 30 seconds)
+
+3. **Next.js Dev Server**:
+   - Checks if dev server is already running
+   - Starts it if not running
+   - Waits for it to be ready (max 60 seconds)
+
+4. **Run Tests**:
+   - Executes Playwright tests with specified parameters
+   - Uses `SKIP_WEBSERVER=true` to prevent Playwright from starting its own servers
+   - Reports test results with colored output
+
+5. **Cleanup** (optional):
+   - Stops background processes (emulators and dev server)
+   - Can be skipped with `--skip-cleanup` flag for debugging
+
+### Troubleshooting E2E Tests
+
+#### Port Already in Use
+
+If you get "port already in use" errors, use the `--kill-servers` flag:
+
+```bash
+# PowerShell
+.\scripts\run-e2e-tests.ps1 -KillServers
+
+# Bash
+./scripts/run-e2e-tests.sh --kill-servers
+```
+
+#### Manual Server Start
+
+If you prefer to start servers manually and just run tests:
+
+```bash
+# Terminal 1: Start Firebase emulators
+firebase emulators:start --only auth,firestore
+
+# Terminal 2: Start dev server
+cd apps/web
+pnpm dev
+
+# Terminal 3: Run tests (servers will be detected)
+./scripts/run-e2e-tests.sh
+```
+
+#### Debugging Failed Tests
+
+Keep servers running after tests to inspect the state:
+
+```bash
+# PowerShell
+.\scripts\run-e2e-tests.ps1 -SkipCleanup
+
+# Bash
+./scripts/run-e2e-tests.sh --skip-cleanup
+```
+
+Then manually stop servers when done:
+
+```bash
+# Find and kill processes
+# PowerShell
+Get-NetTCPConnection -LocalPort 9099 | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }
+
+# Bash
+lsof -ti:9099 | xargs kill -9
+```
+
+### Available Test Files
+
+- `06-accounting-chart-of-accounts` - Chart of Accounts CRUD operations
+- `07-accounting-journal-entries` - Journal Entry creation and validation
+- (More tests coming soon)
+
+### Available Projects
+
+- `chromium` - Chrome/Edge browser (default)
+- `firefox` - Firefox browser
+- `webkit` - Safari browser
+- `Mobile Chrome` - Mobile viewport (Pixel 5)
+- `Mobile Safari` - Mobile viewport (iPhone 12)
+
+### Exit Codes
+
+- `0` - All tests passed
+- `1` - Tests failed or setup error
+- Other codes - Specific test failures
+
+---
+
+**Last Updated**: November 2025
 **Maintainer**: Development Team
