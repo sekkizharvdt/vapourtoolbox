@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import type {
   AuditAction,
   AuditSeverity,
@@ -40,7 +41,7 @@ export async function createAuditLog(params: CreateAuditLogParams): Promise<stri
     description: params.description,
 
     // Timestamps
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    timestamp: FieldValue.serverTimestamp(),
 
     // Status
     success: params.success !== undefined ? params.success : true,

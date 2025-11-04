@@ -3,6 +3,7 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFunctions, Functions, connectFunctionsEmulator } from 'firebase/functions';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { getFirebaseClientConfig } from './envConfig';
 
@@ -12,6 +13,7 @@ import { getFirebaseClientConfig } from './envConfig';
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
+let functions: Functions;
 let storage: FirebaseStorage;
 let emulatorConnected = false;
 
@@ -27,6 +29,7 @@ export function initializeFirebase() {
     app = initializeApp(config);
     auth = getAuth(app);
     db = getFirestore(app);
+    functions = getFunctions(app);
     storage = getStorage(app);
 
     // Connect to emulators if running in test/emulator mode
@@ -59,17 +62,31 @@ export function initializeFirebase() {
         }
       }
 
+      if (useEmulator) {
+        try {
+          // Functions emulator runs on localhost:5001
+          connectFunctionsEmulator(functions, 'localhost', 5001);
+          console.log('✅ Connected to Functions Emulator');
+        } catch (error) {
+          console.warn('Functions emulator already connected');
+        }
+      }
+
       // Expose Firebase instances to window for E2E testing
       if (useEmulator) {
-        (window as any).__firebaseAuth = auth;
-        (window as any).__firebaseDb = db;
+        interface WindowWithFirebase extends Window {
+          __firebaseAuth?: Auth;
+          __firebaseDb?: Firestore;
+        }
+        (window as WindowWithFirebase).__firebaseAuth = auth;
+        (window as WindowWithFirebase).__firebaseDb = db;
         console.log('🧪 Firebase instances exposed to window for testing');
       }
 
       emulatorConnected = true;
     }
   }
-  return { app, auth, db, storage };
+  return { app, auth, db, functions, storage };
 }
 
 /**
@@ -80,5 +97,5 @@ export function getFirebaseClient() {
   if (!app) {
     return initializeFirebase();
   }
-  return { app, auth, db, storage };
+  return { app, auth, db, functions, storage };
 }

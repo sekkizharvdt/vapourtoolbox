@@ -8,3 +8,6 @@ export { onUserUpdate } from './userManagement';
 
 // Import account balance functions
 export { onTransactionWrite, recalculateAccountBalances } from './accountBalances';
+
+// Import entity management functions
+export { createEntity } from './entities/createEntity';

@@ -98,7 +98,9 @@ export async function createTestUser(user: TestUser): Promise<void> {
     };
 
     await db.collection('users').doc(user.uid).set(userProfile, { merge: true });
-    console.log(`Created/updated Firestore profile for ${user.email} (status: ${userProfile.status})`);
+    console.log(
+      `Created/updated Firestore profile for ${user.email} (status: ${userProfile.status})`
+    );
   } catch (error) {
     console.error(`Error creating test user:`, error);
     throw error;
@@ -135,6 +137,28 @@ export async function clearTestData(): Promise<void> {
     console.log('Cleared test data');
   } catch (error) {
     console.error('Error clearing test data:', error);
+  }
+}
+
+/**
+ * Clear Firestore emulator data for accounting tests
+ */
+export async function clearFirestoreEmulator(): Promise<void> {
+  try {
+    const collections = ['accounts', 'transactions', 'entities', 'projects'];
+
+    for (const collectionName of collections) {
+      const snapshot = await db.collection(collectionName).get();
+      const batch = db.batch();
+      snapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+    }
+
+    console.log('✅ Cleared Firestore emulator data');
+  } catch (error) {
+    console.error('Error clearing Firestore emulator:', error);
   }
 }
 

@@ -54,6 +54,7 @@ export interface BusinessEntity extends TimestampFields, SoftDeleteFields {
 
   // Basic info
   name: string;
+  nameNormalized: string; // Lowercase for case-insensitive duplicate checking
   legalName?: string;
   displayName?: string;
 

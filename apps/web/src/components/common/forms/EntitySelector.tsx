@@ -56,6 +56,7 @@ export function EntitySelector({
           id: doc.id,
           code: data.code,
           name: data.name,
+          nameNormalized: data.nameNormalized || data.name.toLowerCase(),
           legalName: data.legalName,
           roles: data.roles || [],
           contactPerson: data.contactPerson || '',
@@ -85,6 +86,9 @@ export function EntitySelector({
           createdBy: data.createdBy || '',
           updatedAt: data.updatedAt?.toDate() || new Date(),
           updatedBy: data.updatedBy,
+          isDeleted: data.isDeleted || false,
+          deletedAt: data.deletedAt?.toDate() || null,
+          deletedBy: data.deletedBy || null,
         } as BusinessEntity);
       });
 

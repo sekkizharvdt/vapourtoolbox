@@ -1,6 +1,7 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import type { FirestoreEvent, Change } from 'firebase-functions/v2/firestore';
 import type { DocumentSnapshot } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as admin from 'firebase-admin';
 import {
   auditUserAction,
@@ -313,7 +314,7 @@ export const onUserUpdate = onDocumentWritten(
         domain,
         permissions,
         assignedProjects,
-        lastClaimUpdate: admin.firestore.FieldValue.serverTimestamp(),
+        lastClaimUpdate: FieldValue.serverTimestamp(),
       });
 
       // === AUDIT LOGGING ===

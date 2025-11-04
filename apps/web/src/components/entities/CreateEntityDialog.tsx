@@ -22,9 +22,8 @@ import {
   Typography,
   Divider,
 } from '@mui/material';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { getFirebase } from '@/lib/firebase';
-import { COLLECTIONS } from '@vapour/firebase';
 import type { EntityRole } from '@vapour/types';
 import { ContactsManager, EntityContactData } from './ContactsManager';
 
@@ -64,9 +63,13 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
   };
 
   const handleCreate = async () => {
-    // Validate only required fields: name and at least one contact
+    // Validate required fields
     if (!name.trim()) {
       setError('Entity name is required');
+      return;
+    }
+    if (roles.length === 0) {
+      setError('At least one entity role is required');
       return;
     }
     if (contacts.length === 0) {
@@ -78,75 +81,61 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
     setError('');
 
     try {
-      const { db } = getFirebase();
-      const entitiesRef = collection(db, COLLECTIONS.ENTITIES);
-
-      // Generate entity code
-      const timestamp = Date.now().toString().slice(-6);
-      const rolePrefix = (roles[0] || 'ENT').substring(0, 3).toUpperCase();
-      const code = `${rolePrefix}-${timestamp}`;
+      const { functions } = getFirebase();
+      const createEntityFn = httpsCallable(functions, 'createEntity');
 
       // Get primary contact for backward compatibility fields
-      const primaryContact = contacts.find(c => c.isPrimary) || contacts[0];
+      const primaryContact = contacts.find((c) => c.isPrimary) || contacts[0];
 
-      // This should never happen due to validation, but TypeScript needs the check
-      if (!primaryContact) {
-        setError('No primary contact found');
-        setLoading(false);
-        return;
-      }
-
-      // Create entity document
-      const entityData: Record<string, unknown> = {
-        code,
+      // Prepare entity data for Cloud Function
+      const entityData = {
         name: name.trim(),
-        legalName: legalName.trim() || name.trim(),
-        roles: roles.length > 0 ? roles : [],
+        legalName: legalName.trim() || undefined,
+        displayName: undefined,
+        roles,
         // Primary contact fields for backward compatibility
-        contactPerson: primaryContact.name,
-        email: primaryContact.email,
-        phone: primaryContact.phone,
-        mobile: primaryContact.mobile || null,
+        contactPerson: primaryContact?.name || '',
+        email: primaryContact?.email || '',
+        phone: primaryContact?.phone || '',
+        mobile: primaryContact?.mobile || undefined,
         // Contacts array
-        contacts: contacts.map(contact => ({
+        contacts: contacts.map((contact) => ({
           id: contact.id,
           name: contact.name,
-          designation: contact.designation || null,
+          designation: contact.designation || undefined,
           email: contact.email,
           phone: contact.phone,
-          mobile: contact.mobile || null,
+          mobile: contact.mobile || undefined,
           isPrimary: contact.isPrimary,
-          notes: contact.notes || null,
+          notes: contact.notes || undefined,
         })),
-        primaryContactId: primaryContact.id,
-        status: 'active' as const,
+        primaryContactId: primaryContact?.id,
+        // Optional address if provided
+        billingAddress:
+          addressLine1.trim() || city.trim() || state.trim() || postalCode.trim()
+            ? {
+                line1: addressLine1.trim() || undefined,
+                line2: addressLine2.trim() || undefined,
+                city: city.trim() || undefined,
+                state: state.trim() || undefined,
+                postalCode: postalCode.trim() || undefined,
+                country: country.trim() || 'India',
+              }
+            : undefined,
+        // Optional tax identifiers if provided
+        taxIdentifiers:
+          gstin.trim() || pan.trim()
+            ? {
+                gstin: gstin.trim() || undefined,
+                pan: pan.trim() || undefined,
+              }
+            : undefined,
+        status: 'ACTIVE' as const,
         isActive: true,
-        isDeleted: false,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
       };
 
-      // Add optional address if provided
-      if (addressLine1.trim() || city.trim() || state.trim() || postalCode.trim()) {
-        entityData.billingAddress = {
-          line1: addressLine1.trim() || null,
-          line2: addressLine2.trim() || null,
-          city: city.trim() || null,
-          state: state.trim() || null,
-          postalCode: postalCode.trim() || null,
-          country: country.trim() || 'India',
-        };
-      }
-
-      // Add optional tax identifiers if provided
-      if (gstin.trim() || pan.trim()) {
-        entityData.taxIdentifiers = {
-          gstin: gstin.trim() || null,
-          pan: pan.trim() || null,
-        };
-      }
-
-      await addDoc(entitiesRef, entityData);
+      // Call Cloud Function
+      await createEntityFn(entityData);
 
       // Reset form
       resetForm();
@@ -154,7 +143,13 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
       onClose();
     } catch (err: unknown) {
       console.error('Error creating entity:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create entity. Please try again.';
+
+      // Extract error message from Cloud Function error
+      let errorMessage = 'Failed to create entity. Please try again.';
+      if (err && typeof err === 'object' && 'message' in err) {
+        errorMessage = String(err.message);
+      }
+
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -247,11 +242,11 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
 
           {/* Contact Details */}
           <Box>
-            <ContactsManager
-              contacts={contacts}
-              onChange={setContacts}
-              disabled={loading}
-            />
+            <Typography variant="subtitle2" color="primary" gutterBottom>
+              Contact Persons
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            <ContactsManager contacts={contacts} onChange={setContacts} disabled={loading} />
           </Box>
 
           {/* Address & Tax Information */}
