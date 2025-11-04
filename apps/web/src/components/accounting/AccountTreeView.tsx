@@ -19,14 +19,16 @@ import {
   MoneyOff as ExpenseIcon,
   UnfoldMore as ExpandAllIcon,
   UnfoldLess as CollapseAllIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import type { Account, AccountTreeNode } from '@vapour/types';
 
 interface AccountTreeViewProps {
   accounts: Account[];
+  onEdit?: (account: Account) => void;
 }
 
-export function AccountTreeView({ accounts }: AccountTreeViewProps) {
+export function AccountTreeView({ accounts, onEdit }: AccountTreeViewProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   // Build tree structure from flat account list (memoized)
@@ -245,6 +247,18 @@ export function AccountTreeView({ accounts }: AccountTreeViewProps) {
               >
                 {formatCurrency(account.currentBalance, account.currency)}
               </Typography>
+            )}
+
+            {/* Edit Button */}
+            {onEdit && (
+              <IconButton
+                size="small"
+                onClick={() => onEdit(account)}
+                aria-label="Edit"
+                sx={{ ml: 1 }}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
             )}
           </Stack>
 

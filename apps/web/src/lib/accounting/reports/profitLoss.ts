@@ -5,7 +5,7 @@
  * Formula: Revenue - Expenses = Net Profit
  */
 
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 
@@ -55,56 +55,92 @@ export async function generateProfitLossReport(
   endDate: Date
 ): Promise<ProfitLossReport> {
   try {
-    // Fetch all accounts
+    // Convert dates to Firestore Timestamps
+    const startTimestamp = Timestamp.fromDate(startDate);
+    const endTimestamp = Timestamp.fromDate(endDate);
+
+    // Fetch all accounts for reference
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
     const accountsSnapshot = await getDocs(accountsRef);
 
-    const accounts: AccountBalance[] = [];
+    // Build account lookup map
+    const accountMap = new Map<string, AccountBalance>();
     accountsSnapshot.forEach((doc) => {
       const data = doc.data();
-      accounts.push({
+      accountMap.set(doc.id, {
         id: doc.id,
         code: data.code || '',
         name: data.name || '',
         type: data.type || '',
-        balance: data.balance || 0,
-        debit: data.debit || 0,
-        credit: data.credit || 0,
+        balance: 0, // Will calculate from transactions
+        debit: 0,
+        credit: 0,
       });
     });
 
-    // TODO: In a full implementation, we would filter transactions by date range
-    // and calculate balances for the specific period. For now, we use account balances.
-    // This assumes the account balances represent the cumulative balance.
+    // Query all GL entries within the date range
+    // Note: We query transactions and aggregate their GL entries
+    const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
+    const periodQuery = query(
+      transactionsRef,
+      where('date', '>=', startTimestamp),
+      where('date', '<=', endTimestamp)
+    );
+    const transactionsSnapshot = await getDocs(periodQuery);
 
-    // For accurate period-specific P&L, we would need to:
-    // 1. Query all transactions in the date range
-    // 2. Sum debits and credits by account
-    // 3. Calculate net change for each account
+    // Aggregate debits and credits by account for the period
+    const accountActivity = new Map<string, { debit: number; credit: number }>();
 
-    // Categorize accounts
+    transactionsSnapshot.forEach((doc) => {
+      const transaction = doc.data();
+      const glEntries = transaction.entries || [];
+
+      glEntries.forEach((entry: { accountId: string; debit: number; credit: number }) => {
+        if (!entry.accountId) return;
+
+        const existing = accountActivity.get(entry.accountId) || { debit: 0, credit: 0 };
+        accountActivity.set(entry.accountId, {
+          debit: existing.debit + (entry.debit || 0),
+          credit: existing.credit + (entry.credit || 0),
+        });
+      });
+    });
+
+    // Update account balances from period activity
+    accountActivity.forEach((activity, accountId) => {
+      const account = accountMap.get(accountId);
+      if (account) {
+        account.debit = activity.debit;
+        account.credit = activity.credit;
+        account.balance = activity.credit - activity.debit; // Net balance for the period
+      }
+    });
+
+    // Categorize accounts and calculate totals
     let sales = 0;
     let otherIncome = 0;
     let costOfGoodsSold = 0;
     let operatingExpenses = 0;
     let otherExpenses = 0;
 
-    accounts.forEach((account) => {
+    accountMap.forEach((account) => {
       const accountName = account.name.toLowerCase();
       const accountCode = account.code;
 
       // Revenue accounts (credit balance means revenue)
       if (account.type === 'REVENUE') {
+        const netRevenue = account.credit - account.debit;
+
         // Sales accounts (typically 4000-4999)
         if (
           accountCode.startsWith('4') ||
           accountName.includes('sales') ||
           accountName.includes('revenue')
         ) {
-          sales += account.credit - account.debit; // Net revenue
+          sales += netRevenue;
         } else {
           // Other income
-          otherIncome += account.credit - account.debit;
+          otherIncome += netRevenue;
         }
       }
 

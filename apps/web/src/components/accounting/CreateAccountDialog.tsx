@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -16,7 +16,7 @@ import {
   Box,
   Grid,
 } from '@mui/material';
-import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { Account, AccountType, AccountCategory } from '@vapour/types';
@@ -26,6 +26,7 @@ interface CreateAccountDialogProps {
   open: boolean;
   onClose: () => void;
   accounts: Account[];
+  editingAccount?: Account | null;
 }
 
 const ACCOUNT_CATEGORIES: Record<AccountType, AccountCategory[]> = {
@@ -36,7 +37,7 @@ const ACCOUNT_CATEGORIES: Record<AccountType, AccountCategory[]> = {
   EXPENSE: ['COST_OF_GOODS_SOLD', 'OPERATING_EXPENSES', 'FINANCIAL_EXPENSES', 'OTHER_EXPENSES'],
 };
 
-export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDialogProps) {
+export function CreateAccountDialog({ open, onClose, accounts, editingAccount }: CreateAccountDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -61,6 +62,29 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
   const [bankName, setBankName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [ifscCode, setIfscCode] = useState('');
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editingAccount && open) {
+      setCode(editingAccount.code);
+      setName(editingAccount.name);
+      setDescription(editingAccount.description || '');
+      setAccountType(editingAccount.accountType);
+      setAccountCategory(editingAccount.accountCategory);
+      setIsGroup(editingAccount.isGroup);
+      setOpeningBalance(String(editingAccount.openingBalance));
+      setCurrency(editingAccount.currency);
+      setIsGSTAccount(editingAccount.isGSTAccount || false);
+      setGstType((editingAccount.gstType as 'CGST' | 'SGST' | 'IGST' | 'CESS') || 'CGST');
+      setGstDirection((editingAccount.gstDirection as 'INPUT' | 'OUTPUT') || 'INPUT');
+      setIsTDSAccount(editingAccount.isTDSAccount || false);
+      setTdsSection(editingAccount.tdsSection || '');
+      setIsBankAccount(editingAccount.isBankAccount || false);
+      setBankName(editingAccount.bankName || '');
+      setAccountNumber(editingAccount.accountNumber || '');
+      setIfscCode(editingAccount.ifscCode || '');
+    }
+  }, [editingAccount, open]);
 
   const resetForm = () => {
     setCode('');
@@ -89,12 +113,20 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
       return false;
     }
 
-    if (!/^[0-9]{4}$/.test(code)) {
+    // Check if code contains only numeric characters
+    if (!/^[0-9]+$/.test(code)) {
+      setError('Account code must be numeric');
+      return false;
+    }
+
+    // Check if code is exactly 4 digits
+    if (code.length !== 4) {
       setError('Account code must be a 4-digit number (e.g., 1101)');
       return false;
     }
 
-    if (accounts.some((acc) => acc.code === code)) {
+    // Check for duplicate code (allow current code when editing)
+    if (accounts.some((acc) => acc.code === code && acc.id !== editingAccount?.id)) {
       setError('An account with this code already exists');
       return false;
     }
@@ -138,43 +170,70 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
     try {
       const { db } = getFirebase();
       const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-      const accountId = `acc-${code}`;
 
-      await setDoc(doc(accountsRef, accountId), {
-        code,
-        name: name.trim(),
-        description: description.trim() || null,
-        accountType,
-        accountCategory,
-        accountGroup: null,
-        parentAccountId: null,
-        level: 4, // Default to leaf level
-        isGroup,
-        isActive: true,
-        isSystemAccount: false,
-        openingBalance: Number(openingBalance),
-        currentBalance: Number(openingBalance),
-        currency,
-        isGSTAccount,
-        gstType: isGSTAccount ? gstType : null,
-        gstDirection: isGSTAccount ? gstDirection : null,
-        isTDSAccount,
-        tdsSection: isTDSAccount ? tdsSection.trim() : null,
-        isBankAccount,
-        bankName: isBankAccount ? bankName.trim() : null,
-        accountNumber: isBankAccount && accountNumber.trim() ? accountNumber.trim() : null,
-        ifscCode: isBankAccount && ifscCode.trim() ? ifscCode.trim() : null,
-        branch: null,
-        createdAt: serverTimestamp(),
-        createdBy: user.uid,
-        updatedAt: serverTimestamp(),
-      });
+      if (editingAccount) {
+        // Update existing account
+        await updateDoc(doc(accountsRef, editingAccount.id), {
+          name: name.trim(),
+          description: description.trim() || null,
+          accountType,
+          accountCategory,
+          isGroup,
+          openingBalance: Number(openingBalance),
+          currentBalance: Number(openingBalance),
+          currency,
+          isGSTAccount,
+          gstType: isGSTAccount ? gstType : null,
+          gstDirection: isGSTAccount ? gstDirection : null,
+          isTDSAccount,
+          tdsSection: isTDSAccount ? tdsSection.trim() : null,
+          isBankAccount,
+          bankName: isBankAccount ? bankName.trim() : null,
+          accountNumber: isBankAccount && accountNumber.trim() ? accountNumber.trim() : null,
+          ifscCode: isBankAccount && ifscCode.trim() ? ifscCode.trim() : null,
+          updatedAt: serverTimestamp(),
+          updatedBy: user.uid,
+        });
+      } else {
+        // Create new account
+        const accountId = `acc-${code}`;
 
-      resetForm();
+        await setDoc(doc(accountsRef, accountId), {
+          code,
+          name: name.trim(),
+          description: description.trim() || null,
+          accountType,
+          accountCategory,
+          accountGroup: null,
+          parentAccountId: null,
+          level: 4, // Default to leaf level
+          isGroup,
+          isActive: true,
+          isSystemAccount: false,
+          openingBalance: Number(openingBalance),
+          currentBalance: Number(openingBalance),
+          currency,
+          isGSTAccount,
+          gstType: isGSTAccount ? gstType : null,
+          gstDirection: isGSTAccount ? gstDirection : null,
+          isTDSAccount,
+          tdsSection: isTDSAccount ? tdsSection.trim() : null,
+          isBankAccount,
+          bankName: isBankAccount ? bankName.trim() : null,
+          accountNumber: isBankAccount && accountNumber.trim() ? accountNumber.trim() : null,
+          ifscCode: isBankAccount && ifscCode.trim() ? ifscCode.trim() : null,
+          branch: null,
+          createdAt: serverTimestamp(),
+          createdBy: user.uid,
+          updatedAt: serverTimestamp(),
+        });
+      }
+
       onClose();
+      resetForm();
     } catch (err) {
-      console.error('Error creating account:', err);
-      setError('Failed to create account. Please try again.');
+      console.error('Error saving account:', err);
+      setError(`Failed to ${editingAccount ? 'update' : 'create'} account. Please try again.`);
     } finally {
       setLoading(false);
     }
@@ -189,7 +248,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <DialogTitle>Create New Account</DialogTitle>
+      <DialogTitle>{editingAccount ? 'Edit Account' : 'Create New Account'}</DialogTitle>
       <DialogContent>
         <Box sx={{ pt: 2 }}>
           <Grid container spacing={2}>
@@ -202,6 +261,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
                 placeholder="1101"
                 fullWidth
                 required
+                disabled={!!editingAccount}
                 helperText="4-digit code"
               />
             </Grid>
@@ -419,7 +479,7 @@ export function CreateAccountDialog({ open, onClose, accounts }: CreateAccountDi
           Cancel
         </Button>
         <Button onClick={handleSubmit} variant="contained" disabled={loading}>
-          {loading ? 'Creating...' : 'Create Account'}
+          {loading ? (editingAccount ? 'Updating...' : 'Creating...') : (editingAccount ? 'Update Account' : 'Create Account')}
         </Button>
       </DialogActions>
     </Dialog>

@@ -129,13 +129,13 @@ export function CreateJournalEntryDialog({
       const { db } = getFirebase();
       const balance = calculateBalance(entries);
 
-      // Convert string date to Date object for Firestore
-      const journalDate = new Date(date);
+      // Convert string date to Date object then to Timestamp for Firestore
+      const journalDate = Timestamp.fromDate(new Date(date));
 
-      const journalEntry: Partial<JournalEntry> = {
-        type: 'JOURNAL_ENTRY',
-        date: journalDate as any,
-        journalDate: journalDate as any,
+      const journalEntry = {
+        type: 'JOURNAL_ENTRY' as const,
+        date: journalDate,
+        journalDate: journalDate,
         description,
         referenceNumber: reference || undefined,
         projectId: projectId || undefined,
@@ -150,7 +150,7 @@ export function CreateJournalEntryDialog({
         attachments: [],
         journalType: 'GENERAL',
         isReversed: false,
-      } as any;
+      };
 
       if (editingEntry?.id) {
         // Update existing entry

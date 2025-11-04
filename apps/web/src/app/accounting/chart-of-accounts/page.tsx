@@ -55,6 +55,7 @@ export default function ChartOfAccountsPage() {
 
   // Dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
 
   // Permissions
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
@@ -229,6 +230,16 @@ export default function ChartOfAccountsPage() {
     setLoading(true);
     // The onSnapshot will automatically refresh
     setTimeout(() => setLoading(false), 500);
+  };
+
+  const handleEditAccount = (account: Account) => {
+    setEditingAccount(account);
+    setCreateDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setCreateDialogOpen(false);
+    setEditingAccount(null);
   };
 
   if (!hasViewAccess) {
@@ -457,7 +468,7 @@ export default function ChartOfAccountsPage() {
       {/* Account Tree View */}
       {!loading && filteredAccounts.length > 0 && (
         <Paper sx={{ p: 2 }}>
-          <AccountTreeView accounts={filteredAccounts} />
+          <AccountTreeView accounts={filteredAccounts} onEdit={canManage ? handleEditAccount : undefined} />
         </Paper>
       )}
 
@@ -473,8 +484,9 @@ export default function ChartOfAccountsPage() {
       {/* Dialogs */}
       <CreateAccountDialog
         open={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
+        onClose={handleCloseDialog}
         accounts={accounts}
+        editingAccount={editingAccount}
       />
     </Container>
   );

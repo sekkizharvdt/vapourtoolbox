@@ -121,7 +121,7 @@ export default function JournalEntriesPage() {
         <Typography variant="h4">Journal Entries</Typography>
         {canManage && (
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
-            New Journal Entry
+            Create Journal Entry
           </Button>
         )}
       </Stack>

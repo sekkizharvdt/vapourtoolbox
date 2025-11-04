@@ -5,6 +5,9 @@
 
 import type { TDSDetails } from '@vapour/types';
 
+// Re-export TDSDetails for convenience
+export type { TDSDetails } from '@vapour/types';
+
 // Common TDS sections and their rates
 export const TDS_SECTIONS = {
   '192': { description: 'Salary', rate: 0, threshold: 0 },

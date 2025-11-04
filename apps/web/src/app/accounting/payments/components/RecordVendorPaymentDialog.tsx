@@ -23,6 +23,7 @@ import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { getFirebase } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, Timestamp, query, where, getDocs } from 'firebase/firestore';
+import { useAuth } from '@/contexts/AuthContext';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorPayment, VendorBill, PaymentAllocation, PaymentMethod } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
@@ -58,6 +59,7 @@ export function RecordVendorPaymentDialog({
   onClose,
   editingPayment,
 }: RecordVendorPaymentDialogProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -285,17 +287,17 @@ export function RecordVendorPaymentDialog({
         projectId: projectId || undefined,
         costCentreId: projectId || undefined, // Same as projectId for consistency
         status: 'POSTED',
-        createdAt: Timestamp.now() as any,
-        updatedAt: Timestamp.now() as any,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
         // Required BaseTransaction fields
-        date: paymentDate as any,
+        date: Timestamp.fromDate(new Date(paymentDate)),
         amount,
         currency: 'INR',
         baseAmount: amount,
         entries: [],
         attachments: [],
-        createdBy: 'current-user', // TODO: Get from auth context
-      } as any;
+        createdBy: user?.uid || 'unknown',
+      };
 
       if (editingPayment?.id) {
         // Update existing payment

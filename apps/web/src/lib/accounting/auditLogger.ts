@@ -17,6 +17,39 @@ import type {
 } from '@vapour/types';
 
 /**
+ * Get client IP address from public API
+ * Uses a fallback chain of IP detection services
+ * Note: This is best-effort and may not work in all environments
+ */
+async function getClientIPAddress(): Promise<string | undefined> {
+  // Skip in SSR/build time
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+
+  try {
+    // Use a public IP detection service with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+
+    const response = await fetch('https://api.ipify.org?format=json', {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.ip as string;
+    }
+  } catch (error) {
+    // IP detection failed - not critical, continue without IP
+    console.warn('[AuditLogger] Could not detect client IP:', error);
+  }
+
+  return undefined;
+}
+
+/**
  * User context for audit logging
  * Should be obtained from the current authenticated user
  */
@@ -76,7 +109,7 @@ export async function logFinancialTransactionEvent(
       changes,
 
       // Technical details
-      ipAddress: undefined, // TODO: Get from request headers
+      ipAddress: await getClientIPAddress(), // Captured from client metadata
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
 
       // Metadata
