@@ -154,7 +154,7 @@ export async function generateCashFlowStatement(
         // These don't affect cash until paid
         break;
 
-      case 'JOURNAL_ENTRY':
+      case 'JOURNAL_ENTRY': {
         // Analyze journal entry to categorize
         const hasAsset = txn.entries?.some((e) => assetAccounts.has(e.accountId || ''));
         const hasLiability = txn.entries?.some((e) => liabilityAccounts.has(e.accountId || ''));
@@ -178,6 +178,7 @@ export async function generateCashFlowStatement(
           operatingTotal += cashImpact;
         }
         break;
+      }
 
       default:
         // Default to operating activities

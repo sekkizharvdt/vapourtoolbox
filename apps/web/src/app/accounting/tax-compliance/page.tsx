@@ -32,7 +32,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewFinancialReports } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 
@@ -617,7 +617,7 @@ export default function TaxCompliancePage() {
 }
 
 // Helper functions to generate GST data
-async function generateGSTR1(db: any, start: Timestamp, end: Timestamp): Promise<GSTR1Data> {
+async function generateGSTR1(db: Firestore, start: Timestamp, end: Timestamp): Promise<GSTR1Data> {
   const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
   const q = query(
     transactionsRef,
@@ -672,7 +672,7 @@ async function generateGSTR1(db: any, start: Timestamp, end: Timestamp): Promise
   return { b2b, b2c, total };
 }
 
-async function generateGSTR2(db: any, start: Timestamp, end: Timestamp): Promise<GSTR2Data> {
+async function generateGSTR2(db: Firestore, start: Timestamp, end: Timestamp): Promise<GSTR2Data> {
   const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
   const q = query(
     transactionsRef,
