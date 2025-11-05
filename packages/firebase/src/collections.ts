@@ -31,6 +31,18 @@ export const COLLECTIONS = {
   JOURNAL_ENTRIES: 'journal_entries',
   LEDGER_ENTRIES: 'ledger_entries',
 
+  // Bank Reconciliation
+  BANK_STATEMENTS: 'bankStatements',
+  BANK_TRANSACTIONS: 'bankTransactions',
+  RECONCILIATION_MATCHES: 'reconciliationMatches',
+  RECONCILIATION_REPORTS: 'reconciliationReports',
+  RECONCILIATION_ADJUSTMENTS: 'reconciliationAdjustments',
+
+  // Currency & Forex
+  EXCHANGE_RATES: 'exchangeRates',
+  FOREX_GAIN_LOSS: 'forexGainLoss',
+  CURRENCY_CONFIG: 'currencyConfig',
+
   // Procurement
   PURCHASE_REQUESTS: 'purchaseRequests',
   PURCHASE_REQUEST_ITEMS: 'purchaseRequestItems',

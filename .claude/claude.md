@@ -1163,6 +1163,155 @@ if (!validation.valid) {
 }
 ```
 
+### 7. Material-UI Grid v7 API Changes
+
+**Problem:** Using old Grid API with `item` prop instead of `size`.
+
+```typescript
+// ❌ WRONG - Old Material-UI Grid API
+<Grid item xs={12} md={6}>
+  <TextField />
+</Grid>
+
+// ✅ CORRECT - Material-UI v7 Grid API
+<Grid size={{ xs: 12, md: 6 }}>
+  <TextField />
+</Grid>
+
+// ✅ CORRECT - Multiple breakpoints
+<Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+  <Card />
+</Grid>
+```
+
+### 8. Account Type Properties
+
+**Problem:** Trying to access nested `bankDetails` that don't exist.
+
+```typescript
+// ❌ WRONG - bankDetails doesn't exist in Account type
+const accountNumber = account.bankDetails?.accountNumber;
+const bankName = account.bankDetails?.bankName;
+
+// ✅ CORRECT - Use direct properties
+const accountNumber = account.accountNumber;
+const bankName = account.bankName;
+const ifscCode = account.ifscCode;
+const branch = account.branch;
+```
+
+**Account Type Structure:**
+
+```typescript
+interface Account {
+  // ... other fields
+
+  // Bank Properties (direct, not nested)
+  isBankAccount: boolean;
+  bankName?: string;
+  accountNumber?: string;
+  ifscCode?: string;
+  branch?: string;
+}
+```
+
+### 9. useEffect with Async and Cleanup
+
+**Problem:** Not properly handling cleanup functions in useEffect with async operations.
+
+```typescript
+// ❌ WRONG - Can't directly return from async function
+useEffect(() => {
+  async function loadData() {
+    const unsubscribe = onSnapshot(/* ... */);
+    return () => unsubscribe(); // ❌ This won't work
+  }
+  loadData();
+}, []);
+
+// ✅ CORRECT - Store unsubscribe outside async function
+useEffect(() => {
+  let unsubscribe: (() => void) | undefined;
+
+  async function loadData() {
+    unsubscribe = onSnapshot(/* ... */);
+  }
+
+  loadData();
+
+  return () => {
+    if (unsubscribe) {
+      unsubscribe();
+    }
+  };
+}, []);
+```
+
+### 10. Component Props Validation
+
+**Problem:** Passing props that don't exist in component interface.
+
+```typescript
+// ❌ WRONG - FormDialogActions doesn't support 'disabled' prop
+<FormDialogActions
+  onCancel={onClose}
+  onSubmit={handleSubmit}
+  submitLabel="Save"
+  loading={loading}
+  disabled={someCondition}  // ❌ Error: Property 'disabled' does not exist
+/>
+
+// ✅ CORRECT - Handle disabled state differently
+<FormDialogActions
+  onCancel={onClose}
+  onSubmit={someCondition ? undefined : handleSubmit}  // Disable by not providing handler
+  submitLabel="Save"
+  loading={loading}
+/>
+
+// OR disable the button in the dialog content
+<Button
+  onClick={handleSubmit}
+  disabled={someCondition}
+>
+  Save
+</Button>
+```
+
+### 11. Firebase Type Mismatches
+
+**Problem:** Missing required fields when creating Firebase documents.
+
+```typescript
+// ❌ WRONG - Missing 'uploadedBy' field
+await createBankStatement(
+  db,
+  {
+    accountId,
+    accountName,
+    statementDate: Timestamp.now(),
+    // ... other fields
+    // uploadedBy is missing but required!
+  },
+  userId
+);
+
+// ✅ CORRECT - Include all required fields
+await createBankStatement(
+  db,
+  {
+    accountId,
+    accountName,
+    statementDate: Timestamp.now(),
+    uploadedBy: userId, // ✅ Required field included
+    // ... other fields
+  },
+  userId
+);
+```
+
+**Best Practice:** Always check the interface definition for required fields before creating objects.
+
 ---
 
 ## Priority Guidelines

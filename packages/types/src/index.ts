@@ -16,3 +16,5 @@ export * from './transaction';
 export * from './procurement';
 export * from './documents';
 export * from './task';
+export * from './bankReconciliation';
+export * from './exchangeRate';

@@ -21,6 +21,7 @@ import {
   RequestQuote as BillIcon,
   List as TransactionsIcon,
   Payment as PaymentIcon,
+  AccountBalanceWallet as ReconciliationIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -73,6 +74,12 @@ export default function AccountingPage() {
       path: '/accounting/payments',
     },
     {
+      title: 'Bank Reconciliation',
+      description: 'Match bank statements with accounting records and reconcile balances',
+      icon: <ReconciliationIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/reconciliation',
+    },
+    {
       title: 'All Transactions',
       description: 'View and filter all financial transactions in one place',
       icon: <TransactionsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
@@ -80,10 +87,9 @@ export default function AccountingPage() {
     },
     {
       title: 'Currency & Forex',
-      description: 'Monitor currency exchange rates and stability analysis',
+      description: 'Manage exchange rates, track forex gains/losses, and monitor currency exposure',
       icon: <ForexIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/currency',
-      comingSoon: true,
     },
     {
       title: 'Cost Centres',
@@ -100,10 +106,9 @@ export default function AccountingPage() {
     },
     {
       title: 'GST & TDS',
-      description: 'GST returns, TDS reports, and tax compliance',
+      description: 'GST returns (GSTR-1, GSTR-2, GSTR-3B), TDS reports, and tax compliance',
       icon: <TrendingUpIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/tax-compliance',
-      comingSoon: true,
     },
   ];
 
