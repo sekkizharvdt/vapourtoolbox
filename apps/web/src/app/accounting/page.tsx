@@ -1,6 +1,15 @@
 'use client';
 
-import { Container, Typography, Box, Card, CardContent, CardActions, Button, Grid } from '@mui/material';
+import {
+  Container,
+  Typography,
+  Box,
+  Card,
+  CardContent,
+  CardActions,
+  Button,
+  Grid,
+} from '@mui/material';
 import {
   AccountBalance as AccountBalanceIcon,
   TrendingUp as TrendingUpIcon,
@@ -35,7 +44,7 @@ export default function AccountingPage() {
   const modules: AccountingModule[] = [
     {
       title: 'Chart of Accounts',
-      description: 'Manage your company\'s chart of accounts with hierarchical structure',
+      description: "Manage your company's chart of accounts with hierarchical structure",
       icon: <AccountBalanceIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/chart-of-accounts',
     },
@@ -88,7 +97,6 @@ export default function AccountingPage() {
       description: 'Balance Sheet, P&L, Cash Flow, and other reports',
       icon: <ReportIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/reports',
-      comingSoon: true,
     },
     {
       title: 'GST & TDS',
