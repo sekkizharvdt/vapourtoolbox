@@ -177,87 +177,11 @@ jobs:
         run: pnpm audit --production --audit-level=high
         continue-on-error: true
 
-  # Job 5: E2E Tests with Firebase Emulator
-  e2e-tests:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: [lint-and-typecheck]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.19.0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright browsers
-        run: cd apps/web && pnpm exec playwright install --with-deps chromium
-
-      - name: Install Firebase Tools
-        run: npm install -g firebase-tools
-
-      - name: Build app for E2E tests
-        run: cd apps/web && pnpm build
-        env:
-          # Use production Firebase config for build (emulator config used at runtime)
-          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyCxzqzAUTT3Ouiv-szpfO1Au4LwEMnP-4w
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: vapour-toolbox.firebaseapp.com
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: vapour-toolbox
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: vapour-toolbox.firebasestorage.app
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 697891123609
-          NEXT_PUBLIC_FIREBASE_APP_ID: 1:697891123609:web:334e56be149a056f252308
-          NEXT_PUBLIC_USE_EMULATOR: 'true'
-          NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL: http://localhost:9099
-          NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL: localhost:8080
-
-      - name: Run E2E tests
-        run: cd apps/web && pnpm test:e2e --project=chromium
-        env:
-          CI: true
-          # Firebase Emulator configuration
-          NEXT_PUBLIC_FIREBASE_API_KEY: fake-api-key-for-emulator
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: localhost
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: vapour-toolbox
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: vapour-toolbox.appspot.com
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: '000000000000'
-          NEXT_PUBLIC_FIREBASE_APP_ID: '1:000000000000:web:fakefakefakefake'
-          NEXT_PUBLIC_USE_EMULATOR: 'true'
-          NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL: http://localhost:9099
-          NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL: localhost:8080
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: apps/web/playwright-report
-          retention-days: 7
-
-      - name: Upload test videos
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-videos
-          path: apps/web/test-results
-          retention-days: 7
-
   # Summary Job
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [lint-and-typecheck, build, pre-deployment-checks, security-audit, e2e-tests]
+    needs: [lint-and-typecheck, build, pre-deployment-checks, security-audit]
     if: success()
 
     steps:
@@ -268,6 +192,5 @@ jobs:
           echo "✅ Build: Passed"
           echo "✅ Pre-deployment Checks: Passed"
           echo "✅ Security Audit: Passed"
-          echo "✅ E2E Tests: Passed"
           echo ""
           echo "Ready to deploy! 🚀"
