@@ -185,12 +185,11 @@ export async function getTaskNotificationById(
       return null;
     }
 
-    const data = docSnap.data();
-    const taskNotification: TaskNotification = {
+    const notification: TaskNotification = {
       id: docSnap.id,
-      ...data,
-    } as TaskNotification;
-    return taskNotification;
+      ...docSnap.data(),
+    } as unknown as TaskNotification;
+    return notification;
   } catch (error) {
     console.error('[getTaskNotificationById] Error:', error);
     throw new Error('Failed to get task notification');
@@ -233,12 +232,11 @@ export async function findTaskNotificationByEntity(
     }
 
     const docData = snapshot.docs[0];
-    const data = docData.data();
-    const taskNotification: TaskNotification = {
+    const notification: TaskNotification = {
       id: docData.id,
-      ...data,
-    } as TaskNotification;
-    return taskNotification;
+      ...docData.data(),
+    } as unknown as TaskNotification;
+    return notification;
   } catch (error) {
     console.error('[findTaskNotificationByEntity] Error:', error);
     return null;
