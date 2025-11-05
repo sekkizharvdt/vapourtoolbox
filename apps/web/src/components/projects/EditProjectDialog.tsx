@@ -27,10 +27,27 @@ import {
   IconButton,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { doc, Timestamp, collection, query, orderBy, getDocs, where, writeBatch, arrayUnion, arrayRemove } from 'firebase/firestore';
+import {
+  doc,
+  Timestamp,
+  collection,
+  query,
+  orderBy,
+  getDocs,
+  where,
+  writeBatch,
+  arrayUnion,
+  arrayRemove,
+} from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { Project, ProjectStatus, ProjectPriority, BusinessEntity, ProjectMember } from '@vapour/types';
+import type {
+  Project,
+  ProjectStatus,
+  ProjectPriority,
+  BusinessEntity,
+  ProjectMember,
+} from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface EditProjectDialogProps {
@@ -200,7 +217,7 @@ export function EditProjectDialog({ open, project, onClose, onSuccess }: EditPro
     }
 
     // Check if member already exists
-    if (teamMembers.some(m => m.userId === selectedTeamMember.userId)) {
+    if (teamMembers.some((m) => m.userId === selectedTeamMember.userId)) {
       setError('This user is already a team member');
       return;
     }
@@ -227,7 +244,7 @@ export function EditProjectDialog({ open, project, onClose, onSuccess }: EditPro
 
   // Remove team member
   const handleRemoveTeamMember = (userId: string) => {
-    setTeamMembers(teamMembers.filter(m => m.userId !== userId));
+    setTeamMembers(teamMembers.filter((m) => m.userId !== userId));
   };
 
   const handleSubmit = async () => {
@@ -262,7 +279,7 @@ export function EditProjectDialog({ open, project, onClose, onSuccess }: EditPro
       const projectRef = doc(db, COLLECTIONS.PROJECTS, project.id);
 
       // Prepare update data
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         name: name.trim(),
         description: description.trim() || null,
         status,
@@ -295,11 +312,11 @@ export function EditProjectDialog({ open, project, onClose, onSuccess }: EditPro
       batch.update(projectRef, updateData);
 
       // Determine which users were added or removed from the team
-      const oldTeamUserIds = new Set((project.team || []).map(m => m.userId));
-      const newTeamUserIds = new Set(teamMembers.map(m => m.userId));
+      const oldTeamUserIds = new Set((project.team || []).map((m) => m.userId));
+      const newTeamUserIds = new Set(teamMembers.map((m) => m.userId));
 
       // Users to add to assignedProjects
-      const addedUsers = teamMembers.filter(m => !oldTeamUserIds.has(m.userId));
+      const addedUsers = teamMembers.filter((m) => !oldTeamUserIds.has(m.userId));
       for (const member of addedUsers) {
         const userRef = doc(db, COLLECTIONS.USERS, member.userId);
         batch.update(userRef, {
@@ -308,7 +325,7 @@ export function EditProjectDialog({ open, project, onClose, onSuccess }: EditPro
       }
 
       // Users to remove from assignedProjects
-      const removedUserIds = [...oldTeamUserIds].filter(id => !newTeamUserIds.has(id));
+      const removedUserIds = [...oldTeamUserIds].filter((id) => !newTeamUserIds.has(id));
       for (const userId of removedUserIds) {
         const userRef = doc(db, COLLECTIONS.USERS, userId);
         batch.update(userRef, {
@@ -413,9 +430,7 @@ export function EditProjectDialog({ open, project, onClose, onSuccess }: EditPro
               getOptionLabel={(option) => option.name}
               value={selectedClient}
               onChange={(_, newValue) => setSelectedClient(newValue)}
-              renderInput={(params) => (
-                <TextField {...params} label="Client" required />
-              )}
+              renderInput={(params) => <TextField {...params} label="Client" required />}
               fullWidth
             />
           )}
@@ -432,9 +447,7 @@ export function EditProjectDialog({ open, project, onClose, onSuccess }: EditPro
               getOptionLabel={(option) => `${option.userName} (${option.email})`}
               value={selectedPM}
               onChange={(_, newValue) => setSelectedPM(newValue)}
-              renderInput={(params) => (
-                <TextField {...params} label="Project Manager" required />
-              )}
+              renderInput={(params) => <TextField {...params} label="Project Manager" required />}
               fullWidth
             />
           )}
@@ -481,9 +494,15 @@ export function EditProjectDialog({ open, project, onClose, onSuccess }: EditPro
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell><strong>Name</strong></TableCell>
-                      <TableCell><strong>Role</strong></TableCell>
-                      <TableCell align="center"><strong>Actions</strong></TableCell>
+                      <TableCell>
+                        <strong>Name</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Role</strong>
+                      </TableCell>
+                      <TableCell align="center">
+                        <strong>Actions</strong>
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>

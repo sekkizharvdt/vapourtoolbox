@@ -427,9 +427,10 @@ export function getPRStats(prs: PurchaseRequest[]): {
   byType: Record<'PROJECT' | 'BUDGETARY' | 'INTERNAL', number>;
   totalEstimatedCost: number;
 } {
+  const byStatus: Record<string, number> = {};
   const stats = {
     total: prs.length,
-    byStatus: {} as Record<PurchaseRequestStatus, number>,
+    byStatus,
     byPriority: {
       LOW: 0,
       MEDIUM: 0,

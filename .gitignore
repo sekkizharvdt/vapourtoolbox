@@ -5,6 +5,11 @@ node_modules
 
 # Testing
 coverage
+test-results/
+playwright-report/
+*.log
+*.png
+*.bat
 
 # Next.js
 .next/
@@ -51,7 +56,7 @@ ui-debug.log
 # Firebase Service Account Keys (NEVER COMMIT THESE!)
 serviceAccountKey.json
 *-firebase-adminsdk-*.json
-nul
+firebase-emulator.log
 
 # Legacy/Reference Code (do not commit to GitHub)
 inputs/

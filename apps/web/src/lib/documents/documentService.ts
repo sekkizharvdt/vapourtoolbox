@@ -180,10 +180,12 @@ export async function getDocumentById(documentId: string): Promise<DocumentRecor
       return null;
     }
 
-    return {
+    const data = docSnap.data();
+    const documentRecord: DocumentRecord = {
       id: docSnap.id,
-      ...docSnap.data(),
+      ...data,
     } as DocumentRecord;
+    return documentRecord;
   } catch (error) {
     console.error('[getDocumentById] Error:', error);
     throw new Error('Failed to get document');

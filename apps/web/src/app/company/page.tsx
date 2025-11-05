@@ -46,7 +46,7 @@ interface CompanySettings {
   };
   fiscalYearStartMonth: number;
   baseCurrency: string;
-  setupCompletedAt?: any;
+  setupCompletedAt?: { toDate: () => Date };
   setupCompletedBy?: string;
 }
 
@@ -102,7 +102,9 @@ export default function CompanySettingsPage() {
 
   // Show wizard if no settings or not complete or in edit mode
   if (!settings || !settings.setupComplete || editMode) {
-    return <SetupWizard onComplete={handleSetupComplete} existingSettings={settings} />;
+    return (
+      <SetupWizard onComplete={handleSetupComplete} existingSettings={settings || undefined} />
+    );
   }
 
   // Show read-only view

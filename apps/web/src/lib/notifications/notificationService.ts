@@ -35,7 +35,7 @@ export interface CreateNotificationInput {
   entityId: string;
   linkUrl: string; // Where to navigate when clicked
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**

@@ -282,10 +282,12 @@ export async function getPurchaseRequestById(prId: string): Promise<PurchaseRequ
       return null;
     }
 
-    return {
+    const data = docSnap.data();
+    const purchaseRequest: PurchaseRequest = {
       id: docSnap.id,
-      ...docSnap.data(),
+      ...data,
     } as PurchaseRequest;
+    return purchaseRequest;
   } catch (error) {
     console.error('[getPurchaseRequestById] Error:', error);
     throw new Error('Failed to get purchase request');

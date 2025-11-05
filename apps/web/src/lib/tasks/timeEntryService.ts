@@ -246,10 +246,12 @@ export async function getActiveTimeEntry(userId: string): Promise<TimeEntry | nu
     }
 
     const docData = snapshot.docs[0];
-    return {
+    const data = docData.data();
+    const timeEntry: TimeEntry = {
       id: docData.id,
-      ...docData.data(),
+      ...data,
     } as TimeEntry;
+    return timeEntry;
   } catch (error) {
     console.error('[getActiveTimeEntry] Error:', error);
     return null;

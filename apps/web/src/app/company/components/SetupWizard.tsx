@@ -20,9 +20,39 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 
+interface CompanySettings {
+  setupComplete?: boolean;
+  companyName?: string;
+  legalName?: string;
+  address?: {
+    street: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
+  contact?: {
+    phone: string;
+    email: string;
+    website?: string;
+  };
+  taxIds?: {
+    gstin?: string;
+    pan?: string;
+    tan?: string;
+  };
+  banking?: {
+    bankName: string;
+    accountNumber: string;
+    ifscCode: string;
+  };
+  fiscalYearStartMonth?: number;
+  baseCurrency?: string;
+}
+
 interface SetupWizardProps {
   onComplete: () => void;
-  existingSettings?: any;
+  existingSettings?: CompanySettings;
 }
 
 const steps = ['Basic Info', 'Contact', 'Tax IDs', 'Banking', 'Fiscal'];
@@ -87,7 +117,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
     setError('');
 
     try {
-      const settingsData: Record<string, any> = {
+      const settingsData: Record<string, unknown> = {
         setupComplete: true,
         companyName: formData.companyName,
         legalName: formData.legalName,
@@ -360,7 +390,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
           {existingSettings?.setupComplete
             ? 'Update your company information'
-            : 'Let\'s set up your company information. This is a one-time setup.'}
+            : "Let's set up your company information. This is a one-time setup."}
         </Typography>
 
         <Stepper activeStep={activeStep} sx={{ mb: 4 }}>

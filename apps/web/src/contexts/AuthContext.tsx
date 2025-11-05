@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Expose auth loading state to window for E2E testing
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as any).__authLoading = loading;
+      (window as Window & { __authLoading?: boolean }).__authLoading = loading;
     }
   }, [loading]);
 

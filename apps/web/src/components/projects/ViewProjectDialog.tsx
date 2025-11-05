@@ -43,7 +43,9 @@ export function ViewProjectDialog({
   if (!project) return null;
 
   // Get status color
-  const getStatusColor = (status: ProjectStatus): 'default' | 'primary' | 'warning' | 'success' | 'error' => {
+  const getStatusColor = (
+    status: ProjectStatus
+  ): 'default' | 'primary' | 'warning' | 'success' | 'error' => {
     switch (status) {
       case 'ACTIVE':
         return 'success';
@@ -77,7 +79,7 @@ export function ViewProjectDialog({
   };
 
   // Format date
-  const formatDate = (timestamp: any): string => {
+  const formatDate = (timestamp: { toDate: () => Date } | undefined): string => {
     if (!timestamp) return 'N/A';
     try {
       const date = timestamp.toDate();
@@ -122,14 +124,8 @@ export function ViewProjectDialog({
       <DialogContent>
         {/* Status and Priority */}
         <Box sx={{ mb: 3, display: 'flex', gap: 1 }}>
-          <Chip
-            label={project.status}
-            color={getStatusColor(project.status)}
-          />
-          <Chip
-            label={project.priority}
-            color={getPriorityColor(project.priority)}
-          />
+          <Chip label={project.status} color={getStatusColor(project.status)} />
+          <Chip label={project.priority} color={getPriorityColor(project.priority)} />
         </Box>
 
         {/* Description */}
@@ -156,33 +152,25 @@ export function ViewProjectDialog({
                     <Typography variant="caption" color="text.secondary">
                       Client Name
                     </Typography>
-                    <Typography variant="body2">
-                      {project.client.entityName}
-                    </Typography>
+                    <Typography variant="body2">{project.client.entityName}</Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">
                       Contact Person
                     </Typography>
-                    <Typography variant="body2">
-                      {project.client.contactPerson}
-                    </Typography>
+                    <Typography variant="body2">{project.client.contactPerson}</Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">
                       Email
                     </Typography>
-                    <Typography variant="body2">
-                      {project.client.contactEmail}
-                    </Typography>
+                    <Typography variant="body2">{project.client.contactEmail}</Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">
                       Phone
                     </Typography>
-                    <Typography variant="body2">
-                      {project.client.contactPhone}
-                    </Typography>
+                    <Typography variant="body2">{project.client.contactPhone}</Typography>
                   </Box>
                 </Box>
               </CardContent>
@@ -202,17 +190,13 @@ export function ViewProjectDialog({
                     <Typography variant="caption" color="text.secondary">
                       Project Manager
                     </Typography>
-                    <Typography variant="body2">
-                      {project.projectManager.userName}
-                    </Typography>
+                    <Typography variant="body2">{project.projectManager.userName}</Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">
                       Team Size
                     </Typography>
-                    <Typography variant="body2">
-                      {project.team?.length || 0} members
-                    </Typography>
+                    <Typography variant="body2">{project.team?.length || 0} members</Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">
@@ -240,18 +224,14 @@ export function ViewProjectDialog({
                     <Typography variant="caption" color="text.secondary">
                       Start Date
                     </Typography>
-                    <Typography variant="body2">
-                      {formatDate(project.dates.startDate)}
-                    </Typography>
+                    <Typography variant="body2">{formatDate(project.dates.startDate)}</Typography>
                   </Box>
                   {project.dates.endDate && (
                     <Box>
                       <Typography variant="caption" color="text.secondary">
                         End Date
                       </Typography>
-                      <Typography variant="body2">
-                        {formatDate(project.dates.endDate)}
-                      </Typography>
+                      <Typography variant="body2">{formatDate(project.dates.endDate)}</Typography>
                     </Box>
                   )}
                   {project.dates.actualStartDate && (

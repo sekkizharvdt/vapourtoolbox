@@ -79,7 +79,7 @@ export default function NewPurchaseRequestPage() {
 
   const steps = ['Basic Information', 'Line Items', 'Review & Submit'];
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -94,7 +94,7 @@ export default function NewPurchaseRequestPage() {
     }));
   };
 
-  const handleLineItemChange = (index: number, field: string, value: any) => {
+  const handleLineItemChange = (index: number, field: string, value: string | number) => {
     const updatedItems = [...lineItems];
     const item = updatedItems[index];
     if (item) {

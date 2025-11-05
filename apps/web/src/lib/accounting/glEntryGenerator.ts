@@ -22,9 +22,9 @@ import { getSystemAccountIds } from './systemAccountResolver';
 export interface InvoiceGLInput {
   transactionId?: string;
   transactionNumber?: string;
-  transactionDate?: any;
+  transactionDate?: { toDate: () => Date };
   subtotal: number; // Amount before GST
-  lineItems?: any[];
+  lineItems?: unknown[];
   gstDetails?: GSTDetails;
   currency?: string;
   description?: string;
@@ -38,9 +38,9 @@ export interface InvoiceGLInput {
 export interface BillGLInput {
   transactionId?: string;
   transactionNumber?: string;
-  transactionDate?: any;
+  transactionDate?: { toDate: () => Date };
   subtotal: number; // Amount before GST
-  lineItems?: any[];
+  lineItems?: unknown[];
   gstDetails?: GSTDetails;
   tdsDetails?: TDSDetails;
   currency?: string;
@@ -55,7 +55,7 @@ export interface BillGLInput {
 export interface PaymentGLInput {
   transactionId?: string;
   transactionNumber?: string;
-  transactionDate?: any;
+  transactionDate?: { toDate: () => Date };
   amount: number; // Total payment amount
   currency?: string;
   paymentMethod?: string;
