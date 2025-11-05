@@ -77,11 +77,9 @@ export async function loginUser(page: Page, user: TestUser): Promise<void> {
       const auth = (window as any).__firebaseAuth;
 
       // Import signInWithCustomToken from the Firebase Auth CDN
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore - Dynamic CDN import not recognized by TypeScript
-      const firebaseAuthModule = await import(
-        'https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js'
-      );
+      const firebaseAuthModule =
+        // @ts-expect-error - Dynamic CDN import not recognized by TypeScript
+        await import('https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js');
       const { signInWithCustomToken } = firebaseAuthModule;
 
       const userCredential = await signInWithCustomToken(auth, token);
