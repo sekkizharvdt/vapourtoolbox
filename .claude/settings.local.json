@@ -116,7 +116,14 @@
       "Bash(powershell:Stop-Process -Name node,java -Force -ErrorAction SilentlyContinue)",
       "Bash(awk:*)",
       "Bash(set SKIP_WEBSERVER=true)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(.run-debug-test.bat)",
+      "Bash(cmd /c run-debug-test.bat)",
+      "Bash(timeout:*)",
+      "Bash(for pid in 24132 2556)",
+      "Bash(do taskkill //PID $pid //F)",
+      "Bash(if exist lib rmdir /S /Q lib)",
+      "Bash(set PORT=3001:*)"
     ],
     "deny": [],
     "ask": []

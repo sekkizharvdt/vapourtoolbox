@@ -17,6 +17,7 @@ import { useLineItemManagement } from '@/hooks/accounting/useLineItemManagement'
 import { useEntityStateFetch } from '@/hooks/accounting/useEntityStateFetch';
 import { useGSTCalculation } from '@/hooks/accounting/useGSTCalculation';
 import { useTDSCalculation } from '@/hooks/accounting/useTDSCalculation';
+import type { TDSSection as TDSSectionType } from '@/lib/accounting/tdsCalculator';
 
 interface CreateBillDialogProps {
   open: boolean;
@@ -46,16 +47,11 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
   });
 
   // Use line item management hook
-  const {
-    lineItems,
-    addLineItem,
-    removeLineItem,
-    updateLineItem,
-    subtotal,
-  } = useLineItemManagement({
-    initialLineItems: editingBill?.lineItems,
-    onError: setError,
-  });
+  const { lineItems, addLineItem, removeLineItem, updateLineItem, subtotal } =
+    useLineItemManagement({
+      initialLineItems: editingBill?.lineItems,
+      onError: setError,
+    });
 
   // Use entity state fetch hook (for GST calculation)
   const { companyState, entityState, setEntityName } = useEntityStateFetch(formState.entityId);
@@ -97,7 +93,7 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
     if (open && editingBill) {
       if (editingBill.tdsDeducted) {
         setTdsDeducted(true);
-        setTdsSection((editingBill.tdsDetails?.section as any) || '194C');
+        setTdsSection((editingBill.tdsDetails?.section as TDSSectionType) || '194C');
         setVendorPAN(editingBill.tdsDetails?.panNumber || '');
       }
     }

@@ -129,7 +129,12 @@ export const createEntity = onCall(async (request) => {
       deletedBy: null,
     };
 
-    const docRef = await entitiesRef.add(entityData);
+    // Remove undefined values to comply with Firestore requirements
+    const cleanedEntityData = Object.fromEntries(
+      Object.entries(entityData).filter(([_, value]) => value !== undefined)
+    );
+
+    const docRef = await entitiesRef.add(cleanedEntityData);
 
     // 9. Audit the creation
     // Get actor information from the authenticated user

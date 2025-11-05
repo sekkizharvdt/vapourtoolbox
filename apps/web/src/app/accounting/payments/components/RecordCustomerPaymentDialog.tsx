@@ -282,7 +282,7 @@ export function RecordCustomerPaymentDialog({
       // Only include allocations with non-zero amounts
       const validAllocations = allocations.filter((a) => a.allocatedAmount > 0);
 
-      const paymentData: any = {
+      const paymentData = {
         type: 'CUSTOMER_PAYMENT',
         transactionNumber: transactionNumber || '',
         entityId,

@@ -26,4 +26,9 @@ __exportStar(require("./permissions"), exports);
 __exportStar(require("./invitation"), exports);
 __exportStar(require("./notification"), exports);
 __exportStar(require("./audit"), exports);
+__exportStar(require("./accounting"), exports);
+__exportStar(require("./transaction"), exports);
+__exportStar(require("./procurement"), exports);
+__exportStar(require("./documents"), exports);
+__exportStar(require("./task"), exports);
 //# sourceMappingURL=index.js.map
