@@ -2,6 +2,7 @@ import * as admin from 'firebase-admin';
 
 // Initialize Firebase Admin
 admin.initializeApp();
+admin.firestore().settings({ ignoreUndefinedProperties: true });
 
 // Import user management functions
 export { onUserUpdate } from './userManagement';
