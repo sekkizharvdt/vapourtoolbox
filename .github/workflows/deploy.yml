@@ -73,7 +73,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
 
       - name: Deploy Firestore Indexes
-        run: firebase deploy --only firestore:indexes --project vapour-toolbox
+        run: firebase deploy --only firestore:indexes --force --project vapour-toolbox
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
 
