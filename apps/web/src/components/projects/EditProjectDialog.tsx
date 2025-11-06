@@ -69,6 +69,7 @@ export function EditProjectDialog({ open, project, onClose, onSuccess }: EditPro
   const [error, setError] = useState('');
 
   // Form fields
+  const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<ProjectStatus>('PROPOSAL');
@@ -94,6 +95,7 @@ export function EditProjectDialog({ open, project, onClose, onSuccess }: EditPro
   // Pre-populate form when project changes
   useEffect(() => {
     if (project) {
+      setCode(project.code || '');
       setName(project.name || '');
       setDescription(project.description || '');
       setStatus(project.status);
@@ -251,6 +253,11 @@ export function EditProjectDialog({ open, project, onClose, onSuccess }: EditPro
     if (!project) return;
 
     // Validation
+    if (!code.trim()) {
+      setError('Project code is required');
+      return;
+    }
+
     if (!name.trim()) {
       setError('Project name is required');
       return;
@@ -280,6 +287,7 @@ export function EditProjectDialog({ open, project, onClose, onSuccess }: EditPro
 
       // Prepare update data
       const updateData: Record<string, unknown> = {
+        code: code.trim(),
         name: name.trim(),
         description: description.trim() || null,
         status,
@@ -365,6 +373,16 @@ export function EditProjectDialog({ open, project, onClose, onSuccess }: EditPro
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
           {error && <Alert severity="error">{error}</Alert>}
+
+          {/* Project Code */}
+          <TextField
+            label="Project Code"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            required
+            fullWidth
+            helperText="Format: PRJ/YY/XXX (e.g., PRJ/25/001)"
+          />
 
           {/* Project Name */}
           <TextField
