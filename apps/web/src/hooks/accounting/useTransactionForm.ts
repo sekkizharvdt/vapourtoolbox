@@ -76,7 +76,7 @@ interface UseTransactionFormReturn extends TransactionFormData {
 /**
  * Converts Date, Timestamp, or string to ISO date string for input fields
  */
-function toDateString(date: Date | string | any | undefined | null): string {
+function toDateString(date: Date | string | { toDate?: () => Date } | undefined | null): string {
   if (!date) return '';
 
   // Handle Date objects
@@ -85,7 +85,12 @@ function toDateString(date: Date | string | any | undefined | null): string {
   }
 
   // Handle Firestore Timestamps
-  if (date && typeof date.toDate === 'function') {
+  if (
+    typeof date === 'object' &&
+    date !== null &&
+    'toDate' in date &&
+    typeof date.toDate === 'function'
+  ) {
     try {
       return date.toDate().toISOString().split('T')[0] || '';
     } catch {
