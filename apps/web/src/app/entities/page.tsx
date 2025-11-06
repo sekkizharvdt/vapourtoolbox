@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Container,
   Typography,
@@ -36,13 +36,7 @@ import {
   Edit as EditIcon,
   Visibility as ViewIcon,
 } from '@mui/icons-material';
-import {
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
-  limit as firestoreLimit,
-} from 'firebase/firestore';
+import { collection, query, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity, Status } from '@vapour/types';
@@ -52,12 +46,10 @@ import { EditEntityDialog } from '@/components/entities/EditEntityDialog';
 import { ViewEntityDialog } from '@/components/entities/ViewEntityDialog';
 import { DeleteEntityDialog } from '@/components/entities/DeleteEntityDialog';
 import { canViewEntities, canCreateEntities } from '@vapour/constants';
+import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 
 export default function EntitiesPage() {
   const { claims } = useAuth();
-  const [entities, setEntities] = useState<BusinessEntity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,40 +68,22 @@ export default function EntitiesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState<BusinessEntity | null>(null);
 
-  // Load entities from Firestore
-  useEffect(() => {
-    const { db } = getFirebase();
-    const entitiesRef = collection(db, COLLECTIONS.ENTITIES);
+  // Firestore query using custom hook
+  const { db } = getFirebase();
+  const entitiesQuery = useMemo(
+    () =>
+      query(
+        collection(db, COLLECTIONS.ENTITIES),
+        orderBy('createdAt', 'desc'),
+        firestoreLimit(100)
+      ),
+    [db]
+  );
 
-    // Build query - don't filter by isDeleted here to handle legacy entities
-    // We'll filter deleted entities on the client side
-    const q = query(entitiesRef, orderBy('createdAt', 'desc'), firestoreLimit(100));
+  const { data: allEntities, loading, error } = useFirestoreQuery<BusinessEntity>(entitiesQuery);
 
-    // Subscribe to real-time updates
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const entitiesData: BusinessEntity[] = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data() as BusinessEntity;
-          // Only include entities that are not deleted (isDeleted === false or undefined)
-          if (data.isDeleted !== true) {
-            entitiesData.push({ ...data, id: doc.id });
-          }
-        });
-        setEntities(entitiesData);
-        setLoading(false);
-        setError('');
-      },
-      (err) => {
-        console.error('Error loading entities:', err);
-        setError('Failed to load entities. Please try again.');
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, []);
+  // Filter out deleted entities (client-side filtering to handle legacy data)
+  const entities = allEntities.filter((entity) => entity.isDeleted !== true);
 
   // Client-side filtering and sorting
   const filteredAndSortedEntities = entities
@@ -243,7 +217,7 @@ export default function EntitiesPage() {
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
+            {error.message}
           </Alert>
         )}
 

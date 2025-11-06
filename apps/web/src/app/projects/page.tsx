@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Container,
   Typography,
@@ -36,7 +36,7 @@ import {
   Edit as EditIcon,
   Visibility as ViewIcon,
 } from '@mui/icons-material';
-import { collection, query, orderBy, onSnapshot, limit as firestoreLimit } from 'firebase/firestore';
+import { collection, query, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { Project, ProjectStatus, ProjectPriority } from '@vapour/types';
@@ -46,12 +46,10 @@ import { EditProjectDialog } from '@/components/projects/EditProjectDialog';
 import { ViewProjectDialog } from '@/components/projects/ViewProjectDialog';
 import { DeleteProjectDialog } from '@/components/projects/DeleteProjectDialog';
 import { canViewProjects, canManageProjects } from '@vapour/constants';
+import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 
 export default function ProjectsPage() {
   const { claims } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -70,39 +68,19 @@ export default function ProjectsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
-  // Load projects from Firestore
-  useEffect(() => {
-    const { db } = getFirebase();
-    const projectsRef = collection(db, COLLECTIONS.PROJECTS);
+  // Firestore query using custom hook
+  const { db } = getFirebase();
+  const projectsQuery = useMemo(
+    () =>
+      query(
+        collection(db, COLLECTIONS.PROJECTS),
+        orderBy('createdAt', 'desc'),
+        firestoreLimit(100)
+      ),
+    [db]
+  );
 
-    // Build query
-    const q = query(
-      projectsRef,
-      orderBy('createdAt', 'desc'),
-      firestoreLimit(100)
-    );
-
-    // Subscribe to real-time updates
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const projectsData: Project[] = [];
-        snapshot.forEach((doc) => {
-          projectsData.push({ ...doc.data(), id: doc.id } as Project);
-        });
-        setProjects(projectsData);
-        setLoading(false);
-        setError('');
-      },
-      (err) => {
-        console.error('Error loading projects:', err);
-        setError('Failed to load projects. Please try again.');
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, []);
+  const { data: projects, loading, error } = useFirestoreQuery<Project>(projectsQuery);
 
   // Client-side filtering and sorting
   const filteredAndSortedProjects = projects
@@ -163,7 +141,9 @@ export default function ProjectsPage() {
   };
 
   // Get status color
-  const getStatusColor = (status: ProjectStatus): 'default' | 'primary' | 'warning' | 'success' | 'error' => {
+  const getStatusColor = (
+    status: ProjectStatus
+  ): 'default' | 'primary' | 'warning' | 'success' | 'error' => {
     switch (status) {
       case 'ACTIVE':
         return 'success';
@@ -253,7 +233,7 @@ export default function ProjectsPage() {
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
+            {error.message}
           </Alert>
         )}
 
@@ -451,9 +431,7 @@ export default function ProjectsPage() {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">
-                        {project.client.entityName}
-                      </Typography>
+                      <Typography variant="body2">{project.client.entityName}</Typography>
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -470,14 +448,10 @@ export default function ProjectsPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">
-                        {project.projectManager.userName}
-                      </Typography>
+                      <Typography variant="body2">{project.projectManager.userName}</Typography>
                     </TableCell>
                     <TableCell align="center">
-                      <Typography variant="body2">
-                        {project.team?.length || 0}
-                      </Typography>
+                      <Typography variant="body2">{project.team?.length || 0}</Typography>
                     </TableCell>
                     <TableCell align="right">
                       <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
