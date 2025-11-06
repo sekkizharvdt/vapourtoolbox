@@ -15,30 +15,17 @@ import {
   TableHead,
   TableRow,
   Button,
-  TextField,
   Grid,
   Card,
   CardContent,
   Alert,
   Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  IconButton,
-  Tooltip,
 } from '@mui/material';
 import {
-  Add as AddIcon,
   Refresh as RefreshIcon,
   TrendingUp as GainIcon,
   TrendingDown as LossIcon,
   AccountBalance as ExposureIcon,
-  Edit as EditIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewFinancialReports, canCreateTransactions } from '@vapour/constants';
@@ -50,11 +37,12 @@ import {
   query,
   where,
   getDocs,
-  addDoc,
   Timestamp,
   onSnapshot,
   orderBy,
+  limit,
 } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { COLLECTIONS } from '@vapour/firebase';
 import type {
   CurrencyCode,
@@ -104,20 +92,36 @@ export default function CurrencyForexPage() {
   const [currencyExposure, setCurrencyExposure] = useState<CurrencyExposure[]>([]);
   const [currencyConfig, setCurrencyConfig] = useState<CurrencyConfiguration[]>([]);
   const [foreignTransactions, setForeignTransactions] = useState<BaseTransaction[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [openAddRateDialog, setOpenAddRateDialog] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [bankRates, setBankRates] = useState<
+    Partial<Record<CurrencyCode, { rate: number; date: Date }>>
+  >({});
   const [baseCurrency] = useState<CurrencyCode>('INR');
-
-  // Form state for adding exchange rate
-  const [newRate, setNewRate] = useState({
-    fromCurrency: 'USD' as CurrencyCode,
-    toCurrency: 'INR' as CurrencyCode,
-    rate: 0,
-    effectiveFrom: new Date().toISOString().split('T')[0] || '',
-  });
 
   const hasViewAccess = claims?.permissions ? canViewFinancialReports(claims.permissions) : false;
   const hasCreateAccess = claims?.permissions ? canCreateTransactions(claims.permissions) : false;
+
+  // Function to fetch rates from API via Cloud Function
+  const fetchExchangeRates = async () => {
+    if (!hasCreateAccess || !user) return;
+
+    setRefreshing(true);
+    try {
+      const functions = getFunctions();
+      const manualFetchRates = httpsCallable(functions, 'manualFetchExchangeRates');
+
+      await manualFetchRates();
+      setLastRefresh(new Date());
+
+      // Show success message (you can add a toast/snackbar here)
+    } catch (error) {
+      console.error('[Currency] Error fetching rates:', error);
+      // Show error message (you can add a toast/snackbar here)
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Load exchange rates
   useEffect(() => {
@@ -139,10 +143,75 @@ export default function CurrencyForexPage() {
           }) as unknown as ExchangeRate
       );
       setExchangeRates(rates);
+
+      // Update last refresh time from most recent rate
+      if (rates.length > 0 && rates[0]?.effectiveFrom) {
+        const mostRecent = rates[0]?.effectiveFrom;
+        if (mostRecent instanceof Timestamp) {
+          setLastRefresh(mostRecent.toDate());
+        }
+      }
     });
 
     return () => unsubscribe();
   }, [hasViewAccess]);
+
+  // Auto-fetch rates on first load if table is empty
+  useEffect(() => {
+    if (!hasViewAccess || !hasCreateAccess || tabValue !== 0) return;
+
+    // Only auto-fetch if we're on Exchange Rates tab and have no rates
+    if (exchangeRates.length === 0 && !refreshing) {
+      fetchExchangeRates();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasViewAccess, hasCreateAccess, tabValue, exchangeRates.length]);
+
+  // Query last bank settlement rates from transactions
+  useEffect(() => {
+    if (!hasViewAccess || tabValue !== 0) return;
+
+    const { db } = getFirebase();
+
+    // Query for each foreign currency to find last bank settlement
+    const fetchBankRates = async () => {
+      const foreignCurrencies: CurrencyCode[] = ['USD', 'EUR', 'GBP', 'SGD', 'AED'];
+      const bankRatesData: Partial<Record<CurrencyCode, { rate: number; date: Date }>> = {};
+
+      for (const currency of foreignCurrencies) {
+        try {
+          const q = query(
+            collection(db, COLLECTIONS.TRANSACTIONS),
+            where('currency', '==', currency),
+            where('bankSettlementRate', '!=', null),
+            orderBy('bankSettlementRate'),
+            orderBy('bankSettlementDate', 'desc'),
+            limit(1)
+          );
+
+          const snapshot = await getDocs(q);
+          if (!snapshot.empty && snapshot.docs[0]) {
+            const txn = snapshot.docs[0]?.data() as BaseTransaction;
+            if (txn?.bankSettlementRate && txn?.bankSettlementDate) {
+              bankRatesData[currency] = {
+                rate: txn.bankSettlementRate,
+                date:
+                  txn.bankSettlementDate instanceof Timestamp
+                    ? txn.bankSettlementDate.toDate()
+                    : new Date(txn.bankSettlementDate),
+              };
+            }
+          }
+        } catch (error) {
+          console.error(`[Currency] Error fetching bank rate for ${currency}:`, error);
+        }
+      }
+
+      setBankRates(bankRatesData);
+    };
+
+    fetchBankRates();
+  }, [hasViewAccess, tabValue]);
 
   // Load forex gain/loss
   useEffect(() => {
@@ -279,45 +348,6 @@ export default function CurrencyForexPage() {
     return () => unsubscribe();
   }, [hasViewAccess, tabValue]);
 
-  const handleAddExchangeRate = async () => {
-    if (!hasCreateAccess || !user) return;
-
-    setLoading(true);
-    try {
-      const { db } = getFirebase();
-      const rate = parseFloat(newRate.rate.toString());
-      const inverseRate = 1 / rate;
-
-      const rateData: Omit<ExchangeRate, 'id'> = {
-        fromCurrency: newRate.fromCurrency,
-        toCurrency: newRate.toCurrency,
-        baseCurrency,
-        rate,
-        inverseRate,
-        effectiveFrom: Timestamp.fromDate(new Date(newRate.effectiveFrom)),
-        status: 'ACTIVE',
-        source: 'MANUAL',
-        createdBy: user.uid,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      };
-
-      await addDoc(collection(db, COLLECTIONS.EXCHANGE_RATES), rateData);
-
-      setOpenAddRateDialog(false);
-      setNewRate({
-        fromCurrency: 'USD',
-        toCurrency: 'INR',
-        rate: 0,
-        effectiveFrom: new Date().toISOString().split('T')[0] || '',
-      });
-    } catch (error) {
-      console.error('[CurrencyForex] Error adding rate:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const formatCurrency = (amount: number, currency: CurrencyCode) => {
     const info = CURRENCY_INFO[currency];
     return `${info.symbol}${amount.toLocaleString('en-IN', {
@@ -328,6 +358,27 @@ export default function CurrencyForexPage() {
 
   const formatRate = (rate: number) => {
     return rate.toFixed(4);
+  };
+
+  const getTimeAgo = (date: Date | null): string => {
+    if (!date) return 'Never';
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffHours < 1) return 'Just now';
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  };
+
+  const isRateStale = (date: Date | null): 'fresh' | 'stale' | 'very-stale' => {
+    if (!date) return 'very-stale';
+    const now = new Date();
+    const diffHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    if (diffHours <= 24) return 'fresh';
+    if (diffHours <= 48) return 'stale';
+    return 'very-stale';
   };
 
   if (!hasViewAccess) {
@@ -372,94 +423,221 @@ export default function CurrencyForexPage() {
 
         {/* Exchange Rates Tab */}
         <TabPanel value={tabValue} index={0}>
-          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="h6">Active Exchange Rates</Typography>
+          <Box
+            sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          >
+            <Box>
+              <Typography variant="h6">Active Exchange Rates</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Last updated: {getTimeAgo(lastRefresh)}
+              </Typography>
+            </Box>
             <Box>
               {hasCreateAccess && (
                 <Button
                   variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={() => setOpenAddRateDialog(true)}
-                  sx={{ mr: 2 }}
+                  startIcon={<RefreshIcon />}
+                  onClick={fetchExchangeRates}
+                  disabled={refreshing}
                 >
-                  Add Rate
+                  {refreshing ? 'Fetching...' : 'Refresh Rates'}
                 </Button>
               )}
-              <Button variant="outlined" startIcon={<RefreshIcon />}>
-                Refresh Rates
-              </Button>
             </Box>
           </Box>
+
+          {/* Age Warning */}
+          {isRateStale(lastRefresh) === 'stale' && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Exchange rates are more than 24 hours old. Consider refreshing for the latest rates.
+            </Alert>
+          )}
+          {isRateStale(lastRefresh) === 'very-stale' && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              Exchange rates are more than 48 hours old. Please refresh immediately for accurate
+              rates.
+            </Alert>
+          )}
 
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>From</TableCell>
-                  <TableCell>To</TableCell>
-                  <TableCell align="right">Exchange Rate</TableCell>
-                  <TableCell align="right">Inverse Rate</TableCell>
-                  <TableCell>Effective From</TableCell>
-                  <TableCell>Source</TableCell>
-                  <TableCell align="center">Actions</TableCell>
+                  <TableCell>Currency</TableCell>
+                  <TableCell align="right">Current API Rate</TableCell>
+                  <TableCell>Last Refreshed</TableCell>
+                  <TableCell align="right">Last Bank Rate</TableCell>
+                  <TableCell align="right">Difference</TableCell>
+                  <TableCell align="center">Status</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {exchangeRates.map((rate) => (
-                  <TableRow key={rate.id}>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span>{CURRENCY_INFO[rate.fromCurrency].flag}</span>
-                        <span>
-                          {rate.fromCurrency} - {CURRENCY_INFO[rate.fromCurrency].name}
-                        </span>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span>{CURRENCY_INFO[rate.toCurrency].flag}</span>
-                        <span>
-                          {rate.toCurrency} - {CURRENCY_INFO[rate.toCurrency].name}
-                        </span>
-                      </Box>
-                    </TableCell>
-                    <TableCell align="right">
-                      <strong>{formatRate(rate.rate)}</strong>
-                    </TableCell>
-                    <TableCell align="right">{formatRate(rate.inverseRate)}</TableCell>
-                    <TableCell>
-                      {rate.effectiveFrom instanceof Timestamp
-                        ? rate.effectiveFrom.toDate().toLocaleDateString()
-                        : 'N/A'}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={rate.source}
-                        size="small"
-                        color={rate.source === 'MANUAL' ? 'default' : 'primary'}
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Edit Rate">
-                        <IconButton size="small" disabled={!hasCreateAccess}>
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {exchangeRates.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center">
-                      <Typography variant="body2" color="text.secondary">
-                        No active exchange rates found. Add your first rate to get started.
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
+                {(() => {
+                  // Group rates by currency (showing only INR to foreign currency)
+                  const foreignCurrencies: CurrencyCode[] = ['USD', 'EUR', 'GBP', 'SGD', 'AED'];
+                  const latestRates = new Map<CurrencyCode, ExchangeRate>();
+
+                  exchangeRates.forEach((rate) => {
+                    if (
+                      rate.fromCurrency === 'INR' &&
+                      foreignCurrencies.includes(rate.toCurrency)
+                    ) {
+                      if (
+                        !latestRates.has(rate.toCurrency) ||
+                        (rate.effectiveFrom &&
+                          latestRates.get(rate.toCurrency)?.effectiveFrom &&
+                          rate.effectiveFrom > latestRates.get(rate.toCurrency)!.effectiveFrom!)
+                      ) {
+                        latestRates.set(rate.toCurrency, rate);
+                      }
+                    }
+                  });
+
+                  return foreignCurrencies.map((currency) => {
+                    const apiRate = latestRates.get(currency);
+                    const bankRate = bankRates[currency];
+                    const difference =
+                      apiRate && bankRate
+                        ? ((bankRate.rate - apiRate.rate) / apiRate.rate) * 100
+                        : 0;
+
+                    return (
+                      <TableRow key={currency}>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <span>{CURRENCY_INFO[currency].flag}</span>
+                            <Box>
+                              <Typography variant="body2" fontWeight="medium">
+                                {currency}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {CURRENCY_INFO[currency].name}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell align="right">
+                          {apiRate ? (
+                            <Typography variant="body2" fontWeight="medium">
+                              {formatRate(apiRate.rate)}
+                            </Typography>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">
+                              -
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {apiRate?.effectiveFrom ? (
+                            <Typography variant="body2" color="text.secondary">
+                              {apiRate.effectiveFrom instanceof Timestamp
+                                ? getTimeAgo(apiRate.effectiveFrom.toDate())
+                                : 'N/A'}
+                            </Typography>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">
+                              -
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="right">
+                          {bankRate ? (
+                            <Box>
+                              <Typography variant="body2">{formatRate(bankRate.rate)}</Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {bankRate.date.toLocaleDateString()}
+                              </Typography>
+                            </Box>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">
+                              No data
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="right">
+                          {apiRate && bankRate ? (
+                            <Typography
+                              variant="body2"
+                              color={
+                                difference > 0
+                                  ? 'error.main'
+                                  : difference < 0
+                                    ? 'success.main'
+                                    : 'text.secondary'
+                              }
+                              fontWeight="medium"
+                            >
+                              {difference > 0 ? '+' : ''}
+                              {difference.toFixed(2)}%
+                            </Typography>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">
+                              -
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="center">
+                          {apiRate ? (
+                            <>
+                              {isRateStale(
+                                apiRate.effectiveFrom instanceof Timestamp
+                                  ? apiRate.effectiveFrom.toDate()
+                                  : null
+                              ) === 'fresh' && (
+                                <Chip label="✓ Fresh" color="success" size="small" />
+                              )}
+                              {isRateStale(
+                                apiRate.effectiveFrom instanceof Timestamp
+                                  ? apiRate.effectiveFrom.toDate()
+                                  : null
+                              ) === 'stale' && (
+                                <Chip label="⚠ Stale" color="warning" size="small" />
+                              )}
+                              {isRateStale(
+                                apiRate.effectiveFrom instanceof Timestamp
+                                  ? apiRate.effectiveFrom.toDate()
+                                  : null
+                              ) === 'very-stale' && (
+                                <Chip label="⚠ Very Old" color="error" size="small" />
+                              )}
+                            </>
+                          ) : (
+                            <Chip label="No Data" color="default" size="small" />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  });
+                })()}
               </TableBody>
             </Table>
           </TableContainer>
+
+          {/* Help Text */}
+          <Alert severity="info" sx={{ mt: 2 }}>
+            <Typography variant="body2" gutterBottom>
+              <strong>Understanding the data:</strong>
+            </Typography>
+            <Typography variant="body2" component="div">
+              <ul style={{ marginTop: 4, paddingLeft: 20, marginBottom: 0 }}>
+                <li>
+                  <strong>Current API Rate:</strong> Latest exchange rate from ExchangeRate-API
+                </li>
+                <li>
+                  <strong>Last Bank Rate:</strong> The actual rate used by your bank in the most
+                  recent transaction
+                </li>
+                <li>
+                  <strong>Difference:</strong> How much the bank rate differs from the API rate
+                  (positive = bank charged more)
+                </li>
+                <li>
+                  <strong>Status:</strong> ✓ Fresh (&lt;24h) | ⚠ Stale (&lt;48h) | ⚠ Very Old
+                  (&gt;48h)
+                </li>
+              </ul>
+            </Typography>
+          </Alert>
         </TabPanel>
 
         {/* Trends & Analysis Tab */}
@@ -765,89 +943,6 @@ export default function CurrencyForexPage() {
           </Grid>
         </TabPanel>
       </Paper>
-
-      {/* Add Exchange Rate Dialog */}
-      <Dialog
-        open={openAddRateDialog}
-        onClose={() => setOpenAddRateDialog(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Add Exchange Rate</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth>
-                  <InputLabel>From Currency</InputLabel>
-                  <Select
-                    value={newRate.fromCurrency}
-                    label="From Currency"
-                    onChange={(e) =>
-                      setNewRate({ ...newRate, fromCurrency: e.target.value as CurrencyCode })
-                    }
-                  >
-                    {Object.entries(CURRENCY_INFO).map(([code, info]) => (
-                      <MenuItem key={code} value={code}>
-                        {info.flag} {code} - {info.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth>
-                  <InputLabel>To Currency</InputLabel>
-                  <Select
-                    value={newRate.toCurrency}
-                    label="To Currency"
-                    onChange={(e) =>
-                      setNewRate({ ...newRate, toCurrency: e.target.value as CurrencyCode })
-                    }
-                  >
-                    {Object.entries(CURRENCY_INFO).map(([code, info]) => (
-                      <MenuItem key={code} value={code}>
-                        {info.flag} {code} - {info.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  label="Exchange Rate"
-                  type="number"
-                  value={newRate.rate}
-                  onChange={(e) => setNewRate({ ...newRate, rate: parseFloat(e.target.value) })}
-                  slotProps={{ htmlInput: { step: '0.0001', min: '0' } }}
-                  helperText={`1 ${newRate.fromCurrency} = ${newRate.rate} ${newRate.toCurrency}`}
-                />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  label="Effective From"
-                  type="date"
-                  value={newRate.effectiveFrom}
-                  onChange={(e) => setNewRate({ ...newRate, effectiveFrom: e.target.value })}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Grid>
-            </Grid>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenAddRateDialog(false)}>Cancel</Button>
-          <Button
-            onClick={handleAddExchangeRate}
-            variant="contained"
-            disabled={loading || newRate.rate <= 0}
-          >
-            Add Rate
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Container>
   );
 }
