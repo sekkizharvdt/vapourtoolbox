@@ -61,6 +61,11 @@ jobs:
       - name: Install Functions dependencies
         run: cd functions && npm ci
 
+      - name: Create Functions Environment File
+        run: |
+          echo "EXCHANGERATE_API_KEY=${{ secrets.EXCHANGERATE_API_KEY }}" > functions/.env
+        shell: bash
+
       - name: Setup Firebase Service Account
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > ${{ github.workspace }}/firebase-service-account.json

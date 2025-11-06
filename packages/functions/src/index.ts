@@ -12,6 +12,9 @@ import * as admin from 'firebase-admin';
 // Initialize Firebase Admin
 admin.initializeApp();
 
+// Export currency functions
+export { fetchDailyExchangeRates, manualFetchExchangeRates } from './currency';
+
 /**
  * Create Firestore Document for New Users
  *

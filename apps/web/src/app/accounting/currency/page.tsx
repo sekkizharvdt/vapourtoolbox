@@ -43,6 +43,8 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewFinancialReports, canCreateTransactions } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
+import ExchangeRateTrendChart from '@/components/accounting/currency/ExchangeRateTrendChart';
+import BankSettlementAnalysis from '@/components/accounting/currency/BankSettlementAnalysis';
 import {
   collection,
   query,
@@ -60,6 +62,7 @@ import type {
   ForexGainLoss,
   CurrencyExposure,
   CurrencyConfiguration,
+  BaseTransaction,
 } from '@vapour/types';
 
 // Currency display information
@@ -69,6 +72,7 @@ const CURRENCY_INFO: Record<CurrencyCode, { name: string; symbol: string; flag: 
   EUR: { name: 'Euro', symbol: '€', flag: '🇪🇺' },
   GBP: { name: 'British Pound', symbol: '£', flag: '🇬🇧' },
   AED: { name: 'UAE Dirham', symbol: 'د.إ', flag: '🇦🇪' },
+  SGD: { name: 'Singapore Dollar', symbol: 'S$', flag: '🇸🇬' },
 };
 
 interface TabPanelProps {
@@ -99,6 +103,7 @@ export default function CurrencyForexPage() {
   const [forexGainLoss, setForexGainLoss] = useState<ForexGainLoss[]>([]);
   const [currencyExposure, setCurrencyExposure] = useState<CurrencyExposure[]>([]);
   const [currencyConfig, setCurrencyConfig] = useState<CurrencyConfiguration[]>([]);
+  const [foreignTransactions, setForeignTransactions] = useState<BaseTransaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [openAddRateDialog, setOpenAddRateDialog] = useState(false);
   const [baseCurrency] = useState<CurrencyCode>('INR');
@@ -141,7 +146,7 @@ export default function CurrencyForexPage() {
 
   // Load forex gain/loss
   useEffect(() => {
-    if (!hasViewAccess || tabValue !== 1) return;
+    if (!hasViewAccess || tabValue !== 2) return;
 
     const { db } = getFirebase();
     const q = query(
@@ -165,7 +170,7 @@ export default function CurrencyForexPage() {
 
   // Calculate currency exposure
   useEffect(() => {
-    if (!hasViewAccess || tabValue !== 2) return;
+    if (!hasViewAccess || tabValue !== 3) return;
 
     async function calculateExposure() {
       const { db } = getFirebase();
@@ -227,9 +232,35 @@ export default function CurrencyForexPage() {
     calculateExposure();
   }, [hasViewAccess, tabValue, baseCurrency]);
 
+  // Load foreign currency transactions for bank settlement analysis
+  useEffect(() => {
+    if (!hasViewAccess || tabValue !== 4) return;
+
+    const { db } = getFirebase();
+    const q = query(
+      collection(db, COLLECTIONS.TRANSACTIONS),
+      where('currency', '!=', baseCurrency),
+      orderBy('currency'),
+      orderBy('date', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const txns = snapshot.docs.map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...doc.data(),
+          }) as unknown as BaseTransaction
+      );
+      setForeignTransactions(txns);
+    });
+
+    return () => unsubscribe();
+  }, [hasViewAccess, tabValue, baseCurrency]);
+
   // Load currency configuration
   useEffect(() => {
-    if (!hasViewAccess || tabValue !== 3) return;
+    if (!hasViewAccess || tabValue !== 5) return;
 
     const { db } = getFirebase();
     const q = query(collection(db, COLLECTIONS.CURRENCY_CONFIG));
@@ -332,8 +363,10 @@ export default function CurrencyForexPage() {
           sx={{ borderBottom: 1, borderColor: 'divider' }}
         >
           <Tab label="Exchange Rates" />
+          <Tab label="Trends & Analysis" />
           <Tab label="Forex Gain/Loss" />
           <Tab label="Currency Exposure" />
+          <Tab label="Bank Settlement" />
           <Tab label="Settings" />
         </Tabs>
 
@@ -429,8 +462,13 @@ export default function CurrencyForexPage() {
           </TableContainer>
         </TabPanel>
 
-        {/* Forex Gain/Loss Tab */}
+        {/* Trends & Analysis Tab */}
         <TabPanel value={tabValue} index={1}>
+          <ExchangeRateTrendChart rates={exchangeRates} baseCurrency={baseCurrency} />
+        </TabPanel>
+
+        {/* Forex Gain/Loss Tab */}
+        <TabPanel value={tabValue} index={2}>
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" gutterBottom>
               Forex Gain/Loss Report
@@ -583,7 +621,7 @@ export default function CurrencyForexPage() {
         </TabPanel>
 
         {/* Currency Exposure Tab */}
-        <TabPanel value={tabValue} index={2}>
+        <TabPanel value={tabValue} index={3}>
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" gutterBottom>
               Currency Exposure Analysis
@@ -661,8 +699,13 @@ export default function CurrencyForexPage() {
           </TableContainer>
         </TabPanel>
 
+        {/* Bank Settlement Tab */}
+        <TabPanel value={tabValue} index={4}>
+          <BankSettlementAnalysis transactions={foreignTransactions} baseCurrency={baseCurrency} />
+        </TabPanel>
+
         {/* Settings Tab */}
-        <TabPanel value={tabValue} index={3}>
+        <TabPanel value={tabValue} index={5}>
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" gutterBottom>
               Currency Configuration

@@ -66,8 +66,15 @@ export interface BaseTransaction {
   // Financial
   amount: number; // Gross amount
   currency: string;
-  exchangeRate?: number; // If multi-currency
+  exchangeRate?: number; // Reference/expected rate for conversion
   baseAmount: number; // Amount in base currency (INR)
+
+  // Bank Settlement (for foreign currency transactions)
+  bankSettlementRate?: number; // Actual rate used by bank
+  bankSettlementAmount?: number; // Actual INR amount received/paid
+  bankSettlementDate?: Date; // When bank processed the transaction
+  bankCharges?: number; // Bank fees in INR
+  forexGainLoss?: number; // Difference: (bankSettlementAmount - baseAmount)
 
   // Cost Centre (Project) Assignment
   costCentreId?: string; // Link to project

@@ -59,6 +59,15 @@ export const CURRENCIES: Record<CurrencyCode, CurrencyConfig> = {
     decimalDigits: 2,
     rounding: 0,
   },
+
+  SGD: {
+    code: 'SGD',
+    name: 'Singapore Dollar',
+    symbol: 'S$',
+    symbolNative: 'S$',
+    decimalDigits: 2,
+    rounding: 0,
+  },
 };
 
 /**
