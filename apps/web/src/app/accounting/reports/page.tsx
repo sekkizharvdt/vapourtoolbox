@@ -17,6 +17,7 @@ import {
   FormatListNumbered as TrialBalanceIcon,
   Receipt as LedgerIcon,
   Assessment as ReportIcon,
+  BusinessCenter as ProjectIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -67,6 +68,12 @@ export default function FinancialReportsPage() {
       description: 'Detailed transaction history for any specific account',
       icon: <LedgerIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/reports/account-ledger',
+    },
+    {
+      title: 'Project Financial Reports',
+      description: 'Project-wise income, expenses, and budget analysis',
+      icon: <ProjectIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/reports/project-financial',
     },
     {
       title: 'Custom Reports',
