@@ -27,7 +27,19 @@ import {
   IconButton,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { collection, addDoc, Timestamp, query, orderBy, limit as firestoreLimit, getDocs, where, writeBatch, doc, arrayUnion } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  Timestamp,
+  query,
+  orderBy,
+  limit as firestoreLimit,
+  getDocs,
+  where,
+  writeBatch,
+  doc,
+  arrayUnion,
+} from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { ProjectStatus, ProjectPriority, BusinessEntity, ProjectMember } from '@vapour/types';
@@ -151,7 +163,7 @@ export function CreateProjectDialog({ open, onClose, onSuccess }: CreateProjectD
     }
 
     // Check if member already exists
-    if (teamMembers.some(m => m.userId === selectedTeamMember.userId)) {
+    if (teamMembers.some((m) => m.userId === selectedTeamMember.userId)) {
       setError('This user is already a team member');
       return;
     }
@@ -178,26 +190,43 @@ export function CreateProjectDialog({ open, onClose, onSuccess }: CreateProjectD
 
   // Remove team member
   const handleRemoveTeamMember = (userId: string) => {
-    setTeamMembers(teamMembers.filter(m => m.userId !== userId));
+    setTeamMembers(teamMembers.filter((m) => m.userId !== userId));
   };
 
-  // Generate next project code
-  const generateProjectCode = async (): Promise<string> => {
+  // Generate next project code with year-based format (PRJ/YY/XXX)
+  const generateProjectCode = async (projectDate: Date = new Date()): Promise<string> => {
     const { db } = getFirebase();
     const projectsRef = collection(db, COLLECTIONS.PROJECTS);
-    const q = query(projectsRef, orderBy('code', 'desc'), firestoreLimit(1));
+
+    // Get year as 2-digit string from project date
+    const year = projectDate.getFullYear().toString().slice(-2);
+    const yearPrefix = `PRJ/${year}/`;
+
+    // Query for projects with the same year prefix
+    // Uses string comparison: PRJ/26/001 < PRJ/26/002 < ... < PRJ/27/000
+    const nextYearNum = parseInt(year) + 1;
+    const nextYear = nextYearNum.toString().padStart(2, '0');
+
+    const q = query(
+      projectsRef,
+      where('code', '>=', yearPrefix),
+      where('code', '<', `PRJ/${nextYear}/`),
+      orderBy('code', 'desc'),
+      firestoreLimit(1)
+    );
+
     const snapshot = await getDocs(q);
 
     if (snapshot.empty || !snapshot.docs[0]) {
-      return 'PRJ-001';
+      return `PRJ/${year}/001`;
     }
 
     const lastProject = snapshot.docs[0].data();
-    const lastCode = (lastProject?.code as string) || 'PRJ-000';
-    const codeParts = lastCode.split('-');
-    const lastNumber = parseInt(codeParts[1] || '0');
+    const lastCode = (lastProject?.code as string) || `PRJ/${year}/000`;
+    const codeParts = lastCode.split('/');
+    const lastNumber = parseInt(codeParts[2] || '0');
     const nextNumber = lastNumber + 1;
-    return `PRJ-${nextNumber.toString().padStart(3, '0')}`;
+    return `PRJ/${year}/${nextNumber.toString().padStart(3, '0')}`;
   };
 
   const handleSubmit = async () => {
@@ -229,8 +258,8 @@ export function CreateProjectDialog({ open, onClose, onSuccess }: CreateProjectD
       const { db } = getFirebase();
       const projectsRef = collection(db, COLLECTIONS.PROJECTS);
 
-      // Generate project code
-      const code = await generateProjectCode();
+      // Generate project code based on project start date
+      const code = await generateProjectCode(new Date(startDate));
 
       // Prepare project data
       const projectData = {
@@ -381,9 +410,7 @@ export function CreateProjectDialog({ open, onClose, onSuccess }: CreateProjectD
               getOptionLabel={(option) => option.name}
               value={selectedClient}
               onChange={(_, newValue) => setSelectedClient(newValue)}
-              renderInput={(params) => (
-                <TextField {...params} label="Client" required />
-              )}
+              renderInput={(params) => <TextField {...params} label="Client" required />}
               fullWidth
             />
           )}
@@ -400,9 +427,7 @@ export function CreateProjectDialog({ open, onClose, onSuccess }: CreateProjectD
               getOptionLabel={(option) => `${option.userName} (${option.email})`}
               value={selectedPM}
               onChange={(_, newValue) => setSelectedPM(newValue)}
-              renderInput={(params) => (
-                <TextField {...params} label="Project Manager" required />
-              )}
+              renderInput={(params) => <TextField {...params} label="Project Manager" required />}
               fullWidth
             />
           )}
@@ -449,9 +474,15 @@ export function CreateProjectDialog({ open, onClose, onSuccess }: CreateProjectD
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell><strong>Name</strong></TableCell>
-                      <TableCell><strong>Role</strong></TableCell>
-                      <TableCell align="center"><strong>Actions</strong></TableCell>
+                      <TableCell>
+                        <strong>Name</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Role</strong>
+                      </TableCell>
+                      <TableCell align="center">
+                        <strong>Actions</strong>
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -475,7 +506,8 @@ export function CreateProjectDialog({ open, onClose, onSuccess }: CreateProjectD
               </TableContainer>
             ) : (
               <Alert severity="info" sx={{ mb: 2 }}>
-                No team members added yet. You can add team members now or edit the project later to add them.
+                No team members added yet. You can add team members now or edit the project later to
+                add them.
               </Alert>
             )}
           </Box>
