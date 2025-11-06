@@ -96,7 +96,6 @@ export default function AccountingPage() {
       description: 'Project-based cost tracking and budget management',
       icon: <TransferIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/cost-centres',
-      comingSoon: true,
     },
     {
       title: 'Financial Reports',

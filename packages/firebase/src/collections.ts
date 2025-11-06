@@ -30,6 +30,7 @@ export const COLLECTIONS = {
   TRANSACTIONS: 'transactions',
   JOURNAL_ENTRIES: 'journal_entries',
   LEDGER_ENTRIES: 'ledger_entries',
+  COST_CENTRES: 'costCentres',
 
   // Bank Reconciliation
   BANK_STATEMENTS: 'bankStatements',

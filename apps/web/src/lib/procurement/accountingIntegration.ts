@@ -99,6 +99,7 @@ export async function createBillFromGoodsReceipt(
       });
     }
 
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
     const purchaseOrder = { id: poDoc.id, ...poDoc.data() } as PurchaseOrder;
 
     // Fetch purchase order items for financial data
@@ -107,9 +108,13 @@ export async function createBillFromGoodsReceipt(
       where('purchaseOrderId', '==', purchaseOrder.id)
     );
     const poItemsSnapshot = await getDocs(poItemsQuery);
-    const purchaseOrderItems = poItemsSnapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() }) as PurchaseOrderItem
-    );
+    const purchaseOrderItems = poItemsSnapshot.docs.map((doc): PurchaseOrderItem => {
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      return {
+        id: doc.id,
+        ...doc.data(),
+      } as PurchaseOrderItem;
+    });
 
     // Use amounts from purchase order (actual financial data)
     const subtotal = purchaseOrder.subtotal;
@@ -230,7 +235,7 @@ export async function createBillFromGoodsReceipt(
       updatedAt: Timestamp.now(),
     });
 
-    console.log(
+    console.warn(
       `[Accounting Integration] Created bill ${billRef.id} from goods receipt ${goodsReceipt.id}`
     );
 
@@ -352,7 +357,7 @@ export async function createAdvancePaymentFromPO(
       updatedAt: Timestamp.now(),
     });
 
-    console.log(
+    console.warn(
       `[Accounting Integration] Created advance payment ${paymentId} for PO ${purchaseOrder.id}`
     );
 
@@ -490,7 +495,7 @@ export async function createPaymentFromApprovedReceipt(
     // Create payment using atomic helper (includes GL entries and allocation)
     const paymentId = await createPaymentWithAllocationsAtomic(db, paymentData, [allocation]);
 
-    console.log(
+    console.warn(
       `[Accounting Integration] Created payment ${paymentId} for goods receipt ${goodsReceipt.id}`
     );
 
