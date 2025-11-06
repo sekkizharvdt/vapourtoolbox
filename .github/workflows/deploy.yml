@@ -54,7 +54,6 @@ jobs:
 
       - name: Run full pre-deployment checks
         run: node scripts/preflight/pre-deployment-check.js --skip-build
-        continue-on-error: true
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
