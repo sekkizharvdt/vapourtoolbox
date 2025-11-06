@@ -16,7 +16,13 @@
  */
 
 import { useEffect, useState } from 'react';
-import { onSnapshot, type Query, type DocumentData } from 'firebase/firestore';
+import {
+  onSnapshot,
+  type Query,
+  type DocumentData,
+  type DocumentReference,
+  type DocumentSnapshot,
+} from 'firebase/firestore';
 
 interface UseFirestoreQueryResult<T> {
   data: T[];
@@ -65,7 +71,8 @@ export function useFirestoreQuery<T = DocumentData>(
             if (transform) {
               return transform({ id: doc.id, data: doc.data() });
             }
-            return { id: doc.id, ...doc.data() } as T;
+            const document: T = { id: doc.id, ...doc.data() } as unknown as T;
+            return document;
           });
 
           setData(documents);
@@ -102,7 +109,7 @@ export function useFirestoreQuery<T = DocumentData>(
  * ```
  */
 export function useFirestoreDocument<T = DocumentData>(
-  firestoreDoc: any, // DocumentReference
+  firestoreDoc: DocumentReference<DocumentData> | null,
   options?: {
     transform?: (doc: { id: string; data: DocumentData }) => T;
     enabled?: boolean;
@@ -125,7 +132,7 @@ export function useFirestoreDocument<T = DocumentData>(
 
     const unsubscribe = onSnapshot(
       firestoreDoc,
-      (snapshot: any) => {
+      (snapshot: DocumentSnapshot<DocumentData>) => {
         try {
           if (!snapshot.exists()) {
             setData(null);
@@ -136,7 +143,8 @@ export function useFirestoreDocument<T = DocumentData>(
           if (transform) {
             setData(transform({ id: snapshot.id, data: snapshot.data() }));
           } else {
-            setData({ id: snapshot.id, ...snapshot.data() } as T);
+            const document: T = { id: snapshot.id, ...snapshot.data() } as unknown as T;
+            setData(document);
           }
           setLoading(false);
         } catch (err) {
