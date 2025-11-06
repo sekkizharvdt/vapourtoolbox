@@ -44,16 +44,11 @@ export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInv
   });
 
   // Use line item management hook
-  const {
-    lineItems,
-    addLineItem,
-    removeLineItem,
-    updateLineItem,
-    subtotal,
-  } = useLineItemManagement({
-    initialLineItems: editingInvoice?.lineItems,
-    onError: setError,
-  });
+  const { lineItems, addLineItem, removeLineItem, updateLineItem, subtotal } =
+    useLineItemManagement({
+      initialLineItems: editingInvoice?.lineItems,
+      onError: setError,
+    });
 
   // Use entity state fetch hook (for GST calculation)
   const { companyState, entityState, setEntityName } = useEntityStateFetch(formState.entityId);
@@ -134,7 +129,7 @@ export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInv
         status: formState.status,
         lineItems,
         subtotal,
-        gstDetails,
+        ...(gstDetails ? { gstDetails } : {}),
         totalAmount: grandTotal,
         amount: grandTotal,
         transactionNumber,

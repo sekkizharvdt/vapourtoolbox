@@ -183,6 +183,7 @@ export function TransactionFormFields({
           multiline
           rows={2}
           disabled={disabled}
+          spellCheck={false}
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
