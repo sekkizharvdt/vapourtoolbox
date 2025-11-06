@@ -13,7 +13,6 @@ import * as admin from 'firebase-admin';
  * Currency codes we support
  */
 const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'SGD', 'AED'] as const;
-type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
 
 /**
  * Base currency for our exchange rates
@@ -143,13 +142,8 @@ export const fetchDailyExchangeRates = onSchedule(
       logger.info('Successfully stored exchange rates', {
         storedCount,
         currencies: SUPPORTED_CURRENCIES.join(', '),
-      });
-
-      return {
-        success: true,
-        storedCount,
         timestamp: effectiveFrom.toDate().toISOString(),
-      };
+      });
     } catch (error) {
       logger.error('Error fetching exchange rates:', error);
       throw error;
