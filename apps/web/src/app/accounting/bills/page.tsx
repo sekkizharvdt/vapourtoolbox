@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { VendorBill } from '@vapour/types';
@@ -49,15 +49,14 @@ export default function BillsPage() {
   useEffect(() => {
     const { db } = getFirebase();
     const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    const q = query(transactionsRef, orderBy('date', 'desc'));
+    // Server-side filter for VENDOR_BILL type
+    // Requires composite index: transactions (type ASC, date DESC)
+    const q = query(transactionsRef, where('type', '==', 'VENDOR_BILL'), orderBy('date', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const billsData: VendorBill[] = [];
       snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.type === 'VENDOR_BILL') {
-          billsData.push({ id: doc.id, ...data } as VendorBill);
-        }
+        billsData.push({ id: doc.id, ...doc.data() } as VendorBill);
       });
       setBills(billsData);
       setLoading(false);

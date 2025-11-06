@@ -29,7 +29,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { CustomerPayment, VendorPayment } from '@vapour/types';
@@ -57,15 +57,18 @@ export default function PaymentsPage() {
   useEffect(() => {
     const { db } = getFirebase();
     const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    const q = query(transactionsRef, orderBy('paymentDate', 'desc'));
+    // Server-side filter for payment types
+    // Requires composite index: transactions (type ASC, paymentDate DESC)
+    const q = query(
+      transactionsRef,
+      where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT']),
+      orderBy('paymentDate', 'desc')
+    );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const paymentsData: Payment[] = [];
       snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.type === 'CUSTOMER_PAYMENT' || data.type === 'VENDOR_PAYMENT') {
-          paymentsData.push({ id: doc.id, ...data } as Payment);
-        }
+        paymentsData.push({ id: doc.id, ...doc.data() } as Payment);
       });
       setPayments(paymentsData);
       setLoading(false);

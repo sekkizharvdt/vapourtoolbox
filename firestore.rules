@@ -34,6 +34,16 @@ service cloud.firestore {
     }
 
     /**
+     * Check if user is a Super Admin (highest privilege level)
+     * Super Admins can perform destructive operations like deletes
+     */
+    function isSuperAdmin() {
+      return isAuthenticated() &&
+             request.auth.token.roles != null &&
+             request.auth.token.roles.hasAny(['SUPER_ADMIN']);
+    }
+
+    /**
      * Check if user is from internal domain (@vapourdesal.com)
      */
     function isInternalUser() {

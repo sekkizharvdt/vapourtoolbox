@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { CustomerInvoice } from '@vapour/types';
@@ -49,15 +49,18 @@ export default function InvoicesPage() {
   useEffect(() => {
     const { db } = getFirebase();
     const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    const q = query(transactionsRef, orderBy('date', 'desc'));
+    // Server-side filter for CUSTOMER_INVOICE type
+    // Requires composite index: transactions (type ASC, date DESC)
+    const q = query(
+      transactionsRef,
+      where('type', '==', 'CUSTOMER_INVOICE'),
+      orderBy('date', 'desc')
+    );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const invoicesData: CustomerInvoice[] = [];
       snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.type === 'CUSTOMER_INVOICE') {
-          invoicesData.push({ id: doc.id, ...data } as CustomerInvoice);
-        }
+        invoicesData.push({ id: doc.id, ...doc.data() } as CustomerInvoice);
       });
       setInvoices(invoicesData);
       setLoading(false);

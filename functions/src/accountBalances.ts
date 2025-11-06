@@ -18,6 +18,7 @@ import type { DocumentSnapshot } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
+import { enforceRateLimit, writeRateLimiter, RateLimitError } from './utils/rateLimiter';
 
 const db = admin.firestore();
 
@@ -123,6 +124,11 @@ async function updateAccountBalances(
 
 /**
  * Firestore trigger: Update account balances when transactions are created or updated
+ *
+ * PERFORMANCE: This function uses INCREMENTAL UPDATES, not full recalculation.
+ * It only updates the specific accounts mentioned in the transaction's ledger entries,
+ * ensuring O(n) complexity where n = number of accounts in transaction (typically 2-10),
+ * NOT O(m) where m = total accounts in system (potentially thousands).
  */
 export const onTransactionWrite = onDocumentWritten(
   'transactions/{transactionId}',
@@ -198,6 +204,16 @@ export const recalculateAccountBalances = onCall(async (request) => {
   // Require authentication
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  // Rate limiting check
+  try {
+    enforceRateLimit(writeRateLimiter, request.auth.uid);
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      throw new HttpsError('resource-exhausted', error.message);
+    }
+    throw error;
   }
 
   // Require admin role

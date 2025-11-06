@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { FieldValue } from 'firebase-admin/firestore';
 import * as admin from 'firebase-admin';
 import { createAuditLog, getActorFromAuth } from '../utils/audit';
+import { enforceRateLimit, writeRateLimiter, RateLimitError } from '../utils/rateLimiter';
 
 /**
  * Cloud Function to create a new business entity with duplicate checking
@@ -20,6 +21,17 @@ export const createEntity = onCall(async (request) => {
   }
 
   const userId = request.auth.uid;
+
+  // 2. Rate limiting check
+  try {
+    enforceRateLimit(writeRateLimiter, userId);
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      throw new HttpsError('resource-exhausted', error.message);
+    }
+    throw error;
+  }
+
   const data = request.data;
 
   // 2. Input validation
