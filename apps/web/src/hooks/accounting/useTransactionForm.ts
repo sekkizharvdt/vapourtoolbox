@@ -74,16 +74,39 @@ interface UseTransactionFormReturn extends TransactionFormData {
 }
 
 /**
- * Converts Date or string to ISO date string for input fields
+ * Converts Date, Timestamp, or string to ISO date string for input fields
  */
-function toDateString(date: Date | string | undefined | null): string {
+function toDateString(date: Date | string | any | undefined | null): string {
   if (!date) return '';
+
+  // Handle Date objects
   if (date instanceof Date) {
     return date.toISOString().split('T')[0] || '';
   }
-  if (typeof date === 'string') {
-    return date;
+
+  // Handle Firestore Timestamps
+  if (date && typeof date.toDate === 'function') {
+    try {
+      return date.toDate().toISOString().split('T')[0] || '';
+    } catch {
+      return '';
+    }
   }
+
+  // Handle string dates
+  if (typeof date === 'string') {
+    // If already in YYYY-MM-DD format, return as is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return date;
+    }
+    // Try to parse and convert
+    try {
+      return new Date(date).toISOString().split('T')[0] || '';
+    } catch {
+      return date;
+    }
+  }
+
   return '';
 }
 
