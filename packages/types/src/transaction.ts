@@ -43,7 +43,14 @@ export type TransactionStatus =
 /**
  * Payment Method
  */
-export type PaymentMethod = 'CASH' | 'CHEQUE' | 'BANK_TRANSFER' | 'UPI' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'OTHER';
+export type PaymentMethod =
+  | 'CASH'
+  | 'CHEQUE'
+  | 'BANK_TRANSFER'
+  | 'UPI'
+  | 'CREDIT_CARD'
+  | 'DEBIT_CARD'
+  | 'OTHER';
 
 /**
  * Base Transaction Interface
@@ -119,6 +126,7 @@ export interface CustomerInvoice extends BaseTransaction {
   invoiceDate: Date;
   dueDate?: Date;
   paymentTerms?: string; // e.g., "Net 30", "Due on receipt"
+  reference?: string; // PO number, job reference, etc.
 
   // Line items
   lineItems: InvoiceLineItem[];

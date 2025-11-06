@@ -35,7 +35,7 @@ export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInv
           entityId: editingInvoice.entityId,
           entityName: editingInvoice.entityName,
           description: editingInvoice.description,
-          reference: editingInvoice.referenceNumber,
+          reference: editingInvoice.reference,
           projectId: editingInvoice.projectId,
           status: editingInvoice.status,
         }
@@ -124,7 +124,7 @@ export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInv
         entityId: formState.entityId,
         entityName: formState.entityName,
         description: formState.description,
-        referenceNumber: formState.reference || undefined,
+        reference: formState.reference || undefined,
         projectId: formState.projectId || undefined,
         status: formState.status,
         lineItems,
