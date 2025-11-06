@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -27,17 +27,16 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { VendorBill } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { CreateBillDialog } from './components/CreateBillDialog';
+import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 
 export default function BillsPage() {
   const { claims } = useAuth();
-  const [bills, setBills] = useState<VendorBill[]>([]);
-  const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<VendorBill | null>(null);
   const [page, setPage] = useState(0);
@@ -45,25 +44,19 @@ export default function BillsPage() {
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
-  // Real-time listener for bills
-  useEffect(() => {
-    const { db } = getFirebase();
-    const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    // Server-side filter for VENDOR_BILL type
-    // Requires composite index: transactions (type ASC, date DESC)
-    const q = query(transactionsRef, where('type', '==', 'VENDOR_BILL'), orderBy('date', 'desc'));
+  // Firestore query using custom hook
+  const { db } = getFirebase();
+  const billsQuery = useMemo(
+    () =>
+      query(
+        collection(db, COLLECTIONS.TRANSACTIONS),
+        where('type', '==', 'VENDOR_BILL'),
+        orderBy('date', 'desc')
+      ),
+    [db]
+  );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const billsData: VendorBill[] = [];
-      snapshot.forEach((doc) => {
-        billsData.push({ id: doc.id, ...doc.data() } as VendorBill);
-      });
-      setBills(billsData);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  const { data: bills, loading } = useFirestoreQuery<VendorBill>(billsQuery);
 
   const handleCreate = () => {
     setEditingBill(null);
