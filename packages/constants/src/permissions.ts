@@ -47,15 +47,16 @@ export const PERMISSION_FLAGS = {
   MANAGE_ESTIMATION: 1 << 18, // 262144
   VIEW_ESTIMATION: 1 << 19, // 524288
 
-  // Granular Accounting Permissions (bits 20-25)
+  // Granular Accounting Permissions (bits 20-26)
   MANAGE_CHART_OF_ACCOUNTS: 1 << 20, // 1048576 - Create/edit accounts
   CREATE_TRANSACTIONS: 1 << 21, // 2097152 - Create transactions
   APPROVE_TRANSACTIONS: 1 << 22, // 4194304 - Approve transactions
   VIEW_FINANCIAL_REPORTS: 1 << 23, // 8388608 - View P&L, Balance Sheet, etc.
   MANAGE_COST_CENTRES: 1 << 24, // 16777216 - Manage project cost centres
   MANAGE_FOREX: 1 << 25, // 33554432 - Manage currency and forex settings
+  RECONCILE_ACCOUNTS: 1 << 26, // 67108864 - Bank reconciliation
 
-  // Reserved for future use (bits 26-31)
+  // Reserved for future use (bits 27-31)
 } as const;
 
 /**
@@ -89,6 +90,7 @@ export const PERMISSION_BITS = {
   VIEW_FINANCIAL_REPORTS: 8388608,
   MANAGE_COST_CENTRES: 16777216,
   MANAGE_FOREX: 33554432,
+  RECONCILE_ACCOUNTS: 67108864,
 } as const;
 
 /**
@@ -173,6 +175,10 @@ export function canManageForex(permissions: number): boolean {
   return hasPermission(permissions, PERMISSION_FLAGS.MANAGE_FOREX);
 }
 
+export function canReconcileAccounts(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.RECONCILE_ACCOUNTS);
+}
+
 /**
  * Procurement permission helpers
  */
@@ -241,7 +247,8 @@ export const ROLE_PERMISSIONS: Record<string, number> = {
     PERMISSION_FLAGS.APPROVE_TRANSACTIONS |
     PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS |
     PERMISSION_FLAGS.MANAGE_COST_CENTRES |
-    PERMISSION_FLAGS.MANAGE_FOREX,
+    PERMISSION_FLAGS.MANAGE_FOREX |
+    PERMISSION_FLAGS.RECONCILE_ACCOUNTS,
 
   HR_ADMIN:
     PERMISSION_FLAGS.MANAGE_USERS | PERMISSION_FLAGS.VIEW_USERS | PERMISSION_FLAGS.MANAGE_ROLES,
@@ -258,13 +265,15 @@ export const ROLE_PERMISSIONS: Record<string, number> = {
     PERMISSION_FLAGS.APPROVE_TRANSACTIONS |
     PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS |
     PERMISSION_FLAGS.MANAGE_COST_CENTRES |
-    PERMISSION_FLAGS.MANAGE_FOREX,
+    PERMISSION_FLAGS.MANAGE_FOREX |
+    PERMISSION_FLAGS.RECONCILE_ACCOUNTS,
 
   ACCOUNTANT:
     PERMISSION_FLAGS.VIEW_TIME_TRACKING |
     PERMISSION_FLAGS.VIEW_ACCOUNTING |
     PERMISSION_FLAGS.CREATE_TRANSACTIONS |
-    PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS,
+    PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS |
+    PERMISSION_FLAGS.RECONCILE_ACCOUNTS,
 
   PROJECT_MANAGER:
     PERMISSION_FLAGS.MANAGE_PROJECTS |

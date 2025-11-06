@@ -77,7 +77,7 @@ export function ReconciliationWorkspace({ statementId, onBack }: ReconciliationW
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
 
-    async function loadData() {
+    async function loadData(): Promise<void> {
       try {
         const { db } = getFirebase();
 

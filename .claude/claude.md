@@ -1312,6 +1312,145 @@ await createBankStatement(
 
 **Best Practice:** Always check the interface definition for required fields before creating objects.
 
+### 12. Custom Hook Pattern for Firestore Queries
+
+**Problem:** Repeating boilerplate code for Firestore listeners across many pages.
+
+```typescript
+// ❌ WRONG - Manual useEffect/onSnapshot pattern (lots of boilerplate)
+const [data, setData] = useState<Item[]>([]);
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState<Error | null>(null);
+
+useEffect(() => {
+  const q = query(collection(db, 'items'), where('status', '==', 'active'));
+
+  const unsubscribe = onSnapshot(
+    q,
+    (snapshot) => {
+      const items = snapshot.docs.map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...doc.data(),
+          }) as unknown as Item
+      );
+      setData(items);
+      setLoading(false);
+    },
+    (err) => {
+      setError(err);
+      setLoading(false);
+    }
+  );
+
+  return () => unsubscribe();
+}, []);
+
+// ✅ CORRECT - Use custom hook with useMemo
+import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
+
+const { db } = getFirebase();
+const itemsQuery = useMemo(
+  () => query(collection(db, 'items'), where('status', '==', 'active')),
+  [db]
+);
+
+const { data: items, loading, error } = useFirestoreQuery<Item>(itemsQuery);
+```
+
+**Benefits:**
+
+- Reduces boilerplate by ~20 lines per page
+- Automatic cleanup of listeners
+- Consistent error handling
+- Type-safe with generics
+
+**IMPORTANT:** Use `useMemo` for query creation to prevent re-creation on every render.
+
+### 13. Error Handling with Custom Hooks
+
+**Problem:** Mixing local error state with hook's error handling.
+
+```typescript
+// ❌ WRONG - Unused local error state
+const [error, setError] = useState<string>('');
+const { data, loading, error: hookError } = useFirestoreQuery<Item>(query);
+
+// 'error' is declared but never used (TS6133)
+
+// ✅ CORRECT - Use hook's error property
+const { data, loading, error } = useFirestoreQuery<Item>(query);
+
+// Display error in UI
+{error && (
+  <Alert severity="error" sx={{ mb: 2 }}>
+    {error.message}  {/* error is Error object, use .message */}
+  </Alert>
+)}
+```
+
+**Pattern:** When using custom hooks that provide error handling, don't create duplicate local error state.
+
+### 14. Adding New Permission Constants
+
+**Problem:** Forgetting to add helper functions and role assignments when adding new permissions.
+
+```typescript
+// ❌ INCOMPLETE - Only added the bit flag
+export const PERMISSION_FLAGS = {
+  // ... existing flags
+  NEW_PERMISSION: 1 << 26,  // ❌ Missing helper function and role assignments
+} as const;
+
+// ✅ CORRECT - Complete permission implementation
+export const PERMISSION_FLAGS = {
+  // ... existing flags
+  NEW_PERMISSION: 1 << 26,
+} as const;
+
+// Add helper function
+export function canUseNewFeature(permissions: number): boolean {
+  return (permissions & PERMISSION_FLAGS.NEW_PERMISSION) !== 0;
+}
+
+// Add to relevant roles
+DIRECTOR: PERMISSION_FLAGS.NEW_PERMISSION | /* other flags */,
+MANAGER: PERMISSION_FLAGS.NEW_PERMISSION | /* other flags */,
+```
+
+**Checklist for adding new permissions:**
+
+1. Add bit flag to `PERMISSION_FLAGS`
+2. Create helper function `can{Action}(permissions: number)`
+3. Add to role definitions (DIRECTOR, MANAGER, etc.)
+4. Update Firestore security rules if needed
+
+### 15. Pre-commit Hooks vs CI Type-checking
+
+**Problem:** Pre-commit hooks pass but CI fails on type errors.
+
+**Why:** Pre-commit hooks only check **changed files**, while CI runs type-check on the **entire codebase**.
+
+```bash
+# Pre-commit (via Husky) - Only checks staged files
+pnpm type-check  # May pass
+
+# GitHub Actions CI - Checks entire codebase
+pnpm type-check  # May fail if there are pre-existing errors elsewhere
+```
+
+**Solution:** Before pushing, run full type-check manually:
+
+```bash
+# Check entire codebase (what CI will run)
+pnpm type-check
+
+# If errors exist in other files, fix them before proceeding
+```
+
+**Best Practice:** When refactoring, fix all type errors in the codebase before starting new work to avoid CI failures.
+
 ---
 
 ## Priority Guidelines

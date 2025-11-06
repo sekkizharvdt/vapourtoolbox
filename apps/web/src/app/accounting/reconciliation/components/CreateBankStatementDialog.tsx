@@ -139,9 +139,7 @@ export function CreateBankStatementDialog({ open, onClose }: CreateBankStatement
           closingBalance: closingBal,
           totalDebits: debits,
           totalCredits: credits,
-          status: 'DRAFT',
           notes,
-          uploadedBy: user?.uid || 'system',
         },
         user?.uid || 'system'
       );

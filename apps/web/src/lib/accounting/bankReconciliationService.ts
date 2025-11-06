@@ -36,7 +36,7 @@ import type {
  */
 export async function createBankStatement(
   db: Firestore,
-  statementData: Omit<BankStatement, 'id' | 'createdAt' | 'updatedAt'>,
+  statementData: Omit<BankStatement, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'uploadedBy'>,
   userId: string
 ): Promise<string> {
   try {
