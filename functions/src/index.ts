@@ -14,4 +14,8 @@ export { onTransactionWrite, recalculateAccountBalances } from './accountBalance
 export { createEntity } from './entities/createEntity';
 
 // Import currency exchange rate functions
-export { fetchDailyExchangeRates, manualFetchExchangeRates } from './currency';
+export {
+  fetchDailyExchangeRates,
+  manualFetchExchangeRates,
+  seedHistoricalExchangeRates,
+} from './currency';

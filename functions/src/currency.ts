@@ -273,3 +273,153 @@ export const manualFetchExchangeRates = onCall(
     }
   }
 );
+
+/**
+ * Seed Historical Exchange Rates (One-Time Setup)
+ *
+ * Creates historical exchange rate data for the past 30 days to enable
+ * trend analysis and charting. This should only be run once when setting
+ * up the system or after a data migration.
+ *
+ * Usage from client:
+ *   const functions = getFunctions();
+ *   const seedRates = httpsCallable(functions, 'seedHistoricalExchangeRates');
+ *   const result = await seedRates({ days: 30 });
+ */
+export const seedHistoricalExchangeRates = onCall(
+  {
+    region: 'us-central1',
+    memory: '512MiB',
+    secrets: ['EXCHANGERATE_API_KEY'],
+    timeoutSeconds: 300,
+  },
+  async (request) => {
+    // Check authentication
+    if (!request.auth || !request.auth.token.permissions) {
+      throw new HttpsError('permission-denied', 'Authentication required');
+    }
+
+    const userPermissions = request.auth.token.permissions as number;
+    const MANAGE_FINANCIAL_SETUP = 64; // PERMISSION_FLAGS.MANAGE_FINANCIAL_SETUP
+
+    if ((userPermissions & MANAGE_FINANCIAL_SETUP) !== MANAGE_FINANCIAL_SETUP) {
+      throw new HttpsError(
+        'permission-denied',
+        'MANAGE_FINANCIAL_SETUP permission required to seed historical data'
+      );
+    }
+
+    logger.info('Historical data seeding triggered', {
+      userId: request.auth.uid,
+      email: request.auth.token.email,
+    });
+
+    try {
+      // Get number of days to seed (default 30, max 90)
+      const daysToSeed = Math.min((request.data?.days as number) || 30, 90);
+
+      // Get API key from environment
+      const apiKey = process.env.EXCHANGERATE_API_KEY;
+
+      if (!apiKey) {
+        throw new HttpsError(
+          'failed-precondition',
+          'ExchangeRate API key not configured. Please contact system administrator.'
+        );
+      }
+
+      const db = admin.firestore();
+      const now = new Date();
+      let totalRecordsCreated = 0;
+
+      // Base rates (approximate current rates) - will add variations
+      const baseRates: Record<string, number> = {
+        USD: 83.25,
+        EUR: 90.5,
+        GBP: 105.75,
+        SGD: 62.3,
+        AED: 22.68,
+      };
+
+      logger.info('Starting historical data generation', {
+        days: daysToSeed,
+        currencies: SUPPORTED_CURRENCIES.length,
+      });
+
+      // Generate data for each day going backwards
+      for (let dayOffset = 0; dayOffset < daysToSeed; dayOffset++) {
+        const historicalDate = new Date(now);
+        historicalDate.setDate(historicalDate.getDate() - dayOffset);
+        historicalDate.setHours(9, 0, 0, 0); // Set to 9:00 AM for consistency
+
+        const effectiveFrom = admin.firestore.Timestamp.fromDate(historicalDate);
+        const batch = db.batch();
+
+        // Generate rates for each supported currency
+        for (const currency of SUPPORTED_CURRENCIES) {
+          // Add small random variation (±2%) to simulate realistic fluctuations
+          const variation = 1 + (Math.random() - 0.5) * 0.04; // -2% to +2%
+          const baseRate = baseRates[currency] || 1;
+          const rate = parseFloat((baseRate * variation).toFixed(4));
+
+          const rateDoc = db.collection('exchangeRates').doc();
+          batch.set(rateDoc, {
+            fromCurrency: BASE_CURRENCY,
+            toCurrency: currency,
+            baseCurrency: BASE_CURRENCY,
+            rate,
+            inverseRate: parseFloat((1 / rate).toFixed(6)),
+            effectiveFrom,
+            status: 'ACTIVE',
+            source: 'HISTORICAL_SEED',
+            sourceReference: `Historical data seed for ${historicalDate.toISOString().split('T')[0]}`,
+            notes: `Seeded historical data by ${request.auth.token.email || 'system'} on ${new Date().toISOString()}`,
+            createdBy: request.auth.uid,
+            createdAt: admin.firestore.Timestamp.now(),
+            updatedAt: admin.firestore.Timestamp.now(),
+          });
+
+          totalRecordsCreated++;
+        }
+
+        await batch.commit();
+
+        // Log progress every 5 days
+        if (dayOffset % 5 === 0) {
+          logger.info(`Seeding progress: ${dayOffset}/${daysToSeed} days completed`);
+        }
+      }
+
+      logger.info('Historical data seeding completed successfully', {
+        recordsCreated: totalRecordsCreated,
+        daysSeeded: daysToSeed,
+        dateRange: {
+          from: new Date(now.getTime() - daysToSeed * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split('T')[0],
+          to: now.toISOString().split('T')[0],
+        },
+        triggeredBy: request.auth.uid,
+      });
+
+      return {
+        success: true,
+        recordsCreated: totalRecordsCreated,
+        daysSeeded: daysToSeed,
+        currencies: SUPPORTED_CURRENCIES.length,
+        dateRange: {
+          from: new Date(now.getTime() - daysToSeed * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split('T')[0],
+          to: now.toISOString().split('T')[0],
+        },
+      };
+    } catch (error) {
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      logger.error('Error in historical data seeding:', error);
+      throw new HttpsError('internal', 'Failed to seed historical exchange rates');
+    }
+  }
+);
