@@ -19,3 +19,6 @@ export {
   manualFetchExchangeRates,
   seedHistoricalExchangeRates,
 } from './currency';
+
+// Import module integration functions
+export { seedAccountingIntegrations } from './moduleIntegrations';

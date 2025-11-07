@@ -70,6 +70,9 @@ export const COLLECTIONS = {
   ESTIMATES: 'estimates',
   EQUIPMENT: 'equipment',
   COMPONENTS: 'components',
+
+  // Module Integration Management (Super Admin)
+  MODULE_INTEGRATIONS: 'moduleIntegrations',
 } as const;
 
 /**

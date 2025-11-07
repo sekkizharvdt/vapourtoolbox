@@ -210,6 +210,11 @@ export interface VendorBill extends BaseTransaction {
   // TDS deduction
   tdsDeducted: boolean;
   tdsAmount?: number;
+
+  // Cross-module integration (for future use when Procurement module is implemented)
+  sourceModule?: 'procurement' | 'projects' | null; // Which module created this bill
+  sourceDocumentId?: string; // ID of source document (e.g., vendor invoice from procurement)
+  sourceDocumentType?: 'vendorInvoice' | 'projectExpense' | null; // Type of source document
 }
 
 /**
@@ -239,6 +244,15 @@ export interface VendorPayment extends BaseTransaction {
   tdsDeducted: boolean;
   tdsAmount?: number;
   tdsSection?: string;
+
+  // Cross-module integration (for future use)
+  notifyModules?: Array<'procurement' | 'projects'>; // Which modules should be notified of this payment
+  sourceReferences?: Array<{
+    // References to source documents that may need updates
+    module: 'procurement' | 'projects';
+    documentId: string;
+    documentType: string;
+  }>;
 }
 
 /**
