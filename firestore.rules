@@ -407,6 +407,47 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Currency & Forex Collections
+    // ============================================
+
+    // Exchange Rates Collection
+    match /exchange_rates/{rateId} {
+      // Read: Users with VIEW_FINANCIAL_REPORTS permission
+      allow read: if hasPermission(8388608); // VIEW_FINANCIAL_REPORTS
+
+      // Create/Update: Only by Cloud Functions (system)
+      // Cloud Functions set createdBy to 'system'
+      allow create, update: if request.auth != null;
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
+    // Forex Gain/Loss Collection
+    match /forex_gain_loss/{entryId} {
+      // Read: Users with VIEW_FINANCIAL_REPORTS permission
+      allow read: if hasPermission(8388608); // VIEW_FINANCIAL_REPORTS
+
+      // Create/Update: Only by Cloud Functions or internal users with CREATE_TRANSACTIONS
+      allow create, update: if hasPermission(2097152) && isInternalUser(); // CREATE_TRANSACTIONS
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
+    // Currency Configuration Collection
+    match /currency_config/{configId} {
+      // Read: Users with VIEW_FINANCIAL_REPORTS permission
+      allow read: if hasPermission(8388608); // VIEW_FINANCIAL_REPORTS
+
+      // Create/Update: Users with permission bit 64 (financial setup)
+      allow create, update: if hasPermission(64) && isInternalUser();
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
     // Default: Deny all
     // ============================================
 
