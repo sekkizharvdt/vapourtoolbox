@@ -411,7 +411,7 @@ service cloud.firestore {
     // ============================================
 
     // Exchange Rates Collection
-    match /exchange_rates/{rateId} {
+    match /exchangeRates/{rateId} {
       // Read: Users with VIEW_FINANCIAL_REPORTS permission
       allow read: if hasPermission(8388608); // VIEW_FINANCIAL_REPORTS
 

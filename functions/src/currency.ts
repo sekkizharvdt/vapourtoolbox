@@ -118,7 +118,7 @@ export const fetchDailyExchangeRates = onSchedule(
           continue;
         }
 
-        const rateDoc = db.collection('exchange_rates').doc();
+        const rateDoc = db.collection('exchangeRates').doc();
         batch.set(rateDoc, {
           fromCurrency: BASE_CURRENCY,
           toCurrency: currency,
@@ -231,7 +231,7 @@ export const manualFetchExchangeRates = onCall(
           continue;
         }
 
-        const rateDoc = db.collection('exchange_rates').doc();
+        const rateDoc = db.collection('exchangeRates').doc();
         batch.set(rateDoc, {
           fromCurrency: BASE_CURRENCY,
           toCurrency: currency,
