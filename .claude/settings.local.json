@@ -25,7 +25,15 @@
       "Bash(gcloud functions describe:*)",
       "Bash(npm run build:*)",
       "Bash(pnpm build:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(for file in apps/web/src/app/accounting/*/page.tsx)",
+      "Bash(do)",
+      "Bash(if grep -q \"TableContainer\\|Table\" \"$file\")",
+      "Bash(then)",
+      "Bash(if grep -q \"TablePagination\" \"$file\")",
+      "Bash(else)",
+      "Bash(fi)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []

@@ -22,6 +22,7 @@ import {
   CardContent,
   Tabs,
   Tab,
+  TablePagination,
 } from '@mui/material';
 import { Grid } from '@mui/material';
 import {
@@ -52,8 +53,25 @@ export default function BankReconciliationPage() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedStatementId, setSelectedStatementId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabValue>('statements');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
+
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Paginated statements
+  const paginatedStatements =
+    statements.length > 0
+      ? statements.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+      : [];
 
   // Real-time listener for bank statements
   useEffect(() => {
@@ -242,7 +260,7 @@ export default function BankReconciliationPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  statements.map((statement) => {
+                  paginatedStatements.map((statement) => {
                     const percentage = calculateReconciliationPercentage(statement);
                     return (
                       <TableRow key={statement.id} hover>
@@ -315,6 +333,15 @@ export default function BankReconciliationPage() {
                 )}
               </TableBody>
             </Table>
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              component="div"
+              count={statements.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
           </TableContainer>
         </>
       )}
