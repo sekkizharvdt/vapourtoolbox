@@ -32,7 +32,6 @@ import { canViewFinancialReports, canCreateTransactions } from '@vapour/constant
 import { getFirebase } from '@/lib/firebase';
 import ExchangeRateTrendChart from '@/components/accounting/currency/ExchangeRateTrendChart';
 import BankSettlementAnalysis from '@/components/accounting/currency/BankSettlementAnalysis';
-import { seedExchangeRates } from '@/lib/accounting/seedExchangeRates';
 import {
   collection,
   query,
@@ -99,41 +98,19 @@ export default function CurrencyForexPage() {
     Partial<Record<CurrencyCode, { rate: number; date: Date }>>
   >({});
   const [baseCurrency] = useState<CurrencyCode>('INR');
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string>('');
+  const [success, setSuccess] = useState<string>('');
 
   const hasViewAccess = claims?.permissions ? canViewFinancialReports(claims.permissions) : false;
   const hasCreateAccess = claims?.permissions ? canCreateTransactions(claims.permissions) : false;
-
-  // Function to seed rates with sample data
-  const handleSeedRates = async () => {
-    setRefreshing(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const result = await seedExchangeRates();
-      if (result.success) {
-        setSuccess(`Successfully seeded ${result.count} exchange rates for testing`);
-        setLastRefresh(new Date());
-      } else {
-        setError(result.error || 'Failed to seed exchange rates');
-      }
-    } catch (err) {
-      console.error('[Currency] Error seeding rates:', err);
-      setError('Failed to seed exchange rates');
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   // Function to fetch rates from API via Cloud Function
   const fetchExchangeRates = async () => {
     if (!hasCreateAccess || !user) return;
 
     setRefreshing(true);
-    setError(null);
-    setSuccess(null);
+    setError('');
+    setSuccess('');
 
     try {
       const functions = getFunctions();
@@ -141,20 +118,23 @@ export default function CurrencyForexPage() {
 
       await manualFetchRates();
       setLastRefresh(new Date());
-      setSuccess('Successfully refreshed exchange rates from API');
+      setSuccess('Successfully refreshed exchange rates from ExchangeRate-API');
     } catch (err: any) {
       console.error('[Currency] Error fetching rates:', err);
 
-      // Check if it's an API key configuration error
-      if (err?.code === 'failed-precondition' || err?.message?.includes('API key')) {
-        setError(
-          'ExchangeRate API key not configured. Use "Seed Sample Data" button for testing, or contact administrator to set up the API key.'
-        );
-      } else {
-        setError(
-          err?.message || 'Failed to fetch exchange rates. Try using "Seed Sample Data" instead.'
-        );
+      let errorMessage = 'Failed to fetch exchange rates';
+      if (err?.code === 'permission-denied') {
+        errorMessage = 'You do not have permission to refresh exchange rates';
+      } else if (err?.code === 'failed-precondition') {
+        errorMessage =
+          'ExchangeRate API key not configured on server. Please contact administrator.';
+      } else if (err?.code === 'unavailable') {
+        errorMessage = 'ExchangeRate API is unavailable. Please try again later.';
+      } else if (err?.message) {
+        errorMessage = err.message;
       }
+
+      setError(errorMessage);
     } finally {
       setRefreshing(false);
     }
@@ -193,16 +173,19 @@ export default function CurrencyForexPage() {
     return () => unsubscribe();
   }, [hasViewAccess]);
 
-  // Auto-seed rates on first load if table is empty (instead of fetching from API)
+  // Clear success message after 5 seconds
   useEffect(() => {
-    if (!hasViewAccess || !hasCreateAccess || tabValue !== 0) return;
+    if (!success) return;
+    const timer = setTimeout(() => setSuccess(''), 5000);
+    return () => clearTimeout(timer);
+  }, [success]);
 
-    // Only auto-seed if we're on Exchange Rates tab and have no rates
-    if (exchangeRates.length === 0 && !refreshing && !error && !success) {
-      handleSeedRates();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasViewAccess, hasCreateAccess, tabValue, exchangeRates.length]);
+  // Clear error message after 10 seconds
+  useEffect(() => {
+    if (!error) return;
+    const timer = setTimeout(() => setError(''), 10000);
+    return () => clearTimeout(timer);
+  }, [error]);
 
   // Query last bank settlement rates from transactions
   useEffect(() => {
@@ -469,40 +452,30 @@ export default function CurrencyForexPage() {
                 Last updated: {getTimeAgo(lastRefresh)}
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box>
               {hasCreateAccess && (
-                <>
-                  <Button
-                    variant="outlined"
-                    startIcon={<RefreshIcon />}
-                    onClick={handleSeedRates}
-                    disabled={refreshing}
-                  >
-                    {refreshing ? 'Loading...' : 'Seed Sample Data'}
-                  </Button>
-                  <Button
-                    variant="contained"
-                    startIcon={<RefreshIcon />}
-                    onClick={fetchExchangeRates}
-                    disabled={refreshing}
-                  >
-                    {refreshing ? 'Fetching...' : 'Refresh from API'}
-                  </Button>
-                </>
+                <Button
+                  variant="contained"
+                  startIcon={<RefreshIcon />}
+                  onClick={fetchExchangeRates}
+                  disabled={refreshing}
+                >
+                  {refreshing ? 'Fetching...' : 'Refresh Rates'}
+                </Button>
               )}
             </Box>
           </Box>
 
           {/* Success Message */}
           {success && (
-            <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+            <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
               {success}
             </Alert>
           )}
 
           {/* Error Message */}
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
               {error}
             </Alert>
           )}
