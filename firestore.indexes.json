@@ -445,7 +445,7 @@
       ]
     },
     {
-      "collectionGroup": "exchange_rates",
+      "collectionGroup": "exchangeRates",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "fromCurrency", "order": "ASCENDING" },
@@ -454,7 +454,7 @@
       ]
     },
     {
-      "collectionGroup": "exchange_rates",
+      "collectionGroup": "exchangeRates",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
