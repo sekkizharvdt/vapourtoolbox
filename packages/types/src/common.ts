@@ -35,8 +35,9 @@ export type Status = 'active' | 'inactive' | 'draft' | 'archived';
 
 /**
  * Currency codes (ISO 4217)
+ * Supporting INR (base), USD, EUR, SGD only
  */
-export type CurrencyCode = 'INR' | 'USD' | 'EUR' | 'GBP' | 'AED' | 'SGD';
+export type CurrencyCode = 'INR' | 'USD' | 'EUR' | 'SGD';
 
 /**
  * Money amount with currency

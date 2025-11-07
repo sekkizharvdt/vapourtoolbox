@@ -42,24 +42,6 @@ export const CURRENCIES: Record<CurrencyCode, CurrencyConfig> = {
     rounding: 0,
   },
 
-  GBP: {
-    code: 'GBP',
-    name: 'British Pound',
-    symbol: '£',
-    symbolNative: '£',
-    decimalDigits: 2,
-    rounding: 0,
-  },
-
-  AED: {
-    code: 'AED',
-    name: 'UAE Dirham',
-    symbol: 'AED',
-    symbolNative: 'د.إ',
-    decimalDigits: 2,
-    rounding: 0,
-  },
-
   SGD: {
     code: 'SGD',
     name: 'Singapore Dollar',

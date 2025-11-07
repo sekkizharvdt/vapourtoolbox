@@ -48,7 +48,6 @@ import type {
   CurrencyCode,
   ExchangeRate,
   ForexGainLoss,
-  CurrencyExposure,
   CurrencyConfiguration,
   BaseTransaction,
 } from '@vapour/types';
@@ -58,8 +57,6 @@ const CURRENCY_INFO: Record<CurrencyCode, { name: string; symbol: string; flag: 
   INR: { name: 'Indian Rupee', symbol: '₹', flag: '🇮🇳' },
   USD: { name: 'US Dollar', symbol: '$', flag: '🇺🇸' },
   EUR: { name: 'Euro', symbol: '€', flag: '🇪🇺' },
-  GBP: { name: 'British Pound', symbol: '£', flag: '🇬🇧' },
-  AED: { name: 'UAE Dirham', symbol: 'د.إ', flag: '🇦🇪' },
   SGD: { name: 'Singapore Dollar', symbol: 'S$', flag: '🇸🇬' },
 };
 
@@ -89,7 +86,6 @@ export default function CurrencyForexPage() {
   const [tabValue, setTabValue] = useState(0);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
   const [forexGainLoss, setForexGainLoss] = useState<ForexGainLoss[]>([]);
-  const [currencyExposure, setCurrencyExposure] = useState<CurrencyExposure[]>([]);
   const [currencyConfig, setCurrencyConfig] = useState<CurrencyConfiguration[]>([]);
   const [foreignTransactions, setForeignTransactions] = useState<BaseTransaction[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -196,7 +192,7 @@ export default function CurrencyForexPage() {
 
     // Query for each foreign currency to find last bank settlement
     const fetchBankRates = async () => {
-      const foreignCurrencies: CurrencyCode[] = ['USD', 'EUR', 'GBP', 'SGD', 'AED'];
+      const foreignCurrencies: CurrencyCode[] = ['USD', 'EUR', 'SGD'];
       const bankRatesData: Partial<Record<CurrencyCode, { rate: number; date: Date }>> = {};
 
       for (const currency of foreignCurrencies) {
@@ -236,7 +232,7 @@ export default function CurrencyForexPage() {
 
   // Load forex gain/loss
   useEffect(() => {
-    if (!hasViewAccess || tabValue !== 2) return;
+    if (!hasViewAccess || tabValue !== 1) return;
 
     const { db } = getFirebase();
     const q = query(
@@ -258,73 +254,9 @@ export default function CurrencyForexPage() {
     return () => unsubscribe();
   }, [hasViewAccess, tabValue]);
 
-  // Calculate currency exposure
-  useEffect(() => {
-    if (!hasViewAccess || tabValue !== 3) return;
-
-    async function calculateExposure() {
-      const { db } = getFirebase();
-      const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-      const q = query(
-        transactionsRef,
-        where('status', '==', 'POSTED'),
-        where('currency', '!=', baseCurrency)
-      );
-
-      const snapshot = await getDocs(q);
-      const exposureMap = new Map<CurrencyCode, CurrencyExposure>();
-
-      snapshot.docs.forEach((doc) => {
-        const txn = doc.data() as {
-          currency?: string;
-          amount?: number;
-          type?: string;
-          exchangeRate?: number;
-        };
-        const currency = txn.currency as CurrencyCode;
-        const amount = txn.amount || 0;
-        const rate = txn.exchangeRate || 1;
-
-        if (!exposureMap.has(currency)) {
-          exposureMap.set(currency, {
-            currency,
-            totalReceivables: 0,
-            totalPayables: 0,
-            netExposure: 0,
-            currentRate: rate,
-            exposureInBaseCurrency: 0,
-            unrealizedGainLoss: 0,
-            transactionCount: 0,
-          });
-        }
-
-        const exposure = exposureMap.get(currency)!;
-        exposure.transactionCount++;
-
-        // Categorize as receivable or payable
-        if (txn.type === 'CUSTOMER_INVOICE') {
-          exposure.totalReceivables += amount;
-        } else if (txn.type === 'VENDOR_BILL') {
-          exposure.totalPayables += amount;
-        }
-      });
-
-      // Calculate net exposure
-      const exposures = Array.from(exposureMap.values()).map((exp) => {
-        exp.netExposure = exp.totalReceivables - exp.totalPayables;
-        exp.exposureInBaseCurrency = exp.netExposure * exp.currentRate;
-        return exp;
-      });
-
-      setCurrencyExposure(exposures);
-    }
-
-    calculateExposure();
-  }, [hasViewAccess, tabValue, baseCurrency]);
-
   // Load foreign currency transactions for bank settlement analysis
   useEffect(() => {
-    if (!hasViewAccess || tabValue !== 4) return;
+    if (!hasViewAccess || tabValue !== 2) return;
 
     const { db } = getFirebase();
     const q = query(
@@ -350,7 +282,7 @@ export default function CurrencyForexPage() {
 
   // Load currency configuration
   useEffect(() => {
-    if (!hasViewAccess || tabValue !== 5) return;
+    if (!hasViewAccess || tabValue !== 3) return;
 
     const { db } = getFirebase();
     const q = query(collection(db, COLLECTIONS.CURRENCY_CONFIG));
@@ -435,9 +367,7 @@ export default function CurrencyForexPage() {
           sx={{ borderBottom: 1, borderColor: 'divider' }}
         >
           <Tab label="Exchange Rates" />
-          <Tab label="Trends & Analysis" />
           <Tab label="Forex Gain/Loss" />
-          <Tab label="Currency Exposure" />
           <Tab label="Bank Settlement" />
           <Tab label="Settings" />
         </Tabs>
@@ -509,7 +439,7 @@ export default function CurrencyForexPage() {
               <TableBody>
                 {(() => {
                   // Group rates by currency (showing only INR to foreign currency)
-                  const foreignCurrencies: CurrencyCode[] = ['USD', 'EUR', 'GBP', 'SGD', 'AED'];
+                  const foreignCurrencies: CurrencyCode[] = ['USD', 'EUR', 'SGD'];
                   const latestRates = new Map<CurrencyCode, ExchangeRate>();
 
                   exchangeRates.forEach((rate) => {
@@ -673,15 +603,24 @@ export default function CurrencyForexPage() {
               </ul>
             </Typography>
           </Alert>
-        </TabPanel>
 
-        {/* Trends & Analysis Tab */}
-        <TabPanel value={tabValue} index={1}>
-          <ExchangeRateTrendChart rates={exchangeRates} baseCurrency={baseCurrency} />
+          {/* Visual Divider */}
+          <Box sx={{ my: 4, borderTop: 1, borderColor: 'divider' }} />
+
+          {/* Exchange Rate Trends */}
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="h6" gutterBottom>
+              Historical Trends
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Track exchange rate movements over time to identify patterns
+            </Typography>
+            <ExchangeRateTrendChart rates={exchangeRates} baseCurrency={baseCurrency} />
+          </Box>
         </TabPanel>
 
         {/* Forex Gain/Loss Tab */}
-        <TabPanel value={tabValue} index={2}>
+        <TabPanel value={tabValue} index={1}>
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" gutterBottom>
               Forex Gain/Loss Report
@@ -833,92 +772,13 @@ export default function CurrencyForexPage() {
           </TableContainer>
         </TabPanel>
 
-        {/* Currency Exposure Tab */}
-        <TabPanel value={tabValue} index={3}>
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Currency Exposure Analysis
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Current exposure to foreign currencies in outstanding transactions
-            </Typography>
-          </Box>
-
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Currency</TableCell>
-                  <TableCell align="right">Total Receivables</TableCell>
-                  <TableCell align="right">Total Payables</TableCell>
-                  <TableCell align="right">Net Exposure</TableCell>
-                  <TableCell align="right">Current Rate</TableCell>
-                  <TableCell align="right">Exposure in {baseCurrency}</TableCell>
-                  <TableCell align="center">Transactions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {currencyExposure.map((exposure) => (
-                  <TableRow key={exposure.currency}>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span>{CURRENCY_INFO[exposure.currency].flag}</span>
-                        <Box>
-                          <Typography variant="body2" fontWeight="medium">
-                            {exposure.currency}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {CURRENCY_INFO[exposure.currency].name}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(exposure.totalReceivables, exposure.currency)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(exposure.totalPayables, exposure.currency)}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography
-                        color={exposure.netExposure >= 0 ? 'success.main' : 'error.main'}
-                        fontWeight="medium"
-                      >
-                        {formatCurrency(exposure.netExposure, exposure.currency)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">{formatRate(exposure.currentRate)}</TableCell>
-                    <TableCell align="right">
-                      <Typography fontWeight="medium">
-                        {formatCurrency(exposure.exposureInBaseCurrency, baseCurrency)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip label={exposure.transactionCount} size="small" />
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {currencyExposure.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center">
-                      <Typography variant="body2" color="text.secondary">
-                        No foreign currency exposure found.
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </TabPanel>
-
         {/* Bank Settlement Tab */}
-        <TabPanel value={tabValue} index={4}>
+        <TabPanel value={tabValue} index={2}>
           <BankSettlementAnalysis transactions={foreignTransactions} baseCurrency={baseCurrency} />
         </TabPanel>
 
         {/* Settings Tab */}
-        <TabPanel value={tabValue} index={5}>
+        <TabPanel value={tabValue} index={3}>
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" gutterBottom>
               Currency Configuration

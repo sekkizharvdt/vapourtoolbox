@@ -12,12 +12,30 @@ import * as admin from 'firebase-admin';
 /**
  * Currency codes we support
  */
-const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'SGD', 'AED'] as const;
+const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'SGD'] as const;
 
 /**
  * Base currency for our exchange rates
  */
 const BASE_CURRENCY = 'INR';
+
+/**
+ * IMPORTANT: Data Storage Convention
+ *
+ * Even though fromCurrency=INR in Firestore, we store rates from the
+ * foreign currency perspective (how many INR per 1 foreign unit) because:
+ * 1. This matches Indian business expectations (1 USD = 83 INR, not 0.012)
+ * 2. Makes display logic simpler
+ * 3. Avoids confusing decimal rates
+ *
+ * Example for USD:
+ * - fromCurrency: "INR" (for query filtering)
+ * - toCurrency: "USD"
+ * - rate: 83.33 (1 USD = 83.33 INR) ← Business rate for display
+ * - inverseRate: 0.012 (1 INR = 0.012 USD) ← Raw API value
+ *
+ * The fromCurrency field is a query optimization, not semantic truth.
+ */
 
 /**
  * ExchangeRate-API Configuration
@@ -111,20 +129,25 @@ export const fetchDailyExchangeRates = onSchedule(
       let storedCount = 0;
 
       for (const currency of SUPPORTED_CURRENCIES) {
-        const rate = data.conversion_rates[currency];
+        const apiRate = data.conversion_rates[currency];
 
-        if (!rate) {
+        if (!apiRate) {
           logger.warn(`Rate not found for currency: ${currency}`);
           continue;
         }
+
+        // Convert API rate to business rate
+        // API returns: 1 INR = 0.012 USD (what you GET for 1 rupee)
+        // We store: 1 USD = 83.33 INR (what you PAY in rupees)
+        const businessRate = 1 / apiRate;
 
         const rateDoc = db.collection('exchangeRates').doc();
         batch.set(rateDoc, {
           fromCurrency: BASE_CURRENCY,
           toCurrency: currency,
           baseCurrency: BASE_CURRENCY,
-          rate,
-          inverseRate: 1 / rate,
+          rate: businessRate, // 83.33 (1 USD = 83.33 INR)
+          inverseRate: apiRate, // 0.012 (1 INR = 0.012 USD)
           effectiveFrom,
           status: 'ACTIVE',
           source: 'API',
@@ -224,20 +247,25 @@ export const manualFetchExchangeRates = onCall(
       const rates: Record<string, number> = {};
 
       for (const currency of SUPPORTED_CURRENCIES) {
-        const rate = data.conversion_rates[currency];
+        const apiRate = data.conversion_rates[currency];
 
-        if (!rate) {
+        if (!apiRate) {
           logger.warn(`Rate not found for currency: ${currency}`);
           continue;
         }
+
+        // Convert API rate to business rate
+        // API returns: 1 INR = 0.012 USD (what you GET for 1 rupee)
+        // We store: 1 USD = 83.33 INR (what you PAY in rupees)
+        const businessRate = 1 / apiRate;
 
         const rateDoc = db.collection('exchangeRates').doc();
         batch.set(rateDoc, {
           fromCurrency: BASE_CURRENCY,
           toCurrency: currency,
           baseCurrency: BASE_CURRENCY,
-          rate,
-          inverseRate: 1 / rate,
+          rate: businessRate, // 83.33 (1 USD = 83.33 INR)
+          inverseRate: apiRate, // 0.012 (1 INR = 0.012 USD)
           effectiveFrom,
           status: 'ACTIVE',
           source: 'API',
@@ -248,7 +276,7 @@ export const manualFetchExchangeRates = onCall(
           updatedAt: effectiveFrom,
         });
 
-        rates[currency] = rate;
+        rates[currency] = businessRate;
       }
 
       await batch.commit();
@@ -333,12 +361,11 @@ export const seedHistoricalExchangeRates = onCall(
       let totalRecordsCreated = 0;
 
       // Base rates (approximate current rates) - will add variations
+      // Note: These are already in business format (1 USD = 83 INR)
       const baseRates: Record<string, number> = {
         USD: 83.25,
         EUR: 90.5,
-        GBP: 105.75,
         SGD: 62.3,
-        AED: 22.68,
       };
 
       logger.info('Starting historical data generation', {

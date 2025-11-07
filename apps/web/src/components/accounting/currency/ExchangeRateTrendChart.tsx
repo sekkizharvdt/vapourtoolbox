@@ -10,8 +10,6 @@ import {
   Select,
   MenuItem,
   Grid,
-  Card,
-  CardContent,
   Chip,
 } from '@mui/material';
 import {
@@ -24,7 +22,6 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { TrendingUp, TrendingDown } from '@mui/icons-material';
 import type { CurrencyCode, ExchangeRate, Timestamp } from '@vapour/types';
 
 interface ExchangeRateTrendChartProps {
@@ -37,27 +34,11 @@ interface ChartDataPoint {
   [key: string]: string | number;
 }
 
-interface TrendAnalysis {
-  currency: CurrencyCode;
-  currentRate: number;
-  previousRate: number;
-  change: number;
-  changePercent: number;
-  trend: 'up' | 'down' | 'stable';
-  favorability: {
-    forImport: 'good' | 'bad' | 'neutral';
-    forExport: 'good' | 'bad' | 'neutral';
-    message: string;
-  };
-}
-
 const COLORS: Record<CurrencyCode, string> = {
   INR: '#607D8B',
   USD: '#2196F3',
   EUR: '#4CAF50',
-  GBP: '#FF9800',
   SGD: '#9C27B0',
-  AED: '#F44336',
 };
 
 interface CustomTooltipData {
@@ -161,112 +142,6 @@ export default function ExchangeRateTrendChart({
     return Array.from(dataByDate.values()).sort((a, b) => a.date.localeCompare(b.date));
   }, [rates, selectedCurrencies, timeRange, baseCurrency]);
 
-  // Calculate trend analysis
-  const trendAnalysis = useMemo((): TrendAnalysis[] => {
-    return selectedCurrencies.map((currency) => {
-      const currencyRates = rates
-        .filter(
-          (r) =>
-            (r.fromCurrency === currency && r.toCurrency === baseCurrency) ||
-            (r.toCurrency === currency && r.fromCurrency === baseCurrency)
-        )
-        .sort((a, b) => {
-          const dateA =
-            a.effectiveFrom instanceof Object && 'toDate' in a.effectiveFrom
-              ? (a.effectiveFrom as Timestamp).toDate().getTime()
-              : 0;
-          const dateB =
-            b.effectiveFrom instanceof Object && 'toDate' in b.effectiveFrom
-              ? (b.effectiveFrom as Timestamp).toDate().getTime()
-              : 0;
-          return dateB - dateA;
-        });
-
-      if (currencyRates.length < 2) {
-        const currentRate =
-          currencyRates[0]?.fromCurrency === baseCurrency
-            ? currencyRates[0]?.rate || 0
-            : currencyRates[0]?.inverseRate || 0;
-
-        return {
-          currency,
-          currentRate,
-          previousRate: currentRate,
-          change: 0,
-          changePercent: 0,
-          trend: 'stable',
-          favorability: {
-            forImport: 'neutral',
-            forExport: 'neutral',
-            message: 'Insufficient data for trend analysis',
-          },
-        };
-      }
-
-      const latestRate = currencyRates[0];
-      const previousRate = currencyRates[1];
-
-      if (!latestRate || !previousRate) {
-        const currentRate =
-          latestRate?.fromCurrency === baseCurrency
-            ? latestRate?.rate || 0
-            : latestRate?.inverseRate || 0;
-
-        return {
-          currency,
-          currentRate,
-          previousRate: currentRate,
-          change: 0,
-          changePercent: 0,
-          trend: 'stable',
-          favorability: {
-            forImport: 'neutral',
-            forExport: 'neutral',
-            message: 'Insufficient data for trend analysis',
-          },
-        };
-      }
-
-      const current =
-        latestRate.fromCurrency === baseCurrency ? latestRate.rate : latestRate.inverseRate;
-      const previous =
-        previousRate.fromCurrency === baseCurrency ? previousRate.rate : previousRate.inverseRate;
-
-      const change = current - previous;
-      const changePercent = (change / previous) * 100;
-      const trend = Math.abs(changePercent) < 0.5 ? 'stable' : change > 0 ? 'up' : 'down';
-
-      // Favorability analysis
-      let forImport: 'good' | 'bad' | 'neutral' = 'neutral';
-      let forExport: 'good' | 'bad' | 'neutral' = 'neutral';
-      let message = '';
-
-      if (trend === 'down') {
-        // Foreign currency is getting cheaper (INR is strengthening)
-        forImport = 'good';
-        forExport = 'bad';
-        message = `${currency} is weakening against ${baseCurrency}. Good time to import from ${currency} zone. Consider delaying exports.`;
-      } else if (trend === 'up') {
-        // Foreign currency is getting expensive (INR is weakening)
-        forImport = 'bad';
-        forExport = 'good';
-        message = `${currency} is strengthening against ${baseCurrency}. Good time to export to ${currency} zone. Consider delaying imports.`;
-      } else {
-        message = `${currency} is stable against ${baseCurrency}. Normal trading conditions.`;
-      }
-
-      return {
-        currency,
-        currentRate: current,
-        previousRate: previous,
-        change,
-        changePercent,
-        trend,
-        favorability: { forImport, forExport, message },
-      };
-    });
-  }, [rates, selectedCurrencies, baseCurrency]);
-
   return (
     <Box>
       {/* Controls */}
@@ -339,83 +214,6 @@ export default function ExchangeRateTrendChart({
           </LineChart>
         </ResponsiveContainer>
       </Paper>
-
-      {/* Trend Analysis Cards */}
-      <Typography variant="h6" gutterBottom>
-        Favorability Analysis
-      </Typography>
-      <Grid container spacing={2}>
-        {trendAnalysis.map((analysis) => (
-          <Grid size={{ xs: 12, md: 6 }} key={analysis.currency}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                  <Typography variant="h6">{analysis.currency}</Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {analysis.trend === 'up' ? (
-                      <TrendingUp color="error" />
-                    ) : analysis.trend === 'down' ? (
-                      <TrendingDown color="success" />
-                    ) : null}
-                    <Typography
-                      variant="body2"
-                      color={
-                        analysis.trend === 'up'
-                          ? 'error.main'
-                          : analysis.trend === 'down'
-                            ? 'success.main'
-                            : 'text.secondary'
-                      }
-                      fontWeight="medium"
-                    >
-                      {analysis.changePercent >= 0 ? '+' : ''}
-                      {analysis.changePercent.toFixed(2)}%
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Current Rate: {analysis.currentRate.toFixed(4)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Previous Rate: {analysis.previousRate.toFixed(4)}
-                  </Typography>
-                </Box>
-
-                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                  <Chip
-                    label={`Import: ${analysis.favorability.forImport}`}
-                    size="small"
-                    color={
-                      analysis.favorability.forImport === 'good'
-                        ? 'success'
-                        : analysis.favorability.forImport === 'bad'
-                          ? 'error'
-                          : 'default'
-                    }
-                  />
-                  <Chip
-                    label={`Export: ${analysis.favorability.forExport}`}
-                    size="small"
-                    color={
-                      analysis.favorability.forExport === 'good'
-                        ? 'success'
-                        : analysis.favorability.forExport === 'bad'
-                          ? 'error'
-                          : 'default'
-                    }
-                  />
-                </Box>
-
-                <Typography variant="body2" color="text.secondary">
-                  {analysis.favorability.message}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
     </Box>
   );
 }
