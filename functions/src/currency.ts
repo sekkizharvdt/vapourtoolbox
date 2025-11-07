@@ -68,6 +68,7 @@ export const fetchDailyExchangeRates = onSchedule(
     region: 'us-central1',
     memory: '256MiB',
     maxInstances: 1,
+    secrets: ['EXCHANGERATE_API_KEY'],
   },
   async (event) => {
     logger.info('Starting daily exchange rate fetch', { timestamp: event.scheduleTime });
@@ -168,6 +169,7 @@ export const manualFetchExchangeRates = onCall(
   {
     region: 'us-central1',
     memory: '256MiB',
+    secrets: ['EXCHANGERATE_API_KEY'],
   },
   async (request) => {
     // Check authentication
