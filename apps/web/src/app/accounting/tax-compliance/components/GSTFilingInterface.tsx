@@ -221,12 +221,12 @@ export function GSTFilingInterface({ gstr1Data, gstr3bData, onClose }: GSTFiling
             Pre-filing Validation
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            We'll check your returns for common issues before filing
+            We&apos;ll check your returns for common issues before filing
           </Typography>
 
           {!validationResult ? (
             <Alert severity="info">
-              Click "Next" to run validation checks on your GST returns.
+              Click &quot;Next&quot; to run validation checks on your GST returns.
             </Alert>
           ) : (
             <Box>
@@ -415,7 +415,7 @@ export function GSTFilingInterface({ gstr1Data, gstr3bData, onClose }: GSTFiling
                 <li>Login with your credentials</li>
                 <li>Navigate to Returns → File Returns</li>
                 <li>Select the relevant return type and period</li>
-                <li>Upload the JSON file using the "Prepare Offline" option</li>
+                <li>Upload the JSON file using the &quot;Prepare Offline&quot; option</li>
                 <li>Review and submit the return</li>
               </ol>
             </Typography>

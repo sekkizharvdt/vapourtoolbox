@@ -119,19 +119,20 @@ export default function CurrencyForexPage() {
       await manualFetchRates();
       setLastRefresh(new Date());
       setSuccess('Successfully refreshed exchange rates from ExchangeRate-API');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[Currency] Error fetching rates:', err);
 
       let errorMessage = 'Failed to fetch exchange rates';
-      if (err?.code === 'permission-denied') {
+      const error = err as { code?: string; message?: string };
+      if (error?.code === 'permission-denied') {
         errorMessage = 'You do not have permission to refresh exchange rates';
-      } else if (err?.code === 'failed-precondition') {
+      } else if (error?.code === 'failed-precondition') {
         errorMessage =
           'ExchangeRate API key not configured on server. Please contact administrator.';
-      } else if (err?.code === 'unavailable') {
+      } else if (error?.code === 'unavailable') {
         errorMessage = 'ExchangeRate API is unavailable. Please try again later.';
-      } else if (err?.message) {
-        errorMessage = err.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
       }
 
       setError(errorMessage);

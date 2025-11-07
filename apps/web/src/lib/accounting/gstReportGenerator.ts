@@ -256,6 +256,7 @@ export async function generateGSTR1(
   const b2cSummary = createEmptyGSTSummary();
 
   snapshot.forEach((doc) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const invoice = doc.data() as any;
     const gst = calculateGSTFromLineItems(invoice.gstDetails);
 
@@ -313,6 +314,7 @@ export async function generateGSTR1(
     }
 
     // Process HSN summary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (invoice.lineItems || []).forEach((item: any) => {
       const hsnCode = item.hsnCode || 'UNCLASSIFIED';
       const existing = hsnMap.get(hsnCode);
@@ -402,6 +404,7 @@ export async function generateGSTR2(
   const reverseChargeSummary = createEmptyGSTSummary();
 
   snapshot.forEach((doc) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bill = doc.data() as any;
     const gst = calculateGSTFromLineItems(bill.gstDetails);
 

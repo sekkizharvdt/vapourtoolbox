@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -60,13 +60,7 @@ export function ReconciliationReport({ open, onClose, statementId }: Reconciliat
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (open && statementId) {
-      loadReportData();
-    }
-  }, [open, statementId]);
-
-  const loadReportData = async () => {
+  const loadReportData = useCallback(async () => {
     setLoading(true);
     setError('');
 
@@ -157,7 +151,13 @@ export function ReconciliationReport({ open, onClose, statementId }: Reconciliat
     } finally {
       setLoading(false);
     }
-  };
+  }, [statementId]);
+
+  useEffect(() => {
+    if (open && statementId) {
+      loadReportData();
+    }
+  }, [open, statementId, loadReportData]);
 
   const handlePrint = () => {
     window.print();

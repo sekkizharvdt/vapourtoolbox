@@ -235,6 +235,7 @@ async function extractTDSTransactions(
     const billsSnapshot = await getDocs(billsQuery);
 
     for (const doc of billsSnapshot.docs) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const bill = doc.data() as any;
 
       // Check if bill has TDS
