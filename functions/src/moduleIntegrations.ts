@@ -9,7 +9,13 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
-import { getAllPermissions } from '@vapour/constants';
+
+/**
+ * Super Admin has all 27 permission bits set
+ * This is calculated as: (1 << 27) - 1 = 134217727
+ * Or: 0b111111111111111111111111111 (27 ones)
+ */
+const ALL_PERMISSIONS = 134217727;
 
 interface IntegrationDefinition {
   sourceModule: string;
@@ -277,10 +283,9 @@ export const seedAccountingIntegrations = onCall(
     }
 
     const userPermissions = request.auth.token.permissions as number;
-    const allPermissions = getAllPermissions();
 
     // Only super-admin (has all permissions) can seed integrations
-    if (userPermissions !== allPermissions) {
+    if (userPermissions !== ALL_PERMISSIONS) {
       throw new HttpsError(
         'permission-denied',
         'Super Admin privileges required to seed integration data'

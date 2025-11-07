@@ -34,7 +34,8 @@
       "Bash(else)",
       "Bash(fi)",
       "Bash(done)",
-      "Bash(pnpm --filter @vapour/web build:*)"
+      "Bash(pnpm --filter @vapour/web build:*)",
+      "Bash(pnpm --filter functions build:*)"
     ],
     "deny": [],
     "ask": []
