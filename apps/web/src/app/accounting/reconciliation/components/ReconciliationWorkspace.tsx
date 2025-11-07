@@ -49,6 +49,7 @@ import {
   getReconciliationStats,
   markStatementAsReconciled,
 } from '@/lib/accounting/bankReconciliationService';
+import { ReconciliationReport } from './ReconciliationReport';
 
 interface ReconciliationWorkspaceProps {
   statementId: string;
@@ -72,6 +73,7 @@ export function ReconciliationWorkspace({ statementId, onBack }: ReconciliationW
   const [selectedAccTxn, setSelectedAccTxn] = useState<string | null>(null);
   const [matchDialogOpen, setMatchDialogOpen] = useState(false);
   const [matchNotes, setMatchNotes] = useState('');
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
   // Load statement and transactions
   useEffect(() => {
@@ -393,7 +395,7 @@ export function ReconciliationWorkspace({ statementId, onBack }: ReconciliationW
         <Button
           variant="outlined"
           startIcon={<AssessmentIcon />}
-          onClick={() => alert('Generate report feature coming soon')}
+          onClick={() => setReportDialogOpen(true)}
         >
           Generate Report
         </Button>
@@ -600,6 +602,13 @@ export function ReconciliationWorkspace({ statementId, onBack }: ReconciliationW
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Reconciliation Report Dialog */}
+      <ReconciliationReport
+        open={reportDialogOpen}
+        onClose={() => setReportDialogOpen(false)}
+        statementId={statementId}
+      />
     </Box>
   );
 }
