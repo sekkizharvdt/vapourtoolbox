@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Grid, Box, Typography, Stack, TextField } from '@mui/material';
+import { Grid, Box, Typography, Stack } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@/components/common/forms/FormDialog';
 import { TransactionFormFields } from '@/components/accounting/shared/TransactionFormFields';
 import { LineItemsTable } from '@/components/accounting/shared/LineItemsTable';
+import { TransactionNumberDisplay } from '@/components/accounting/shared/TransactionNumberDisplay';
 import { getFirebase } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -185,19 +186,11 @@ export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInv
     >
       <Grid container spacing={2}>
         {/* Invoice Number */}
-        <Grid size={{ xs: 12 }}>
-          <TextField
-            label="Invoice Number"
-            value={editingInvoice?.transactionNumber || 'Will be auto-generated (INV-XXXX)'}
-            disabled
-            fullWidth
-            helperText={
-              editingInvoice
-                ? 'Invoice number cannot be changed'
-                : 'Invoice number will be generated automatically upon creation'
-            }
-          />
-        </Grid>
+        <TransactionNumberDisplay
+          transactionNumber={editingInvoice?.transactionNumber}
+          label="Invoice Number"
+          placeholder="Will be auto-generated (INV-XXXX)"
+        />
 
         {/* Transaction Form Fields */}
         <TransactionFormFields

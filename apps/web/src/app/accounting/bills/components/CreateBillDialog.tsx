@@ -6,6 +6,7 @@ import { FormDialog, FormDialogActions } from '@/components/common/forms/FormDia
 import { TransactionFormFields } from '@/components/accounting/shared/TransactionFormFields';
 import { LineItemsTable } from '@/components/accounting/shared/LineItemsTable';
 import { TDSSection } from '@/components/accounting/shared/TDSSection';
+import { TransactionNumberDisplay } from '@/components/accounting/shared/TransactionNumberDisplay';
 import { getFirebase } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -213,6 +214,13 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
       }
     >
       <Grid container spacing={2}>
+        {/* Bill Number */}
+        <TransactionNumberDisplay
+          transactionNumber={editingBill?.transactionNumber}
+          label="Bill Number"
+          placeholder="Will be auto-generated (BILL-XXXX)"
+        />
+
         {/* Transaction Form Fields */}
         <TransactionFormFields
           date={formState.date}
