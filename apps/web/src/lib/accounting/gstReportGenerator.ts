@@ -186,6 +186,51 @@ export interface GSTR3BData {
 }
 
 /**
+ * Firestore Invoice Document Interface
+ * Represents the structure of invoice documents in Firestore
+ */
+interface FirestoreInvoiceDocument {
+  date: Timestamp | { toDate: () => Date };
+  customerGSTIN?: string;
+  transactionNumber?: string;
+  entityName?: string;
+  totalAmount?: number;
+  subtotal?: number;
+  gstDetails?: {
+    gstType: 'CGST_SGST' | 'IGST';
+    cgstAmount?: number;
+    sgstAmount?: number;
+    igstAmount?: number;
+  };
+  lineItems?: Array<{
+    hsnCode?: string;
+    description?: string;
+    quantity?: number;
+    amount?: number;
+    gstRate?: number;
+  }>;
+}
+
+/**
+ * Firestore Bill Document Interface
+ * Represents the structure of bill documents in Firestore
+ */
+interface FirestoreBillDocument {
+  date: Timestamp | { toDate: () => Date };
+  transactionNumber?: string;
+  entityName?: string;
+  vendorGSTIN?: string;
+  totalAmount?: number;
+  subtotal?: number;
+  gstDetails?: {
+    gstType: 'CGST_SGST' | 'IGST';
+    cgstAmount?: number;
+    sgstAmount?: number;
+    igstAmount?: number;
+  };
+}
+
+/**
  * Create empty GST summary
  */
 function createEmptyGSTSummary(): GSTSummary {
@@ -256,12 +301,14 @@ export async function generateGSTR1(
   const b2cSummary = createEmptyGSTSummary();
 
   snapshot.forEach((doc) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const invoice = doc.data() as any;
+    const invoice = doc.data() as unknown as FirestoreInvoiceDocument;
     const gst = calculateGSTFromLineItems(invoice.gstDetails);
 
     // Convert Timestamp to Date if needed
-    const invoiceDate = invoice.date?.toDate ? invoice.date.toDate() : new Date(invoice.date);
+    const invoiceDate =
+      'toDate' in invoice.date && typeof invoice.date.toDate === 'function'
+        ? invoice.date.toDate()
+        : new Date();
     const isB2B = invoice.customerGSTIN && invoice.customerGSTIN.length > 0;
 
     if (isB2B) {
@@ -314,16 +361,17 @@ export async function generateGSTR1(
     }
 
     // Process HSN summary
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (invoice.lineItems || []).forEach((item: any) => {
+    (invoice.lineItems || []).forEach((item) => {
       const hsnCode = item.hsnCode || 'UNCLASSIFIED';
       const existing = hsnMap.get(hsnCode);
-      const itemGST = (item.amount * (item.gstRate ?? 0)) / 100;
+      const itemAmount = item.amount ?? 0;
+      const itemQuantity = item.quantity ?? 0;
+      const itemGST = (itemAmount * (item.gstRate ?? 0)) / 100;
 
       if (existing) {
-        existing.totalQuantity += item.quantity;
-        existing.totalValue += item.amount;
-        existing.taxableValue += item.amount;
+        existing.totalQuantity += itemQuantity;
+        existing.totalValue += itemAmount;
+        existing.taxableValue += itemAmount;
         if (gst.cgst > 0) {
           existing.cgst += itemGST / 2;
           existing.sgst += itemGST / 2;
@@ -333,11 +381,11 @@ export async function generateGSTR1(
       } else {
         hsnMap.set(hsnCode, {
           hsnCode,
-          description: item.description,
+          description: item.description || '',
           uqc: 'NOS', // Default: Numbers
-          totalQuantity: item.quantity,
-          totalValue: item.amount,
-          taxableValue: item.amount,
+          totalQuantity: itemQuantity,
+          totalValue: itemAmount,
+          taxableValue: itemAmount,
           cgst: gst.cgst > 0 ? itemGST / 2 : 0,
           sgst: gst.cgst > 0 ? itemGST / 2 : 0,
           igst: gst.igst > 0 ? itemGST : 0,
@@ -404,12 +452,14 @@ export async function generateGSTR2(
   const reverseChargeSummary = createEmptyGSTSummary();
 
   snapshot.forEach((doc) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const bill = doc.data() as any;
+    const bill = doc.data() as unknown as FirestoreBillDocument;
     const gst = calculateGSTFromLineItems(bill.gstDetails);
 
     // Convert Timestamp to Date if needed
-    const billDate = bill.date?.toDate ? bill.date.toDate() : new Date(bill.date);
+    const billDate =
+      'toDate' in bill.date && typeof bill.date.toDate === 'function'
+        ? bill.date.toDate()
+        : new Date();
     const isReverseCharge = false; // Not in current schema
 
     const purchaseDetail: PurchaseDetail = {

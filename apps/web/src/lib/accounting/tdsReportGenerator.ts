@@ -148,6 +148,22 @@ export interface Form26QData {
 }
 
 /**
+ * Firestore Bill Document Interface for TDS
+ * Represents the structure of bill documents in Firestore
+ */
+interface FirestoreTDSBillDocument {
+  date: Timestamp | { toDate: () => Date };
+  tdsAmount?: number;
+  category?: string;
+  tdsRate?: number;
+  vendorId?: string;
+  vendorName?: string;
+  vendorPAN?: string;
+  total?: number;
+  createdAt?: Timestamp | { toDate: () => Date } | number;
+}
+
+/**
  * Get quarter from date
  */
 export function getQuarter(date: Date): 1 | 2 | 3 | 4 {
@@ -235,12 +251,14 @@ async function extractTDSTransactions(
     const billsSnapshot = await getDocs(billsQuery);
 
     for (const doc of billsSnapshot.docs) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const bill = doc.data() as any;
+      const bill = doc.data() as unknown as FirestoreTDSBillDocument;
 
       // Check if bill has TDS
       if (bill.tdsAmount && bill.tdsAmount > 0) {
-        const paymentDate = bill.date?.toDate ? bill.date.toDate() : new Date(bill.date);
+        const paymentDate =
+          'toDate' in bill.date && typeof bill.date.toDate === 'function'
+            ? bill.date.toDate()
+            : new Date();
         const quarter = getQuarter(paymentDate);
         const financialYear = getFinancialYear(paymentDate);
         const assessmentYear = getAssessmentYear(financialYear);
@@ -271,9 +289,15 @@ async function extractTDSTransactions(
           quarter,
           financialYear,
           assessmentYear,
-          bookingDate: bill.createdAt?.toDate
-            ? bill.createdAt.toDate()
-            : new Date(bill.createdAt || Date.now()),
+          bookingDate:
+            bill.createdAt &&
+            typeof bill.createdAt === 'object' &&
+            'toDate' in bill.createdAt &&
+            typeof bill.createdAt.toDate === 'function'
+              ? bill.createdAt.toDate()
+              : typeof bill.createdAt === 'number'
+                ? new Date(bill.createdAt)
+                : new Date(),
         });
       }
     }
