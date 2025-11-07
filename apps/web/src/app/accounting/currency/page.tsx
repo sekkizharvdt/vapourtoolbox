@@ -389,7 +389,7 @@ export default function CurrencyForexPage() {
               <TableHead>
                 <TableRow>
                   <TableCell>Currency</TableCell>
-                  <TableCell align="right">Current API Rate</TableCell>
+                  <TableCell align="right">Current Rate (₹ per unit)</TableCell>
                   <TableCell>Last Refreshed</TableCell>
                   <TableCell align="right">Last Bank Rate</TableCell>
                   <TableCell align="right">Difference</TableCell>
@@ -398,22 +398,22 @@ export default function CurrencyForexPage() {
               </TableHead>
               <TableBody>
                 {(() => {
-                  // Group rates by currency (showing only INR to foreign currency)
+                  // Group rates by currency (showing foreign currency to INR)
                   const foreignCurrencies: CurrencyCode[] = ['USD', 'EUR', 'SGD'];
                   const latestRates = new Map<CurrencyCode, ExchangeRate>();
 
                   exchangeRates.forEach((rate) => {
                     if (
-                      rate.fromCurrency === 'INR' &&
-                      foreignCurrencies.includes(rate.toCurrency)
+                      rate.toCurrency === 'INR' &&
+                      foreignCurrencies.includes(rate.fromCurrency)
                     ) {
                       if (
-                        !latestRates.has(rate.toCurrency) ||
+                        !latestRates.has(rate.fromCurrency) ||
                         (rate.effectiveFrom &&
-                          latestRates.get(rate.toCurrency)?.effectiveFrom &&
-                          rate.effectiveFrom > latestRates.get(rate.toCurrency)!.effectiveFrom!)
+                          latestRates.get(rate.fromCurrency)?.effectiveFrom &&
+                          rate.effectiveFrom > latestRates.get(rate.fromCurrency)!.effectiveFrom!)
                       ) {
-                        latestRates.set(rate.toCurrency, rate);
+                        latestRates.set(rate.fromCurrency, rate);
                       }
                     }
                   });
@@ -546,7 +546,8 @@ export default function CurrencyForexPage() {
             <Typography variant="body2" component="div">
               <ul style={{ marginTop: 4, paddingLeft: 20, marginBottom: 0 }}>
                 <li>
-                  <strong>Current API Rate:</strong> Latest exchange rate from ExchangeRate-API
+                  <strong>Current Rate:</strong> How many rupees (₹) you get/pay for 1 unit of
+                  foreign currency (e.g., 1 USD = ₹83.33)
                 </li>
                 <li>
                   <strong>Last Bank Rate:</strong> The actual rate used by your bank in the most

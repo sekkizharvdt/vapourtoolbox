@@ -143,8 +143,8 @@ export const fetchDailyExchangeRates = onSchedule(
 
         const rateDoc = db.collection('exchangeRates').doc();
         batch.set(rateDoc, {
-          fromCurrency: BASE_CURRENCY,
-          toCurrency: currency,
+          fromCurrency: currency,
+          toCurrency: BASE_CURRENCY,
           baseCurrency: BASE_CURRENCY,
           rate: businessRate, // 83.33 (1 USD = 83.33 INR)
           inverseRate: apiRate, // 0.012 (1 INR = 0.012 USD)
@@ -261,8 +261,8 @@ export const manualFetchExchangeRates = onCall(
 
         const rateDoc = db.collection('exchangeRates').doc();
         batch.set(rateDoc, {
-          fromCurrency: BASE_CURRENCY,
-          toCurrency: currency,
+          fromCurrency: currency,
+          toCurrency: BASE_CURRENCY,
           baseCurrency: BASE_CURRENCY,
           rate: businessRate, // 83.33 (1 USD = 83.33 INR)
           inverseRate: apiRate, // 0.012 (1 INR = 0.012 USD)
@@ -391,8 +391,8 @@ export const seedHistoricalExchangeRates = onCall(
 
           const rateDoc = db.collection('exchangeRates').doc();
           batch.set(rateDoc, {
-            fromCurrency: BASE_CURRENCY,
-            toCurrency: currency,
+            fromCurrency: currency,
+            toCurrency: BASE_CURRENCY,
             baseCurrency: BASE_CURRENCY,
             rate,
             inverseRate: parseFloat((1 / rate).toFixed(6)),
