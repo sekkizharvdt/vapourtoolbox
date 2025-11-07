@@ -30,6 +30,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   Assessment as AssessmentIcon,
+  CloudUpload as ImportIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
@@ -38,6 +39,7 @@ import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { BankStatement } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { CreateBankStatementDialog } from './components/CreateBankStatementDialog';
+import { ImportBankStatementDialog } from './components/ImportBankStatementDialog';
 import { ReconciliationWorkspace } from './components/ReconciliationWorkspace';
 
 type TabValue = 'statements' | 'reconcile';
@@ -47,6 +49,7 @@ export default function BankReconciliationPage() {
   const [statements, setStatements] = useState<BankStatement[]>([]);
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedStatementId, setSelectedStatementId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabValue>('statements');
 
@@ -133,9 +136,18 @@ export default function BankReconciliationPage() {
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4">Bank Reconciliation</Typography>
         {activeTab === 'statements' && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateStatement}>
-            New Bank Statement
-          </Button>
+          <Stack direction="row" spacing={2}>
+            <Button
+              variant="outlined"
+              startIcon={<ImportIcon />}
+              onClick={() => setImportDialogOpen(true)}
+            >
+              Import CSV
+            </Button>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateStatement}>
+              New Bank Statement
+            </Button>
+          </Stack>
         )}
         {activeTab === 'reconcile' && (
           <Button variant="outlined" onClick={handleBackToStatements}>
@@ -317,6 +329,11 @@ export default function BankReconciliationPage() {
       <CreateBankStatementDialog
         open={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
+      />
+
+      <ImportBankStatementDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
       />
     </Box>
   );
