@@ -14,6 +14,7 @@ VDT-Unified is a comprehensive enterprise resource planning system for Vapour De
 ### Recently Completed Features
 
 #### 1. Role-Based Access Control (RBAC) System
+
 - **Status**: ✅ Complete
 - Bitwise permission system supporting 20+ granular permissions
 - 12 predefined roles (SUPER_ADMIN, DIRECTOR, HR_ADMIN, etc.)
@@ -23,6 +24,7 @@ VDT-Unified is a comprehensive enterprise resource planning system for Vapour De
 - Firestore Security Rules enforcement
 
 #### 2. Comprehensive Audit Logging System
+
 - **Status**: ✅ Complete
 - 35+ tracked audit actions across all entity types
 - Severity levels: INFO, WARNING, ERROR, CRITICAL
@@ -33,6 +35,7 @@ VDT-Unified is a comprehensive enterprise resource planning system for Vapour De
 - Verification tools for testing
 
 #### 3. User Management System
+
 - **Status**: ✅ Complete
 - User lifecycle management (creation, activation, deactivation, deletion)
 - Domain-based access control (internal/external users)
@@ -41,37 +44,56 @@ VDT-Unified is a comprehensive enterprise resource planning system for Vapour De
 - Comprehensive audit trail for all user operations
 
 #### 4. Project & Entity Management
+
 - **Status**: ✅ Complete
 - Project creation and management
 - Entity (suppliers, clients, partners) management
 - Project-based access control
 - Card-based viewer interface
 
+#### 5. Module Integration Dashboard (November 2025)
+
+- **Status**: ✅ Complete
+- Super-admin dashboard for managing cross-module integrations
+- Four-quadrant visualization (incoming, outgoing, dependencies, reporting)
+- 18 Accounting module integration definitions documented
+- Real-time integration data with Firestore listeners
+- Status tracking (active, planned, in-development)
+- Field mappings and trigger conditions documented
+- Cloud Function for seeding integration data (SUPER_ADMIN only)
+- Cross-module reference fields added to VendorBill and VendorPayment types
+- **Future Phase**: Live integration event tracking and monitoring
+
 ---
 
 ## Immediate Priorities (Q4 2025)
 
 ### 1. Code Organization & Cleanup
+
 - **Priority**: High
 - **Effort**: 1-2 days
 
 **Tasks**:
+
 - Move root-level utility scripts to `scripts/` folder
 - Organize scripts by category (user-management, testing, migration, etc.)
 - Create README in scripts folder documenting each utility
 - Update any documentation referencing script paths
 
 **Scripts to Organize**:
+
 - User management: `check-user-*.js`, `update-all-users-domain.js`, `fix-all-users-domain.js`, `migrate-user-data.js`
 - Testing/Debug: `debug-user.js`, `trigger-*.js`, `test-role-change.js`
 - Permissions: `check-all-permissions.js`, `grant-entity-permissions.js`, `reset-permissions-to-roles.js`, `add-project-permissions.js`
 - Audit: `check-audit-logs.js`
 
 ### 2. UI/UX Improvements - List-Based Viewers
+
 - **Priority**: High
 - **Effort**: 3-5 days
 
 **Entity Page Conversion**:
+
 - Replace card-based layout with data table/list view
 - Add column sorting and filtering
 - Implement search functionality
@@ -81,22 +103,26 @@ VDT-Unified is a comprehensive enterprise resource planning system for Vapour De
 - Column visibility toggles
 
 **Project Page Conversion**:
+
 - Similar improvements as entity page
 - Project-specific filters (status, date range, assigned users)
 - Quick actions menu
 - Inline editing capabilities
 
 **Technical Implementation**:
+
 - Use existing UI component library (shadcn/ui or similar)
 - Implement with React Table or TanStack Table
 - Maintain responsive design for mobile/tablet
 - Add keyboard navigation support
 
 ### 3. Multiple Contacts for Entities
+
 - **Priority**: Medium-High
 - **Effort**: 2-3 days
 
 **Features**:
+
 - Add contacts array to entity data model
 - Contact fields: name, email, phone, role, isPrimary
 - UI for adding/editing/removing contacts
@@ -105,6 +131,7 @@ VDT-Unified is a comprehensive enterprise resource planning system for Vapour De
 - Contact search within entity
 
 **Data Model Update**:
+
 ```typescript
 interface EntityContact {
   id: string;
@@ -126,6 +153,7 @@ interface Entity {
 ```
 
 **Audit Trail**:
+
 - Track contact additions, modifications, deletions
 - Include contact changes in entity audit logs
 
@@ -134,10 +162,12 @@ interface Entity {
 ## Short-Term Enhancements (Q1 2026)
 
 ### 1. Audit Log Management Interface
+
 - **Priority**: High
 - **Effort**: 5-7 days
 
 **Admin Dashboard**:
+
 - Searchable audit log viewer
 - Advanced filtering (date range, action type, severity, actor, entity)
 - Export audit logs (CSV, JSON, PDF)
@@ -145,22 +175,26 @@ interface Entity {
 - Real-time audit log streaming
 
 **Alert System**:
+
 - Configurable alerts for CRITICAL and ERROR severity events
 - Email notifications for security events
 - Slack/Teams integration for alerts
 - Alert rules configuration UI
 
 **Retention Policy**:
+
 - Automated archival of old audit logs (>90 days)
 - Cold storage for compliance (7 years)
 - Audit log compression for archived data
 - Restore from archive functionality
 
 ### 2. Enhanced Permission Management
+
 - **Priority**: Medium
 - **Effort**: 3-5 days
 
 **Features**:
+
 - Permission matrix UI (visual representation)
 - Custom role builder with drag-and-drop permissions
 - Temporary permission grants (time-limited)
@@ -169,10 +203,12 @@ interface Entity {
 - Bulk role assignment
 
 ### 3. Advanced Entity Management
+
 - **Priority**: Medium
 - **Effort**: 5-7 days
 
 **Features**:
+
 - Entity relationships (parent/child entities)
 - Entity merging (duplicate detection and merge)
 - Entity versioning/history
@@ -181,10 +217,12 @@ interface Entity {
 - Entity tags and categories
 
 ### 4. Time Tracking Enhancements
+
 - **Priority**: Medium
 - **Effort**: 5-7 days
 
 **Features**:
+
 - Time tracking for multiple projects simultaneously
 - Automated time reminders
 - Time approval workflow
@@ -197,10 +235,12 @@ interface Entity {
 ## Medium-Term Features (Q2-Q3 2026)
 
 ### 1. Financial Management Module
+
 - **Priority**: High
 - **Effort**: 15-20 days
 
 **Features**:
+
 - Invoice generation and tracking
 - Expense management
 - Budget vs. actual reporting
@@ -209,10 +249,12 @@ interface Entity {
 - Integration with accounting software (QuickBooks, Xero)
 
 ### 2. Procurement Workflow Automation
+
 - **Priority**: High
 - **Effort**: 10-15 days
 
 **Features**:
+
 - Purchase request workflow
 - Approval chains (configurable)
 - Vendor comparison and selection
@@ -221,10 +263,12 @@ interface Entity {
 - Procurement analytics
 
 ### 3. Advanced Reporting & Analytics
+
 - **Priority**: Medium-High
 - **Effort**: 10-15 days
 
 **Features**:
+
 - Custom report builder
 - Scheduled reports (daily, weekly, monthly)
 - Dashboard customization
@@ -233,10 +277,12 @@ interface Entity {
 - KPI tracking and alerts
 
 ### 4. Document Management System
+
 - **Priority**: Medium
 - **Effort**: 8-10 days
 
 **Features**:
+
 - Centralized document repository
 - Version control for documents
 - Document approval workflows
@@ -245,10 +291,12 @@ interface Entity {
 - E-signature integration
 
 ### 5. Notification System
+
 - **Priority**: Medium
 - **Effort**: 5-7 days
 
 **Features**:
+
 - In-app notifications
 - Email notifications
 - Push notifications (for mobile)
@@ -261,14 +309,17 @@ interface Entity {
 ## Long-Term Vision (Q4 2026 and beyond)
 
 ### 1. Mobile Application
+
 - **Priority**: High
 - **Effort**: 30-40 days
 
 **Platforms**:
+
 - iOS (React Native or Flutter)
 - Android (React Native or Flutter)
 
 **Core Features**:
+
 - View projects and entities
 - Time tracking
 - Approval workflows
@@ -277,10 +328,12 @@ interface Entity {
 - Photo/document capture
 
 ### 2. API & Integration Platform
+
 - **Priority**: Medium-High
 - **Effort**: 15-20 days
 
 **Features**:
+
 - RESTful API for third-party integrations
 - GraphQL API for flexible data querying
 - Webhook support for event-driven integrations
@@ -289,6 +342,7 @@ interface Entity {
 - Rate limiting and quotas
 
 **Integration Targets**:
+
 - Accounting software (QuickBooks, Xero, Sage)
 - CRM systems (Salesforce, HubSpot)
 - Project management tools (Jira, Asana)
@@ -296,10 +350,12 @@ interface Entity {
 - Calendar systems (Google Calendar, Outlook)
 
 ### 3. Multi-Tenancy & White-Label Support
+
 - **Priority**: Medium
 - **Effort**: 20-25 days
 
 **Features**:
+
 - Separate data isolation per tenant
 - Custom branding per tenant
 - Tenant-specific configurations
@@ -308,10 +364,12 @@ interface Entity {
 - Tenant analytics
 
 ### 4. Advanced Security Features
+
 - **Priority**: High
 - **Effort**: 10-15 days
 
 **Features**:
+
 - Two-factor authentication (2FA)
 - Single Sign-On (SSO) via SAML/OAuth
 - IP allowlisting
@@ -320,10 +378,12 @@ interface Entity {
 - Compliance reporting (GDPR, SOC2)
 
 ### 5. AI & Machine Learning Features
+
 - **Priority**: Low-Medium
 - **Effort**: 20-30 days
 
 **Features**:
+
 - Intelligent document classification
 - Anomaly detection in financial data
 - Project timeline prediction
@@ -332,10 +392,12 @@ interface Entity {
 - Chatbot for common tasks
 
 ### 6. Performance & Scalability
+
 - **Priority**: Medium
 - **Effort**: Ongoing
 
 **Improvements**:
+
 - Database query optimization
 - Caching layer (Redis)
 - CDN for static assets
@@ -383,24 +445,28 @@ interface Entity {
 ## Success Metrics
 
 ### User Adoption
+
 - Active users per month
 - User retention rate
 - Feature usage statistics
 - User satisfaction scores
 
 ### Performance
+
 - Page load times < 2 seconds
 - API response times < 500ms
 - 99.9% uptime
 - Error rate < 0.1%
 
 ### Security
+
 - Zero security breaches
 - All audit logs captured
 - Regular security audits passed
 - Compliance requirements met
 
 ### Business Impact
+
 - Reduction in manual processes
 - Time saved per user per week
 - Cost savings from automation
@@ -411,17 +477,20 @@ interface Entity {
 ## Resource Requirements
 
 ### Immediate Priorities (Next 30 Days)
+
 - 1 Frontend Developer (React/TypeScript)
 - 1 Backend Developer (Firebase/Node.js)
 - Part-time QA/Testing
 
 ### Short-Term (Next 90 Days)
+
 - 2 Frontend Developers
 - 1 Backend Developer
 - 1 UI/UX Designer
 - 1 QA Engineer
 
 ### Long-Term (6+ Months)
+
 - 3-4 Frontend Developers
 - 2-3 Backend Developers
 - 1 DevOps Engineer
@@ -473,6 +542,7 @@ interface Entity {
 This roadmap represents a comprehensive plan for evolving VDT-Unified from its current production-ready state into a world-class enterprise resource planning system. The prioritization balances immediate user needs, technical excellence, and long-term strategic vision.
 
 **Key Focus Areas**:
+
 1. Continuous improvement of core features
 2. Enhanced user experience and productivity
 3. Robust security and compliance
@@ -484,6 +554,7 @@ Regular reviews and updates to this roadmap will ensure alignment with business 
 ---
 
 **Document Control**:
+
 - Created: October 2025
 - Last Updated: October 2025
 - Next Review: January 2026

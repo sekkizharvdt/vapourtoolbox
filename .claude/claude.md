@@ -1453,6 +1453,375 @@ pnpm type-check
 
 ---
 
+## Development Lessons & Patterns
+
+This section captures key lessons learned during development that inform future architectural decisions and implementation approaches.
+
+### Lesson 1: Cloud Functions Cannot Import Workspace Packages ⚠️
+
+**Context:** Module Integration System - `seedAccountingIntegrations` function
+**Date:** November 2025
+
+**Problem:**
+
+```typescript
+// ❌ This failed during deployment
+import { getAllPermissions } from '@vapour/constants';
+
+const allPermissions = getAllPermissions(); // Cannot find module '@vapour/constants'
+```
+
+**Root Cause:**
+Cloud Functions are deployed as standalone packages and cannot access monorepo workspace dependencies (`workspace:*` in package.json).
+
+**Solution:**
+
+```typescript
+// ✅ Hardcode constants or copy utility functions
+const ALL_PERMISSIONS = 134217727; // All 27 permission bits set
+// Calculated as: (1 << 27) - 1 = 134,217,727
+```
+
+**Best Practices:**
+
+- Keep Cloud Functions self-contained
+- Avoid importing from `@vapour/*` packages in functions/
+- Use environment variables for configuration
+- Copy shared utilities into functions/ if needed
+- Inline constants with clear documentation
+
+**When to Apply:**
+Every time you write a Cloud Function that needs shared constants or utilities.
+
+---
+
+### Lesson 2: Integration Dashboard - Blueprint vs Live Monitoring 📋
+
+**Context:** Super-Admin Module Integration Dashboard
+**Date:** November 2025
+
+**Decision:** Built integration registry/blueprint first, NOT live monitoring
+
+**Rationale:**
+
+1. **Other modules don't exist yet** - Procurement, Projects, HR, Inventory not built
+2. **No integration events to monitor** - No actual data flows happening
+3. **Blueprint serves as specification** - Documents WHAT should happen, not WHAT IS happening
+4. **Development roadmap** - Status field (active/planned) tracks implementation progress
+
+**Two-Phase Approach:**
+
+**Phase 1 (Built - November 2025):**
+
+```typescript
+interface ModuleIntegration {
+  // Static definitions showing WHAT integrations should exist
+  sourceModule: 'procurement';
+  targetModule: 'accounting';
+  dataType: 'Vendor Invoices → Bills';
+  status: 'planned'; // Not yet implemented
+  fieldMappings: [...]; // How data WILL transform
+}
+```
+
+**Phase 2 (Future):**
+
+```typescript
+interface IntegrationEvent {
+  // Runtime tracking showing HOW MUCH data flows
+  sourceModule: 'procurement';
+  targetModule: 'accounting';
+  sourceDocumentId: 'VI-001';
+  targetDocumentId: 'BILL-234';
+  status: 'SUCCESS';
+  createdAt: Timestamp.now();
+}
+
+// Dashboard shows:
+// "Procurement → Accounting: 45 events this month, 98% success rate"
+```
+
+**Best Practice:**
+
+- Document planned integrations early as executable specifications
+- Use integration registry as development roadmap
+- Add live monitoring only when integrations are actually running
+- Status field bridges planning and implementation phases
+
+**When to Apply:**
+When building cross-module features before all modules exist.
+
+---
+
+### Lesson 3: Cross-Module Reference Fields Added Proactively 🔗
+
+**Context:** VendorBill and VendorPayment type extensions
+**Date:** November 2025
+
+**Approach:** Added optional integration fields BEFORE Procurement module exists
+
+**Fields Added:**
+
+```typescript
+interface VendorBill {
+  // Existing fields...
+
+  // ✅ Added proactively (all optional)
+  sourceModule?: 'procurement' | 'projects' | null;
+  sourceDocumentId?: string;
+  sourceDocumentType?: 'vendorInvoice' | 'projectExpense' | null;
+}
+
+interface VendorPayment {
+  // Existing fields...
+
+  // ✅ Added proactively (all optional)
+  notifyModules?: Array<'procurement' | 'projects'>;
+  sourceReferences?: Array<{
+    module: 'procurement' | 'projects';
+    documentId: string;
+    documentType: string;
+  }>;
+}
+```
+
+**Benefits:**
+
+1. **No schema migration needed** when Procurement launches
+2. **Existing bills/payments unaffected** (fields optional, defaults undefined)
+3. **Integration code can be added incrementally** without breaking changes
+4. **Clear architectural intent** documented in types
+
+**Tradeoffs:**
+
+- ⚠️ Adds unused fields to schema initially (minimal cost)
+- ⚠️ Could confuse developers if not documented (solved with comments)
+- ✅ Avoids future data migration complexity
+- ✅ Enables smooth integration rollout
+
+**Best Practice:**
+
+- Add cross-module reference fields early if architecture is clear
+- Make fields optional to avoid breaking existing documents
+- Document the purpose and future usage in type comments
+- Include in integration blueprint documentation
+
+**When to Apply:**
+When designing data models for modules that will integrate with future (not yet built) modules.
+
+**Anti-Pattern to Avoid:**
+
+```typescript
+// ❌ DON'T wait until integration time
+// This requires:
+// 1. Type changes
+// 2. Data migration for existing documents
+// 3. Backward compatibility handling
+// 4. Potential downtime during migration
+```
+
+---
+
+### Lesson 4: Super-Admin Permission Pattern 👑
+
+**Context:** Super-admin dashboard access control
+**Date:** November 2025
+
+**Approach:** Check if user has ALL permissions (bitwise equality)
+
+**Implementation:**
+
+**Frontend:**
+
+```typescript
+import { getAllPermissions } from '@vapour/constants';
+
+const isSuperAdmin = (claims?.permissions || 0) === getAllPermissions();
+// Returns true only if user has every single permission bit set
+```
+
+**Backend (Cloud Functions):**
+
+```typescript
+const ALL_PERMISSIONS = 134217727; // All 27 permission bits
+const userPermissions = request.auth.token.permissions as number;
+
+if (userPermissions !== ALL_PERMISSIONS) {
+  throw new HttpsError('permission-denied', 'Super Admin required');
+}
+```
+
+**Why Bitwise Equality?**
+
+```
+getAllPermissions() = (1 << 27) - 1 = 134,217,727
+                    = 0b111111111111111111111111111 (27 ones)
+
+Super-Admin = user with EVERY permission bit set
+            ≠ user with a separate "super-admin" role flag
+```
+
+**Benefits:**
+
+- ✅ No separate super-admin flag needed
+- ✅ Automatically includes any new permissions added
+- ✅ Clear semantic meaning: "has all permissions"
+- ✅ Works with existing bitwise permission system
+
+**Best Practice:**
+
+- Use bitwise equality check for super-admin (`=== getAllPermissions()`)
+- Don't create separate `isSuperAdmin` flag in database
+- Document the constant value (134217727) when used in Cloud Functions
+- Use `getAllPermissions()` helper in frontend code
+
+**When to Apply:**
+Anytime you need to restrict access to super-admin-only features (system configuration, integration management, global settings).
+
+---
+
+### Lesson 5: Four-Quadrant Integration Visualization 📊
+
+**Context:** Accounting Integration Dashboard UI
+**Date:** November 2025
+
+**Pattern:** Organize integrations by data flow direction, not by partner module
+
+**Four Quadrants:**
+
+```
+┌─────────────────────┬─────────────────────┐
+│  Incoming Data (6)  │  Outgoing Data (5)  │
+│  Module RECEIVES    │  Module SENDS       │
+│                     │                     │
+│  Procurement →      │  → Procurement      │
+│  Projects →         │  → Projects         │
+│  HR →               │  → Management       │
+│  Inventory →        │                     │
+├─────────────────────┼─────────────────────┤
+│  Dependencies (3)   │  Reporting Data (4) │
+│  Module RELIES ON   │  Module PROVIDES    │
+│                     │                     │
+│  Entities (Vendors) │  → Projects Reports │
+│  Entities (Customers│  → Procurement Rpt  │
+│  Projects (List)    │  → Management Dash  │
+└─────────────────────┴─────────────────────┘
+```
+
+**Alternative Approaches Considered:**
+
+**❌ By Partner Module:**
+
+```
+Procurement ─────────────────────────────
+├─ Vendor Invoices → Bills (Incoming)
+└─ Payment Confirmations ← (Outgoing)
+
+Projects ────────────────────────────────
+├─ Project Expenses → Transactions (Incoming)
+└─ Actual Costs ← (Outgoing)
+```
+
+**Problem:** Doesn't show the module's role clearly; mixes directions
+
+**❌ Chronological (by implementation date):**
+**Problem:** Doesn't help understand data dependencies
+
+**✅ By Direction (Chosen):**
+**Benefits:**
+
+1. **Clear role visualization** - Immediately see what module does
+2. **Identify bidirectional flows** - Same partner appears in multiple quadrants
+3. **Non-technical understanding** - Stakeholders grasp data movement
+4. **Architectural patterns visible** - Dependencies separate from operations
+
+**Best Practice:**
+
+- Visualize integrations by direction: incoming, outgoing, dependency, reporting
+- Use quadrant layout for balanced visual representation
+- Color-code by status (green=active, gray=planned)
+- Include counts in quadrant headers (e.g., "Incoming Data (6)")
+
+**When to Apply:**
+When designing dashboards showing cross-module relationships, data flows, or system architecture.
+
+---
+
+### Lesson 6: Integration Status as Development Roadmap 🗺️
+
+**Context:** 18 integrations with "active" vs "planned" status
+**Date:** November 2025
+
+**Approach:** Use integration status field to track implementation progress
+
+**Status Flow:**
+
+```
+planned → in-development → active
+```
+
+**Status Definitions:**
+
+```typescript
+type IntegrationStatus =
+  | 'planned' // Documented, not yet implemented
+  | 'in-development' // Currently being built
+  | 'active'; // Implemented and functional
+```
+
+**Example Usage:**
+
+```typescript
+// When documenting new integration
+{
+  sourceModule: 'procurement',
+  targetModule: 'accounting',
+  dataType: 'Vendor Invoices → Bills',
+  status: 'planned', // ← Clearly shows this is future work
+  fieldMappings: [...], // ← Serves as implementation spec
+}
+
+// When starting implementation
+await updateIntegrationStatus(integrationId, 'in-development');
+
+// After deploying Cloud Function
+await updateIntegrationStatus(integrationId, 'active');
+```
+
+**Dashboard Benefits:**
+
+```
+Summary Statistics:
+├─ Total: 18 integrations
+├─ Active: 3 (17%)     [What's working TODAY]
+└─ Planned: 15 (83%)   [What's coming NEXT]
+
+Status Filter:
+├─ All: Show everything
+├─ Active: Show only working integrations
+└─ Planned: Show development roadmap
+```
+
+**Benefits:**
+
+1. **Dashboard shows current vs future state** clearly
+2. **Development roadmap visible in UI** without separate tracking tool
+3. **Easy to communicate to stakeholders** what's working today
+4. **Progress tracking** built into the system
+5. **No separate project management needed** for integration status
+
+**Best Practice:**
+
+- Use status field in integration registry as implementation tracker
+- Update status as work progresses (planned → in-development → active)
+- Show status prominently in UI with color coding
+- Filter by status to separate planning from operations
+
+**When to Apply:**
+When building systems with phased rollouts or when all features won't be implemented simultaneously.
+
+---
+
 ## Priority Guidelines
 
 ### When working on VDT-Unified, prioritize in this order:
