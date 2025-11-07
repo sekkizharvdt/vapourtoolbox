@@ -10,7 +10,22 @@
       "Bash(firebase functions:config:set:*)",
       "Bash(.env.local)",
       "Bash(firebase functions:secrets:set:*)",
-      "Bash(firebase functions:config:get:*)"
+      "Bash(firebase functions:config:get:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: configure ExchangeRate-API integration with Firebase Secrets\n\nAdd ExchangeRate-API key (dcd853044afedfab1e1c18a1) configuration:\n- Add secrets parameter to fetchDailyExchangeRates scheduler\n- Add secrets parameter to manualFetchExchangeRates callable function\n- Configure EXCHANGERATE_API_KEY as Firebase secret\n\nThis enables:\n- Automatic daily exchange rate fetching at 9:00 AM IST\n- Manual rate refresh via Cloud Function\n- Secure API key storage using Firebase Secrets Manager\n\nAPI Details:\n- Provider: ExchangeRate-API (https://www.exchangerate-api.com)\n- Base Currency: INR\n- Supported Currencies: USD, EUR, GBP, SGD, AED\n- Update Frequency: Daily\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(firebase deploy:*)",
+      "Bash(firebase functions:config:unset:*)",
+      "Bash(firebase functions:delete:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nchore: migrate from .env to Firebase Secrets for API key\n\nRemove EXCHANGERATE_API_KEY from .env file as it''s now managed\nthrough Firebase Secrets Manager for better security.\n\nMigration:\n- Removed: EXCHANGERATE_API_KEY from functions/.env\n- Using: Firebase Secret EXCHANGERATE_API_KEY\n- Updated: functions/src/currency.ts to use secrets parameter\n\nBenefits:\n- Improved security with automatic secret rotation support\n- Centralized secret management\n- No plaintext API keys in repository\n- Easier secret auditing and access control\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "WebSearch",
+      "WebFetch(domain:stackoverflow.com)",
+      "Bash(gcloud projects describe:*)",
+      "Bash(gcloud functions describe:*)",
+      "Bash(npm run build:*)",
+      "Bash(pnpm build:*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []

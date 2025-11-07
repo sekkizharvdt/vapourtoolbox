@@ -21,12 +21,7 @@ import {
   Alert,
   Chip,
 } from '@mui/material';
-import {
-  Refresh as RefreshIcon,
-  TrendingUp as GainIcon,
-  TrendingDown as LossIcon,
-  AccountBalance as ExposureIcon,
-} from '@mui/icons-material';
+import { Refresh as RefreshIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewFinancialReports, canCreateTransactions } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
@@ -47,7 +42,6 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type {
   CurrencyCode,
   ExchangeRate,
-  ForexGainLoss,
   CurrencyConfiguration,
   BaseTransaction,
 } from '@vapour/types';
@@ -85,7 +79,6 @@ export default function CurrencyForexPage() {
   const { claims, user } = useAuth();
   const [tabValue, setTabValue] = useState(0);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
-  const [forexGainLoss, setForexGainLoss] = useState<ForexGainLoss[]>([]);
   const [currencyConfig, setCurrencyConfig] = useState<CurrencyConfiguration[]>([]);
   const [foreignTransactions, setForeignTransactions] = useState<BaseTransaction[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -230,33 +223,9 @@ export default function CurrencyForexPage() {
     fetchBankRates();
   }, [hasViewAccess, tabValue]);
 
-  // Load forex gain/loss
-  useEffect(() => {
-    if (!hasViewAccess || tabValue !== 1) return;
-
-    const { db } = getFirebase();
-    const q = query(
-      collection(db, COLLECTIONS.FOREX_GAIN_LOSS),
-      orderBy('transactionDate', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const entries = snapshot.docs.map(
-        (doc) =>
-          ({
-            id: doc.id,
-            ...doc.data(),
-          }) as unknown as ForexGainLoss
-      );
-      setForexGainLoss(entries);
-    });
-
-    return () => unsubscribe();
-  }, [hasViewAccess, tabValue]);
-
   // Load foreign currency transactions for bank settlement analysis
   useEffect(() => {
-    if (!hasViewAccess || tabValue !== 2) return;
+    if (!hasViewAccess || tabValue !== 1) return;
 
     const { db } = getFirebase();
     const q = query(
@@ -282,7 +251,7 @@ export default function CurrencyForexPage() {
 
   // Load currency configuration
   useEffect(() => {
-    if (!hasViewAccess || tabValue !== 3) return;
+    if (!hasViewAccess || tabValue !== 2) return;
 
     const { db } = getFirebase();
     const q = query(collection(db, COLLECTIONS.CURRENCY_CONFIG));
@@ -300,14 +269,6 @@ export default function CurrencyForexPage() {
 
     return () => unsubscribe();
   }, [hasViewAccess, tabValue]);
-
-  const formatCurrency = (amount: number, currency: CurrencyCode) => {
-    const info = CURRENCY_INFO[currency];
-    return `${info.symbol}${amount.toLocaleString('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  };
 
   const formatRate = (rate: number) => {
     return rate.toFixed(4);
@@ -356,7 +317,7 @@ export default function CurrencyForexPage() {
           Currency &amp; Forex Management
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Manage exchange rates, track forex gains/losses, and monitor currency exposure
+          Monitor exchange rates and analyze bank settlement margins
         </Typography>
       </Box>
 
@@ -367,7 +328,6 @@ export default function CurrencyForexPage() {
           sx={{ borderBottom: 1, borderColor: 'divider' }}
         >
           <Tab label="Exchange Rates" />
-          <Tab label="Forex Gain/Loss" />
           <Tab label="Bank Settlement" />
           <Tab label="Settings" />
         </Tabs>
@@ -619,166 +579,13 @@ export default function CurrencyForexPage() {
           </Box>
         </TabPanel>
 
-        {/* Forex Gain/Loss Tab */}
-        <TabPanel value={tabValue} index={1}>
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Forex Gain/Loss Report
-            </Typography>
-
-            {/* Summary Cards */}
-            <Grid container spacing={3} sx={{ mb: 3 }}>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <GainIcon color="success" />
-                      <Typography variant="body2" color="text.secondary">
-                        Realized Gain
-                      </Typography>
-                    </Box>
-                    <Typography variant="h5" color="success.main">
-                      {formatCurrency(
-                        forexGainLoss
-                          .filter((f) => f.type === 'REALIZED' && f.gainLossAmount > 0)
-                          .reduce((sum, f) => sum + f.gainLossAmount, 0),
-                        baseCurrency
-                      )}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <LossIcon color="error" />
-                      <Typography variant="body2" color="text.secondary">
-                        Realized Loss
-                      </Typography>
-                    </Box>
-                    <Typography variant="h5" color="error.main">
-                      {formatCurrency(
-                        Math.abs(
-                          forexGainLoss
-                            .filter((f) => f.type === 'REALIZED' && f.gainLossAmount < 0)
-                            .reduce((sum, f) => sum + f.gainLossAmount, 0)
-                        ),
-                        baseCurrency
-                      )}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <ExposureIcon color="primary" />
-                      <Typography variant="body2" color="text.secondary">
-                        Net Realized Gain/Loss
-                      </Typography>
-                    </Box>
-                    <Typography
-                      variant="h5"
-                      color={
-                        forexGainLoss.reduce((sum, f) => sum + f.gainLossAmount, 0) >= 0
-                          ? 'success.main'
-                          : 'error.main'
-                      }
-                    >
-                      {formatCurrency(
-                        forexGainLoss
-                          .filter((f) => f.type === 'REALIZED')
-                          .reduce((sum, f) => sum + f.gainLossAmount, 0),
-                        baseCurrency
-                      )}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </Box>
-
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Transaction</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Currency</TableCell>
-                  <TableCell align="right">Foreign Amount</TableCell>
-                  <TableCell align="right">Booking Rate</TableCell>
-                  <TableCell align="right">Settlement Rate</TableCell>
-                  <TableCell align="right">Gain/Loss</TableCell>
-                  <TableCell>Type</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {forexGainLoss.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="medium">
-                        {entry.transactionNumber}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {entry.transactionType}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {entry.transactionDate instanceof Timestamp
-                        ? entry.transactionDate.toDate().toLocaleDateString()
-                        : 'N/A'}
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <span>{CURRENCY_INFO[entry.foreignCurrency].flag}</span>
-                        <span>{entry.foreignCurrency}</span>
-                      </Box>
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(entry.foreignAmount, entry.foreignCurrency)}
-                    </TableCell>
-                    <TableCell align="right">{formatRate(entry.bookingRate)}</TableCell>
-                    <TableCell align="right">{formatRate(entry.settlementRate)}</TableCell>
-                    <TableCell align="right">
-                      <Typography
-                        color={entry.gainLossAmount >= 0 ? 'success.main' : 'error.main'}
-                        fontWeight="medium"
-                      >
-                        {formatCurrency(entry.gainLossAmount, baseCurrency)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={entry.type}
-                        size="small"
-                        color={entry.type === 'REALIZED' ? 'success' : 'warning'}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {forexGainLoss.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      <Typography variant="body2" color="text.secondary">
-                        No forex gain/loss entries found.
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </TabPanel>
-
         {/* Bank Settlement Tab */}
-        <TabPanel value={tabValue} index={2}>
+        <TabPanel value={tabValue} index={1}>
           <BankSettlementAnalysis transactions={foreignTransactions} baseCurrency={baseCurrency} />
         </TabPanel>
 
         {/* Settings Tab */}
-        <TabPanel value={tabValue} index={3}>
+        <TabPanel value={tabValue} index={2}>
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" gutterBottom>
               Currency Configuration
