@@ -32,6 +32,7 @@ import { canViewFinancialReports, canCreateTransactions } from '@vapour/constant
 import { getFirebase } from '@/lib/firebase';
 import ExchangeRateTrendChart from '@/components/accounting/currency/ExchangeRateTrendChart';
 import BankSettlementAnalysis from '@/components/accounting/currency/BankSettlementAnalysis';
+import { seedExchangeRates } from '@/lib/accounting/seedExchangeRates';
 import {
   collection,
   query,
@@ -98,26 +99,62 @@ export default function CurrencyForexPage() {
     Partial<Record<CurrencyCode, { rate: number; date: Date }>>
   >({});
   const [baseCurrency] = useState<CurrencyCode>('INR');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const hasViewAccess = claims?.permissions ? canViewFinancialReports(claims.permissions) : false;
   const hasCreateAccess = claims?.permissions ? canCreateTransactions(claims.permissions) : false;
+
+  // Function to seed rates with sample data
+  const handleSeedRates = async () => {
+    setRefreshing(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const result = await seedExchangeRates();
+      if (result.success) {
+        setSuccess(`Successfully seeded ${result.count} exchange rates for testing`);
+        setLastRefresh(new Date());
+      } else {
+        setError(result.error || 'Failed to seed exchange rates');
+      }
+    } catch (err) {
+      console.error('[Currency] Error seeding rates:', err);
+      setError('Failed to seed exchange rates');
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Function to fetch rates from API via Cloud Function
   const fetchExchangeRates = async () => {
     if (!hasCreateAccess || !user) return;
 
     setRefreshing(true);
+    setError(null);
+    setSuccess(null);
+
     try {
       const functions = getFunctions();
       const manualFetchRates = httpsCallable(functions, 'manualFetchExchangeRates');
 
       await manualFetchRates();
       setLastRefresh(new Date());
+      setSuccess('Successfully refreshed exchange rates from API');
+    } catch (err: any) {
+      console.error('[Currency] Error fetching rates:', err);
 
-      // Show success message (you can add a toast/snackbar here)
-    } catch (error) {
-      console.error('[Currency] Error fetching rates:', error);
-      // Show error message (you can add a toast/snackbar here)
+      // Check if it's an API key configuration error
+      if (err?.code === 'failed-precondition' || err?.message?.includes('API key')) {
+        setError(
+          'ExchangeRate API key not configured. Use "Seed Sample Data" button for testing, or contact administrator to set up the API key.'
+        );
+      } else {
+        setError(
+          err?.message || 'Failed to fetch exchange rates. Try using "Seed Sample Data" instead.'
+        );
+      }
     } finally {
       setRefreshing(false);
     }
@@ -156,13 +193,13 @@ export default function CurrencyForexPage() {
     return () => unsubscribe();
   }, [hasViewAccess]);
 
-  // Auto-fetch rates on first load if table is empty
+  // Auto-seed rates on first load if table is empty (instead of fetching from API)
   useEffect(() => {
     if (!hasViewAccess || !hasCreateAccess || tabValue !== 0) return;
 
-    // Only auto-fetch if we're on Exchange Rates tab and have no rates
-    if (exchangeRates.length === 0 && !refreshing) {
-      fetchExchangeRates();
+    // Only auto-seed if we're on Exchange Rates tab and have no rates
+    if (exchangeRates.length === 0 && !refreshing && !error && !success) {
+      handleSeedRates();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasViewAccess, hasCreateAccess, tabValue, exchangeRates.length]);
@@ -432,19 +469,43 @@ export default function CurrencyForexPage() {
                 Last updated: {getTimeAgo(lastRefresh)}
               </Typography>
             </Box>
-            <Box>
+            <Box sx={{ display: 'flex', gap: 1 }}>
               {hasCreateAccess && (
-                <Button
-                  variant="contained"
-                  startIcon={<RefreshIcon />}
-                  onClick={fetchExchangeRates}
-                  disabled={refreshing}
-                >
-                  {refreshing ? 'Fetching...' : 'Refresh Rates'}
-                </Button>
+                <>
+                  <Button
+                    variant="outlined"
+                    startIcon={<RefreshIcon />}
+                    onClick={handleSeedRates}
+                    disabled={refreshing}
+                  >
+                    {refreshing ? 'Loading...' : 'Seed Sample Data'}
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<RefreshIcon />}
+                    onClick={fetchExchangeRates}
+                    disabled={refreshing}
+                  >
+                    {refreshing ? 'Fetching...' : 'Refresh from API'}
+                  </Button>
+                </>
               )}
             </Box>
           </Box>
+
+          {/* Success Message */}
+          {success && (
+            <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+              {success}
+            </Alert>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
 
           {/* Age Warning */}
           {isRateStale(lastRefresh) === 'stale' && (
