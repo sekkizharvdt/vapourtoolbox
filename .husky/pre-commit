@@ -11,6 +11,15 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# Type safety check (detect 'as any' and other unsafe patterns)
+echo "🔍 Running type safety check..."
+if grep -r "as any" apps/web/src --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "node_modules"; then
+  echo "❌ Found 'as any' type casts! Please use proper typing instead."
+  echo "   See docs/TYPESCRIPT_GUIDELINES.md for guidance."
+  exit 1
+fi
+echo "✅ No prohibited type casts found"
+
 # Run pre-deployment checks (skip build and schema for speed)
 node scripts/preflight/pre-deployment-check.js --skip-build --skip-schema
 

@@ -28,6 +28,7 @@ import type {
   PurchaseOrder,
   PurchaseOrderItem,
   GoodsReceipt,
+  GoodsReceiptItem,
   CurrencyCode,
   PaymentAllocation,
 } from '@vapour/types';
@@ -109,11 +110,10 @@ export async function createBillFromGoodsReceipt(
     );
     const grItemsSnapshot = await getDocs(grItemsQuery);
     const goodsReceiptItems = grItemsSnapshot.docs.map((doc) => {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
       return {
         id: doc.id,
         ...doc.data(),
-      } as any; // GoodsReceiptItem type
+      } as unknown as GoodsReceiptItem;
     });
 
     // Fetch purchase order items for financial data
@@ -143,7 +143,7 @@ export async function createBillFromGoodsReceipt(
       }
 
       // Calculate amount based on accepted quantity
-      const acceptedQty = grItem.quantityAccepted || 0;
+      const acceptedQty = grItem.acceptedQuantity || 0;
       const itemSubtotal = acceptedQty * poItem.unitPrice;
       const itemGST = (itemSubtotal * (poItem.gstRate || 0)) / 100;
 

@@ -211,7 +211,9 @@ export default function RFQsPage() {
               <InputLabel>Sort By</InputLabel>
               <Select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
+                onChange={(e) =>
+                  setSortBy(e.target.value as 'number' | 'createdAt' | 'dueDate' | 'status')
+                }
                 label="Sort By"
               >
                 <MenuItem value="createdAt">Created Date</MenuItem>
@@ -225,7 +227,7 @@ export default function RFQsPage() {
               <InputLabel>Order</InputLabel>
               <Select
                 value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as any)}
+                onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
                 label="Order"
               >
                 <MenuItem value="desc">Descending</MenuItem>
