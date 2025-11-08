@@ -177,10 +177,10 @@ export function Sidebar({
       <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
         {modulesByCategory.map((category, index) => (
           <Box key={category.id}>
-            <List>
+            <List disablePadding sx={{ py: 1 }}>
               {/* Category Header */}
               {!collapsed && (
-                <ListItem>
+                <ListItem disablePadding>
                   <Typography
                     variant="caption"
                     color="text.secondary"
@@ -240,7 +240,7 @@ export function Sidebar({
             </List>
 
             {/* Add divider between categories except after the last one */}
-            {index < modulesByCategory.length - 1 && <Divider />}
+            {index < modulesByCategory.length - 1 && <Divider sx={{ my: 0 }} />}
           </Box>
         ))}
       </Box>
