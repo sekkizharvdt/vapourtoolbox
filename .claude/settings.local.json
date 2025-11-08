@@ -40,7 +40,14 @@
       "Bash(find:*)",
       "Bash(pnpm lint:*)",
       "Bash(pnpm exec next lint:*)",
-      "Bash(pnpm --filter @vapour/web lint:*)"
+      "Bash(pnpm --filter @vapour/web lint:*)",
+      "Bash(xargs ls:*)",
+      "Bash(pnpm check-type-safety:*)",
+      "Bash(node scripts/check-type-safety.js:*)",
+      "Bash(then echo \"❌ Found ''''as any'''' type casts!\" exit 1 else echo \"✅ No prohibited type casts found\" exit 0 fi)",
+      "Bash(pnpm exec tsc:*)",
+      "Bash(cat:*)",
+      "Bash(node /tmp/calculate-super-admin-permissions.js:*)"
     ],
     "deny": [],
     "ask": []
