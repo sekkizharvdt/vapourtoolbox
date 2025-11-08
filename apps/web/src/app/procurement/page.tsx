@@ -3,254 +3,178 @@
 /**
  * Procurement Module - Main Dashboard
  *
- * Overview of procurement workflow status and quick actions
+ * Card-based navigation to procurement workflows
  */
 
-import { useState, useEffect } from 'react';
 import {
-  Box,
-  Paper,
+  Container,
   Typography,
-  Stack,
+  Box,
   Card,
   CardContent,
+  CardActions,
   Button,
-  CircularProgress,
+  Grid,
 } from '@mui/material';
 import {
   Description as DescriptionIcon,
   RequestQuote as RequestQuoteIcon,
   ShoppingCart as ShoppingCartIcon,
   CheckCircle as CheckCircleIcon,
-  Inventory as InventoryIcon,
-  Add as AddIcon,
+  Assignment as AssignmentIcon,
+  LocalShipping as LocalShippingIcon,
+  Receipt as ReceiptIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { canViewProcurement } from '@vapour/constants';
 
-interface ProcurementStats {
-  pendingPRs: number;
-  activeRFQs: number;
-  pendingPOs: number;
-  awaitingReceipt: number;
-  completedThisMonth: number;
+interface ProcurementModule {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  path: string;
+  comingSoon?: boolean;
 }
 
 export default function ProcurementPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<ProcurementStats>({
-    pendingPRs: 0,
-    activeRFQs: 0,
-    pendingPOs: 0,
-    awaitingReceipt: 0,
-    completedThisMonth: 0,
-  });
+  const { claims } = useAuth();
 
-  useEffect(() => {
-    loadStats();
-  }, []);
+  // Check permissions
+  const hasViewAccess = claims?.permissions ? canViewProcurement(claims.permissions) : false;
 
-  const loadStats = async () => {
-    setLoading(true);
-    try {
-      // TODO: Load actual stats from Firestore
-      // For now, showing 0s (no mock data)
-      setStats({
-        pendingPRs: 0,
-        activeRFQs: 0,
-        pendingPOs: 0,
-        awaitingReceipt: 0,
-        completedThisMonth: 0,
-      });
-    } catch (error) {
-      console.error('[ProcurementPage] Error loading stats:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const statCards = [
+  const modules: ProcurementModule[] = [
     {
-      title: 'Pending PRs',
-      value: stats.pendingPRs,
-      icon: <DescriptionIcon />,
-      color: '#f57c00',
-      link: '/procurement/purchase-requests?status=pending',
+      title: 'Purchase Requests',
+      description: 'Create and manage purchase requests with approval workflow',
+      icon: <DescriptionIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/procurement/purchase-requests',
     },
     {
-      title: 'Active RFQs',
-      value: stats.activeRFQs,
-      icon: <RequestQuoteIcon />,
-      color: '#1976d2',
-      link: '/procurement/rfqs',
+      title: 'Engineering Approval',
+      description: 'Review and approve purchase requests from engineering perspective',
+      icon: <CheckCircleIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/procurement/engineering-approval',
     },
     {
-      title: 'Pending POs',
-      value: stats.pendingPOs,
-      icon: <ShoppingCartIcon />,
-      color: '#9c27b0',
-      link: '/procurement/purchase-orders?status=pending',
+      title: 'RFQs (Requests for Quotation)',
+      description: 'Issue RFQs to vendors, receive and compare quotations',
+      icon: <RequestQuoteIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/procurement/rfqs',
     },
     {
-      title: 'Awaiting Receipt',
-      value: stats.awaitingReceipt,
-      icon: <InventoryIcon />,
-      color: '#d32f2f',
-      link: '/procurement/purchase-orders?status=awaiting_receipt',
+      title: 'Purchase Orders',
+      description: 'Create, approve, and track purchase orders with vendors',
+      icon: <ShoppingCartIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/procurement/pos',
     },
     {
-      title: 'Completed This Month',
-      value: stats.completedThisMonth,
-      icon: <CheckCircleIcon />,
-      color: '#388e3c',
-      link: '/procurement/purchase-orders?status=completed',
+      title: 'Goods Receipt',
+      description: 'Record received goods, verify quality, and update inventory',
+      icon: <LocalShippingIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/procurement/goods-receipt',
+      comingSoon: true,
+    },
+    {
+      title: 'Work Completion',
+      description: 'Track service completion and acceptance for service POs',
+      icon: <AssignmentIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/procurement/work-completion',
+      comingSoon: true,
+    },
+    {
+      title: 'Packing Lists',
+      description: 'Manage packing lists for shipments and deliveries',
+      icon: <ReceiptIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/procurement/packing-lists',
+      comingSoon: true,
     },
   ];
 
-  const quickActions: Array<{
-    label: string;
-    icon: React.ReactNode;
-    onClick: () => void;
-    color: 'inherit' | 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning';
-  }> = [
-    {
-      label: 'New Purchase Request',
-      icon: <AddIcon />,
-      onClick: () => router.push('/procurement/purchase-requests/new'),
-      color: 'primary',
-    },
-    {
-      label: 'View All PRs',
-      icon: <DescriptionIcon />,
-      onClick: () => router.push('/procurement/purchase-requests'),
-      color: 'secondary',
-    },
-    {
-      label: 'Engineering Approvals',
-      icon: <CheckCircleIcon />,
-      onClick: () => router.push('/procurement/engineering-approval'),
-      color: 'info',
-    },
-  ];
-
-  if (loading) {
+  if (!hasViewAccess) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-        <CircularProgress />
-      </Box>
+      <Container maxWidth="xl">
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Procurement
+          </Typography>
+          <Typography variant="body1" color="error">
+            You do not have permission to access the Procurement module.
+          </Typography>
+        </Box>
+      </Container>
     );
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Stack spacing={3}>
-        {/* Header */}
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Box>
-            <Typography variant="h4" gutterBottom>
-              Procurement Dashboard
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Manage purchase requests, RFQs, purchase orders, and receipts
-            </Typography>
-          </Box>
-        </Stack>
+    <Container maxWidth="xl">
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Procurement
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          End-to-end procurement workflow: from purchase requests to goods receipt
+        </Typography>
+      </Box>
 
-        {/* Quick Actions */}
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Quick Actions
-          </Typography>
-          <Stack direction="row" spacing={2} flexWrap="wrap">
-            {quickActions.map((action, index) => (
-              <Button
-                key={index}
-                variant="contained"
-                color={action.color}
-                startIcon={action.icon}
-                onClick={action.onClick}
-                sx={{ mb: 1 }}
-              >
-                {action.label}
-              </Button>
-            ))}
-          </Stack>
-        </Paper>
-
-        {/* Stats Cards */}
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={2}
-          flexWrap="wrap"
-          sx={{
-            '& > *': {
-              flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 calc(20% - 8px)' },
-            },
-          }}
-        >
-          {statCards.map((card, index) => (
+      <Grid container spacing={3}>
+        {modules.map((module) => (
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={module.path}>
             <Card
-              key={index}
               sx={{
-                cursor: 'pointer',
-                transition: 'transform 0.2s, box-shadow 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: 4,
-                },
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                ...(module.comingSoon && {
+                  opacity: 0.7,
+                  backgroundColor: 'action.hover',
+                }),
               }}
-              onClick={() => router.push(card.link)}
             >
-              <CardContent>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      {card.title}
-                    </Typography>
-                    <Typography variant="h4" sx={{ color: card.color }}>
-                      {card.value}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ color: card.color, opacity: 0.8 }}>{card.icon}</Box>
-                </Stack>
+              {module.comingSoon && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    bgcolor: 'warning.main',
+                    color: 'warning.contrastText',
+                    px: 1,
+                    py: 0.5,
+                    borderRadius: 1,
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  Coming Soon
+                </Box>
+              )}
+
+              <CardContent sx={{ flexGrow: 1, textAlign: 'center', pt: 4 }}>
+                <Box sx={{ mb: 2 }}>{module.icon}</Box>
+                <Typography variant="h6" component="h2" gutterBottom>
+                  {module.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {module.description}
+                </Typography>
               </CardContent>
+
+              <CardActions sx={{ justifyContent: 'center', pb: 2 }}>
+                <Button
+                  variant="contained"
+                  onClick={() => router.push(module.path)}
+                  disabled={module.comingSoon}
+                >
+                  {module.comingSoon ? 'Coming Soon' : 'Open Module'}
+                </Button>
+              </CardActions>
             </Card>
-          ))}
-        </Stack>
-
-        {/* Empty State */}
-        {stats.pendingPRs === 0 &&
-          stats.activeRFQs === 0 &&
-          stats.pendingPOs === 0 &&
-          stats.awaitingReceipt === 0 && (
-            <Paper sx={{ p: 6, textAlign: 'center' }}>
-              <ShoppingCartIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-              <Typography variant="h6" gutterBottom>
-                No Active Procurement Items
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Get started by creating a new purchase request
-              </Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => router.push('/procurement/purchase-requests/new')}
-              >
-                Create Purchase Request
-              </Button>
-            </Paper>
-          )}
-
-        {/* Recent Activity (Placeholder) */}
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Recent Activity
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            No recent activity to display
-          </Typography>
-        </Paper>
-      </Stack>
-    </Box>
+          </Grid>
+        ))}
+      </Grid>
+    </Container>
   );
 }
