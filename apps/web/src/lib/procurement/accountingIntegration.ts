@@ -102,6 +102,20 @@ export async function createBillFromGoodsReceipt(
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
     const purchaseOrder = { id: poDoc.id, ...poDoc.data() } as PurchaseOrder;
 
+    // Fetch goods receipt items to calculate actual amounts
+    const grItemsQuery = query(
+      collection(db, COLLECTIONS.GOODS_RECEIPT_ITEMS),
+      where('goodsReceiptId', '==', goodsReceipt.id)
+    );
+    const grItemsSnapshot = await getDocs(grItemsQuery);
+    const goodsReceiptItems = grItemsSnapshot.docs.map((doc) => {
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      return {
+        id: doc.id,
+        ...doc.data(),
+      } as any; // GoodsReceiptItem type
+    });
+
     // Fetch purchase order items for financial data
     const poItemsQuery = query(
       collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS),
@@ -116,13 +130,49 @@ export async function createBillFromGoodsReceipt(
       } as PurchaseOrderItem;
     });
 
-    // Use amounts from purchase order (actual financial data)
-    const subtotal = purchaseOrder.subtotal;
-    const cgstAmount = purchaseOrder.cgst;
-    const sgstAmount = purchaseOrder.sgst;
-    const igstAmount = purchaseOrder.igst;
-    const totalGST = purchaseOrder.totalTax;
-    const totalAmount = purchaseOrder.grandTotal;
+    // Calculate bill amounts based on accepted quantities in goods receipt
+    let subtotal = 0;
+    let totalGST = 0;
+
+    for (const grItem of goodsReceiptItems) {
+      // Find corresponding PO item
+      const poItem = purchaseOrderItems.find((p) => p.id === grItem.poItemId);
+      if (!poItem) {
+        console.warn(`[accountingIntegration] PO item not found for GR item: ${grItem.id}`);
+        continue;
+      }
+
+      // Calculate amount based on accepted quantity
+      const acceptedQty = grItem.quantityAccepted || 0;
+      const itemSubtotal = acceptedQty * poItem.unitPrice;
+      const itemGST = (itemSubtotal * (poItem.gstRate || 0)) / 100;
+
+      subtotal += itemSubtotal;
+      totalGST += itemGST;
+    }
+
+    // If no items were accepted, use full PO amounts (shouldn't happen but failsafe)
+    if (subtotal === 0) {
+      console.warn('[accountingIntegration] No accepted items found, using full PO amounts');
+      subtotal = purchaseOrder.subtotal;
+      totalGST = purchaseOrder.totalTax;
+    }
+
+    const totalAmount = subtotal + totalGST;
+
+    // Determine GST split based on PO tax structure (proportional)
+    let cgstAmount = 0;
+    let sgstAmount = 0;
+    let igstAmount = 0;
+
+    if (purchaseOrder.igst > 0) {
+      // Interstate - all IGST
+      igstAmount = totalGST;
+    } else {
+      // Intrastate - split CGST/SGST
+      cgstAmount = totalGST / 2;
+      sgstAmount = totalGST / 2;
+    }
 
     // Generate transaction number
     const timestamp = Date.now();
