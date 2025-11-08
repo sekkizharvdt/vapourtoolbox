@@ -35,7 +35,12 @@
       "Bash(fi)",
       "Bash(done)",
       "Bash(pnpm --filter @vapour/web build:*)",
-      "Bash(pnpm --filter functions build:*)"
+      "Bash(pnpm --filter functions build:*)",
+      "Bash(pnpm type-check:*)",
+      "Bash(find:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm exec next lint:*)",
+      "Bash(pnpm --filter @vapour/web lint:*)"
     ],
     "deny": [],
     "ask": []

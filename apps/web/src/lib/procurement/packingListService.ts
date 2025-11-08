@@ -184,7 +184,7 @@ export async function createPackingList(
 
   await batch.commit();
 
-  console.log('[packingListService] Packing List created:', plRef.id, plNumber);
+  console.warn('[packingListService] Packing List created:', plRef.id, plNumber);
 
   return plRef.id;
 }
@@ -213,7 +213,7 @@ export async function updatePackingListStatus(
 
   await updateDoc(doc(db, COLLECTIONS.PACKING_LISTS, plId), updateData);
 
-  console.log('[packingListService] Packing List status updated:', plId, status);
+  console.warn('[packingListService] Packing List status updated:', plId, status);
 }
 
 export async function getPLById(plId: string): Promise<PackingList | null> {

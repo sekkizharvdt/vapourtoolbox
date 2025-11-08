@@ -270,7 +270,7 @@ export async function createRFQ(
 
   await batch.commit();
 
-  console.log('[rfqService] RFQ created:', rfqRef.id, rfqNumber);
+  console.warn('[rfqService] RFQ created:', rfqRef.id, rfqNumber);
 
   return rfqRef.id;
 }
@@ -510,7 +510,7 @@ export async function updateRFQ(
 
   await updateDoc(doc(db, COLLECTIONS.RFQS, rfqId), updateData);
 
-  console.log('[rfqService] RFQ updated:', rfqId);
+  console.warn('[rfqService] RFQ updated:', rfqId);
 }
 
 // ============================================================================
@@ -537,7 +537,7 @@ export async function issueRFQ(rfqId: string, userId: string): Promise<void> {
   // TODO: Generate PDF and store URL
   // TODO: Send notifications to procurement manager
 
-  console.log('[rfqService] RFQ issued:', rfqId);
+  console.warn('[rfqService] RFQ issued:', rfqId);
 }
 
 /**
@@ -559,7 +559,7 @@ export async function incrementOffersReceived(rfqId: string): Promise<void> {
     updatedAt: Timestamp.now(),
   });
 
-  console.log('[rfqService] Offer received count updated:', rfqId, newCount);
+  console.warn('[rfqService] Offer received count updated:', rfqId, newCount);
 }
 
 /**
@@ -582,7 +582,7 @@ export async function incrementOffersEvaluated(rfqId: string): Promise<void> {
     updatedAt: Timestamp.now(),
   });
 
-  console.log('[rfqService] Offer evaluated count updated:', rfqId, newCount);
+  console.warn('[rfqService] Offer evaluated count updated:', rfqId, newCount);
 }
 
 /**
@@ -607,7 +607,7 @@ export async function completeRFQ(
     updatedBy: userId,
   });
 
-  console.log('[rfqService] RFQ completed:', rfqId, selectedOfferId);
+  console.warn('[rfqService] RFQ completed:', rfqId, selectedOfferId);
 }
 
 /**
@@ -623,7 +623,7 @@ export async function cancelRFQ(rfqId: string, reason: string, userId: string): 
     updatedBy: userId,
   });
 
-  console.log('[rfqService] RFQ cancelled:', rfqId);
+  console.warn('[rfqService] RFQ cancelled:', rfqId);
 }
 
 // ============================================================================
@@ -649,5 +649,5 @@ export async function generateRFQPDFVersion(rfqId: string, pdfUrl: string): Prom
     updatedAt: Timestamp.now(),
   });
 
-  console.log('[rfqService] RFQ PDF version generated:', rfqId, newVersion);
+  console.warn('[rfqService] RFQ PDF version generated:', rfqId, newVersion);
 }

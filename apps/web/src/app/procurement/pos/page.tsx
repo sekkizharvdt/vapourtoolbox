@@ -55,6 +55,7 @@ export default function PurchaseOrdersPage() {
 
   useEffect(() => {
     loadPOs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
 
   useEffect(() => {

@@ -118,7 +118,11 @@ export async function createWorkCompletionCertificate(
 
   const wccRef = await addDoc(collection(db, COLLECTIONS.WORK_COMPLETION_CERTIFICATES), wccData);
 
-  console.log('[workCompletionService] Work Completion Certificate created:', wccRef.id, wccNumber);
+  console.warn(
+    '[workCompletionService] Work Completion Certificate created:',
+    wccRef.id,
+    wccNumber
+  );
 
   return wccRef.id;
 }

@@ -229,7 +229,7 @@ export async function createGoodsReceipt(
 
   await batch.commit();
 
-  console.log('[goodsReceiptService] Goods Receipt created:', grRef.id, grNumber);
+  console.warn('[goodsReceiptService] Goods Receipt created:', grRef.id, grNumber);
 
   return grRef.id;
 }
@@ -292,7 +292,7 @@ export async function completeGR(grId: string, userId: string, userEmail: string
     // Don't fail GR completion if bill creation fails
   }
 
-  console.log('[goodsReceiptService] Goods Receipt completed:', grId);
+  console.warn('[goodsReceiptService] Goods Receipt completed:', grId);
 }
 
 export async function approveGRForPayment(
@@ -324,5 +324,5 @@ export async function approveGRForPayment(
     console.error('[goodsReceiptService] Error creating payment:', err);
   }
 
-  console.log('[goodsReceiptService] Goods Receipt approved for payment:', grId);
+  console.warn('[goodsReceiptService] Goods Receipt approved for payment:', grId);
 }

@@ -254,7 +254,7 @@ export async function createOffer(
     // This is a non-critical update that can be manually corrected
   }
 
-  console.log('[offerService] Offer created:', offerRef.id, offerNumber);
+  console.warn('[offerService] Offer created:', offerRef.id, offerNumber);
 
   return offerRef.id;
 }
@@ -409,7 +409,7 @@ export async function updateOffer(
 
   await updateDoc(doc(db, COLLECTIONS.OFFERS, offerId), updateData);
 
-  console.log('[offerService] Offer updated:', offerId);
+  console.warn('[offerService] Offer updated:', offerId);
 }
 
 // ============================================================================
@@ -463,7 +463,7 @@ export async function evaluateOffer(
     // Don't fail offer evaluation if counter update fails
   }
 
-  console.log('[offerService] Offer evaluated:', offerId);
+  console.warn('[offerService] Offer evaluated:', offerId);
 }
 
 /**
@@ -503,7 +503,7 @@ export async function markOfferAsRecommended(
 
   await batch.commit();
 
-  console.log('[offerService] Offer marked as recommended:', offerId);
+  console.warn('[offerService] Offer marked as recommended:', offerId);
 }
 
 /**
@@ -553,7 +553,7 @@ export async function selectOffer(
 
   await batch.commit();
 
-  console.log('[offerService] Offer selected and RFQ completed:', offerId, offer.rfqId);
+  console.warn('[offerService] Offer selected and RFQ completed:', offerId, offer.rfqId);
 }
 
 /**
@@ -568,7 +568,7 @@ export async function rejectOffer(offerId: string, reason: string, _userId: stri
     updatedAt: Timestamp.now(),
   });
 
-  console.log('[offerService] Offer rejected:', offerId);
+  console.warn('[offerService] Offer rejected:', offerId);
 }
 
 /**
@@ -587,7 +587,7 @@ export async function withdrawOffer(
     updatedAt: Timestamp.now(),
   });
 
-  console.log('[offerService] Offer withdrawn:', offerId);
+  console.warn('[offerService] Offer withdrawn:', offerId);
 }
 
 // ============================================================================

@@ -241,7 +241,7 @@ export async function createPOFromOffer(
 
   await batch.commit();
 
-  console.log('[purchaseOrderService] PO created:', poRef.id, poNumber);
+  console.warn('[purchaseOrderService] PO created:', poRef.id, poNumber);
 
   return poRef.id;
 }
@@ -333,7 +333,7 @@ export async function submitPOForApproval(poId: string, userId: string): Promise
     updatedBy: userId,
   });
 
-  console.log('[purchaseOrderService] PO submitted for approval:', poId);
+  console.warn('[purchaseOrderService] PO submitted for approval:', poId);
 }
 
 export async function approvePO(
@@ -363,7 +363,7 @@ export async function approvePO(
     updatedBy: userId,
   });
 
-  console.log('[purchaseOrderService] PO approved:', poId);
+  console.warn('[purchaseOrderService] PO approved:', poId);
 
   // Create advance payment if required
   if (po.advancePaymentRequired && bankAccountId) {
@@ -380,7 +380,7 @@ export async function approvePO(
         updatedBy: userId,
       });
 
-      console.log('[purchaseOrderService] Advance payment created:', paymentId);
+      console.warn('[purchaseOrderService] Advance payment created:', paymentId);
     } catch (err) {
       console.error('[purchaseOrderService] Error creating advance payment:', err);
       // Note: PO is already approved, advance payment can be created manually
@@ -417,7 +417,7 @@ export async function rejectPO(
     updatedBy: userId,
   });
 
-  console.log('[purchaseOrderService] PO rejected:', poId);
+  console.warn('[purchaseOrderService] PO rejected:', poId);
 }
 
 export async function issuePO(poId: string, userId: string): Promise<void> {
@@ -433,7 +433,7 @@ export async function issuePO(poId: string, userId: string): Promise<void> {
     updatedBy: userId,
   });
 
-  console.log('[purchaseOrderService] PO issued:', poId);
+  console.warn('[purchaseOrderService] PO issued:', poId);
 }
 
 export async function updatePOStatus(
@@ -449,5 +449,5 @@ export async function updatePOStatus(
     updatedBy: userId,
   });
 
-  console.log('[purchaseOrderService] PO status updated:', poId, status);
+  console.warn('[purchaseOrderService] PO status updated:', poId, status);
 }
