@@ -11,11 +11,6 @@ import * as admin from 'firebase-admin';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
 /**
- * Currency codes we support
- */
-const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'SGD', 'AED'] as const;
-
-/**
  * Base currency for our exchange rates
  */
 const BASE_CURRENCY = 'INR';
