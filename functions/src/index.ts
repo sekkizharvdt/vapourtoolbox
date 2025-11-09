@@ -14,11 +14,10 @@ export { onTransactionWrite, recalculateAccountBalances } from './accountBalance
 export { createEntity } from './entities/createEntity';
 
 // Import currency exchange rate functions
-export {
-  fetchDailyExchangeRates,
-  manualFetchExchangeRates,
-  seedHistoricalExchangeRates,
-} from './currency';
+export { fetchDailyExchangeRates, manualFetchExchangeRates } from './currency';
+
+// Import project management functions
+export { onProjectCreated, onProjectUpdated } from './projects';
 
 // Import module integration functions
 export { seedAccountingIntegrations } from './moduleIntegrations';

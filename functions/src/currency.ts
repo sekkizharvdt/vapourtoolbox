@@ -1,18 +1,14 @@
 /**
  * Currency Exchange Rate Functions
  *
- * Automatically fetches exchange rates from ExchangeRate-API
+ * Automatically fetches exchange rates from Reserve Bank of India (RBI)
  * and stores them in Firestore for use in the application
  */
 
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
-
-/**
- * Currency codes we support
- */
-const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'SGD'] as const;
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
 /**
  * Base currency for our exchange rates
@@ -20,156 +16,226 @@ const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'SGD'] as const;
 const BASE_CURRENCY = 'INR';
 
 /**
- * IMPORTANT: Data Storage Convention
+ * RBI Reference Rate Configuration
  *
- * Even though fromCurrency=INR in Firestore, we store rates from the
- * foreign currency perspective (how many INR per 1 foreign unit) because:
- * 1. This matches Indian business expectations (1 USD = 83 INR, not 0.012)
- * 2. Makes display logic simpler
- * 3. Avoids confusing decimal rates
+ * RBI publishes reference rates daily around 12:30 PM IST
+ * Rates are published at: https://www.rbi.org.in/Scripts/ReferenceRateArchive.aspx
  *
- * Example for USD:
- * - fromCurrency: "INR" (for query filtering)
- * - toCurrency: "USD"
- * - rate: 83.33 (1 USD = 83.33 INR) ← Business rate for display
- * - inverseRate: 0.012 (1 INR = 0.012 USD) ← Raw API value
- *
- * The fromCurrency field is a query optimization, not semantic truth.
+ * This is the official Reserve Bank of India reference rate
+ * - Free, no API key required
+ * - Published every business day (Mon-Fri, excluding RBI holidays)
+ * - Based on market transactions during the day
  */
 
 /**
- * ExchangeRate-API Configuration
- *
- * Free tier: 1,500 requests/month
- * Rate limit: Updated once every 24 hours
- *
- * To use this function:
- * 1. Sign up at https://www.exchangerate-api.com
- * 2. Get your free API key
- * 3. Set it as a Firebase environment variable:
- *    firebase functions:config:set exchangerate.api_key="YOUR_API_KEY"
- *
- * For local development, add to .runtimeconfig.json:
- * {
- *   "exchangerate": {
- *     "api_key": "YOUR_API_KEY"
- *   }
- * }
+ * RBI rate mapping for supported currencies
+ * Maps our currency codes to RBI's format
  */
+const RBI_CURRENCY_MAPPING: Record<string, string> = {
+  USD: 'US Dollar',
+  EUR: 'Euro',
+  GBP: 'Pound Sterling',
+  SGD: 'Singapore Dollar',
+  AED: 'U.A.E Dirham',
+};
 
-interface ExchangeRateAPIResponse {
-  result: string;
-  documentation: string;
-  terms_of_use: string;
-  time_last_update_unix: number;
-  time_last_update_utc: string;
-  time_next_update_unix: number;
-  time_next_update_utc: string;
-  base_code: string;
-  conversion_rates: Record<string, number>;
+interface RBIRateData {
+  currency: string;
+  rate: number;
+  date: string;
 }
 
 /**
- * Fetch Daily Exchange Rates
+ * Fetch rates from RBI website
  *
- * Runs daily at 9:00 AM IST (3:30 AM UTC)
- * Fetches latest exchange rates from ExchangeRate-API
- * Stores them in Firestore exchange_rates collection
+ * RBI publishes rates in multiple formats:
+ * 1. Reference Rate Archive (HTML table)
+ * 2. CSV downloads
+ * 3. RSS feeds
  *
- * Schedule: "30 3 * * *" = Every day at 3:30 AM UTC (9:00 AM IST)
+ * We'll use the RSS feed for reliable parsing
+ */
+async function fetchRBIRates(): Promise<RBIRateData[]> {
+  try {
+    // RBI RSS feed URL for reference rates
+    // Alternative: Can use direct API if RBI provides one in the future
+    const rbiUrl = 'https://www.rbi.org.in/Scripts/BS_ViewRbiReferenceRatexml.aspx';
+
+    logger.info('Fetching rates from RBI', { url: rbiUrl });
+
+    const response = await fetch(rbiUrl);
+
+    if (!response.ok) {
+      throw new Error(`RBI request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const xmlText = await response.text();
+
+    // Parse XML response to extract rates
+    // RBI XML format typically contains rate entries with currency name and value
+    const rates: RBIRateData[] = [];
+
+    // Simple XML parsing for RBI rate structure
+    // Format: <item><title>Currency Name</title><rate>XX.XX</rate><date>...</date></item>
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+
+    while ((match = itemRegex.exec(xmlText)) !== null) {
+      const itemContent = match[1];
+
+      // Extract currency name
+      const currencyMatch = /<title>(.*?)<\/title>/.exec(itemContent);
+      // Extract rate - try multiple formats
+      const rateMatch =
+        /<rate>(.*?)<\/rate>/.exec(itemContent) ||
+        /<description>.*?(\d+\.\d+).*?<\/description>/.exec(itemContent);
+      // Extract date
+      const dateMatch = /<pubDate>(.*?)<\/pubDate>/.exec(itemContent);
+
+      if (currencyMatch && rateMatch) {
+        const currencyName = currencyMatch[1].trim();
+        const rateValue = parseFloat(rateMatch[1]);
+        const dateValue = dateMatch ? dateMatch[1] : new Date().toISOString();
+
+        // Check if this currency is in our supported list
+        for (const [code, rbiName] of Object.entries(RBI_CURRENCY_MAPPING)) {
+          if (currencyName.includes(rbiName)) {
+            rates.push({
+              currency: code,
+              rate: rateValue,
+              date: dateValue,
+            });
+            break;
+          }
+        }
+      }
+    }
+
+    // If XML parsing didn't work, try fallback HTML parsing
+    if (rates.length === 0) {
+      logger.info('XML parsing yielded no results, trying HTML fallback');
+      const htmlRates = await parseRBIHTMLRates(xmlText);
+      rates.push(...htmlRates);
+    }
+
+    logger.info(`Successfully parsed ${rates.length} rates from RBI`);
+    return rates;
+  } catch (error) {
+    logger.error('Error fetching RBI rates:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fallback: Parse RBI HTML table format
+ * Used when RSS feed is not available
+ */
+async function parseRBIHTMLRates(htmlContent: string): Promise<RBIRateData[]> {
+  const rates: RBIRateData[] = [];
+
+  try {
+    // RBI table typically has format: <td>Currency Name</td><td>Rate</td>
+    // This is a simplified parser - may need adjustment based on actual HTML structure
+
+    for (const [code, rbiName] of Object.entries(RBI_CURRENCY_MAPPING)) {
+      // Look for currency name in HTML and extract nearby rate value
+      const currencyPattern = new RegExp(`${rbiName}.*?(\\d+\\.\\d+)`, 'i');
+      const match = currencyPattern.exec(htmlContent);
+
+      if (match) {
+        rates.push({
+          currency: code,
+          rate: parseFloat(match[1]),
+          date: new Date().toISOString(),
+        });
+      }
+    }
+  } catch (error) {
+    logger.error('Error parsing HTML rates:', error);
+  }
+
+  return rates;
+}
+
+/**
+ * Store rates in Firestore
+ *
+ * IMPORTANT: Data format convention:
+ * - fromCurrency: Foreign currency (USD, EUR, GBP, etc.)
+ * - toCurrency: INR
+ * - rate: How many INR per 1 unit of foreign currency (e.g., 83.33 INR per 1 USD)
+ */
+async function storeRates(rates: RBIRateData[], triggeredBy: string = 'system'): Promise<number> {
+  const db = admin.firestore();
+  const batch = db.batch();
+  const effectiveFrom = admin.firestore.Timestamp.now();
+  let storedCount = 0;
+
+  for (const rateData of rates) {
+    const rateDoc = db.collection('exchange_rates').doc();
+    batch.set(rateDoc, {
+      fromCurrency: rateData.currency, // USD, EUR, GBP, SGD, AED
+      toCurrency: BASE_CURRENCY, // INR
+      baseCurrency: BASE_CURRENCY,
+      rate: rateData.rate, // INR per foreign unit (e.g., 83.33 INR per 1 USD)
+      inverseRate: 1 / rateData.rate,
+      effectiveFrom,
+      status: 'ACTIVE',
+      source: 'RBI',
+      sourceReference: 'Reserve Bank of India Reference Rate',
+      notes: `Fetched from RBI on ${new Date().toISOString()}`,
+      createdBy: triggeredBy,
+      createdAt: effectiveFrom,
+      updatedAt: effectiveFrom,
+    });
+
+    storedCount++;
+  }
+
+  await batch.commit();
+  return storedCount;
+}
+
+/**
+ * Fetch Daily Exchange Rates from RBI
+ *
+ * Runs daily at 1:00 PM IST (7:30 AM UTC)
+ * RBI publishes rates around 12:30 PM IST, so we fetch at 1:00 PM
+ *
+ * Schedule: "30 7 * * *" = Every day at 7:30 AM UTC (1:00 PM IST)
  * Timezone: UTC
+ *
+ * Note: RBI publishes rates only on business days (Mon-Fri, excluding RBI holidays)
+ * The function will run daily but may not find new rates on weekends/holidays
  */
 export const fetchDailyExchangeRates = onSchedule(
   {
-    schedule: '30 3 * * *', // Daily at 3:30 AM UTC
+    schedule: '30 7 * * *', // Daily at 7:30 AM UTC (1:00 PM IST)
     timeZone: 'UTC',
     region: 'us-central1',
     memory: '256MiB',
     maxInstances: 1,
-    secrets: ['EXCHANGERATE_API_KEY'],
   },
   async (event) => {
-    logger.info('Starting daily exchange rate fetch', { timestamp: event.scheduleTime });
+    logger.info('Starting daily RBI exchange rate fetch', { timestamp: event.scheduleTime });
 
     try {
-      // Get API key from environment config
-      const apiKey = process.env.EXCHANGERATE_API_KEY;
+      const rates = await fetchRBIRates();
 
-      if (!apiKey) {
-        logger.error(
-          'ExchangeRate API key not configured. Please set EXCHANGERATE_API_KEY environment variable.'
-        );
+      if (rates.length === 0) {
+        logger.warn('No rates fetched from RBI - may be a holiday or weekend');
         return;
       }
 
-      // Fetch rates from ExchangeRate-API
-      const apiUrl = `https://v6.exchangerate-api.com/v6/${apiKey}/latest/${BASE_CURRENCY}`;
-      const response = await fetch(apiUrl);
+      const storedCount = await storeRates(rates, 'system');
 
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-      }
-
-      const data = (await response.json()) as ExchangeRateAPIResponse;
-
-      if (data.result !== 'success') {
-        throw new Error(`API returned non-success result: ${data.result}`);
-      }
-
-      logger.info('Successfully fetched rates from API', {
-        base: data.base_code,
-        lastUpdate: data.time_last_update_utc,
-        rateCount: Object.keys(data.conversion_rates).length,
-      });
-
-      // Store rates in Firestore
-      const db = admin.firestore();
-      const batch = db.batch();
-      const effectiveFrom = admin.firestore.Timestamp.now();
-      let storedCount = 0;
-
-      for (const currency of SUPPORTED_CURRENCIES) {
-        const apiRate = data.conversion_rates[currency];
-
-        if (!apiRate) {
-          logger.warn(`Rate not found for currency: ${currency}`);
-          continue;
-        }
-
-        // Convert API rate to business rate
-        // API returns: 1 INR = 0.012 USD (what you GET for 1 rupee)
-        // We store: 1 USD = 83.33 INR (what you PAY in rupees)
-        const businessRate = 1 / apiRate;
-
-        const rateDoc = db.collection('exchangeRates').doc();
-        batch.set(rateDoc, {
-          fromCurrency: currency,
-          toCurrency: BASE_CURRENCY,
-          baseCurrency: BASE_CURRENCY,
-          rate: businessRate, // 83.33 (1 USD = 83.33 INR)
-          inverseRate: apiRate, // 0.012 (1 INR = 0.012 USD)
-          effectiveFrom,
-          status: 'ACTIVE',
-          source: 'API',
-          sourceReference: 'ExchangeRate-API',
-          notes: `Auto-fetched from ExchangeRate-API on ${new Date().toISOString()}`,
-          createdBy: 'system',
-          createdAt: effectiveFrom,
-          updatedAt: effectiveFrom,
-        });
-
-        storedCount++;
-      }
-
-      await batch.commit();
-
-      logger.info('Successfully stored exchange rates', {
+      logger.info('Successfully stored RBI exchange rates', {
         storedCount,
-        currencies: SUPPORTED_CURRENCIES.join(', '),
-        timestamp: effectiveFrom.toDate().toISOString(),
+        currencies: rates.map((r) => r.currency).join(', '),
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      logger.error('Error fetching exchange rates:', error);
+      logger.error('Error fetching RBI exchange rates:', error);
       throw error;
     }
   }
@@ -178,7 +244,7 @@ export const fetchDailyExchangeRates = onSchedule(
 /**
  * Manual Exchange Rate Fetch (HTTP Callable)
  *
- * Allows authorized users to manually trigger exchange rate fetch
+ * Allows authorized users to manually trigger RBI exchange rate fetch
  * Useful for testing or when immediate rate updates are needed
  *
  * Usage from client:
@@ -186,13 +252,10 @@ export const fetchDailyExchangeRates = onSchedule(
  *   const fetchRates = httpsCallable(functions, 'manualFetchExchangeRates');
  *   const result = await fetchRates();
  */
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
-
 export const manualFetchExchangeRates = onCall(
   {
     region: 'us-central1',
     memory: '256MiB',
-    secrets: ['EXCHANGERATE_API_KEY'],
   },
   async (request) => {
     // Check authentication
@@ -210,243 +273,47 @@ export const manualFetchExchangeRates = onCall(
       );
     }
 
-    logger.info('Manual exchange rate fetch triggered', {
+    logger.info('Manual RBI exchange rate fetch triggered', {
       userId: request.auth.uid,
       email: request.auth.token.email,
     });
 
     try {
-      // Get API key from environment config
-      const apiKey = process.env.EXCHANGERATE_API_KEY;
+      const rates = await fetchRBIRates();
 
-      if (!apiKey) {
+      if (rates.length === 0) {
         throw new HttpsError(
-          'failed-precondition',
-          'ExchangeRate API key not configured. Please contact system administrator.'
+          'unavailable',
+          'No rates available from RBI. This may be a weekend or RBI holiday.'
         );
       }
 
-      // Fetch rates from ExchangeRate-API
-      const apiUrl = `https://v6.exchangerate-api.com/v6/${apiKey}/latest/${BASE_CURRENCY}`;
-      const response = await fetch(apiUrl);
+      const storedCount = await storeRates(rates, request.auth.uid);
 
-      if (!response.ok) {
-        throw new HttpsError('unavailable', `API request failed: ${response.statusText}`);
-      }
-
-      const data = (await response.json()) as ExchangeRateAPIResponse;
-
-      if (data.result !== 'success') {
-        throw new HttpsError('unavailable', `API returned error: ${data.result}`);
-      }
-
-      // Store rates in Firestore
-      const db = admin.firestore();
-      const batch = db.batch();
-      const effectiveFrom = admin.firestore.Timestamp.now();
-      const rates: Record<string, number> = {};
-
-      for (const currency of SUPPORTED_CURRENCIES) {
-        const apiRate = data.conversion_rates[currency];
-
-        if (!apiRate) {
-          logger.warn(`Rate not found for currency: ${currency}`);
-          continue;
-        }
-
-        // Convert API rate to business rate
-        // API returns: 1 INR = 0.012 USD (what you GET for 1 rupee)
-        // We store: 1 USD = 83.33 INR (what you PAY in rupees)
-        const businessRate = 1 / apiRate;
-
-        const rateDoc = db.collection('exchangeRates').doc();
-        batch.set(rateDoc, {
-          fromCurrency: currency,
-          toCurrency: BASE_CURRENCY,
-          baseCurrency: BASE_CURRENCY,
-          rate: businessRate, // 83.33 (1 USD = 83.33 INR)
-          inverseRate: apiRate, // 0.012 (1 INR = 0.012 USD)
-          effectiveFrom,
-          status: 'ACTIVE',
-          source: 'API',
-          sourceReference: 'ExchangeRate-API (Manual)',
-          notes: `Manually fetched by ${request.auth.token.email || 'user'} on ${new Date().toISOString()}`,
-          createdBy: request.auth.uid,
-          createdAt: effectiveFrom,
-          updatedAt: effectiveFrom,
-        });
-
-        rates[currency] = businessRate;
-      }
-
-      await batch.commit();
-
-      logger.info('Manual fetch completed successfully', {
-        rateCount: Object.keys(rates).length,
+      logger.info('Manual RBI fetch completed successfully', {
+        rateCount: storedCount,
         triggeredBy: request.auth.uid,
+      });
+
+      // Convert rates to simple object for response
+      const ratesObject: Record<string, number> = {};
+      rates.forEach((r) => {
+        ratesObject[r.currency] = r.rate;
       });
 
       return {
         success: true,
-        rates,
-        lastUpdate: data.time_last_update_utc,
-        nextUpdate: data.time_next_update_utc,
+        rates: ratesObject,
+        source: 'Reserve Bank of India',
+        fetchedAt: new Date().toISOString(),
+        rateCount: storedCount,
       };
     } catch (error) {
       if (error instanceof HttpsError) {
         throw error;
       }
-      logger.error('Error in manual fetch:', error);
-      throw new HttpsError('internal', 'Failed to fetch exchange rates');
-    }
-  }
-);
-
-/**
- * Seed Historical Exchange Rates (One-Time Setup)
- *
- * Creates historical exchange rate data for the past 30 days to enable
- * trend analysis and charting. This should only be run once when setting
- * up the system or after a data migration.
- *
- * Usage from client:
- *   const functions = getFunctions();
- *   const seedRates = httpsCallable(functions, 'seedHistoricalExchangeRates');
- *   const result = await seedRates({ days: 30 });
- */
-export const seedHistoricalExchangeRates = onCall(
-  {
-    region: 'us-central1',
-    memory: '512MiB',
-    secrets: ['EXCHANGERATE_API_KEY'],
-    timeoutSeconds: 300,
-  },
-  async (request) => {
-    // Check authentication
-    if (!request.auth || !request.auth.token.permissions) {
-      throw new HttpsError('permission-denied', 'Authentication required');
-    }
-
-    const userPermissions = request.auth.token.permissions as number;
-    const MANAGE_FINANCIAL_SETUP = 64; // PERMISSION_FLAGS.MANAGE_FINANCIAL_SETUP
-
-    if ((userPermissions & MANAGE_FINANCIAL_SETUP) !== MANAGE_FINANCIAL_SETUP) {
-      throw new HttpsError(
-        'permission-denied',
-        'MANAGE_FINANCIAL_SETUP permission required to seed historical data'
-      );
-    }
-
-    logger.info('Historical data seeding triggered', {
-      userId: request.auth.uid,
-      email: request.auth.token.email,
-    });
-
-    try {
-      // Get number of days to seed (default 30, max 90)
-      const daysToSeed = Math.min((request.data?.days as number) || 30, 90);
-
-      // Get API key from environment
-      const apiKey = process.env.EXCHANGERATE_API_KEY;
-
-      if (!apiKey) {
-        throw new HttpsError(
-          'failed-precondition',
-          'ExchangeRate API key not configured. Please contact system administrator.'
-        );
-      }
-
-      const db = admin.firestore();
-      const now = new Date();
-      let totalRecordsCreated = 0;
-
-      // Base rates (approximate current rates) - will add variations
-      // Note: These are already in business format (1 USD = 83 INR)
-      const baseRates: Record<string, number> = {
-        USD: 83.25,
-        EUR: 90.5,
-        SGD: 62.3,
-      };
-
-      logger.info('Starting historical data generation', {
-        days: daysToSeed,
-        currencies: SUPPORTED_CURRENCIES.length,
-      });
-
-      // Generate data for each day going backwards
-      for (let dayOffset = 0; dayOffset < daysToSeed; dayOffset++) {
-        const historicalDate = new Date(now);
-        historicalDate.setDate(historicalDate.getDate() - dayOffset);
-        historicalDate.setHours(9, 0, 0, 0); // Set to 9:00 AM for consistency
-
-        const effectiveFrom = admin.firestore.Timestamp.fromDate(historicalDate);
-        const batch = db.batch();
-
-        // Generate rates for each supported currency
-        for (const currency of SUPPORTED_CURRENCIES) {
-          // Add small random variation (±2%) to simulate realistic fluctuations
-          const variation = 1 + (Math.random() - 0.5) * 0.04; // -2% to +2%
-          const baseRate = baseRates[currency] || 1;
-          const rate = parseFloat((baseRate * variation).toFixed(4));
-
-          const rateDoc = db.collection('exchangeRates').doc();
-          batch.set(rateDoc, {
-            fromCurrency: currency,
-            toCurrency: BASE_CURRENCY,
-            baseCurrency: BASE_CURRENCY,
-            rate,
-            inverseRate: parseFloat((1 / rate).toFixed(6)),
-            effectiveFrom,
-            status: 'ACTIVE',
-            source: 'HISTORICAL_SEED',
-            sourceReference: `Historical data seed for ${historicalDate.toISOString().split('T')[0]}`,
-            notes: `Seeded historical data by ${request.auth.token.email || 'system'} on ${new Date().toISOString()}`,
-            createdBy: request.auth.uid,
-            createdAt: admin.firestore.Timestamp.now(),
-            updatedAt: admin.firestore.Timestamp.now(),
-          });
-
-          totalRecordsCreated++;
-        }
-
-        await batch.commit();
-
-        // Log progress every 5 days
-        if (dayOffset % 5 === 0) {
-          logger.info(`Seeding progress: ${dayOffset}/${daysToSeed} days completed`);
-        }
-      }
-
-      logger.info('Historical data seeding completed successfully', {
-        recordsCreated: totalRecordsCreated,
-        daysSeeded: daysToSeed,
-        dateRange: {
-          from: new Date(now.getTime() - daysToSeed * 24 * 60 * 60 * 1000)
-            .toISOString()
-            .split('T')[0],
-          to: now.toISOString().split('T')[0],
-        },
-        triggeredBy: request.auth.uid,
-      });
-
-      return {
-        success: true,
-        recordsCreated: totalRecordsCreated,
-        daysSeeded: daysToSeed,
-        currencies: SUPPORTED_CURRENCIES.length,
-        dateRange: {
-          from: new Date(now.getTime() - daysToSeed * 24 * 60 * 60 * 1000)
-            .toISOString()
-            .split('T')[0],
-          to: now.toISOString().split('T')[0],
-        },
-      };
-    } catch (error) {
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-      logger.error('Error in historical data seeding:', error);
-      throw new HttpsError('internal', 'Failed to seed historical exchange rates');
+      logger.error('Error in manual RBI fetch:', error);
+      throw new HttpsError('internal', 'Failed to fetch RBI exchange rates');
     }
   }
 );

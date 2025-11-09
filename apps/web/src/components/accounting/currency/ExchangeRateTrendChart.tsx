@@ -131,9 +131,10 @@ export default function ExchangeRateTrendChart({
 
       const dataPoint = dataByDate.get(date)!;
 
-      // Determine which currency to use as key
-      const currency = rate.fromCurrency === baseCurrency ? rate.toCurrency : rate.fromCurrency;
-      const rateValue = rate.fromCurrency === baseCurrency ? rate.rate : rate.inverseRate;
+      // After RBI integration: fromCurrency is foreign currency (USD, EUR, etc.)
+      // rate represents how many INR per 1 unit of foreign currency
+      const currency = rate.fromCurrency; // USD, EUR, GBP, SGD, AED
+      const rateValue = rate.rate; // INR per foreign unit (e.g., 83.33 INR per 1 USD)
 
       if (selectedCurrencies.includes(currency)) {
         dataPoint[currency] = rateValue;

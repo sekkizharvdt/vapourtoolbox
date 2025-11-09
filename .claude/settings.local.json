@@ -47,7 +47,9 @@
       "Bash(then echo \"❌ Found ''''as any'''' type casts!\" exit 1 else echo \"✅ No prohibited type casts found\" exit 0 fi)",
       "Bash(pnpm exec tsc:*)",
       "Bash(cat:*)",
-      "Bash(node /tmp/calculate-super-admin-permissions.js:*)"
+      "Bash(node /tmp/calculate-super-admin-permissions.js:*)",
+      "Bash(chmod:*)",
+      "Bash(firebase functions:list:*)"
     ],
     "deny": [],
     "ask": []

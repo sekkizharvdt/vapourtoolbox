@@ -1,6 +1,6 @@
 // Module Registry - All application modules
-// Priority Order: Time Tracking → Documents → Procurement → Proposals → Accounting → Estimation
-// Includes 9 active modules + 2 coming soon placeholders
+// Priority Order: Tasks → Documents → Procurement → Accounting → Estimation → Material DB → Bought Out DB → Thermal Desal → Proposals
+// Includes 9 active modules + 4 coming soon placeholders
 
 export type ModuleStatus = 'active' | 'coming_soon' | 'beta';
 
@@ -21,15 +21,18 @@ export interface ModuleDefinition {
 
 /**
  * Complete module registry for Vapour Toolbox
- * 11 total modules: 9 active + 2 coming soon
+ * 13 total modules: 9 active + 4 coming soon
  *
  * PRIORITY ORDER (for dashboard display):
- * 1. Time Tracking (highest priority - all users)
+ * 1. Tasks (highest priority - all users)
  * 2. Document Management (all users)
  * 3. Procurement (permission-based)
  * 4. Accounting (permission-based)
  * 5. Estimation (permission-based)
- * 6. Thermal Desalination (coming soon)
+ * 6. Material Database (coming Q1 2026)
+ * 7. Bought Out Database (coming Q1 2026)
+ * 8. Thermal Desalination Design (coming Q2 2026)
+ * 9. Proposal Management (coming Q1 2026)
  *
  * NOTE: Import PERMISSION_FLAGS from @vapour/constants to use these values
  */
@@ -88,8 +91,8 @@ export const MODULES: Record<string, ModuleDefinition> = {
 
   TIME_TRACKING: {
     id: 'time-tracking',
-    name: 'Time Tracking',
-    shortName: 'Time',
+    name: 'Tasks',
+    shortName: 'Tasks',
     description: 'Track time, tasks, leaves, and on-duty records',
     icon: 'Schedule',
     color: '#0891B2', // Vapour Cyan
@@ -158,19 +161,34 @@ export const MODULES: Record<string, ModuleDefinition> = {
 
   // ===== COMING SOON MODULES =====
 
-  PROPOSAL_MANAGEMENT: {
-    id: 'proposal-management',
-    name: 'Proposal Management',
-    shortName: 'Proposals',
-    description: 'Create proposals, link estimations, generate contracts',
-    icon: 'Assignment',
-    color: '#10B981', // Green
-    path: '/proposals',
+  MATERIAL_DATABASE: {
+    id: 'material-database',
+    name: 'Material Database',
+    shortName: 'Materials',
+    description: 'ASME standard raw materials for proposals and procurement',
+    icon: 'Inventory',
+    color: '#059669', // Emerald
+    path: '/materials',
     status: 'coming_soon',
-    requiredPermissions: 8, // MANAGE_PROJECTS (for creating proposals)
+    requiredPermissions: 524288, // VIEW_ESTIMATION (engineering materials)
     category: 'application',
     estimatedRelease: 'Q1 2026',
     priority: 6,
+  },
+
+  BOUGHT_OUT_DATABASE: {
+    id: 'bought-out-database',
+    name: 'Bought Out Database',
+    shortName: 'Bought Out',
+    description: 'Comprehensive bought-out items, vendor parts, and equipment library',
+    icon: 'LocalShipping',
+    color: '#0D9488', // Teal
+    path: '/bought-out',
+    status: 'coming_soon',
+    requiredPermissions: 524288, // VIEW_ESTIMATION (procurement/engineering items)
+    category: 'application',
+    estimatedRelease: 'Q1 2026',
+    priority: 7,
   },
 
   THERMAL_DESAL: {
@@ -185,7 +203,22 @@ export const MODULES: Record<string, ModuleDefinition> = {
     requiredPermissions: 524288, // VIEW_ESTIMATION (engineering calculations)
     category: 'application',
     estimatedRelease: 'Q2 2026',
-    priority: 7,
+    priority: 8,
+  },
+
+  PROPOSAL_MANAGEMENT: {
+    id: 'proposal-management',
+    name: 'Proposal Management',
+    shortName: 'Proposals',
+    description: 'Create proposals, link estimations, generate contracts',
+    icon: 'Assignment',
+    color: '#10B981', // Green
+    path: '/proposals',
+    status: 'coming_soon',
+    requiredPermissions: 8, // MANAGE_PROJECTS (for creating proposals)
+    category: 'application',
+    estimatedRelease: 'Q1 2026',
+    priority: 9,
   },
 };
 

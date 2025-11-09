@@ -15,6 +15,7 @@ import {
   useMediaQuery,
   IconButton,
   Tooltip,
+  Chip,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -28,6 +29,9 @@ import {
   Calculate as CalculateIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
+  Inventory as InventoryIcon,
+  LocalShipping as LocalShippingIcon,
+  Thermostat as ThermostatIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
@@ -55,6 +59,10 @@ const moduleIcons: Record<string, React.ReactNode> = {
   procurement: <ShoppingCartIcon />,
   accounting: <AccountBalanceIcon />,
   estimation: <CalculateIcon />,
+  'material-database': <InventoryIcon />,
+  'bought-out-database': <LocalShippingIcon />,
+  'thermal-desal': <ThermostatIcon />,
+  'proposal-management': <AssignmentIcon />,
 };
 
 // Category definitions for sidebar organization
@@ -66,24 +74,25 @@ interface CategoryConfig {
 
 const SIDEBAR_CATEGORIES: CategoryConfig[] = [
   {
-    id: 'priority',
-    label: 'PRIORITY APPS',
-    moduleIds: ['time-tracking', 'document-management', 'procurement'],
+    id: 'daily-essentials',
+    label: 'DAILY ESSENTIALS',
+    moduleIds: ['time-tracking', 'document-management'],
   },
   {
-    id: 'operations',
-    label: 'OPERATIONS',
-    moduleIds: ['accounting', 'estimation'],
+    id: 'company-essentials',
+    label: 'COMPANY ESSENTIALS',
+    moduleIds: ['procurement', 'accounting', 'project-management', 'estimation', 'thermal-desal'],
   },
   {
-    id: 'management',
-    label: 'MANAGEMENT',
-    moduleIds: ['project-management', 'entity-management', 'user-management'],
-  },
-  {
-    id: 'admin',
-    label: 'ADMIN',
-    moduleIds: ['company-settings'],
+    id: 'backbone',
+    label: 'BACKBONE',
+    moduleIds: [
+      'material-database',
+      'bought-out-database',
+      'entity-management',
+      'user-management',
+      'company-settings',
+    ],
   },
 ];
 
@@ -99,9 +108,10 @@ export function Sidebar({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Filter modules based on user permissions and active status
+  // Filter modules based on user permissions (include both active and coming_soon modules)
   const accessibleModules = Object.values(MODULES).filter((module) => {
-    if (module.status !== 'active') return false;
+    // Include both active and coming_soon modules
+    if (module.status !== 'active' && module.status !== 'coming_soon') return false;
     // If no permission required, accessible by all
     if (module.requiredPermissions === undefined) return true;
     // Check if user has required permissions using bitwise AND
@@ -199,10 +209,22 @@ export function Sidebar({
               {/* Module Items */}
               {category.modules.map((module) => (
                 <ListItem key={module.id} disablePadding>
-                  <Tooltip title={collapsed ? module.name : ''} placement="right">
+                  <Tooltip
+                    title={
+                      collapsed
+                        ? module.status === 'coming_soon'
+                          ? `${module.name} (${module.estimatedRelease})`
+                          : module.name
+                        : ''
+                    }
+                    placement="right"
+                  >
                     <ListItemButton
                       selected={pathname.startsWith(module.path)}
-                      onClick={() => handleNavigation(module.path)}
+                      onClick={() =>
+                        module.status === 'active' ? handleNavigation(module.path) : undefined
+                      }
+                      disabled={module.status === 'coming_soon'}
                       sx={{
                         justifyContent: collapsed ? 'center' : 'initial',
                         px: collapsed ? 0 : 2,
@@ -214,25 +236,38 @@ export function Sidebar({
                           minWidth: 0,
                           mr: collapsed ? 0 : 3,
                           justifyContent: 'center',
+                          opacity: module.status === 'coming_soon' ? 0.5 : 1,
                         }}
                       >
                         {moduleIcons[module.id]}
                       </ListItemIcon>
                       {!collapsed && (
-                        <ListItemText
-                          primary={module.name}
-                          primaryTypographyProps={{
-                            fontSize: '0.875rem',
-                          }}
-                        />
+                        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <ListItemText
+                            primary={module.name}
+                            primaryTypographyProps={{
+                              fontSize: '0.875rem',
+                            }}
+                          />
+                          {module.status === 'coming_soon' && (
+                            <Chip
+                              label={module.estimatedRelease}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.65rem',
+                                fontWeight: 600,
+                                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                color: 'primary.main',
+                                borderColor: 'primary.main',
+                                '& .MuiChip-label': {
+                                  px: 0.75,
+                                },
+                              }}
+                            />
+                          )}
+                        </Box>
                       )}
-                      {/* Lock icon for company settings (to be shown after setup complete) */}
-                      {/* TODO: Enable after setup complete feature is implemented */}
-                      {/* {!collapsed && module.id === 'company-settings' && (
-                        <Tooltip title="Setup complete - Admin access only">
-                          <LockIcon sx={{ fontSize: 16, color: 'text.secondary', ml: 1 }} />
-                        </Tooltip>
-                      )} */}
                     </ListItemButton>
                   </Tooltip>
                 </ListItem>
