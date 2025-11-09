@@ -15,6 +15,9 @@ admin.initializeApp();
 // Export currency functions
 export { fetchDailyExchangeRates, manualFetchExchangeRates } from './currency';
 
+// Export project functions
+export { onProjectCreated, onProjectUpdated } from './projects';
+
 /**
  * Create Firestore Document for New Users
  *

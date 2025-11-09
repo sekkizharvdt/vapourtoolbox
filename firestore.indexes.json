@@ -129,7 +129,7 @@
       ]
     },
     {
-      "collectionGroup": "purchaseRequisitions",
+      "collectionGroup": "purchaseRequests",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "projectId", "order": "ASCENDING" },
@@ -138,7 +138,7 @@
       ]
     },
     {
-      "collectionGroup": "purchaseRequisitions",
+      "collectionGroup": "purchaseRequests",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },

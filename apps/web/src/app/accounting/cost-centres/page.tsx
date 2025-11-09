@@ -175,11 +175,21 @@ export default function CostCentresPage() {
                             {costCentre.code}
                           </Typography>
                         </Box>
-                        <Chip
-                          label={costCentre.isActive ? 'Active' : 'Inactive'}
-                          color={costCentre.isActive ? 'success' : 'default'}
-                          size="small"
-                        />
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          <Chip
+                            label={costCentre.isActive ? 'Active' : 'Inactive'}
+                            color={costCentre.isActive ? 'success' : 'default'}
+                            size="small"
+                          />
+                          {costCentre.autoCreated && (
+                            <Chip
+                              label="Project-Linked"
+                              color="primary"
+                              size="small"
+                              variant="outlined"
+                            />
+                          )}
+                        </Box>
                       </Box>
 
                       {costCentre.description && (

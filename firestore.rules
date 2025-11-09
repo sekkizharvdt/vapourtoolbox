@@ -224,11 +224,28 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    match /costCentres/{costCentreId} {
+      // Cost Centres - Project-based cost tracking for accounting
+      // Read: Users with VIEW_ACCOUNTING permission
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+
+      // Create: Users with MANAGE_ACCOUNTING permission or system (Cloud Functions)
+      // Cloud Functions auto-create cost centres when projects are created
+      allow create: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+
+      // Update: Users with MANAGE_ACCOUNTING permission
+      // Cloud Functions can also update to sync with project changes
+      allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
     // ============================================
     // Procurement Collections
     // ============================================
 
-    match /purchaseRequisitions/{prId} {
+    match /purchaseRequests/{prId} {
       // Read: Internal users OR external CLIENT_PM for their projects
       allow read: if (isInternalUser()) ||
                      (isExternalUser() &&
@@ -237,6 +254,15 @@ service cloud.firestore {
 
       allow create: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
       allow update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow delete: if isSuperAdmin();
+    }
+
+    match /purchaseRequestItems/{itemId} {
+      // Read: Same permissions as parent purchaseRequest
+      allow read: if isInternalUser();
+
+      // Write: Users with MANAGE_PROCUREMENT permission
+      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
       allow delete: if isSuperAdmin();
     }
 
@@ -442,6 +468,21 @@ service cloud.firestore {
 
       // Create/Update: Users with permission bit 64 (financial setup)
       allow create, update: if hasPermission(64) && isInternalUser();
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
+    // Module Integrations (Super Admin Only)
+    // ============================================
+
+    match /moduleIntegrations/{integrationId} {
+      // Read: Only users with MANAGE_USERS permission (Super Admins)
+      allow read: if isAdmin(); // MANAGE_USERS (bit 1)
+
+      // Write: Only users with MANAGE_USERS permission
+      allow create, update: if isAdmin(); // MANAGE_USERS (bit 1)
 
       // Delete: Super admins only
       allow delete: if isSuperAdmin();

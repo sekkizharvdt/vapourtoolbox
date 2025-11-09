@@ -61,7 +61,8 @@ const CustomTooltip: React.FC<CustomTooltipData> = ({ active, payload, label }) 
         {payload.map(
           (entry: { name: string; value: number | string; color: string }, index: number) => (
             <Typography key={index} variant="body2" style={{ color: entry.color }}>
-              {entry.name}: {typeof entry.value === 'number' ? entry.value.toFixed(4) : entry.value}
+              1 {entry.name} = ₹{' '}
+              {typeof entry.value === 'number' ? entry.value.toFixed(2) : entry.value}
             </Typography>
           )
         )}
@@ -208,7 +209,7 @@ export default function ExchangeRateTrendChart({
                 strokeWidth={2}
                 dot={{ r: 3 }}
                 activeDot={{ r: 5 }}
-                name={`${currency}/${baseCurrency}`}
+                name={currency}
               />
             ))}
           </LineChart>

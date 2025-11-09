@@ -135,6 +135,7 @@ export interface CostCentre {
 
   // Status
   isActive: boolean;
+  autoCreated?: boolean; // True if auto-created from project, false if manually created
 
   // Metadata
   createdAt: Date;

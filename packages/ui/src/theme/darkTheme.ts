@@ -33,9 +33,9 @@ const darkThemeOptions: ThemeOptions = {
     background: darkBackgroundColors,
     grey: neutralColors,
     text: {
-      primary: '#F1F5F9',     // Light slate
-      secondary: '#CBD5E1',   // Medium slate
-      disabled: '#64748B',    // Dark slate
+      primary: '#F1F5F9', // Light slate
+      secondary: '#CBD5E1', // Medium slate
+      disabled: '#64748B', // Dark slate
     },
   },
 
@@ -90,6 +90,23 @@ const darkThemeOptions: ThemeOptions = {
           border: 'none',
           backgroundImage: 'none',
           boxShadow: '2px 0 8px rgb(0 0 0 / 0.3)',
+        },
+      },
+    },
+
+    MuiListItem: {
+      styleOverrides: {
+        root: {
+          // Desktop: Compact
+          minHeight: 48,
+          paddingTop: 8,
+          paddingBottom: 8,
+          // Mobile: Comfortable touch targets
+          '@media (max-width: 600px)': {
+            minHeight: 56,
+            paddingTop: 12,
+            paddingBottom: 12,
+          },
         },
       },
     },
