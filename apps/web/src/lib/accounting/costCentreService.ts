@@ -100,10 +100,11 @@ export async function listCostCentres(filters: ListCostCentresFilters = {}): Pro
 
     const costCentres: CostCentre[] = [];
     snapshot.forEach((doc) => {
-      costCentres.push({
+      const costCentre: CostCentre = {
         id: doc.id,
         ...doc.data(),
-      } as CostCentre);
+      } as unknown as CostCentre;
+      costCentres.push(costCentre);
     });
 
     return costCentres;
@@ -127,10 +128,11 @@ export async function getCostCentreById(id: string): Promise<CostCentre | null> 
       return null;
     }
 
-    return {
+    const costCentre: CostCentre = {
       id: docSnap.id,
       ...docSnap.data(),
-    } as CostCentre;
+    } as unknown as CostCentre;
+    return costCentre;
   } catch (error) {
     console.error('[getCostCentreById] Error:', error);
     throw new Error('Failed to get cost centre');
