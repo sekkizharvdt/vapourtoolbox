@@ -69,8 +69,16 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
 
+      - name: Delete Removed Functions
+        run: |
+          # Delete functions that were removed from codebase
+          firebase functions:delete seedHistoricalExchangeRates --region us-central1 --force --project vapour-toolbox || true
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
+        continue-on-error: true
+
       - name: Deploy Cloud Functions
-        run: firebase deploy --only functions --project vapour-toolbox
+        run: firebase deploy --only functions --force --project vapour-toolbox
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
 
