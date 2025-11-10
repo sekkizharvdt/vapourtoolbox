@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Box, Container, Typography, CircularProgress, Alert } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 import { MODULES } from '@vapour/constants';
@@ -16,25 +16,33 @@ export default function DashboardPage() {
 
   // Filter modules based on user permissions, status, and category
   // ONLY show application modules on dashboard (core modules are in sidebar only)
-  const accessibleModules = Object.values(MODULES).filter((module) => {
-    // Only show application modules (not core modules)
-    if (module.category !== 'application') return false;
+  // Use useMemo to prevent infinite loop by memoizing the array
+  const accessibleModules = useMemo(() => {
+    return Object.values(MODULES).filter((module) => {
+      // Only show application modules (not core modules)
+      if (module.category !== 'application') return false;
 
-    // If no permission required, accessible by all
-    if (module.requiredPermissions === undefined) return true;
+      // If no permission required, accessible by all
+      if (module.requiredPermissions === undefined) return true;
 
-    // Check if user has required permissions using bitwise AND
-    return (userPermissions & module.requiredPermissions) === module.requiredPermissions;
-  });
+      // Check if user has required permissions using bitwise AND
+      return (userPermissions & module.requiredPermissions) === module.requiredPermissions;
+    });
+  }, [userPermissions]);
 
   // Separate modules by status and sort by priority
-  const activeModules = accessibleModules
-    .filter((m) => m.status === 'active')
-    .sort((a, b) => (a.priority || 999) - (b.priority || 999));
+  // Use useMemo to prevent unnecessary recalculations
+  const activeModules = useMemo(() => {
+    return accessibleModules
+      .filter((m) => m.status === 'active')
+      .sort((a, b) => (a.priority || 999) - (b.priority || 999));
+  }, [accessibleModules]);
 
-  const comingSoonModules = accessibleModules
-    .filter((m) => m.status === 'coming_soon')
-    .sort((a, b) => (a.priority || 999) - (b.priority || 999));
+  const comingSoonModules = useMemo(() => {
+    return accessibleModules
+      .filter((m) => m.status === 'coming_soon')
+      .sort((a, b) => (a.priority || 999) - (b.priority || 999));
+  }, [accessibleModules]);
 
   // Load module stats on mount
   useEffect(() => {
