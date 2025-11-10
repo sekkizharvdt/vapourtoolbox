@@ -6,6 +6,9 @@ import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/fire
 import { getFunctions, Functions, connectFunctionsEmulator } from 'firebase/functions';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { getFirebaseClientConfig } from './envConfig';
+import { createLogger } from '@vapour/utils';
+
+const logger = createLogger('Firebase');
 
 /**
  * Initialize Firebase app (singleton)
@@ -46,13 +49,9 @@ export function initializeFirebase() {
           connectAuthEmulator(auth, process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL, {
             disableWarnings: true,
           });
-          if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
-            console.log('✅ Connected to Auth Emulator');
-          }
+          logger.info('✅ Connected to Auth Emulator');
         } catch (error) {
-          if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
-            console.warn('Auth emulator already connected');
-          }
+          logger.warn('Auth emulator already connected');
         }
       }
 
@@ -61,14 +60,10 @@ export function initializeFirebase() {
           const [host, port] = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL.split(':');
           if (host && port) {
             connectFirestoreEmulator(db, host, parseInt(port));
-            if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
-              console.log('✅ Connected to Firestore Emulator');
-            }
+            logger.info('✅ Connected to Firestore Emulator');
           }
         } catch (error) {
-          if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
-            console.warn('Firestore emulator already connected');
-          }
+          logger.warn('Firestore emulator already connected');
         }
       }
 
@@ -77,14 +72,10 @@ export function initializeFirebase() {
           const [host, port] = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_FUNCTIONS_URL.split(':');
           if (host && port) {
             connectFunctionsEmulator(functions, host, parseInt(port));
-            if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
-              console.log('✅ Connected to Functions Emulator');
-            }
+            logger.info('✅ Connected to Functions Emulator');
           }
         } catch (error) {
-          if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
-            console.warn('Functions emulator already connected');
-          }
+          logger.warn('Functions emulator already connected');
         }
       }
 
@@ -96,7 +87,7 @@ export function initializeFirebase() {
         }
         (window as WindowWithFirebase).__firebaseAuth = auth;
         (window as WindowWithFirebase).__firebaseDb = db;
-        console.log('🧪 Firebase instances exposed to window for testing');
+        logger.info('🧪 Firebase instances exposed to window for testing');
       }
 
       emulatorConnected = true;

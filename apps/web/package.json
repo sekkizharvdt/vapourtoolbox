@@ -22,6 +22,7 @@
     "@vapour/firebase": "workspace:*",
     "@vapour/types": "workspace:*",
     "@vapour/ui": "workspace:*",
+    "@vapour/utils": "workspace:*",
     "@vapour/validation": "workspace:*",
     "firebase": "^11.2.0",
     "next": "^15.1.0",

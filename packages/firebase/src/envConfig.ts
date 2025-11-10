@@ -1,6 +1,9 @@
 // Firebase Environment Configuration with Validation
 
 import { z } from 'zod';
+import { createLogger } from '@vapour/utils';
+
+const logger = createLogger('FirebaseConfig');
 
 /**
  * Firebase Client Configuration Schema
@@ -121,7 +124,7 @@ export function validateFirebaseEnvironment(): {
       admin = getFirebaseAdminConfig();
     } catch (error) {
       // Admin config might not be available in some environments
-      console.warn('Firebase Admin config not available:', error);
+      logger.warn('Firebase Admin config not available', error);
     }
   }
 

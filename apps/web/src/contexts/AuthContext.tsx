@@ -11,6 +11,9 @@ import {
 import { getFirebase } from '@/lib/firebase';
 import type { CustomClaims } from '@vapour/types';
 import { isAuthorizedDomain } from '@vapour/constants';
+import { createLogger } from '@vapour/utils';
+
+const logger = createLogger('Auth');
 
 /**
  * Claims validation result
@@ -49,7 +52,7 @@ function validateClaims(claims: unknown): ClaimsValidationResult {
 
   // Check domain field
   if (!claimsObj.domain || !['internal', 'external'].includes(claimsObj.domain as string)) {
-    console.error('Invalid claims: missing or invalid domain field', claims);
+    logger.error('Invalid claims: missing or invalid domain field', claims);
     return { status: 'invalid' };
   }
 
@@ -126,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (result.status === 'invalid') {
               // Claims exist but are malformed - security issue
-              console.error('[AuthContext] User has invalid custom claims. Signing out.');
+              logger.error('User has invalid custom claims. Signing out.');
               await firebaseSignOut(auth);
 
               // Check again before state update
@@ -146,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setClaims(result.claims);
             setLoading(false);
           } catch (error) {
-            console.error('[AuthContext] Error validating user claims:', error);
+            logger.error('Error validating user claims', error);
 
             // Check if component is still mounted before async signOut
             if (!isMounted) {
@@ -157,10 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
               await firebaseSignOut(auth);
             } catch (signOutError) {
-              console.error(
-                '[AuthContext] Error signing out after validation failure:',
-                signOutError
-              );
+              logger.error('Error signing out after validation failure', signOutError);
             }
 
             // Check again before final state update
@@ -186,7 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         // Catch any unexpected errors in the outer try block
-        console.error('[AuthContext] Unexpected error in auth state change handler:', error);
+        logger.error('Unexpected error in auth state change handler', error);
 
         // Check before state update
         if (!isMounted) {

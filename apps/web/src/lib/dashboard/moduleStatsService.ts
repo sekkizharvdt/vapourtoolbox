@@ -7,6 +7,9 @@
 
 import { collection, query, where, getCountFromServer, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
+import { createLogger } from '@vapour/utils';
+
+const logger = createLogger('ModuleStats');
 
 export interface ModuleStats {
   moduleId: string;
@@ -45,7 +48,7 @@ async function getTasksStats(): Promise<ModuleStats> {
       label: 'Pending Tasks',
     };
   } catch (error) {
-    console.error('[getTasksStats] Error:', error);
+    logger.error('Failed to fetch tasks stats', error);
     return { moduleId: 'time-tracking', pendingCount: 0 };
   }
 }
@@ -73,7 +76,7 @@ async function getDocumentStats(): Promise<ModuleStats> {
       label: 'Recent Documents',
     };
   } catch (error) {
-    console.error('[getDocumentStats] Error:', error);
+    logger.error('Failed to fetch document stats', error);
     return { moduleId: 'document-management', recentCount: 0 };
   }
 }
@@ -117,7 +120,7 @@ async function getProcurementStats(): Promise<ModuleStats> {
       label: 'Pending Items',
     };
   } catch (error) {
-    console.error('[getProcurementStats] Error:', error);
+    logger.error('Failed to fetch procurement stats', error);
     return { moduleId: 'procurement', pendingCount: 0 };
   }
 }
@@ -161,7 +164,7 @@ async function getAccountingStats(): Promise<ModuleStats> {
       label: 'Pending Items',
     };
   } catch (error) {
-    console.error('[getAccountingStats] Error:', error);
+    logger.error('Failed to fetch accounting stats', error);
     return { moduleId: 'accounting', pendingCount: 0 };
   }
 }
@@ -186,7 +189,7 @@ async function getProjectStats(): Promise<ModuleStats> {
       label: 'Active Projects',
     };
   } catch (error) {
-    console.error('[getProjectStats] Error:', error);
+    logger.error('Failed to fetch project stats', error);
     return { moduleId: 'project-management', totalCount: 0 };
   }
 }
@@ -208,7 +211,7 @@ async function getEstimationStats(): Promise<ModuleStats> {
       label: 'Draft Estimates',
     };
   } catch (error) {
-    console.error('[getEstimationStats] Error:', error);
+    logger.error('Failed to fetch estimation stats', error);
     return { moduleId: 'estimation', pendingCount: 0 };
   }
 }
@@ -230,7 +233,7 @@ async function getEntityStats(): Promise<ModuleStats> {
       label: 'Active Entities',
     };
   } catch (error) {
-    console.error('[getEntityStats] Error:', error);
+    logger.error('Failed to fetch entity stats', error);
     return { moduleId: 'entity-management', totalCount: 0 };
   }
 }
@@ -252,7 +255,7 @@ async function getUserStats(): Promise<ModuleStats> {
       label: 'Active Users',
     };
   } catch (error) {
-    console.error('[getUserStats] Error:', error);
+    logger.error('Failed to fetch user stats', error);
     return { moduleId: 'user-management', totalCount: 0 };
   }
 }
@@ -305,7 +308,7 @@ export async function getAllModuleStats(accessibleModuleIds: string[]): Promise<
     const stats = await Promise.all(statsPromises);
     return stats;
   } catch (error) {
-    console.error('[getAllModuleStats] Error:', error);
+    logger.error('Failed to fetch all module stats', error);
     return [];
   }
 }
