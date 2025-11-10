@@ -40,13 +40,13 @@ async function getTasksStats(): Promise<ModuleStats> {
 
     return {
       moduleId: 'time-tracking',
-      pendingCount: pendingSnapshot.data().count,
-      recentCount: onDutySnapshot.data().count,
+      pendingCount: pendingSnapshot.data().count || 0,
+      recentCount: onDutySnapshot.data().count || 0,
       label: 'Pending Tasks',
     };
   } catch (error) {
     console.error('[getTasksStats] Error:', error);
-    return { moduleId: 'time-tracking' };
+    return { moduleId: 'time-tracking', pendingCount: 0 };
   }
 }
 
@@ -69,12 +69,12 @@ async function getDocumentStats(): Promise<ModuleStats> {
 
     return {
       moduleId: 'document-management',
-      recentCount: recentSnapshot.data().count,
+      recentCount: recentSnapshot.data().count || 0,
       label: 'Recent Documents',
     };
   } catch (error) {
     console.error('[getDocumentStats] Error:', error);
-    return { moduleId: 'document-management' };
+    return { moduleId: 'document-management', recentCount: 0 };
   }
 }
 
@@ -107,9 +107,9 @@ async function getProcurementStats(): Promise<ModuleStats> {
     const pendingPOsSnapshot = await getCountFromServer(pendingPOsQuery);
 
     const totalPending =
-      pendingPRsSnapshot.data().count +
-      pendingRFQsSnapshot.data().count +
-      pendingPOsSnapshot.data().count;
+      (pendingPRsSnapshot.data().count || 0) +
+      (pendingRFQsSnapshot.data().count || 0) +
+      (pendingPOsSnapshot.data().count || 0);
 
     return {
       moduleId: 'procurement',
@@ -118,7 +118,7 @@ async function getProcurementStats(): Promise<ModuleStats> {
     };
   } catch (error) {
     console.error('[getProcurementStats] Error:', error);
-    return { moduleId: 'procurement' };
+    return { moduleId: 'procurement', pendingCount: 0 };
   }
 }
 
@@ -151,9 +151,9 @@ async function getAccountingStats(): Promise<ModuleStats> {
     const unreconciledSnapshot = await getCountFromServer(unreconciledQuery);
 
     const totalPending =
-      pendingInvoicesSnapshot.data().count +
-      pendingBillsSnapshot.data().count +
-      unreconciledSnapshot.data().count;
+      (pendingInvoicesSnapshot.data().count || 0) +
+      (pendingBillsSnapshot.data().count || 0) +
+      (unreconciledSnapshot.data().count || 0);
 
     return {
       moduleId: 'accounting',
@@ -162,7 +162,7 @@ async function getAccountingStats(): Promise<ModuleStats> {
     };
   } catch (error) {
     console.error('[getAccountingStats] Error:', error);
-    return { moduleId: 'accounting' };
+    return { moduleId: 'accounting', pendingCount: 0 };
   }
 }
 
@@ -182,12 +182,12 @@ async function getProjectStats(): Promise<ModuleStats> {
 
     return {
       moduleId: 'project-management',
-      totalCount: activeSnapshot.data().count,
+      totalCount: activeSnapshot.data().count || 0,
       label: 'Active Projects',
     };
   } catch (error) {
     console.error('[getProjectStats] Error:', error);
-    return { moduleId: 'project-management' };
+    return { moduleId: 'project-management', totalCount: 0 };
   }
 }
 
@@ -204,12 +204,12 @@ async function getEstimationStats(): Promise<ModuleStats> {
 
     return {
       moduleId: 'estimation',
-      pendingCount: draftSnapshot.data().count,
+      pendingCount: draftSnapshot.data().count || 0,
       label: 'Draft Estimates',
     };
   } catch (error) {
     console.error('[getEstimationStats] Error:', error);
-    return { moduleId: 'estimation' };
+    return { moduleId: 'estimation', pendingCount: 0 };
   }
 }
 
@@ -226,12 +226,12 @@ async function getEntityStats(): Promise<ModuleStats> {
 
     return {
       moduleId: 'entity-management',
-      totalCount: entitiesSnapshot.data().count,
+      totalCount: entitiesSnapshot.data().count || 0,
       label: 'Active Entities',
     };
   } catch (error) {
     console.error('[getEntityStats] Error:', error);
-    return { moduleId: 'entity-management' };
+    return { moduleId: 'entity-management', totalCount: 0 };
   }
 }
 
@@ -248,12 +248,12 @@ async function getUserStats(): Promise<ModuleStats> {
 
     return {
       moduleId: 'user-management',
-      totalCount: activeSnapshot.data().count,
+      totalCount: activeSnapshot.data().count || 0,
       label: 'Active Users',
     };
   } catch (error) {
     console.error('[getUserStats] Error:', error);
-    return { moduleId: 'user-management' };
+    return { moduleId: 'user-management', totalCount: 0 };
   }
 }
 
