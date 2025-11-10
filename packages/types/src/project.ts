@@ -58,6 +58,9 @@ export interface Project extends TimestampFields, SoftDeleteFields {
   status: ProjectStatus;
   priority: ProjectPriority;
 
+  // Project Type & Classification
+  projectType?: ProjectType;
+
   // Client
   client: ProjectClient;
 
@@ -73,6 +76,24 @@ export interface Project extends TimestampFields, SoftDeleteFields {
 
   // Budget
   budget?: ProjectBudget;
+
+  // Project Charter (comprehensive authorization & planning)
+  charter?: ProjectCharter;
+
+  // Outsourcing & Vendors
+  vendors?: OutsourcingVendor[];
+
+  // Document Requirements Tracking
+  documentRequirements?: DocumentRequirement[];
+
+  // Procurement Planning
+  procurementItems?: ProcurementItem[];
+
+  // Technical Specifications
+  technicalSpecs?: ProjectTechnicalSpecs;
+
+  // Progress Report Configuration
+  progressReportConfig?: ProgressReportConfig;
 
   // Metadata
   tags?: string[];
@@ -121,4 +142,276 @@ export interface ProjectMilestone extends TimestampFields {
   completedAt?: Timestamp;
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   assignedTo?: string[];
+}
+
+/**
+ * Project Type Categories
+ */
+export type ProjectType = 'THERMAL_DESALINATION' | 'MANUFACTURING' | 'CONSTRUCTION' | 'OTHER';
+
+/**
+ * Project Authorization & Approval
+ */
+export interface ProjectAuthorization {
+  sponsorName: string;
+  sponsorUserId?: string;
+  sponsorTitle: string;
+  authorizedDate?: Timestamp;
+  approvalStatus: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  approvedBy?: string;
+  approvedAt?: Timestamp;
+  rejectionReason?: string;
+  budgetAuthority: string; // Person/department authorizing budget
+}
+
+/**
+ * Project Objective with Success Criteria
+ */
+export interface ProjectObjective {
+  id: string;
+  description: string;
+  successCriteria: string[];
+  targetDate?: Timestamp;
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'ACHIEVED' | 'AT_RISK';
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  kpis?: {
+    name: string;
+    target: string;
+    current?: string;
+  }[];
+}
+
+/**
+ * Project Deliverable with Acceptance Criteria
+ */
+export interface ProjectDeliverable {
+  id: string;
+  name: string;
+  description: string;
+  type: 'DOCUMENT' | 'PRODUCT' | 'SERVICE' | 'MILESTONE';
+  acceptanceCriteria: string[];
+  dueDate?: Timestamp;
+  deliveredDate?: Timestamp;
+  status: 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'ACCEPTED' | 'REJECTED';
+  assignedTo?: string[];
+  linkedDocumentId?: string; // Reference to DocumentRecord
+}
+
+/**
+ * Outsourcing Vendor Assignment
+ */
+export interface OutsourcingVendor {
+  id: string;
+  vendorEntityId: string; // Reference to BusinessEntity
+  vendorName: string;
+  scopeOfWork: string;
+  contractValue?: Money;
+  contractStartDate?: Timestamp;
+  contractEndDate?: Timestamp;
+  contractStatus: 'DRAFT' | 'NEGOTIATION' | 'ACTIVE' | 'COMPLETED' | 'TERMINATED';
+  contactPerson: string;
+  contactEmail: string;
+  contactPhone: string;
+  deliverables: string[];
+  performanceRating?: number; // 1-5 stars
+  notes?: string;
+}
+
+/**
+ * Document Requirement Tracking
+ */
+export interface DocumentRequirement {
+  id: string;
+  documentType: string; // e.g., "Technical Specification", "As-Built Drawings"
+  documentCategory:
+    | 'PROJECT_PLAN'
+    | 'TECHNICAL_DRAWING'
+    | 'SPECIFICATION'
+    | 'CONTRACT'
+    | 'PROGRESS_REPORT'
+    | 'MEETING_MINUTES'
+    | 'COMPLIANCE'
+    | 'OTHER';
+  description: string;
+  isRequired: boolean;
+  dueDate?: Timestamp;
+  status: 'NOT_SUBMITTED' | 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
+  submittedDate?: Timestamp;
+  linkedDocumentId?: string; // Reference to DocumentRecord when submitted
+  assignedTo?: string[];
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  notes?: string;
+}
+
+/**
+ * Procurement Item for Charter Planning
+ */
+export interface ProcurementItem {
+  id: string;
+  itemName: string;
+  description: string;
+  category: 'RAW_MATERIAL' | 'COMPONENT' | 'EQUIPMENT' | 'SERVICE' | 'OTHER';
+  quantity: number;
+  unit: string;
+  estimatedUnitPrice?: Money;
+  estimatedTotalPrice?: Money;
+  requiredByDate?: Timestamp;
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  status: 'PLANNING' | 'PR_DRAFTED' | 'RFQ_ISSUED' | 'PO_PLACED' | 'DELIVERED' | 'CANCELLED';
+
+  // Linkages
+  linkedPurchaseRequestId?: string; // Auto-created PR on charter approval
+  linkedRFQId?: string;
+  linkedPOId?: string;
+  preferredVendors?: string[]; // BusinessEntity IDs
+
+  // Equipment linkage (for PR integration)
+  equipmentId?: string;
+  equipmentCode?: string;
+  equipmentName?: string;
+
+  // Additional details
+  technicalSpecs?: string;
+  notes?: string;
+}
+
+/**
+ * Thermal Desalination Specific Fields
+ */
+export interface ThermalDesalSpecs {
+  technology: 'MSF' | 'MED' | 'RO' | 'HYBRID' | 'OTHER';
+  capacity: {
+    value: number;
+    unit: 'M3_PER_DAY' | 'GALLONS_PER_DAY';
+  };
+  feedWaterSource: string;
+  operatingTemperature?: {
+    min: number;
+    max: number;
+    unit: 'CELSIUS' | 'FAHRENHEIT';
+  };
+  energySource: string;
+  complianceStandards: string[]; // e.g., "ISO 9001", "ASME Boiler Code"
+}
+
+/**
+ * Project Type-Specific Technical Specifications
+ */
+export interface ProjectTechnicalSpecs {
+  projectType: ProjectType;
+  thermalDesalSpecs?: ThermalDesalSpecs;
+  // Can add manufacturing, construction specs later
+  toolsRequired?: string[];
+  equipmentRequired?: string[];
+  facilitiesRequired?: string[];
+  technicalRequirements?: string;
+  qualityStandards?: string[];
+  safetyRequirements?: string;
+  environmentalConsiderations?: string;
+}
+
+/**
+ * Progress Report Section Selector
+ */
+export type ProgressReportSection =
+  | 'EXECUTIVE_SUMMARY'
+  | 'MILESTONES_TIMELINE'
+  | 'BUDGET_COST'
+  | 'PROCUREMENT_STATUS'
+  | 'DOCUMENT_SUBMISSIONS'
+  | 'RISKS_ISSUES'
+  | 'NEXT_PERIOD_OUTLOOK';
+
+/**
+ * Progress Report Configuration
+ */
+export interface ProgressReportConfig {
+  frequency?: 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'NONE';
+  scheduledDay?: number; // Day of week (1-7) or day of month (1-31)
+  includedSections: ProgressReportSection[];
+  recipients?: string[]; // User IDs to notify
+  autoSaveToDocuments: boolean;
+}
+
+/**
+ * Generated Progress Report
+ */
+export interface ProgressReport extends TimestampFields {
+  id: string;
+  projectId: string;
+  reportPeriodStart: Timestamp;
+  reportPeriodEnd: Timestamp;
+  generatedBy: string;
+  generatedAt: Timestamp;
+  reportType: 'INTERNAL' | 'EXTERNAL';
+  includedSections: ProgressReportSection[];
+
+  // Report Data
+  executiveSummary: string;
+  milestonesData?: {
+    completed: number;
+    inProgress: number;
+    pending: number;
+    overdue: number;
+    details: ProjectMilestone[];
+  };
+  budgetData?: {
+    budgetAmount: number;
+    actualSpent: number;
+    variance: number;
+    utilizationPercentage: number;
+    currency: string;
+  };
+  procurementData?: {
+    totalItems: number;
+    delivered: number;
+    inProgress: number;
+    pending: number;
+    details: ProcurementItem[];
+  };
+  documentData?: {
+    required: number;
+    submitted: number;
+    approved: number;
+    pending: number;
+    details: DocumentRequirement[];
+  };
+  risksIssues?: string[];
+  nextPeriodOutlook?: string;
+
+  // Document Management Integration
+  savedDocumentId?: string; // Reference to saved DocumentRecord
+  status: 'DRAFT' | 'FINALIZED';
+}
+
+/**
+ * Project Charter (comprehensive project authorization document)
+ */
+export interface ProjectCharter {
+  authorization: ProjectAuthorization;
+  objectives: ProjectObjective[];
+  deliverables: ProjectDeliverable[];
+  scope: {
+    inScope: string[];
+    outOfScope: string[];
+    assumptions: string[];
+    constraints: string[];
+  };
+  risks: {
+    id: string;
+    description: string;
+    probability: 'LOW' | 'MEDIUM' | 'HIGH';
+    impact: 'LOW' | 'MEDIUM' | 'HIGH';
+    mitigation?: string;
+    status: 'OPEN' | 'MITIGATED' | 'CLOSED';
+  }[];
+  stakeholders: {
+    name: string;
+    role: string;
+    interest: 'LOW' | 'MEDIUM' | 'HIGH';
+    influence: 'LOW' | 'MEDIUM' | 'HIGH';
+    communicationPlan?: string;
+  }[];
+  qualityStandards?: string[];
+  complianceRequirements?: string[];
 }

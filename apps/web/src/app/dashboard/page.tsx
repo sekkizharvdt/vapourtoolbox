@@ -58,7 +58,7 @@ export default function DashboardPage() {
     } else {
       setIsLoadingStats(false);
     }
-  }, [userPermissions]); // Re-load when permissions change
+  }, [accessibleModules]); // Re-load when accessible modules change
 
   // Helper to get stats for a specific module
   const getStatsForModule = (moduleId: string): ModuleStats | undefined => {

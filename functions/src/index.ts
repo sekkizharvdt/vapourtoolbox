@@ -19,5 +19,11 @@ export { fetchDailyExchangeRates, manualFetchExchangeRates } from './currency';
 // Import project management functions
 export { onProjectCreated, onProjectUpdated } from './projects';
 
+// Import charter approval functions
+export { onCharterApproved } from './charterApproval';
+
+// Import document requirements functions
+export { onDocumentUploaded } from './documentRequirements';
+
 // Import module integration functions
 export { seedAccountingIntegrations } from './moduleIntegrations';

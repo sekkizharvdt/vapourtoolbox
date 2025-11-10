@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Container,
   Typography,
@@ -50,6 +51,7 @@ import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 
 export default function ProjectsPage() {
   const { claims } = useAuth();
+  const router = useRouter();
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -455,13 +457,10 @@ export default function ProjectsPage() {
                     </TableCell>
                     <TableCell align="right">
                       <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-                        <Tooltip title="View Details">
+                        <Tooltip title="View Charter">
                           <IconButton
                             size="small"
-                            onClick={() => {
-                              setSelectedProject(project);
-                              setViewDialogOpen(true);
-                            }}
+                            onClick={() => router.push(`/projects/${project.id}/charter`)}
                           >
                             <ViewIcon fontSize="small" />
                           </IconButton>

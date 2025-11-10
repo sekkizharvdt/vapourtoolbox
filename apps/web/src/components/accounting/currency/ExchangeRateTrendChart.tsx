@@ -142,7 +142,7 @@ export default function ExchangeRateTrendChart({
     });
 
     return Array.from(dataByDate.values()).sort((a, b) => a.date.localeCompare(b.date));
-  }, [rates, selectedCurrencies, timeRange, baseCurrency]);
+  }, [rates, selectedCurrencies, timeRange]);
 
   return (
     <Box>

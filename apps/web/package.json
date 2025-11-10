@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@mui/icons-material": "^7.3.4",
+    "@mui/lab": "7.0.1-beta.19",
     "@mui/material": "^7.3.4",
     "@vapour/constants": "workspace:*",
     "@vapour/firebase": "workspace:*",
