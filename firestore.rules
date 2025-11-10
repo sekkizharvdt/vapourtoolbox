@@ -474,6 +474,53 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Customer Invoices (Accounting Module)
+    // ============================================
+
+    match /customerInvoices/{invoiceId} {
+      // Read: Users with VIEW_ACCOUNTING permission
+      allow read: if hasPermission(32768); // VIEW_ACCOUNTING
+
+      // Create/Update: Users with MANAGE_ACCOUNTING permission
+      allow create, update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
+    // Documents Collection
+    // ============================================
+
+    match /documents/{documentId} {
+      // Read: All authenticated internal users
+      allow read: if isInternalUser();
+
+      // Create/Update: All authenticated internal users
+      allow create, update: if isInternalUser();
+
+      // Delete: Document owner or super admins
+      allow delete: if (isAuthenticated() && isOwner(resource.data.createdBy)) ||
+                       isSuperAdmin();
+    }
+
+    // ============================================
+    // Tasks Collection
+    // ============================================
+
+    match /tasks/{taskId} {
+      // Read: All authenticated internal users
+      allow read: if isInternalUser();
+
+      // Create/Update: All authenticated internal users
+      allow create, update: if isInternalUser();
+
+      // Delete: Task owner or super admins
+      allow delete: if (isAuthenticated() && isOwner(resource.data.createdBy)) ||
+                       isSuperAdmin();
+    }
+
+    // ============================================
     // Module Integrations (Super Admin Only)
     // ============================================
 
