@@ -61,8 +61,8 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
           code: costCentre.code,
           name: costCentre.name,
           description: costCentre.description || '',
-          projectId: costCentre.projectId,
-          budget: costCentre.budget ? costCentre.budget.toString() : '',
+          projectId: costCentre.projectId || '',
+          budget: costCentre.budgetAmount ? costCentre.budgetAmount.toString() : '',
           budgetCurrency: (costCentre.budgetCurrency as CurrencyCode) || 'INR',
           isActive: costCentre.isActive,
         });

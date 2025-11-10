@@ -151,7 +151,7 @@ export default function ProjectFinancialReportPage() {
       });
 
       // Get project budget from cost centres
-      const totalBudget = costCentres.reduce((sum, cc) => sum + (cc.budget || 0), 0);
+      const totalBudget = costCentres.reduce((sum, cc) => sum + (cc.budgetAmount || 0), 0);
       const budgetCurrency = costCentres.find((cc) => cc.budgetCurrency)?.budgetCurrency;
 
       setFinancials({

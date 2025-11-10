@@ -125,13 +125,13 @@ export interface CostCentre {
   description?: string;
 
   // Link to project
-  projectId: string; // Reference to existing project
+  projectId?: string; // Optional: Reference to existing project (for auto-created cost centres)
 
   // Budget & Tracking
-  budget?: number;
-  budgetCurrency?: string;
-  currentSpend: number;
-  currentRevenue: number;
+  budgetAmount: number | null;
+  budgetCurrency: string;
+  actualSpent: number;
+  variance: number | null;
 
   // Status
   isActive: boolean;

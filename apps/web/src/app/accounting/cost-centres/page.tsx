@@ -98,8 +98,8 @@ export default function CostCentresPage() {
   };
 
   const calculateBudgetUtilization = (costCentre: CostCentre) => {
-    if (!costCentre.budget || costCentre.budget <= 0) return 0;
-    return (costCentre.currentSpend / costCentre.budget) * 100;
+    if (!costCentre.budgetAmount || costCentre.budgetAmount <= 0) return 0;
+    return (costCentre.actualSpent / costCentre.budgetAmount) * 100;
   };
 
   const getBudgetStatus = (utilization: number): 'success' | 'warning' | 'error' => {
@@ -159,7 +159,6 @@ export default function CostCentresPage() {
             {costCentres.map((costCentre) => {
               const budgetUtilization = calculateBudgetUtilization(costCentre);
               const budgetStatus = getBudgetStatus(budgetUtilization);
-              const netPosition = costCentre.currentRevenue - costCentre.currentSpend;
 
               return (
                 <Grid size={{ xs: 12, md: 6, lg: 4 }} key={costCentre.id}>
@@ -199,7 +198,7 @@ export default function CostCentresPage() {
                       )}
 
                       {/* Budget Information */}
-                      {costCentre.budget && costCentre.budget > 0 && (
+                      {costCentre.budgetAmount && costCentre.budgetAmount > 0 && (
                         <Box sx={{ mb: 2 }}>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                             <Typography variant="body2" color="text.secondary">
@@ -219,49 +218,46 @@ export default function CostCentresPage() {
                             color={budgetStatus}
                           />
                           <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                            {formatCurrency(costCentre.currentSpend, costCentre.budgetCurrency)} of{' '}
-                            {formatCurrency(costCentre.budget, costCentre.budgetCurrency)}
+                            {formatCurrency(costCentre.actualSpent, costCentre.budgetCurrency)} of{' '}
+                            {formatCurrency(costCentre.budgetAmount, costCentre.budgetCurrency)}
                           </Typography>
                         </Box>
                       )}
 
                       {/* Financial Summary */}
                       <Grid container spacing={2} sx={{ mt: 1 }}>
-                        <Grid size={{ xs: 6 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            Revenue
-                          </Typography>
-                          <Typography variant="body2" fontWeight="medium" color="success.main">
-                            {formatCurrency(costCentre.currentRevenue, costCentre.budgetCurrency)}
-                          </Typography>
-                        </Grid>
-                        <Grid size={{ xs: 6 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            Expenses
-                          </Typography>
-                          <Typography variant="body2" fontWeight="medium" color="error.main">
-                            {formatCurrency(costCentre.currentSpend, costCentre.budgetCurrency)}
-                          </Typography>
-                        </Grid>
                         <Grid size={{ xs: 12 }}>
                           <Typography variant="caption" color="text.secondary">
-                            Net Position
+                            Total Expenses
                           </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            {netPosition >= 0 ? (
-                              <UpIcon color="success" fontSize="small" />
-                            ) : (
-                              <DownIcon color="error" fontSize="small" />
-                            )}
-                            <Typography
-                              variant="body2"
-                              fontWeight="medium"
-                              color={netPosition >= 0 ? 'success.main' : 'error.main'}
-                            >
-                              {formatCurrency(Math.abs(netPosition), costCentre.budgetCurrency)}
-                            </Typography>
-                          </Box>
+                          <Typography variant="body2" fontWeight="medium" color="error.main">
+                            {formatCurrency(costCentre.actualSpent, costCentre.budgetCurrency)}
+                          </Typography>
                         </Grid>
+                        {costCentre.variance !== null && (
+                          <Grid size={{ xs: 12 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              Budget Variance
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              {costCentre.variance >= 0 ? (
+                                <UpIcon color="success" fontSize="small" />
+                              ) : (
+                                <DownIcon color="error" fontSize="small" />
+                              )}
+                              <Typography
+                                variant="body2"
+                                fontWeight="medium"
+                                color={costCentre.variance >= 0 ? 'success.main' : 'error.main'}
+                              >
+                                {formatCurrency(
+                                  Math.abs(costCentre.variance),
+                                  costCentre.budgetCurrency
+                                )}
+                              </Typography>
+                            </Box>
+                          </Grid>
+                        )}
                       </Grid>
                     </CardContent>
 

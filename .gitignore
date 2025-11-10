@@ -60,3 +60,4 @@ firebase-emulator.log
 
 # Legacy/Reference Code (do not commit to GitHub)
 inputs/
+firebase-service-account.json
