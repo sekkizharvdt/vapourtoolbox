@@ -43,6 +43,8 @@ jobs:
           NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: vapour-toolbox.firebasestorage.app
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 697891123609
           NEXT_PUBLIC_FIREBASE_APP_ID: 1:697891123609:web:334e56be149a056f252308
+          # CRITICAL: Explicitly disable emulator mode in production builds
+          NEXT_PUBLIC_USE_EMULATOR: false
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools

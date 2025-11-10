@@ -55,7 +55,10 @@
       "Bash(git reset:*)",
       "Bash(pnpm --filter @vapour/web exec tsc:*)",
       "Bash(pnpm --filter @vapour/web add @mui/lab)",
-      "Bash(npm run type-check:*)"
+      "Bash(npm run type-check:*)",
+      "Bash(NEXT_PUBLIC_USE_EMULATOR=false pnpm build:*)",
+      "Bash(NEXT_PUBLIC_USE_EMULATOR=false pnpm --filter @vapour/web build:*)",
+      "Bash(export NEXT_PUBLIC_USE_EMULATOR=false)"
     ],
     "deny": [],
     "ask": []
