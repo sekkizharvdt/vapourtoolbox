@@ -521,6 +521,36 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Vendor Bills (Accounting Module)
+    // ============================================
+
+    match /vendorBills/{billId} {
+      // Read: Users with VIEW_ACCOUNTING permission
+      allow read: if hasPermission(32768); // VIEW_ACCOUNTING
+
+      // Create/Update: Users with MANAGE_ACCOUNTING permission
+      allow create, update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
+    // Bank Reconciliation (Accounting Module)
+    // ============================================
+
+    match /bankReconciliation/{recordId} {
+      // Read: Users with VIEW_ACCOUNTING permission
+      allow read: if hasPermission(32768); // VIEW_ACCOUNTING
+
+      // Create/Update: Users with MANAGE_ACCOUNTING permission
+      allow create, update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
     // Module Integrations (Super Admin Only)
     // ============================================
 
