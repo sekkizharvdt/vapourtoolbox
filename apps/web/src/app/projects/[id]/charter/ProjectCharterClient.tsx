@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo } from 'react';
+import { useParams, useRouter, usePathname } from 'next/navigation';
 import {
   Container,
   Typography,
@@ -63,8 +63,24 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 export default function ProjectCharterPage() {
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname();
   const { claims } = useAuth();
-  const projectId = params.id as string;
+
+  // Extract project ID from URL pathname
+  // For static export with dynamic routes, params.id might initially be 'placeholder'
+  // from pre-generated HTML, so we parse the actual ID from the pathname
+  const projectId = useMemo(() => {
+    const paramsId = params.id as string;
+
+    // If params has a real ID (not placeholder), use it
+    if (paramsId && paramsId !== 'placeholder') {
+      return paramsId;
+    }
+
+    // Otherwise, extract from pathname
+    const match = pathname?.match(/\/projects\/([^/]+)\/charter/);
+    return match?.[1] || paramsId;
+  }, [params.id, pathname]);
 
   const [activeTab, setActiveTab] = useState(0);
   const [project, setProject] = useState<Project | null>(null);

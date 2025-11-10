@@ -1,7 +1,7 @@
 import OfferComparisonPage from './OfferComparisonClient';
 
 // For static export, we need to provide at least one path
-// Actual routing will be handled client-side
+// Client-side component will parse actual ID from URL pathname
 export function generateStaticParams() {
   return [{ id: 'placeholder' }];
 }

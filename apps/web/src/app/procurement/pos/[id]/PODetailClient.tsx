@@ -6,8 +6,8 @@
  * View PO details with approval workflow
  */
 
-import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter, useParams, usePathname } from 'next/navigation';
 import {
   Box,
   Paper,
@@ -67,8 +67,19 @@ import {
 export default function PODetailPage() {
   const router = useRouter();
   const params = useParams();
+  const pathname = usePathname();
   const { user } = useAuth();
-  const poId = params.id as string;
+
+  // Extract PO ID from URL pathname
+  // For static export with dynamic routes, params.id might initially be 'placeholder'
+  const poId = useMemo(() => {
+    const paramsId = params.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      return paramsId;
+    }
+    const match = pathname?.match(/\/procurement\/pos\/([^/]+)(?:\/|$)/);
+    return match?.[1] || paramsId;
+  }, [params.id, pathname]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

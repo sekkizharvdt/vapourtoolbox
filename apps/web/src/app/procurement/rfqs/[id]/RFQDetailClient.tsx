@@ -6,8 +6,8 @@
  * View and manage a single RFQ
  */
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo } from 'react';
+import { useParams, useRouter, usePathname } from 'next/navigation';
 import {
   Box,
   Paper,
@@ -57,8 +57,19 @@ import {
 export default function RFQDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname();
   const { user } = useAuth();
-  const rfqId = params.id as string;
+
+  // Extract RFQ ID from URL pathname
+  // For static export with dynamic routes, params.id might initially be 'placeholder'
+  const rfqId = useMemo(() => {
+    const paramsId = params.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      return paramsId;
+    }
+    const match = pathname?.match(/\/procurement\/rfqs\/([^/]+)(?:\/|$)/);
+    return match?.[1] || paramsId;
+  }, [params.id, pathname]);
 
   const [loading, setLoading] = useState(true);
   const [rfq, setRfq] = useState<RFQ | null>(null);
