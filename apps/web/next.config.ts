@@ -1,8 +1,9 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // Note: Removed 'output: export' to support dynamic routes with Firebase data
-  // Firebase Hosting can serve Next.js apps without requiring static export
+  // Static export for Firebase Hosting
+  // Dynamic routes work with placeholder params + client-side routing
+  output: 'export',
   reactStrictMode: true,
   // Skip trailing slash to match Firebase cleanUrls
   skipTrailingSlashRedirect: true,
@@ -21,7 +22,7 @@ const nextConfig: NextConfig = {
   },
   // Configure trailing slash to match Firebase Hosting cleanUrls behavior
   trailingSlash: false,
-  // Keep images unoptimized for Firebase Hosting compatibility
+  // Disable image optimization for static export
   images: {
     unoptimized: true,
   },
