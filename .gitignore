@@ -61,3 +61,9 @@ firebase-emulator.log
 # Legacy/Reference Code (do not commit to GitHub)
 inputs/
 firebase-service-account.json
+
+# Windows Zone.Identifier files
+*:Zone.Identifier
+
+# Feedback images (user-provided screenshots)
+feedback_images/
