@@ -59,6 +59,7 @@ export function ModuleLayout({ children, permissionCheck, moduleName }: ModuleLa
     }
     return false;
   });
+  const [authTimeout, setAuthTimeout] = useState(false);
   const { user, claims, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -79,6 +80,29 @@ export function ModuleLayout({ children, permissionCheck, moduleName }: ModuleLa
       lastPathname.current = pathname;
     }
   }, [pathname]);
+
+  // Auth loading timeout and debug logging
+  useEffect(() => {
+    console.error('[ModuleLayout] Auth state:', {
+      loading,
+      hasUser: !!user,
+      hasClaims: !!claims,
+      pathname,
+      moduleName,
+    });
+
+    if (!loading) {
+      setAuthTimeout(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      console.error('[ModuleLayout] Auth loading timeout - forcing render after 5 seconds');
+      setAuthTimeout(true);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [loading, user, claims, pathname, moduleName]);
 
   // Redirect based on auth state (only once per route to prevent redirect loops)
   useEffect(() => {
@@ -103,19 +127,44 @@ export function ModuleLayout({ children, permissionCheck, moduleName }: ModuleLa
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
-  // Show loading indicator while checking auth
-  if (loading) {
+  // Show loading indicator while checking auth (with timeout failsafe)
+  if (loading && !authTimeout) {
     return (
       <Box
         sx={{
           display: 'flex',
+          flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
           minHeight: '100vh',
+          gap: 2,
         }}
       >
         <CircularProgress />
+        <Typography variant="body2" color="text.secondary">
+          Loading authentication...
+        </Typography>
       </Box>
+    );
+  }
+
+  // If auth loading timed out, show error and allow render
+  if (authTimeout && loading) {
+    console.error('[ModuleLayout] Rendering despite auth timeout');
+    return (
+      <Container maxWidth="xl">
+        <Box sx={{ py: 4, textAlign: 'center' }}>
+          <Typography variant="h5" color="error" gutterBottom>
+            Authentication Timeout
+          </Typography>
+          <Typography variant="body1" color="text.secondary" gutterBottom>
+            Authentication is taking longer than expected. Please refresh the page.
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            Debug Info: loading={String(loading)}, user={String(!!user)}, claims={String(!!claims)}
+          </Typography>
+        </Box>
+      </Container>
     );
   }
 
