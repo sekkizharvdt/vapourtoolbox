@@ -1,25 +1,39 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Box, Container, Typography, CircularProgress } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function HomePage() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading } = useAuth();
 
   useEffect(() => {
+    console.log('[HomePage] Checking redirect:', { pathname, loading, hasUser: !!user });
+
+    // IMPORTANT: Only redirect if we're actually on the root page
+    // For static export, Firebase serves index.html for all routes,
+    // but Next.js will handle client-side routing to the correct page
+    // So we must NOT redirect if the pathname is anything other than '/'
+    if (pathname !== '/') {
+      console.log('[HomePage] Not on root path, letting Next.js handle routing');
+      return;
+    }
+
     if (!loading) {
       if (user) {
         // User is logged in, redirect to dashboard
+        console.log('[HomePage] User logged in, redirecting to /dashboard');
         router.push('/dashboard');
       } else {
         // User not logged in, redirect to login
+        console.log('[HomePage] No user, redirecting to /login');
         router.push('/login');
       }
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, pathname]);
 
   return (
     <Container maxWidth="lg">

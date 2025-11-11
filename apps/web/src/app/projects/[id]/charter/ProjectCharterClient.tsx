@@ -74,13 +74,23 @@ export default function ProjectCharterPage() {
 
     // If params has a real ID (not placeholder), use it
     if (paramsId && paramsId !== 'placeholder') {
+      console.log('[ProjectCharter] Using params.id:', paramsId);
       return paramsId;
     }
 
     // Otherwise, extract from pathname
     const match = pathname?.match(/\/projects\/([^/]+)\/charter/);
-    return match?.[1] || paramsId;
+    const extractedId = match?.[1] || paramsId;
+    console.log('[ProjectCharter] Extracting from pathname:', pathname, '→', extractedId);
+    return extractedId;
   }, [params.id, pathname]);
+
+  console.log('[ProjectCharter] Component render:', {
+    pathname,
+    projectId,
+    paramsId: params.id,
+    hasClaims: !!claims,
+  });
 
   const [activeTab, setActiveTab] = useState(0);
   const [project, setProject] = useState<Project | null>(null);
@@ -90,9 +100,22 @@ export default function ProjectCharterPage() {
   // Check permissions
   const hasViewAccess = claims?.permissions ? canViewProjects(claims.permissions) : false;
 
+  console.log('[ProjectCharter] Access check:', {
+    projectId,
+    hasViewAccess,
+    permissions: claims?.permissions,
+  });
+
   // Load project data
   useEffect(() => {
+    console.log('[ProjectCharter] Load effect triggered:', {
+      projectId,
+      hasViewAccess,
+      loading,
+    });
+
     if (!projectId || !hasViewAccess) {
+      console.log('[ProjectCharter] Early return - projectId or hasViewAccess is false');
       setLoading(false);
       return;
     }

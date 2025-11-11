@@ -5,7 +5,7 @@ import { Box, Toolbar, Typography, Container } from '@mui/material';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { DashboardAppBar } from '@/components/dashboard/AppBar';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 interface ModuleLayoutProps {
   children: ReactNode;
@@ -61,7 +61,9 @@ export function ModuleLayout({ children, permissionCheck, moduleName }: ModuleLa
   });
   const { user, claims, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const hasRedirected = useRef(false);
+  const lastPathname = useRef(pathname);
 
   // Persist sidebar collapsed state
   useEffect(() => {
@@ -70,24 +72,43 @@ export function ModuleLayout({ children, permissionCheck, moduleName }: ModuleLa
     }
   }, [sidebarCollapsed]);
 
-  // Redirect based on auth state (only once to prevent redirect loops)
+  // Reset redirect flag when pathname changes (navigating between routes)
   useEffect(() => {
+    if (pathname !== lastPathname.current) {
+      console.log('[ModuleLayout] Route changed:', lastPathname.current, '→', pathname);
+      console.log('[ModuleLayout] Resetting hasRedirected flag');
+      hasRedirected.current = false;
+      lastPathname.current = pathname;
+    }
+  }, [pathname]);
+
+  // Redirect based on auth state (only once per route to prevent redirect loops)
+  useEffect(() => {
+    console.log('[ModuleLayout] Auth check:', {
+      pathname,
+      loading,
+      hasUser: !!user,
+      hasClaims: !!claims,
+      hasRedirected: hasRedirected.current,
+      moduleName,
+    });
+
     if (!loading && !hasRedirected.current) {
       if (!user) {
         // Not authenticated - redirect to login
+        console.log('[ModuleLayout] No user, redirecting to /login');
         hasRedirected.current = true;
         router.push('/login');
       } else if (!claims) {
         // Authenticated but no claims - redirect to pending approval
+        console.log('[ModuleLayout] No claims, redirecting to /pending-approval');
         hasRedirected.current = true;
         router.push('/pending-approval');
+      } else {
+        console.log('[ModuleLayout] Auth valid, no redirect needed');
       }
     }
-    // Reset flag if auth becomes valid
-    if (user && claims) {
-      hasRedirected.current = false;
-    }
-  }, [user, claims, loading, router]);
+  }, [user, claims, loading, router, pathname, moduleName]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
