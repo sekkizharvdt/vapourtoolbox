@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, ReactNode } from 'react';
-import { Box, Toolbar, Typography, Container } from '@mui/material';
+import { Box, Toolbar, Typography, Container, CircularProgress } from '@mui/material';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { DashboardAppBar } from '@/components/dashboard/AppBar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -103,9 +103,20 @@ export function ModuleLayout({ children, permissionCheck, moduleName }: ModuleLa
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
-  // Show nothing while checking auth
+  // Show loading indicator while checking auth
   if (loading) {
-    return null;
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
   }
 
   // Don't render if not authenticated or pending approval (will redirect)
