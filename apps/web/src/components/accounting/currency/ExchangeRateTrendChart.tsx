@@ -38,7 +38,9 @@ const COLORS: Record<CurrencyCode, string> = {
   INR: '#607D8B',
   USD: '#2196F3',
   EUR: '#4CAF50',
+  GBP: '#FF9800',
   SGD: '#9C27B0',
+  AED: '#E91E63',
 };
 
 interface CustomTooltipData {

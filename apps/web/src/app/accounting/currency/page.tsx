@@ -51,7 +51,9 @@ const CURRENCY_INFO: Record<CurrencyCode, { name: string; symbol: string; flag: 
   INR: { name: 'Indian Rupee', symbol: '₹', flag: '🇮🇳' },
   USD: { name: 'US Dollar', symbol: '$', flag: '🇺🇸' },
   EUR: { name: 'Euro', symbol: '€', flag: '🇪🇺' },
+  GBP: { name: 'British Pound', symbol: '£', flag: '🇬🇧' },
   SGD: { name: 'Singapore Dollar', symbol: 'S$', flag: '🇸🇬' },
+  AED: { name: 'UAE Dirham', symbol: 'AED', flag: '🇦🇪' },
 };
 
 interface TabPanelProps {

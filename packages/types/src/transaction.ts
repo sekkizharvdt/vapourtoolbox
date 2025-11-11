@@ -348,6 +348,9 @@ export interface InvoiceLineItem {
   // Account mapping
   accountId?: string; // Which account to post to
   costCentreId?: string; // Project assignment
+
+  // Charter budget line item tracking (optional)
+  budgetLineItemId?: string; // Link to CharterBudgetLineItem for detailed budget tracking
 }
 
 /**

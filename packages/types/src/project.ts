@@ -2,7 +2,7 @@
 
 import { Timestamp } from 'firebase/firestore';
 import { ProjectStatus, ProjectPriority } from './core';
-import { TimestampFields, SoftDeleteFields, Money } from './common';
+import { TimestampFields, SoftDeleteFields, Money, CurrencyCode } from './common';
 
 /**
  * Project team member
@@ -40,9 +40,16 @@ export interface ProjectDates {
  * Project budget
  */
 export interface ProjectBudget {
-  estimated: Money;
-  actual?: Money;
-  currency: string;
+  // Forex conversion (if order value is in foreign currency)
+  originalCurrency?: CurrencyCode; // Original contract currency (USD, EUR, etc.)
+  originalAmount?: number; // Amount in original currency
+  exchangeRate?: number; // User-entered or from currency module
+  exchangeRateDate?: Timestamp; // When rate was locked
+
+  // All budget tracking in INR
+  estimated: Money; // Total budget in INR
+  actual?: Money; // Actual spent in INR
+  currency: string; // Always 'INR'
 }
 
 /**
@@ -195,6 +202,63 @@ export interface ProjectDeliverable {
   status: 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'ACCEPTED' | 'REJECTED';
   assignedTo?: string[];
   linkedDocumentId?: string; // Reference to DocumentRecord
+}
+
+/**
+ * Charter Budget Line Item
+ * Detailed budget breakdown linked to scope items
+ */
+export interface CharterBudgetLineItem {
+  id: string;
+  lineNumber: number; // For ordering
+
+  // Description & Category
+  description: string;
+
+  // Execution Type
+  executionType: 'IN_HOUSE' | 'OUTSOURCED';
+
+  // Vendor Linkage (for OUTSOURCED items)
+  linkedVendorId?: string; // References OutsourcingVendor.id
+  linkedVendorName?: string; // Denormalized for display
+
+  // Scope Linkage (optional)
+  scopeLinkage?: {
+    type: 'OBJECTIVE' | 'DELIVERABLE' | 'IN_SCOPE_ITEM';
+    id: string; // ID of the linked scope item
+    description?: string; // Denormalized description
+  };
+
+  // Budget (all in INR)
+  estimatedCost: number; // Estimated cost in INR
+  currency: 'INR'; // Always INR
+  actualCost?: number; // Calculated from accounting transactions
+  variance?: number; // estimatedCost - actualCost
+
+  // Status
+  status: 'PLANNED' | 'APPROVED' | 'IN_PROGRESS' | 'COMPLETED' | 'CLOSED';
+
+  // Closure tracking
+  closedAt?: Timestamp;
+  closedBy?: string;
+  closureNotes?: string;
+
+  // Metadata
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  createdBy: string;
+  updatedBy?: string;
+}
+
+/**
+ * Budget Summary for Charter
+ */
+export interface CharterBudgetSummary {
+  totalEstimated: number; // Sum of all line items estimated cost
+  totalActual: number; // Sum of all line items actual cost
+  totalVariance: number; // totalEstimated - totalActual
+  utilizationPercentage: number; // (totalActual / totalEstimated) * 100
+  currency: 'INR'; // Always INR
 }
 
 /**
@@ -397,6 +461,11 @@ export interface ProjectCharter {
     assumptions: string[];
     constraints: string[];
   };
+
+  // Budget Line Items
+  budgetLineItems?: CharterBudgetLineItem[];
+  budgetSummary?: CharterBudgetSummary;
+
   risks: {
     id: string;
     description: string;
