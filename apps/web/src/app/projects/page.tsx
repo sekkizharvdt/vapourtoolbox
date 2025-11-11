@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Container,
   Typography,
@@ -46,12 +45,12 @@ import { CreateProjectDialog } from '@/components/projects/CreateProjectDialog';
 import { EditProjectDialog } from '@/components/projects/EditProjectDialog';
 import { ViewProjectDialog } from '@/components/projects/ViewProjectDialog';
 import { DeleteProjectDialog } from '@/components/projects/DeleteProjectDialog';
+import { ProjectCharterDialog } from '@/components/projects/ProjectCharterDialog';
 import { canViewProjects, canManageProjects } from '@vapour/constants';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 
 export default function ProjectsPage() {
   const { claims } = useAuth();
-  const router = useRouter();
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -68,6 +67,7 @@ export default function ProjectsPage() {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [charterDialogOpen, setCharterDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   // Firestore query using custom hook
@@ -460,7 +460,10 @@ export default function ProjectsPage() {
                         <Tooltip title="View Charter">
                           <IconButton
                             size="small"
-                            onClick={() => router.push(`/projects/${project.id}/charter`)}
+                            onClick={() => {
+                              setSelectedProject(project);
+                              setCharterDialogOpen(true);
+                            }}
                           >
                             <ViewIcon fontSize="small" />
                           </IconButton>
@@ -539,6 +542,16 @@ export default function ProjectsPage() {
           }}
           onSuccess={() => {
             setDeleteDialogOpen(false);
+            setSelectedProject(null);
+          }}
+        />
+
+        {/* Project Charter Dialog */}
+        <ProjectCharterDialog
+          open={charterDialogOpen}
+          project={selectedProject}
+          onClose={() => {
+            setCharterDialogOpen(false);
             setSelectedProject(null);
           }}
         />
