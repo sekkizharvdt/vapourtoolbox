@@ -35,6 +35,15 @@ export default function HomePage() {
     }
   }, [user, loading, router, pathname]);
 
+  // CRITICAL: Don't render root page content if we're on a different route
+  // For static export, Firebase serves index.html for all routes initially,
+  // but Next.js needs to hydrate the correct page component
+  // If we render content here, it blocks the correct page from showing
+  if (pathname !== '/') {
+    console.log('[HomePage] Not rendering root page content, pathname:', pathname);
+    return null; // Let Next.js render the correct page component
+  }
+
   return (
     <Container maxWidth="lg">
       <Box
