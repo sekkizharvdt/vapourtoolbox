@@ -11,9 +11,7 @@ export default function HomePage() {
   const { user, loading } = useAuth();
 
   useEffect(() => {
-    // IMPORTANT: Only redirect if we're actually on the root page
-    // For static export, Firebase serves index.html for all routes,
-    // but Next.js will handle client-side routing to the correct page
+    // Only redirect if we're actually on the root page
     if (pathname !== '/') {
       return;
     }
@@ -28,6 +26,13 @@ export default function HomePage() {
       }
     }
   }, [user, loading, router, pathname]);
+
+  // CRITICAL: Don't render anything if we're not on the root page
+  // This prevents HomePage from interfering with client-side navigation
+  // Must be after all hooks to follow Rules of Hooks
+  if (pathname !== '/') {
+    return null;
+  }
 
   return (
     <Container maxWidth="lg">
