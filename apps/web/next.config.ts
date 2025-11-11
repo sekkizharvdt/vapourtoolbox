@@ -1,12 +1,9 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // Static export for Firebase Hosting
-  // Dynamic routes work with placeholder params + client-side routing
-  output: 'export',
+  // Use Firebase Hosting with Next.js SSR integration
+  // No output: 'export' - Firebase will handle build and deploy
   reactStrictMode: true,
-  // Skip trailing slash to match Firebase cleanUrls
-  skipTrailingSlashRedirect: true,
   transpilePackages: [
     '@vapour/constants',
     '@vapour/firebase',
@@ -19,12 +16,6 @@ const nextConfig: NextConfig = {
   },
   typescript: {
     ignoreBuildErrors: false,
-  },
-  // Configure trailing slash to match Firebase Hosting cleanUrls behavior
-  trailingSlash: false,
-  // Disable image optimization for static export
-  images: {
-    unoptimized: true,
   },
 };
 
