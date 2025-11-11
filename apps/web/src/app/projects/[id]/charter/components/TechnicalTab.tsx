@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+
 import {
   Box,
   Typography,
@@ -33,7 +33,6 @@ interface TechnicalTabProps {
 
 export function TechnicalTab({ project }: TechnicalTabProps) {
   const { claims, user } = useAuth();
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
@@ -166,7 +165,6 @@ export function TechnicalTab({ project }: TechnicalTabProps) {
         updatedBy: userId,
       });
 
-      router.refresh();
       setEditMode(false);
     } catch (err) {
       console.error('[TechnicalTab] Error saving technical specs:', err);

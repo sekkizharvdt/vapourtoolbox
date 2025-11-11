@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+
 import {
   Box,
   Typography,
@@ -33,7 +33,6 @@ interface CharterTabProps {
 
 export function CharterTab({ project }: CharterTabProps) {
   const { claims, user } = useAuth();
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
@@ -102,7 +101,6 @@ export function CharterTab({ project }: CharterTabProps) {
         updatedBy: userId,
       });
 
-      router.refresh();
       setEditMode(false);
     } catch (err) {
       console.error('[CharterTab] Error saving authorization:', err);
@@ -138,7 +136,6 @@ export function CharterTab({ project }: CharterTabProps) {
       });
 
       alert('Charter approved! Purchase Requests will be automatically created.');
-      router.refresh();
     } catch (err) {
       console.error('[CharterTab] Error approving charter:', err);
       setError(err instanceof Error ? err.message : 'Failed to approve charter');
@@ -166,8 +163,6 @@ export function CharterTab({ project }: CharterTabProps) {
         updatedAt: Timestamp.now(),
         updatedBy: userId,
       });
-
-      router.refresh();
     } catch (err) {
       console.error('[CharterTab] Error rejecting charter:', err);
       setError(err instanceof Error ? err.message : 'Failed to reject charter');

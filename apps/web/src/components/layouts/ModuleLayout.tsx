@@ -75,8 +75,6 @@ export function ModuleLayout({ children, permissionCheck, moduleName }: ModuleLa
   // Reset redirect flag when pathname changes (navigating between routes)
   useEffect(() => {
     if (pathname !== lastPathname.current) {
-      console.log('[ModuleLayout] Route changed:', lastPathname.current, '→', pathname);
-      console.log('[ModuleLayout] Resetting hasRedirected flag');
       hasRedirected.current = false;
       lastPathname.current = pathname;
     }
@@ -84,28 +82,15 @@ export function ModuleLayout({ children, permissionCheck, moduleName }: ModuleLa
 
   // Redirect based on auth state (only once per route to prevent redirect loops)
   useEffect(() => {
-    console.log('[ModuleLayout] Auth check:', {
-      pathname,
-      loading,
-      hasUser: !!user,
-      hasClaims: !!claims,
-      hasRedirected: hasRedirected.current,
-      moduleName,
-    });
-
     if (!loading && !hasRedirected.current) {
       if (!user) {
         // Not authenticated - redirect to login
-        console.log('[ModuleLayout] No user, redirecting to /login');
         hasRedirected.current = true;
         router.push('/login');
       } else if (!claims) {
         // Authenticated but no claims - redirect to pending approval
-        console.log('[ModuleLayout] No claims, redirecting to /pending-approval');
         hasRedirected.current = true;
         router.push('/pending-approval');
-      } else {
-        console.log('[ModuleLayout] Auth valid, no redirect needed');
       }
     }
   }, [user, claims, loading, router, pathname, moduleName]);

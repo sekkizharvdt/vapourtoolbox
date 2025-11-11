@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+
 import {
   Box,
   Typography,
@@ -82,7 +82,6 @@ const EMPTY_FORM: ProcurementItemFormData = {
 
 export function ProcurementTab({ project }: ProcurementTabProps) {
   const { claims, user } = useAuth();
-  const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ProcurementItem | null>(null);
   const [formData, setFormData] = useState<ProcurementItemFormData>(EMPTY_FORM);
@@ -210,8 +209,6 @@ export function ProcurementTab({ project }: ProcurementTabProps) {
         await addProcurementItem(project.id, itemData, userId);
       }
 
-      // Refresh page to show updated data
-      router.refresh();
       handleClose();
     } catch (err) {
       console.error('[ProcurementTab] Error saving item:', err);
@@ -228,7 +225,6 @@ export function ProcurementTab({ project }: ProcurementTabProps) {
 
     try {
       await deleteProcurementItem(project.id, item.id, userId);
-      router.refresh();
     } catch (err) {
       console.error('[ProcurementTab] Error deleting item:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete procurement item');
@@ -252,9 +248,7 @@ export function ProcurementTab({ project }: ProcurementTabProps) {
         userName
       );
 
-      // Show success and refresh
       alert(`Purchase Request ${result.prNumber} created successfully!`);
-      router.refresh();
     } catch (err) {
       console.error('[ProcurementTab] Error creating PR:', err);
       setError(err instanceof Error ? err.message : 'Failed to create purchase request');

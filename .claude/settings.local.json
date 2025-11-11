@@ -58,7 +58,13 @@
       "Bash(npm run type-check:*)",
       "Bash(NEXT_PUBLIC_USE_EMULATOR=false pnpm build:*)",
       "Bash(NEXT_PUBLIC_USE_EMULATOR=false pnpm --filter @vapour/web build:*)",
-      "Bash(export NEXT_PUBLIC_USE_EMULATOR=false)"
+      "Bash(export NEXT_PUBLIC_USE_EMULATOR=false)",
+      "Bash(firebase firestore:indexes:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm --filter @vapour/utils type-check:*)",
+      "Bash(pnpm --filter @vapour/firebase type-check:*)",
+      "Bash(pnpm --filter @vapour/web type-check:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []

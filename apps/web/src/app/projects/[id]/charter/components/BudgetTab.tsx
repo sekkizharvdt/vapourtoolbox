@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+
 import {
   Box,
   Typography,
@@ -41,7 +41,6 @@ interface BudgetTabProps {
 
 export function BudgetTab({ project }: BudgetTabProps) {
   const { claims, user } = useAuth();
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
@@ -143,7 +142,6 @@ export function BudgetTab({ project }: BudgetTabProps) {
         updatedBy: userId,
       });
 
-      router.refresh();
       setEditMode(false);
     } catch (err) {
       console.error('[BudgetTab] Error saving budget:', err);

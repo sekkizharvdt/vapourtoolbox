@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+
 import {
   Box,
   Typography,
@@ -73,7 +73,6 @@ const EMPTY_FORM: DocumentRequirementFormData = {
 
 export function DocumentsTab({ project }: DocumentsTabProps) {
   const { claims, user } = useAuth();
-  const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedRequirement, setSelectedRequirement] = useState<DocumentRequirement | null>(null);
   const [formData, setFormData] = useState<DocumentRequirementFormData>(EMPTY_FORM);
@@ -176,8 +175,6 @@ export function DocumentsTab({ project }: DocumentsTabProps) {
         await addDocumentRequirement(project.id, requirementData, userId);
       }
 
-      // Refresh page to show updated data
-      router.refresh();
       handleClose();
     } catch (err) {
       console.error('[DocumentsTab] Error saving requirement:', err);
@@ -194,7 +191,6 @@ export function DocumentsTab({ project }: DocumentsTabProps) {
 
     try {
       await deleteDocumentRequirement(project.id, requirement.id, userId);
-      router.refresh();
     } catch (err) {
       console.error('[DocumentsTab] Error deleting requirement:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete document requirement');

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+
 import {
   Box,
   Typography,
@@ -82,7 +82,6 @@ const EMPTY_FORM: VendorFormData = {
 
 export function VendorsTab({ project }: VendorsTabProps) {
   const { claims, user } = useAuth();
-  const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<OutsourcingVendor | null>(null);
   const [formData, setFormData] = useState<VendorFormData>(EMPTY_FORM);
@@ -290,7 +289,6 @@ export function VendorsTab({ project }: VendorsTabProps) {
         updatedBy: userId,
       });
 
-      router.refresh();
       handleClose();
     } catch (err) {
       console.error('[VendorsTab] Error saving vendor:', err);
@@ -316,8 +314,6 @@ export function VendorsTab({ project }: VendorsTabProps) {
         updatedAt: Timestamp.now(),
         updatedBy: userId,
       });
-
-      router.refresh();
     } catch (err) {
       console.error('[VendorsTab] Error deleting vendor:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete vendor');
