@@ -12,7 +12,7 @@ import {
   Grid,
 } from '@mui/material';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import SetupWizard from './components/SetupWizard';
 import { Edit as EditIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
@@ -67,6 +67,7 @@ export default function CompanySettingsPage() {
 
   const loadSettings = async () => {
     try {
+      const { db } = getFirebase();
       const settingsDoc = await getDoc(doc(db, 'company', 'settings'));
       if (settingsDoc.exists()) {
         setSettings(settingsDoc.data() as CompanySettings);

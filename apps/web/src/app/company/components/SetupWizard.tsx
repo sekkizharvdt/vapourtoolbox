@@ -17,7 +17,7 @@ import {
   MenuItem,
 } from '@mui/material';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface CompanySettings {
@@ -117,6 +117,7 @@ export default function SetupWizard({ onComplete, existingSettings }: SetupWizar
     setError('');
 
     try {
+      const { db } = getFirebase();
       const settingsData: Record<string, unknown> = {
         setupComplete: true,
         companyName: formData.companyName,

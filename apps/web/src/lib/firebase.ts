@@ -22,8 +22,3 @@ export function getFirebase() {
 
 // Re-export for convenience
 export { getFirebaseClient } from '@vapour/firebase';
-
-// Export db directly for convenience
-export const db = getFirebase().db;
-export const auth = getFirebase().auth;
-export const storage = getFirebase().storage;
