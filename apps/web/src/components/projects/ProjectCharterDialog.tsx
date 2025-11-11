@@ -18,6 +18,7 @@ import {
   Close as CloseIcon,
   Dashboard as OverviewIcon,
   Description as CharterIcon,
+  ViewAgenda as ScopeIcon,
   Engineering as TechnicalIcon,
   Business as VendorsIcon,
   ShoppingCart as ProcurementIcon,
@@ -32,6 +33,7 @@ import type { Project, ProjectStatus, ProjectPriority } from '@vapour/types';
 // Import all charter tab components
 import { OverviewTab } from '@/app/projects/[id]/charter/components/OverviewTab';
 import { CharterTab } from '@/app/projects/[id]/charter/components/CharterTab';
+import { ScopeTab } from '@/app/projects/[id]/charter/components/ScopeTab';
 import { TechnicalTab } from '@/app/projects/[id]/charter/components/TechnicalTab';
 import { VendorsTab } from '@/app/projects/[id]/charter/components/VendorsTab';
 import { ProcurementTab } from '@/app/projects/[id]/charter/components/ProcurementTab';
@@ -159,6 +161,7 @@ export function ProjectCharterDialog({ open, project, onClose }: ProjectCharterD
         >
           <Tab icon={<OverviewIcon />} label="Overview" iconPosition="start" />
           <Tab icon={<CharterIcon />} label="Charter" iconPosition="start" />
+          <Tab icon={<ScopeIcon />} label="Scope" iconPosition="start" />
           <Tab icon={<TechnicalIcon />} label="Technical" iconPosition="start" />
           <Tab icon={<VendorsIcon />} label="Vendors" iconPosition="start" />
           <Tab icon={<ProcurementIcon />} label="Procurement" iconPosition="start" />
@@ -185,27 +188,30 @@ export function ProjectCharterDialog({ open, project, onClose }: ProjectCharterD
           <CharterTab project={project} />
         </TabPanel>
         <TabPanel value={activeTab} index={2}>
-          <TechnicalTab project={project} />
+          <ScopeTab project={project} />
         </TabPanel>
         <TabPanel value={activeTab} index={3}>
-          <VendorsTab project={project} />
+          <TechnicalTab project={project} />
         </TabPanel>
         <TabPanel value={activeTab} index={4}>
-          <ProcurementTab project={project} />
+          <VendorsTab project={project} />
         </TabPanel>
         <TabPanel value={activeTab} index={5}>
-          <DocumentsTab project={project} />
+          <ProcurementTab project={project} />
         </TabPanel>
         <TabPanel value={activeTab} index={6}>
-          <BudgetTab project={project} />
+          <DocumentsTab project={project} />
         </TabPanel>
         <TabPanel value={activeTab} index={7}>
-          <TimelineTab project={project} />
+          <BudgetTab project={project} />
         </TabPanel>
         <TabPanel value={activeTab} index={8}>
-          <TeamTab project={project} />
+          <TimelineTab project={project} />
         </TabPanel>
         <TabPanel value={activeTab} index={9}>
+          <TeamTab project={project} />
+        </TabPanel>
+        <TabPanel value={activeTab} index={10}>
           <ReportsTab project={project} />
         </TabPanel>
       </DialogContent>

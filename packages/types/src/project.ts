@@ -449,17 +449,45 @@ export interface ProgressReport extends TimestampFields {
 }
 
 /**
+ * Project Constraint
+ * Limitations and restrictions affecting the project
+ */
+export interface ProjectConstraint {
+  id: string;
+  description: string;
+  category:
+    | 'BUDGET'
+    | 'SCHEDULE'
+    | 'RESOURCE'
+    | 'TECHNICAL'
+    | 'REGULATORY'
+    | 'ENVIRONMENTAL'
+    | 'OTHER';
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  impact?: string; // Optional: describe how this constrains the project
+}
+
+/**
  * Project Charter (comprehensive project authorization document)
  */
 export interface ProjectCharter {
   authorization: ProjectAuthorization;
   objectives: ProjectObjective[];
   deliverables: ProjectDeliverable[];
+
+  // Delivery Period
+  deliveryPeriod?: {
+    startDate?: Timestamp;
+    endDate?: Timestamp;
+    duration?: number; // In days
+    description?: string; // e.g., "12 months from order date"
+  };
+
   scope: {
     inScope: string[];
     outOfScope: string[];
     assumptions: string[];
-    constraints: string[];
+    constraints: ProjectConstraint[];
   };
 
   // Budget Line Items
