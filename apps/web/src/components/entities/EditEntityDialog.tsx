@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -27,6 +27,12 @@ import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity, EntityRole } from '@vapour/types';
 import { ContactsManager, EntityContactData } from './ContactsManager';
+import {
+  validatePAN,
+  validateGSTIN,
+  checkEntityDuplicates,
+  formatDuplicateErrorMessage,
+} from '@vapour/validation';
 
 interface EditEntityDialogProps {
   open: boolean;
@@ -59,6 +65,24 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
   const [gstin, setGstin] = useState('');
   const [pan, setPan] = useState('');
 
+  // Validate PAN in real-time
+  const panValidation = useMemo(() => {
+    if (!pan || !pan.trim()) {
+      return { valid: true, error: '' };
+    }
+    const result = validatePAN(pan.trim().toUpperCase());
+    return { valid: result.valid, error: result.error || '' };
+  }, [pan]);
+
+  // Validate GSTIN in real-time
+  const gstinValidation = useMemo(() => {
+    if (!gstin || !gstin.trim()) {
+      return { valid: true, error: '' };
+    }
+    const result = validateGSTIN(gstin.trim().toUpperCase(), pan.trim().toUpperCase());
+    return { valid: result.valid, error: result.error || '' };
+  }, [gstin, pan]);
+
   // Pre-populate form when entity changes
   useEffect(() => {
     if (entity) {
@@ -71,14 +95,16 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
         setContacts(entity.contacts as unknown as EntityContactData[]);
       } else if (entity.contactPerson && entity.email && entity.phone) {
         // Fallback: create contact from old fields for backward compatibility
-        setContacts([{
-          id: `legacy-${entity.id}`,
-          name: entity.contactPerson,
-          email: entity.email,
-          phone: entity.phone,
-          mobile: entity.mobile,
-          isPrimary: true,
-        }]);
+        setContacts([
+          {
+            id: `legacy-${entity.id}`,
+            name: entity.contactPerson,
+            email: entity.email,
+            phone: entity.phone,
+            mobile: entity.mobile,
+            isPrimary: true,
+          },
+        ]);
       } else {
         setContacts([]);
       }
@@ -112,15 +138,46 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
       return;
     }
 
+    // Validate tax identifiers
+    if (pan && !panValidation.valid) {
+      setError(panValidation.error);
+      return;
+    }
+    if (gstin && !gstinValidation.valid) {
+      setError(gstinValidation.error);
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
-      const { db } = getFirebase();
-      const entityRef = doc(db, COLLECTIONS.ENTITIES, entity.id);
+      // Get primary contact for validation and update
+      const primaryContact = contacts.find((c) => c.isPrimary) || contacts[0];
 
-      // Get primary contact for backward compatibility fields
-      const primaryContact = contacts.find(c => c.isPrimary) || contacts[0];
+      const { db } = getFirebase();
+
+      // Check for duplicates before updating (exclude current entity)
+      const duplicateCheck = await checkEntityDuplicates(
+        db,
+        {
+          email: primaryContact?.email,
+          taxIdentifiers: {
+            pan: pan.trim() || undefined,
+            gstin: gstin.trim() || undefined,
+          },
+        },
+        entity.id // Exclude current entity from duplicate check
+      );
+
+      if (duplicateCheck.hasDuplicates) {
+        const errors = formatDuplicateErrorMessage(duplicateCheck.duplicates);
+        setError(errors.join('. '));
+        setLoading(false);
+        return;
+      }
+
+      const entityRef = doc(db, COLLECTIONS.ENTITIES, entity.id);
 
       // This should never happen due to validation, but TypeScript needs the check
       if (!primaryContact) {
@@ -140,7 +197,7 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
         phone: primaryContact.phone,
         mobile: primaryContact.mobile || null,
         // Contacts array
-        contacts: contacts.map(contact => ({
+        contacts: contacts.map((contact) => ({
           id: contact.id,
           name: contact.name,
           designation: contact.designation || null,
@@ -180,7 +237,8 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
       onClose();
     } catch (err: unknown) {
       console.error('Error updating entity:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update entity. Please try again.';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to update entity. Please try again.';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -257,11 +315,7 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
 
           {/* Contact Details */}
           <Box>
-            <ContactsManager
-              contacts={contacts}
-              onChange={setContacts}
-              disabled={loading}
-            />
+            <ContactsManager contacts={contacts} onChange={setContacts} disabled={loading} />
           </Box>
 
           {/* Address & Tax Information */}
@@ -332,22 +386,32 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
-                    label="GSTIN"
-                    value={gstin}
-                    onChange={(e) => setGstin(e.target.value)}
+                    label="PAN"
+                    value={pan}
+                    onChange={(e) => setPan(e.target.value.toUpperCase())}
                     fullWidth
-                    placeholder="GST Identification Number"
-                    helperText="Optional"
+                    placeholder="e.g., AAAAA9999A"
+                    error={!!pan && !panValidation.valid}
+                    helperText={
+                      pan && !panValidation.valid ? panValidation.error : 'Optional - 10 characters'
+                    }
+                    inputProps={{ maxLength: 10, style: { textTransform: 'uppercase' } }}
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
-                    label="PAN"
-                    value={pan}
-                    onChange={(e) => setPan(e.target.value)}
+                    label="GSTIN"
+                    value={gstin}
+                    onChange={(e) => setGstin(e.target.value.toUpperCase())}
                     fullWidth
-                    placeholder="Permanent Account Number"
-                    helperText="Optional"
+                    placeholder="e.g., 22AAAAA0000A1Z5"
+                    error={!!gstin && !gstinValidation.valid}
+                    helperText={
+                      gstin && !gstinValidation.valid
+                        ? gstinValidation.error
+                        : 'Optional - 15 characters'
+                    }
+                    inputProps={{ maxLength: 15, style: { textTransform: 'uppercase' } }}
                   />
                 </Grid>
               </Grid>

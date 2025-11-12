@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -26,6 +26,12 @@ import { httpsCallable } from 'firebase/functions';
 import { getFirebase } from '@/lib/firebase';
 import type { EntityRole } from '@vapour/types';
 import { ContactsManager, EntityContactData } from './ContactsManager';
+import {
+  validatePAN,
+  validateGSTIN,
+  checkEntityDuplicates,
+  formatDuplicateErrorMessage,
+} from '@vapour/validation';
 
 interface CreateEntityDialogProps {
   open: boolean;
@@ -57,6 +63,24 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
   const [gstin, setGstin] = useState('');
   const [pan, setPan] = useState('');
 
+  // Validate PAN in real-time
+  const panValidation = useMemo(() => {
+    if (!pan || !pan.trim()) {
+      return { valid: true, error: '' };
+    }
+    const result = validatePAN(pan.trim().toUpperCase());
+    return { valid: result.valid, error: result.error || '' };
+  }, [pan]);
+
+  // Validate GSTIN in real-time
+  const gstinValidation = useMemo(() => {
+    if (!gstin || !gstin.trim()) {
+      return { valid: true, error: '' };
+    }
+    const result = validateGSTIN(gstin.trim().toUpperCase(), pan.trim().toUpperCase());
+    return { valid: result.valid, error: result.error || '' };
+  }, [gstin, pan]);
+
   const handleRolesChange = (event: SelectChangeEvent<EntityRole[]>) => {
     const value = event.target.value;
     setRoles(typeof value === 'string' ? [value as EntityRole] : value);
@@ -77,15 +101,42 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
       return;
     }
 
+    // Validate tax identifiers
+    if (pan && !panValidation.valid) {
+      setError(panValidation.error);
+      return;
+    }
+    if (gstin && !gstinValidation.valid) {
+      setError(gstinValidation.error);
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
-      const { functions } = getFirebase();
-      const createEntityFn = httpsCallable(functions, 'createEntity');
-
-      // Get primary contact for backward compatibility fields
+      // Get primary contact for validation and creation
       const primaryContact = contacts.find((c) => c.isPrimary) || contacts[0];
+
+      const { db, functions } = getFirebase();
+
+      // Check for duplicates before creating
+      const duplicateCheck = await checkEntityDuplicates(db, {
+        email: primaryContact?.email,
+        taxIdentifiers: {
+          pan: pan.trim() || undefined,
+          gstin: gstin.trim() || undefined,
+        },
+      });
+
+      if (duplicateCheck.hasDuplicates) {
+        const errors = formatDuplicateErrorMessage(duplicateCheck.duplicates);
+        setError(errors.join('. '));
+        setLoading(false);
+        return;
+      }
+
+      const createEntityFn = httpsCallable(functions, 'createEntity');
 
       // Prepare entity data for Cloud Function
       const entityData = {
@@ -317,22 +368,32 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
-                    label="GSTIN"
-                    value={gstin}
-                    onChange={(e) => setGstin(e.target.value)}
+                    label="PAN"
+                    value={pan}
+                    onChange={(e) => setPan(e.target.value.toUpperCase())}
                     fullWidth
-                    placeholder="GST Identification Number"
-                    helperText="Optional"
+                    placeholder="e.g., AAAAA9999A"
+                    error={!!pan && !panValidation.valid}
+                    helperText={
+                      pan && !panValidation.valid ? panValidation.error : 'Optional - 10 characters'
+                    }
+                    inputProps={{ maxLength: 10, style: { textTransform: 'uppercase' } }}
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
-                    label="PAN"
-                    value={pan}
-                    onChange={(e) => setPan(e.target.value)}
+                    label="GSTIN"
+                    value={gstin}
+                    onChange={(e) => setGstin(e.target.value.toUpperCase())}
                     fullWidth
-                    placeholder="Permanent Account Number"
-                    helperText="Optional"
+                    placeholder="e.g., 22AAAAA0000A1Z5"
+                    error={!!gstin && !gstinValidation.valid}
+                    helperText={
+                      gstin && !gstinValidation.valid
+                        ? gstinValidation.error
+                        : 'Optional - 15 characters'
+                    }
+                    inputProps={{ maxLength: 15, style: { textTransform: 'uppercase' } }}
                   />
                 </Grid>
               </Grid>
