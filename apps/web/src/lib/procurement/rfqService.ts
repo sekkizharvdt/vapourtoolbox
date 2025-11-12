@@ -28,6 +28,9 @@ import {
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { RFQ, RFQItem, RFQStatus, PurchaseRequest, PurchaseRequestItem } from '@vapour/types';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'rfqService' });
 
 // ============================================================================
 // RFQ NUMBER GENERATION
@@ -202,7 +205,7 @@ export async function createRFQ(
         projectNames.push(`Project ${projectId}`);
       }
     } catch (err) {
-      console.warn(`[rfqService] Failed to fetch project name for ${projectId}:`, err);
+      logger.warn('Failed to fetch project name', { projectId, error: err });
       projectNames.push(`Project ${projectId}`);
     }
   }
@@ -270,7 +273,7 @@ export async function createRFQ(
 
   await batch.commit();
 
-  console.warn('[rfqService] RFQ created:', rfqRef.id, rfqNumber);
+  logger.info('RFQ created', { rfqId: rfqRef.id, rfqNumber });
 
   return rfqRef.id;
 }
@@ -510,7 +513,7 @@ export async function updateRFQ(
 
   await updateDoc(doc(db, COLLECTIONS.RFQS, rfqId), updateData);
 
-  console.warn('[rfqService] RFQ updated:', rfqId);
+  logger.info('RFQ updated', { rfqId });
 }
 
 // ============================================================================
@@ -537,7 +540,7 @@ export async function issueRFQ(rfqId: string, userId: string): Promise<void> {
   // TODO: Generate PDF and store URL
   // TODO: Send notifications to procurement manager
 
-  console.warn('[rfqService] RFQ issued:', rfqId);
+  logger.info('RFQ issued', { rfqId });
 }
 
 /**
@@ -559,7 +562,7 @@ export async function incrementOffersReceived(rfqId: string): Promise<void> {
     updatedAt: Timestamp.now(),
   });
 
-  console.warn('[rfqService] Offer received count updated:', rfqId, newCount);
+  logger.info('Offer received count updated', { rfqId, newCount });
 }
 
 /**
@@ -582,7 +585,7 @@ export async function incrementOffersEvaluated(rfqId: string): Promise<void> {
     updatedAt: Timestamp.now(),
   });
 
-  console.warn('[rfqService] Offer evaluated count updated:', rfqId, newCount);
+  logger.info('Offer evaluated count updated', { rfqId, newCount });
 }
 
 /**
@@ -607,7 +610,7 @@ export async function completeRFQ(
     updatedBy: userId,
   });
 
-  console.warn('[rfqService] RFQ completed:', rfqId, selectedOfferId);
+  logger.info('RFQ completed', { rfqId, selectedOfferId });
 }
 
 /**
@@ -623,7 +626,7 @@ export async function cancelRFQ(rfqId: string, reason: string, userId: string): 
     updatedBy: userId,
   });
 
-  console.warn('[rfqService] RFQ cancelled:', rfqId);
+  logger.info('RFQ cancelled', { rfqId });
 }
 
 // ============================================================================
@@ -649,5 +652,5 @@ export async function generateRFQPDFVersion(rfqId: string, pdfUrl: string): Prom
     updatedAt: Timestamp.now(),
   });
 
-  console.warn('[rfqService] RFQ PDF version generated:', rfqId, newVersion);
+  logger.info('RFQ PDF version generated', { rfqId, pdfVersion: newVersion });
 }

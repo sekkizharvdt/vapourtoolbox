@@ -15,6 +15,7 @@
     "@mui/material": "^7.3.4",
     "@vapour/constants": "workspace:*",
     "@vapour/firebase": "workspace:*",
+    "@vapour/logger": "workspace:*",
     "@vapour/types": "workspace:*",
     "@vapour/ui": "workspace:*",
     "@vapour/utils": "workspace:*",

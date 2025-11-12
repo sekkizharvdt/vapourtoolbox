@@ -27,6 +27,9 @@ import type {
   PurchaseOrder,
   PurchaseOrderItem,
 } from '@vapour/types';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'packingListService' });
 
 // ============================================================================
 // PL NUMBER GENERATION
@@ -184,7 +187,7 @@ export async function createPackingList(
 
   await batch.commit();
 
-  console.warn('[packingListService] Packing List created:', plRef.id, plNumber);
+  logger.info('Packing List created', { plId: plRef.id, plNumber });
 
   return plRef.id;
 }
@@ -213,7 +216,7 @@ export async function updatePackingListStatus(
 
   await updateDoc(doc(db, COLLECTIONS.PACKING_LISTS, plId), updateData);
 
-  console.warn('[packingListService] Packing List status updated:', plId, status);
+  logger.info('Packing List status updated', { plId, status });
 }
 
 export async function getPLById(plId: string): Promise<PackingList | null> {

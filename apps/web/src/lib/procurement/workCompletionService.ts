@@ -20,6 +20,9 @@ import {
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { WorkCompletionCertificate, PurchaseOrder } from '@vapour/types';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'workCompletionService' });
 
 // ============================================================================
 // WCC NUMBER GENERATION
@@ -119,11 +122,7 @@ export async function createWorkCompletionCertificate(
 
   const wccRef = await addDoc(collection(db, COLLECTIONS.WORK_COMPLETION_CERTIFICATES), wccData);
 
-  console.warn(
-    '[workCompletionService] Work Completion Certificate created:',
-    wccRef.id,
-    wccNumber
-  );
+  logger.info('Work Completion Certificate created', { wccId: wccRef.id, wccNumber });
 
   return wccRef.id;
 }

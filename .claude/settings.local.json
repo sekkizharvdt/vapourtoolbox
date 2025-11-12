@@ -86,7 +86,9 @@
       "Bash(npm audit:*)",
       "Bash(pnpm --filter @vapour/validation type-check:*)",
       "Bash(npx madge:*)",
-      "Bash(pnpm --filter @vapour/types build:*)"
+      "Bash(pnpm --filter @vapour/types build:*)",
+      "Bash(pnpm --filter @vapour/logger build:*)",
+      "Bash(pnpm add:*)"
     ],
     "deny": [],
     "ask": []
