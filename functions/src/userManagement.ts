@@ -25,6 +25,24 @@ import {
  * =====================================================================================
  */
 
+/**
+ * Count active SUPER_ADMIN users in the system
+ * Used to prevent deletion/deactivation of the last admin
+ */
+async function countActiveSuperAdmins(): Promise<number> {
+  const db = admin.firestore();
+  const usersRef = db.collection('users');
+
+  const snapshot = await usersRef
+    .where('roles', 'array-contains', 'SUPER_ADMIN')
+    .where('status', '==', 'active')
+    .where('isActive', '==', true)
+    .count()
+    .get();
+
+  return snapshot.data().count;
+}
+
 // Permission flags - MUST match packages/constants/src/permissions.ts EXACTLY
 const PERMISSION_FLAGS = {
   // User Management (bits 0-2)
@@ -65,13 +83,14 @@ const PERMISSION_FLAGS = {
   MANAGE_ESTIMATION: 1 << 18, // 262144
   VIEW_ESTIMATION: 1 << 19, // 524288
 
-  // Granular Accounting Permissions (bits 20-25)
+  // Granular Accounting Permissions (bits 20-26)
   MANAGE_CHART_OF_ACCOUNTS: 1 << 20, // 1048576 - Create/edit accounts
   CREATE_TRANSACTIONS: 1 << 21, // 2097152 - Create transactions
   APPROVE_TRANSACTIONS: 1 << 22, // 4194304 - Approve transactions
   VIEW_FINANCIAL_REPORTS: 1 << 23, // 8388608 - View P&L, Balance Sheet, etc.
   MANAGE_COST_CENTRES: 1 << 24, // 16777216 - Manage project cost centres
   MANAGE_FOREX: 1 << 25, // 33554432 - Manage currency and forex settings
+  RECONCILE_ACCOUNTS: 1 << 26, // 67108864 - Bank reconciliation
 };
 
 // Helper to get all permissions (for SUPER_ADMIN)
@@ -108,7 +127,8 @@ const ROLE_PERMISSIONS: Record<string, number> = {
     PERMISSION_FLAGS.APPROVE_TRANSACTIONS |
     PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS |
     PERMISSION_FLAGS.MANAGE_COST_CENTRES |
-    PERMISSION_FLAGS.MANAGE_FOREX,
+    PERMISSION_FLAGS.MANAGE_FOREX |
+    PERMISSION_FLAGS.RECONCILE_ACCOUNTS,
 
   HR_ADMIN:
     PERMISSION_FLAGS.MANAGE_USERS | PERMISSION_FLAGS.VIEW_USERS | PERMISSION_FLAGS.MANAGE_ROLES,
@@ -125,13 +145,15 @@ const ROLE_PERMISSIONS: Record<string, number> = {
     PERMISSION_FLAGS.APPROVE_TRANSACTIONS |
     PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS |
     PERMISSION_FLAGS.MANAGE_COST_CENTRES |
-    PERMISSION_FLAGS.MANAGE_FOREX,
+    PERMISSION_FLAGS.MANAGE_FOREX |
+    PERMISSION_FLAGS.RECONCILE_ACCOUNTS,
 
   ACCOUNTANT:
     PERMISSION_FLAGS.VIEW_TIME_TRACKING |
     PERMISSION_FLAGS.VIEW_ACCOUNTING |
     PERMISSION_FLAGS.CREATE_TRANSACTIONS |
-    PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS,
+    PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS |
+    PERMISSION_FLAGS.RECONCILE_ACCOUNTS,
 
   PROJECT_MANAGER:
     PERMISSION_FLAGS.MANAGE_PROJECTS |
@@ -209,8 +231,31 @@ export const onUserUpdate = onDocumentWritten(
         const previousData =
           change && change.before && change.before.exists ? change.before.data() : null;
 
+        // === SUPER ADMIN SAFEGUARD ===
+        // Prevent deleting the last SUPER_ADMIN to avoid system lockout
+        if (previousData) {
+          const wasSuperAdmin =
+            Array.isArray(previousData.roles) && previousData.roles.includes('SUPER_ADMIN');
+          const wasActive = previousData.status === 'active' && previousData.isActive === true;
+
+          if (wasSuperAdmin && wasActive) {
+            const activeSuperAdminCount = await countActiveSuperAdmins();
+            if (activeSuperAdminCount <= 0) {
+              // This was the last active Super Admin
+              console.error(
+                `Cannot delete last SUPER_ADMIN: ${previousData.email || userId}. At least one active SUPER_ADMIN must exist.`
+              );
+              throw new Error(
+                'Cannot delete the last SUPER_ADMIN. System must have at least one active administrator.'
+              );
+            }
+          }
+        }
+
+        // Clear custom claims and revoke tokens
         await admin.auth().setCustomUserClaims(userId, null);
-        console.log(`Cleared custom claims for deleted user: ${userId}`);
+        await admin.auth().revokeRefreshTokens(userId);
+        console.log(`Cleared custom claims and revoked tokens for deleted user: ${userId}`);
 
         // Audit log user deletion
         if (previousData) {
@@ -233,6 +278,7 @@ export const onUserUpdate = onDocumentWritten(
         }
       } catch (error) {
         console.error(`Error clearing custom claims for deleted user ${userId}:`, error);
+        throw error; // Re-throw to prevent deletion if safeguard fails
       }
       return;
     }
@@ -263,10 +309,34 @@ export const onUserUpdate = onDocumentWritten(
       // Get user from Firebase Auth to ensure they exist
       const user = await admin.auth().getUser(userId);
 
-      // If user is not active, clear their claims (prevent access)
+      // === SUPER ADMIN SAFEGUARD ===
+      // Prevent deactivating the last SUPER_ADMIN to avoid system lockout
+      const wasActive = previousData?.status === 'active' && previousData?.isActive === true;
+      const isBeingDeactivated = wasActive && (userData.status !== 'active' || !userData.isActive);
+      const isSuperAdmin = Array.isArray(userData.roles) && userData.roles.includes('SUPER_ADMIN');
+
+      if (isBeingDeactivated && isSuperAdmin) {
+        const activeSuperAdminCount = await countActiveSuperAdmins();
+        if (activeSuperAdminCount <= 1) {
+          console.error(
+            `Cannot deactivate last SUPER_ADMIN: ${user.email}. At least one active SUPER_ADMIN must exist.`
+          );
+          throw new Error(
+            'Cannot deactivate the last SUPER_ADMIN. System must have at least one active administrator.'
+          );
+        }
+      }
+
+      // If user is not active, clear their claims and revoke tokens (prevent access)
       if (userData.status !== 'active' || !userData.isActive) {
+        // Clear custom claims
         await admin.auth().setCustomUserClaims(userId, null);
-        console.log(`Cleared custom claims for inactive user: ${user.email}`);
+
+        // Revoke all refresh tokens to immediately invalidate all sessions
+        // This ensures the user cannot access the system even with existing tokens
+        await admin.auth().revokeRefreshTokens(userId);
+
+        console.log(`Deactivated user: ${user.email} - Cleared claims and revoked all tokens`);
         return;
       }
 
