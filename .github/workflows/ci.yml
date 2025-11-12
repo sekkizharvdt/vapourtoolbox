@@ -43,6 +43,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build packages
+        run: pnpm --filter "@vapour/*" --filter "!@vapour/web" build
+
       - name: Run ESLint
         run: pnpm lint
 
