@@ -1,13 +1,7 @@
 // Zod validation schemas
 
 import { z } from 'zod';
-import {
-  PHONE_REGEX,
-  GST_REGEX,
-  PAN_REGEX,
-  PINCODE_REGEX,
-  IFSC_REGEX,
-} from './regex';
+import { PHONE_REGEX, PINCODE_REGEX, IFSC_REGEX } from './regex';
 import {
   sanitizeEmail,
   sanitizePhone,
@@ -15,6 +9,7 @@ import {
   sanitizeEntityName,
   sanitizeCode,
 } from './sanitize';
+import { validatePAN, validateGSTIN, validateTaxIdentifiers } from './taxValidation';
 
 /**
  * Common field schemas with sanitization
@@ -30,16 +25,42 @@ export const phoneSchema = z
   .transform(sanitizePhone)
   .pipe(z.string().regex(PHONE_REGEX, 'Invalid phone number'));
 
-export const gstSchema = z
-  .string()
-  .transform(sanitizeCode)
-  .pipe(z.string().regex(GST_REGEX, 'Invalid GST number'))
-  .optional();
-
 export const panSchema = z
   .string()
   .transform(sanitizeCode)
-  .pipe(z.string().regex(PAN_REGEX, 'Invalid PAN number'))
+  .pipe(
+    z.string().superRefine((val, ctx) => {
+      if (!val || val.trim() === '') {
+        return; // Allow empty for optional fields
+      }
+      const validation = validatePAN(val);
+      if (!validation.valid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: validation.error || 'Invalid PAN',
+        });
+      }
+    })
+  )
+  .optional();
+
+export const gstSchema = z
+  .string()
+  .transform(sanitizeCode)
+  .pipe(
+    z.string().superRefine((val, ctx) => {
+      if (!val || val.trim() === '') {
+        return; // Allow empty for optional fields
+      }
+      const validation = validateGSTIN(val);
+      if (!validation.valid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: validation.error || 'Invalid GSTIN',
+        });
+      }
+    })
+  )
   .optional();
 
 export const pincodeSchema = z.string().regex(PINCODE_REGEX, 'Invalid postal code');
@@ -87,6 +108,37 @@ export const userSchema = z.object({
 /**
  * Entity schema
  */
+/**
+ * Tax identifiers schema with cross-validation
+ * Validates that GSTIN contains the same PAN if both are provided
+ */
+export const taxIdentifiersSchema = z
+  .object({
+    gstin: gstSchema,
+    pan: panSchema,
+  })
+  .superRefine((data, ctx) => {
+    // Skip if both are empty
+    if (!data.gstin && !data.pan) {
+      return;
+    }
+
+    // Cross-validate if both are provided
+    if (data.gstin && data.pan) {
+      const validation = validateTaxIdentifiers(data.pan, data.gstin);
+      if (!validation.valid) {
+        validation.errors.forEach((error) => {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: error,
+            path: error.toLowerCase().includes('pan') ? ['pan'] : ['gstin'],
+          });
+        });
+      }
+    }
+  })
+  .optional();
+
 export const entitySchema = z.object({
   name: z
     .string()
@@ -104,12 +156,7 @@ export const entitySchema = z.object({
   mobile: phoneSchema.optional(),
   billingAddress: addressSchema,
   shippingAddress: addressSchema.optional(),
-  taxIdentifiers: z
-    .object({
-      gstin: gstSchema,
-      pan: panSchema,
-    })
-    .optional(),
+  taxIdentifiers: taxIdentifiersSchema,
 });
 
 /**

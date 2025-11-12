@@ -217,6 +217,9 @@ importers:
       '@vapour/types':
         specifier: workspace:*
         version: link:../types
+      firebase:
+        specifier: ^11.2.0
+        version: 11.10.0
       isomorphic-dompurify:
         specifier: ^2.11.0
         version: 2.30.1(postcss@8.5.6)
