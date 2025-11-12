@@ -22,13 +22,16 @@ import { FormDialog, FormDialogActions } from '@/components/common/forms/FormDia
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { getFirebase } from '@/lib/firebase';
-import { collection, addDoc, updateDoc, doc, Timestamp, query, where, getDocs } from 'firebase/firestore';
+import { Timestamp, query, collection, where, getDocs } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorPayment, VendorBill, PaymentAllocation, PaymentMethod } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
-import { processPaymentAllocations } from '@/lib/accounting/paymentHelpers';
+import {
+  createPaymentWithAllocationsAtomic,
+  updatePaymentWithAllocationsAtomic,
+} from '@/lib/accounting/paymentHelpers';
 
 interface RecordVendorPaymentDialogProps {
   open: boolean;
@@ -64,7 +67,9 @@ export function RecordVendorPaymentDialog({
   const [error, setError] = useState('');
 
   // Form fields
-  const [paymentDate, setPaymentDate] = useState<string>(() => new Date().toISOString().split('T')[0] || '');
+  const [paymentDate, setPaymentDate] = useState<string>(
+    () => new Date().toISOString().split('T')[0] || ''
+  );
   const [entityId, setEntityId] = useState<string | null>(null);
   const [entityName, setEntityName] = useState<string>('');
   const [amount, setAmount] = useState<number>(0);
@@ -116,7 +121,7 @@ export function RecordVendorPaymentDialog({
       setOutstandingBills(bills);
 
       // Initialize allocations
-      const initialAllocations: PaymentAllocation[] = bills.map(bill => ({
+      const initialAllocations: PaymentAllocation[] = bills.map((bill) => ({
         invoiceId: bill.id!, // Using invoiceId field for bills as well (generic)
         invoiceNumber: bill.transactionNumber || '',
         originalAmount: bill.totalAmount || 0,
@@ -132,7 +137,7 @@ export function RecordVendorPaymentDialog({
   // Calculate TDS when section changes
   useEffect(() => {
     if (tdsDeducted && tdsSection) {
-      const section = TDS_SECTIONS.find(s => s.code === tdsSection);
+      const section = TDS_SECTIONS.find((s) => s.code === tdsSection);
       if (section) {
         const totalBillAmount = allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
         const calculatedTds = (totalBillAmount * section.rate) / 100;
@@ -147,10 +152,13 @@ export function RecordVendorPaymentDialog({
   useEffect(() => {
     if (open) {
       if (editingPayment) {
-        const dateStr = editingPayment.paymentDate instanceof Date
-          ? (editingPayment.paymentDate.toISOString().split('T')[0] || '')
-          : (typeof editingPayment.paymentDate === 'string' ? editingPayment.paymentDate : '');
-        setPaymentDate(dateStr || (new Date().toISOString().split('T')[0] || ''));
+        const dateStr =
+          editingPayment.paymentDate instanceof Date
+            ? editingPayment.paymentDate.toISOString().split('T')[0] || ''
+            : typeof editingPayment.paymentDate === 'string'
+              ? editingPayment.paymentDate
+              : '';
+        setPaymentDate(dateStr || new Date().toISOString().split('T')[0] || '');
         setEntityId(editingPayment.entityId ?? null);
         setEntityName(editingPayment.entityName || '');
         setAmount(editingPayment.totalAmount || 0);
@@ -187,22 +195,24 @@ export function RecordVendorPaymentDialog({
   }, [open, editingPayment]);
 
   const handleAllocationChange = (billId: string, allocatedAmount: number) => {
-    setAllocations(prev => prev.map(allocation => {
-      if (allocation.invoiceId === billId) {
-        return {
-          ...allocation,
-          allocatedAmount,
-          remainingAmount: allocation.originalAmount - allocatedAmount,
-        };
-      }
-      return allocation;
-    }));
+    setAllocations((prev) =>
+      prev.map((allocation) => {
+        if (allocation.invoiceId === billId) {
+          return {
+            ...allocation,
+            allocatedAmount,
+            remainingAmount: allocation.originalAmount - allocatedAmount,
+          };
+        }
+        return allocation;
+      })
+    );
   };
 
   // Auto-distribute payment across bills
   const handleAutoAllocate = () => {
     let remaining = amount;
-    const newAllocations = allocations.map(allocation => {
+    const newAllocations = allocations.map((allocation) => {
       if (remaining <= 0) {
         return { ...allocation, allocatedAmount: 0 };
       }
@@ -265,14 +275,15 @@ export function RecordVendorPaymentDialog({
       }
 
       // Only include allocations with non-zero amounts
-      const validAllocations = allocations.filter(a => a.allocatedAmount > 0);
+      const validAllocations = allocations.filter((a) => a.allocatedAmount > 0);
 
       const paymentData = {
         type: 'VENDOR_PAYMENT',
         transactionNumber: transactionNumber || '',
+        transactionDate: Timestamp.fromDate(new Date(paymentDate)),
         entityId,
         entityName,
-        paymentDate,
+        paymentDate: Timestamp.fromDate(new Date(paymentDate)),
         paymentMethod,
         chequeNumber: paymentMethod === 'CHEQUE' ? chequeNumber : undefined,
         upiTransactionId: paymentMethod === 'UPI' ? upiTransactionId : undefined,
@@ -285,7 +296,7 @@ export function RecordVendorPaymentDialog({
         description: description || `Payment to ${entityName}`,
         reference,
         projectId: projectId || undefined,
-        costCentreId: projectId || undefined, // Same as projectId for consistency
+        costCentreId: projectId || undefined,
         status: 'POSTED',
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -294,24 +305,24 @@ export function RecordVendorPaymentDialog({
         amount,
         currency: 'INR',
         baseAmount: amount,
-        entries: [],
         attachments: [],
         createdBy: user?.uid || 'unknown',
       };
 
       if (editingPayment?.id) {
-        // Update existing payment
-        await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingPayment.id), {
-          ...paymentData,
-          updatedAt: Timestamp.now(),
-        });
+        // Update existing payment with GL validation
+        const oldAllocations = editingPayment.billAllocations || [];
+        await updatePaymentWithAllocationsAtomic(
+          db,
+          editingPayment.id,
+          paymentData,
+          oldAllocations,
+          validAllocations
+        );
       } else {
-        // Create new payment
-        await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), paymentData);
+        // Create new payment with GL validation
+        await createPaymentWithAllocationsAtomic(db, paymentData, validAllocations);
       }
-
-      // Update bill statuses based on allocations
-      await processPaymentAllocations(db, validAllocations);
 
       onClose();
     } catch (err) {
@@ -343,7 +354,9 @@ export function RecordVendorPaymentDialog({
         <Grid container spacing={3}>
           {/* Payment Details */}
           <Grid size={{ xs: 12 }}>
-            <Typography variant="h6" gutterBottom>Payment Details</Typography>
+            <Typography variant="h6" gutterBottom>
+              Payment Details
+            </Typography>
           </Grid>
 
           <Grid size={{ xs: 12, md: 6 }}>
@@ -464,7 +477,9 @@ export function RecordVendorPaymentDialog({
 
           {/* TDS Section */}
           <Grid size={{ xs: 12 }}>
-            <Typography variant="h6" gutterBottom>TDS (Tax Deducted at Source)</Typography>
+            <Typography variant="h6" gutterBottom>
+              TDS (Tax Deducted at Source)
+            </Typography>
           </Grid>
 
           <Grid size={{ xs: 12 }}>
@@ -530,7 +545,8 @@ export function RecordVendorPaymentDialog({
                   <Typography variant="h6">Allocate to Bills</Typography>
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Allocated: {formatCurrency(totalAllocated)} | Unallocated: {formatCurrency(unallocated)}
+                      Allocated: {formatCurrency(totalAllocated)} | Unallocated:{' '}
+                      {formatCurrency(unallocated)}
                     </Typography>
                     <button type="button" onClick={handleAutoAllocate} style={{ marginLeft: 8 }}>
                       Auto Allocate
@@ -557,9 +573,7 @@ export function RecordVendorPaymentDialog({
                         return (
                           <TableRow key={bill.id}>
                             <TableCell>{bill.transactionNumber}</TableCell>
-                            <TableCell>
-                              {new Date(bill.date).toLocaleDateString()}
-                            </TableCell>
+                            <TableCell>{new Date(bill.date).toLocaleDateString()}</TableCell>
                             <TableCell align="right">
                               {formatCurrency(allocation?.originalAmount || 0)}
                             </TableCell>
@@ -568,11 +582,16 @@ export function RecordVendorPaymentDialog({
                                 type="number"
                                 size="small"
                                 value={allocation?.allocatedAmount || 0}
-                                onChange={(e) => handleAllocationChange(
-                                  bill.id!,
-                                  parseFloat(e.target.value) || 0
-                                )}
-                                slotProps={{ htmlInput: { min: 0, max: allocation?.originalAmount || 0, step: 0.01 } }}
+                                onChange={(e) =>
+                                  handleAllocationChange(bill.id!, parseFloat(e.target.value) || 0)
+                                }
+                                slotProps={{
+                                  htmlInput: {
+                                    min: 0,
+                                    max: allocation?.originalAmount || 0,
+                                    step: 0.01,
+                                  },
+                                }}
                                 sx={{ width: 120 }}
                               />
                             </TableCell>
