@@ -3,6 +3,9 @@
 import React, { Component, ReactNode, ErrorInfo } from 'react';
 import { Box, Typography, Button, Paper, Stack } from '@mui/material';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'ErrorBoundary' });
 
 interface Props {
   children: ReactNode;
@@ -57,8 +60,10 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     // Log error to error reporting service
-    console.error('[ErrorBoundary] Caught error:', error);
-    console.error('[ErrorBoundary] Error info:', errorInfo);
+    logger.error('Caught error in component tree', {
+      error: error.toString(),
+      componentStack: errorInfo.componentStack,
+    });
 
     this.setState({
       error,
