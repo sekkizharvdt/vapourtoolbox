@@ -111,6 +111,31 @@ export function CharterTab({ project }: CharterTabProps) {
   };
 
   const handleApprove = async () => {
+    // Import validation function
+    const { validateCharterForApproval, getValidationSummary } = await import(
+      '@/lib/projects/charterValidationService'
+    );
+
+    // Validate charter before approval
+    const validationResult = validateCharterForApproval(project.charter);
+
+    if (!validationResult.isValid) {
+      const summary = getValidationSummary(validationResult);
+      alert(
+        `Cannot approve charter - validation failed:\n\n${summary}\n\nPlease complete all required sections before approval.`
+      );
+      return;
+    }
+
+    // Show warnings if any
+    if (validationResult.warnings.length > 0) {
+      const warningMsg = `Charter validation passed with warnings:\n\n${validationResult.warnings.join('\n')}\n\nDo you want to proceed with approval?`;
+      if (!window.confirm(warningMsg)) {
+        return;
+      }
+    }
+
+    // Final confirmation
     if (
       !window.confirm(
         'Approve this project charter? This will trigger automatic PR creation for HIGH/CRITICAL procurement items.'
