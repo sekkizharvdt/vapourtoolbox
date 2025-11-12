@@ -31,6 +31,10 @@ export const COLLECTIONS = {
   JOURNAL_ENTRIES: 'journal_entries',
   LEDGER_ENTRIES: 'ledger_entries',
   COST_CENTRES: 'costCentres',
+  FISCAL_YEARS: 'fiscalYears',
+  ACCOUNTING_PERIODS: 'accountingPeriods',
+  YEAR_END_CLOSING_ENTRIES: 'yearEndClosingEntries',
+  PERIOD_LOCK_AUDIT: 'periodLockAudit',
 
   // Bank Reconciliation
   BANK_STATEMENTS: 'bankStatements',

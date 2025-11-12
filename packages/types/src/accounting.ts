@@ -318,5 +318,139 @@ export interface OutstandingItem {
   daysOverdue: number;
 }
 
+/**
+ * Fiscal Year
+ * Represents a complete accounting year with multiple periods
+ */
+export interface FiscalYear {
+  id: string;
+  name: string; // e.g., "FY 2024-25"
+  startDate: Date; // e.g., 2024-04-01
+  endDate: Date; // e.g., 2025-03-31
+  status: 'OPEN' | 'CLOSED' | 'LOCKED';
+  isCurrent: boolean; // Only one fiscal year should be current
+
+  // Periods (months/quarters)
+  periods: string[]; // Array of AccountingPeriod IDs
+
+  // Year-end closing
+  isYearEndClosed: boolean;
+  yearEndClosingDate?: Date;
+  yearEndClosingJournalId?: string;
+  closedBy?: string;
+
+  // Metadata
+  createdAt: Date;
+  createdBy: string;
+  updatedAt: Date;
+  updatedBy?: string;
+}
+
+/**
+ * Accounting Period (Month/Quarter)
+ * Controls transaction posting and prevents backdated entries
+ */
+export interface AccountingPeriod {
+  id: string;
+  fiscalYearId: string;
+  name: string; // e.g., "Apr 2024", "Q1 2024-25"
+  periodType: 'MONTH' | 'QUARTER';
+  startDate: Date;
+  endDate: Date;
+  status: 'OPEN' | 'CLOSED' | 'LOCKED';
+
+  // Sequence
+  periodNumber: number; // 1-12 for months, 1-4 for quarters
+  year: number; // Calendar year (for grouping)
+
+  // Closing information
+  closedDate?: Date;
+  closedBy?: string;
+  closingNotes?: string;
+
+  // Locking (prevents reopening)
+  lockedDate?: Date;
+  lockedBy?: string;
+  lockReason?: string;
+
+  // Metadata
+  createdAt: Date;
+  createdBy: string;
+  updatedAt: Date;
+  updatedBy?: string;
+}
+
+/**
+ * Year-End Closing Entry
+ * Records the transfer of revenue/expense balances to retained earnings
+ */
+export interface YearEndClosingEntry {
+  id: string;
+  fiscalYearId: string;
+  fiscalYearName: string;
+
+  // Closing details
+  closingDate: Date;
+  retainedEarningsAccountId: string; // Target account for net income/loss
+
+  // Accounts closed
+  revenueAccounts: ClosedAccountBalance[];
+  expenseAccounts: ClosedAccountBalance[];
+
+  // Summary
+  totalRevenue: number;
+  totalExpenses: number;
+  netIncome: number; // Positive = profit, Negative = loss
+
+  // Journal Entry
+  journalEntryId: string; // Reference to the closing journal entry
+  journalEntryNumber: string;
+
+  // Status
+  status: 'DRAFT' | 'POSTED' | 'REVERSED';
+  reversalDate?: Date;
+  reversalJournalId?: string;
+
+  // Audit
+  preparedBy: string;
+  approvedBy?: string;
+  approvalDate?: Date;
+  notes?: string;
+
+  // Metadata
+  createdAt: Date;
+  createdBy: string;
+  updatedAt: Date;
+  updatedBy?: string;
+}
+
+/**
+ * Closed Account Balance
+ * Tracks individual account balances that were closed
+ */
+export interface ClosedAccountBalance {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  accountType: 'INCOME' | 'EXPENSE';
+  closingBalance: number; // Balance transferred to retained earnings
+}
+
+/**
+ * Period Lock Audit Log
+ * Tracks who locked/unlocked periods and why
+ */
+export interface PeriodLockAudit {
+  id: string;
+  periodId: string;
+  fiscalYearId: string;
+  action: 'LOCK' | 'UNLOCK';
+  actionDate: Date;
+  actionBy: string;
+  reason: string;
+  previousStatus: 'OPEN' | 'CLOSED' | 'LOCKED';
+  newStatus: 'OPEN' | 'CLOSED' | 'LOCKED';
+}
+
 // Export Indian COA template
 export { INDIAN_COA_TEMPLATE } from './data/indian-coa-template';
