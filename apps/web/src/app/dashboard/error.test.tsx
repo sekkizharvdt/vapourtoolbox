@@ -16,21 +16,22 @@ jest.mock('@vapour/logger', () => ({
   }),
 }));
 
+// Mock Next.js navigation
+const mockPush = jest.fn();
+jest.mock('next/navigation', () => ({
+  useRouter: jest.fn(() => ({
+    push: mockPush,
+    back: jest.fn(),
+  })),
+}));
+
 describe('DashboardError', () => {
   const mockError = new Error('Test error message');
   const mockReset = jest.fn();
-  const mockPush = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Mock useRouter
-    const nextNav = require('next/navigation') as {
-      useRouter: ReturnType<typeof jest.fn>;
-    };
-    nextNav.useRouter = jest.fn(() => ({
-      push: mockPush,
-      back: jest.fn(),
-    }));
+    // Mock useRouter using jest.mock at module level (see top of file)
   });
 
   it('renders error boundary with error message in development', () => {

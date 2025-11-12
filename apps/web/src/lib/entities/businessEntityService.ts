@@ -149,7 +149,7 @@ export async function getEntityById(
     const entity = {
       id: entityDoc.id,
       ...entityDoc.data(),
-    } as BusinessEntity;
+    } as unknown as BusinessEntity;
 
     // Check if soft-deleted
     if (entity.isDeleted === true) {

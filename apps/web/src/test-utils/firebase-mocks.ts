@@ -74,8 +74,9 @@ export const createMockQuerySnapshot = <T = DocumentData>(
   docs: docs.map(({ id, data }) => createMockDocumentSnapshot(id, data)),
   empty: docs.length === 0,
   size: docs.length,
-  forEach: (callback: any) =>
-    docs.forEach((doc, i) => callback(createMockDocumentSnapshot(doc.id, doc.data), i)),
+  forEach: (
+    callback: (doc: ReturnType<typeof createMockDocumentSnapshot>, index: number) => void
+  ) => docs.forEach((doc, i) => callback(createMockDocumentSnapshot(doc.id, doc.data), i)),
 });
 
 /**
