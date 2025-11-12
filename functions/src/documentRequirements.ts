@@ -29,7 +29,7 @@ interface DocumentRequirement {
   isRequired: boolean;
   status: string;
   linkedDocumentId?: string;
-  submittedDate?: any;
+  submittedDate?: Timestamp;
 }
 
 /**

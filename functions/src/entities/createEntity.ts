@@ -5,6 +5,18 @@ import { createAuditLog, getActorFromAuth } from '../utils/audit';
 import { enforceRateLimit, writeRateLimiter, RateLimitError } from '../utils/rateLimiter';
 
 /**
+ * Tax identifiers interface (matches @vapour/types)
+ */
+interface TaxIdentifiers {
+  gstin?: string;
+  pan?: string;
+  ein?: string;
+  trn?: string;
+  vatNumber?: string;
+  taxId?: string;
+}
+
+/**
  * Cloud Function to create a new business entity with duplicate checking
  *
  * This function ensures:
@@ -228,36 +240,37 @@ function sanitizeEntityName(name: string): string {
  * - Uppercases and trims
  * - Removes invalid characters
  */
-function sanitizeTaxIdentifiers(taxIds: any): any {
+function sanitizeTaxIdentifiers(taxIds: unknown): TaxIdentifiers | undefined {
   if (!taxIds || typeof taxIds !== 'object') {
     return undefined;
   }
 
-  const sanitized: any = {};
+  const sanitized: Partial<TaxIdentifiers> = {};
+  const input = taxIds as Record<string, unknown>;
 
-  if (taxIds.gstin) {
-    sanitized.gstin = taxIds.gstin.toString().trim().toUpperCase().slice(0, 15);
+  if (input.gstin && typeof input.gstin === 'string') {
+    sanitized.gstin = input.gstin.trim().toUpperCase().slice(0, 15);
   }
 
-  if (taxIds.pan) {
-    sanitized.pan = taxIds.pan.toString().trim().toUpperCase().slice(0, 10);
+  if (input.pan && typeof input.pan === 'string') {
+    sanitized.pan = input.pan.trim().toUpperCase().slice(0, 10);
   }
 
-  if (taxIds.ein) {
-    sanitized.ein = taxIds.ein.toString().trim().toUpperCase();
+  if (input.ein && typeof input.ein === 'string') {
+    sanitized.ein = input.ein.trim().toUpperCase();
   }
 
-  if (taxIds.trn) {
-    sanitized.trn = taxIds.trn.toString().trim().toUpperCase();
+  if (input.trn && typeof input.trn === 'string') {
+    sanitized.trn = input.trn.trim().toUpperCase();
   }
 
-  if (taxIds.vatNumber) {
-    sanitized.vatNumber = taxIds.vatNumber.toString().trim().toUpperCase();
+  if (input.vatNumber && typeof input.vatNumber === 'string') {
+    sanitized.vatNumber = input.vatNumber.trim().toUpperCase();
   }
 
-  if (taxIds.taxId) {
-    sanitized.taxId = taxIds.taxId.toString().trim().toUpperCase();
+  if (input.taxId && typeof input.taxId === 'string') {
+    sanitized.taxId = input.taxId.trim().toUpperCase();
   }
 
-  return Object.keys(sanitized).length > 0 ? sanitized : undefined;
+  return Object.keys(sanitized).length > 0 ? (sanitized as TaxIdentifiers) : undefined;
 }

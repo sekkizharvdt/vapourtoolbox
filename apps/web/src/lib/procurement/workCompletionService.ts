@@ -13,6 +13,7 @@ import {
   query,
   where,
   orderBy,
+  QueryConstraint,
   limit,
   Timestamp,
 } from 'firebase/firestore';
@@ -148,7 +149,7 @@ export async function listWCCs(
 ): Promise<WorkCompletionCertificate[]> {
   const { db } = getFirebase();
 
-  const constraints: any[] = [];
+  const constraints: QueryConstraint[] = [];
 
   if (filters.poId) {
     constraints.push(where('purchaseOrderId', '==', filters.poId));

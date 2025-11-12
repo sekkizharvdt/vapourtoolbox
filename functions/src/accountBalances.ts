@@ -38,7 +38,8 @@ interface Transaction {
   entries: LedgerEntry[];
   status: string;
   date: FirebaseFirestore.Timestamp;
-  [key: string]: any;
+  // Allow additional fields from Firestore document (description, reference, etc.)
+  [key: string]: unknown;
 }
 
 /**

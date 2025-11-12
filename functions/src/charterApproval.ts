@@ -24,7 +24,7 @@ interface ProcurementItem {
     amount: number;
     currency: string;
   };
-  requiredByDate?: any;
+  requiredByDate?: Timestamp;
   priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
   status: 'PLANNING' | 'PR_DRAFTED' | 'RFQ_ISSUED' | 'PO_PLACED' | 'DELIVERED' | 'CANCELLED';
   linkedPurchaseRequestId?: string;
@@ -86,7 +86,7 @@ async function createPRFromItem(
       title: `Charter: ${item.itemName}`,
       description: item.description || item.itemName,
       priority: item.priority === 'CRITICAL' || item.priority === 'HIGH' ? item.priority : 'MEDIUM',
-      requiredBy: item.requiredByDate ? Timestamp.fromDate(new Date(item.requiredByDate)) : null,
+      requiredBy: item.requiredByDate || null,
 
       // Line items
       itemCount: 1,
@@ -144,7 +144,7 @@ async function createPRFromItem(
       makeModel: null,
 
       // Delivery
-      requiredBy: item.requiredByDate ? Timestamp.fromDate(new Date(item.requiredByDate)) : null,
+      requiredBy: item.requiredByDate || null,
       deliveryLocation: null,
 
       // Documents

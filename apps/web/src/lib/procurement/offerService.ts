@@ -391,7 +391,7 @@ export async function updateOffer(
 ): Promise<void> {
   const { db } = getFirebase();
 
-  const updateData: any = {
+  const updateData: Record<string, unknown> = {
     updatedAt: Timestamp.now(),
   };
 
@@ -440,7 +440,7 @@ export async function evaluateOffer(
     throw new Error('Offer not found');
   }
 
-  const updateData: any = {
+  const updateData: Record<string, unknown> = {
     status: 'EVALUATED',
     evaluationScore: input.evaluationScore,
     evaluationNotes: input.evaluationNotes,

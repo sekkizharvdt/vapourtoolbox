@@ -200,7 +200,7 @@ export async function updatePackingListStatus(
 ): Promise<void> {
   const { db } = getFirebase();
 
-  const updateData: any = {
+  const updateData: Record<string, unknown> = {
     status,
     updatedAt: Timestamp.now(),
   };
