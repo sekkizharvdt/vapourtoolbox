@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import {
   Box,
@@ -34,6 +34,7 @@ import { canManageProjects } from '@vapour/constants';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { calculateProjectTotalActualCost } from '@/lib/projects/budgetCalculationService';
 
 interface BudgetTabProps {
   project: Project;
@@ -44,6 +45,8 @@ export function BudgetTab({ project }: BudgetTabProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const [calculatedActualCost, setCalculatedActualCost] = useState<number | null>(null);
+  const [calculatingCost, setCalculatingCost] = useState(false);
 
   const hasManageAccess = claims?.permissions ? canManageProjects(claims.permissions) : false;
   const userId = user?.uid || '';
@@ -55,6 +58,28 @@ export function BudgetTab({ project }: BudgetTabProps) {
   const [actualBudget, setActualBudget] = useState(
     project.budget?.actual?.amount?.toString() || ''
   );
+
+  // Calculate actual cost from accounting transactions
+  useEffect(() => {
+    async function fetchActualCost() {
+      if (!project.id) return;
+
+      setCalculatingCost(true);
+      try {
+        const { db } = getFirebase();
+        const actualCost = await calculateProjectTotalActualCost(db, project.id);
+        setCalculatedActualCost(actualCost);
+      } catch (err) {
+        console.error('[BudgetTab] Error calculating actual cost:', err);
+        // Don't set error state - just log and continue with manual value
+        setCalculatedActualCost(null);
+      } finally {
+        setCalculatingCost(false);
+      }
+    }
+
+    fetchActualCost();
+  }, [project.id]);
 
   // Calculate budget utilization from procurement and vendors
   const calculateBudgetBreakdown = () => {
@@ -88,7 +113,9 @@ export function BudgetTab({ project }: BudgetTabProps) {
 
   const breakdown = calculateBudgetBreakdown();
   const estimated = project.budget?.estimated?.amount || 0;
-  const actual = project.budget?.actual?.amount || 0;
+  // Use calculated actual cost from transactions, fallback to manual entry
+  const actual =
+    calculatedActualCost !== null ? calculatedActualCost : project.budget?.actual?.amount || 0;
   const totalSpent = actual;
   const totalCommitted = breakdown.totalCommitted;
   const totalUtilized = totalSpent + totalCommitted;
@@ -485,12 +512,23 @@ export function BudgetTab({ project }: BudgetTabProps) {
       {/* Cost Centre Integration Note */}
       <Alert severity="info">
         <Typography variant="body2" fontWeight="medium" gutterBottom>
-          Cost Centre Integration
+          Automatic Cost Tracking
         </Typography>
         <Typography variant="body2">
-          Budget tracking is automatically calculated from procurement items and vendor contracts.
-          Future enhancements will include direct Cost Centre allocation and expense tracking
-          integration.
+          {calculatingCost ? (
+            <>Calculating actual costs from accounting transactions...</>
+          ) : calculatedActualCost !== null ? (
+            <>
+              Actual costs are automatically calculated from posted accounting transactions (vendor
+              bills, payments, and expense claims) linked to this project. The budget utilization
+              reflects real-time financial data from your accounting system.
+            </>
+          ) : (
+            <>
+              Budget tracking is automatically calculated from procurement commitments. Actual costs
+              will be calculated from accounting transactions once bills and payments are posted.
+            </>
+          )}
         </Typography>
       </Alert>
     </Box>
