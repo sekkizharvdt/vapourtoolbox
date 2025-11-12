@@ -32,6 +32,7 @@ import type {
   PurchaseRequestType,
   PurchaseRequestCategory,
   PurchaseRequestStatus,
+  Project,
 } from '@vapour/types';
 import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
 import {
@@ -499,6 +500,152 @@ export async function submitPurchaseRequestForApproval(
 }
 
 // ============================================================================
+// BUDGET VALIDATION
+// ============================================================================
+
+/**
+ * Validate that a purchase request fits within project budget
+ *
+ * This checks:
+ * 1. Project exists and has a charter with budget
+ * 2. PR estimated cost + existing approved PRs <= total project budget
+ *
+ * @param db - Firestore instance
+ * @param pr - Purchase request to validate
+ * @param items - PR line items
+ * @returns Validation result with details
+ */
+async function validateProjectBudget(
+  pr: PurchaseRequest,
+  items: PurchaseRequestItem[]
+): Promise<{ valid: boolean; error?: string; details?: Record<string, number> }> {
+  const { db } = getFirebase();
+
+  try {
+    // Skip validation if no project ID
+    if (!pr.projectId) {
+      return {
+        valid: true,
+        details: { message: 'No project linked - budget validation skipped' } as unknown as Record<
+          string,
+          number
+        >,
+      };
+    }
+
+    // Fetch project
+    const projectRef = doc(db, COLLECTIONS.PROJECTS, pr.projectId);
+    const projectDoc = await getDoc(projectRef);
+
+    if (!projectDoc.exists()) {
+      return {
+        valid: false,
+        error: `Project ${pr.projectId} not found`,
+      };
+    }
+
+    const project = projectDoc.data() as unknown as Project;
+
+    // Check if project has charter with budget
+    if (!project.charter?.budgetLineItems || project.charter.budgetLineItems.length === 0) {
+      return {
+        valid: true,
+        details: { message: 'No charter budget defined - validation skipped' } as unknown as Record<
+          string,
+          number
+        >,
+      };
+    }
+
+    // Calculate total project budget
+    const totalBudget = project.charter.budgetLineItems.reduce(
+      (sum, item) => sum + (item.estimatedCost || 0),
+      0
+    );
+
+    // Calculate actual costs from budget line items (if available)
+    const totalActualCost = project.charter.budgetLineItems.reduce(
+      (sum, item) => sum + (item.actualCost || 0),
+      0
+    );
+
+    // Calculate this PR's estimated cost
+    const prEstimatedCost = items.reduce((sum, item) => sum + (item.estimatedTotalCost || 0), 0);
+
+    // Query all approved PRs for this project to get committed costs
+    const approvedPRsQuery = query(
+      collection(db, COLLECTIONS.PURCHASE_REQUESTS),
+      where('projectId', '==', pr.projectId),
+      where('status', 'in', ['APPROVED', 'UNDER_REVIEW', 'SUBMITTED'])
+    );
+
+    const approvedPRsSnapshot = await getDocs(approvedPRsQuery);
+
+    // Calculate total committed costs from approved PRs
+    let totalCommittedCost = 0;
+    for (const prDoc of approvedPRsSnapshot.docs) {
+      const approvedPR = prDoc.data() as PurchaseRequest;
+
+      // Skip the current PR if it's already in the list
+      if (approvedPR.number === pr.number) {
+        continue;
+      }
+
+      // Fetch items for this PR
+      const itemsQuery = query(
+        collection(db, COLLECTIONS.PURCHASE_REQUEST_ITEMS),
+        where('purchaseRequestId', '==', prDoc.id)
+      );
+      const itemsSnapshot = await getDocs(itemsQuery);
+
+      const prCost = itemsSnapshot.docs.reduce((sum, itemDoc) => {
+        const item = itemDoc.data() as PurchaseRequestItem;
+        return sum + (item.estimatedTotalCost || 0);
+      }, 0);
+
+      totalCommittedCost += prCost;
+    }
+
+    // Calculate available budget
+    const availableBudget = totalBudget - totalActualCost - totalCommittedCost;
+
+    // Check if PR exceeds available budget
+    if (prEstimatedCost > availableBudget) {
+      return {
+        valid: false,
+        error: `Insufficient budget. PR cost: ₹${prEstimatedCost.toFixed(2)}, Available: ₹${availableBudget.toFixed(2)}`,
+        details: {
+          totalBudget,
+          totalActualCost,
+          totalCommittedCost,
+          availableBudget,
+          prEstimatedCost,
+          exceedBy: prEstimatedCost - availableBudget,
+        },
+      };
+    }
+
+    return {
+      valid: true,
+      details: {
+        totalBudget,
+        totalActualCost,
+        totalCommittedCost,
+        availableBudget,
+        prEstimatedCost,
+        remainingAfterPR: availableBudget - prEstimatedCost,
+      },
+    };
+  } catch (error) {
+    console.error('[validateProjectBudget] Error:', error);
+    return {
+      valid: false,
+      error: `Budget validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    };
+  }
+}
+
+// ============================================================================
 // APPROVE PURCHASE REQUEST
 // ============================================================================
 
@@ -523,6 +670,18 @@ export async function approvePurchaseRequest(
     // Validate PR can be approved
     if (pr.status !== 'SUBMITTED' && pr.status !== 'UNDER_REVIEW') {
       throw new Error('Purchase request is not in reviewable status');
+    }
+
+    // Get PR items for budget validation
+    const prItems = await getPurchaseRequestItems(prId);
+
+    // Validate project budget before approval
+    const budgetValidation = await validateProjectBudget(pr, prItems);
+
+    if (!budgetValidation.valid) {
+      throw new Error(
+        budgetValidation.error || 'Budget validation failed - insufficient project budget'
+      );
     }
 
     // Update status
