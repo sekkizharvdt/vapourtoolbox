@@ -3,12 +3,7 @@
  * Helper functions for creating and managing accounting transactions
  */
 
-import type {
-  BaseTransaction,
-  CustomerInvoice,
-  VendorBill,
-  LedgerEntry,
-} from '@vapour/types';
+import type { BaseTransaction, CustomerInvoice, VendorBill, LedgerEntry } from '@vapour/types';
 
 /**
  * Auto-generate ledger entries for a customer invoice
@@ -168,7 +163,7 @@ export function generateBillLedgerEntries(
 
   // Credit: Vendor Account (Accounts Payable)
   // If TDS deducted, vendor gets net amount (totalAmount - TDS)
-  const tdsAmount = (bill.tdsDeducted && bill.tdsAmount) ? bill.tdsAmount : 0;
+  const tdsAmount = bill.tdsDeducted && bill.tdsAmount ? bill.tdsAmount : 0;
   const vendorPayable = (bill.totalAmount || 0) - tdsAmount;
 
   entries.push({
@@ -272,6 +267,190 @@ export function validateLedgerBalance(entries: LedgerEntry[]): {
     totalDebits: parseFloat(totalDebits.toFixed(2)),
     totalCredits: parseFloat(totalCredits.toFixed(2)),
   };
+}
+
+/**
+ * Calculate forex gain/loss for a transaction
+ *
+ * When a foreign currency transaction is settled, the actual bank settlement rate
+ * may differ from the expected exchange rate, resulting in a forex gain or loss.
+ *
+ * Formula:
+ * - forexGainLoss = bankSettlementAmount - baseAmount
+ * - Positive value = Gain (actual received more than expected)
+ * - Negative value = Loss (actual received less than expected)
+ *
+ * @param transaction - Transaction with forex data
+ * @returns Calculated forex gain/loss amount in base currency
+ */
+export function calculateForexGainLoss(transaction: {
+  amount: number;
+  currency: string;
+  exchangeRate?: number;
+  baseAmount: number;
+  bankSettlementRate?: number;
+  bankSettlementAmount?: number;
+}): {
+  forexGainLoss: number;
+  calculatedBankAmount: number;
+  hasForexImpact: boolean;
+} {
+  // No forex impact if transaction is in base currency
+  if (transaction.currency === 'INR') {
+    return {
+      forexGainLoss: 0,
+      calculatedBankAmount: transaction.amount,
+      hasForexImpact: false,
+    };
+  }
+
+  // No forex impact if bank settlement rate not provided
+  if (!transaction.bankSettlementRate) {
+    return {
+      forexGainLoss: 0,
+      calculatedBankAmount: transaction.baseAmount,
+      hasForexImpact: false,
+    };
+  }
+
+  // Calculate actual bank settlement amount if not provided
+  const calculatedBankAmount =
+    transaction.bankSettlementAmount ||
+    parseFloat((transaction.amount * transaction.bankSettlementRate).toFixed(2));
+
+  // Calculate forex gain/loss
+  // Gain (positive) if bank gave more INR than expected
+  // Loss (negative) if bank gave less INR than expected
+  const forexGainLoss = parseFloat((calculatedBankAmount - transaction.baseAmount).toFixed(2));
+
+  return {
+    forexGainLoss,
+    calculatedBankAmount,
+    hasForexImpact: Math.abs(forexGainLoss) > 0.01, // Consider impact if > 1 paisa
+  };
+}
+
+/**
+ * Generate ledger entry for forex gain/loss
+ *
+ * For Forex Gain (positive value):
+ * - DR: Bank/Cash Account (already recorded in payment entry)
+ * - CR: Foreign Exchange Gain Account
+ *
+ * For Forex Loss (negative value):
+ * - DR: Foreign Exchange Loss Account
+ * - CR: Bank/Cash Account (already recorded in payment entry)
+ *
+ * @param forexGainLoss - Amount of gain (positive) or loss (negative)
+ * @param transactionNumber - Transaction reference number
+ * @param forexGainAccountId - Chart of Accounts ID for forex gain account
+ * @param forexLossAccountId - Chart of Accounts ID for forex loss account
+ * @param costCentreId - Optional project/cost centre ID
+ * @returns Ledger entry for forex gain/loss (null if no impact)
+ */
+export function generateForexGainLossEntry(
+  forexGainLoss: number,
+  transactionNumber: string,
+  forexGainAccountId: string,
+  forexLossAccountId: string,
+  costCentreId?: string
+): LedgerEntry | null {
+  // Skip if no forex impact (less than 1 paisa)
+  if (Math.abs(forexGainLoss) < 0.01) {
+    return null;
+  }
+
+  const absAmount = Math.abs(forexGainLoss);
+
+  if (forexGainLoss > 0) {
+    // Forex Gain - Credit the gain account
+    return {
+      accountId: forexGainAccountId,
+      debit: 0,
+      credit: absAmount,
+      description: `Forex gain on ${transactionNumber}`,
+      costCentreId,
+    };
+  } else {
+    // Forex Loss - Debit the loss account
+    return {
+      accountId: forexLossAccountId,
+      debit: absAmount,
+      credit: 0,
+      description: `Forex loss on ${transactionNumber}`,
+      costCentreId,
+    };
+  }
+}
+
+/**
+ * Update transaction with forex gain/loss calculation
+ *
+ * This function should be called when:
+ * 1. A foreign currency transaction is initially recorded
+ * 2. Bank settlement details are updated (rate, amount, date)
+ *
+ * @param transaction - Transaction to update
+ * @returns Updated transaction with calculated forex fields
+ */
+export function applyForexCalculation<T extends Partial<BaseTransaction>>(transaction: T): T {
+  if (!transaction.amount || !transaction.currency || !transaction.baseAmount) {
+    return transaction;
+  }
+
+  const forexCalc = calculateForexGainLoss({
+    amount: transaction.amount,
+    currency: transaction.currency,
+    exchangeRate: transaction.exchangeRate,
+    baseAmount: transaction.baseAmount,
+    bankSettlementRate: transaction.bankSettlementRate,
+    bankSettlementAmount: transaction.bankSettlementAmount,
+  });
+
+  return {
+    ...transaction,
+    bankSettlementAmount: forexCalc.calculatedBankAmount,
+    forexGainLoss: forexCalc.forexGainLoss,
+  };
+}
+
+/**
+ * Add forex gain/loss entry to existing ledger entries
+ *
+ * This function adds the forex gain/loss ledger entry to the transaction's
+ * existing entries array, ensuring proper double-entry accounting.
+ *
+ * @param transaction - Transaction with forex data
+ * @param forexGainAccountId - Chart of Accounts ID for forex gain
+ * @param forexLossAccountId - Chart of Accounts ID for forex loss
+ * @returns Updated entries array including forex entry
+ */
+export function addForexEntryToLedger(
+  transaction: Partial<BaseTransaction>,
+  forexGainAccountId: string,
+  forexLossAccountId: string
+): LedgerEntry[] {
+  const entries = [...(transaction.entries || [])];
+
+  // Calculate forex gain/loss
+  const updatedTx = applyForexCalculation(transaction);
+
+  // Generate forex entry if there's an impact
+  if (updatedTx.forexGainLoss && Math.abs(updatedTx.forexGainLoss) >= 0.01) {
+    const forexEntry = generateForexGainLossEntry(
+      updatedTx.forexGainLoss,
+      transaction.transactionNumber || '',
+      forexGainAccountId,
+      forexLossAccountId,
+      transaction.projectId || transaction.costCentreId
+    );
+
+    if (forexEntry) {
+      entries.push(forexEntry);
+    }
+  }
+
+  return entries;
 }
 
 /**
