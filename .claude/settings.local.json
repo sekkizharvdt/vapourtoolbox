@@ -90,7 +90,8 @@
       "Bash(pnpm --filter @vapour/logger build:*)",
       "Bash(pnpm add:*)",
       "Bash(gcloud firestore indexes composite list:*)",
-      "Bash(xargs -I{} bash -c 'echo \"\"\"\"=== {} ===\"\"\"\" && grep -A 3 \"\"\"\"onSnapshot\\|getDocs\"\"\"\" {} | head -10')"
+      "Bash(xargs -I{} bash -c 'echo \"\"\"\"=== {} ===\"\"\"\" && grep -A 3 \"\"\"\"onSnapshot\\|getDocs\"\"\"\" {} | head -10')",
+      "Bash(pnpm:*)"
     ],
     "deny": [],
     "ask": []
