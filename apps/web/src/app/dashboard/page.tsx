@@ -1,18 +1,15 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Box, Container, Typography, CircularProgress, Alert } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 import { MODULES } from '@vapour/constants';
 import { ModuleCard } from '@/components/dashboard/ModuleCard';
-import { getAllModuleStats, type ModuleStats } from '@/lib/dashboard/moduleStatsService';
+import { useAllModuleStats, getStatsForModule } from '@/lib/hooks/useModuleStats';
 
 export default function DashboardPage() {
   const { user, claims } = useAuth();
   const userPermissions = claims?.permissions || 0;
-  const [moduleStats, setModuleStats] = useState<ModuleStats[]>([]);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
-  const [statsError, setStatsError] = useState<string | null>(null);
 
   // Filter modules based on user permissions, status, and category
   // ONLY show application modules on dashboard (core modules are in sidebar only)
@@ -44,34 +41,16 @@ export default function DashboardPage() {
       .sort((a, b) => (a.priority || 999) - (b.priority || 999));
   }, [accessibleModules]);
 
-  // Load module stats on mount
-  useEffect(() => {
-    async function loadStats() {
-      try {
-        setIsLoadingStats(true);
-        setStatsError(null);
-        const accessibleModuleIds = accessibleModules.map((m) => m.id);
-        const stats = await getAllModuleStats(accessibleModuleIds);
-        setModuleStats(stats);
-      } catch (error) {
-        console.error('[DashboardPage] Error loading stats:', error);
-        setStatsError('Failed to load module statistics');
-      } finally {
-        setIsLoadingStats(false);
-      }
-    }
-
-    if (accessibleModules.length > 0) {
-      loadStats();
-    } else {
-      setIsLoadingStats(false);
-    }
-  }, [accessibleModules]); // Re-load when accessible modules change
-
-  // Helper to get stats for a specific module
-  const getStatsForModule = (moduleId: string): ModuleStats | undefined => {
-    return moduleStats.find((s) => s.moduleId === moduleId);
-  };
+  // Fetch module stats using React Query (with automatic caching)
+  const accessibleModuleIds = useMemo(
+    () => accessibleModules.map((m) => m.id),
+    [accessibleModules]
+  );
+  const {
+    data: moduleStats,
+    isLoading: isLoadingStats,
+    error: statsError,
+  } = useAllModuleStats(accessibleModuleIds);
 
   return (
     <Container maxWidth="xl">
@@ -86,8 +65,8 @@ export default function DashboardPage() {
 
       {/* Stats Error Alert */}
       {statsError && (
-        <Alert severity="warning" sx={{ mb: 3 }} onClose={() => setStatsError(null)}>
-          {statsError} - Module cards will show without statistics
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Failed to load module statistics - Module cards will show without statistics
         </Alert>
       )}
 
@@ -120,7 +99,11 @@ export default function DashboardPage() {
             }}
           >
             {activeModules.map((module) => (
-              <ModuleCard key={module.id} module={module} stats={getStatsForModule(module.id)} />
+              <ModuleCard
+                key={module.id}
+                module={module}
+                stats={getStatsForModule(moduleStats, module.id)}
+              />
             ))}
           </Box>
         </Box>

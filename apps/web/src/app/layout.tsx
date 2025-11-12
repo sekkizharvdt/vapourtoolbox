@@ -6,6 +6,7 @@ import { validateFirebaseEnvironment } from '@vapour/firebase';
 import { CSRFProvider } from '@/components/CSRFProvider';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { QueryProvider } from '@/lib/providers/QueryProvider';
 
 // Validate Firebase configuration on module load
 // This will throw clear errors if env variables are missing
@@ -26,10 +27,12 @@ export default function RootLayout({
         <ErrorBoundary>
           <CSRFProvider>
             <AuthProvider>
-              <VapourThemeProvider defaultMode="light">
-                <CssBaseline />
-                {children}
-              </VapourThemeProvider>
+              <QueryProvider>
+                <VapourThemeProvider defaultMode="light">
+                  <CssBaseline />
+                  {children}
+                </VapourThemeProvider>
+              </QueryProvider>
             </AuthProvider>
           </CSRFProvider>
         </ErrorBoundary>
