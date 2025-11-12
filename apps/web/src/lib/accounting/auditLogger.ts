@@ -15,6 +15,9 @@ import type {
   AuditEntityType,
   AuditFieldChange,
 } from '@vapour/types';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'auditLogger' });
 
 /**
  * Get client IP address from public API
@@ -43,7 +46,7 @@ async function getClientIPAddress(): Promise<string | undefined> {
     }
   } catch (error) {
     // IP detection failed - not critical, continue without IP
-    console.warn('[AuditLogger] Could not detect client IP:', error);
+    logger.warn('Could not detect client IP', { error });
   }
 
   return undefined;

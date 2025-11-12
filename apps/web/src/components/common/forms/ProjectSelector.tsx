@@ -6,6 +6,9 @@ import { collection, query, orderBy, onSnapshot, where } from 'firebase/firestor
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { Project } from '@vapour/types';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'ProjectSelector' });
 
 interface ProjectSelectorProps {
   value: string | null;
@@ -120,9 +123,9 @@ export function ProjectSelector({
 
         // If the primary query fails (likely due to missing index), try fallback
         if (error.code === 'failed-precondition' || error.message.includes('index')) {
-          console.warn(
-            '[ProjectSelector] Primary query failed (likely missing index). Trying fallback query without where clause.'
-          );
+          logger.warn('Primary query failed, trying fallback query', {
+            reason: 'likely missing index',
+          });
 
           // Fallback: load all projects without where filter, then filter client-side
           const fallbackQuery = query(projectsRef, orderBy('name', 'asc'));
@@ -182,9 +185,9 @@ export function ProjectSelector({
                 setProjects(projectsData);
                 setLoading(false);
                 setLoadError(null);
-                console.warn(
-                  '[ProjectSelector] Using fallback query. Consider deploying Firestore indexes for better performance.'
-                );
+                logger.warn('Using fallback query', {
+                  note: 'Consider deploying Firestore indexes',
+                });
               } catch (error) {
                 console.error('[ProjectSelector] Error processing fallback snapshot data:', error);
                 setLoadError('Failed to load projects. Please try again.');

@@ -41,6 +41,9 @@ import { canViewAccounting, canManageChartOfAccounts } from '@vapour/constants';
 import { AccountTreeView } from '@/components/accounting/AccountTreeView';
 import { CreateAccountDialog } from '@/components/accounting/CreateAccountDialog';
 import { initializeChartOfAccounts } from '@/lib/initializeChartOfAccounts';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'ChartOfAccounts' });
 
 export default function ChartOfAccountsPage() {
   const { claims, user } = useAuth();
@@ -91,7 +94,7 @@ export default function ChartOfAccountsPage() {
 
     const initializeIfEmpty = async () => {
       if (accounts.length === 0 && !loading && !initializing) {
-        console.warn('[ChartOfAccounts] Accounts collection is empty, initializing...');
+        logger.info('Accounts collection is empty, initializing');
         setInitializing(true);
 
         const result = await initializeChartOfAccounts(user.uid);
@@ -99,7 +102,7 @@ export default function ChartOfAccountsPage() {
         if (!result.success) {
           setError(`Failed to initialize Chart of Accounts: ${result.error}`);
         } else if (result.accountsCreated > 0) {
-          console.warn(`[ChartOfAccounts] Initialized ${result.accountsCreated} accounts`);
+          logger.info('Initialized accounts', { count: result.accountsCreated });
         }
 
         setInitializing(false);
@@ -206,7 +209,8 @@ export default function ChartOfAccountsPage() {
         searchTerm === '' ||
         account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         account.code.includes(searchTerm) ||
-        (account.description && account.description.toLowerCase().includes(searchTerm.toLowerCase()));
+        (account.description &&
+          account.description.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesType = accountTypeFilter === 'all' || account.accountType === accountTypeFilter;
 
@@ -267,7 +271,8 @@ export default function ChartOfAccountsPage() {
               Chart of Accounts
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {statistics.totalCount} total • {statistics.activeCount} active • {statistics.groupCount} groups • {statistics.leafCount} accounts
+              {statistics.totalCount} total • {statistics.activeCount} active •{' '}
+              {statistics.groupCount} groups • {statistics.leafCount} accounts
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
@@ -468,7 +473,10 @@ export default function ChartOfAccountsPage() {
       {/* Account Tree View */}
       {!loading && filteredAccounts.length > 0 && (
         <Paper sx={{ p: 2 }}>
-          <AccountTreeView accounts={filteredAccounts} onEdit={canManage ? handleEditAccount : undefined} />
+          <AccountTreeView
+            accounts={filteredAccounts}
+            onEdit={canManage ? handleEditAccount : undefined}
+          />
         </Paper>
       )}
 

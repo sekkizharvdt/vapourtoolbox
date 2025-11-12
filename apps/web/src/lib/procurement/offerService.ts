@@ -35,6 +35,9 @@ import type {
   OfferComparisonData,
 } from '@vapour/types';
 import { incrementOffersReceived, incrementOffersEvaluated } from './rfqService';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'offerService' });
 
 // ============================================================================
 // OFFER NUMBER GENERATION
@@ -261,7 +264,7 @@ export async function createOffer(
     // This is a non-critical update that can be manually corrected
   }
 
-  console.warn('[offerService] Offer created:', offerRef.id, offerNumber);
+  logger.info('Offer created', { offerId: offerRef.id, offerNumber });
 
   return offerRef.id;
 }
@@ -416,7 +419,7 @@ export async function updateOffer(
 
   await updateDoc(doc(db, COLLECTIONS.OFFERS, offerId), updateData);
 
-  console.warn('[offerService] Offer updated:', offerId);
+  logger.info('Offer updated', { offerId });
 }
 
 // ============================================================================
@@ -470,7 +473,7 @@ export async function evaluateOffer(
     // Don't fail offer evaluation if counter update fails
   }
 
-  console.warn('[offerService] Offer evaluated:', offerId);
+  logger.info('Offer evaluated', { offerId });
 }
 
 /**
@@ -510,7 +513,7 @@ export async function markOfferAsRecommended(
 
   await batch.commit();
 
-  console.warn('[offerService] Offer marked as recommended:', offerId);
+  logger.info('Offer marked as recommended', { offerId });
 }
 
 /**
@@ -560,7 +563,7 @@ export async function selectOffer(
 
   await batch.commit();
 
-  console.warn('[offerService] Offer selected and RFQ completed:', offerId, offer.rfqId);
+  logger.info('Offer selected and RFQ completed', { offerId, rfqId: offer.rfqId });
 }
 
 /**
@@ -575,7 +578,7 @@ export async function rejectOffer(offerId: string, reason: string, _userId: stri
     updatedAt: Timestamp.now(),
   });
 
-  console.warn('[offerService] Offer rejected:', offerId);
+  logger.info('Offer rejected', { offerId });
 }
 
 /**
@@ -594,7 +597,7 @@ export async function withdrawOffer(
     updatedAt: Timestamp.now(),
   });
 
-  console.warn('[offerService] Offer withdrawn:', offerId);
+  logger.info('Offer withdrawn', { offerId });
 }
 
 // ============================================================================

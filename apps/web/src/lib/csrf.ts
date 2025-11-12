@@ -3,6 +3,10 @@
  * Client-side utilities for managing CSRF tokens
  */
 
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'csrf' });
+
 /**
  * Generate a random CSRF token
  */
@@ -68,7 +72,7 @@ export function withCSRFToken(headers: HeadersInit = {}): HeadersInit {
   const token = getCSRFToken();
 
   if (!token) {
-    console.warn('CSRF token not found. Initializing...');
+    logger.info('CSRF token not found, initializing');
     const newToken = initializeCSRFToken();
     return {
       ...headers,

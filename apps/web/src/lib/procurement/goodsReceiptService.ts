@@ -27,6 +27,9 @@ import type {
   PurchaseOrderItem,
   ItemCondition,
 } from '@vapour/types';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'goodsReceiptService' });
 import {
   createBillFromGoodsReceipt,
   createPaymentFromApprovedReceipt,
@@ -229,7 +232,7 @@ export async function createGoodsReceipt(
 
   await batch.commit();
 
-  console.warn('[goodsReceiptService] Goods Receipt created:', grRef.id, grNumber);
+  logger.info('Goods Receipt created', { grId: grRef.id, grNumber });
 
   return grRef.id;
 }
@@ -292,7 +295,7 @@ export async function completeGR(grId: string, userId: string, userEmail: string
     // Don't fail GR completion if bill creation fails
   }
 
-  console.warn('[goodsReceiptService] Goods Receipt completed:', grId);
+  logger.info('Goods Receipt completed', { grId });
 }
 
 export async function approveGRForPayment(
@@ -324,5 +327,5 @@ export async function approveGRForPayment(
     console.error('[goodsReceiptService] Error creating payment:', err);
   }
 
-  console.warn('[goodsReceiptService] Goods Receipt approved for payment:', grId);
+  logger.info('Goods Receipt approved for payment', { grId });
 }

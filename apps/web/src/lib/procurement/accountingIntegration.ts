@@ -32,6 +32,9 @@ import type {
   CurrencyCode,
   PaymentAllocation,
 } from '@vapour/types';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'accountingIntegration' });
 import { generateBillGLEntries, type BillGLInput } from '../accounting/glEntryGenerator';
 import { createPaymentWithAllocationsAtomic } from '../accounting/paymentHelpers';
 
@@ -138,7 +141,7 @@ export async function createBillFromGoodsReceipt(
       // Find corresponding PO item
       const poItem = purchaseOrderItems.find((p) => p.id === grItem.poItemId);
       if (!poItem) {
-        console.warn(`[accountingIntegration] PO item not found for GR item: ${grItem.id}`);
+        logger.warn('PO item not found for GR item', { grItemId: grItem.id });
         continue;
       }
 
@@ -153,7 +156,7 @@ export async function createBillFromGoodsReceipt(
 
     // If no items were accepted, use full PO amounts (shouldn't happen but failsafe)
     if (subtotal === 0) {
-      console.warn('[accountingIntegration] No accepted items found, using full PO amounts');
+      logger.warn('No accepted items found, using full PO amounts');
       subtotal = purchaseOrder.subtotal;
       totalGST = purchaseOrder.totalTax;
     }
@@ -285,9 +288,10 @@ export async function createBillFromGoodsReceipt(
       updatedAt: Timestamp.now(),
     });
 
-    console.warn(
-      `[Accounting Integration] Created bill ${billRef.id} from goods receipt ${goodsReceipt.id}`
-    );
+    logger.info('Created bill from goods receipt', {
+      billId: billRef.id,
+      goodsReceiptId: goodsReceipt.id,
+    });
 
     return billRef.id;
   } catch (error) {
@@ -407,9 +411,10 @@ export async function createAdvancePaymentFromPO(
       updatedAt: Timestamp.now(),
     });
 
-    console.warn(
-      `[Accounting Integration] Created advance payment ${paymentId} for PO ${purchaseOrder.id}`
-    );
+    logger.info('Created advance payment for PO', {
+      paymentId,
+      purchaseOrderId: purchaseOrder.id,
+    });
 
     return paymentId;
   } catch (error) {
@@ -545,9 +550,10 @@ export async function createPaymentFromApprovedReceipt(
     // Create payment using atomic helper (includes GL entries and allocation)
     const paymentId = await createPaymentWithAllocationsAtomic(db, paymentData, [allocation]);
 
-    console.warn(
-      `[Accounting Integration] Created payment ${paymentId} for goods receipt ${goodsReceipt.id}`
-    );
+    logger.info('Created payment for goods receipt', {
+      paymentId,
+      goodsReceiptId: goodsReceipt.id,
+    });
 
     return paymentId;
   } catch (error) {
