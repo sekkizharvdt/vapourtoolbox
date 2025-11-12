@@ -26,7 +26,14 @@ import {
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { Offer, OfferItem, OfferStatus, RFQ, RFQItem } from '@vapour/types';
+import type {
+  Offer,
+  OfferItem,
+  OfferStatus,
+  RFQ,
+  RFQItem,
+  OfferComparisonData,
+} from '@vapour/types';
 import { incrementOffersReceived, incrementOffersEvaluated } from './rfqService';
 
 // ============================================================================
@@ -597,7 +604,7 @@ export async function withdrawOffer(
 /**
  * Get offer comparison data for an RFQ
  */
-export async function getOfferComparison(rfqId: string) {
+export async function getOfferComparison(rfqId: string): Promise<OfferComparisonData> {
   const { db } = getFirebase();
 
   // Get RFQ and all its offers

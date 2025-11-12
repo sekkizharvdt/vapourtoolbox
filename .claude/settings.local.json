@@ -81,7 +81,12 @@
       "Bash(firebase apphosting:backends:*)",
       "Bash(gcloud builds list:*)",
       "Bash(firebase apphosting:rollouts:list:*)",
-      "Bash(gcloud builds log:*)"
+      "Bash(gcloud builds log:*)",
+      "Bash(pnpm --filter @vapour/types type-check:*)",
+      "Bash(npm audit:*)",
+      "Bash(pnpm --filter @vapour/validation type-check:*)",
+      "Bash(npx madge:*)",
+      "Bash(pnpm --filter @vapour/types build:*)"
     ],
     "deny": [],
     "ask": []

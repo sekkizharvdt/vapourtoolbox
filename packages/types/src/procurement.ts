@@ -369,6 +369,49 @@ export interface OfferComparison {
   comparedBy: string;
 }
 
+// Offer comparison statistics for summary view
+export interface OfferComparisonStat {
+  offerId: string;
+  vendorName: string;
+  totalAmount: number;
+  meetsAllSpecs: boolean;
+  hasDeviations: boolean;
+  isRecommended: boolean;
+  evaluationScore?: number;
+  redFlags?: string[];
+}
+
+// Item-level offer details for comparison
+export interface ItemOfferComparison {
+  offerId: string;
+  vendorName: string;
+  unitPrice: number;
+  totalPrice: number;
+  deliveryPeriod?: string;
+  meetsSpec: boolean;
+  deviations?: string;
+  makeModel?: string;
+}
+
+// Item comparison with all vendor offers
+export interface ItemComparison {
+  rfqItemId: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  offers: ItemOfferComparison[];
+  lowestPrice: number;
+}
+
+// Complete offer comparison data structure
+export interface OfferComparisonData {
+  rfq: RFQ | null;
+  offers: Offer[];
+  itemComparisons: ItemComparison[];
+  offerStats: OfferComparisonStat[];
+  lowestTotal: number;
+}
+
 // ============================================================================
 // PURCHASE ORDER TYPES
 // ============================================================================

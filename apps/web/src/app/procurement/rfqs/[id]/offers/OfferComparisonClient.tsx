@@ -44,6 +44,13 @@ import {
   selectOffer,
 } from '@/lib/procurement/offerService';
 import { formatCurrency, calculatePriceScore } from '@/lib/procurement/offerHelpers';
+import type {
+  OfferComparisonData,
+  ItemComparison,
+  ItemOfferComparison,
+  OfferComparisonStat,
+  Offer,
+} from '@vapour/types';
 
 export default function OfferComparisonPage() {
   const params = useParams();
@@ -64,7 +71,7 @@ export default function OfferComparisonPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [comparisonData, setComparisonData] = useState<any>(null);
+  const [comparisonData, setComparisonData] = useState<OfferComparisonData | null>(null);
 
   // Evaluation dialog
   const [evaluationDialogOpen, setEvaluationDialogOpen] = useState(false);
@@ -168,7 +175,7 @@ export default function OfferComparisonPage() {
             Back to RFQ
           </Button>
           <Typography variant="h4" gutterBottom>
-            Offer Comparison - {rfq.number}
+            Offer Comparison - {rfq?.number || 'N/A'}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {offers.length} offer(s) received from vendors
@@ -189,7 +196,7 @@ export default function OfferComparisonPage() {
             flexWrap="wrap"
             sx={{ '& > *': { flex: '1 1 calc(25% - 12px)', minWidth: 200 } }}
           >
-            {offerStats.map((stat: any) => (
+            {offerStats.map((stat: OfferComparisonStat) => (
               <Paper key={stat.offerId} variant="outlined" sx={{ p: 2 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Box>
@@ -235,7 +242,7 @@ export default function OfferComparisonPage() {
           </Typography>
           <Divider sx={{ mb: 2 }} />
 
-          {itemComparisons.map((item: any) => (
+          {itemComparisons.map((item: ItemComparison) => (
             <Box key={item.rfqItemId} sx={{ mb: 4 }}>
               <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
                 {item.description}
@@ -258,7 +265,7 @@ export default function OfferComparisonPage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {item.offers.map((offer: any) => {
+                    {item.offers.map((offer: ItemOfferComparison) => {
                       const priceScore = calculatePriceScore(offer.unitPrice, item.lowestPrice);
 
                       return (
@@ -329,7 +336,7 @@ export default function OfferComparisonPage() {
           <Divider sx={{ mb: 2 }} />
 
           <Stack spacing={2}>
-            {offers.map((offer: any) => (
+            {offers.map((offer: Offer) => (
               <Stack
                 key={offer.id}
                 direction="row"
