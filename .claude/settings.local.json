@@ -88,7 +88,9 @@
       "Bash(npx madge:*)",
       "Bash(pnpm --filter @vapour/types build:*)",
       "Bash(pnpm --filter @vapour/logger build:*)",
-      "Bash(pnpm add:*)"
+      "Bash(pnpm add:*)",
+      "Bash(gcloud firestore indexes composite list:*)",
+      "Bash(xargs -I{} bash -c 'echo \"\"\"\"=== {} ===\"\"\"\" && grep -A 3 \"\"\"\"onSnapshot\\|getDocs\"\"\"\" {} | head -10')"
     ],
     "deny": [],
     "ask": []
