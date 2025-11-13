@@ -28,6 +28,7 @@ import {
   InputLabel,
   CircularProgress,
   Tooltip,
+  TablePagination,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -61,6 +62,10 @@ export default function RFQsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<'number' | 'createdAt' | 'dueDate' | 'status'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
 
   useEffect(() => {
     loadRFQs();
@@ -104,6 +109,19 @@ export default function RFQsPage() {
   };
 
   const stats = calculateRFQStats(rfqs);
+
+  // Pagination handlers
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Paginate RFQs in memory (client-side pagination)
+  const paginatedRfqs = filteredRfqs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   if (loading) {
     return (
@@ -264,7 +282,7 @@ export default function RFQsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredRfqs.map((rfq) => {
+                paginatedRfqs.map((rfq) => {
                   const dueDateInfo = formatDueDate(rfq);
                   const offerCompletion = getOfferCompletionPercentage(rfq);
 
@@ -349,6 +367,15 @@ export default function RFQsPage() {
               )}
             </TableBody>
           </Table>
+          <TablePagination
+            rowsPerPageOptions={[25, 50, 100]}
+            component="div"
+            count={filteredRfqs.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
         </TableContainer>
 
         {/* Empty State for New Users */}
