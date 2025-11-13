@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Box, Toolbar } from '@mui/material';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { DashboardAppBar } from '@/components/dashboard/AppBar';
+import { SessionTimeoutModal } from '@/components/auth/SessionTimeoutModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useSessionTimeout } from '@/hooks/useSessionTimeout';
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -91,6 +92,9 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Session timeout management
+  const { showWarning, timeRemaining, extendSession, logout } = useSessionTimeout();
+
   // Don't render if not authenticated or pending approval (will redirect)
   if (!user || !claims) {
     return null;
@@ -129,6 +133,14 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         <Toolbar /> {/* Spacer for AppBar */}
         {children}
       </Box>
+
+      {/* Session Timeout Warning Modal */}
+      <SessionTimeoutModal
+        open={showWarning}
+        timeRemaining={timeRemaining}
+        onExtend={extendSession}
+        onLogout={logout}
+      />
     </Box>
   );
 }
