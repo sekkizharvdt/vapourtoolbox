@@ -63,7 +63,7 @@ export async function createAmendment(
 
     // Calculate financial impact
     const financialChanges = changes.filter((c) => c.category === 'FINANCIAL');
-    let previousGrandTotal = po.grandTotal;
+    const previousGrandTotal = po.grandTotal;
     let newGrandTotal = po.grandTotal;
 
     // Calculate new grand total based on changes
