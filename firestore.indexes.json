@@ -567,6 +567,30 @@
         { "fieldPath": "costCentreId", "order": "ASCENDING" },
         { "fieldPath": "date", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "purchaseOrderAmendments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "purchaseOrderId", "order": "ASCENDING" },
+        { "fieldPath": "amendmentNumber", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "purchaseOrderVersions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "purchaseOrderId", "order": "ASCENDING" },
+        { "fieldPath": "versionNumber", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "amendmentApprovalHistory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "amendmentId", "order": "ASCENDING" },
+        { "fieldPath": "actionDate", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

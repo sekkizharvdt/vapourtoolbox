@@ -22,6 +22,7 @@ export function getPOStatusText(status: PurchaseOrderStatus): string {
     DELIVERED: 'Delivered',
     COMPLETED: 'Completed',
     CANCELLED: 'Cancelled',
+    AMENDED: 'Amended',
   };
   return statusMap[status] || status;
 }
@@ -43,6 +44,7 @@ export function getPOStatusColor(
     DELIVERED: 'success',
     COMPLETED: 'success',
     CANCELLED: 'error',
+    AMENDED: 'warning',
   };
   return colorMap[status] || 'default';
 }
