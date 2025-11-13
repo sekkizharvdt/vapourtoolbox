@@ -181,12 +181,18 @@ importers:
 
   packages/functions:
     dependencies:
+      '@vapour/validation':
+        specifier: workspace:*
+        version: link:../validation
       firebase-admin:
         specifier: ^13.5.0
         version: 13.5.0
       firebase-functions:
         specifier: ^6.1.1
         version: 6.6.0(firebase-admin@13.5.0)
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^22.10.2
