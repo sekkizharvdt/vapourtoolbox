@@ -32,8 +32,13 @@ jest.mock('@vapour/utils', () => ({
 
 describe('AuthContext', () => {
   // Mock Firebase instances
-  const mockAuth = {} as ReturnType<typeof getFirebase>['auth'];
-  const mockDb = {} as ReturnType<typeof getFirebase>['db'];
+  type MockAuth = ReturnType<typeof getFirebase>['auth'];
+  type MockDb = ReturnType<typeof getFirebase>['db'];
+
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  const mockAuth: MockAuth = {} as MockAuth;
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  const mockDb: MockDb = {} as MockDb;
   let authStateCallback: ((user: FirebaseUser | null) => void) | null = null;
 
   beforeEach(() => {
