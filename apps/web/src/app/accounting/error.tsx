@@ -10,6 +10,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { createLogger } from '@vapour/logger';
+import * as Sentry from '@sentry/nextjs';
 
 const logger = createLogger({ context: 'AccountingError' });
 
@@ -33,6 +34,21 @@ export default function AccountingError({ error, reset }: ErrorProps) {
       message: error.message,
       digest: error.digest,
       stack: error.stack,
+    });
+
+    // Send to Sentry with module-specific context
+    Sentry.withScope((scope) => {
+      scope.setTag('module', 'accounting');
+      scope.setTag('errorBoundary', 'accounting-module');
+      if (error.digest) {
+        scope.setTag('errorDigest', error.digest);
+      }
+      scope.setLevel('error');
+      scope.setContext('moduleInfo', {
+        module: 'accounting',
+        description: 'Error in financial data processing',
+      });
+      Sentry.captureException(error);
     });
   }, [error]);
 

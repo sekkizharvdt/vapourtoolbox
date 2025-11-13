@@ -18,6 +18,12 @@ export { fetchDailyExchangeRates, manualFetchExchangeRates } from './currency';
 // Export project functions
 export { onProjectCreated, onProjectUpdated } from './projects';
 
+// Export validated entity operations
+export { createEntity, updateEntity } from './entities';
+
+// Export validated accounting operations
+export { createJournalEntry, validateTransactionAmount } from './accounting';
+
 /**
  * Create Firestore Document for New Users
  *

@@ -4,6 +4,7 @@ import React, { Component, ReactNode, ErrorInfo } from 'react';
 import { Box, Typography, Button, Paper, Stack } from '@mui/material';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { createLogger } from '@vapour/logger';
+import * as Sentry from '@sentry/nextjs';
 
 const logger = createLogger({ context: 'ErrorBoundary' });
 
@@ -70,12 +71,20 @@ export class ErrorBoundary extends Component<Props, State> {
       errorInfo,
     });
 
+    // Send to Sentry with additional context
+    Sentry.withScope((scope) => {
+      scope.setContext('errorInfo', {
+        componentStack: errorInfo.componentStack,
+      });
+      scope.setLevel('error');
+      scope.setTag('errorBoundary', 'root');
+      Sentry.captureException(error);
+    });
+
     // Call optional error callback
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
-
-    // TODO: Send to error tracking service (Sentry, LogRocket, etc.)
   }
 
   componentDidUpdate(prevProps: Props): void {

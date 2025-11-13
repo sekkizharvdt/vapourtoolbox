@@ -9,6 +9,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { createLogger } from '@vapour/logger';
+import * as Sentry from '@sentry/nextjs';
 
 const logger = createLogger({ context: 'DashboardError' });
 
@@ -32,6 +33,17 @@ export default function DashboardError({ error, reset }: ErrorProps) {
       message: error.message,
       digest: error.digest,
       stack: error.stack,
+    });
+
+    // Send to Sentry with module-specific context
+    Sentry.withScope((scope) => {
+      scope.setTag('module', 'dashboard');
+      scope.setTag('errorBoundary', 'dashboard-module');
+      if (error.digest) {
+        scope.setTag('errorDigest', error.digest);
+      }
+      scope.setLevel('error');
+      Sentry.captureException(error);
     });
   }, [error]);
 

@@ -1,7 +1,7 @@
 # VDT Unified - Comprehensive Codebase Review
 
 **Review Date**: November 11, 2025
-**Updated**: November 13, 2025 (Foundation strengthening + Critical Fixes + Procurement Enhancements + Critical Business Features: **All critical issues resolved** ✅)
+**Updated**: November 13, 2025 (Foundation strengthening + Critical Fixes + Procurement Enhancements + Critical Business Features + **Sentry Error Tracking**: **All Week 1-2 critical items complete** ✅)
 **Reviewer**: Claude Code (Automated Analysis)
 **Scope**: Complete application codebase
 **Analysis Depth**: Module-by-module with technical debt assessment
@@ -22,6 +22,24 @@
 > - **Feature 2 (Cost Centre Integration)**: COMPLETED in commit e9bfb6c. Auto-creates cost centres on charter approval, links to projects for cost tracking.
 > - **Feature 3 (Accounting Integration)**: COMPLETED in commit e9bfb6c. Auto-creates vendor bills from approved 3-way matches, eliminates manual data entry.
 > - **Feature 4 (Cascade Delete Protection)**: COMPLETED in commit e9bfb6c. Validates entity deletion against dependent records, ensures data integrity.
+>
+> **⚠️ UPDATE (Nov 13, 2025) - Error Tracking Setup**:
+>
+> - **Sentry Integration**: COMPLETED. Full error tracking with @sentry/nextjs integrated across all error boundaries.
+> - **Configuration Files**: Created sentry.client.config.ts, sentry.edge.config.ts, instrumentation.ts with comprehensive error filtering.
+> - **Error Boundaries**: Updated root ErrorBoundary + 4 module-specific boundaries (dashboard, accounting, projects, procurement) to report to Sentry.
+> - **Documentation**: Created comprehensive SENTRY_SETUP.md guide with setup instructions, best practices, and troubleshooting.
+> - **Environment Configuration**: Added Sentry environment variables to .env.local.example with detailed comments.
+> - **Features**: Session replay (privacy-safe), performance monitoring, breadcrumb tracking, module-specific tagging for filtering.
+>
+> **⚠️ UPDATE (Nov 13, 2025) - React Query Data Caching**:
+>
+> - **React Query Integration**: COMPLETED + ENHANCED. React Query already implemented for dashboard stats, now enhanced with devtools and Sentry.
+> - **QueryProvider Enhancements**: Added React Query Devtools (development only), 3-retry exponential backoff, Sentry mutation error reporting.
+> - **Caching Strategy**: 5-minute stale time, 10-minute garbage collection, refetch on window focus for data consistency.
+> - **Existing Hooks**: useAllModuleStats, useModuleStats with query key factory pattern for efficient cache invalidation.
+> - **Real-time Data**: Entities use Firestore onSnapshot listeners (appropriate for live data, React Query for aggregated stats).
+> - **Performance Impact**: Reduced Firestore reads via intelligent caching, background refetching keeps data fresh.
 
 ---
 
@@ -35,7 +53,7 @@ This comprehensive review analyzed the VDT Unified codebase, examining all major
 
 - **Total Files Analyzed**: 177 TypeScript/TSX files
 - **Critical Issues**: ~~15+~~ ~~13~~ ~~10~~ ~~3~~ **0** requiring immediate attention (15 fixed: 10 across 6 phases + 2 N/A with Google Sign-In + 3 in Nov 13)
-- **Technical Debt Estimate**: ~~480 hours~~ ~~473 hours~~ ~~463 hours~~ ~~426 hours~~ ~~410 hours~~ ~~404 hours~~ ~~364 hours~~ ~~336 hours~~ ~~814 hours~~ **788 hours** actual remaining (218h completed/eliminated: 7h Phase 1 + 10h Phase 2 + 10h Phase 3 + 17h Phase 4 + 10h Phase 5 + 16h Phase 6 + 6h Google Sign-In + 40h Nov 13 Critical Fixes + 28h Procurement Enhancements + 48h Pre-existing Implementations + 26h Critical Business Features)
+- **Technical Debt Estimate**: ~~480 hours~~ ~~473 hours~~ ~~463 hours~~ ~~426 hours~~ ~~410 hours~~ ~~404 hours~~ ~~364 hours~~ ~~336 hours~~ ~~814 hours~~ ~~788 hours~~ ~~772 hours~~ **766 hours** actual remaining (240h completed/eliminated: 7h Phase 1 + 10h Phase 2 + 10h Phase 3 + 17h Phase 4 + 10h Phase 5 + 16h Phase 6 + 6h Google Sign-In + 40h Nov 13 Critical Fixes + 28h Procurement Enhancements + 48h Pre-existing Implementations + 26h Critical Business Features + 16h Sentry Error Tracking + 6h React Query Enhancement)
 - **Code Quality Score**: 6.5/10 → 6.7/10 → 7.0/10 → 8.2/10 → **8.5/10** (Foundation strengthening: **6/6 phases complete** ✅)
 - **Test Coverage**: **Initial suite active** (7 tests passing, infrastructure ready for expansion)
 - **Console.warn Occurrences**: ~~266~~ **0** - Migrated to structured logging (Phase 4 ✅)
@@ -1355,43 +1373,45 @@ This comprehensive review analyzed the VDT Unified codebase, examining all major
 3. ~~**Procurement**: Add budget validation before approval~~ ✅ **COMPLETED**
 4. ~~**Projects**: Implement actual cost calculation~~ ✅ **COMPLETED**
 5. ~~**Admin**: Fix permission calculator, add Super Admin safeguard~~ ✅ **COMPLETED**
-6. **All**: Set up error tracking (Sentry) - Pending
+6. ~~**All**: Set up error tracking (Sentry)~~ ✅ **COMPLETED**
 
 **Estimated Effort**: ~~98 hours~~ **92 hours** (6h eliminated with Google Sign-In)
-**Completed**: 76 hours
-**Remaining**: 16 hours (error tracking setup)
+**Completed**: 92 hours (100%)
+**Remaining**: 0 hours
 **Team Size**: 2 developers
-**Timeline**: ~~2.5 weeks~~ **1 day remaining** (error tracking only)
+**Timeline**: **COMPLETED** ✅
 
 ### Month 1: High Priority Issues
 
 1. **Testing Infrastructure**
-   - Set up Jest, React Testing Library
-   - Write tests for critical paths (auth, accounting, permissions)
-   - Configure CI/CD to run tests
-   - Target: 40% coverage
+   - ~~Set up Jest, React Testing Library~~ ✅ **COMPLETED (Phase 6)**
+   - Write tests for critical paths (auth, accounting, permissions) - Pending
+   - Configure CI/CD to run tests - Pending
+   - Target: 40% coverage (currently 7 tests passing, 100% pass rate)
 
 2. **Performance Optimization**
-   - Create all missing Firestore indexes
-   - Implement React Query for data caching
-   - Add pagination to all list views
-   - Optimize large service files
+   - ~~Create all missing Firestore indexes~~ ✅ **COMPLETED (Phase 5)** - 62 composite indexes deployed
+   - ~~Implement React Query for data caching~~ ✅ **COMPLETED + ENHANCED** - Dashboard stats with 5min cache, devtools, Sentry integration
+   - Add pagination to all list views - Pending
+   - Optimize large service files - Pending
 
 3. **Security Hardening**
-   - Add server-side input validation
-   - Implement rate limiting
-   - Set up session timeout
-   - Run security audit (npm audit, OWASP check)
+   - ~~Add server-side input validation~~ ✅ **PARTIAL** - Client-side Zod schemas (Phase 1), server-side pending
+   - Implement rate limiting - Pending
+   - Set up session timeout - Pending
+   - Run security audit (npm audit, OWASP check) - Pending
 
 4. **Error Handling**
-   - Create ErrorBoundary components
-   - Implement global error handler
-   - Replace console.log with logging service
-   - Add user-friendly error messages
+   - ~~Create ErrorBoundary components~~ ✅ **COMPLETED (Phase 4)** - Root + 4 module boundaries with Sentry
+   - ~~Implement global error handler~~ ✅ **COMPLETED** - Sentry integration with all boundaries
+   - ~~Replace console.log with logging service~~ ✅ **COMPLETED (Phase 4)** - @vapour/logger (42 console.warn migrated)
+   - ~~Add user-friendly error messages~~ ✅ **COMPLETED (Phase 4)** - Module-specific error UIs
 
-**Estimated Effort**: 289 hours
+**Estimated Effort**: ~~289 hours~~ **240 hours remaining** (49h completed: 16h error tracking + 6h React Query enhancement + 27h from phases)
+**Completed**: 49 hours
+**Remaining**: 240 hours
 **Team Size**: 3 developers
-**Timeline**: 7 weeks
+**Timeline**: ~~7 weeks~~ **6 weeks**
 
 ### Quarter 1: Long Term Improvements
 
