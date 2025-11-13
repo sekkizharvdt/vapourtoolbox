@@ -48,3 +48,40 @@ export { userEvent } from '@testing-library/user-event';
 
 // Override render with our custom version
 export { customRender as render };
+
+// Export Auth test utilities
+export * from './auth-wrapper';
+
+// Export test data factories
+export {
+  createMockFirebaseUser,
+  createMockCustomClaims,
+  createMockAuthenticatedUser,
+  UserRoles,
+  createMockUser as createMockUserDocument, // Rename to avoid conflict
+  createMockVendor,
+  createMockCustomer,
+  createMockProject,
+  createMockBankTransaction,
+  createMockAccountingTransaction,
+  createMockPurchaseRequest,
+  createMockRFQ,
+  createMockPurchaseOrder,
+} from './factories';
+
+// Export Firebase mocks (with renamed exports to avoid conflicts)
+export {
+  createMockUser, // From firebase-mocks.ts
+  createMockDocumentSnapshot,
+  createMockQuerySnapshot,
+  mockFirebaseAuth,
+  mockFirestore,
+  resetFirebaseMocks,
+  createMockBatch,
+  createMockOnSnapshot,
+  FirebaseError,
+  FirebaseErrorCodes,
+  createFirebaseError,
+  waitFor as waitForAsync, // Rename to avoid conflict with RTL's waitFor
+  flushPromises,
+} from './firebase-mocks';
