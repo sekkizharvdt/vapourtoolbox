@@ -28,6 +28,7 @@ import {
   TableHead,
   TableRow,
   TableSortLabel,
+  TablePagination,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -67,6 +68,10 @@ export default function EntitiesPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState<BusinessEntity | null>(null);
+
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
 
   // Firestore query using custom hook
   const { db } = getFirebase();
@@ -169,6 +174,22 @@ export default function EntitiesPage() {
       setSortDirection('asc');
     }
   };
+
+  // Pagination handlers
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Paginate entities in memory (client-side pagination)
+  const paginatedEntities = filteredAndSortedEntities.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   // Check permissions
   const permissions = claims?.permissions || 0;
@@ -396,7 +417,7 @@ export default function EntitiesPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredAndSortedEntities.map((entity) => (
+                {paginatedEntities.map((entity) => (
                   <TableRow
                     key={entity.id}
                     hover
@@ -467,6 +488,15 @@ export default function EntitiesPage() {
                 ))}
               </TableBody>
             </Table>
+            <TablePagination
+              rowsPerPageOptions={[25, 50, 100]}
+              component="div"
+              count={filteredAndSortedEntities.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
           </TableContainer>
         )}
 

@@ -9,6 +9,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { enforceRateLimit, writeRateLimiter, RateLimitError } from './utils/rateLimiter';
 
 /**
  * Base currency for our exchange rates
@@ -271,6 +272,16 @@ export const manualFetchExchangeRates = onCall(
         'permission-denied',
         'MANAGE_FINANCIAL_SETUP permission required to fetch exchange rates'
       );
+    }
+
+    // Rate limiting to prevent abuse
+    try {
+      enforceRateLimit(writeRateLimiter, request.auth.uid);
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        throw new HttpsError('resource-exhausted', error.message, { retryAfter: error.retryAfter });
+      }
+      throw error;
     }
 
     logger.info('Manual RBI exchange rate fetch triggered', {

@@ -28,6 +28,7 @@ import {
   TableHead,
   TableRow,
   TableSortLabel,
+  TablePagination,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -69,6 +70,10 @@ export default function ProjectsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [charterDialogOpen, setCharterDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
 
   // Firestore query using custom hook
   const { db } = getFirebase();
@@ -187,6 +192,22 @@ export default function ProjectsPage() {
       setSortDirection('asc');
     }
   };
+
+  // Pagination handlers
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Paginate projects in memory (client-side pagination)
+  const paginatedProjects = filteredAndSortedProjects.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   // Check permissions
   const permissions = claims?.permissions || 0;
@@ -416,7 +437,7 @@ export default function ProjectsPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredAndSortedProjects.map((project) => (
+                {paginatedProjects.map((project) => (
                   <TableRow
                     key={project.id}
                     hover
@@ -487,6 +508,15 @@ export default function ProjectsPage() {
                 ))}
               </TableBody>
             </Table>
+            <TablePagination
+              rowsPerPageOptions={[25, 50, 100]}
+              component="div"
+              count={filteredAndSortedProjects.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
           </TableContainer>
         )}
 

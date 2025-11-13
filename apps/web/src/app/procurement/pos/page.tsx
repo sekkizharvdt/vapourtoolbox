@@ -29,6 +29,7 @@ import {
   FormControl,
   InputLabel,
   type SelectChangeEvent,
+  TablePagination,
 } from '@mui/material';
 import { Add as AddIcon, Search as SearchIcon } from '@mui/icons-material';
 import type { PurchaseOrder, PurchaseOrderStatus } from '@vapour/types';
@@ -52,6 +53,10 @@ export default function PurchaseOrdersPage() {
   const [filteredPOs, setFilteredPOs] = useState<PurchaseOrder[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<PurchaseOrderStatus | 'ALL'>('ALL');
+
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
 
   useEffect(() => {
     loadPOs();
@@ -92,6 +97,19 @@ export default function PurchaseOrdersPage() {
   };
 
   const stats = calculatePOStats(filteredPOs);
+
+  // Pagination handlers
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Paginate POs in memory (client-side pagination)
+  const paginatedPOs = filteredPOs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -214,7 +232,7 @@ export default function PurchaseOrdersPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredPOs.map((po) => {
+                  {paginatedPOs.map((po) => {
                     const deliveryStatus = getDeliveryStatus(po);
                     const paymentStatus = getPaymentStatus(po);
 
@@ -270,6 +288,15 @@ export default function PurchaseOrdersPage() {
                   })}
                 </TableBody>
               </Table>
+              <TablePagination
+                rowsPerPageOptions={[25, 50, 100]}
+                component="div"
+                count={filteredPOs.length}
+                rowsPerPage={rowsPerPage}
+                page={page}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+              />
             </TableContainer>
           )}
         </Paper>

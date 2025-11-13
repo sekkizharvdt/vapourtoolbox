@@ -27,6 +27,7 @@ import {
   FormControl,
   InputLabel,
   CircularProgress,
+  TablePagination,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -50,6 +51,10 @@ export default function PurchaseRequestsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
 
   useEffect(() => {
     loadRequests();
@@ -144,6 +149,22 @@ export default function PurchaseRequestsPage() {
         return 'default';
     }
   };
+
+  // Pagination handlers
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Paginate requests in memory (client-side pagination)
+  const paginatedRequests = filteredRequests.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   if (loading) {
     return (
@@ -274,7 +295,7 @@ export default function PurchaseRequestsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredRequests.map((request) => (
+                paginatedRequests.map((request) => (
                   <TableRow key={request.id} hover>
                     <TableCell>
                       <Typography variant="body2" fontWeight={600}>
@@ -319,16 +340,16 @@ export default function PurchaseRequestsPage() {
               )}
             </TableBody>
           </Table>
+          <TablePagination
+            rowsPerPageOptions={[25, 50, 100]}
+            component="div"
+            count={filteredRequests.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
         </TableContainer>
-
-        {/* Summary */}
-        {filteredRequests.length > 0 && (
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="body2" color="text.secondary">
-              Showing {filteredRequests.length} of {requests.length} purchase requests
-            </Typography>
-          </Paper>
-        )}
       </Stack>
     </Box>
   );
