@@ -9,6 +9,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
+import { enforceRateLimit, writeRateLimiter, RateLimitError } from './utils/rateLimiter';
 
 /**
  * Super Admin has all 27 permission bits set
@@ -290,6 +291,16 @@ export const seedAccountingIntegrations = onCall(
         'permission-denied',
         'Super Admin privileges required to seed integration data'
       );
+    }
+
+    // Rate limiting to prevent abuse
+    try {
+      enforceRateLimit(writeRateLimiter, request.auth.uid);
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        throw new HttpsError('resource-exhausted', error.message, { retryAfter: error.retryAfter });
+      }
+      throw error;
     }
 
     logger.info('Seeding Accounting module integrations', {
