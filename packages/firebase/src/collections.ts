@@ -69,6 +69,12 @@ export const COLLECTIONS = {
   WORK_COMPLETION_CERTIFICATES: 'workCompletionCertificates',
   RAW_MATERIALS: 'rawMaterials',
 
+  // 3-Way Matching
+  THREE_WAY_MATCHES: 'threeWayMatches',
+  MATCH_LINE_ITEMS: 'matchLineItems',
+  MATCH_DISCREPANCIES: 'matchDiscrepancies',
+  MATCH_TOLERANCE_CONFIGS: 'matchToleranceConfigs',
+
   // Document Management
   DOCUMENTS: 'documents',
   DOCUMENT_ACTIVITIES: 'documentActivities',

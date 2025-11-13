@@ -591,6 +591,54 @@
         { "fieldPath": "amendmentId", "order": "ASCENDING" },
         { "fieldPath": "actionDate", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "threeWayMatches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "vendorBillId", "order": "ASCENDING" },
+        { "fieldPath": "matchedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "threeWayMatches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "purchaseOrderId", "order": "ASCENDING" },
+        { "fieldPath": "matchedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "threeWayMatches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "matchedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "matchLineItems",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "threeWayMatchId", "order": "ASCENDING" },
+        { "fieldPath": "lineNumber", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "matchDiscrepancies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "threeWayMatchId", "order": "ASCENDING" },
+        { "fieldPath": "severity", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "matchToleranceConfigs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isDefault", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
