@@ -7,7 +7,7 @@
 
 import { HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
-import { ZodSchema, ZodError } from 'zod';
+import { z, ZodSchema, ZodError } from 'zod';
 
 /**
  * Validation result type

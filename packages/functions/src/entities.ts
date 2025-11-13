@@ -117,12 +117,13 @@ export const createEntity = onCall(async (request) => {
 
   // 7. Check for duplicates
   try {
-    const duplicateCheck = await checkEntityDuplicates(
-      db,
-      validData.pan,
-      validData.gstin,
-      validData.email
-    );
+    const duplicateCheck = await checkEntityDuplicates(db as any, {
+      email: validData.email,
+      taxIdentifiers: {
+        pan: validData.pan,
+        gstin: validData.gstin,
+      },
+    });
 
     if (duplicateCheck.hasDuplicates) {
       const duplicateFields = Object.keys(duplicateCheck.duplicates).join(', ');
@@ -253,10 +254,14 @@ export const updateEntity = onCall(async (request) => {
   if (updateData.pan || updateData.gstin || updateData.email) {
     try {
       const duplicateCheck = await checkEntityDuplicates(
-        db,
-        updateData.pan,
-        updateData.gstin,
-        updateData.email,
+        db as any,
+        {
+          email: updateData.email,
+          taxIdentifiers: {
+            pan: updateData.pan,
+            gstin: updateData.gstin,
+          },
+        },
         entityId
       );
 
@@ -281,7 +286,7 @@ export const updateEntity = onCall(async (request) => {
 
   // 9. Update entity
   try {
-    const finalUpdateData = {
+    const finalUpdateData: Record<string, any> = {
       ...updateData,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedBy: request.auth.uid,
