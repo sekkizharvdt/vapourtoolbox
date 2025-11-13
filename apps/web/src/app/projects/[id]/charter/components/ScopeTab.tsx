@@ -30,8 +30,16 @@ export function ScopeTab({ project }: ScopeTabProps) {
   const inScopeHook = useEditableList(project.charter?.scope?.inScope || []);
   const outOfScopeHook = useEditableList(project.charter?.scope?.outOfScope || []);
 
+  // Delivery period data type
+  type DeliveryData = {
+    startDate: string;
+    endDate: string;
+    duration: string;
+    description: string;
+  };
+
   // Delivery period state
-  const [deliveryData, setDeliveryData] = useState({
+  const [, setDeliveryData] = useState<DeliveryData>({
     startDate: '',
     endDate: '',
     duration: '',
@@ -42,7 +50,7 @@ export function ScopeTab({ project }: ScopeTabProps) {
   const [constraints, setConstraints] = useState(project.charter?.scope?.constraints || []);
 
   // Save delivery period to Firestore
-  const saveDeliveryPeriod = async (data: typeof deliveryData) => {
+  const saveDeliveryPeriod = async (data: DeliveryData) => {
     setLoading(true);
     setError(null);
 

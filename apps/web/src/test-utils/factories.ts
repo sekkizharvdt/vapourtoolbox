@@ -13,7 +13,7 @@ import { Timestamp } from 'firebase/firestore';
  * Create a mock Firebase User
  */
 export function createMockFirebaseUser(overrides?: Partial<FirebaseUser>): FirebaseUser {
-  const defaults: Partial<FirebaseUser> = {
+  const mockUser: FirebaseUser = {
     uid: 'test-uid-123',
     email: 'test@vapourdesal.com',
     displayName: 'Test User',
@@ -41,9 +41,10 @@ export function createMockFirebaseUser(overrides?: Partial<FirebaseUser>): Fireb
     phoneNumber: null,
     photoURL: 'https://example.com/photo.jpg',
     providerId: 'firebase',
+    ...overrides,
   };
 
-  return { ...defaults, ...overrides } as FirebaseUser;
+  return mockUser;
 }
 
 /**
@@ -211,7 +212,7 @@ export function createMockUser(
 /**
  * Entity fixtures
  */
-export function createMockVendor(overrides?: Partial<any>) {
+export function createMockVendor(overrides?: Record<string, unknown>) {
   return {
     id: 'vendor-123',
     name: 'Test Vendor Ltd',
@@ -233,7 +234,7 @@ export function createMockVendor(overrides?: Partial<any>) {
   };
 }
 
-export function createMockCustomer(overrides?: Partial<any>) {
+export function createMockCustomer(overrides?: Record<string, unknown>) {
   return {
     id: 'customer-123',
     name: 'Test Customer Inc',
@@ -258,7 +259,7 @@ export function createMockCustomer(overrides?: Partial<any>) {
 /**
  * Project fixtures
  */
-export function createMockProject(overrides?: Partial<any>) {
+export function createMockProject(overrides?: Record<string, unknown>) {
   return {
     id: 'project-123',
     name: 'Test Project',
@@ -281,7 +282,7 @@ export function createMockProject(overrides?: Partial<any>) {
 /**
  * Transaction fixtures
  */
-export function createMockBankTransaction(overrides?: Partial<any>) {
+export function createMockBankTransaction(overrides?: Record<string, unknown>) {
   return {
     id: 'bank-txn-123',
     statementId: 'statement-123',
@@ -298,7 +299,7 @@ export function createMockBankTransaction(overrides?: Partial<any>) {
   };
 }
 
-export function createMockAccountingTransaction(overrides?: Partial<any>) {
+export function createMockAccountingTransaction(overrides?: Record<string, unknown>) {
   return {
     id: 'acc-txn-123',
     type: 'VENDOR_PAYMENT',
@@ -336,7 +337,7 @@ export function createMockAccountingTransaction(overrides?: Partial<any>) {
 /**
  * Procurement fixtures
  */
-export function createMockPurchaseRequest(overrides?: Partial<any>) {
+export function createMockPurchaseRequest(overrides?: Record<string, unknown>) {
   return {
     id: 'pr-123',
     requestNumber: 'PR-2025-001',
@@ -362,7 +363,7 @@ export function createMockPurchaseRequest(overrides?: Partial<any>) {
   };
 }
 
-export function createMockRFQ(overrides?: Partial<any>) {
+export function createMockRFQ(overrides?: Record<string, unknown>) {
   return {
     id: 'rfq-123',
     rfqNumber: 'RFQ-2025-001',
@@ -386,7 +387,7 @@ export function createMockRFQ(overrides?: Partial<any>) {
   };
 }
 
-export function createMockPurchaseOrder(overrides?: Partial<any>) {
+export function createMockPurchaseOrder(overrides?: Record<string, unknown>) {
   return {
     id: 'po-123',
     poNumber: 'PO-2025-001',
