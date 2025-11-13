@@ -99,15 +99,18 @@ The following events reset the idle timer:
 ↓
 25 min         Idle detected - Warning modal appears
 ↓
-25-30 min      User has 5 minutes to respond
-               - Countdown timer shows time remaining
-               - Color changes: blue → yellow → red
-               - User can click "Stay Signed In" or "Sign Out Now"
+25-30 min      Warning countdown period
+               - ANY activity (typing, clicking, etc.) auto-extends session
+               - Warning modal automatically dismisses on activity
+               - User can also click "Stay Signed In" button
+               - Or click "Sign Out Now" to logout immediately
 ↓
-30 min         Auto-logout if no response
+30 min         Auto-logout ONLY if completely idle (no activity at all)
                - User signed out automatically
                - Redirected to login page
 ```
+
+**Key Point**: If you're actively working (typing, clicking, moving mouse), you will **never** be logged out, even if the warning appears. The warning only leads to logout if you are truly idle with zero activity.
 
 ### Warning Modal States
 
@@ -115,19 +118,21 @@ The following events reset the idle timer:
 
 - **Color**: Blue (info)
 - **Message**: "Your session is about to expire"
-- **User Action**: Can extend session
+- **User Action**: Continue working (activity auto-extends) OR click "Stay Signed In"
 
 **At 1-4 minutes remaining:**
 
 - **Color**: Yellow (warning)
 - **Message**: "Your session is about to expire"
-- **User Action**: Should extend session soon
+- **User Action**: Continue working (activity auto-extends) OR click "Stay Signed In"
 
 **At < 1 minute remaining:**
 
 - **Color**: Red (error)
 - **Message**: "Your session is about to expire"
-- **User Action**: Must extend immediately or will be logged out
+- **User Action**: Continue working (activity auto-extends) OR click "Stay Signed In"
+
+**Important**: Any activity (typing, clicking, mouse movement) during the warning period **automatically extends** the session and dismisses the warning. You don't need to click the button if you're actively working.
 
 ---
 
@@ -304,7 +309,13 @@ WARNING_TIME: 25 * 60 * 1000, // Increase this value
 ### Issue: User logged out despite activity
 
 **Cause**: Activity not being detected (specific event types not tracked)
-**Solution**: Check if user's activity triggers tracked events (mouse, keyboard, etc.)
+**Solution**:
+
+- Check if user's activity triggers tracked events (mouse, keyboard, etc.)
+- Verify events being tracked: `mousedown`, `mousemove`, `keydown`, `scroll`, `touchstart`, `click`
+- Check browser console for activity detection logs (set logger to debug level)
+
+**Note**: As of the latest version, ANY activity during the warning period automatically extends the session, so this issue should be extremely rare.
 
 ### Issue: Warning doesn't appear
 

@@ -233,11 +233,9 @@ export function useSessionTimeout(
         activityThrottleTimer = null;
       }, 1000);
 
-      // Only reset if not showing warning
-      // (if warning is shown, user must click "Stay Signed In")
-      if (!showWarning) {
-        resetTimers();
-      }
+      // Any activity resets the timer (even during warning)
+      // This ensures actively working users won't get logged out
+      resetTimers();
     };
 
     // Add event listeners
@@ -268,7 +266,7 @@ export function useSessionTimeout(
 
       clearAllTimers();
     };
-  }, [enabled, user, showWarning, resetTimers, checkTokenExpiration, clearAllTimers]);
+  }, [enabled, user, resetTimers, checkTokenExpiration, clearAllTimers]);
 
   /**
    * Monitor visibility change (tab becomes inactive)

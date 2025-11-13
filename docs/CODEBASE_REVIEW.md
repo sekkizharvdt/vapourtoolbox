@@ -78,9 +78,10 @@
 > - **Session Timeout**: COMPLETED. Automatic logout after 30 minutes of inactivity with 5-minute warning.
 > - **Idle Detection**: Tracks mouse, keyboard, touch, and scroll events with 1-second throttling
 > - **Warning Modal**: Color-coded countdown (blue → yellow → red) with keyboard shortcuts (Enter/Esc)
+> - **Smart Behavior**: ANY activity (even during warning) auto-extends session - users won't be logged out while actively working
 > - **Token Management**: Auto-refreshes Firebase tokens 5 minutes before expiration
 > - **Tab Visibility**: Continues tracking when tab is hidden, checks session validity on tab focus
-> - **User Experience**: 25 minutes idle → 5-minute warning modal → auto-logout at 30 minutes
+> - **User Experience**: 25 minutes idle → 5-minute warning modal → activity auto-extends OR auto-logout if truly idle at 30 minutes
 > - **Production Mode**: Only enabled in production by default (disable in dev to avoid interruptions)
 > - **Security Impact**: Addresses OWASP A07 (Authentication Failures), prevents session hijacking
 > - **Files Created**:
