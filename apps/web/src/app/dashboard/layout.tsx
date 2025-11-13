@@ -23,6 +23,9 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const hasRedirected = useRef(false);
 
+  // Session timeout management (must be called before any conditional returns)
+  const { showWarning, timeRemaining, extendSession, logout } = useSessionTimeout();
+
   // Persist sidebar collapsed state
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -91,9 +94,6 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       </Box>
     );
   }
-
-  // Session timeout management
-  const { showWarning, timeRemaining, extendSession, logout } = useSessionTimeout();
 
   // Don't render if not authenticated or pending approval (will redirect)
   if (!user || !claims) {
