@@ -136,3 +136,116 @@ export const resetFirebaseMocks = () => {
     }
   });
 };
+
+/**
+ * Mock Firestore write batch
+ */
+export function createMockBatch() {
+  const batch = {
+    set: jest.fn().mockReturnThis(),
+    update: jest.fn().mockReturnThis(),
+    delete: jest.fn().mockReturnThis(),
+    commit: jest.fn().mockResolvedValue(undefined),
+  };
+
+  return batch;
+}
+
+/**
+ * Mock Firestore onSnapshot listener
+ *
+ * Returns a function that can be used to trigger snapshot updates in tests
+ */
+export function createMockOnSnapshot() {
+  let callback: ((snapshot: unknown) => void) | null = null;
+  let errorCallback: ((error: Error) => void) | null = null;
+
+  const onSnapshot = jest.fn((successCallback, failureCallback?) => {
+    callback = successCallback;
+    errorCallback = failureCallback || null;
+
+    // Return unsubscribe function
+    return jest.fn();
+  });
+
+  // Helper to trigger snapshot in tests
+  const triggerSnapshot = (data: unknown[] | unknown) => {
+    if (!callback) {
+      throw new Error('onSnapshot callback not registered');
+    }
+
+    const snapshot = Array.isArray(data)
+      ? createMockQuerySnapshot(data.map((d, i) => ({ id: `doc-${i}`, data: d as DocumentData })))
+      : createMockDocumentSnapshot('test-id', data as DocumentData);
+
+    callback(snapshot);
+  };
+
+  // Helper to trigger error in tests
+  const triggerError = (error: Error) => {
+    if (errorCallback) {
+      errorCallback(error);
+    }
+  };
+
+  return {
+    onSnapshot,
+    triggerSnapshot,
+    triggerError,
+  };
+}
+
+/**
+ * Mock Firebase error
+ */
+export class FirebaseError extends Error {
+  constructor(
+    public code: string,
+    message: string,
+    public customData?: Record<string, unknown>
+  ) {
+    super(message);
+    this.name = 'FirebaseError';
+  }
+}
+
+/**
+ * Common Firebase error codes
+ */
+export const FirebaseErrorCodes = {
+  PERMISSION_DENIED: 'permission-denied',
+  NOT_FOUND: 'not-found',
+  ALREADY_EXISTS: 'already-exists',
+  INVALID_ARGUMENT: 'invalid-argument',
+  UNAUTHENTICATED: 'unauthenticated',
+  RESOURCE_EXHAUSTED: 'resource-exhausted',
+  FAILED_PRECONDITION: 'failed-precondition',
+  ABORTED: 'aborted',
+  OUT_OF_RANGE: 'out-of-range',
+  UNIMPLEMENTED: 'unimplemented',
+  INTERNAL: 'internal',
+  UNAVAILABLE: 'unavailable',
+  DATA_LOSS: 'data-loss',
+  DEADLINE_EXCEEDED: 'deadline-exceeded',
+};
+
+/**
+ * Create a Firebase error
+ */
+export function createFirebaseError(code: string, message?: string): FirebaseError {
+  return new FirebaseError(code, message || `Firebase error: ${code}`, { code });
+}
+
+/**
+ * Helper to wait for async operations
+ */
+export function waitFor(ms = 0): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Helper to flush all pending promises
+ */
+export async function flushPromises(): Promise<void> {
+  await new Promise((resolve) => setImmediate(resolve));
+}

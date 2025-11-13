@@ -1,26 +1,33 @@
 /**
- * Notification Service (Compatibility Shim)
+ * Notification Service
  *
- * This file maintains backward compatibility with existing imports.
- * All functionality has been refactored into the notification/ module.
+ * In-app notification management
  *
- * @deprecated Import from '@/lib/notifications/notification' instead
+ * Refactored from notificationService.ts (477 lines) into modular structure:
+ * - types.ts: Type definitions and interfaces
+ * - crud.ts: CRUD operations (create, read, update)
+ * - helpers.ts: Specific notification helper functions
  */
 
-// Re-export everything from the modular structure
+// Export types
 export type {
   CreateNotificationInput,
   GetNotificationsFilters,
   ProcurementNotification,
   ProcurementNotificationType,
-} from './notification';
+} from './types';
 
+// Export CRUD operations
 export {
   createNotification,
   getUserNotifications,
   getUnreadNotificationCount,
   markNotificationAsRead,
   markAllNotificationsAsRead,
+} from './crud';
+
+// Export helper functions
+export {
   notifyPRSubmitted,
   notifyPRApproved,
   notifyPRRejected,
@@ -33,4 +40,4 @@ export {
   notifyGoodsReceived,
   notifyPaymentRequested,
   notifyWCCIssued,
-} from './notification';
+} from './helpers';
