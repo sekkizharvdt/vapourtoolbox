@@ -51,6 +51,10 @@ export function BudgetTab({ project }: BudgetTabProps) {
   const hasManageAccess = claims?.permissions ? canManageProjects(claims.permissions) : false;
   const userId = user?.uid || '';
 
+  // Budget locked if charter is approved
+  const isCharterApproved = project.charter?.authorization?.approvalStatus === 'APPROVED';
+  const isBudgetLocked = isCharterApproved;
+
   // Form state
   const [estimatedBudget, setEstimatedBudget] = useState(
     project.budget?.estimated?.amount?.toString() || ''
@@ -207,7 +211,7 @@ export function BudgetTab({ project }: BudgetTabProps) {
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6">Budget Overview</Typography>
-          {hasManageAccess && !editMode && (
+          {hasManageAccess && !editMode && !isBudgetLocked && (
             <Button size="small" startIcon={<EditIcon />} onClick={() => setEditMode(true)}>
               Edit Budget
             </Button>
@@ -215,6 +219,13 @@ export function BudgetTab({ project }: BudgetTabProps) {
         </Box>
 
         <Divider sx={{ mb: 2 }} />
+
+        {isBudgetLocked && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Budget is locked because the project charter has been approved. Contact your project
+            administrator if changes are required.
+          </Alert>
+        )}
 
         {editMode ? (
           // Edit Mode

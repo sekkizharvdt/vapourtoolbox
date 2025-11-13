@@ -11,6 +11,7 @@ import {
   getDoc,
   getDocs,
   addDoc,
+  updateDoc,
   query,
   where,
   orderBy,
@@ -521,6 +522,7 @@ export async function approveMatch(
   try {
     const matchRef = doc(db, COLLECTIONS.THREE_WAY_MATCHES, matchId);
 
+    // Update match status
     await writeBatch(db)
       .update(matchRef, {
         approvalStatus: 'APPROVED',
@@ -537,7 +539,24 @@ export async function approveMatch(
       })
       .commit();
 
-    logger.info('Match approved', { matchId, approvedBy: userName });
+    // Create vendor bill in accounting system
+    const { createVendorBillFromMatch } = await import(
+      '@/lib/accounting/vendorBillIntegrationService'
+    );
+
+    const vendorBillId = await createVendorBillFromMatch(db, matchId, userId, userName);
+
+    // Update match with vendor bill ID
+    await updateDoc(matchRef, {
+      vendorBillId,
+      updatedAt: serverTimestamp(),
+    });
+
+    logger.info('Match approved and vendor bill created', {
+      matchId,
+      vendorBillId,
+      approvedBy: userName,
+    });
   } catch (error) {
     logger.error('Failed to approve match', { error, matchId });
     throw error;

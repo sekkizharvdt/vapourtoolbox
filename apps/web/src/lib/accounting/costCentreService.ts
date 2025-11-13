@@ -1,221 +1,120 @@
-/**
- * Cost Centre Service
- *
- * Handles cost centre operations:
- * - List cost centres
- * - Create cost centres (manual, non-project-linked)
- * - Update cost centres
- * - Get cost centre details
- */
-
 import {
   collection,
-  doc,
-  getDoc,
-  getDocs,
   addDoc,
-  updateDoc,
   query,
   where,
-  orderBy,
+  getDocs,
   Timestamp,
-  type QueryConstraint,
+  Firestore,
 } from 'firebase/firestore';
-import { getFirebase } from '@/lib/firebase';
-
-export interface CostCentre {
-  id: string;
-  code: string;
-  name: string;
-  description?: string;
-  projectId?: string; // Optional: Link to project if auto-created
-
-  // Budget tracking
-  budgetAmount: number | null;
-  budgetCurrency: string;
-  actualSpent: number;
-  variance: number | null;
-
-  // Status
-  isActive: boolean;
-  autoCreated?: boolean; // Flag indicating if auto-created from project
-
-  // Timestamps
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  createdBy: string;
-  updatedBy: string;
-}
-
-export interface CreateCostCentreInput {
-  code: string;
-  name: string;
-  description?: string;
-  budgetAmount?: number;
-  budgetCurrency?: string;
-  isActive?: boolean;
-}
-
-export interface UpdateCostCentreInput {
-  name?: string;
-  description?: string;
-  budgetAmount?: number;
-  budgetCurrency?: string;
-  isActive?: boolean;
-}
-
-export interface ListCostCentresFilters {
-  isActive?: boolean;
-  autoCreated?: boolean;
-  projectId?: string;
-}
+import { COLLECTIONS } from '@vapour/firebase';
+import type { CostCentre } from '@vapour/types';
+import { logger } from '@vapour/logger';
 
 /**
- * List all cost centres with optional filters
+ * Create a cost centre for a project when charter is approved
  */
-export async function listCostCentres(filters: ListCostCentresFilters = {}): Promise<CostCentre[]> {
-  const { db } = getFirebase();
-
+export async function createProjectCostCentre(
+  db: Firestore,
+  projectId: string,
+  projectCode: string,
+  projectName: string,
+  budgetAmount: number | null,
+  userId: string,
+  userName: string
+): Promise<string> {
   try {
-    const constraints: QueryConstraint[] = [];
+    // Check if cost centre already exists for this project
+    const existingQuery = query(
+      collection(db, COLLECTIONS.COST_CENTRES),
+      where('projectId', '==', projectId)
+    );
+    const existingSnapshot = await getDocs(existingQuery);
 
-    // Apply filters
-    if (filters.isActive !== undefined) {
-      constraints.push(where('isActive', '==', filters.isActive));
+    if (!existingSnapshot.empty) {
+      const existingDoc = existingSnapshot.docs[0];
+      if (existingDoc) {
+        logger.info('Cost centre already exists for project', {
+          projectId,
+          costCentreId: existingDoc.id,
+        });
+        return existingDoc.id;
+      }
     }
 
-    if (filters.autoCreated !== undefined) {
-      constraints.push(where('autoCreated', '==', filters.autoCreated));
-    }
+    // Generate cost centre code from project code
+    // Example: Project PRJ-001 -> Cost Centre CC-PRJ-001
+    const costCentreCode = `CC-${projectCode}`;
 
-    if (filters.projectId) {
-      constraints.push(where('projectId', '==', filters.projectId));
-    }
+    // Create cost centre
+    const costCentreData: Omit<CostCentre, 'id'> = {
+      code: costCentreCode,
+      name: `${projectName} - Cost Centre`,
+      description: `Auto-created cost centre for project ${projectCode}`,
+      projectId,
+      budgetAmount,
+      budgetCurrency: 'INR',
+      actualSpent: 0,
+      variance: budgetAmount !== null ? budgetAmount : null,
+      isActive: true,
+      autoCreated: true,
+      createdAt: Timestamp.now() as unknown as Date,
+      createdBy: userId,
+      updatedAt: Timestamp.now() as unknown as Date,
+      updatedBy: userId,
+    };
 
-    // Order by code
-    constraints.push(orderBy('code', 'asc'));
+    const costCentreRef = await addDoc(collection(db, COLLECTIONS.COST_CENTRES), costCentreData);
 
-    const q = query(collection(db, 'costCentres'), ...constraints);
-    const snapshot = await getDocs(q);
-
-    const costCentres: CostCentre[] = [];
-    snapshot.forEach((doc) => {
-      const costCentre: CostCentre = {
-        id: doc.id,
-        ...doc.data(),
-      } as unknown as CostCentre;
-      costCentres.push(costCentre);
+    logger.info('Cost centre created for project', {
+      projectId,
+      costCentreId: costCentreRef.id,
+      costCentreCode,
+      userName,
     });
 
-    return costCentres;
+    return costCentreRef.id;
   } catch (error) {
-    console.error('[listCostCentres] Error:', error);
-    throw new Error('Failed to list cost centres');
+    logger.error('Failed to create cost centre for project', {
+      error,
+      projectId,
+      projectCode,
+      userName,
+    });
+    throw error;
   }
 }
 
 /**
- * Get a single cost centre by ID
+ * Get cost centre for a project
  */
-export async function getCostCentreById(id: string): Promise<CostCentre | null> {
-  const { db } = getFirebase();
-
+export async function getProjectCostCentre(
+  db: Firestore,
+  projectId: string
+): Promise<CostCentre | null> {
   try {
-    const docRef = doc(db, 'costCentres', id);
-    const docSnap = await getDoc(docRef);
+    const costCentreQuery = query(
+      collection(db, COLLECTIONS.COST_CENTRES),
+      where('projectId', '==', projectId)
+    );
+    const snapshot = await getDocs(costCentreQuery);
 
-    if (!docSnap.exists()) {
+    if (snapshot.empty) {
       return null;
     }
 
-    const costCentre: CostCentre = {
-      id: docSnap.id,
-      ...docSnap.data(),
-    } as unknown as CostCentre;
-    return costCentre;
+    const docSnapshot = snapshot.docs[0];
+    if (!docSnapshot) {
+      return null;
+    }
+    const data = docSnapshot.data();
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    return {
+      id: docSnapshot.id,
+      ...data,
+    } as CostCentre;
   } catch (error) {
-    console.error('[getCostCentreById] Error:', error);
-    throw new Error('Failed to get cost centre');
-  }
-}
-
-/**
- * Create a new cost centre (manual, not linked to project)
- */
-export async function createCostCentre(
-  input: CreateCostCentreInput,
-  userId: string
-): Promise<{ id: string }> {
-  const { db } = getFirebase();
-
-  try {
-    const now = Timestamp.now();
-
-    const costCentreData = {
-      code: input.code,
-      name: input.name,
-      description: input.description || '',
-      projectId: null, // Manual cost centres don't have project linkage
-      budgetAmount: input.budgetAmount || null,
-      budgetCurrency: input.budgetCurrency || 'INR',
-      actualSpent: 0,
-      variance: null,
-      isActive: input.isActive !== undefined ? input.isActive : true,
-      autoCreated: false, // Manual cost centre
-      createdAt: now,
-      updatedAt: now,
-      createdBy: userId,
-      updatedBy: userId,
-    };
-
-    const docRef = await addDoc(collection(db, 'costCentres'), costCentreData);
-
-    return { id: docRef.id };
-  } catch (error) {
-    console.error('[createCostCentre] Error:', error);
-    throw new Error('Failed to create cost centre');
-  }
-}
-
-/**
- * Update an existing cost centre
- */
-export async function updateCostCentre(
-  id: string,
-  input: UpdateCostCentreInput,
-  userId: string
-): Promise<void> {
-  const { db } = getFirebase();
-
-  try {
-    const docRef = doc(db, 'costCentres', id);
-
-    const updateData: Record<string, unknown> = {
-      ...input,
-      updatedAt: Timestamp.now(),
-      updatedBy: userId,
-    };
-
-    await updateDoc(docRef, updateData);
-  } catch (error) {
-    console.error('[updateCostCentre] Error:', error);
-    throw new Error('Failed to update cost centre');
-  }
-}
-
-/**
- * Check if a cost centre code already exists
- */
-export async function costCentreCodeExists(code: string): Promise<boolean> {
-  const { db } = getFirebase();
-
-  try {
-    const q = query(collection(db, 'costCentres'), where('code', '==', code));
-    const snapshot = await getDocs(q);
-
-    return !snapshot.empty;
-  } catch (error) {
-    console.error('[costCentreCodeExists] Error:', error);
-    return false;
+    logger.error('Failed to get cost centre for project', { error, projectId });
+    throw error;
   }
 }

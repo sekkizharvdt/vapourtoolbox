@@ -151,6 +151,7 @@ export function CharterTab({ project }: CharterTabProps) {
       const { db } = getFirebase();
       const projectRef = doc(db, COLLECTIONS.PROJECTS, project.id);
 
+      // Update charter approval status
       await updateDoc(projectRef, {
         'charter.authorization.approvalStatus': 'APPROVED',
         'charter.authorization.approvedBy': userId,
@@ -160,7 +161,31 @@ export function CharterTab({ project }: CharterTabProps) {
         updatedBy: userId,
       });
 
-      alert('Charter approved! Purchase Requests will be automatically created.');
+      // Create cost centre for the project
+      const { createProjectCostCentre } = await import('@/lib/accounting/costCentreService');
+      const budgetAmount = project.budget?.estimated?.amount || null;
+      const userName = user?.displayName || user?.email || 'Unknown User';
+
+      const costCentreId = await createProjectCostCentre(
+        db,
+        project.id,
+        project.code,
+        project.name,
+        budgetAmount,
+        userId,
+        userName
+      );
+
+      // Update project with cost centre ID
+      await updateDoc(projectRef, {
+        costCentreId,
+        updatedAt: Timestamp.now(),
+        updatedBy: userId,
+      });
+
+      alert(
+        'Charter approved! Cost centre created and Purchase Requests will be automatically created.'
+      );
     } catch (err) {
       console.error('[CharterTab] Error approving charter:', err);
       setError(err instanceof Error ? err.message : 'Failed to approve charter');

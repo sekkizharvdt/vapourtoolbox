@@ -242,3 +242,105 @@ export async function searchEntities(
       entity.email?.toLowerCase().includes(lowerSearchTerm)
   );
 }
+
+/**
+ * Result of cascade delete check
+ */
+export interface CascadeCheckResult {
+  canDelete: boolean;
+  blockingReferences: {
+    transactions: number;
+    projects: number;
+    purchaseOrders: number;
+  };
+  totalReferences: number;
+  message: string;
+}
+
+/**
+ * Check if an entity can be safely deleted
+ *
+ * Validates that no active references exist in:
+ * - Transactions (vendor bills, customer invoices, etc.)
+ * - Projects (as client entity)
+ * - Purchase Orders (as vendor)
+ *
+ * @param db - Firestore instance
+ * @param entityId - ID of entity to check
+ * @returns Cascade check result with blocking references
+ */
+export async function checkEntityCascadeDelete(
+  db: Firestore,
+  entityId: string
+): Promise<CascadeCheckResult> {
+  try {
+    logger.debug('Checking cascade delete for entity', { entityId });
+
+    // Check transactions
+    const transactionsQuery = query(
+      collection(db, COLLECTIONS.TRANSACTIONS),
+      where('entityId', '==', entityId),
+      limit(1)
+    );
+    const transactionsSnapshot = await getDocs(transactionsQuery);
+    const transactionCount = transactionsSnapshot.size;
+
+    // Check projects (where this entity is the client)
+    const projectsQuery = query(
+      collection(db, COLLECTIONS.PROJECTS),
+      where('client.entityId', '==', entityId),
+      limit(1)
+    );
+    const projectsSnapshot = await getDocs(projectsQuery);
+    const projectCount = projectsSnapshot.size;
+
+    // Check purchase orders
+    const purchaseOrdersQuery = query(
+      collection(db, COLLECTIONS.PURCHASE_ORDERS),
+      where('vendorId', '==', entityId),
+      limit(1)
+    );
+    const purchaseOrdersSnapshot = await getDocs(purchaseOrdersQuery);
+    const purchaseOrderCount = purchaseOrdersSnapshot.size;
+
+    const totalReferences = transactionCount + projectCount + purchaseOrderCount;
+    const canDelete = totalReferences === 0;
+
+    let message = '';
+    if (!canDelete) {
+      const parts: string[] = [];
+      if (transactionCount > 0) {
+        parts.push(`${transactionCount} transaction(s)`);
+      }
+      if (projectCount > 0) {
+        parts.push(`${projectCount} project(s)`);
+      }
+      if (purchaseOrderCount > 0) {
+        parts.push(`${purchaseOrderCount} purchase order(s)`);
+      }
+      message = `Cannot delete entity: Referenced by ${parts.join(', ')}. Please remove or reassign these references first.`;
+    } else {
+      message = 'Entity can be safely deleted.';
+    }
+
+    const result: CascadeCheckResult = {
+      canDelete,
+      blockingReferences: {
+        transactions: transactionCount,
+        projects: projectCount,
+        purchaseOrders: purchaseOrderCount,
+      },
+      totalReferences,
+      message,
+    };
+
+    logger.info('Cascade delete check completed', { entityId, result });
+
+    return result;
+  } catch (error) {
+    logger.error('Error checking cascade delete', { error, entityId });
+    throw new Error(
+      `Failed to check entity references: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}

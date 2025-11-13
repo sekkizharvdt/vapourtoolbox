@@ -84,6 +84,9 @@ export interface Project extends TimestampFields, SoftDeleteFields {
   // Budget
   budget?: ProjectBudget;
 
+  // Accounting Integration
+  costCentreId?: string; // Reference to CostCentre (auto-created when charter approved)
+
   // Project Charter (comprehensive authorization & planning)
   charter?: ProjectCharter;
 
