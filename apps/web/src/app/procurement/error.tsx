@@ -10,6 +10,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { createLogger } from '@vapour/logger';
+import * as Sentry from '@sentry/nextjs';
 
 const logger = createLogger({ context: 'ProcurementError' });
 
@@ -33,6 +34,21 @@ export default function ProcurementError({ error, reset }: ErrorProps) {
       message: error.message,
       digest: error.digest,
       stack: error.stack,
+    });
+
+    // Send to Sentry with module-specific context
+    Sentry.withScope((scope) => {
+      scope.setTag('module', 'procurement');
+      scope.setTag('errorBoundary', 'procurement-module');
+      if (error.digest) {
+        scope.setTag('errorDigest', error.digest);
+      }
+      scope.setLevel('error');
+      scope.setContext('moduleInfo', {
+        module: 'procurement',
+        description: 'Error in procurement processing',
+      });
+      Sentry.captureException(error);
     });
   }, [error]);
 
