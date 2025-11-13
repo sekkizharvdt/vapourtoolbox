@@ -18,6 +18,7 @@
     "@mui/material": "^7.3.4",
     "@sentry/nextjs": "^10.25.0",
     "@tanstack/react-query": "^5.90.8",
+    "@tanstack/react-query-devtools": "^5.90.2",
     "@vapour/constants": "workspace:*",
     "@vapour/firebase": "workspace:*",
     "@vapour/logger": "workspace:*",
