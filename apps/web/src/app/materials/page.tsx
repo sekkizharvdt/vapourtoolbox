@@ -56,9 +56,9 @@ import type {
 import { MATERIAL_CATEGORY_LABELS, MATERIAL_CATEGORY_GROUPS } from '@vapour/types';
 import { queryMaterials, searchMaterials } from '@/lib/materials/materialService';
 import { formatMoney, formatDate } from '@/lib/utils/formatters';
-import { useAuth } from '@/contexts/AuthContext';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { CloudUpload as SeedIcon } from '@mui/icons-material';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function MaterialsPage() {
   const router = useRouter();
