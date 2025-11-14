@@ -5,7 +5,6 @@
  * catalog seeding with standard carbon steel materials.
  */
 
-import * as functions from 'firebase-functions';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { logger } from '@vapour/logger';
