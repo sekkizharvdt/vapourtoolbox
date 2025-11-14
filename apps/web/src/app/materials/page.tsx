@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Container,
   Typography,
@@ -94,20 +94,7 @@ export default function MaterialsPage() {
     categories: 0,
   });
 
-  // Load materials
-  useEffect(() => {
-    loadMaterials();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    selectedCategories,
-    selectedTypes,
-    showOnlyActive,
-    showOnlyStandard,
-    sortField,
-    sortDirection,
-  ]);
-
-  const loadMaterials = async () => {
+  const loadMaterials = useCallback(async () => {
     if (!db) return;
 
     try {
@@ -140,7 +127,20 @@ export default function MaterialsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    db,
+    selectedCategories,
+    selectedTypes,
+    showOnlyActive,
+    showOnlyStandard,
+    sortField,
+    sortDirection,
+  ]);
+
+  // Load materials on mount and when dependencies change
+  useEffect(() => {
+    loadMaterials();
+  }, [loadMaterials]);
 
   // Handle search
   const handleSearch = async () => {
