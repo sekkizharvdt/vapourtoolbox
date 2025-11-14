@@ -84,6 +84,11 @@ export const COLLECTIONS = {
   EQUIPMENT: 'equipment',
   COMPONENTS: 'components',
 
+  // Material Database (Phase 1)
+  MATERIALS: 'materials',
+  MATERIAL_PRICES: 'materialPrices',
+  STOCK_MOVEMENTS: 'stockMovements',
+
   // Module Integration Management (Super Admin)
   MODULE_INTEGRATIONS: 'moduleIntegrations',
 } as const;

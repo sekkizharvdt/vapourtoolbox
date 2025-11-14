@@ -165,14 +165,13 @@ export const MODULES: Record<string, ModuleDefinition> = {
     id: 'material-database',
     name: 'Material Database',
     shortName: 'Materials',
-    description: 'ASME standard raw materials for proposals and procurement',
+    description: 'ASME/ASTM compliant materials database for engineering and manufacturing',
     icon: 'Inventory',
     color: '#059669', // Emerald
     path: '/materials',
-    status: 'coming_soon',
+    status: 'active',
     requiredPermissions: 524288, // VIEW_ESTIMATION (engineering materials)
     category: 'application',
-    estimatedRelease: 'Q1 2026',
     priority: 6,
   },
 

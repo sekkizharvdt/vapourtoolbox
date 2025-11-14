@@ -18,3 +18,4 @@ export * from './documents';
 export * from './task';
 export * from './bankReconciliation';
 export * from './exchangeRate';
+export * from './material';
