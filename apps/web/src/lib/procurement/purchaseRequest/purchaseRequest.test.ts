@@ -38,9 +38,6 @@ describe('Purchase Request Service', () => {
       const mockAdd = jest.fn().mockResolvedValue({ id: 'pr-123' });
       const mockCollection = jest.fn().mockReturnValue({ add: mockAdd });
 
-      require('firebase/firestore').collection = mockCollection;
-      require('firebase/firestore').serverTimestamp = jest.fn(() => ({ _seconds: 1234567890 }));
-
       // Test would call: const prId = await createPurchaseRequest(input, mockUserId);
       // For now, verify the test structure is correct
       expect(mockCollection).toBeDefined();
@@ -81,11 +78,6 @@ describe('Purchase Request Service', () => {
         exists: () => true,
       };
 
-      const mockGet = jest.fn().mockResolvedValue(mockDoc);
-      const mockDocRef = jest.fn().mockReturnValue({ get: mockGet });
-
-      require('firebase/firestore').doc = mockDocRef;
-
       // Verify mock structure
       expect(mockDoc.exists()).toBe(true);
       expect(mockDoc.data()).toHaveProperty('title');
@@ -96,11 +88,6 @@ describe('Purchase Request Service', () => {
         exists: () => false,
       };
 
-      const mockGet = jest.fn().mockResolvedValue(mockDoc);
-      const mockDocRef = jest.fn().mockReturnValue({ get: mockGet });
-
-      require('firebase/firestore').doc = mockDocRef;
-
       expect(mockDoc.exists()).toBe(false);
     });
   });
@@ -108,11 +95,6 @@ describe('Purchase Request Service', () => {
   describe('Workflow Operations', () => {
     describe('submitPurchaseRequestForApproval', () => {
       it('should transition PR from draft to pending', async () => {
-        const mockUpdate = jest.fn().mockResolvedValue(undefined);
-        const mockDocRef = jest.fn().mockReturnValue({ update: mockUpdate });
-
-        require('firebase/firestore').doc = mockDocRef;
-
         // Would call: await submitPurchaseRequestForApproval('pr-123', mockUserId);
 
         // Verify status transition logic
@@ -136,11 +118,6 @@ describe('Purchase Request Service', () => {
 
     describe('approvePurchaseRequest', () => {
       it('should approve PR and set approval timestamp', async () => {
-        const mockUpdate = jest.fn().mockResolvedValue(undefined);
-        const mockDocRef = jest.fn().mockReturnValue({ update: mockUpdate });
-
-        require('firebase/firestore').doc = mockDocRef;
-
         const expectedUpdate = {
           status: 'approved',
           approvedAt: expect.any(Object),
@@ -193,13 +170,6 @@ describe('Purchase Request Service', () => {
             data: () => ({ status: 'pending_approval', title: 'PR 2' }),
           },
         ];
-
-        const mockQuery = {
-          get: jest.fn().mockResolvedValue({ docs: mockDocs }),
-        };
-
-        require('firebase/firestore').query = jest.fn().mockReturnValue(mockQuery);
-        require('firebase/firestore').where = jest.fn();
 
         expect(mockDocs.every((doc) => doc.data().status === 'pending_approval')).toBe(true);
       });
