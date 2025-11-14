@@ -47,7 +47,7 @@ type MaterialType = 'RAW_MATERIAL' | 'CONSUMABLE' | 'COMPONENT';
  */
 export const seedMaterialsCatalog = onCall(
   {
-    region: 'asia-south1',
+    region: 'us-central1',
     memory: '512MiB',
     timeoutSeconds: 540,
   },
