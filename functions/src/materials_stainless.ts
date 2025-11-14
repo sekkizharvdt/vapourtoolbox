@@ -3,7 +3,15 @@
  * Separated for clarity - to be merged into materials.ts
  */
 
-import type { MaterialCategory, MaterialType } from '@vapour/types';
+// Type definitions
+type MaterialCategory =
+  | 'PLATES_CARBON_STEEL'
+  | 'PLATES_STAINLESS_STEEL'
+  | 'PIPES_SEAMLESS'
+  | 'PIPES_WELDED'
+  | 'PIPES_STAINLESS';
+
+type MaterialType = 'RAW_MATERIAL' | 'CONSUMABLE' | 'COMPONENT';
 
 /**
  * Generate stainless steel plate materials

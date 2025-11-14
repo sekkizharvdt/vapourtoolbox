@@ -7,15 +7,26 @@
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { logger } from '@vapour/logger';
-import { COLLECTIONS } from '@vapour/firebase';
-import type { MaterialCategory, MaterialType } from '@vapour/types';
+import { logger } from 'firebase-functions/v2';
 import {
   generateStainlessSteelPlates,
   generateStainlessSeamlessPipes,
 } from './materials_stainless';
 
 const db = getFirestore();
+
+// Collection name constant
+const MATERIALS_COLLECTION = 'materials';
+
+// Type definitions
+type MaterialCategory =
+  | 'PLATES_CARBON_STEEL'
+  | 'PLATES_STAINLESS_STEEL'
+  | 'PIPES_SEAMLESS'
+  | 'PIPES_WELDED'
+  | 'PIPES_STAINLESS';
+
+type MaterialType = 'RAW_MATERIAL' | 'CONSUMABLE' | 'COMPONENT';
 
 // ============================================================================
 // Material Catalog Seeding
@@ -84,7 +95,7 @@ export const seedMaterialsCatalog = onCall(
       logger.info('Starting material catalog seeding', { userId: auth.uid });
 
       // Check for existing materials
-      const existingSnapshot = await db.collection(COLLECTIONS.MATERIALS).limit(1).get();
+      const existingSnapshot = await db.collection(MATERIALS_COLLECTION).limit(1).get();
       if (!existingSnapshot.empty) {
         logger.warn('Materials collection already has data', { userId: auth.uid });
         throw new HttpsError(
@@ -146,7 +157,7 @@ export const seedMaterialsCatalog = onCall(
       const timestamp = FieldValue.serverTimestamp();
 
       materials.forEach((material) => {
-        const docRef = db.collection(COLLECTIONS.MATERIALS).doc();
+        const docRef = db.collection(MATERIALS_COLLECTION).doc();
         batch.set(docRef, {
           ...material,
           createdAt: timestamp,
