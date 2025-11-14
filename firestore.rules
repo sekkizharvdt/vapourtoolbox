@@ -320,6 +320,39 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Material Database Collections
+    // ============================================
+
+    match /materials/{materialId} {
+      // Read: Only internal users with estimation permissions
+      // Materials are used in estimation and engineering
+      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+
+      // Create: Users with MANAGE_ESTIMATION permission
+      allow create: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+
+      // Update: Users with MANAGE_ESTIMATION permission
+      allow update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+
+      // Delete: Super admins only (soft delete preferred)
+      allow delete: if isSuperAdmin();
+
+      // Material Prices Subcollection
+      match /prices/{priceId} {
+        allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+        allow create, update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+        allow delete: if isSuperAdmin();
+      }
+
+      // Stock Movements Subcollection
+      match /stockMovements/{movementId} {
+        allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+        allow create, update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+        allow delete: if isSuperAdmin();
+      }
+    }
+
+    // ============================================
     // Company Settings
     // ============================================
 
