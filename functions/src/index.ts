@@ -27,3 +27,6 @@ export { onDocumentUploaded } from './documentRequirements';
 
 // Import module integration functions
 export { seedAccountingIntegrations } from './moduleIntegrations';
+
+// Import material database functions
+export { seedMaterialsCatalog } from './materials';

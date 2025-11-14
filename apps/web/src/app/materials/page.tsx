@@ -56,15 +56,21 @@ import type {
 import { MATERIAL_CATEGORY_LABELS, MATERIAL_CATEGORY_GROUPS } from '@vapour/types';
 import { queryMaterials, searchMaterials } from '@/lib/materials/materialService';
 import { formatMoney, formatDate } from '@/lib/utils/formatters';
+import { useAuth } from '@/contexts/AuthContext';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { CloudUpload as SeedIcon } from '@mui/icons-material';
 
 export default function MaterialsPage() {
   const router = useRouter();
   const { db } = getFirebase();
+  const { user, claims } = useAuth();
 
   // State
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
+  const [seedSuccess, setSeedSuccess] = useState<string | null>(null);
 
   // Search & Filters
   const [searchText, setSearchText] = useState('');
@@ -212,6 +218,68 @@ export default function MaterialsPage() {
     router.push('/materials/new');
   };
 
+  // Handle seed catalog
+  const handleSeedCatalog = async () => {
+    if (
+      !window.confirm(
+        'This will populate the database with ~140-150 standard carbon steel materials. Continue?'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setSeeding(true);
+      setError(null);
+      setSeedSuccess(null);
+
+      const functions = getFunctions();
+      const seedMaterialsCatalog = httpsCallable(functions, 'seedMaterialsCatalog');
+      const result = await seedMaterialsCatalog();
+
+      const data = result.data as {
+        success: boolean;
+        message: string;
+        stats: {
+          total: number;
+          carbonSteelPlates: number;
+          stainlessSteelPlates: number;
+          carbonSeamlessPipes: number;
+          carbonWeldedPipes: number;
+          stainlessSeamlessPipes: number;
+        };
+      };
+
+      if (data.success) {
+        setSeedSuccess(
+          `${data.message}. Carbon Steel Plates: ${data.stats.carbonSteelPlates}, ` +
+            `Stainless Steel Plates: ${data.stats.stainlessSteelPlates}, ` +
+            `Carbon Seamless Pipes: ${data.stats.carbonSeamlessPipes}, ` +
+            `Carbon Welded Pipes: ${data.stats.carbonWeldedPipes}, ` +
+            `Stainless Seamless Pipes: ${data.stats.stainlessSeamlessPipes}`
+        );
+        // Reload materials
+        await loadMaterials();
+      }
+    } catch (err) {
+      console.error('Error seeding catalog:', err);
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to seed material catalog. Check console for details.');
+      }
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  // Check if user is super-admin
+  const isSuperAdmin = useMemo(() => {
+    if (!user || !claims || typeof claims.permissions !== 'number') return false;
+    // Super-admin has all 27 permission bits = 134,217,727
+    return claims.permissions === 134217727;
+  }, [user, claims]);
+
   // Format specification string
   const formatSpecification = (material: Material): string => {
     const parts: string[] = [];
@@ -239,11 +307,29 @@ export default function MaterialsPage() {
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadMaterials}>
             Refresh
           </Button>
+          {isSuperAdmin && materials.length === 0 && (
+            <Button
+              variant="outlined"
+              color="secondary"
+              startIcon={seeding ? <CircularProgress size={20} /> : <SeedIcon />}
+              onClick={handleSeedCatalog}
+              disabled={seeding || loading}
+            >
+              {seeding ? 'Seeding...' : 'Seed Catalog'}
+            </Button>
+          )}
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateMaterial}>
             New Material
           </Button>
         </Box>
       </Box>
+
+      {/* Success Alert */}
+      {seedSuccess && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSeedSuccess(null)}>
+          {seedSuccess}
+        </Alert>
+      )}
 
       {/* Stats Cards */}
       <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
