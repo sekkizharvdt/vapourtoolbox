@@ -84,23 +84,6 @@ const MATERIAL_TABS: MaterialTab[] = [
       MC.PIPES_ALLOY_STEEL,
     ],
   },
-  {
-    id: 'others',
-    label: 'Others',
-    categories: [
-      MC.BARS_AND_RODS,
-      MC.SHEETS,
-      MC.STRUCTURAL_SHAPES,
-      MC.PLASTICS,
-      MC.RUBBER,
-      MC.COMPOSITES,
-      MC.WELDING_CONSUMABLES,
-      MC.PAINTS_COATINGS,
-      MC.LUBRICANTS,
-      MC.CHEMICALS,
-      MC.OTHER,
-    ],
-  },
 ];
 
 export default function MaterialsPage() {
