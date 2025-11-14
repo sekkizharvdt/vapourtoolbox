@@ -22,6 +22,8 @@ export default function RootLayout({
       <head>
         <title>Vapour Toolbox</title>
         <meta name="description" content="Unified VDT Platform - Vapour Desal Technologies" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/logo.png" type="image/png" />
       </head>
       <body style={{ margin: 0 }}>
         <ErrorBoundary>

@@ -34,7 +34,6 @@ import {
   Thermostat as ThermostatIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
-import Image from 'next/image';
 import { MODULES } from '@vapour/constants';
 
 interface SidebarProps {
@@ -153,7 +152,7 @@ export function Sidebar({
               justifyContent: 'center',
             }}
           >
-            <Image
+            <img
               src="/logo.png"
               alt="VDT Logo"
               width={32}
@@ -171,7 +170,7 @@ export function Sidebar({
               alignItems: 'center',
             }}
           >
-            <Image
+            <img
               src="/logo.png"
               alt="Vapour Toolbox Logo"
               width={150}
