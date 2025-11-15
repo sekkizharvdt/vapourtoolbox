@@ -64,13 +64,91 @@ VDT-Unified is a comprehensive enterprise resource planning system for Vapour De
 - Cross-module reference fields added to VendorBill and VendorPayment types
 - **Future Phase**: Live integration event tracking and monitoring
 
+#### 6. Materials Database Module (November 2025)
+
+- **Status**: ⏳ Partially Complete (60%)
+- **Documentation**: See [Materials Module Requirements](MATERIALS_MODULE_REQUIREMENTS.md)
+
+**Completed**:
+- ✅ Complete type system (45+ types, ASME/ASTM compliant)
+- ✅ Database schema with composite indexes (needs deployment)
+- ✅ Full service layer with CRUD operations
+- ✅ Material list page with tabbed interface, search, and filters
+- ✅ Material categories: Raw Materials (Plates, Pipes), Bought-Out Components (Fittings, Fasteners, Valves, etc.), Consumables
+- ✅ Price history tracking system
+- ✅ Stock management system (optional per material)
+- ✅ Vendor integration (preferred vendors per material)
+
+**Pending**:
+- ⏳ Material detail/view page
+- ⏳ Material add/edit forms
+- ⏳ Price management UI
+- ⏳ Stock management UI
+- ⏳ All category tabs (currently only Plates and Pipes)
+- ⏳ Firestore indexes deployment
+- ⏳ Material catalog seeding
+
+**Bought-Out Items (BOI)**:
+- BOI are a classification within Materials (`MaterialType.BOUGHT_OUT_COMPONENT`)
+- Includes: Fittings, Fasteners, Valves, Flanges, Gaskets, Pumps, Motors, Instrumentation, Electrical
+- Integrated with Procurement Module for purchase requests and RFQs
+- Vendor price tracking and comparison
+- Separate from raw materials (different procurement workflow)
+
+**Next Phase**: Complete UI implementation (2-3 weeks effort)
+
 ---
 
-## Immediate Priorities (Q4 2025)
+## Immediate Priorities (Q4 2025-Q1 2026)
 
-### 1. Code Organization & Cleanup
+### 1. Materials Module - Complete UI Implementation
 
 - **Priority**: High
+- **Effort**: 2-3 weeks
+- **Status**: 60% Complete (backend done, UI partial)
+
+**Rationale**: Materials Module is foundational for Procurement Module. Backend is complete, needs UI to be functional.
+
+**Tasks**:
+
+**Week 1: Core UI Pages**
+- Material detail/view page (3 days)
+  - View all specifications, properties, pricing, stock
+  - Tabbed layout for organized information
+  - Actions: Edit, Deactivate, Duplicate
+- Material add/edit forms (4 days)
+  - Multi-step or tabbed form
+  - Dynamic validation per category
+  - Auto-generated material codes
+  - Vendor selection integration
+
+**Week 2: Advanced Features**
+- Price management UI (3 days)
+  - Price history with charts
+  - Add/edit price entries
+  - Vendor price comparison
+  - Quantity break configuration
+- Stock management UI (2 days)
+  - Current stock widget
+  - Stock movement history
+  - Adjustment forms
+  - Reorder alerts
+
+**Week 3: Completion**
+- All category tabs (2 days)
+  - Add tabs for Fittings, Fasteners, Valves, Gaskets, etc.
+  - Currently only Plates and Pipes are shown
+- Advanced search and filters (1 day)
+- Testing and bug fixes (2 days)
+
+**Deployment Requirements**:
+- Deploy Firestore indexes (`firebase deploy --only firestore:indexes`)
+- Seed standard materials catalog
+- User training documentation
+
+### 2. Code Organization & Cleanup
+
+- **Priority**: Medium
 - **Effort**: 1-2 days
 
 **Tasks**:
@@ -87,9 +165,9 @@ VDT-Unified is a comprehensive enterprise resource planning system for Vapour De
 - Permissions: `check-all-permissions.js`, `grant-entity-permissions.js`, `reset-permissions-to-roles.js`, `add-project-permissions.js`
 - Audit: `check-audit-logs.js`
 
-### 2. UI/UX Improvements - List-Based Viewers
+### 3. UI/UX Improvements - List-Based Viewers
 
-- **Priority**: High
+- **Priority**: Medium-High
 - **Effort**: 3-5 days
 
 **Entity Page Conversion**:
@@ -116,7 +194,7 @@ VDT-Unified is a comprehensive enterprise resource planning system for Vapour De
 - Maintain responsive design for mobile/tablet
 - Add keyboard navigation support
 
-### 3. Multiple Contacts for Entities
+### 4. Multiple Contacts for Entities
 
 - **Priority**: Medium-High
 - **Effort**: 2-3 days
