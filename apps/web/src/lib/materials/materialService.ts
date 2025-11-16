@@ -32,6 +32,7 @@ import type {
   MaterialSortDirection,
   StockMovement,
 } from '@vapour/types';
+import { getMaterialCodeParts } from '@vapour/types';
 
 const logger = createLogger({ context: 'materialService' });
 
@@ -87,7 +88,8 @@ export async function createMaterial(
     logger.info('Creating material', { name: materialData.name, category: materialData.category });
 
     // Generate material code if not provided
-    const materialCode = materialData.materialCode || (await generateMaterialCode(db));
+    const materialCode =
+      materialData.materialCode || (await generateMaterialCode(db, materialData.category));
 
     const now = Timestamp.now();
     const newMaterial: Omit<Material, 'id'> = {
@@ -123,49 +125,75 @@ export async function createMaterial(
 }
 
 /**
- * Generate unique material code (MAT-YYYY-NNNN)
+ * Generate unique material code (PL-SS-XX format)
+ * Format: {FORM}-{MATERIAL}-{XX}
+ * Example: PL-SS-01 (Plate - Stainless Steel #01)
+ *
+ * @param db - Firestore instance
+ * @param category - Material category (e.g., PLATES_STAINLESS_STEEL)
+ * @returns Promise<string> - Generated material code
  */
-async function generateMaterialCode(db: Firestore): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `MAT-${year}-`;
+async function generateMaterialCode(
+  db: Firestore,
+  category: MaterialCategory
+): Promise<string> {
+  const codeParts = getMaterialCodeParts(category);
 
-  // Query for the latest material code this year
+  if (!codeParts) {
+    throw new Error(`Material code generation not supported for category: ${category}`);
+  }
+
+  const [form, material] = codeParts;
+  const baseCode = `${form}-${material}`;
+
+  // Query for the latest material code with this base code
+  // Example: Query for all codes starting with "PL-SS-"
   const q = query(
     collection(db, COLLECTIONS.MATERIALS),
-    where('materialCode', '>=', prefix),
-    where('materialCode', '<', `MAT-${year + 1}-`),
+    where('materialCode', '>=', baseCode),
+    where('materialCode', '<', `${baseCode}-ZZ`), // Exclude codes from other materials
     orderBy('materialCode', 'desc'),
     limit(1)
   );
 
   const snapshot = await getDocs(q);
 
+  // If no materials exist for this type, start at 01
   if (snapshot.empty) {
-    return `${prefix}0001`;
+    return `${baseCode}-01`;
   }
 
   const firstDoc = snapshot.docs[0];
   if (!firstDoc) {
-    return `${prefix}0001`;
+    return `${baseCode}-01`;
   }
 
   const data = firstDoc.data();
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   const lastCode = data.materialCode as string;
   if (!lastCode) {
-    return `${prefix}0001`;
+    return `${baseCode}-01`;
   }
 
+  // Extract sequence number from last code
+  // Example: "PL-SS-05" -> parts = ["PL", "SS", "05"]
   const parts = lastCode.split('-');
   const lastNumberStr = parts[2];
   if (!lastNumberStr) {
-    return `${prefix}0001`;
+    return `${baseCode}-01`;
   }
 
   const lastNumber = parseInt(lastNumberStr, 10);
-  const nextNumber = (lastNumber + 1).toString().padStart(4, '0');
+  const nextNumber = lastNumber + 1;
 
-  return `${prefix}${nextNumber}`;
+  // Validate sequence limit (max 99 for 2-digit format)
+  if (nextNumber > 99) {
+    throw new Error(`Maximum material code limit reached for ${baseCode} (max: 99)`);
+  }
+
+  const nextNumberPadded = nextNumber.toString().padStart(2, '0');
+
+  return `${baseCode}-${nextNumberPadded}`;
 }
 
 /**

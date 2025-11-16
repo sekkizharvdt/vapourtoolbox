@@ -17,9 +17,9 @@ import type { Money, CurrencyCode } from './common';
 export interface Material {
   // Identity
   id: string;
-  materialCode: string; // Auto-generated: MAT-YYYY-NNNN or custom
-  customCode?: string; // User-defined code (e.g., "SS316-PL")
-  name: string; // e.g., "Stainless Steel 316 Plate"
+  materialCode: string; // Format: PL-SS-XX (Form-Material-Sequence, 2 digits)
+  customCode?: string; // User-defined code or legacy code
+  name: string; // e.g., "Stainless Steel 316L Plate"
   description: string; // Detailed description
 
   // Classification
@@ -30,8 +30,12 @@ export interface Material {
   // Specifications (ASME/ASTM Standards)
   specification: MaterialSpecification;
 
-  // Physical Properties
+  // Physical Properties (for non-variant materials)
   properties: MaterialProperties;
+
+  // Variants Support (NEW - for materials with size/thickness variations)
+  hasVariants: boolean; // True if material has thickness/size variants
+  variants?: MaterialVariant[]; // Array of variants (e.g., different thicknesses)
 
   // Unit of Measurement
   baseUnit: string; // e.g., "kg", "nos", "meter", "liter"
@@ -75,6 +79,53 @@ export interface Material {
 }
 
 /**
+ * Material Variant (for materials with size/thickness variations)
+ * Example: Different thicknesses of same grade plate
+ */
+export interface MaterialVariant {
+  id: string; // Unique variant ID
+  variantCode: string; // e.g., "3MM", "5MM", "10MM", "SCH40"
+  displayName: string; // e.g., "3mm thickness", "Schedule 40"
+
+  // Dimensional Properties (vary by variant)
+  dimensions: {
+    thickness?: number; // mm (for plates, sheets)
+    length?: number; // mm
+    width?: number; // mm
+    diameter?: number; // mm (for pipes, rods)
+    schedule?: string; // For pipes: "Sch 10", "Sch 40", etc.
+    nominalSize?: string; // DN/NPS for pipes/fittings
+  };
+
+  // Weight per unit (varies with dimensions)
+  weightPerUnit?: number; // kg/m² for plates, kg/m for pipes
+
+  // Variant-specific procurement
+  preferredVendors?: string[]; // Can differ by size
+  leadTimeDays?: number; // Lead time for this specific size
+  minimumOrderQuantity?: number;
+
+  // Variant-specific pricing
+  currentPrice?: MaterialPrice;
+  priceHistory: string[]; // MaterialPrice document IDs
+
+  // Variant-specific stock (if tracked)
+  currentStock?: number;
+  reorderLevel?: number;
+  reorderQuantity?: number;
+
+  // Availability
+  isAvailable: boolean; // In stock or orderable
+  discontinuedDate?: Timestamp; // If variant discontinued
+
+  // Audit
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  createdBy: string;
+  updatedBy: string;
+}
+
+/**
  * Material type classification
  */
 export type MaterialType = 'RAW_MATERIAL' | 'BOUGHT_OUT_COMPONENT' | 'CONSUMABLE';
@@ -100,6 +151,7 @@ export enum MaterialCategory {
   // Raw Materials - Plates (ASME/ASTM Standards)
   PLATES_CARBON_STEEL = 'PLATES_CARBON_STEEL', // ASTM A36, A516, etc.
   PLATES_STAINLESS_STEEL = 'PLATES_STAINLESS_STEEL', // ASTM A240 (304, 316, etc.)
+  PLATES_DUPLEX_STEEL = 'PLATES_DUPLEX_STEEL', // ASTM A240 (2205, 2507, etc.)
   PLATES_ALLOY_STEEL = 'PLATES_ALLOY_STEEL', // ASTM A387, etc.
   PLATES_ALUMINUM = 'PLATES_ALUMINUM', // ASTM B209
   PLATES_COPPER = 'PLATES_COPPER', // ASTM B152
@@ -162,6 +214,7 @@ export enum MaterialCategory {
 export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
   [MaterialCategory.PLATES_CARBON_STEEL]: 'Plates - Carbon Steel',
   [MaterialCategory.PLATES_STAINLESS_STEEL]: 'Plates - Stainless Steel',
+  [MaterialCategory.PLATES_DUPLEX_STEEL]: 'Plates - Duplex Steel',
   [MaterialCategory.PLATES_ALLOY_STEEL]: 'Plates - Alloy Steel',
   [MaterialCategory.PLATES_ALUMINUM]: 'Plates - Aluminum',
   [MaterialCategory.PLATES_COPPER]: 'Plates - Copper',
@@ -209,6 +262,7 @@ export const MATERIAL_CATEGORY_GROUPS = {
   'Raw Materials - Plates': [
     MaterialCategory.PLATES_CARBON_STEEL,
     MaterialCategory.PLATES_STAINLESS_STEEL,
+    MaterialCategory.PLATES_DUPLEX_STEEL,
     MaterialCategory.PLATES_ALLOY_STEEL,
     MaterialCategory.PLATES_ALUMINUM,
     MaterialCategory.PLATES_COPPER,
@@ -467,10 +521,39 @@ export interface MaterialListItem {
 // Material Code Generator
 // ============================================================================
 
+/**
+ * Material Code Format: {FORM}-{MATERIAL}-{XX}
+ * Example: PL-SS-01 (Plate - Stainless Steel #01)
+ */
+
 export interface MaterialCodeConfig {
-  prefix: string; // "MAT"
-  year: number; // 2025
-  sequenceNumber: number; // 0001
+  form: string; // "PL" for Plate
+  material: string; // "SS" for Stainless Steel
+  sequence: number; // 1-99 (2 digits)
+}
+
+/**
+ * Plate Material Code Mappings
+ * Format: PL-{MATERIAL}-{XX}
+ */
+export const PLATE_MATERIAL_CODES: Record<MaterialCategory, [string, string]> = {
+  [MaterialCategory.PLATES_STAINLESS_STEEL]: ['PL', 'SS'],
+  [MaterialCategory.PLATES_CARBON_STEEL]: ['PL', 'CS'],
+  [MaterialCategory.PLATES_DUPLEX_STEEL]: ['PL', 'DS'],
+  [MaterialCategory.PLATES_ALLOY_STEEL]: ['PL', 'AS'],
+  [MaterialCategory.PLATES_ALUMINUM]: ['PL', 'AL'],
+  [MaterialCategory.PLATES_COPPER]: ['PL', 'CU'],
+  [MaterialCategory.PLATES_TITANIUM]: ['PL', 'TI'],
+  [MaterialCategory.PLATES_NICKEL_ALLOYS]: ['PL', 'NI'],
+};
+
+/**
+ * Helper to get form and material code from category
+ */
+export function getMaterialCodeParts(
+  category: MaterialCategory
+): [string, string] | undefined {
+  return PLATE_MATERIAL_CODES[category];
 }
 
 // ============================================================================
