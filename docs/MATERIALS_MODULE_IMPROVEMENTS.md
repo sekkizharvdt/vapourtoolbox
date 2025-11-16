@@ -607,34 +607,26 @@ async function consolidateVariants() {
 
 ---
 
-## Questions for User
+## User Feedback & Decisions ✅
 
-1. **Material Code Format**:
-   - Should we add Duplex Steel (DS-PL) to the prefix list?
-   - Any other material types need specific prefixes?
-   - Should we include finish in code? (e.g., SS-PL-316L-2B-0001)
+1. **Material Code Format**: ✅ CONFIRMED
+   - Format: `PL-SS-XX` (Form-Material-Sequence)
+   - Sequence: 2 digits (01-99)
+   - Grade stored in specification, NOT in code
+   - Examples: PL-SS-01, PL-CS-01, PL-DS-01
 
-2. **Variants**:
-   - Which properties should vary by thickness?
-     - Price? (Yes, likely)
-     - Lead time? (Possibly)
-     - Vendors? (Some vendors may specialize in certain sizes)
-   - Should we support multiple variant dimensions?
-     - Example: Plates vary by thickness
-     - Example: Pipes vary by schedule AND diameter
-   - Max number of variants per material? (for UI pagination)
+2. **Variants**: ✅ CONFIRMED
+   - Price CAN vary per thickness ✓
+   - Lead time CAN vary per thickness ✓
+   - Vendors CAN vary per thickness ✓
 
-3. **Migration**:
-   - Do you have existing materials in the database?
-   - Should we preserve old codes or completely replace?
-   - Timeframe for migration?
+3. **Scope**: ✅ CONFIRMED
+   - Phase 1: **Plates only**
+   - Pipes and fittings: **Handle later**
 
-4. **Scope**:
-   - Should variants apply to:
-     - Plates only?
-     - Plates and Pipes?
-     - All raw materials?
-     - Bought-out items too? (e.g., bolts by size)
+4. **Migration**:
+   - Status: TBD (awaiting info on existing data)
+   - Strategy: Preserve old codes as `customCode` field
 
 ---
 
