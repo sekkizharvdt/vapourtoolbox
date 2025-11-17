@@ -59,6 +59,7 @@ export default function ParameterInputForm({
   };
 
   // Sort parameters by order
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sortedParams = [...(shape.parameters || [])].sort((a: any, b: any) => a.order - b.order);
 
   return (
