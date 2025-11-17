@@ -153,10 +153,6 @@ export enum MaterialCategory {
   PLATES_STAINLESS_STEEL = 'PLATES_STAINLESS_STEEL', // ASTM A240 (304, 316, etc.)
   PLATES_DUPLEX_STEEL = 'PLATES_DUPLEX_STEEL', // ASTM A240 (2205, 2507, etc.)
   PLATES_ALLOY_STEEL = 'PLATES_ALLOY_STEEL', // ASTM A387, etc.
-  PLATES_ALUMINUM = 'PLATES_ALUMINUM', // ASTM B209
-  PLATES_COPPER = 'PLATES_COPPER', // ASTM B152
-  PLATES_TITANIUM = 'PLATES_TITANIUM', // ASTM B265
-  PLATES_NICKEL_ALLOYS = 'PLATES_NICKEL_ALLOYS', // ASTM B168 (Inconel, Monel)
 
   // Raw Materials - Pipes (ASME/ASTM by Schedule)
   PIPES_SEAMLESS = 'PIPES_SEAMLESS', // ASTM A106, A312 (Sch 10, 40, 80, 160)
@@ -216,10 +212,6 @@ export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
   [MaterialCategory.PLATES_STAINLESS_STEEL]: 'Plates - Stainless Steel',
   [MaterialCategory.PLATES_DUPLEX_STEEL]: 'Plates - Duplex Steel',
   [MaterialCategory.PLATES_ALLOY_STEEL]: 'Plates - Alloy Steel',
-  [MaterialCategory.PLATES_ALUMINUM]: 'Plates - Aluminum',
-  [MaterialCategory.PLATES_COPPER]: 'Plates - Copper',
-  [MaterialCategory.PLATES_TITANIUM]: 'Plates - Titanium',
-  [MaterialCategory.PLATES_NICKEL_ALLOYS]: 'Plates - Nickel Alloys',
   [MaterialCategory.PIPES_SEAMLESS]: 'Pipes - Seamless',
   [MaterialCategory.PIPES_WELDED]: 'Pipes - Welded',
   [MaterialCategory.PIPES_STAINLESS]: 'Pipes - Stainless Steel',
@@ -264,10 +256,6 @@ export const MATERIAL_CATEGORY_GROUPS = {
     MaterialCategory.PLATES_STAINLESS_STEEL,
     MaterialCategory.PLATES_DUPLEX_STEEL,
     MaterialCategory.PLATES_ALLOY_STEEL,
-    MaterialCategory.PLATES_ALUMINUM,
-    MaterialCategory.PLATES_COPPER,
-    MaterialCategory.PLATES_TITANIUM,
-    MaterialCategory.PLATES_NICKEL_ALLOYS,
   ],
   'Raw Materials - Pipes': [
     MaterialCategory.PIPES_SEAMLESS,
@@ -540,14 +528,10 @@ export interface MaterialCodeConfig {
  * Format: PL-{MATERIAL}-{GRADE}
  */
 export const PLATE_MATERIAL_CODES: Partial<Record<MaterialCategory, [string, string]>> = {
-  [MaterialCategory.PLATES_STAINLESS_STEEL]: ['PL', 'SS'],
   [MaterialCategory.PLATES_CARBON_STEEL]: ['PL', 'CS'],
+  [MaterialCategory.PLATES_STAINLESS_STEEL]: ['PL', 'SS'],
   [MaterialCategory.PLATES_DUPLEX_STEEL]: ['PL', 'DS'],
   [MaterialCategory.PLATES_ALLOY_STEEL]: ['PL', 'AS'],
-  [MaterialCategory.PLATES_ALUMINUM]: ['PL', 'AL'],
-  [MaterialCategory.PLATES_COPPER]: ['PL', 'CU'],
-  [MaterialCategory.PLATES_TITANIUM]: ['PL', 'TI'],
-  [MaterialCategory.PLATES_NICKEL_ALLOYS]: ['PL', 'NI'],
 };
 
 /**

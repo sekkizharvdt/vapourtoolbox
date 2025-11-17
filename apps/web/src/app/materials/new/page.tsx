@@ -17,8 +17,14 @@ import {
   Chip,
   FormControlLabel,
   Checkbox,
+  Radio,
+  RadioGroup,
   Divider,
   Stack,
+  Grid,
+  Card,
+  CardContent,
+  CardActionArea,
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
@@ -234,32 +240,63 @@ export default function NewMaterialPage() {
           {/* Classification */}
           <Box>
             <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-              Classification
+              Plate Category
+            </Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Select the plate material category
             </Typography>
             <Divider sx={{ mb: 2 }} />
           </Box>
 
-          <Box>
-            <FormControl fullWidth required>
-              <InputLabel>Category</InputLabel>
-              <Select
-                value={formData.category}
-                onChange={(e) => handleChange('category', e.target.value)}
-                label="Category"
-              >
-                {Object.entries(MATERIAL_CATEGORY_GROUPS).map(([group, categories]) => [
-                  <MenuItem key={group} disabled sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                    {group}
-                  </MenuItem>,
-                  ...categories.map((cat) => (
-                    <MenuItem key={cat} value={cat} sx={{ pl: 4 }}>
-                      {MATERIAL_CATEGORY_LABELS[cat]}
-                    </MenuItem>
-                  )),
-                ])}
-              </Select>
-            </FormControl>
-          </Box>
+          <FormControl component="fieldset" required fullWidth>
+            <RadioGroup
+              value={formData.category}
+              onChange={(e) => handleChange('category', e.target.value)}
+            >
+              <Grid container spacing={2}>
+                {MATERIAL_CATEGORY_GROUPS['Raw Materials - Plates']?.map((category) => (
+                  <Grid key={category} size={{ xs: 12, sm: 6 }}>
+                    <Card
+                      variant="outlined"
+                      sx={{
+                        borderColor: formData.category === category ? 'primary.main' : 'divider',
+                        borderWidth: formData.category === category ? 2 : 1,
+                        bgcolor:
+                          formData.category === category ? 'action.selected' : 'background.paper',
+                      }}
+                    >
+                      <CardActionArea onClick={() => handleChange('category', category)}>
+                        <CardContent>
+                          <FormControlLabel
+                            value={category}
+                            control={<Radio />}
+                            label={
+                              <Box>
+                                <Typography variant="body1" fontWeight="medium">
+                                  {MATERIAL_CATEGORY_LABELS[category].replace(/^Plates - /, '')}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {category === MaterialCategory.PLATES_CARBON_STEEL &&
+                                    'ASTM A36, A516, A285'}
+                                  {category === MaterialCategory.PLATES_STAINLESS_STEEL &&
+                                    'ASTM A240: 304, 316, 316L, 321'}
+                                  {category === MaterialCategory.PLATES_DUPLEX_STEEL &&
+                                    'ASTM A240: 2205, 2507'}
+                                  {category === MaterialCategory.PLATES_ALLOY_STEEL &&
+                                    'ASTM A387: P11, P22, P91'}
+                                </Typography>
+                              </Box>
+                            }
+                            sx={{ m: 0, width: '100%' }}
+                          />
+                        </CardContent>
+                      </CardActionArea>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </RadioGroup>
+          </FormControl>
 
           <Box>
             <FormControl fullWidth required>

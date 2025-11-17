@@ -9,8 +9,6 @@ import {
   Button,
   TextField,
   InputAdornment,
-  Tabs,
-  Tab,
   Chip,
   IconButton,
   Tooltip,
@@ -48,39 +46,12 @@ import type {
 import { MATERIAL_CATEGORY_LABELS, MaterialCategory as MC } from '@vapour/types';
 import { queryMaterials } from '@/lib/materials/materialService';
 
-// Define tab structure with grouped categories
-interface MaterialTab {
-  id: string;
-  label: string;
-  categories: MaterialCategory[];
-  icon?: string;
-}
-
-const MATERIAL_TABS: MaterialTab[] = [
-  {
-    id: 'plates',
-    label: 'Plates',
-    categories: [
-      MC.PLATES_CARBON_STEEL,
-      MC.PLATES_STAINLESS_STEEL,
-      MC.PLATES_ALLOY_STEEL,
-      MC.PLATES_ALUMINUM,
-      MC.PLATES_COPPER,
-      MC.PLATES_TITANIUM,
-      MC.PLATES_NICKEL_ALLOYS,
-    ],
-  },
-  {
-    id: 'pipes',
-    label: 'Pipes',
-    categories: [
-      MC.PIPES_SEAMLESS,
-      MC.PIPES_WELDED,
-      MC.PIPES_STAINLESS,
-      MC.PIPES_COPPER,
-      MC.PIPES_ALLOY_STEEL,
-    ],
-  },
+// Plate categories (focused on plates only for now)
+const PLATE_CATEGORIES: MaterialCategory[] = [
+  MC.PLATES_CARBON_STEEL,
+  MC.PLATES_STAINLESS_STEEL,
+  MC.PLATES_DUPLEX_STEEL,
+  MC.PLATES_ALLOY_STEEL,
 ];
 
 export default function MaterialsPage() {
@@ -92,9 +63,8 @@ export default function MaterialsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Tab & Category Selection
-  const [activeTab, setActiveTab] = useState(0);
-  const [selectedSubCategory, setSelectedSubCategory] = useState<MaterialCategory | 'ALL'>('ALL');
+  // Category Selection (no tabs, just plates)
+  const [selectedCategory, setSelectedCategory] = useState<MaterialCategory | 'ALL'>('ALL');
 
   // Search & Filters
   const [searchText, setSearchText] = useState('');
@@ -106,13 +76,7 @@ export default function MaterialsPage() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
-  // Get current tab's categories
-  const currentTabCategories = useMemo(
-    () => MATERIAL_TABS[activeTab]?.categories || [],
-    [activeTab]
-  );
-
-  // Load materials for current tab
+  // Load materials
   const loadMaterials = useCallback(async () => {
     if (!db) return;
 
@@ -121,8 +85,7 @@ export default function MaterialsPage() {
       setError(null);
 
       // Determine which categories to query
-      const categoriesToQuery =
-        selectedSubCategory === 'ALL' ? currentTabCategories : [selectedSubCategory];
+      const categoriesToQuery = selectedCategory === 'ALL' ? PLATE_CATEGORIES : [selectedCategory];
 
       const result = await queryMaterials(db, {
         categories: categoriesToQuery,
@@ -139,18 +102,11 @@ export default function MaterialsPage() {
     } finally {
       setLoading(false);
     }
-  }, [db, currentTabCategories, selectedSubCategory, showOnlyStandard, sortField, sortDirection]);
+  }, [db, selectedCategory, showOnlyStandard, sortField, sortDirection]);
 
   useEffect(() => {
     loadMaterials();
   }, [loadMaterials]);
-
-  // Reset page and sub-category when tab changes
-  useEffect(() => {
-    setPage(0);
-    setSelectedSubCategory('ALL');
-    setSearchText('');
-  }, [activeTab]);
 
   // Filter materials by search text
   const filteredMaterials = useMemo(() => {
@@ -173,13 +129,41 @@ export default function MaterialsPage() {
     return filteredMaterials.slice(startIndex, startIndex + rowsPerPage);
   }, [filteredMaterials, page, rowsPerPage]);
 
-  // Stats for current tab
-  const tabStats = useMemo(() => {
+  // Engineering-focused statistics
+  const stats = useMemo(() => {
+    const categoryBreakdown = PLATE_CATEGORIES.reduce(
+      (acc, cat) => {
+        acc[cat] = materials.filter((m) => m.category === cat).length;
+        return acc;
+      },
+      {} as Record<MaterialCategory, number>
+    );
+
+    // Calculate recently added (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const recentlyAdded = materials.filter((m) => {
+      if (!m.createdAt) return false;
+      const createdDate = m.createdAt.toDate();
+      return createdDate >= thirtyDaysAgo;
+    }).length;
+
+    // Materials missing key specifications
+    const missingSpecs = materials.filter(
+      (m) =>
+        !m.properties?.tensileStrength ||
+        !m.properties?.yieldStrength ||
+        !m.properties?.density ||
+        !m.specification?.standard
+    ).length;
+
     return {
-      total: filteredMaterials.length,
-      standard: filteredMaterials.filter((m) => m.isStandard).length,
+      total: materials.length,
+      categoryBreakdown,
+      recentlyAdded,
+      missingSpecs,
     };
-  }, [filteredMaterials]);
+  }, [materials]);
 
   // Sort handler
   const handleSort = (field: MaterialSortField) => {
@@ -197,9 +181,14 @@ export default function MaterialsPage() {
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h4" component="h1" fontWeight="bold">
-            Material Database
-          </Typography>
+          <Box>
+            <Typography variant="h4" component="h1" fontWeight="bold">
+              Material Database - Plates
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Engineering materials catalog with technical specifications
+            </Typography>
+          </Box>
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Tooltip title="Refresh materials list">
               <IconButton onClick={loadMaterials} disabled={loading}>
@@ -216,45 +205,74 @@ export default function MaterialsPage() {
           </Box>
         </Box>
 
-        {/* Stats Cards */}
+        {/* Engineering-Focused Stats Cards */}
         <Stack direction="row" spacing={2} sx={{ mb: 3, flexWrap: 'wrap' }}>
           <Card variant="outlined" sx={{ flex: '1 1 200px' }}>
             <CardContent>
               <Typography color="text.secondary" variant="body2">
-                Total Materials
+                Total Active Materials
               </Typography>
               <Typography variant="h5" fontWeight="bold">
-                {tabStats.total}
+                {stats.total}
               </Typography>
+            </CardContent>
+          </Card>
+          <Card variant="outlined" sx={{ flex: '1 1 250px' }}>
+            <CardContent>
+              <Typography color="text.secondary" variant="body2" gutterBottom>
+                Plates by Type
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                <Chip
+                  label={`CS: ${stats.categoryBreakdown[MC.PLATES_CARBON_STEEL] || 0}`}
+                  size="small"
+                  variant="outlined"
+                />
+                <Chip
+                  label={`SS: ${stats.categoryBreakdown[MC.PLATES_STAINLESS_STEEL] || 0}`}
+                  size="small"
+                  variant="outlined"
+                />
+                <Chip
+                  label={`DS: ${stats.categoryBreakdown[MC.PLATES_DUPLEX_STEEL] || 0}`}
+                  size="small"
+                  variant="outlined"
+                />
+                <Chip
+                  label={`AS: ${stats.categoryBreakdown[MC.PLATES_ALLOY_STEEL] || 0}`}
+                  size="small"
+                  variant="outlined"
+                />
+              </Box>
             </CardContent>
           </Card>
           <Card variant="outlined" sx={{ flex: '1 1 200px' }}>
             <CardContent>
               <Typography color="text.secondary" variant="body2">
-                Standard Materials
+                Recently Added (30d)
               </Typography>
               <Typography variant="h5" fontWeight="bold">
-                {tabStats.standard}
+                {stats.recentlyAdded}
               </Typography>
             </CardContent>
           </Card>
-          <Card variant="outlined" sx={{ flex: '1 1 200px' }}>
+          <Card
+            variant="outlined"
+            sx={{
+              flex: '1 1 200px',
+              borderColor: stats.missingSpecs > 0 ? 'warning.main' : 'divider',
+            }}
+          >
             <CardContent>
               <Typography color="text.secondary" variant="body2">
-                Category
+                Missing Specifications
               </Typography>
-              <Typography variant="h5" fontWeight="bold">
-                {MATERIAL_TABS[activeTab]?.label || '-'}
-              </Typography>
-            </CardContent>
-          </Card>
-          <Card variant="outlined" sx={{ flex: '1 1 200px' }}>
-            <CardContent>
-              <Typography color="text.secondary" variant="body2">
-                Sub-Categories
-              </Typography>
-              <Typography variant="h5" fontWeight="bold">
-                {currentTabCategories.length}
+              <Typography
+                variant="h5"
+                fontWeight="bold"
+                color={stats.missingSpecs > 0 ? 'warning.main' : 'text.primary'}
+              >
+                {stats.missingSpecs}
               </Typography>
             </CardContent>
           </Card>
@@ -270,27 +288,13 @@ export default function MaterialsPage() {
 
       {/* Main Content */}
       <Paper sx={{ width: '100%' }}>
-        {/* Category Tabs */}
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs
-            value={activeTab}
-            onChange={(_, newValue) => setActiveTab(newValue)}
-            variant="scrollable"
-            scrollButtons="auto"
-          >
-            {MATERIAL_TABS.map((tab) => (
-              <Tab key={tab.id} label={tab.label} />
-            ))}
-          </Tabs>
-        </Box>
-
-        {/* Sub-category filter and search */}
+        {/* Category filter and search */}
         <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
             {/* Search */}
             <TextField
               size="small"
-              placeholder="Search materials..."
+              placeholder="Search materials by code, name, grade, or standard..."
               value={searchText}
               onChange={(e) => {
                 setSearchText(e.target.value);
@@ -306,33 +310,6 @@ export default function MaterialsPage() {
               sx={{ flexGrow: 1 }}
             />
 
-            {/* Sub-category Filter */}
-            {currentTabCategories.length > 1 && (
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                <Chip
-                  label="All"
-                  onClick={() => {
-                    setSelectedSubCategory('ALL');
-                    setPage(0);
-                  }}
-                  color={selectedSubCategory === 'ALL' ? 'primary' : 'default'}
-                  variant={selectedSubCategory === 'ALL' ? 'filled' : 'outlined'}
-                />
-                {currentTabCategories.map((category) => (
-                  <Chip
-                    key={category}
-                    label={MATERIAL_CATEGORY_LABELS[category].replace(/^.*? - /, '')}
-                    onClick={() => {
-                      setSelectedSubCategory(category);
-                      setPage(0);
-                    }}
-                    color={selectedSubCategory === category ? 'primary' : 'default'}
-                    variant={selectedSubCategory === category ? 'filled' : 'outlined'}
-                  />
-                ))}
-              </Box>
-            )}
-
             {/* Standard Filter */}
             <Chip
               icon={showOnlyStandard ? <StarIcon /> : <StarBorderIcon />}
@@ -345,6 +322,34 @@ export default function MaterialsPage() {
               variant={showOnlyStandard ? 'filled' : 'outlined'}
             />
           </Stack>
+
+          {/* Plate Category Filter Chips */}
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
+              Filter by type:
+            </Typography>
+            <Chip
+              label="All Plates"
+              onClick={() => {
+                setSelectedCategory('ALL');
+                setPage(0);
+              }}
+              color={selectedCategory === 'ALL' ? 'primary' : 'default'}
+              variant={selectedCategory === 'ALL' ? 'filled' : 'outlined'}
+            />
+            {PLATE_CATEGORIES.map((category) => (
+              <Chip
+                key={category}
+                label={MATERIAL_CATEGORY_LABELS[category].replace(/^Plates - /, '')}
+                onClick={() => {
+                  setSelectedCategory(category);
+                  setPage(0);
+                }}
+                color={selectedCategory === category ? 'primary' : 'default'}
+                variant={selectedCategory === category ? 'filled' : 'outlined'}
+              />
+            ))}
+          </Box>
         </Box>
 
         {/* Table */}

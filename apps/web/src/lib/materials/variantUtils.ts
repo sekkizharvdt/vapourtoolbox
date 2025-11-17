@@ -10,8 +10,8 @@ import type { Material, MaterialVariant, Money } from '@vapour/types';
 /**
  * Generate full variant specification code
  *
- * Format: {BASE_CODE}-{THICKNESS}thk-{FINISH}
- * Example: PL-SS-304-4thk-2B
+ * Format: {BASE_CODE}-{THICKNESS}mm-{FINISH}
+ * Example: PL-SS-304-3mm-2B
  *
  * @param materialCode - Base material code (e.g., "PL-SS-304")
  * @param variant - Material variant with dimensions and specifications
@@ -20,15 +20,15 @@ import type { Material, MaterialVariant, Money } from '@vapour/types';
 export function generateVariantCode(materialCode: string, variant: MaterialVariant): string {
   const parts: string[] = [materialCode];
 
-  // Add thickness if present
+  // Add thickness if present (standardized to mm format)
   if (variant.dimensions.thickness) {
-    parts.push(`${variant.dimensions.thickness}thk`);
+    parts.push(`${variant.dimensions.thickness}mm`);
   }
 
   // Add finish from specification (if available in parent material)
   // For now, we'll use the variantCode which should contain finish info
-  if (variant.variantCode && !variant.variantCode.match(/^\d+MM$/i)) {
-    // If variantCode is not just a dimension (like "3MM"), include it
+  if (variant.variantCode && !variant.variantCode.match(/^\d+mm$/i)) {
+    // If variantCode is not just a dimension (like "3mm"), include it
     parts.push(variant.variantCode);
   }
 
@@ -208,12 +208,14 @@ export function getCheapestVariant(variants: MaterialVariant[]): MaterialVariant
   return variants
     .filter((v) => v.isAvailable && v.currentPrice?.pricePerUnit)
     .sort((a, b) => {
-      const priceA = typeof a.currentPrice?.pricePerUnit === 'number'
-        ? a.currentPrice.pricePerUnit
-        : a.currentPrice?.pricePerUnit?.amount || Infinity;
-      const priceB = typeof b.currentPrice?.pricePerUnit === 'number'
-        ? b.currentPrice.pricePerUnit
-        : b.currentPrice?.pricePerUnit?.amount || Infinity;
+      const priceA =
+        typeof a.currentPrice?.pricePerUnit === 'number'
+          ? a.currentPrice.pricePerUnit
+          : a.currentPrice?.pricePerUnit?.amount || Infinity;
+      const priceB =
+        typeof b.currentPrice?.pricePerUnit === 'number'
+          ? b.currentPrice.pricePerUnit
+          : b.currentPrice?.pricePerUnit?.amount || Infinity;
       return priceA - priceB;
     })[0];
 }
