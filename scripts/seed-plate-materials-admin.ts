@@ -1,34 +1,22 @@
 /**
- * Seed Plate Materials Script
+ * Seed Plate Materials Script (Admin SDK)
  *
- * Creates demo plate materials with realistic specifications and variants
- * Run with: pnpm dotenv -e apps/web/.env.local -- tsx scripts/seed-plate-materials.ts
+ * Creates demo plate materials using Firebase Admin SDK (no authentication required)
+ * Run with: pnpm tsx scripts/seed-plate-materials-admin.ts
  */
 
-import { config } from 'dotenv';
-import { resolve } from 'path';
-import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import * as admin from 'firebase-admin';
 import { MaterialCategory } from '@vapour/types';
-import { createMaterial } from '../apps/web/src/lib/materials/materialService';
+import { Timestamp } from 'firebase-admin/firestore';
 
-// Load environment variables from web app
-config({ path: resolve(__dirname, '../apps/web/.env.local') });
+// Initialize Firebase Admin (uses Application Default Credentials or GOOGLE_APPLICATION_CREDENTIALS)
+if (!admin.apps.length) {
+  admin.initializeApp({
+    projectId: 'vapour-toolbox',
+  });
+}
 
-// Firebase configuration from environment
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-console.log('🔧 Firebase Config:', {
-  projectId: firebaseConfig.projectId,
-  authDomain: firebaseConfig.authDomain,
-});
+const db = admin.firestore();
 
 // Demo materials data
 const DEMO_MATERIALS = [
@@ -217,37 +205,65 @@ const DEMO_MATERIALS = [
   },
 ];
 
+// Helper function to generate material code
+function generateMaterialCode(category: MaterialCategory, grade: string): string {
+  const codeParts: Record<MaterialCategory, [string, string]> = {
+    [MaterialCategory.PLATES_CARBON_STEEL]: ['PL', 'CS'],
+    [MaterialCategory.PLATES_STAINLESS_STEEL]: ['PL', 'SS'],
+    [MaterialCategory.PLATES_DUPLEX_STEEL]: ['PL', 'DS'],
+    [MaterialCategory.PLATES_ALLOY_STEEL]: ['PL', 'AS'],
+  };
+
+  const [form, material] = codeParts[category] || ['PL', 'XX'];
+  const normalizedGrade = grade.replace(/\s+/g, '').toUpperCase();
+  return `${form}-${material}-${normalizedGrade}`;
+}
+
 async function seedPlateMaterials() {
   try {
-    console.log('🚀 Initializing Firebase...');
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    console.log('🚀 Initializing Firebase Admin SDK...');
+    console.log('📦 Project ID:', admin.app().options.projectId);
 
     console.log(`\n📦 Creating ${DEMO_MATERIALS.length} demo plate materials...\n`);
 
     let createdCount = 0;
+    const now = Timestamp.now();
 
     for (const materialData of DEMO_MATERIALS) {
       try {
-        const created = await createMaterial(
-          db,
-          {
-            ...materialData,
-            materialCode: '', // Will be auto-generated
-            materialType: 'RAW_MATERIAL',
-            hasVariants: false, // Can add variants later
-            preferredVendors: [],
-            priceHistory: [],
-            certifications: [],
-            trackInventory: false,
-            isActive: true,
-          },
-          'system-seed'
+        const materialCode = generateMaterialCode(
+          materialData.category,
+          materialData.specification.grade || 'UNKNOWN'
         );
+
+        const material = {
+          materialCode,
+          name: materialData.name,
+          description: materialData.description,
+          category: materialData.category,
+          materialType: 'RAW_MATERIAL',
+          specification: materialData.specification,
+          properties: materialData.properties,
+          baseUnit: materialData.baseUnit,
+          tags: materialData.tags,
+          isStandard: materialData.isStandard,
+          hasVariants: false,
+          preferredVendors: [],
+          priceHistory: [],
+          certifications: [],
+          trackInventory: false,
+          isActive: true,
+          createdAt: now,
+          createdBy: 'system-seed',
+          updatedAt: now,
+          updatedBy: 'system-seed',
+        };
+
+        const docRef = await db.collection('materials').add(material);
 
         createdCount++;
         console.log(
-          `  ✓ Created ${createdCount}/${DEMO_MATERIALS.length}: ${created.materialCode} - ${created.name}`
+          `  ✓ Created ${createdCount}/${DEMO_MATERIALS.length}: ${materialCode} - ${material.name}`
         );
       } catch (error) {
         console.error(`  ✗ Failed to create ${materialData.name}:`, error);

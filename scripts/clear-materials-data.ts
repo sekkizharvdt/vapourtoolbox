@@ -2,12 +2,17 @@
  * Clear Materials Data Script
  *
  * This script clears all existing materials data from Firestore.
- * Run with: pnpm tsx scripts/clear-materials-data.ts
+ * Run with: pnpm dotenv -e apps/web/.env.local -- tsx scripts/clear-materials-data.ts
  */
 
+import { config } from 'dotenv';
+import { resolve } from 'path';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+
+// Load environment variables from web app
+config({ path: resolve(__dirname, '../apps/web/.env.local') });
 
 // Firebase configuration from environment
 const firebaseConfig = {
@@ -18,6 +23,11 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
+
+console.log('🔧 Firebase Config:', {
+  projectId: firebaseConfig.projectId,
+  authDomain: firebaseConfig.authDomain,
+});
 
 async function clearMaterialsData() {
   try {

@@ -18,17 +18,20 @@ import {
   Card,
   CardContent,
   Stack,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   Edit as EditIcon,
   Star as StarIcon,
   StarBorder as StarBorderIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import type { Material } from '@vapour/types';
-import { MATERIAL_CATEGORY_LABELS } from '@vapour/types';
+import { MATERIAL_CATEGORY_LABELS, MaterialCategory } from '@vapour/types';
 import { getMaterialById } from '@/lib/materials/materialService';
 import { formatMoney, formatDate } from '@/lib/utils/formatters';
 
@@ -97,8 +100,54 @@ export default function MaterialDetailClient() {
     );
   }
 
+  // Determine category-specific breadcrumb
+  const getCategoryPath = () => {
+    const isPlate = [
+      MaterialCategory.PLATES_CARBON_STEEL,
+      MaterialCategory.PLATES_STAINLESS_STEEL,
+      MaterialCategory.PLATES_DUPLEX_STEEL,
+      MaterialCategory.PLATES_ALLOY_STEEL,
+    ].includes(material.category);
+
+    if (isPlate) {
+      return { path: '/materials/plates', label: 'Plates' };
+    }
+    // Future: Add other categories here
+    return { path: '/materials', label: 'Materials' };
+  };
+
+  const categoryInfo = getCategoryPath();
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Breadcrumbs */}
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/materials"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/materials');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Materials
+        </Link>
+        <Link
+          color="inherit"
+          href={categoryInfo.path}
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push(categoryInfo.path);
+          }}
+          sx={{ cursor: 'pointer' }}
+        >
+          {categoryInfo.label}
+        </Link>
+        <Typography color="text.primary">{material.materialCode}</Typography>
+      </Breadcrumbs>
+
       {/* Header */}
       <Box
         sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
@@ -106,10 +155,10 @@ export default function MaterialDetailClient() {
         <Box sx={{ flex: 1 }}>
           <Button
             startIcon={<ArrowBackIcon />}
-            onClick={() => router.push('/materials')}
+            onClick={() => router.push(categoryInfo.path)}
             sx={{ mb: 2 }}
           >
-            Back to Materials
+            Back to {categoryInfo.label}
           </Button>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
             {material.isStandard ? (
