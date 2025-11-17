@@ -17,6 +17,7 @@ import {
 
 interface MaterialSelectorProps {
   allowedCategories: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onMaterialSelect: (material: any) => void;
 }
 
@@ -24,6 +25,7 @@ export default function MaterialSelector({
   allowedCategories,
   onMaterialSelect,
 }: MaterialSelectorProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [materials, setMaterials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

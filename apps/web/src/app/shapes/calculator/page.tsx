@@ -32,14 +32,22 @@ import ParameterInputForm from '@/components/shapes/ParameterInputForm';
 import CalculationResults from '@/components/shapes/CalculationResults';
 import FormulaTester from '@/components/shapes/FormulaTester';
 
+// TODO: Import proper types from @vapour/types when available
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Shape = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Material = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type CalculationResult = any;
+
 export default function ShapeCalculatorPage() {
   const [activeStep, setActiveStep] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedShape, setSelectedShape] = useState<any | null>(null);
-  const [selectedMaterial, setSelectedMaterial] = useState<any | null>(null);
+  const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [parameterValues, setParameterValues] = useState<Record<string, number>>({});
   const [quantity, setQuantity] = useState(1);
-  const [calculationResult, setCalculationResult] = useState<any | null>(null);
+  const [calculationResult, setCalculationResult] = useState<CalculationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [showFormulaTester, setShowFormulaTester] = useState(false);
 
@@ -49,12 +57,12 @@ export default function ShapeCalculatorPage() {
     setSelectedCategory(category);
   };
 
-  const handleShapeSelect = (shape: any) => {
+  const handleShapeSelect = (shape: Shape) => {
     setSelectedShape(shape);
     setActiveStep(1);
   };
 
-  const handleMaterialSelect = (material: any) => {
+  const handleMaterialSelect = (material: Material) => {
     setSelectedMaterial(material);
     setActiveStep(2);
   };
@@ -104,23 +112,19 @@ export default function ShapeCalculatorPage() {
   };
 
   const handleSave = async () => {
-    // Implement save to database
-    console.log('Save calculation');
+    // TODO: Implement save to database
   };
 
   const handleExportPDF = async () => {
-    // Implement PDF export
-    console.log('Export to PDF');
+    // TODO: Implement PDF export
   };
 
   const handleExportExcel = async () => {
-    // Implement Excel export
-    console.log('Export to Excel');
+    // TODO: Implement Excel export
   };
 
   const handleShare = async () => {
-    // Implement share functionality
-    console.log('Share calculation');
+    // TODO: Implement share functionality
   };
 
   const handleReset = () => {

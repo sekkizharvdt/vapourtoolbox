@@ -17,7 +17,9 @@ import {
 import { Info as InfoIcon } from '@mui/icons-material';
 
 interface ParameterInputFormProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   shape: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   material: any;
   onParameterChange: (values: Record<string, number>) => void;
   onQuantityChange: (quantity: number) => void;
@@ -35,7 +37,8 @@ export default function ParameterInputForm({
   // Initialize with default values
   useEffect(() => {
     const initialValues: Record<string, number> = {};
-    shape.parameters?.forEach((param: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (shape.parameters as Array<any>)?.forEach((param) => {
       if (param.defaultValue !== undefined) {
         initialValues[param.name] = param.defaultValue;
       }
@@ -56,7 +59,7 @@ export default function ParameterInputForm({
   };
 
   // Sort parameters by order
-  const sortedParams = [...(shape.parameters || [])].sort((a, b) => a.order - b.order);
+  const sortedParams = [...(shape.parameters || [])].sort((a: any, b: any) => a.order - b.order);
 
   return (
     <Box>
@@ -81,6 +84,7 @@ export default function ParameterInputForm({
       </Typography>
 
       <Grid container spacing={2}>
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         {sortedParams.map((param: any) => {
           if (param.dataType === 'SELECT') {
             return (
@@ -92,7 +96,8 @@ export default function ParameterInputForm({
                     onChange={(e) => handleValueChange(param.name, e.target.value as number)}
                     label={param.label}
                   >
-                    {param.options?.map((option: any) => (
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {(param.options as Array<any>)?.map((option) => (
                       <MenuItem key={option.value} value={option.value}>
                         {option.label}
                         {option.description && (

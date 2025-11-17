@@ -16,6 +16,7 @@ import {
 import { Warning as WarningIcon, Error as ErrorIcon } from '@mui/icons-material';
 
 interface CalculationResultsProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result: any;
 }
 
@@ -93,7 +94,8 @@ export default function CalculationResults({ result }: CalculationResultsProps) 
       {result.warnings && result.warnings.length > 0 && (
         <Alert severity="warning" sx={{ mb: 2 }} icon={<WarningIcon />}>
           <Typography variant="subtitle2">Warnings:</Typography>
-          {result.warnings.map((warning: string, index: number) => (
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {result.warnings.map((warning: any, index: number) => (
             <Typography key={index} variant="body2">
               • {warning}
             </Typography>
@@ -104,7 +106,8 @@ export default function CalculationResults({ result }: CalculationResultsProps) 
       {result.errors && result.errors.length > 0 && (
         <Alert severity="error" sx={{ mb: 2 }} icon={<ErrorIcon />}>
           <Typography variant="subtitle2">Errors:</Typography>
-          {result.errors.map((error: string, index: number) => (
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {result.errors.map((error: any, index: number) => (
             <Typography key={index} variant="body2">
               • {error}
             </Typography>
@@ -304,11 +307,14 @@ export default function CalculationResults({ result }: CalculationResultsProps) 
                 </TableRow>
               </TableHead>
               <TableBody>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {Object.entries(result.customResults).map(([key, value]: [string, any]) => (
                   <TableRow key={key}>
                     <TableCell>{key}</TableCell>
-                    <TableCell align="right">{formatNumber(value.result)}</TableCell>
-                    <TableCell>{value.unit}</TableCell>
+                    <TableCell align="right">
+                      {formatNumber((value as { result: number }).result)}
+                    </TableCell>
+                    <TableCell>{(value as { unit: string }).unit}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

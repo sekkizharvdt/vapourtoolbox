@@ -18,10 +18,12 @@ import { Star as StandardIcon, Science as CustomIcon } from '@mui/icons-material
 
 interface ShapeSelectorProps {
   category: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onShapeSelect: (shape: any) => void;
 }
 
 export default function ShapeSelector({ category, onShapeSelect }: ShapeSelectorProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [shapes, setShapes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

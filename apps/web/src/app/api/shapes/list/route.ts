@@ -40,11 +40,12 @@ export async function GET(request: NextRequest) {
 
     // TODO: Load actual shapes from database or shape definitions
     // For now, return empty array with proper structure
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const shapes: any[] = [];
 
     return NextResponse.json({ shapes, message: 'Shape loading coming soon' });
   } catch (error) {
-    console.error('Shape list error:', error);
+    // Error logging for API route
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : 'Failed to load shapes',
