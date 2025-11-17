@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ShapeCategory } from '@vapour/types';
 
 // Import shape definitions directly (TODO: Export from @vapour/functions package)
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
 const { allShapes } = require('../../../../../../packages/functions/src/data/shapes');
 
 // Mark as dynamic to work with static export
@@ -56,8 +56,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter shapes by category
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const shapes = allShapes
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .filter((shape: any) => allowedCategories.includes(shape.category))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((shape: any, index: number) => ({
         // Add temporary IDs since shapes don't have them yet
         id: `shape-${categoryId}-${index}`,

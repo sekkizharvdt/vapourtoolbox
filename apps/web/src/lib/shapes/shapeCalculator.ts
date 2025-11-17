@@ -76,6 +76,7 @@ export function calculateShape(input: CalculateShapeInput): ShapeCalculationResu
   const totalCostWithQuantity = totalCost * quantity;
 
   // Build result
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result: any = {
     shapeId: shape.id!,
     shapeName: shape.name,
@@ -154,10 +155,10 @@ export function calculateShape(input: CalculateShapeInput): ShapeCalculationResu
         baseMaterialCost: weight * ((material as any).pricingDetails?.basePrice || 0),
         scrapCost:
           blankArea && finishedArea
-            ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              ((blankArea - finishedArea) *
+            ? ((blankArea - finishedArea) *
                 density *
                 (parameterValues.t || 0) *
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 ((material as any).pricingDetails?.basePrice || 0)) /
               1000000
             : 0,

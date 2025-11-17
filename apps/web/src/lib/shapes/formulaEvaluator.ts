@@ -122,6 +122,7 @@ export function extractVariables(expression: string): string[] {
     const vars = new Set<string>();
 
     // Traverse the expression tree to find variable nodes
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     node.traverse((node: any) => {
       if (node.type === 'SymbolNode' && !Object.keys(CONSTANTS).includes(node.name)) {
         vars.add(node.name);
