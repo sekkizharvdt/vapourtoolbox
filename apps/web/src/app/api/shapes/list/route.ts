@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Mark as dynamic to work with static export
+export const dynamic = 'force-static';
+export const revalidate = false;
+
 // TODO: Import shapes from proper location once package exports are configured
 // For now, return mock data
 const categoryMap: Record<string, string[]> = {
