@@ -91,7 +91,20 @@
       "Bash(pnpm add:*)",
       "Bash(gcloud firestore indexes composite list:*)",
       "Bash(xargs -I{} bash -c 'echo \"\"\"\"=== {} ===\"\"\"\" && grep -A 3 \"\"\"\"onSnapshot\\|getDocs\"\"\"\" {} | head -10')",
-      "Bash(pnpm:*)"
+      "Bash(pnpm:*)",
+      "Bash(git pull:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh api:*)",
+      "Bash(/tmp/failed-job-logs.txt)",
+      "Bash(gh run watch:*)",
+      "Bash(git fetch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git stash:*)",
+      "Bash(HUSKY=0 git commit:*)",
+      "Bash(npx @mui/codemod@latest v7.0.0/grid-props:*)"
     ],
     "deny": [],
     "ask": []

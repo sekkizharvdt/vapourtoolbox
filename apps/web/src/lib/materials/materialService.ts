@@ -32,6 +32,7 @@ import type {
   MaterialSortDirection,
   StockMovement,
 } from '@vapour/types';
+import { getMaterialCodeParts } from '@vapour/types';
 
 const logger = createLogger({ context: 'materialService' });
 
@@ -87,7 +88,18 @@ export async function createMaterial(
     logger.info('Creating material', { name: materialData.name, category: materialData.category });
 
     // Generate material code if not provided
-    const materialCode = materialData.materialCode || (await generateMaterialCode(db));
+    // Requires grade from specification
+    if (!materialData.materialCode && !materialData.specification.grade) {
+      throw new Error('Material grade is required for code generation');
+    }
+
+    const materialCode =
+      materialData.materialCode ||
+      (await generateMaterialCode(
+        db,
+        materialData.category,
+        materialData.specification.grade as string
+      ));
 
     const now = Timestamp.now();
     const newMaterial: Omit<Material, 'id'> = {
@@ -123,49 +135,53 @@ export async function createMaterial(
 }
 
 /**
- * Generate unique material code (MAT-YYYY-NNNN)
+ * Generate material code (PL-SS-304 format)
+ * Format: {FORM}-{MATERIAL}-{GRADE}
+ * Example: PL-SS-304 (Plate - Stainless Steel - 304)
+ *
+ * Note: Each grade has exactly ONE material code.
+ * All thickness/finish variations are stored as variants within that material.
+ *
+ * @param db - Firestore instance
+ * @param category - Material category (e.g., PLATES_STAINLESS_STEEL)
+ * @param grade - Material grade (e.g., "304", "304L", "316", "316L")
+ * @returns Promise<string> - Generated material code
  */
-async function generateMaterialCode(db: Firestore): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `MAT-${year}-`;
+async function generateMaterialCode(
+  db: Firestore,
+  category: MaterialCategory,
+  grade: string
+): Promise<string> {
+  const codeParts = getMaterialCodeParts(category);
 
-  // Query for the latest material code this year
+  if (!codeParts) {
+    throw new Error(`Material code generation not supported for category: ${category}`);
+  }
+
+  const [form, material] = codeParts;
+
+  // Normalize grade (remove spaces, convert to uppercase)
+  const normalizedGrade = grade.replace(/\s+/g, '').toUpperCase();
+
+  // Simple format: PL-SS-304 (no sequence number)
+  const materialCode = `${form}-${material}-${normalizedGrade}`;
+
+  // Check if this material code already exists
   const q = query(
     collection(db, COLLECTIONS.MATERIALS),
-    where('materialCode', '>=', prefix),
-    where('materialCode', '<', `MAT-${year + 1}-`),
-    orderBy('materialCode', 'desc'),
+    where('materialCode', '==', materialCode),
     limit(1)
   );
 
   const snapshot = await getDocs(q);
 
-  if (snapshot.empty) {
-    return `${prefix}0001`;
+  if (!snapshot.empty) {
+    throw new Error(
+      `Material code ${materialCode} already exists. Each grade should have only one material entry. Use variants for different thicknesses/finishes.`
+    );
   }
 
-  const firstDoc = snapshot.docs[0];
-  if (!firstDoc) {
-    return `${prefix}0001`;
-  }
-
-  const data = firstDoc.data();
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  const lastCode = data.materialCode as string;
-  if (!lastCode) {
-    return `${prefix}0001`;
-  }
-
-  const parts = lastCode.split('-');
-  const lastNumberStr = parts[2];
-  if (!lastNumberStr) {
-    return `${prefix}0001`;
-  }
-
-  const lastNumber = parseInt(lastNumberStr, 10);
-  const nextNumber = (lastNumber + 1).toString().padStart(4, '0');
-
-  return `${prefix}${nextNumber}`;
+  return materialCode;
 }
 
 /**
