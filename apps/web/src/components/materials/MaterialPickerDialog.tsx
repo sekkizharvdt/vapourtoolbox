@@ -174,7 +174,6 @@ export default function MaterialPickerDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>{title}</DialogTitle>
-
       <DialogContent>
         {/* Search */}
         <TextField
@@ -354,7 +353,6 @@ export default function MaterialPickerDialog({
           </Alert>
         )}
       </DialogContent>
-
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleConfirm} disabled={!canConfirm}>

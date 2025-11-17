@@ -1,7 +1,5 @@
 'use client';
 
-// @ts-nocheck - MUI Grid v6 has breaking changes with item prop, will be fixed in future refactor
-
 import { useState, useMemo } from 'react';
 import {
   Box,
@@ -139,7 +137,6 @@ export default function MaterialVariantSelector({
           <ExpandMoreIcon />
         </IconButton>
       </Box>
-
       <Collapse in={expanded}>
         {/* Base Material Code Info */}
         <Alert severity="info" icon={<InfoIcon />} sx={{ mb: 2 }}>
@@ -184,7 +181,7 @@ export default function MaterialVariantSelector({
                   >
                     <Grid container spacing={2} alignItems="center">
                       {/* Radio Button */}
-                      <Grid item xs="auto">
+                      <Grid size="auto">
                         <FormControlLabel
                           value={variant.id}
                           control={<Radio />}
@@ -194,7 +191,7 @@ export default function MaterialVariantSelector({
                       </Grid>
 
                       {/* Variant Details */}
-                      <Grid item xs>
+                      <Grid size="grow">
                         <Box>
                           {/* Variant Name & Code */}
                           <Box
@@ -264,7 +261,11 @@ export default function MaterialVariantSelector({
 
                       {/* Pricing */}
                       {showPricing && variant.currentPrice && (
-                        <Grid item xs={12} sm="auto">
+                        <Grid
+                          size={{
+                            xs: 12,
+                            sm: "auto"
+                          }}>
                           <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
                             <Typography variant="h6" color="primary">
                               {formatPrice(

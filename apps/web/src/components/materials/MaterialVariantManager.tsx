@@ -1,7 +1,5 @@
 'use client';
 
-// @ts-nocheck - MUI Grid v6 has breaking changes with item prop, will be fixed in future refactor
-
 import { useState } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import {
@@ -187,13 +185,11 @@ export default function MaterialVariantManager({
           </Button>
         )}
       </Box>
-
       {!material.materialCode && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Save the material first to add variants
         </Alert>
       )}
-
       {/* Info Alert */}
       {material.materialCode && (
         <Alert severity="info" sx={{ mb: 2 }}>
@@ -206,7 +202,6 @@ export default function MaterialVariantManager({
           </Typography>
         </Alert>
       )}
-
       {/* Variants List/Table */}
       {variants.length > 0 ? (
         <Box>
@@ -276,14 +271,17 @@ export default function MaterialVariantManager({
           this material.
         </Alert>
       )}
-
       {/* Variant Form Dialog */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>{editingVariant ? 'Edit Variant' : 'Add Variant'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             {/* Variant Code */}
-            <Grid item xs={12} sm={6}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6
+              }}>
               <TextField
                 fullWidth
                 required
@@ -296,7 +294,11 @@ export default function MaterialVariantManager({
             </Grid>
 
             {/* Display Name */}
-            <Grid item xs={12} sm={6}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6
+              }}>
               <TextField
                 fullWidth
                 required
@@ -309,14 +311,18 @@ export default function MaterialVariantManager({
             </Grid>
 
             {/* Dimensions Section */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 Dimensions
               </Typography>
             </Grid>
 
             {/* Thickness */}
-            <Grid item xs={12} sm={4}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 4
+              }}>
               <TextField
                 fullWidth
                 label="Thickness (mm)"
@@ -330,7 +336,11 @@ export default function MaterialVariantManager({
             </Grid>
 
             {/* Length */}
-            <Grid item xs={12} sm={4}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 4
+              }}>
               <TextField
                 fullWidth
                 label="Length (mm)"
@@ -344,7 +354,11 @@ export default function MaterialVariantManager({
             </Grid>
 
             {/* Width */}
-            <Grid item xs={12} sm={4}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 4
+              }}>
               <TextField
                 fullWidth
                 label="Width (mm)"
@@ -358,7 +372,11 @@ export default function MaterialVariantManager({
             </Grid>
 
             {/* Schedule (for pipes) */}
-            <Grid item xs={12} sm={6}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6
+              }}>
               <TextField
                 fullWidth
                 label="Schedule (for pipes)"
@@ -369,7 +387,11 @@ export default function MaterialVariantManager({
             </Grid>
 
             {/* Nominal Size (for pipes/fittings) */}
-            <Grid item xs={12} sm={6}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6
+              }}>
               <TextField
                 fullWidth
                 label="Nominal Size (DN/NPS)"
@@ -380,14 +402,18 @@ export default function MaterialVariantManager({
             </Grid>
 
             {/* Properties Section */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 Properties & Procurement
               </Typography>
             </Grid>
 
             {/* Weight per Unit */}
-            <Grid item xs={12} sm={4}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 4
+              }}>
               <TextField
                 fullWidth
                 label={`Weight per ${material.baseUnit}`}
@@ -405,7 +431,11 @@ export default function MaterialVariantManager({
             </Grid>
 
             {/* Lead Time */}
-            <Grid item xs={12} sm={4}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 4
+              }}>
               <TextField
                 fullWidth
                 label="Lead Time (days)"
@@ -419,7 +449,11 @@ export default function MaterialVariantManager({
             </Grid>
 
             {/* Minimum Order Quantity */}
-            <Grid item xs={12} sm={4}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 4
+              }}>
               <TextField
                 fullWidth
                 label={`Min. Order Qty (${material.baseUnit})`}
@@ -436,7 +470,7 @@ export default function MaterialVariantManager({
             </Grid>
 
             {/* Availability */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <FormControlLabel
                 control={
                   <Switch
@@ -450,7 +484,7 @@ export default function MaterialVariantManager({
 
             {/* Preview Full Code */}
             {material.materialCode && formData.variantCode && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Alert severity="success">
                   <Typography variant="body2">
                     Full Specification Code:{' '}

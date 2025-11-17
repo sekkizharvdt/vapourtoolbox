@@ -103,7 +103,8 @@
       "Bash(git fetch:*)",
       "Bash(git checkout:*)",
       "Bash(git stash:*)",
-      "Bash(HUSKY=0 git commit:*)"
+      "Bash(HUSKY=0 git commit:*)",
+      "Bash(npx @mui/codemod@latest v7.0.0/grid-props:*)"
     ],
     "deny": [],
     "ask": []
