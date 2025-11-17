@@ -412,10 +412,10 @@ export function validateFormulaVariables(
 
   // Add constants to available
   if (formula.constants) {
-    formula.constants.forEach((c) => availableSet.add(c.name));
+    formula.constants.forEach((c: FormulaConstant) => availableSet.add(c.name));
   }
 
-  const missingVariables = formula.variables.filter((v) => !availableSet.has(v));
+  const missingVariables = formula.variables.filter((v: string) => !availableSet.has(v));
   const unusedParameters = availableParameters.filter((p) => !requiredVariables.has(p));
 
   return {

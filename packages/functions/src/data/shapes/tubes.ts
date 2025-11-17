@@ -24,6 +24,7 @@ export const straightTube: Omit<
   standard: {
     standardBody: 'CUSTOM',
     standardNumber: 'TUBE-STRAIGHT',
+    code: 'CUSTOM TUBE-STRAIGHT',
     title: 'Custom Fabricated Straight Tube',
   },
 

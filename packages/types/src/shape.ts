@@ -145,9 +145,13 @@ export type ShapeType = 'STANDARD' | 'PARAMETRIC' | 'CUSTOM';
  * Standard reference for shapes
  */
 export interface ShapeStandard {
-  code: string; // e.g., "ASME B16.9", "ASME Section VIII Div 1"
+  standardBody: string; // e.g., "ASME", "TEMA", "IS"
+  standardNumber?: string; // e.g., "B16.9", "Section VIII Div 1"
+  code?: string; // e.g., "ASME B16.9", "ASME Section VIII Div 1" (can be derived from body+number)
+  title?: string; // Standard title
   figureNumber?: string; // e.g., "UG-27", "Figure 1-1"
   edition?: string; // Standard edition/year
+  revision?: string; // Revision number
 }
 
 /**
@@ -186,9 +190,10 @@ export type ParameterDataType = 'NUMBER' | 'SELECT' | 'BOOLEAN' | 'TEXT';
  * Parameter option for SELECT type
  */
 export interface ParameterOption {
-  value: string; // e.g., "Sch 40"
+  value: string | number; // e.g., "Sch 40" or numeric value
   label: string;
-  numericValue?: number; // Wall thickness for calculation
+  description?: string; // Optional description
+  numericValue?: number; // Wall thickness for calculation (deprecated, use value)
 }
 
 /**
@@ -258,8 +263,11 @@ export interface ExpectedRange {
  */
 export interface CustomFormula {
   name: string; // e.g., "Moment of Inertia", "Weld Length"
+  label: string; // Display label for the formula result
   formula: FormulaDefinition;
-  unit: string;
+  unit?: string; // Optional - can be derived from formula.unit
+  displayInResults?: boolean; // Whether to show in results UI (default: true)
+  order?: number; // Display order in results
 }
 
 /**
@@ -301,22 +309,48 @@ export interface FabricationCost {
   laborHours?: number; // Estimated fabrication hours
   setupCost?: number; // One-time setup cost
   formula?: string; // Custom cost formula
+
+  // Specific cost rates
+  weldingCostPerMeter?: number; // Cost per meter of weld
+  cuttingCostPerMeter?: number; // Cost per meter of cutting
+  drillingCostPerHole?: number; // Cost per hole drilled
+  edgePreparationCostPerMeter?: number; // Cost per meter of edge prep
+  surfaceTreatmentCostPerSqm?: number; // Cost per square meter of surface treatment
 }
 
 /**
  * Validation rule
  */
 export interface ValidationRule {
-  parameterName: string;
+  parameterName?: string; // Optional for non-parameter rules
+  field?: string; // Alternative to parameterName
   rule: ValidationRuleType;
-  value: number | number[] | string;
+  value?: number | number[] | string; // Optional - some rules don't need explicit values
   errorMessage: string;
+  severity?: 'error' | 'warning' | 'info'; // Severity level (default: error)
 }
 
 /**
  * Validation rule type
  */
-export type ValidationRuleType = 'MIN' | 'MAX' | 'RANGE' | 'REQUIRED' | 'CUSTOM';
+export type ValidationRuleType =
+  | 'MIN'
+  | 'MAX'
+  | 'RANGE'
+  | 'REQUIRED'
+  | 'CUSTOM'
+  | 'LIGAMENT_EFFICIENCY'
+  | 'BOLT_CLEARANCE_CHECK'
+  | 'REINFORCEMENT_CHECK'
+  | 'LENGTH_GT_WIDTH'
+  | 'DIAMETER_PRACTICAL'
+  | 'SCRAP_REASONABLE'
+  | 'D2_LESS_THAN_D1'
+  | 'PAD_EXTENSION'
+  | 'D_TO_T_RATIO'
+  | 'THICKNESS_VS_DIAMETER'
+  | 'FLAT_HEAD_THICKNESS'
+  | 'CONE_ANGLE_ASME';
 
 // ============================================================================
 // Shape Instance (Used in BOM)
@@ -363,6 +397,7 @@ export interface ShapeInstance {
  * Parameter value (user input)
  */
 export interface ParameterValue {
+  name: string; // Alias for parameterName for convenience
   parameterName: string;
   value: number | string | boolean;
   unit: string;

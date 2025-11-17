@@ -5,14 +5,15 @@
 
 import type {
   Shape,
-  ShapeFormulas,
   ParameterValue,
   BlankDefinition,
   FabricationCost,
   Material,
+  FormulaDefinition,
 } from '@vapour/types';
 import { evaluateFormula, evaluateFormulas } from './formulaEngineService';
-import { getMaterialById } from './materialService';
+// TODO: Implement materialService
+// import { getMaterialById } from './materialService';
 
 export interface CalculationInput {
   shapeId: string;
@@ -97,7 +98,10 @@ function buildParameterMap(parameterValues: ParameterValue[]): Record<string, nu
 
   parameterValues.forEach((param) => {
     if (param.value !== undefined) {
-      map[param.name] = param.value;
+      // Convert value to number (SELECT parameters may have numeric values)
+      const numValue =
+        typeof param.value === 'number' ? param.value : parseFloat(String(param.value));
+      map[param.name] = isNaN(numValue) ? 0 : numValue;
     }
   });
 
@@ -220,15 +224,16 @@ export async function calculateShape(input: CalculationInput): Promise<Calculati
     // Get material if not provided
     let material = input.material;
     if (!material) {
-      material = await getMaterialById(materialId);
-      if (!material) {
-        throw new Error('Material not found');
-      }
+      // TODO: Implement getMaterialById
+      // material = await getMaterialById(materialId);
+      // if (!material) {
+      throw new Error('Material must be provided in input (materialService not yet implemented)');
+      // }
     }
 
     // Build parameter map
     const parameterMap = buildParameterMap(parameterValues);
-    const density = material.physicalProperties?.density;
+    const density = material.properties?.density;
 
     // Evaluate all formulas
     const formulaResults = evaluateFormulas(
@@ -279,7 +284,8 @@ export async function calculateShape(input: CalculationInput): Promise<Calculati
     }
 
     // Calculate costs
-    const pricePerKg = material.pricingDetails?.basePrice || 0;
+    // TODO: Implement proper pricing from material.currentPrice
+    const pricePerKg = material.currentPrice?.pricePerUnit?.amount || 0;
     const materialCost = weight ? weight * pricePerKg : 0;
 
     const fabricationCosts = calculateFabricationCosts(
@@ -345,19 +351,21 @@ export async function calculateShape(input: CalculationInput): Promise<Calculati
     // Add custom formula results
     if (shape.formulas.customFormulas && shape.formulas.customFormulas.length > 0) {
       result.customResults = {};
-      shape.formulas.customFormulas.forEach((customFormula) => {
-        try {
-          const customResult = evaluateFormula(customFormula.formula, parameterMap, density);
-          result.customResults![customFormula.name] = {
-            result: customResult.result,
-            unit: customResult.unit,
-          };
-        } catch (error) {
-          errors.push(
-            `Custom formula '${customFormula.name}': ${error instanceof Error ? error.message : 'Unknown error'}`
-          );
+      shape.formulas.customFormulas.forEach(
+        (customFormula: { name: string; formula: FormulaDefinition }) => {
+          try {
+            const customResult = evaluateFormula(customFormula.formula, parameterMap, density);
+            result.customResults![customFormula.name] = {
+              result: customResult.result,
+              unit: customResult.unit,
+            };
+          } catch (error) {
+            errors.push(
+              `Custom formula '${customFormula.name}': ${error instanceof Error ? error.message : 'Unknown error'}`
+            );
+          }
         }
-      });
+      );
     }
 
     return result;
@@ -412,7 +420,7 @@ export function validateParameterValues(
   const providedParams = new Set(parameterValues.map((p) => p.name));
 
   // Check required parameters
-  shape.parameters.forEach((param) => {
+  shape.parameters.forEach((param: any) => {
     if (param.required && !providedParams.has(param.name)) {
       errors.push(`Required parameter '${param.label}' (${param.name}) is missing`);
     }
@@ -434,8 +442,8 @@ export function validateParameterValues(
   });
 
   // Check for unused parameters
-  const shapeParams = new Set(shape.parameters.map((p) => p.name));
-  parameterValues.forEach((param) => {
+  const shapeParams = new Set(shape.parameters.map((p: any) => p.name));
+  parameterValues.forEach((param: any) => {
     if (!shapeParams.has(param.name)) {
       warnings.push(`Unknown parameter '${param.name}' provided`);
     }
@@ -443,7 +451,7 @@ export function validateParameterValues(
 
   // Run custom validation rules
   if (shape.validationRules) {
-    shape.validationRules.forEach((rule) => {
+    shape.validationRules.forEach((rule: any) => {
       // Validation rule execution would go here
       // For now, just log the rule
       console.log('Validation rule:', rule);

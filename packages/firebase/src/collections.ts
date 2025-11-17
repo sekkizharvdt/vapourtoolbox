@@ -89,6 +89,9 @@ export const COLLECTIONS = {
   MATERIAL_PRICES: 'materialPrices',
   STOCK_MOVEMENTS: 'stockMovements',
 
+  // Shape Database
+  SHAPES: 'shapes',
+
   // Module Integration Management (Super Admin)
   MODULE_INTEGRATIONS: 'moduleIntegrations',
 } as const;

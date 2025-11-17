@@ -3,18 +3,24 @@
  * CRUD operations for shapes collection in Firestore
  */
 
-import { getFirestore } from 'firebase-admin/firestore';
-import type { Shape, ShapeCategory, ShapeType, MaterialCategory, AuditInfo } from '@vapour/types';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import type { Shape, ShapeCategory, ShapeType, MaterialCategory } from '@vapour/types';
 import { COLLECTIONS } from '@vapour/firebase';
-import { generateDocumentCode } from './codeGenerationService';
+// TODO: Implement codeGenerationService
+// import { generateDocumentCode } from './codeGenerationService';
 
 const db = getFirestore();
 
 /**
  * Generate a unique shape code (SHP-YYYY-NNNN)
+ * TODO: Use proper code generation service
  */
 async function generateShapeCode(): Promise<string> {
-  return generateDocumentCode('SHP', COLLECTIONS.SHAPES);
+  const year = new Date().getFullYear();
+  const randomNum = Math.floor(Math.random() * 10000)
+    .toString()
+    .padStart(4, '0');
+  return `SHP-${year}-${randomNum}`;
 }
 
 /**
@@ -32,8 +38,8 @@ export async function createShape(
     const shapeCode = await generateShapeCode();
 
     // Create audit info
-    const now = new Date().toISOString();
-    const auditInfo: AuditInfo = {
+    const now = Timestamp.now();
+    const auditInfo = {
       createdAt: now,
       updatedAt: now,
       createdBy: userId,
@@ -48,7 +54,7 @@ export async function createShape(
       usageCount: 0,
       tags: shapeData.tags || [],
       ...auditInfo,
-    };
+    } as Omit<Shape, 'id'>;
 
     // Add to Firestore
     const docRef = await db.collection(COLLECTIONS.SHAPES).add(shape);
