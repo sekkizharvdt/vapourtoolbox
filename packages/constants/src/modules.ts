@@ -1,6 +1,6 @@
 // Module Registry - All application modules
-// Priority Order: Tasks → Documents → Procurement → Accounting → Estimation → Material DB → Bought Out DB → Thermal Desal → Proposals
-// Includes 9 active modules + 4 coming soon placeholders
+// Priority Order: Tasks → Documents → Procurement → Accounting → Estimation → Material DB → Shape DB → Bought Out DB → Thermal Desal → Proposals
+// Includes 10 active modules + 3 coming soon placeholders
 
 export type ModuleStatus = 'active' | 'coming_soon' | 'beta';
 
@@ -21,7 +21,7 @@ export interface ModuleDefinition {
 
 /**
  * Complete module registry for Vapour Toolbox
- * 13 total modules: 9 active + 4 coming soon
+ * 13 total modules: 10 active + 3 coming soon
  *
  * PRIORITY ORDER (for dashboard display):
  * 1. Tasks (highest priority - all users)
@@ -29,10 +29,11 @@ export interface ModuleDefinition {
  * 3. Procurement (permission-based)
  * 4. Accounting (permission-based)
  * 5. Estimation (permission-based)
- * 6. Material Database (coming Q1 2026)
- * 7. Bought Out Database (coming Q1 2026)
- * 8. Thermal Desalination Design (coming Q2 2026)
- * 9. Proposal Management (coming Q1 2026)
+ * 6. Material Database (active)
+ * 7. Shape Database (active)
+ * 8. Bought Out Database (coming Q1 2026)
+ * 9. Thermal Desalination Design (coming Q2 2026)
+ * 10. Proposal Management (coming Q1 2026)
  *
  * NOTE: Import PERMISSION_FLAGS from @vapour/constants to use these values
  */
@@ -175,6 +176,20 @@ export const MODULES: Record<string, ModuleDefinition> = {
     priority: 6,
   },
 
+  SHAPE_DATABASE: {
+    id: 'shape-database',
+    name: 'Shape Database',
+    shortName: 'Shapes',
+    description: 'Parametric shapes and components with automated weight/cost calculations',
+    icon: 'Category',
+    color: '#8B5CF6', // Purple
+    path: '/shapes/calculator',
+    status: 'active',
+    requiredPermissions: 524288, // VIEW_ESTIMATION (engineering calculations)
+    category: 'application',
+    priority: 7,
+  },
+
   BOUGHT_OUT_DATABASE: {
     id: 'bought-out-database',
     name: 'Bought Out Database',
@@ -187,7 +202,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     requiredPermissions: 524288, // VIEW_ESTIMATION (procurement/engineering items)
     category: 'application',
     estimatedRelease: 'Q1 2026',
-    priority: 7,
+    priority: 8,
   },
 
   THERMAL_DESAL: {
@@ -202,7 +217,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     requiredPermissions: 524288, // VIEW_ESTIMATION (engineering calculations)
     category: 'application',
     estimatedRelease: 'Q2 2026',
-    priority: 8,
+    priority: 9,
   },
 
   PROPOSAL_MANAGEMENT: {
@@ -217,7 +232,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     requiredPermissions: 8, // MANAGE_PROJECTS (for creating proposals)
     category: 'application',
     estimatedRelease: 'Q1 2026',
-    priority: 9,
+    priority: 10,
   },
 };
 

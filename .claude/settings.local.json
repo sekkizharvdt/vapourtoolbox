@@ -109,7 +109,8 @@
       "Bash(env)",
       "Bash(source:*)",
       "Bash(echo:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(with output: export\"\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []

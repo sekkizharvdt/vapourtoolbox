@@ -1,30 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ShapeCategory } from '@vapour/types';
+
+// Import shape definitions directly (TODO: Export from @vapour/functions package)
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { allShapes } = require('../../../../../../packages/functions/src/data/shapes');
 
 // Mark as dynamic to work with static export
 export const dynamic = 'force-static';
 export const revalidate = false;
 
-// TODO: Import shapes from proper location once package exports are configured
-// For now, return mock data
-const categoryMap: Record<string, string[]> = {
-  plates: ['PLATE_RECTANGULAR', 'PLATE_CIRCULAR', 'PLATE_CUSTOM'],
-  tubes: ['TUBE_STRAIGHT'],
-  vessels: [
-    'SHELL_CYLINDRICAL',
-    'SHELL_CONICAL',
-    'HEAD_HEMISPHERICAL',
-    'HEAD_ELLIPSOIDAL',
-    'HEAD_TORISPHERICAL',
-    'HEAD_FLAT',
-    'HEAD_CONICAL',
+// Category mapping
+const categoryMap: Record<string, ShapeCategory[]> = {
+  plates: [
+    ShapeCategory.PLATE_RECTANGULAR,
+    ShapeCategory.PLATE_CIRCULAR,
+    ShapeCategory.PLATE_CUSTOM,
   ],
-  heatExchangers: ['HX_TUBE_BUNDLE', 'HX_TUBE_SHEET', 'HX_BAFFLE', 'HX_TUBE_SUPPORT'],
+  tubes: [ShapeCategory.TUBE_STRAIGHT],
+  vessels: [
+    ShapeCategory.SHELL_CYLINDRICAL,
+    ShapeCategory.SHELL_CONICAL,
+    ShapeCategory.HEAD_HEMISPHERICAL,
+    ShapeCategory.HEAD_ELLIPSOIDAL,
+    ShapeCategory.HEAD_TORISPHERICAL,
+    ShapeCategory.HEAD_FLAT,
+    ShapeCategory.HEAD_CONICAL,
+  ],
+  heatExchangers: [
+    ShapeCategory.HX_TUBE_BUNDLE,
+    ShapeCategory.HX_TUBE_SHEET,
+    ShapeCategory.HX_BAFFLE,
+    ShapeCategory.HX_TUBE_SUPPORT,
+  ],
   nozzles: [
-    'NOZZLE_ASSEMBLY',
-    'NOZZLE_CUSTOM_CIRCULAR',
-    'NOZZLE_CUSTOM_RECTANGULAR',
-    'MANWAY_ASSEMBLY',
-    'REINFORCEMENT_PAD',
+    ShapeCategory.NOZZLE_ASSEMBLY,
+    ShapeCategory.NOZZLE_CUSTOM_CIRCULAR,
+    ShapeCategory.NOZZLE_CUSTOM_RECTANGULAR,
+    ShapeCategory.MANWAY_ASSEMBLY,
+    ShapeCategory.REINFORCEMENT_PAD,
   ],
 };
 
@@ -42,14 +55,27 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
     }
 
-    // TODO: Load actual shapes from database or shape definitions
-    // For now, return empty array with proper structure
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const shapes: any[] = [];
+    // Filter shapes by category
+    const shapes = allShapes
+      .filter((shape: any) => allowedCategories.includes(shape.category))
+      .map((shape: any, index: number) => ({
+        // Add temporary IDs since shapes don't have them yet
+        id: `shape-${categoryId}-${index}`,
+        shapeCode: `SHP-${categoryId.toUpperCase()}-${String(index + 1).padStart(3, '0')}`,
+        ...shape,
+        isStandard: true,
+        isActive: true,
+        usageCount: 0,
+        tags: [categoryId, shape.category],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: 'system',
+        updatedBy: 'system',
+      }));
 
-    return NextResponse.json({ shapes, message: 'Shape loading coming soon' });
+    return NextResponse.json({ shapes, count: shapes.length });
   } catch (error) {
-    // Error logging for API route
+    console.error('Failed to load shapes:', error);
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : 'Failed to load shapes',

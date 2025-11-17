@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { extractVariables } from '@/lib/shapes/formulaEvaluator';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    // const { expression } = body;
+    const { expression } = body as { expression: string };
 
-    // TODO: Implement variable extraction
+    if (!expression) {
+      return NextResponse.json({ error: 'Expression is required' }, { status: 400 });
+    }
+
+    // Extract variables from the expression
+    const variables = extractVariables(expression);
+
     return NextResponse.json({
-      message: 'Variable extraction service coming soon',
-      variables: [],
-      body,
+      variables,
+      expression,
     });
   } catch (error) {
     console.error('Variable extraction error:', error);
