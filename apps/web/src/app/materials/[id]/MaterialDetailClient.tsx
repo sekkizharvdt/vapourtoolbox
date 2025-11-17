@@ -109,8 +109,18 @@ export default function MaterialDetailClient() {
       MaterialCategory.PLATES_ALLOY_STEEL,
     ].includes(material.category);
 
+    const isPipe = [
+      MaterialCategory.PIPES_CARBON_STEEL,
+      MaterialCategory.PIPES_STAINLESS_304L,
+      MaterialCategory.PIPES_STAINLESS_316L,
+      MaterialCategory.PIPES_ALLOY_STEEL,
+    ].includes(material.category);
+
     if (isPlate) {
       return { path: '/materials/plates', label: 'Plates' };
+    }
+    if (isPipe) {
+      return { path: '/materials/pipes', label: 'Pipes' };
     }
     // Future: Add other categories here
     return { path: '/materials', label: 'Materials' };

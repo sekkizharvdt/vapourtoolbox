@@ -154,12 +154,11 @@ export enum MaterialCategory {
   PLATES_DUPLEX_STEEL = 'PLATES_DUPLEX_STEEL', // ASTM A240 (2205, 2507, etc.)
   PLATES_ALLOY_STEEL = 'PLATES_ALLOY_STEEL', // ASTM A387, etc.
 
-  // Raw Materials - Pipes (ASME/ASTM by Schedule)
-  PIPES_SEAMLESS = 'PIPES_SEAMLESS', // ASTM A106, A312 (Sch 10, 40, 80, 160)
-  PIPES_WELDED = 'PIPES_WELDED', // ASTM A53, A312 (Sch 10, 40, 80)
-  PIPES_STAINLESS = 'PIPES_STAINLESS', // ASTM A312/A358 (Sch 5S, 10S, 40S, 80S)
-  PIPES_COPPER = 'PIPES_COPPER', // ASTM B88, B280
-  PIPES_ALLOY_STEEL = 'PIPES_ALLOY_STEEL', // ASTM A335 (P11, P22, P91)
+  // Raw Materials - Pipes (ASME/ASTM by Material and Schedule)
+  PIPES_CARBON_STEEL = 'PIPES_CARBON_STEEL', // ASTM A106 (Seamless), A53 (Welded) - Sch 10, 40, 80
+  PIPES_STAINLESS_304L = 'PIPES_STAINLESS_304L', // ASTM A312 Grade 304L (Seamless/Welded) - Sch 10S, 40S, 80S
+  PIPES_STAINLESS_316L = 'PIPES_STAINLESS_316L', // ASTM A312 Grade 316L (Seamless/Welded) - Sch 10S, 40S, 80S
+  PIPES_ALLOY_STEEL = 'PIPES_ALLOY_STEEL', // ASTM A335 (P11, P22, P91) - Sch 40, 80, 160
 
   // Bought-Out Components - Fittings (ASME B16.9, B16.11)
   FITTINGS_BUTT_WELD = 'FITTINGS_BUTT_WELD', // ASME B16.9 (Elbows, Tees, Reducers)
@@ -212,10 +211,9 @@ export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
   [MaterialCategory.PLATES_STAINLESS_STEEL]: 'Plates - Stainless Steel',
   [MaterialCategory.PLATES_DUPLEX_STEEL]: 'Plates - Duplex Steel',
   [MaterialCategory.PLATES_ALLOY_STEEL]: 'Plates - Alloy Steel',
-  [MaterialCategory.PIPES_SEAMLESS]: 'Pipes - Seamless',
-  [MaterialCategory.PIPES_WELDED]: 'Pipes - Welded',
-  [MaterialCategory.PIPES_STAINLESS]: 'Pipes - Stainless Steel',
-  [MaterialCategory.PIPES_COPPER]: 'Pipes - Copper',
+  [MaterialCategory.PIPES_CARBON_STEEL]: 'Pipes - Carbon Steel',
+  [MaterialCategory.PIPES_STAINLESS_304L]: 'Pipes - Stainless Steel 304L',
+  [MaterialCategory.PIPES_STAINLESS_316L]: 'Pipes - Stainless Steel 316L',
   [MaterialCategory.PIPES_ALLOY_STEEL]: 'Pipes - Alloy Steel',
   [MaterialCategory.FITTINGS_BUTT_WELD]: 'Fittings - Butt Weld',
   [MaterialCategory.FITTINGS_SOCKET_WELD]: 'Fittings - Socket Weld',
@@ -258,10 +256,9 @@ export const MATERIAL_CATEGORY_GROUPS = {
     MaterialCategory.PLATES_ALLOY_STEEL,
   ],
   'Raw Materials - Pipes': [
-    MaterialCategory.PIPES_SEAMLESS,
-    MaterialCategory.PIPES_WELDED,
-    MaterialCategory.PIPES_STAINLESS,
-    MaterialCategory.PIPES_COPPER,
+    MaterialCategory.PIPES_CARBON_STEEL,
+    MaterialCategory.PIPES_STAINLESS_304L,
+    MaterialCategory.PIPES_STAINLESS_316L,
     MaterialCategory.PIPES_ALLOY_STEEL,
   ],
   Fittings: [
@@ -535,10 +532,22 @@ export const PLATE_MATERIAL_CODES: Partial<Record<MaterialCategory, [string, str
 };
 
 /**
+ * Pipe Material Code Mappings
+ * Format: PP-{MATERIAL}-{GRADE}-{CONSTRUCTION}
+ * Example: PP-CS-A106-SMLS, PP-SS-304L-SMLS
+ */
+export const PIPE_MATERIAL_CODES: Partial<Record<MaterialCategory, [string, string]>> = {
+  [MaterialCategory.PIPES_CARBON_STEEL]: ['PP', 'CS'],
+  [MaterialCategory.PIPES_STAINLESS_304L]: ['PP', 'SS304L'],
+  [MaterialCategory.PIPES_STAINLESS_316L]: ['PP', 'SS316L'],
+  [MaterialCategory.PIPES_ALLOY_STEEL]: ['PP', 'AS'],
+};
+
+/**
  * Helper to get form and material code from category
  */
 export function getMaterialCodeParts(category: MaterialCategory): [string, string] | undefined {
-  return PLATE_MATERIAL_CODES[category];
+  return PLATE_MATERIAL_CODES[category] || PIPE_MATERIAL_CODES[category];
 }
 
 // ============================================================================

@@ -38,6 +38,7 @@ export default function MaterialsPage() {
   const router = useRouter();
   const { db } = getFirebase();
   const [plateCounts, setPlateCounts] = useState(0);
+  const [pipeCounts, setPipeCounts] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const modules: MaterialCategoryModule[] = [
@@ -57,10 +58,12 @@ export default function MaterialsPage() {
     },
     {
       title: 'Pipes',
-      description: 'Seamless and Welded pipes in various materials with schedule-based variants',
+      description:
+        'Carbon Steel, SS 304L, SS 316L seamless pipes with ASTM schedules (Sch 10, 40, 80)',
       icon: <PipesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/materials/pipes',
-      comingSoon: true,
+      comingSoon: false,
+      categories: [MC.PIPES_CARBON_STEEL, MC.PIPES_STAINLESS_304L, MC.PIPES_STAINLESS_316L],
     },
     {
       title: 'Fittings',
@@ -85,12 +88,13 @@ export default function MaterialsPage() {
     },
   ];
 
-  // Load plate counts
+  // Load material counts
   useEffect(() => {
     async function loadCounts() {
       if (!db) return;
 
       try {
+        // Load plate counts
         const plateCategories = [
           MC.PLATES_CARBON_STEEL,
           MC.PLATES_STAINLESS_STEEL,
@@ -98,16 +102,32 @@ export default function MaterialsPage() {
           MC.PLATES_ALLOY_STEEL,
         ];
 
-        const q = query(
+        const platesQuery = query(
           collection(db, COLLECTIONS.MATERIALS),
           where('category', 'in', plateCategories),
           where('isActive', '==', true)
         );
 
-        const snapshot = await getCountFromServer(q);
-        setPlateCounts(snapshot.data().count);
+        const platesSnapshot = await getCountFromServer(platesQuery);
+        setPlateCounts(platesSnapshot.data().count);
+
+        // Load pipe counts
+        const pipeCategories = [
+          MC.PIPES_CARBON_STEEL,
+          MC.PIPES_STAINLESS_304L,
+          MC.PIPES_STAINLESS_316L,
+        ];
+
+        const pipesQuery = query(
+          collection(db, COLLECTIONS.MATERIALS),
+          where('category', 'in', pipeCategories),
+          where('isActive', '==', true)
+        );
+
+        const pipesSnapshot = await getCountFromServer(pipesQuery);
+        setPipeCounts(pipesSnapshot.data().count);
       } catch (error) {
-        console.error('Error loading plate counts:', error);
+        console.error('Error loading material counts:', error);
       } finally {
         setLoading(false);
       }
@@ -162,7 +182,7 @@ export default function MaterialsPage() {
               )}
 
               {/* Show count badge for active modules */}
-              {!module.comingSoon && index === 0 && (
+              {!module.comingSoon && (
                 <Box
                   sx={{
                     position: 'absolute',
@@ -177,7 +197,9 @@ export default function MaterialsPage() {
                     fontWeight: 'bold',
                   }}
                 >
-                  {loading ? '...' : `${plateCounts} materials`}
+                  {loading
+                    ? '...'
+                    : `${index === 0 ? plateCounts : index === 1 ? pipeCounts : 0} materials`}
                 </Box>
               )}
 
