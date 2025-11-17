@@ -34,7 +34,6 @@ import {
   Refresh as RefreshIcon,
   Edit as EditIcon,
   Visibility as ViewIcon,
-  CloudUpload as SeedIcon,
   Star as StarIcon,
   StarBorder as StarBorderIcon,
 } from '@mui/icons-material';
@@ -48,8 +47,6 @@ import type {
 } from '@vapour/types';
 import { MATERIAL_CATEGORY_LABELS, MaterialCategory as MC } from '@vapour/types';
 import { queryMaterials } from '@/lib/materials/materialService';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { useAuth } from '@/contexts/AuthContext';
 
 // Define tab structure with grouped categories
 interface MaterialTab {
@@ -89,14 +86,11 @@ const MATERIAL_TABS: MaterialTab[] = [
 export default function MaterialsPage() {
   const router = useRouter();
   const { db } = getFirebase();
-  const { claims } = useAuth();
 
   // State
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [seeding, setSeeding] = useState(false);
-  const [seedSuccess, setSeedSuccess] = useState<string | null>(null);
 
   // Tab & Category Selection
   const [activeTab, setActiveTab] = useState(0);
@@ -184,60 +178,6 @@ export default function MaterialsPage() {
     };
   }, [filteredMaterials]);
 
-  // Seed catalog handler
-  const handleSeedCatalog = async () => {
-    try {
-      setSeeding(true);
-      setError(null);
-      setSeedSuccess(null);
-
-      const functions = getFunctions();
-      const seedMaterialsCatalog = httpsCallable(functions, 'seedMaterialsCatalog');
-      const result = await seedMaterialsCatalog();
-
-      const data = result.data as {
-        success: boolean;
-        message: string;
-        stats: {
-          total: number;
-          carbonSteelPlates: number;
-          stainlessSteelPlates: number;
-          carbonSeamlessPipes: number;
-          carbonWeldedPipes: number;
-          stainlessSeamlessPipes: number;
-        };
-      };
-
-      if (data.success) {
-        setSeedSuccess(
-          `Successfully seeded ${data.stats.total} materials: ` +
-            `${data.stats.carbonSteelPlates} carbon steel plates, ` +
-            `${data.stats.stainlessSteelPlates} stainless steel plates, ` +
-            `${data.stats.carbonSeamlessPipes} seamless pipes, ` +
-            `${data.stats.carbonWeldedPipes} welded pipes, ` +
-            `${data.stats.stainlessSeamlessPipes} stainless pipes`
-        );
-        await loadMaterials();
-      }
-    } catch (err) {
-      console.error('Error seeding catalog:', err);
-      const error = err as { code?: string; message?: string };
-      if (error.code === 'permission-denied') {
-        setError('Super-admin permissions required to seed material catalog');
-      } else if (error.code === 'failed-precondition') {
-        setError(
-          'Materials collection already contains data. Clear existing materials before seeding.'
-        );
-      } else if (error.code === 'resource-exhausted') {
-        setError('Material catalog can only be seeded once per 24 hours');
-      } else {
-        setError(error.message || 'Failed to seed material catalog');
-      }
-    } finally {
-      setSeeding(false);
-    }
-  };
-
   // Sort handler
   const handleSort = (field: MaterialSortField) => {
     if (sortField === field) {
@@ -248,9 +188,6 @@ export default function MaterialsPage() {
     }
     setPage(0);
   };
-
-  // Check if user is super admin (all 27 permission bits)
-  const isSuperAdmin = claims?.permissions === 134217727;
 
   return (
     <Container maxWidth={false} sx={{ py: 3 }}>
@@ -266,18 +203,6 @@ export default function MaterialsPage() {
                 <RefreshIcon />
               </IconButton>
             </Tooltip>
-            {isSuperAdmin && (
-              <Tooltip title="Seed catalog with standard materials (Super Admin only)">
-                <Button
-                  variant="outlined"
-                  startIcon={seeding ? <CircularProgress size={20} /> : <SeedIcon />}
-                  onClick={handleSeedCatalog}
-                  disabled={seeding}
-                >
-                  Seed Catalog
-                </Button>
-              </Tooltip>
-            )}
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -336,11 +261,6 @@ export default function MaterialsPage() {
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
             {error}
-          </Alert>
-        )}
-        {seedSuccess && (
-          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSeedSuccess(null)}>
-            {seedSuccess}
           </Alert>
         )}
       </Box>
