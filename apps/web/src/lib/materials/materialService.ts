@@ -88,8 +88,18 @@ export async function createMaterial(
     logger.info('Creating material', { name: materialData.name, category: materialData.category });
 
     // Generate material code if not provided
+    // Requires grade from specification
+    if (!materialData.materialCode && !materialData.specification.grade) {
+      throw new Error('Material grade is required for code generation');
+    }
+
     const materialCode =
-      materialData.materialCode || (await generateMaterialCode(db, materialData.category));
+      materialData.materialCode ||
+      (await generateMaterialCode(
+        db,
+        materialData.category,
+        materialData.specification.grade as string
+      ));
 
     const now = Timestamp.now();
     const newMaterial: Omit<Material, 'id'> = {
@@ -125,17 +135,19 @@ export async function createMaterial(
 }
 
 /**
- * Generate unique material code (PL-SS-XX format)
- * Format: {FORM}-{MATERIAL}-{XX}
- * Example: PL-SS-01 (Plate - Stainless Steel #01)
+ * Generate unique material code (PL-SS-304-01 format)
+ * Format: {FORM}-{MATERIAL}-{GRADE}-{XX}
+ * Example: PL-SS-304-01 (Plate - Stainless Steel - 304 - #01)
  *
  * @param db - Firestore instance
  * @param category - Material category (e.g., PLATES_STAINLESS_STEEL)
+ * @param grade - Material grade (e.g., "304", "304L", "316", "316L")
  * @returns Promise<string> - Generated material code
  */
 async function generateMaterialCode(
   db: Firestore,
-  category: MaterialCategory
+  category: MaterialCategory,
+  grade: string
 ): Promise<string> {
   const codeParts = getMaterialCodeParts(category);
 
@@ -144,21 +156,25 @@ async function generateMaterialCode(
   }
 
   const [form, material] = codeParts;
-  const baseCode = `${form}-${material}`;
+
+  // Normalize grade (remove spaces, convert to uppercase)
+  const normalizedGrade = grade.replace(/\s+/g, '').toUpperCase();
+
+  const baseCode = `${form}-${material}-${normalizedGrade}`;
 
   // Query for the latest material code with this base code
-  // Example: Query for all codes starting with "PL-SS-"
+  // Example: Query for all codes starting with "PL-SS-304-"
   const q = query(
     collection(db, COLLECTIONS.MATERIALS),
     where('materialCode', '>=', baseCode),
-    where('materialCode', '<', `${baseCode}-ZZ`), // Exclude codes from other materials
+    where('materialCode', '<', `${baseCode}-ZZ`), // Exclude codes from other grades
     orderBy('materialCode', 'desc'),
     limit(1)
   );
 
   const snapshot = await getDocs(q);
 
-  // If no materials exist for this type, start at 01
+  // If no materials exist for this grade, start at 01
   if (snapshot.empty) {
     return `${baseCode}-01`;
   }
@@ -176,9 +192,9 @@ async function generateMaterialCode(
   }
 
   // Extract sequence number from last code
-  // Example: "PL-SS-05" -> parts = ["PL", "SS", "05"]
+  // Example: "PL-SS-304-05" -> parts = ["PL", "SS", "304", "05"]
   const parts = lastCode.split('-');
-  const lastNumberStr = parts[2];
+  const lastNumberStr = parts[3]; // Sequence is now 4th part (index 3)
   if (!lastNumberStr) {
     return `${baseCode}-01`;
   }
@@ -186,7 +202,7 @@ async function generateMaterialCode(
   const lastNumber = parseInt(lastNumberStr, 10);
   const nextNumber = lastNumber + 1;
 
-  // Validate sequence limit (max 99 for 2-digit format)
+  // Validate sequence limit (max 99 for 2-digit format per grade)
   if (nextNumber > 99) {
     throw new Error(`Maximum material code limit reached for ${baseCode} (max: 99)`);
   }
