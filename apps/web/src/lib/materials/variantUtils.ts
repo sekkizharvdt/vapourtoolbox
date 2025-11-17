@@ -5,7 +5,7 @@
  * formatting, and display helpers.
  */
 
-import type { Material, MaterialVariant } from '@vapour/types';
+import type { Material, MaterialVariant, Money } from '@vapour/types';
 
 /**
  * Generate full variant specification code
@@ -56,17 +56,20 @@ export function formatWeight(weight: number, unit: string = 'kg/m²'): string {
 
 /**
  * Format price for display
- * @param price - Price value
- * @param currency - Currency code
+ * @param price - Price value as number or Money object
+ * @param currency - Currency code (optional, used only if price is number)
  * @returns Formatted price string
  */
-export function formatPrice(price: number, currency: string = 'INR'): string {
+export function formatPrice(price: number | Money, currency: string = 'INR'): string {
+  const amount = typeof price === 'number' ? price : price.amount;
+  const curr = typeof price === 'number' ? currency : price.currency;
+
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency,
+    currency: curr,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(price);
+  }).format(amount);
 }
 
 /**
@@ -205,8 +208,12 @@ export function getCheapestVariant(variants: MaterialVariant[]): MaterialVariant
   return variants
     .filter((v) => v.isAvailable && v.currentPrice?.pricePerUnit)
     .sort((a, b) => {
-      const priceA = a.currentPrice?.pricePerUnit || Infinity;
-      const priceB = b.currentPrice?.pricePerUnit || Infinity;
+      const priceA = typeof a.currentPrice?.pricePerUnit === 'number'
+        ? a.currentPrice.pricePerUnit
+        : a.currentPrice?.pricePerUnit?.amount || Infinity;
+      const priceB = typeof b.currentPrice?.pricePerUnit === 'number'
+        ? b.currentPrice.pricePerUnit
+        : b.currentPrice?.pricePerUnit?.amount || Infinity;
       return priceA - priceB;
     })[0];
 }

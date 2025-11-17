@@ -134,6 +134,7 @@ export default function NewMaterialPage() {
         tags: formData.tags,
         isStandard: formData.isStandard,
         trackInventory: formData.trackInventory,
+        hasVariants: false,
 
         preferredVendors: [],
         priceHistory: [],
