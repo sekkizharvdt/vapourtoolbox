@@ -6,7 +6,7 @@
  */
 
 import { evaluateMultipleFormulas, type EvaluationContext } from './formulaEvaluator';
-import type { Shape, Material, ShapeInstance } from '@vapour/types';
+import type { Shape, Material, ShapeInstance, FormulaDefinition } from '@vapour/types';
 
 // Type alias for calculation result
 type ShapeCalculationResult = Omit<
@@ -31,15 +31,17 @@ export function calculateShape(input: CalculateShapeInput): ShapeCalculationResu
   const { shape, material, parameterValues, quantity = 1 } = input;
 
   // Get material density (default to 7850 kg/m³ for steel if not specified)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const density = (material as any).physicalProperties?.density || 7850;
+  const density = material.properties.density || 7850;
 
   // Build evaluation context
   const context: EvaluationContext = { ...parameterValues };
 
   // Evaluate all formulas
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const formulaResults = evaluateMultipleFormulas(shape.formulas as any, context, density);
+  const formulaResults = evaluateMultipleFormulas(
+    shape.formulas as unknown as Record<string, FormulaDefinition>,
+    context,
+    density
+  );
 
   // Extract key results
   const volume = formulaResults.volume?.result || 0;
@@ -59,38 +61,62 @@ export function calculateShape(input: CalculateShapeInput): ShapeCalculationResu
   const weldLength = formulaResults.weldLength?.result;
   const perimeter = formulaResults.perimeter?.result;
 
-  // Calculate costs
-  const materialCost = calculateMaterialCost(weight, material, blankArea, finishedArea);
-  const fabricationCost = calculateFabricationCost(shape, {
-    weight,
-    surfaceArea,
-    edgeLength,
-    weldLength,
-    perimeter,
-  });
+  // Calculate individual cost components
+  const basePrice = material.currentPrice?.pricePerUnit.amount || 0;
+  const materialCost = weight * basePrice; // Finished weight cost
 
-  const totalCost = materialCost + fabricationCost;
+  // Calculate scrap weight and costs
+  let scrapWeight = 0;
+  let materialCostActual = materialCost;
+  let scrapRecoveryValue = 0;
+
+  if (blankArea && finishedArea && parameterValues.t) {
+    const thickness = parameterValues.t as number;
+    scrapWeight = ((blankArea - finishedArea) * density * thickness) / 1000000; // Convert mm³ to kg
+    materialCostActual = (weight + scrapWeight) * basePrice;
+    scrapRecoveryValue = scrapWeight * basePrice * 0.3; // Assume 30% recovery value
+  }
+
+  // Individual fabrication costs
+  const cuttingCost = perimeter ? calculateCuttingCost(perimeter) : 0;
+  const edgePreparationCost = edgeLength ? calculateEdgeCost(edgeLength) : 0;
+  const weldingCost = weldLength
+    ? calculateWeldingCost(weldLength, (parameterValues.t as number) || 10)
+    : 0;
+  const surfaceTreatmentCost = surfaceArea ? calculateSurfaceTreatmentCost(surfaceArea) : 0;
+
+  // Fabrication cost (base + weight-based + other costs)
+  const fabricationCost =
+    (shape.fabricationCost?.baseCost || 0) + weight * (shape.fabricationCost?.costPerKg || 0);
+
+  const totalCost =
+    materialCostActual -
+    scrapRecoveryValue +
+    fabricationCost +
+    cuttingCost +
+    edgePreparationCost +
+    weldingCost +
+    surfaceTreatmentCost;
 
   // Calculate quantity-based totals
   const totalWeight = weight * quantity;
   const totalCostWithQuantity = totalCost * quantity;
 
   // Build result
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result: any = {
-    shapeId: shape.id!,
+  const result = {
+    shapeId: shape.id,
     shapeName: shape.name,
     shapeCategory: shape.category,
-    materialId: material.id!,
+    materialId: material.id,
     materialName: material.name,
     materialDensity: density,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    materialPricePerKg: (material as any).pricingDetails?.basePrice || 0,
+    materialPricePerKg: material.currentPrice?.pricePerUnit.amount || 0,
 
     // Parameter values
     parameterValues: Object.entries(parameterValues).map(([name, value]) => {
       const param = shape.parameters.find((p) => p.name === name);
       return {
+        name, // Alias for parameterName
         parameterName: name,
         value,
         unit: param?.unit || '',
@@ -144,30 +170,17 @@ export function calculateShape(input: CalculateShapeInput): ShapeCalculationResu
 
     // Cost estimation
     costEstimate: {
-      materialCost,
-      fabricationCost,
+      materialCost, // Finished weight × price
+      materialCostActual, // Blank weight × price (including scrap)
+      scrapRecoveryValue, // Negative value for recovery
+      fabricationCost, // Base + weight-based fabrication cost
+      surfaceTreatmentCost,
+      edgePreparationCost,
+      cuttingCost,
+      weldingCost,
       totalCost,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      currency: (material as any).pricingDetails?.currency || 'INR',
-      costBreakdown: {
-        // Detailed breakdown can be added here
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        baseMaterialCost: weight * ((material as any).pricingDetails?.basePrice || 0),
-        scrapCost:
-          blankArea && finishedArea
-            ? ((blankArea - finishedArea) *
-                density *
-                (parameterValues.t || 0) *
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                ((material as any).pricingDetails?.basePrice || 0)) /
-              1000000
-            : 0,
-        ...(edgeLength && { edgePreparationCost: calculateEdgeCost(edgeLength) }),
-        ...(weldLength && {
-          weldingCost: calculateWeldingCost(weldLength, parameterValues.t || 0),
-        }),
-        ...(surfaceArea && { surfaceTreatmentCost: calculateSurfaceTreatmentCost(surfaceArea) }),
-      },
+      currency: material.currentPrice?.currency || 'INR',
+      effectiveCostPerKg: weight > 0 ? totalCost / weight : 0,
     },
 
     // Quantity
@@ -177,78 +190,6 @@ export function calculateShape(input: CalculateShapeInput): ShapeCalculationResu
   };
 
   return result;
-}
-
-/**
- * Calculate material cost including blank and scrap
- */
-function calculateMaterialCost(
-  weight: number,
-  material: Material,
-  blankArea?: number,
-  finishedArea?: number
-): number {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const basePrice = (material as any).pricingDetails?.basePrice || 0;
-
-  // If blank/scrap calculation available, use actual blank material
-  if (blankArea && finishedArea) {
-    // Calculate blank weight (this is simplified - would need thickness and density)
-    // For now, use the weight ratio
-    const scrapRatio = (blankArea - finishedArea) / finishedArea;
-    const totalMaterialWeight = weight * (1 + scrapRatio);
-    return totalMaterialWeight * basePrice;
-  }
-
-  // Otherwise use finished weight
-  return weight * basePrice;
-}
-
-/**
- * Calculate fabrication cost based on shape properties
- */
-function calculateFabricationCost(
-  shape: Shape,
-  properties: {
-    weight: number;
-    surfaceArea?: number;
-    edgeLength?: number;
-    weldLength?: number;
-    perimeter?: number;
-  }
-): number {
-  let cost = 0;
-
-  // Use shape-specific fabrication formula if available
-  if (shape.fabricationCost?.formula) {
-    // TODO: Evaluate fabrication formula
-    // For now, use simple heuristics
-  }
-
-  // Simple cost heuristics
-  if (shape.fabricationCost) {
-    cost += shape.fabricationCost.baseCost || 0;
-    cost += properties.weight * (shape.fabricationCost.costPerKg || 0);
-    cost +=
-      ((properties.surfaceArea || 0) * (shape.fabricationCost.costPerSurfaceArea || 0)) / 1000000; // Convert mm² to m²
-  }
-
-  // Add cutting cost
-  if (properties.perimeter) {
-    cost += calculateCuttingCost(properties.perimeter);
-  }
-
-  // Add edge preparation cost
-  if (properties.edgeLength) {
-    cost += calculateEdgeCost(properties.edgeLength);
-  }
-
-  // Add welding cost
-  if (properties.weldLength) {
-    cost += calculateWeldingCost(properties.weldLength, 10); // Assuming 10mm thickness for now
-  }
-
-  return cost;
 }
 
 /**

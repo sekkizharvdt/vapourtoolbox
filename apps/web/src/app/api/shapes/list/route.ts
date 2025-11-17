@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { Shape } from '@vapour/types';
 import { ShapeCategory } from '@vapour/types';
 
 // Import shape definitions directly (TODO: Export from @vapour/functions package)
 // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
-const { allShapes } = require('../../../../../../packages/functions/src/data/shapes');
+const { allShapes } = require('../../../../../../packages/functions/src/data/shapes') as {
+  allShapes: Omit<
+    Shape,
+    'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
+  >[];
+};
 
 // Mark as dynamic to work with static export
 export const dynamic = 'force-static';
@@ -56,12 +62,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter shapes by category
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const shapes = allShapes
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((shape: any) => allowedCategories.includes(shape.category))
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((shape: any, index: number) => ({
+      .filter((shape) => allowedCategories.includes(shape.category))
+      .map((shape, index: number) => ({
         // Add temporary IDs since shapes don't have them yet
         id: `shape-${categoryId}-${index}`,
         shapeCode: `SHP-${categoryId.toUpperCase()}-${String(index + 1).padStart(3, '0')}`,

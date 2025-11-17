@@ -8,8 +8,7 @@ import { create, all, type MathJsInstance } from 'mathjs';
 import type { FormulaDefinition } from '@vapour/types';
 
 // Create mathjs instance with safe configuration
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const math: MathJsInstance = create(all as any, {
+const math: MathJsInstance = create(all as unknown as Parameters<typeof create>[0], {
   number: 'BigNumber', // Use BigNumber for precision
   precision: 64, // High precision for engineering calculations
 });
@@ -122,10 +121,13 @@ export function extractVariables(expression: string): string[] {
     const vars = new Set<string>();
 
     // Traverse the expression tree to find variable nodes
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    node.traverse((node: any) => {
-      if (node.type === 'SymbolNode' && !Object.keys(CONSTANTS).includes(node.name)) {
-        vars.add(node.name);
+    node.traverse((childNode: unknown) => {
+      const symbolNode = childNode as { type?: string; name?: string };
+      if (
+        symbolNode.type === 'SymbolNode' &&
+        !Object.keys(CONSTANTS).includes(symbolNode.name || '')
+      ) {
+        vars.add(symbolNode.name!);
       }
     });
 
