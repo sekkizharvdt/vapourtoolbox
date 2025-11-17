@@ -17,7 +17,7 @@ import type { Money, CurrencyCode } from './common';
 export interface Material {
   // Identity
   id: string;
-  materialCode: string; // Format: PL-SS-304-01 (Form-Material-Grade-Sequence)
+  materialCode: string; // Format: PL-SS-304 (Form-Material-Grade)
   customCode?: string; // User-defined code or legacy code
   name: string; // e.g., "Stainless Steel 316L Plate"
   description: string; // Detailed description
@@ -522,20 +522,22 @@ export interface MaterialListItem {
 // ============================================================================
 
 /**
- * Material Code Format: {FORM}-{MATERIAL}-{GRADE}-{XX}
- * Example: PL-SS-304-01 (Plate - Stainless Steel - 304 - #01)
+ * Material Code Format: {FORM}-{MATERIAL}-{GRADE}
+ * Example: PL-SS-304 (Plate - Stainless Steel - 304)
+ *
+ * Note: No sequence number needed - each grade has ONE material code.
+ * All thickness and finish variations are stored as variants.
  */
 
 export interface MaterialCodeConfig {
   form: string; // "PL" for Plate
   material: string; // "SS" for Stainless Steel
   grade: string; // "304", "304L", "316", "316L", etc.
-  sequence: number; // 1-99 (2 digits per grade)
 }
 
 /**
  * Plate Material Code Mappings
- * Format: PL-{MATERIAL}-{GRADE}-{XX}
+ * Format: PL-{MATERIAL}-{GRADE}
  */
 export const PLATE_MATERIAL_CODES: Record<MaterialCategory, [string, string]> = {
   [MaterialCategory.PLATES_STAINLESS_STEEL]: ['PL', 'SS'],
