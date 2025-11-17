@@ -107,7 +107,10 @@ export default function MaterialsPage() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
   // Get current tab's categories
-  const currentTabCategories = MATERIAL_TABS[activeTab]?.categories || [];
+  const currentTabCategories = useMemo(
+    () => MATERIAL_TABS[activeTab]?.categories || [],
+    [activeTab]
+  );
 
   // Load materials for current tab
   const loadMaterials = useCallback(async () => {

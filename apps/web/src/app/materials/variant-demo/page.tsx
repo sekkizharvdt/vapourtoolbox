@@ -201,11 +201,7 @@ export default function MaterialVariantDemoPage() {
     setSelectedFullCode(fullCode);
   };
 
-  const handleMaterialPick = (
-    material: Material,
-    variant?: MaterialVariant,
-    fullCode?: string
-  ) => {
+  const handleMaterialPick = (material: Material, variant?: MaterialVariant, fullCode?: string) => {
     setPickedMaterial({
       material,
       variant,
@@ -231,7 +227,7 @@ export default function MaterialVariantDemoPage() {
           1. Material Variant Selector
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Interactive component for selecting a specific variant from a material's options
+          Interactive component for selecting a specific variant from a material&apos;s options
         </Typography>
 
         <MaterialVariantSelector

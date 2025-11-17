@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -71,24 +71,7 @@ export default function MaterialPickerDialog({
   const [selectedVariant, setSelectedVariant] = useState<MaterialVariant | null>(null);
   const [selectedFullCode, setSelectedFullCode] = useState<string>('');
 
-  // Load materials on open
-  useEffect(() => {
-    if (open && db) {
-      loadMaterials();
-    }
-  }, [open, db, selectedCategory]);
-
-  // Reset state when dialog opens
-  useEffect(() => {
-    if (open) {
-      setSelectedMaterial(null);
-      setSelectedVariant(null);
-      setSelectedFullCode('');
-      setSearchText('');
-    }
-  }, [open]);
-
-  const loadMaterials = async () => {
+  const loadMaterials = useCallback(async () => {
     if (!db) return;
 
     try {
@@ -96,7 +79,11 @@ export default function MaterialPickerDialog({
       setError(null);
 
       const categoriesToQuery =
-        selectedCategory === 'ALL' && categories ? categories : selectedCategory === 'ALL' ? undefined : [selectedCategory];
+        selectedCategory === 'ALL' && categories
+          ? categories
+          : selectedCategory === 'ALL'
+            ? undefined
+            : [selectedCategory];
 
       const result = await queryMaterials(db, {
         categories: categoriesToQuery,
@@ -112,7 +99,24 @@ export default function MaterialPickerDialog({
     } finally {
       setLoading(false);
     }
-  };
+  }, [db, selectedCategory, categories]);
+
+  // Load materials on open
+  useEffect(() => {
+    if (open && db) {
+      loadMaterials();
+    }
+  }, [open, db, loadMaterials]);
+
+  // Reset state when dialog opens
+  useEffect(() => {
+    if (open) {
+      setSelectedMaterial(null);
+      setSelectedVariant(null);
+      setSelectedFullCode('');
+      setSearchText('');
+    }
+  }, [open]);
 
   // Filter materials by search text
   const filteredMaterials = useMemo(() => {
@@ -305,7 +309,11 @@ export default function MaterialPickerDialog({
                     {selectedMaterial.materialCode}
                   </Typography>
                   {selectedMaterial.description && (
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ mt: 1, display: 'block' }}
+                    >
                       {selectedMaterial.description}
                     </Typography>
                   )}

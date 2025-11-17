@@ -539,7 +539,7 @@ export interface MaterialCodeConfig {
  * Plate Material Code Mappings
  * Format: PL-{MATERIAL}-{GRADE}
  */
-export const PLATE_MATERIAL_CODES: Record<MaterialCategory, [string, string]> = {
+export const PLATE_MATERIAL_CODES: Partial<Record<MaterialCategory, [string, string]>> = {
   [MaterialCategory.PLATES_STAINLESS_STEEL]: ['PL', 'SS'],
   [MaterialCategory.PLATES_CARBON_STEEL]: ['PL', 'CS'],
   [MaterialCategory.PLATES_DUPLEX_STEEL]: ['PL', 'DS'],
@@ -553,9 +553,7 @@ export const PLATE_MATERIAL_CODES: Record<MaterialCategory, [string, string]> = 
 /**
  * Helper to get form and material code from category
  */
-export function getMaterialCodeParts(
-  category: MaterialCategory
-): [string, string] | undefined {
+export function getMaterialCodeParts(category: MaterialCategory): [string, string] | undefined {
   return PLATE_MATERIAL_CODES[category];
 }
 

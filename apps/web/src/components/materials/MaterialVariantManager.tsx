@@ -16,7 +16,6 @@ import {
   Alert,
   IconButton,
   Stack,
-  Chip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -394,7 +393,10 @@ export default function MaterialVariantManager({
                 type="number"
                 value={formData.weightPerUnit || ''}
                 onChange={(e) =>
-                  setFormData({ ...formData, weightPerUnit: parseFloat(e.target.value) || undefined })
+                  setFormData({
+                    ...formData,
+                    weightPerUnit: parseFloat(e.target.value) || undefined,
+                  })
                 }
                 inputProps={{ step: 0.01, min: 0 }}
                 helperText="kg/m² for plates, kg/m for pipes"

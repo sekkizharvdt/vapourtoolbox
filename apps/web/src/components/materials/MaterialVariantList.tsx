@@ -22,7 +22,7 @@ import {
   LocalShipping as ShippingIcon,
   Inventory as InventoryIcon,
 } from '@mui/icons-material';
-import type { Material, MaterialVariant } from '@vapour/types';
+import type { Material } from '@vapour/types';
 import {
   generateVariantCode,
   formatThickness,
@@ -161,10 +161,14 @@ export default function MaterialVariantList({
                           </Typography>
                         )}
                         {variant.dimensions.length && (
-                          <Typography variant="caption">Length: {variant.dimensions.length}mm</Typography>
+                          <Typography variant="caption">
+                            Length: {variant.dimensions.length}mm
+                          </Typography>
                         )}
                         {variant.dimensions.width && (
-                          <Typography variant="caption">Width: {variant.dimensions.width}mm</Typography>
+                          <Typography variant="caption">
+                            Width: {variant.dimensions.width}mm
+                          </Typography>
                         )}
                         {variant.dimensions.schedule && (
                           <Typography variant="caption">{variant.dimensions.schedule}</Typography>
@@ -192,7 +196,9 @@ export default function MaterialVariantList({
                   <TableCell>
                     <Chip label={availability.label} size="small" color={availability.color} />
                     {variant.discontinuedDate && (
-                      <Tooltip title={`Discontinued on ${variant.discontinuedDate.toDate?.().toLocaleDateString() || 'N/A'}`}>
+                      <Tooltip
+                        title={`Discontinued on ${variant.discontinuedDate.toDate?.().toLocaleDateString() || 'N/A'}`}
+                      >
                         <IconButton size="small" sx={{ ml: 0.5 }}>
                           <InfoIcon fontSize="small" />
                         </IconButton>
@@ -205,7 +211,9 @@ export default function MaterialVariantList({
                     {variant.leadTimeDays !== undefined ? (
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <ShippingIcon fontSize="small" color="action" />
-                        <Typography variant="body2">{formatLeadTime(variant.leadTimeDays)}</Typography>
+                        <Typography variant="body2">
+                          {formatLeadTime(variant.leadTimeDays)}
+                        </Typography>
                       </Box>
                     ) : (
                       <Typography variant="caption" color="text.secondary">

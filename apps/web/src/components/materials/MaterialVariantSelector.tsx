@@ -14,7 +14,6 @@ import {
   Alert,
   Divider,
   Grid,
-  Tooltip,
   IconButton,
   Collapse,
 } from '@mui/material';
@@ -94,8 +93,8 @@ export default function MaterialVariantSelector({
   if (!hasVariants(material)) {
     return (
       <Alert severity="info" sx={{ mt: 2 }}>
-        This material has no variants. The base material code <strong>{material.materialCode}</strong>{' '}
-        will be used.
+        This material has no variants. The base material code{' '}
+        <strong>{material.materialCode}</strong> will be used.
       </Alert>
     );
   }
@@ -151,7 +150,10 @@ export default function MaterialVariantSelector({
         </Alert>
 
         {/* Variant List */}
-        <RadioGroup value={selectedVariantId || ''} onChange={(e) => handleVariantChange(e.target.value)}>
+        <RadioGroup
+          value={selectedVariantId || ''}
+          onChange={(e) => handleVariantChange(e.target.value)}
+        >
           <Stack spacing={compact ? 1 : 2}>
             {variants.map((variant) => {
               const availability = getVariantAvailability(variant);
@@ -175,7 +177,9 @@ export default function MaterialVariantSelector({
                   }}
                   onClick={() => handleVariantChange(variant.id)}
                 >
-                  <CardContent sx={{ p: compact ? 1.5 : 2, '&:last-child': { pb: compact ? 1.5 : 2 } }}>
+                  <CardContent
+                    sx={{ p: compact ? 1.5 : 2, '&:last-child': { pb: compact ? 1.5 : 2 } }}
+                  >
                     <Grid container spacing={2} alignItems="center">
                       {/* Radio Button */}
                       <Grid item xs="auto">
@@ -213,7 +217,11 @@ export default function MaterialVariantSelector({
                           </Typography>
 
                           {/* Variant Properties */}
-                          <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', gap: 0.5 }}>
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            sx={{ mt: 1, flexWrap: 'wrap', gap: 0.5 }}
+                          >
                             {/* Thickness */}
                             {variant.dimensions.thickness && (
                               <Chip
