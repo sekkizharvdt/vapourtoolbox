@@ -84,6 +84,10 @@ export const COLLECTIONS = {
   EQUIPMENT: 'equipment',
   COMPONENTS: 'components',
 
+  // BOM (Bill of Materials) - Week 1 Sprint
+  BOMS: 'boms',
+  BOM_ITEMS: 'items', // Subcollection under boms/{bomId}/items
+
   // Material Database (Phase 1)
   MATERIALS: 'materials',
   MATERIAL_PRICES: 'materialPrices',
