@@ -14,19 +14,21 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
+import { getFirestore } from 'firebase/firestore';
+import { firebaseApp } from '@/lib/firebase/clientApp';
+import { queryMaterials } from '@/lib/materials/materialService';
+import type { Material, MaterialCategory } from '@vapour/types';
 
 interface MaterialSelectorProps {
   allowedCategories: string[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onMaterialSelect: (material: any) => void;
+  onMaterialSelect: (material: Material) => void;
 }
 
 export default function MaterialSelector({
   allowedCategories,
   onMaterialSelect,
 }: MaterialSelectorProps) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [materials, setMaterials] = useState<any[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,9 +40,18 @@ export default function MaterialSelector({
     setLoading(true);
     setError(null);
     try {
-      // Load materials for each allowed category
+      // Initialize Firestore
+      const db = getFirestore(firebaseApp);
+
+      // Load materials for each allowed category directly from Firestore
       const promises = allowedCategories.map((category) =>
-        fetch(`/api/materials/list?category=${category}&limit=10`).then((res) => res.json())
+        queryMaterials(db, {
+          categories: [category as MaterialCategory],
+          isActive: true,
+          limitResults: 10,
+          sortField: 'name',
+          sortDirection: 'asc',
+        })
       );
 
       const results = await Promise.all(promises);
@@ -85,33 +96,31 @@ export default function MaterialSelector({
               </Typography>
 
               <Stack spacing={1}>
-                {material.specifications?.grade && (
+                {material.specification?.grade && (
                   <Box>
                     <Typography variant="caption" color="text.secondary">
                       Grade:
                     </Typography>
-                    <Typography variant="body2">{material.specifications.grade}</Typography>
+                    <Typography variant="body2">{material.specification.grade}</Typography>
                   </Box>
                 )}
 
-                {material.physicalProperties?.density && (
+                {material.properties?.density && (
                   <Box>
                     <Typography variant="caption" color="text.secondary">
                       Density:
                     </Typography>
-                    <Typography variant="body2">
-                      {material.physicalProperties.density} kg/m³
-                    </Typography>
+                    <Typography variant="body2">{material.properties.density} kg/m³</Typography>
                   </Box>
                 )}
 
-                {material.pricingDetails?.basePrice && (
+                {material.currentPrice?.pricePerUnit?.amount && (
                   <Box>
                     <Typography variant="caption" color="text.secondary">
                       Price:
                     </Typography>
                     <Typography variant="body2">
-                      ₹{material.pricingDetails.basePrice.toFixed(2)}/kg
+                      ₹{material.currentPrice.pricePerUnit.amount.toFixed(2)}/kg
                     </Typography>
                   </Box>
                 )}
