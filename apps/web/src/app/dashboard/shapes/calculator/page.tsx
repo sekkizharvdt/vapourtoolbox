@@ -31,14 +31,13 @@ import MaterialSelector from '@/components/shapes/MaterialSelector';
 import ParameterInputForm from '@/components/shapes/ParameterInputForm';
 import CalculationResults from '@/components/shapes/CalculationResults';
 import FormulaTester from '@/components/shapes/FormulaTester';
+import { calculateShape } from '@/lib/shapes/shapeCalculator';
+import type { Shape, Material, ShapeInstance } from '@vapour/types';
 
-// TODO: Import proper types from @vapour/types when available
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Shape = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Material = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type CalculationResult = any;
+type CalculationResult = Omit<
+  ShapeInstance,
+  'id' | 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy'
+>;
 
 export default function ShapeCalculatorPage() {
   const [activeStep, setActiveStep] = useState(0);
@@ -71,35 +70,18 @@ export default function ShapeCalculatorPage() {
     setParameterValues(values);
   };
 
-  const handleCalculate = async () => {
+  const handleCalculate = () => {
     if (!selectedShape || !selectedMaterial) return;
 
     setLoading(true);
     try {
-      // Call calculation API
-      const response = await fetch('/api/shapes/calculate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          shapeId: selectedShape.id,
-          shape: selectedShape,
-          materialId: selectedMaterial.id,
-          material: selectedMaterial,
-          parameterValues: Object.entries(parameterValues).map(([name, value]) => ({
-            name,
-            value,
-          })),
-          quantity,
-        }),
+      // Calculate directly on client-side
+      const result = calculateShape({
+        shape: selectedShape,
+        material: selectedMaterial,
+        parameterValues,
+        quantity,
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Calculation failed');
-      }
 
       setCalculationResult(result);
       setActiveStep(3);
@@ -303,7 +285,7 @@ export default function ShapeCalculatorPage() {
                       Density
                     </Typography>
                     <Typography variant="body1">
-                      {selectedMaterial.physicalProperties?.density || 'N/A'} kg/m³
+                      {selectedMaterial.properties?.density || 'N/A'} kg/m³
                     </Typography>
                   </Box>
                   <Box>
