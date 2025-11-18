@@ -24,7 +24,9 @@ import {
   TableHead,
   TableRow,
   Paper,
+  Tooltip,
 } from '@mui/material';
+import { Info as InfoIcon } from '@mui/icons-material';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -429,6 +431,72 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
                     <TableCell align="center">—</TableCell>
                   </TableRow>
 
+                  {/* Material Database (Read-only indicator) */}
+                  <TableRow sx={{ bgcolor: 'action.hover' }}>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        Material Database
+                        <Tooltip title="Access controlled by Estimation → View permission">
+                          <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Checkbox
+                        checked={hasPermission(permissions, PERMISSION_FLAGS.VIEW_ESTIMATION)}
+                        disabled
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell align="center">—</TableCell>
+                    <TableCell align="center">—</TableCell>
+                    <TableCell align="center">—</TableCell>
+                  </TableRow>
+
+                  {/* Shape Database (Read-only indicator) */}
+                  <TableRow sx={{ bgcolor: 'action.hover' }}>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        Shape Database
+                        <Tooltip title="Access controlled by Estimation → View permission">
+                          <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Checkbox
+                        checked={hasPermission(permissions, PERMISSION_FLAGS.VIEW_ESTIMATION)}
+                        disabled
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell align="center">—</TableCell>
+                    <TableCell align="center">—</TableCell>
+                    <TableCell align="center">—</TableCell>
+                  </TableRow>
+
+                  {/* Bought Out Database (Read-only indicator) */}
+                  <TableRow sx={{ bgcolor: 'action.hover' }}>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        Bought Out Database
+                        <Tooltip title="Access controlled by Estimation → View permission">
+                          <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Checkbox
+                        checked={hasPermission(permissions, PERMISSION_FLAGS.VIEW_ESTIMATION)}
+                        disabled
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell align="center">—</TableCell>
+                    <TableCell align="center">—</TableCell>
+                    <TableCell align="center">—</TableCell>
+                  </TableRow>
+
                   {/* Analytics */}
                   <TableRow>
                     <TableCell>Analytics</TableCell>
@@ -471,9 +539,21 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
               </Table>
             </TableContainer>
 
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              <strong>Note:</strong> — indicates permission not applicable for this module
-            </Typography>
+            <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                <strong>Note:</strong> — indicates permission not applicable for this module
+              </Typography>
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                <Typography variant="caption">
+                  <strong>Engineering Databases:</strong> Material Database, Shape Database, and
+                  Bought Out Database are automatically accessible when Estimation → View is
+                  enabled.
+                  <br />
+                  <strong>Document Management:</strong> Accessible to all users regardless of
+                  permissions.
+                </Typography>
+              </Alert>
+            </Box>
           </Box>
 
           {/* Info about custom claims */}
