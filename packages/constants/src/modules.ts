@@ -192,16 +192,15 @@ export const MODULES: Record<string, ModuleDefinition> = {
 
   BOUGHT_OUT_DATABASE: {
     id: 'bought-out-database',
-    name: 'Bought Out Database',
+    name: 'Bought Out Items',
     shortName: 'Bought Out',
-    description: 'Comprehensive bought-out items, vendor parts, and equipment library',
+    description: 'Valves, pumps, instruments, strainers, and separation equipment',
     icon: 'LocalShipping',
     color: '#0D9488', // Teal
     path: '/bought-out',
-    status: 'coming_soon',
+    status: 'active',
     requiredPermissions: 524288, // VIEW_ESTIMATION (procurement/engineering items)
     category: 'application',
-    estimatedRelease: 'Q1 2026',
     priority: 8,
   },
 
