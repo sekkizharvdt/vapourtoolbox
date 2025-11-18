@@ -1,0 +1,552 @@
+/**
+ * BOM (Bill of Materials) Service
+ *
+ * Provides CRUD operations for BOMs and BOM items with automatic
+ * cost calculation, hierarchical numbering, and summary aggregation.
+ *
+ * Week 1 Sprint - Core functionality only (DRAFT status, material cost only)
+ */
+
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  limit as firestoreLimit,
+  getDocs,
+  getDoc,
+  doc,
+  addDoc,
+  updateDoc,
+  writeBatch,
+  Timestamp,
+  type Firestore,
+} from 'firebase/firestore';
+import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
+import type {
+  BOM,
+  BOMItem,
+  BOMStatus,
+  BOMCategory,
+  CreateBOMInput,
+  UpdateBOMItemInput,
+  CreateBOMItemInput,
+  BOMSummary,
+} from '@vapour/types';
+
+const logger = createLogger({ context: 'bomService' });
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Generate BOM code in format: EST-YYYY-NNNN
+ */
+export async function generateBOMCode(db: Firestore): Promise<string> {
+  const year = new Date().getFullYear();
+  const yearStr = year.toString();
+
+  // Query for BOMs in current year
+  const bomsRef = collection(db, COLLECTIONS.BOMS);
+  const q = query(
+    bomsRef,
+    where('bomCode', '>=', `EST-${yearStr}-0000`),
+    where('bomCode', '<', `EST-${year + 1}-0000`),
+    orderBy('bomCode', 'desc'),
+    firestoreLimit(1)
+  );
+
+  const snapshot = await getDocs(q);
+
+  let sequence = 1;
+  if (!snapshot.empty) {
+    const lastBOMData = snapshot.docs[0]?.data();
+    if (lastBOMData) {
+      const lastBOM = lastBOMData as BOM;
+      if (lastBOM.bomCode) {
+        const lastSequence = parseInt(lastBOM.bomCode.split('-')[2] || '0');
+        sequence = lastSequence + 1;
+      }
+    }
+  }
+
+  return `EST-${yearStr}-${sequence.toString().padStart(4, '0')}`;
+}
+
+/**
+ * Generate hierarchical item number
+ * Examples: "1", "1.1", "1.2", "1.2.1"
+ */
+async function generateItemNumber(
+  db: Firestore,
+  bomId: string,
+  parentItemId?: string
+): Promise<{ itemNumber: string; level: number; sortOrder: number }> {
+  const itemsRef = collection(db, COLLECTIONS.BOMS, bomId, COLLECTIONS.BOM_ITEMS);
+
+  if (!parentItemId) {
+    // Root level item - find highest number
+    const q = query(
+      itemsRef,
+      where('level', '==', 0),
+      orderBy('sortOrder', 'desc'),
+      firestoreLimit(1)
+    );
+
+    const snapshot = await getDocs(q);
+    const lastItemData = snapshot.empty ? null : snapshot.docs[0]?.data();
+    const lastItem = lastItemData ? (lastItemData as BOMItem) : null;
+    const nextNumber = lastItem ? (lastItem.sortOrder || 0) + 1 : 1;
+
+    return {
+      itemNumber: nextNumber.toString(),
+      level: 0,
+      sortOrder: nextNumber,
+    };
+  } else {
+    // Child item - find parent and increment
+    const parentDoc = await getDoc(doc(itemsRef, parentItemId));
+    if (!parentDoc.exists()) {
+      throw new Error('Parent item not found');
+    }
+
+    const parentData = parentDoc.data() as BOMItem;
+    const parentNumber = parentData.itemNumber;
+    const parentLevel = parentData.level;
+
+    // Find siblings
+    const q = query(
+      itemsRef,
+      where('parentItemId', '==', parentItemId),
+      orderBy('sortOrder', 'desc'),
+      firestoreLimit(1)
+    );
+
+    const snapshot = await getDocs(q);
+    const lastSiblingData = snapshot.empty ? null : snapshot.docs[0]?.data();
+    const lastSibling = lastSiblingData ? (lastSiblingData as BOMItem) : null;
+    const nextSibling = lastSibling ? (lastSibling.sortOrder || 0) + 1 : 1;
+
+    return {
+      itemNumber: `${parentNumber}.${nextSibling}`,
+      level: parentLevel + 1,
+      sortOrder: nextSibling,
+    };
+  }
+}
+
+// ============================================================================
+// BOM CRUD Operations
+// ============================================================================
+
+/**
+ * Create a new BOM
+ */
+export async function createBOM(
+  db: Firestore,
+  input: CreateBOMInput,
+  userId: string
+): Promise<BOM> {
+  try {
+    logger.info('Creating BOM', { name: input.name, category: input.category });
+
+    const bomCode = await generateBOMCode(db);
+    const now = Timestamp.now();
+
+    const bomData: Omit<BOM, 'id'> = {
+      bomCode,
+      name: input.name,
+      description: input.description,
+      category: input.category,
+      entityId: input.entityId,
+      projectId: input.projectId,
+      projectName: input.projectName,
+      summary: {
+        totalWeight: 0,
+        totalMaterialCost: { amount: 0, currency: 'INR' },
+        totalCost: { amount: 0, currency: 'INR' },
+        itemCount: 0,
+      },
+      status: 'DRAFT' as BOMStatus,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: userId,
+      updatedBy: userId,
+    };
+
+    const docRef = await addDoc(collection(db, COLLECTIONS.BOMS), bomData);
+
+    logger.info('BOM created successfully', { id: docRef.id, bomCode });
+
+    return {
+      id: docRef.id,
+      ...bomData,
+    };
+  } catch (error) {
+    logger.error('Error creating BOM', { error });
+    throw error;
+  }
+}
+
+/**
+ * Get BOM by ID
+ */
+export async function getBOMById(db: Firestore, bomId: string): Promise<BOM | null> {
+  try {
+    const bomRef = doc(db, COLLECTIONS.BOMS, bomId);
+    const bomDoc = await getDoc(bomRef);
+
+    if (!bomDoc.exists()) {
+      return null;
+    }
+
+    return {
+      id: bomDoc.id,
+      ...bomDoc.data(),
+    } as BOM;
+  } catch (error) {
+    logger.error('Error getting BOM', { bomId, error });
+    throw error;
+  }
+}
+
+/**
+ * Update BOM
+ */
+export async function updateBOM(
+  db: Firestore,
+  bomId: string,
+  updates: Partial<Omit<BOM, 'id' | 'bomCode' | 'createdAt' | 'createdBy'>>,
+  userId: string
+): Promise<void> {
+  try {
+    logger.info('Updating BOM', { bomId, updates });
+
+    const bomRef = doc(db, COLLECTIONS.BOMS, bomId);
+
+    await updateDoc(bomRef, {
+      ...updates,
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    });
+
+    logger.info('BOM updated successfully', { bomId });
+  } catch (error) {
+    logger.error('Error updating BOM', { bomId, error });
+    throw error;
+  }
+}
+
+/**
+ * Delete BOM (and all items)
+ */
+export async function deleteBOM(db: Firestore, bomId: string): Promise<void> {
+  try {
+    logger.info('Deleting BOM', { bomId });
+
+    // Delete all items first
+    const itemsRef = collection(db, COLLECTIONS.BOMS, bomId, COLLECTIONS.BOM_ITEMS);
+    const itemsSnapshot = await getDocs(itemsRef);
+
+    const batch = writeBatch(db);
+
+    // Delete all items
+    itemsSnapshot.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+
+    // Delete BOM document
+    batch.delete(doc(db, COLLECTIONS.BOMS, bomId));
+
+    await batch.commit();
+
+    logger.info('BOM deleted successfully', { bomId });
+  } catch (error) {
+    logger.error('Error deleting BOM', { bomId, error });
+    throw error;
+  }
+}
+
+/**
+ * List BOMs with filters
+ */
+export async function listBOMs(
+  db: Firestore,
+  options: {
+    entityId: string;
+    projectId?: string;
+    category?: BOMCategory;
+    status?: BOMStatus;
+    limit?: number;
+  }
+): Promise<BOM[]> {
+  try {
+    logger.info('Listing BOMs', options);
+
+    const bomsRef = collection(db, COLLECTIONS.BOMS);
+    let q = query(bomsRef, where('entityId', '==', options.entityId));
+
+    if (options.projectId) {
+      q = query(q, where('projectId', '==', options.projectId));
+    }
+
+    if (options.category) {
+      q = query(q, where('category', '==', options.category));
+    }
+
+    if (options.status) {
+      q = query(q, where('status', '==', options.status));
+    }
+
+    q = query(q, orderBy('createdAt', 'desc'));
+
+    if (options.limit) {
+      q = query(q, firestoreLimit(options.limit));
+    }
+
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as BOM[];
+  } catch (error) {
+    logger.error('Error listing BOMs', { options, error });
+    throw error;
+  }
+}
+
+// ============================================================================
+// BOM Item CRUD Operations
+// ============================================================================
+
+/**
+ * Add item to BOM
+ */
+export async function addBOMItem(
+  db: Firestore,
+  bomId: string,
+  input: CreateBOMItemInput,
+  userId: string
+): Promise<BOMItem> {
+  try {
+    logger.info('Adding BOM item', { bomId, name: input.name });
+
+    // Generate hierarchical item number
+    const { itemNumber, level, sortOrder } = await generateItemNumber(
+      db,
+      bomId,
+      input.parentItemId
+    );
+
+    const now = Timestamp.now();
+
+    const itemData: Omit<BOMItem, 'id'> = {
+      bomId,
+      itemNumber,
+      itemType: input.itemType,
+      parentItemId: input.parentItemId,
+      level,
+      sortOrder,
+      name: input.name,
+      description: input.description,
+      quantity: input.quantity,
+      unit: input.unit,
+      component:
+        input.shapeId || input.materialId
+          ? {
+              shapeId: input.shapeId,
+              materialId: input.materialId,
+              parameters: input.parameters,
+            }
+          : undefined,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: userId,
+      updatedBy: userId,
+    };
+
+    const itemsRef = collection(db, COLLECTIONS.BOMS, bomId, COLLECTIONS.BOM_ITEMS);
+    const docRef = await addDoc(itemsRef, itemData);
+
+    logger.info('BOM item added successfully', { id: docRef.id, itemNumber });
+
+    // Recalculate BOM summary
+    await recalculateBOMSummary(db, bomId, userId);
+
+    return {
+      id: docRef.id,
+      ...itemData,
+    };
+  } catch (error) {
+    logger.error('Error adding BOM item', { bomId, error });
+    throw error;
+  }
+}
+
+/**
+ * Update BOM item
+ */
+export async function updateBOMItem(
+  db: Firestore,
+  bomId: string,
+  itemId: string,
+  updates: UpdateBOMItemInput,
+  userId: string
+): Promise<void> {
+  try {
+    logger.info('Updating BOM item', { bomId, itemId, updates });
+
+    const itemRef = doc(db, COLLECTIONS.BOMS, bomId, COLLECTIONS.BOM_ITEMS, itemId);
+
+    const updateData: Partial<BOMItem> = {
+      ...updates,
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    };
+
+    // Handle component updates
+    if (
+      updates.shapeId !== undefined ||
+      updates.materialId !== undefined ||
+      updates.parameters !== undefined
+    ) {
+      const currentDoc = await getDoc(itemRef);
+      const currentData = currentDoc.data() as BOMItem;
+
+      updateData.component = {
+        ...currentData.component,
+        shapeId: updates.shapeId ?? currentData.component?.shapeId,
+        materialId: updates.materialId ?? currentData.component?.materialId,
+        parameters: updates.parameters ?? currentData.component?.parameters,
+      };
+    }
+
+    await updateDoc(itemRef, updateData);
+
+    logger.info('BOM item updated successfully', { bomId, itemId });
+
+    // Recalculate BOM summary
+    await recalculateBOMSummary(db, bomId, userId);
+  } catch (error) {
+    logger.error('Error updating BOM item', { bomId, itemId, error });
+    throw error;
+  }
+}
+
+/**
+ * Delete BOM item
+ */
+export async function deleteBOMItem(
+  db: Firestore,
+  bomId: string,
+  itemId: string,
+  userId: string
+): Promise<void> {
+  try {
+    logger.info('Deleting BOM item', { bomId, itemId });
+
+    // Delete item and all children
+    const itemsRef = collection(db, COLLECTIONS.BOMS, bomId, COLLECTIONS.BOM_ITEMS);
+    const childrenQuery = query(itemsRef, where('parentItemId', '==', itemId));
+    const childrenSnapshot = await getDocs(childrenQuery);
+
+    const batch = writeBatch(db);
+
+    // Delete children recursively
+    for (const child of childrenSnapshot.docs) {
+      await deleteBOMItem(db, bomId, child.id, userId);
+    }
+
+    // Delete the item itself
+    batch.delete(doc(itemsRef, itemId));
+
+    await batch.commit();
+
+    logger.info('BOM item deleted successfully', { bomId, itemId });
+
+    // Recalculate BOM summary
+    await recalculateBOMSummary(db, bomId, userId);
+  } catch (error) {
+    logger.error('Error deleting BOM item', { bomId, itemId, error });
+    throw error;
+  }
+}
+
+/**
+ * Get all items for a BOM
+ */
+export async function getBOMItems(db: Firestore, bomId: string): Promise<BOMItem[]> {
+  try {
+    const itemsRef = collection(db, COLLECTIONS.BOMS, bomId, COLLECTIONS.BOM_ITEMS);
+    const q = query(itemsRef, orderBy('itemNumber', 'asc'));
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as BOMItem[];
+  } catch (error) {
+    logger.error('Error getting BOM items', { bomId, error });
+    throw error;
+  }
+}
+
+// ============================================================================
+// Summary Calculation
+// ============================================================================
+
+/**
+ * Recalculate BOM summary from all items
+ */
+export async function recalculateBOMSummary(
+  db: Firestore,
+  bomId: string,
+  userId: string
+): Promise<BOMSummary> {
+  try {
+    logger.info('Recalculating BOM summary', { bomId });
+
+    const items = await getBOMItems(db, bomId);
+
+    // Determine currency from first item with cost, default to INR
+    let currency: 'INR' | 'USD' | 'EUR' | 'GBP' | 'SGD' | 'AED' = 'INR';
+    const firstItemWithCost = items.find((item) => item.cost?.totalMaterialCost);
+    if (firstItemWithCost?.cost?.totalMaterialCost) {
+      currency = firstItemWithCost.cost.totalMaterialCost.currency;
+    }
+
+    const summary: BOMSummary = {
+      totalWeight: 0,
+      totalMaterialCost: { amount: 0, currency },
+      totalCost: { amount: 0, currency },
+      itemCount: items.length,
+    };
+
+    // Sum up all items
+    for (const item of items) {
+      if (item.calculatedProperties?.totalWeight) {
+        summary.totalWeight += item.calculatedProperties.totalWeight;
+      }
+      if (item.cost?.totalMaterialCost) {
+        summary.totalMaterialCost.amount += item.cost.totalMaterialCost.amount;
+      }
+    }
+
+    // Week 1: totalCost = totalMaterialCost (no fabrication cost yet)
+    summary.totalCost.amount = summary.totalMaterialCost.amount;
+
+    // Update BOM document
+    await updateBOM(db, bomId, { summary }, userId);
+
+    logger.info('BOM summary recalculated', { bomId, summary });
+
+    return summary;
+  } catch (error) {
+    logger.error('Error recalculating BOM summary', { bomId, error });
+    throw error;
+  }
+}
