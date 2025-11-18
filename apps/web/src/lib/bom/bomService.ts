@@ -203,10 +203,12 @@ export async function getBOMById(db: Firestore, bomId: string): Promise<BOM | nu
       return null;
     }
 
-    return {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    const bom: BOM = {
       id: bomDoc.id,
       ...bomDoc.data(),
     } as BOM;
+    return bom;
   } catch (error) {
     logger.error('Error getting BOM', { bomId, error });
     throw error;

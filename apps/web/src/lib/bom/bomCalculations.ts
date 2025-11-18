@@ -58,8 +58,10 @@ export async function calculateItemCost(
       return null;
     }
 
-    const shape = { id: shapeDoc.id, ...shapeDoc.data() } as Shape;
-    const material = { id: materialDoc.id, ...materialDoc.data() } as Material;
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    const shape: Shape = { id: shapeDoc.id, ...shapeDoc.data() } as Shape;
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    const material: Material = { id: materialDoc.id, ...materialDoc.data() } as Material;
 
     // Calculate shape properties
     const shapeResult = calculateShape({

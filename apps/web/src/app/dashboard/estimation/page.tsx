@@ -124,9 +124,12 @@ export default function EstimationPage() {
     }).format(money.amount);
   };
 
-  const formatDate = (timestamp: any) => {
+  const formatDate = (timestamp: { toDate?: () => Date } | Date | string | null | undefined) => {
     if (!timestamp) return '-';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const date =
+      timestamp && typeof timestamp === 'object' && 'toDate' in timestamp && timestamp.toDate
+        ? timestamp.toDate()
+        : new Date(timestamp as Date | string);
     return new Intl.DateTimeFormat('en-IN', {
       year: 'numeric',
       month: 'short',
