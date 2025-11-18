@@ -59,6 +59,7 @@ const moduleIcons: Record<string, React.ReactNode> = {
   accounting: <AccountBalanceIcon />,
   estimation: <CalculateIcon />,
   'material-database': <InventoryIcon />,
+  'shape-database': <CalculateIcon />,
   'bought-out-database': <LocalShippingIcon />,
   'thermal-desal': <ThermostatIcon />,
   'proposal-management': <AssignmentIcon />,
@@ -87,6 +88,7 @@ const SIDEBAR_CATEGORIES: CategoryConfig[] = [
     label: 'BACKBONE',
     moduleIds: [
       'material-database',
+      'shape-database',
       'bought-out-database',
       'entity-management',
       'user-management',

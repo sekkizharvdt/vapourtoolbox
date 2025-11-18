@@ -183,7 +183,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     description: 'Parametric shapes and components with automated weight/cost calculations',
     icon: 'Category',
     color: '#8B5CF6', // Purple
-    path: '/shapes/calculator',
+    path: '/dashboard/shapes/calculator',
     status: 'active',
     requiredPermissions: 524288, // VIEW_ESTIMATION (engineering calculations)
     category: 'application',
