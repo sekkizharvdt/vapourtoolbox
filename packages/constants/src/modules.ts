@@ -153,7 +153,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     description: 'Engineering estimates, equipment, and components',
     icon: 'Calculate',
     color: '#6366F1', // Indigo
-    path: '/estimation',
+    path: '/dashboard/estimation',
     status: 'active',
     requiredPermissions: 524288, // VIEW_ESTIMATION
     category: 'application',
