@@ -7,6 +7,9 @@
 import { Shape, ShapeCategory } from '@vapour/types';
 import { allShapes } from '@/data/shapes';
 import { Timestamp } from 'firebase/firestore';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'ShapeData' });
 
 // Category mapping - maps UI category names to shape categories
 const categoryMap: Record<string, ShapeCategory[]> = {
@@ -66,7 +69,7 @@ function addShapeMetadata(
 export function getShapesByCategory(categoryId: string): Shape[] {
   const allowedCategories = categoryMap[categoryId];
   if (!allowedCategories) {
-    console.warn(`Invalid category: ${categoryId}`);
+    logger.warn('Invalid category requested', { categoryId });
     return [];
   }
 

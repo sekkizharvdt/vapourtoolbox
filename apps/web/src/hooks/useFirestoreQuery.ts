@@ -23,6 +23,9 @@ import {
   type DocumentReference,
   type DocumentSnapshot,
 } from 'firebase/firestore';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'FirestoreQuery' });
 
 interface UseFirestoreQueryResult<T> {
   data: T[];
@@ -83,7 +86,7 @@ export function useFirestoreQuery<T = DocumentData>(
         }
       },
       (err) => {
-        console.error('[useFirestoreQuery] Listener error:', err);
+        logger.error('Firestore query listener error', { error: err });
         setError(err instanceof Error ? err : new Error('Firestore listener error'));
         setLoading(false);
       }
@@ -153,7 +156,7 @@ export function useFirestoreDocument<T = DocumentData>(
         }
       },
       (err: Error) => {
-        console.error('[useFirestoreDocument] Listener error:', err);
+        logger.error('Firestore document listener error', { error: err });
         setError(err instanceof Error ? err : new Error('Firestore listener error'));
         setLoading(false);
       }

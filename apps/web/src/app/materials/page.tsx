@@ -24,6 +24,9 @@ import { collection, query, where, getCountFromServer } from 'firebase/firestore
 import { COLLECTIONS } from '@vapour/firebase';
 import type { MaterialCategory } from '@vapour/types';
 import { MaterialCategory as MC } from '@vapour/types';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'MaterialsPage' });
 
 interface MaterialCategoryModule {
   title: string;
@@ -94,12 +97,18 @@ export default function MaterialsPage() {
       if (!db) return;
 
       try {
-        // Load plate counts
+        // Load all counts in parallel for better performance
         const plateCategories = [
           MC.PLATES_CARBON_STEEL,
           MC.PLATES_STAINLESS_STEEL,
           MC.PLATES_DUPLEX_STEEL,
           MC.PLATES_ALLOY_STEEL,
+        ];
+
+        const pipeCategories = [
+          MC.PIPES_CARBON_STEEL,
+          MC.PIPES_STAINLESS_304L,
+          MC.PIPES_STAINLESS_316L,
         ];
 
         const platesQuery = query(
@@ -108,26 +117,22 @@ export default function MaterialsPage() {
           where('isActive', '==', true)
         );
 
-        const platesSnapshot = await getCountFromServer(platesQuery);
-        setPlateCounts(platesSnapshot.data().count);
-
-        // Load pipe counts
-        const pipeCategories = [
-          MC.PIPES_CARBON_STEEL,
-          MC.PIPES_STAINLESS_304L,
-          MC.PIPES_STAINLESS_316L,
-        ];
-
         const pipesQuery = query(
           collection(db, COLLECTIONS.MATERIALS),
           where('category', 'in', pipeCategories),
           where('isActive', '==', true)
         );
 
-        const pipesSnapshot = await getCountFromServer(pipesQuery);
+        // Execute both queries in parallel
+        const [platesSnapshot, pipesSnapshot] = await Promise.all([
+          getCountFromServer(platesQuery),
+          getCountFromServer(pipesQuery),
+        ]);
+
+        setPlateCounts(platesSnapshot.data().count);
         setPipeCounts(pipesSnapshot.data().count);
       } catch (error) {
-        console.error('Error loading material counts:', error);
+        logger.error('Error loading material counts', { error });
       } finally {
         setLoading(false);
       }

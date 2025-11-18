@@ -52,7 +52,7 @@ function validateClaims(claims: unknown): ClaimsValidationResult {
 
   // Check domain field
   if (!claimsObj.domain || !['internal', 'external'].includes(claimsObj.domain as string)) {
-    logger.error('Invalid claims: missing or invalid domain field', claims);
+    logger.error('Invalid claims: missing or invalid domain field', { claims });
     return { status: 'invalid' };
   }
 
@@ -149,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setClaims(result.claims);
             setLoading(false);
           } catch (error) {
-            logger.error('Error validating user claims', error);
+            logger.error('Error validating user claims', { error });
 
             // Check if component is still mounted before async signOut
             if (!isMounted) {
@@ -160,7 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
               await firebaseSignOut(auth);
             } catch (signOutError) {
-              logger.error('Error signing out after validation failure', signOutError);
+              logger.error('Error signing out after validation failure', { error: signOutError });
             }
 
             // Check again before final state update
@@ -186,7 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         // Catch any unexpected errors in the outer try block
-        logger.error('Unexpected error in auth state change handler', error);
+        logger.error('Unexpected error in auth state change handler', { error });
 
         // Check before state update
         if (!isMounted) {

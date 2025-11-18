@@ -27,6 +27,7 @@ import {
 import type { Material, MaterialVariant } from '@vapour/types';
 import MaterialVariantList from './MaterialVariantList';
 import { generateVariantCode } from '@/lib/materials/variantUtils';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface MaterialVariantManagerProps {
   material: Material;
@@ -59,6 +60,7 @@ export default function MaterialVariantManager({
   onVariantsChange,
   readOnly = false,
 }: MaterialVariantManagerProps) {
+  const { user } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingVariant, setEditingVariant] = useState<MaterialVariant | null>(null);
   const [formData, setFormData] = useState<VariantFormData>(getEmptyFormData());
@@ -126,8 +128,8 @@ export default function MaterialVariantManager({
       isAvailable: formData.isAvailable,
       createdAt: editingVariant?.createdAt || timestamp,
       updatedAt: timestamp,
-      createdBy: editingVariant?.createdBy || 'current-user', // TODO: Get from auth
-      updatedBy: 'current-user', // TODO: Get from auth
+      createdBy: editingVariant?.createdBy || user?.uid || 'system',
+      updatedBy: user?.uid || 'system',
     };
 
     let updatedVariants: MaterialVariant[];
@@ -160,8 +162,8 @@ export default function MaterialVariantManager({
       displayName: `${variant.displayName} (Copy)`,
       createdAt: timestamp,
       updatedAt: timestamp,
-      createdBy: 'current-user', // TODO: Get from auth
-      updatedBy: 'current-user', // TODO: Get from auth
+      createdBy: user?.uid || 'system',
+      updatedBy: user?.uid || 'system',
     };
 
     onVariantsChange([...variants, duplicatedVariant]);
@@ -280,8 +282,9 @@ export default function MaterialVariantManager({
             <Grid
               size={{
                 xs: 12,
-                sm: 6
-              }}>
+                sm: 6,
+              }}
+            >
               <TextField
                 fullWidth
                 required
@@ -297,8 +300,9 @@ export default function MaterialVariantManager({
             <Grid
               size={{
                 xs: 12,
-                sm: 6
-              }}>
+                sm: 6,
+              }}
+            >
               <TextField
                 fullWidth
                 required
@@ -321,8 +325,9 @@ export default function MaterialVariantManager({
             <Grid
               size={{
                 xs: 12,
-                sm: 4
-              }}>
+                sm: 4,
+              }}
+            >
               <TextField
                 fullWidth
                 label="Thickness (mm)"
@@ -339,8 +344,9 @@ export default function MaterialVariantManager({
             <Grid
               size={{
                 xs: 12,
-                sm: 4
-              }}>
+                sm: 4,
+              }}
+            >
               <TextField
                 fullWidth
                 label="Length (mm)"
@@ -357,8 +363,9 @@ export default function MaterialVariantManager({
             <Grid
               size={{
                 xs: 12,
-                sm: 4
-              }}>
+                sm: 4,
+              }}
+            >
               <TextField
                 fullWidth
                 label="Width (mm)"
@@ -375,8 +382,9 @@ export default function MaterialVariantManager({
             <Grid
               size={{
                 xs: 12,
-                sm: 6
-              }}>
+                sm: 6,
+              }}
+            >
               <TextField
                 fullWidth
                 label="Schedule (for pipes)"
@@ -390,8 +398,9 @@ export default function MaterialVariantManager({
             <Grid
               size={{
                 xs: 12,
-                sm: 6
-              }}>
+                sm: 6,
+              }}
+            >
               <TextField
                 fullWidth
                 label="Nominal Size (DN/NPS)"
@@ -412,8 +421,9 @@ export default function MaterialVariantManager({
             <Grid
               size={{
                 xs: 12,
-                sm: 4
-              }}>
+                sm: 4,
+              }}
+            >
               <TextField
                 fullWidth
                 label={`Weight per ${material.baseUnit}`}
@@ -434,8 +444,9 @@ export default function MaterialVariantManager({
             <Grid
               size={{
                 xs: 12,
-                sm: 4
-              }}>
+                sm: 4,
+              }}
+            >
               <TextField
                 fullWidth
                 label="Lead Time (days)"
@@ -452,8 +463,9 @@ export default function MaterialVariantManager({
             <Grid
               size={{
                 xs: 12,
-                sm: 4
-              }}>
+                sm: 4,
+              }}
+            >
               <TextField
                 fullWidth
                 label={`Min. Order Qty (${material.baseUnit})`}
