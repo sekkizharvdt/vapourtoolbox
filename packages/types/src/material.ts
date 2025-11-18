@@ -181,6 +181,8 @@ export enum MaterialCategory {
   PUMPS = 'PUMPS',
   MOTORS = 'MOTORS',
   INSTRUMENTATION = 'INSTRUMENTATION',
+  STRAINERS = 'STRAINERS', // Y-type, Basket, Duplex strainers
+  SEPARATORS = 'SEPARATORS', // Demisters, Grommets
   ELECTRICAL = 'ELECTRICAL',
 
   // Other Metals
@@ -231,6 +233,8 @@ export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
   [MaterialCategory.PUMPS]: 'Pumps',
   [MaterialCategory.MOTORS]: 'Motors',
   [MaterialCategory.INSTRUMENTATION]: 'Instrumentation',
+  [MaterialCategory.STRAINERS]: 'Strainers & Filters',
+  [MaterialCategory.SEPARATORS]: 'Separators & Demisters',
   [MaterialCategory.ELECTRICAL]: 'Electrical',
   [MaterialCategory.BARS_AND_RODS]: 'Bars and Rods',
   [MaterialCategory.SHEETS]: 'Sheets',
@@ -282,7 +286,16 @@ export const MATERIAL_CATEGORY_GROUPS = {
     MaterialCategory.PUMPS,
     MaterialCategory.MOTORS,
     MaterialCategory.INSTRUMENTATION,
+    MaterialCategory.STRAINERS,
+    MaterialCategory.SEPARATORS,
     MaterialCategory.ELECTRICAL,
+  ],
+  'Bought-Out Components': [
+    MaterialCategory.VALVES,
+    MaterialCategory.PUMPS,
+    MaterialCategory.INSTRUMENTATION,
+    MaterialCategory.STRAINERS,
+    MaterialCategory.SEPARATORS,
   ],
   'Other Materials': [
     MaterialCategory.BARS_AND_RODS,
