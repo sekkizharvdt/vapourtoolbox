@@ -13,6 +13,7 @@ import {
 import {
   Layers as PlatesIcon,
   Circle as PipesIcon,
+  ViewInAr as StructuralIcon,
   Architecture as FittingsIcon,
   Build as FastenersIcon,
   Cake as FlangesIcon,
@@ -67,6 +68,14 @@ export default function MaterialsPage() {
       path: '/materials/pipes',
       comingSoon: false,
       categories: [MC.PIPES_CARBON_STEEL, MC.PIPES_STAINLESS_304L, MC.PIPES_STAINLESS_316L],
+    },
+    {
+      title: 'Structural Steel',
+      description: 'ISMB, ISMC, ISUA, ISLB sections and structural shapes',
+      icon: <StructuralIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/materials/structural-steel',
+      comingSoon: true,
+      categories: [MC.STRUCTURAL_SHAPES],
     },
     {
       title: 'Fittings',
