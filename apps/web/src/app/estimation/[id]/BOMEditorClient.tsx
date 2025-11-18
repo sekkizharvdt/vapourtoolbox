@@ -225,6 +225,17 @@ export default function BOMEditorClient() {
                 </Typography>
               </Box>
 
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Fabrication Cost
+                </Typography>
+                <Typography variant="h5">
+                  {formatCurrency(bom.summary.totalFabricationCost)}
+                </Typography>
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
               <Box>
                 <Typography variant="body2" color="text.secondary" fontWeight="bold">
                   Total Cost

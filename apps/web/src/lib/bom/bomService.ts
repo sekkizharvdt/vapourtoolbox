@@ -166,8 +166,10 @@ export async function createBOM(
       summary: {
         totalWeight: 0,
         totalMaterialCost: { amount: 0, currency: 'INR' },
+        totalFabricationCost: { amount: 0, currency: 'INR' },
         totalCost: { amount: 0, currency: 'INR' },
         itemCount: 0,
+        currency: 'INR',
       },
       status: 'DRAFT' as BOMStatus,
       version: 1,
@@ -524,8 +526,10 @@ export async function recalculateBOMSummary(
     const summary: BOMSummary = {
       totalWeight: 0,
       totalMaterialCost: { amount: 0, currency },
+      totalFabricationCost: { amount: 0, currency },
       totalCost: { amount: 0, currency },
       itemCount: items.length,
+      currency,
     };
 
     // Sum up all items
@@ -536,10 +540,14 @@ export async function recalculateBOMSummary(
       if (item.cost?.totalMaterialCost) {
         summary.totalMaterialCost.amount += item.cost.totalMaterialCost.amount;
       }
+      if (item.cost?.totalFabricationCost) {
+        summary.totalFabricationCost.amount += item.cost.totalFabricationCost.amount;
+      }
     }
 
-    // Week 1: totalCost = totalMaterialCost (no fabrication cost yet)
-    summary.totalCost.amount = summary.totalMaterialCost.amount;
+    // Calculate total cost: Material + Fabrication
+    summary.totalCost.amount =
+      summary.totalMaterialCost.amount + summary.totalFabricationCost.amount;
 
     // Update BOM document
     await updateBOM(db, bomId, { summary }, userId);

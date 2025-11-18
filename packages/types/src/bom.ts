@@ -2,7 +2,7 @@
 // Week 1 Sprint - Simplified version for MVP
 
 import { Timestamp } from 'firebase/firestore';
-import { TimestampFields, Money } from './common';
+import { TimestampFields, Money, CurrencyCode } from './common';
 
 /**
  * BOM Status
@@ -73,9 +73,11 @@ export type ShapeParameters = Record<string, number>;
  */
 export interface BOMSummary {
   totalWeight: number; // kg
-  totalMaterialCost: Money; // Material cost only (Week 1)
-  totalCost: Money; // Same as materialCost for Week 1
+  totalMaterialCost: Money; // Material costs
+  totalFabricationCost: Money; // Fabrication costs (cutting, welding, forming, etc.)
+  totalCost: Money; // Total = Material + Fabrication
   itemCount: number;
+  currency: CurrencyCode; // Currency for all cost fields
 }
 
 /**
@@ -157,7 +159,8 @@ export interface BOMItem {
   cost?: {
     materialCostPerUnit?: Money; // Cost for 1 unit
     totalMaterialCost?: Money; // Cost × quantity
-    // Week 2+: fabricationCost, totalCost
+    fabricationCostPerUnit?: Money; // Fabrication cost for 1 unit
+    totalFabricationCost?: Money; // Fabrication cost × quantity
   };
 
   // Timestamps
@@ -189,6 +192,8 @@ export interface BOMItemCostCalculation {
   totalWeight: number;
   materialCostPerUnit: Money;
   totalMaterialCost: Money;
+  fabricationCostPerUnit: Money;
+  totalFabricationCost: Money;
 }
 
 /**

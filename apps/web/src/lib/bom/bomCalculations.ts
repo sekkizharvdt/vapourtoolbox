@@ -74,11 +74,13 @@ export async function calculateItemCost(
     // Extract weight and cost
     const weight = shapeResult.calculatedValues.weight;
     const materialCostPerUnit = shapeResult.costEstimate.materialCost;
+    const fabricationCostPerUnit = shapeResult.costEstimate.fabricationCost;
     const currency = shapeResult.costEstimate.currency;
 
     // Apply quantity
     const totalWeight = weight * item.quantity;
     const totalMaterialCost = materialCostPerUnit * item.quantity;
+    const totalFabricationCost = fabricationCostPerUnit * item.quantity;
 
     logger.info('Item cost calculated', {
       itemId: item.id,
@@ -86,6 +88,8 @@ export async function calculateItemCost(
       totalWeight,
       materialCostPerUnit,
       totalMaterialCost,
+      fabricationCostPerUnit,
+      totalFabricationCost,
     });
 
     return {
@@ -97,6 +101,14 @@ export async function calculateItemCost(
       },
       totalMaterialCost: {
         amount: totalMaterialCost,
+        currency,
+      },
+      fabricationCostPerUnit: {
+        amount: fabricationCostPerUnit,
+        currency,
+      },
+      totalFabricationCost: {
+        amount: totalFabricationCost,
         currency,
       },
     };
@@ -135,6 +147,8 @@ export async function calculateAndUpdateItemCost(
         cost: {
           materialCostPerUnit: calculation.materialCostPerUnit,
           totalMaterialCost: calculation.totalMaterialCost,
+          fabricationCostPerUnit: calculation.fabricationCostPerUnit,
+          totalFabricationCost: calculation.totalFabricationCost,
         },
         updatedAt: Timestamp.now(),
         updatedBy: userId,
