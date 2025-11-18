@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { TextField, Box, Typography, MenuItem, Alert } from '@mui/material';
 import { Grid } from '@mui/material';
-import { FormDialog, FormDialogActions } from '@/components/common/forms/FormDialog';
+import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';

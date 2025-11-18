@@ -16,7 +16,7 @@ import {
   Paper,
   Stack,
 } from '@mui/material';
-import { FormDialog, FormDialogActions } from '@/components/common/forms/FormDialog';
+import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { getFirebase } from '@/lib/firebase';

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Grid, Box, Typography, Stack } from '@mui/material';
-import { FormDialog, FormDialogActions } from '@/components/common/forms/FormDialog';
+import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { TransactionFormFields } from '@/components/accounting/shared/TransactionFormFields';
 import { LineItemsTable } from '@/components/accounting/shared/LineItemsTable';
 import { TDSSection } from '@/components/accounting/shared/TDSSection';

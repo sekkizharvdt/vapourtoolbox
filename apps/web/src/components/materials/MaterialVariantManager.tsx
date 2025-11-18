@@ -28,6 +28,7 @@ import type { Material, MaterialVariant } from '@vapour/types';
 import MaterialVariantList from './MaterialVariantList';
 import { generateVariantCode } from '@/lib/materials/variantUtils';
 import { useAuth } from '@/contexts/AuthContext';
+import { ConfirmDialog } from '@vapour/ui';
 
 interface MaterialVariantManagerProps {
   material: Material;
@@ -64,6 +65,8 @@ export default function MaterialVariantManager({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingVariant, setEditingVariant] = useState<MaterialVariant | null>(null);
   const [formData, setFormData] = useState<VariantFormData>(getEmptyFormData());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [variantToDelete, setVariantToDelete] = useState<string | null>(null);
 
   const variants = material.variants || [];
 
@@ -146,9 +149,16 @@ export default function MaterialVariantManager({
   };
 
   const handleDeleteVariant = (variantId: string) => {
-    if (confirm('Are you sure you want to delete this variant?')) {
-      const updatedVariants = variants.filter((v) => v.id !== variantId);
+    setVariantToDelete(variantId);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteVariant = () => {
+    if (variantToDelete) {
+      const updatedVariants = variants.filter((v) => v.id !== variantToDelete);
       onVariantsChange(updatedVariants);
+      setDeleteConfirmOpen(false);
+      setVariantToDelete(null);
     }
   };
 
@@ -531,6 +541,21 @@ export default function MaterialVariantManager({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onClose={() => {
+          setDeleteConfirmOpen(false);
+          setVariantToDelete(null);
+        }}
+        onConfirm={confirmDeleteVariant}
+        title="Delete Variant"
+        message="Are you sure you want to delete this variant?"
+        description="This action cannot be undone."
+        variant="error"
+        confirmLabel="Delete"
+      />
     </Box>
   );
 }

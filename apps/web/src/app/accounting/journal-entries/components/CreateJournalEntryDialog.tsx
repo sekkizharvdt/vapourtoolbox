@@ -19,11 +19,8 @@ import {
   Stack,
   Button,
 } from '@mui/material';
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-} from '@mui/icons-material';
-import { FormDialog, FormDialogActions } from '@/components/common/forms/FormDialog';
+import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { getFirebase } from '@/lib/firebase';
@@ -67,8 +64,13 @@ export function CreateJournalEntryDialog({
   useEffect(() => {
     if (open) {
       if (editingEntry) {
-        const dateStr = editingEntry.date instanceof Date ? (editingEntry.date.toISOString().split('T')[0] || '') : (typeof editingEntry.date === 'string' ? editingEntry.date : '');
-        setDate(dateStr || (new Date().toISOString().split('T')[0] || ''));
+        const dateStr =
+          editingEntry.date instanceof Date
+            ? editingEntry.date.toISOString().split('T')[0] || ''
+            : typeof editingEntry.date === 'string'
+              ? editingEntry.date
+              : '';
+        setDate(dateStr || new Date().toISOString().split('T')[0] || '');
         setDescription(editingEntry.description || '');
         setReference(editingEntry.referenceNumber || '');
         setProjectId(editingEntry.projectId ?? null);
@@ -104,7 +106,11 @@ export function CreateJournalEntryDialog({
     setEntries(entries.filter((_, i) => i !== index));
   };
 
-  const updateEntry = (index: number, field: keyof LedgerEntryForm, value: string | number | null | undefined) => {
+  const updateEntry = (
+    index: number,
+    field: keyof LedgerEntryForm,
+    value: string | number | null | undefined
+  ) => {
     const newEntries = [...entries];
     const currentEntry = newEntries[index];
     if (currentEntry) {
@@ -142,7 +148,8 @@ export function CreateJournalEntryDialog({
         status,
         entries,
         amount: balance.totalDebits,
-        transactionNumber: editingEntry?.transactionNumber || await generateTransactionNumber('JOURNAL_ENTRY'),
+        transactionNumber:
+          editingEntry?.transactionNumber || (await generateTransactionNumber('JOURNAL_ENTRY')),
         createdAt: editingEntry?.createdAt || Timestamp.now(),
         updatedAt: Timestamp.now(),
         currency: 'INR',
@@ -247,13 +254,14 @@ export function CreateJournalEntryDialog({
 
         <Grid size={{ xs: 12 }}>
           <Box sx={{ mt: 2 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              sx={{ mb: 2 }}
+            >
               <Typography variant="h6">Ledger Entries</Typography>
-              <Button
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={addEntry}
-              >
+              <Button size="small" startIcon={<AddIcon />} onClick={addEntry}>
                 Add Entry
               </Button>
             </Stack>
@@ -264,10 +272,16 @@ export function CreateJournalEntryDialog({
                   <TableRow>
                     <TableCell width="30%">Account</TableCell>
                     <TableCell width="25%">Description</TableCell>
-                    <TableCell width="15%" align="right">Debit</TableCell>
-                    <TableCell width="15%" align="right">Credit</TableCell>
+                    <TableCell width="15%" align="right">
+                      Debit
+                    </TableCell>
+                    <TableCell width="15%" align="right">
+                      Credit
+                    </TableCell>
                     <TableCell width="10%">Project</TableCell>
-                    <TableCell width="5%" align="right">Actions</TableCell>
+                    <TableCell width="5%" align="right">
+                      Actions
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -296,7 +310,9 @@ export function CreateJournalEntryDialog({
                           size="small"
                           type="number"
                           value={entry.debit}
-                          onChange={(e) => updateEntry(index, 'debit', parseFloat(e.target.value) || 0)}
+                          onChange={(e) =>
+                            updateEntry(index, 'debit', parseFloat(e.target.value) || 0)
+                          }
                           inputProps={{ min: 0, step: 0.01 }}
                         />
                       </TableCell>
@@ -306,14 +322,18 @@ export function CreateJournalEntryDialog({
                           size="small"
                           type="number"
                           value={entry.credit}
-                          onChange={(e) => updateEntry(index, 'credit', parseFloat(e.target.value) || 0)}
+                          onChange={(e) =>
+                            updateEntry(index, 'credit', parseFloat(e.target.value) || 0)
+                          }
                           inputProps={{ min: 0, step: 0.01 }}
                         />
                       </TableCell>
                       <TableCell>
                         <ProjectSelector
                           value={entry.costCentreId ?? null}
-                          onChange={(costCentreId) => updateEntry(index, 'costCentreId', costCentreId ?? undefined)}
+                          onChange={(costCentreId) =>
+                            updateEntry(index, 'costCentreId', costCentreId ?? undefined)
+                          }
                           label=""
                         />
                       </TableCell>
@@ -362,7 +382,8 @@ export function CreateJournalEntryDialog({
 
             {!isBalanced && (
               <Alert severity="warning" sx={{ mt: 2 }}>
-                Debits and credits must be equal. Current difference: {Math.abs(balance.balance).toFixed(2)}
+                Debits and credits must be equal. Current difference:{' '}
+                {Math.abs(balance.balance).toFixed(2)}
               </Alert>
             )}
           </Box>

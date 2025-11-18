@@ -1,23 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography,
-  Alert,
-  CircularProgress,
-  Box,
-} from '@mui/material';
-import { Warning as WarningIcon } from '@mui/icons-material';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity } from '@vapour/types';
 import { checkEntityCascadeDelete } from '@/lib/entities/businessEntityService';
+import { ConfirmDialog } from '@vapour/ui';
 
 interface DeleteEntityDialogProps {
   open: boolean;
@@ -72,51 +61,22 @@ export function DeleteEntityDialog({ open, entity, onClose, onSuccess }: DeleteE
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <WarningIcon color="error" />
-          Delete Entity
-        </Box>
-      </DialogTitle>
-      <DialogContent>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        {cascadeWarning && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            <Typography variant="body2" fontWeight="medium" gutterBottom>
-              Cannot Delete Entity
-            </Typography>
-            <Typography variant="body2">{cascadeWarning}</Typography>
-          </Alert>
-        )}
-
-        <Typography variant="body1" gutterBottom>
+    <ConfirmDialog
+      open={open}
+      onClose={onClose}
+      onConfirm={handleDelete}
+      title="Delete Entity"
+      message={
+        <>
           Are you sure you want to delete <strong>{entity?.name}</strong>?
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          This will mark the entity as inactive. The entity and its data will be preserved in the
-          system but will not appear in active lists.
-        </Typography>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 3 }}>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          onClick={handleDelete}
-          variant="contained"
-          color="error"
-          disabled={loading}
-          startIcon={loading && <CircularProgress size={20} />}
-        >
-          {loading ? 'Deleting...' : 'Delete'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+        </>
+      }
+      description="This will mark the entity as inactive. The entity and its data will be preserved in the system but will not appear in active lists."
+      variant="error"
+      confirmLabel="Delete"
+      loading={loading}
+      error={error}
+      warning={cascadeWarning || undefined}
+    />
   );
 }
