@@ -93,11 +93,11 @@ export default function EstimationPage() {
   };
 
   const handleCreate = () => {
-    router.push('/dashboard/estimation/new');
+    router.push('/estimation/new');
   };
 
   const handleEdit = (bomId: string) => {
-    router.push(`/dashboard/estimation/${bomId}`);
+    router.push(`/estimation/${bomId}`);
   };
 
   const handleDelete = async (bom: BOM) => {

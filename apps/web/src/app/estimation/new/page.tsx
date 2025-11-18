@@ -87,7 +87,7 @@ export default function NewBOMPage() {
       logger.info('BOM created', { bomId: bom.id, bomCode: bom.bomCode });
 
       // Navigate to BOM editor
-      router.push(`/dashboard/estimation/${bom.id}`);
+      router.push(`/estimation/${bom.id}`);
     } catch (err) {
       logger.error('Error creating BOM', { error: err });
       setError('Failed to create BOM. Please try again.');
@@ -96,7 +96,7 @@ export default function NewBOMPage() {
   };
 
   const handleCancel = () => {
-    router.push('/dashboard/estimation');
+    router.push('/estimation');
   };
 
   return (

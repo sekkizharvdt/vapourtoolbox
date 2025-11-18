@@ -106,7 +106,7 @@ export default function BOMEditorClient() {
   };
 
   const handleBack = () => {
-    router.push('/dashboard/estimation');
+    router.push('/estimation');
   };
 
   const formatCurrency = (money: { amount: number; currency: string }) => {
