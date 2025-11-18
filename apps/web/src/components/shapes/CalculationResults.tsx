@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import {
   Box,
   Grid,
@@ -15,12 +16,45 @@ import {
 } from '@mui/material';
 import { Warning as WarningIcon, Error as ErrorIcon } from '@mui/icons-material';
 
-interface CalculationResultsProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  result: any;
+// Note: The calculation result has a flattened structure different from ShapeInstance
+// It contains top-level properties like weight, volume, cost fields, etc.
+// This is intentional - the calculator flattens the nested structure for easier display
+interface CalculationResult {
+  weight?: number;
+  weightUnit?: string;
+  totalWeight?: number;
+  quantity?: number;
+  totalCost?: number;
+  costPerUnit?: number;
+  volume?: number;
+  volumeUnit?: string;
+  surfaceArea?: number;
+  surfaceAreaUnit?: string;
+  innerSurfaceArea?: number;
+  outerSurfaceArea?: number;
+  blankArea?: number;
+  blankAreaUnit?: string;
+  scrapPercentage?: number;
+  edgeLength?: number;
+  edgeLengthUnit?: string;
+  weldLength?: number;
+  weldLengthUnit?: string;
+  materialCost?: number;
+  fabricationCost?: number;
+  edgePreparationCost?: number;
+  cuttingCost?: number;
+  weldingCost?: number;
+  surfaceTreatmentCost?: number;
+  warnings?: string[];
+  errors?: string[];
+  customResults?: Record<string, { result: number; unit: string }>;
 }
 
-export default function CalculationResults({ result }: CalculationResultsProps) {
+interface CalculationResultsProps {
+  result: CalculationResult;
+}
+
+function CalculationResults({ result }: CalculationResultsProps) {
   const formatNumber = (value: number | undefined, decimals = 2) => {
     if (value === undefined) return 'N/A';
     return value.toFixed(decimals);
@@ -43,7 +77,7 @@ export default function CalculationResults({ result }: CalculationResultsProps) 
             <Typography variant="h5">
               {formatNumber(result.weight)} {result.weightUnit}
             </Typography>
-            {result.totalWeight && result.quantity > 1 && (
+            {result.totalWeight && result.quantity && result.quantity > 1 && (
               <Typography variant="caption" color="text.secondary">
                 Total: {formatNumber(result.totalWeight)} {result.weightUnit}
               </Typography>
@@ -57,7 +91,7 @@ export default function CalculationResults({ result }: CalculationResultsProps) 
               Total Cost
             </Typography>
             <Typography variant="h5">{formatCurrency(result.totalCost)}</Typography>
-            {result.quantity > 1 && (
+            {result.quantity && result.quantity > 1 && (
               <Typography variant="caption" color="text.secondary">
                 Per unit: {formatCurrency(result.costPerUnit)}
               </Typography>
@@ -94,8 +128,7 @@ export default function CalculationResults({ result }: CalculationResultsProps) 
       {result.warnings && result.warnings.length > 0 && (
         <Alert severity="warning" sx={{ mb: 2 }} icon={<WarningIcon />}>
           <Typography variant="subtitle2">Warnings:</Typography>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {result.warnings.map((warning: any, index: number) => (
+          {result.warnings.map((warning, index) => (
             <Typography key={index} variant="body2">
               • {warning}
             </Typography>
@@ -106,8 +139,7 @@ export default function CalculationResults({ result }: CalculationResultsProps) 
       {result.errors && result.errors.length > 0 && (
         <Alert severity="error" sx={{ mb: 2 }} icon={<ErrorIcon />}>
           <Typography variant="subtitle2">Errors:</Typography>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {result.errors.map((error: any, index: number) => (
+          {result.errors.map((error, index) => (
             <Typography key={index} variant="body2">
               • {error}
             </Typography>
@@ -172,7 +204,7 @@ export default function CalculationResults({ result }: CalculationResultsProps) 
               </TableRow>
             )}
 
-            {result.totalWeight !== undefined && result.quantity > 1 && (
+            {result.totalWeight !== undefined && result.quantity && result.quantity > 1 && (
               <TableRow>
                 <TableCell>Total Weight (Qty: {result.quantity})</TableCell>
                 <TableCell align="right">{formatNumber(result.totalWeight)}</TableCell>
@@ -307,14 +339,11 @@ export default function CalculationResults({ result }: CalculationResultsProps) 
                 </TableRow>
               </TableHead>
               <TableBody>
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {Object.entries(result.customResults).map(([key, value]: [string, any]) => (
+                {Object.entries(result.customResults).map(([key, value]) => (
                   <TableRow key={key}>
                     <TableCell>{key}</TableCell>
-                    <TableCell align="right">
-                      {formatNumber((value as { result: number }).result)}
-                    </TableCell>
-                    <TableCell>{(value as { unit: string }).unit}</TableCell>
+                    <TableCell align="right">{formatNumber(value.result)}</TableCell>
+                    <TableCell>{value.unit}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -325,3 +354,5 @@ export default function CalculationResults({ result }: CalculationResultsProps) 
     </Box>
   );
 }
+
+export default memo(CalculationResults);

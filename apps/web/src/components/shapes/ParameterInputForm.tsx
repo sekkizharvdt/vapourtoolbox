@@ -15,12 +15,11 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { Info as InfoIcon } from '@mui/icons-material';
+import type { Shape, Material } from '@vapour/types';
 
 interface ParameterInputFormProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  shape: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  material: any;
+  shape: Shape;
+  material: Material;
   onParameterChange: (values: Record<string, number>) => void;
   onQuantityChange: (quantity: number) => void;
 }
@@ -37,8 +36,7 @@ export default function ParameterInputForm({
   // Initialize with default values
   useEffect(() => {
     const initialValues: Record<string, number> = {};
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (shape.parameters as Array<any>)?.forEach((param) => {
+    shape.parameters?.forEach((param) => {
       if (param.defaultValue !== undefined) {
         initialValues[param.name] = param.defaultValue;
       }
@@ -59,8 +57,7 @@ export default function ParameterInputForm({
   };
 
   // Sort parameters by order
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sortedParams = [...(shape.parameters || [])].sort((a: any, b: any) => a.order - b.order);
+  const sortedParams = [...(shape.parameters || [])].sort((a, b) => a.order - b.order);
 
   return (
     <Box>
@@ -85,8 +82,7 @@ export default function ParameterInputForm({
       </Typography>
 
       <Grid container spacing={2}>
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        {sortedParams.map((param: any) => {
+        {sortedParams.map((param) => {
           if (param.dataType === 'SELECT') {
             return (
               <Grid size={{ xs: 12, sm: 6 }} key={param.name}>
@@ -97,8 +93,7 @@ export default function ParameterInputForm({
                     onChange={(e) => handleValueChange(param.name, e.target.value as number)}
                     label={param.label}
                   >
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    {(param.options as Array<any>)?.map((option) => (
+                    {param.options?.map((option) => (
                       <MenuItem key={option.value} value={option.value}>
                         {option.label}
                         {option.description && (
@@ -195,21 +190,21 @@ export default function ParameterInputForm({
             </Typography>
             <Typography variant="body2">{material.name}</Typography>
           </Grid>
-          {material.physicalProperties?.density && (
+          {material.properties?.density && (
             <Grid size={{ xs: 6 }}>
               <Typography variant="caption" color="text.secondary">
                 Density:
               </Typography>
-              <Typography variant="body2">{material.physicalProperties.density} kg/m³</Typography>
+              <Typography variant="body2">{material.properties.density} kg/m³</Typography>
             </Grid>
           )}
-          {material.pricingDetails?.basePrice && (
+          {material.currentPrice?.pricePerUnit?.amount && (
             <Grid size={{ xs: 6 }}>
               <Typography variant="caption" color="text.secondary">
                 Price:
               </Typography>
               <Typography variant="body2">
-                ₹{material.pricingDetails.basePrice.toFixed(2)}/kg
+                ₹{material.currentPrice.pricePerUnit.amount.toFixed(2)}/kg
               </Typography>
             </Grid>
           )}
