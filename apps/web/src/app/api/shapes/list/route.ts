@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { Shape } from '@vapour/types';
 import { ShapeCategory } from '@vapour/types';
-
-// Import shape definitions directly (TODO: Export from @vapour/functions package)
-// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
-const { allShapes } = require('../../../../../../packages/functions/src/data/shapes') as {
-  allShapes: Omit<
-    Shape,
-    'id' | 'shapeCode' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
-  >[];
-};
+import { allShapes } from '@/data/shapes';
 
 // Mark as dynamic to work with static export
 export const dynamic = 'force-static';
