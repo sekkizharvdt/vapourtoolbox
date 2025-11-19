@@ -168,6 +168,10 @@ export async function createBOM(
         totalMaterialCost: { amount: 0, currency: 'INR' },
         totalFabricationCost: { amount: 0, currency: 'INR' },
         totalServiceCost: { amount: 0, currency: 'INR' }, // Phase 3
+        totalDirectCost: { amount: 0, currency: 'INR' }, // Phase 4
+        overhead: { amount: 0, currency: 'INR' }, // Phase 4
+        contingency: { amount: 0, currency: 'INR' }, // Phase 4
+        profit: { amount: 0, currency: 'INR' }, // Phase 4
         totalCost: { amount: 0, currency: 'INR' },
         itemCount: 0,
         currency: 'INR',
@@ -532,6 +536,10 @@ export async function recalculateBOMSummary(
       totalMaterialCost: { amount: 0, currency },
       totalFabricationCost: { amount: 0, currency },
       totalServiceCost: { amount: 0, currency }, // Phase 3: Service costs
+      totalDirectCost: { amount: 0, currency }, // Phase 4: Direct costs
+      overhead: { amount: 0, currency }, // Phase 4: Overhead
+      contingency: { amount: 0, currency }, // Phase 4: Contingency
+      profit: { amount: 0, currency }, // Phase 4: Profit
       totalCost: { amount: 0, currency },
       itemCount: items.length,
       currency,

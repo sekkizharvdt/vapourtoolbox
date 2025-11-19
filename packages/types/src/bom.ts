@@ -80,14 +80,30 @@ export type BOMComponentType = 'SHAPE' | 'BOUGHT_OUT';
  */
 export interface BOMSummary {
   totalWeight: number; // kg
+
+  // Direct Costs
   totalMaterialCost: Money; // Material costs
   totalFabricationCost: Money; // Fabrication costs (cutting, welding, forming, etc.)
   totalServiceCost: Money; // Phase 3: Service costs (engineering, testing, etc.)
-  totalCost: Money; // Total = Material + Fabrication + Services
+  totalDirectCost: Money; // Phase 4: Sum of material + fabrication + service
+
+  // Indirect Costs (Phase 4: Overhead, Contingency, Profit)
+  overhead: Money; // Overhead cost
+  contingency: Money; // Contingency buffer
+  profit: Money; // Profit margin
+
+  // Final Total
+  totalCost: Money; // Grand total = Direct + Overhead + Contingency + Profit
+
   itemCount: number;
   currency: CurrencyCode; // Currency for all cost fields
-  // Optional service breakdown for reporting
+
+  // Optional breakdowns for reporting
   serviceBreakdown?: Record<string, Money>; // e.g., { "Engineering": {amount: 1000, currency: "INR"} }
+
+  // Phase 4: Cost Configuration Reference (audit trail)
+  costConfigId?: string; // Which cost config was used for this calculation
+  lastCalculated?: Timestamp; // When was this summary last calculated
 }
 
 /**

@@ -100,6 +100,9 @@ export const COLLECTIONS = {
   SERVICES: 'services',
   SERVICE_RATES: 'serviceRates',
 
+  // Cost Configuration (Phase 4)
+  COST_CONFIGURATIONS: 'costConfigurations',
+
   // Module Integration Management (Super Admin)
   MODULE_INTEGRATIONS: 'moduleIntegrations',
 } as const;
