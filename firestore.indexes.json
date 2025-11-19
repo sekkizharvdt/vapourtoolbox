@@ -838,6 +838,23 @@
         { "fieldPath": "level", "order": "ASCENDING" },
         { "fieldPath": "itemNumber", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "costConfigurations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "entityId", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "effectiveFrom", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "costConfigurations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "entityId", "order": "ASCENDING" },
+        { "fieldPath": "effectiveFrom", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
