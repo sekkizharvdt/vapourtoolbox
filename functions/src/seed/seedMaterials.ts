@@ -4,17 +4,19 @@ import { logger } from 'firebase-functions/v2';
 import * as path from 'path';
 import * as fs from 'fs';
 
-// Load seed data dynamically at runtime from the deployed location
-const seedDataDir = path.join(__dirname, 'seed-data');
-const pipesData = JSON.parse(
-  fs.readFileSync(path.join(seedDataDir, 'pipes-carbon-steel.json'), 'utf8')
-);
-const fittingsData = JSON.parse(
-  fs.readFileSync(path.join(seedDataDir, 'fittings-butt-weld.json'), 'utf8')
-);
-const flangesData = JSON.parse(
-  fs.readFileSync(path.join(seedDataDir, 'flanges-weld-neck.json'), 'utf8')
-);
+// Helper function to load seed data - called inside the handler, not at module level
+function loadSeedData(dataType: 'pipes' | 'fittings' | 'flanges'): SeedData {
+  const seedDataDir = path.join(__dirname, 'seed-data');
+  const fileMap = {
+    pipes: 'pipes-carbon-steel.json',
+    fittings: 'fittings-butt-weld.json',
+    flanges: 'flanges-weld-neck.json',
+  };
+
+  const filePath = path.join(seedDataDir, fileMap[dataType]);
+  const data = fs.readFileSync(filePath, 'utf8');
+  return JSON.parse(data) as SeedData;
+}
 
 interface SeedDataMetadata {
   standard: string;
@@ -92,13 +94,13 @@ export const seedMaterials = onCall<SeedMaterialsRequest, Promise<SeedMaterialsR
       const dataSources: Array<{ type: 'pipes' | 'fittings' | 'flanges'; data: SeedData }> = [];
 
       if (dataType === 'pipes' || dataType === 'all') {
-        dataSources.push({ type: 'pipes', data: pipesData as SeedData });
+        dataSources.push({ type: 'pipes', data: loadSeedData('pipes') });
       }
       if (dataType === 'fittings' || dataType === 'all') {
-        dataSources.push({ type: 'fittings', data: fittingsData as SeedData });
+        dataSources.push({ type: 'fittings', data: loadSeedData('fittings') });
       }
       if (dataType === 'flanges' || dataType === 'all') {
-        dataSources.push({ type: 'flanges', data: flangesData as SeedData });
+        dataSources.push({ type: 'flanges', data: loadSeedData('flanges') });
       }
 
       // Process each data source
