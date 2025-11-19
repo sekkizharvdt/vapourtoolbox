@@ -235,30 +235,84 @@ export default function BOMEditorClient() {
 
               <Divider sx={{ my: 2 }} />
 
-              <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Direct Costs
+              </Typography>
+
+              <Box sx={{ mb: 1, pl: 1 }}>
                 <Typography variant="body2" color="text.secondary">
-                  Material Cost
+                  Material
                 </Typography>
-                <Typography variant="h5">
+                <Typography variant="body1">
                   {formatCurrency(bom.summary.totalMaterialCost)}
                 </Typography>
               </Box>
 
-              <Box sx={{ mb: 2 }}>
+              <Box sx={{ mb: 1, pl: 1 }}>
                 <Typography variant="body2" color="text.secondary">
-                  Fabrication Cost
+                  Fabrication
                 </Typography>
-                <Typography variant="h5">
+                <Typography variant="body1">
                   {formatCurrency(bom.summary.totalFabricationCost)}
                 </Typography>
               </Box>
 
-              <Box sx={{ mb: 2 }}>
+              <Box sx={{ mb: 2, pl: 1 }}>
                 <Typography variant="body2" color="text.secondary">
-                  Service Cost
+                  Service
                 </Typography>
-                <Typography variant="h5">{formatCurrency(bom.summary.totalServiceCost)}</Typography>
+                <Typography variant="body1">
+                  {formatCurrency(bom.summary.totalServiceCost)}
+                </Typography>
               </Box>
+
+              <Box sx={{ mb: 2, pl: 1, borderTop: 1, borderColor: 'divider', pt: 1 }}>
+                <Typography variant="body2" color="text.secondary" fontWeight="medium">
+                  Total Direct
+                </Typography>
+                <Typography variant="h6">{formatCurrency(bom.summary.totalDirectCost)}</Typography>
+              </Box>
+
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Indirect Costs
+              </Typography>
+
+              {bom.summary.overhead.amount > 0 && (
+                <Box sx={{ mb: 1, pl: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Overhead
+                  </Typography>
+                  <Typography variant="body1">{formatCurrency(bom.summary.overhead)}</Typography>
+                </Box>
+              )}
+
+              {bom.summary.contingency.amount > 0 && (
+                <Box sx={{ mb: 1, pl: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Contingency
+                  </Typography>
+                  <Typography variant="body1">{formatCurrency(bom.summary.contingency)}</Typography>
+                </Box>
+              )}
+
+              {bom.summary.profit.amount > 0 && (
+                <Box sx={{ mb: 2, pl: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Profit
+                  </Typography>
+                  <Typography variant="body1">{formatCurrency(bom.summary.profit)}</Typography>
+                </Box>
+              )}
+
+              {bom.summary.overhead.amount === 0 &&
+                bom.summary.contingency.amount === 0 &&
+                bom.summary.profit.amount === 0 && (
+                  <Box sx={{ mb: 2, pl: 1 }}>
+                    <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                      No indirect costs configured
+                    </Typography>
+                  </Box>
+                )}
 
               <Divider sx={{ my: 2 }} />
 
