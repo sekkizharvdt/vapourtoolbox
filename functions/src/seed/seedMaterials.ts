@@ -6,7 +6,7 @@ import * as fs from 'fs';
 
 // Helper function to load seed data - called inside the handler, not at module level
 function loadSeedData(dataType: 'pipes' | 'fittings' | 'flanges'): SeedData {
-  const seedDataDir = path.join(__dirname, 'seed-data');
+  const seedDataDir = path.join(__dirname, '..', 'seed-data');
   const fileMap = {
     pipes: 'pipes-carbon-steel.json',
     fittings: 'fittings-butt-weld.json',
