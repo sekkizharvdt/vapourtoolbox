@@ -43,6 +43,8 @@ export default function MaterialsPage() {
   const { db } = getFirebase();
   const [plateCounts, setPlateCounts] = useState(0);
   const [pipeCounts, setPipeCounts] = useState(0);
+  const [fittingsCounts, setFittingsCounts] = useState(0);
+  const [flangesCounts, setFlangesCounts] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const modules: MaterialCategoryModule[] = [
@@ -79,10 +81,11 @@ export default function MaterialsPage() {
     },
     {
       title: 'Fittings',
-      description: 'Butt weld elbows, tees, reducers, and other pipe fittings',
+      description: 'Butt weld elbows, tees, reducers, and other pipe fittings per ASME B16.9',
       icon: <FittingsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/materials/fittings',
-      comingSoon: true,
+      comingSoon: false,
+      categories: [MC.FITTINGS_BUTT_WELD],
     },
     {
       title: 'Fasteners',
@@ -93,10 +96,11 @@ export default function MaterialsPage() {
     },
     {
       title: 'Flanges',
-      description: 'Weld neck, slip-on, blind, and other flanges by pressure rating',
+      description: 'Weld neck, slip-on, blind, and other flanges per ASME B16.5',
       icon: <FlangesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/materials/flanges',
-      comingSoon: true,
+      comingSoon: false,
+      categories: [MC.FLANGES_WELD_NECK, MC.FLANGES_SLIP_ON, MC.FLANGES_BLIND],
     },
   ];
 
@@ -132,14 +136,29 @@ export default function MaterialsPage() {
           where('isActive', '==', true)
         );
 
-        // Execute both queries in parallel
-        const [platesSnapshot, pipesSnapshot] = await Promise.all([
-          getCountFromServer(platesQuery),
-          getCountFromServer(pipesQuery),
-        ]);
+        const fittingsQuery = query(
+          collection(db, COLLECTIONS.MATERIALS),
+          where('category', '==', MC.FITTINGS_BUTT_WELD)
+        );
+
+        const flangesQuery = query(
+          collection(db, COLLECTIONS.MATERIALS),
+          where('category', '==', MC.FLANGES_WELD_NECK)
+        );
+
+        // Execute all queries in parallel
+        const [platesSnapshot, pipesSnapshot, fittingsSnapshot, flangesSnapshot] =
+          await Promise.all([
+            getCountFromServer(platesQuery),
+            getCountFromServer(pipesQuery),
+            getCountFromServer(fittingsQuery),
+            getCountFromServer(flangesQuery),
+          ]);
 
         setPlateCounts(platesSnapshot.data().count);
         setPipeCounts(pipesSnapshot.data().count);
+        setFittingsCounts(fittingsSnapshot.data().count);
+        setFlangesCounts(flangesSnapshot.data().count);
       } catch (error) {
         logger.error('Error loading material counts', { error });
       } finally {
@@ -213,7 +232,17 @@ export default function MaterialsPage() {
                 >
                   {loading
                     ? '...'
-                    : `${index === 0 ? plateCounts : index === 1 ? pipeCounts : 0} materials`}
+                    : `${
+                        index === 0
+                          ? plateCounts
+                          : index === 1
+                            ? pipeCounts
+                            : index === 3
+                              ? fittingsCounts
+                              : index === 5
+                                ? flangesCounts
+                                : 0
+                      } materials`}
                 </Box>
               )}
 

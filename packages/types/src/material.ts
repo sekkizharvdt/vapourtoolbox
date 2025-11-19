@@ -196,6 +196,9 @@ export enum MaterialCategory {
 
   // Bought-Out Components - Other
   FLANGES = 'FLANGES', // ASME B16.5, B16.47 (Slip-on, Weld neck, Blind)
+  FLANGES_WELD_NECK = 'FLANGES_WELD_NECK', // ASME B16.5 (Weld Neck Flanges)
+  FLANGES_SLIP_ON = 'FLANGES_SLIP_ON', // ASME B16.5 (Slip-On Flanges)
+  FLANGES_BLIND = 'FLANGES_BLIND', // ASME B16.5 (Blind Flanges)
   GASKETS = 'GASKETS', // ASME B16.20, B16.21
   MOTORS = 'MOTORS',
   STRAINERS = 'STRAINERS', // Y-type, Basket, Duplex strainers
@@ -259,6 +262,9 @@ export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
   [MaterialCategory.INSTRUMENT_CONTROL_VALVE]: 'Instrument - Control Valve',
   [MaterialCategory.INSTRUMENT_OTHER]: 'Instrument - Other',
   [MaterialCategory.FLANGES]: 'Flanges',
+  [MaterialCategory.FLANGES_WELD_NECK]: 'Flanges - Weld Neck',
+  [MaterialCategory.FLANGES_SLIP_ON]: 'Flanges - Slip-On',
+  [MaterialCategory.FLANGES_BLIND]: 'Flanges - Blind',
   [MaterialCategory.GASKETS]: 'Gaskets',
   [MaterialCategory.MOTORS]: 'Motors',
   [MaterialCategory.STRAINERS]: 'Strainers & Filters',
@@ -323,6 +329,9 @@ export const MATERIAL_CATEGORY_GROUPS = {
     MaterialCategory.INSTRUMENT_CONTROL_VALVE,
     MaterialCategory.INSTRUMENT_OTHER,
     MaterialCategory.FLANGES,
+    MaterialCategory.FLANGES_WELD_NECK,
+    MaterialCategory.FLANGES_SLIP_ON,
+    MaterialCategory.FLANGES_BLIND,
     MaterialCategory.GASKETS,
     MaterialCategory.MOTORS,
     MaterialCategory.STRAINERS,
@@ -345,6 +354,9 @@ export const MATERIAL_CATEGORY_GROUPS = {
     MaterialCategory.INSTRUMENT_CONTROL_VALVE,
     MaterialCategory.INSTRUMENT_OTHER,
     MaterialCategory.FLANGES,
+    MaterialCategory.FLANGES_WELD_NECK,
+    MaterialCategory.FLANGES_SLIP_ON,
+    MaterialCategory.FLANGES_BLIND,
     MaterialCategory.GASKETS,
     MaterialCategory.MOTORS,
     MaterialCategory.STRAINERS,
