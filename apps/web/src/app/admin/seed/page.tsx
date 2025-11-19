@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, Button, Typography, Box, Alert, CircularProgress } from '@mui/material';
 
@@ -32,29 +34,22 @@ export default function SeedMaterialsPage() {
     setResult(null);
 
     try {
-      // Get Firebase ID token
-      const token = await user.getIdToken();
+      // Get Firebase app and functions
+      const { app } = getFirebase();
+      const functions = getFunctions(app, 'asia-south1');
 
-      // Call the HTTP endpoint
-      const response = await fetch('https://seedmaterialshttp-697891123609.asia-south1.run.app', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          dataType: 'all',
-          deleteExisting: false,
-        }),
+      // Call the callable function
+      const seedMaterials = httpsCallable<
+        { dataType: string; deleteExisting: boolean },
+        SeedResult
+      >(functions, 'seedmaterials');
+
+      const response = await seedMaterials({
+        dataType: 'all',
+        deleteExisting: false,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
-
-      const data = (await response.json()) as SeedResult;
-      setResult(data);
+      setResult(response.data);
     } catch (err) {
       console.error('Error seeding materials:', err);
       setError(err instanceof Error ? err.message : String(err));

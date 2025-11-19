@@ -28,7 +28,8 @@
       "Bash(firebase functions:call:*)",
       "Bash(chmod:*)",
       "Bash(firebase functions:list:*)",
-      "Bash(firebase deploy:*)"
+      "Bash(firebase deploy:*)",
+      "Bash(gh workflow run:*)"
     ],
     "deny": [],
     "ask": []
