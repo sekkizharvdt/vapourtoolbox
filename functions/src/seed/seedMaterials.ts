@@ -1,12 +1,20 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
+import * as path from 'path';
+import * as fs from 'fs';
 
-// Import seed data from the copied location in lib/seed-data
-// The build-postprocess.js script copies these files from scripts/seed-data to lib/seed-data
-import pipesData from '../../seed-data/pipes-carbon-steel.json';
-import fittingsData from '../../seed-data/fittings-butt-weld.json';
-import flangesData from '../../seed-data/flanges-weld-neck.json';
+// Load seed data dynamically at runtime from the deployed location
+const seedDataDir = path.join(__dirname, 'seed-data');
+const pipesData = JSON.parse(
+  fs.readFileSync(path.join(seedDataDir, 'pipes-carbon-steel.json'), 'utf8')
+);
+const fittingsData = JSON.parse(
+  fs.readFileSync(path.join(seedDataDir, 'fittings-butt-weld.json'), 'utf8')
+);
+const flangesData = JSON.parse(
+  fs.readFileSync(path.join(seedDataDir, 'flanges-weld-neck.json'), 'utf8')
+);
 
 interface SeedDataMetadata {
   standard: string;
