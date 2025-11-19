@@ -32,8 +32,6 @@ export default function SeedMaterialsPage() {
     setResult(null);
 
     try {
-      console.log('Calling seedMaterialsHttp function...');
-
       // Get Firebase ID token
       const token = await user.getIdToken();
 
@@ -56,7 +54,6 @@ export default function SeedMaterialsPage() {
       }
 
       const data = (await response.json()) as SeedResult;
-      console.log('Seed result:', data);
       setResult(data);
     } catch (err) {
       console.error('Error seeding materials:', err);
