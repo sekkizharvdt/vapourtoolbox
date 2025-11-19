@@ -33,7 +33,9 @@ import type {
   UpdateBOMItemInput,
   CreateBOMItemInput,
   BOMSummary,
+  OverheadApplicability,
 } from '@vapour/types';
+import { getActiveCostConfiguration } from './costConfig';
 
 const logger = createLogger({ context: 'bomService' });
 
@@ -522,6 +524,12 @@ export async function recalculateBOMSummary(
   try {
     logger.info('Recalculating BOM summary', { bomId });
 
+    // Get BOM to retrieve entityId for cost configuration
+    const bom = await getBOMById(db, bomId);
+    if (!bom) {
+      throw new Error(`BOM not found: ${bomId}`);
+    }
+
     const items = await getBOMItems(db, bomId);
 
     // Determine currency from first item with cost, default to INR
@@ -562,11 +570,69 @@ export async function recalculateBOMSummary(
       }
     }
 
-    // Calculate total cost: Material + Fabrication + Services
-    summary.totalCost.amount =
+    // Phase 4: Calculate Direct Cost (Material + Fabrication + Service)
+    summary.totalDirectCost.amount =
       summary.totalMaterialCost.amount +
       summary.totalFabricationCost.amount +
       summary.totalServiceCost.amount;
+
+    // Phase 4: Fetch active cost configuration and apply indirect costs
+    const costConfig = await getActiveCostConfiguration(db, bom.entityId);
+
+    if (costConfig) {
+      // Store cost config reference for audit trail
+      summary.costConfigId = costConfig.id;
+      summary.lastCalculated = Timestamp.now();
+
+      // Step 1: Calculate Overhead
+      if (costConfig.overhead.enabled && costConfig.overhead.ratePercent > 0) {
+        let overheadBaseCost = 0;
+
+        switch (costConfig.overhead.applicableTo as OverheadApplicability) {
+          case 'MATERIAL':
+            overheadBaseCost = summary.totalMaterialCost.amount;
+            break;
+          case 'FABRICATION':
+            overheadBaseCost = summary.totalFabricationCost.amount;
+            break;
+          case 'SERVICE':
+            overheadBaseCost = summary.totalServiceCost.amount;
+            break;
+          case 'ALL':
+          default:
+            overheadBaseCost = summary.totalDirectCost.amount;
+            break;
+        }
+
+        summary.overhead.amount = (overheadBaseCost * costConfig.overhead.ratePercent) / 100;
+      }
+
+      // Step 2: Calculate Contingency (applied to Direct + Overhead)
+      if (costConfig.contingency.enabled && costConfig.contingency.ratePercent > 0) {
+        const contingencyBaseCost = summary.totalDirectCost.amount + summary.overhead.amount;
+        summary.contingency.amount =
+          (contingencyBaseCost * costConfig.contingency.ratePercent) / 100;
+      }
+
+      // Calculate subtotal (Direct + Overhead + Contingency)
+      const subtotal =
+        summary.totalDirectCost.amount + summary.overhead.amount + summary.contingency.amount;
+
+      // Step 3: Calculate Profit (applied to subtotal)
+      if (costConfig.profit.enabled && costConfig.profit.ratePercent > 0) {
+        summary.profit.amount = (subtotal * costConfig.profit.ratePercent) / 100;
+      }
+
+      // Final Total Cost
+      summary.totalCost.amount = subtotal + summary.profit.amount;
+    } else {
+      // No cost configuration - total cost is just direct costs
+      summary.totalCost.amount = summary.totalDirectCost.amount;
+      logger.warn('No active cost configuration found for entity', {
+        entityId: bom.entityId,
+        bomId,
+      });
+    }
 
     // Update BOM document
     await updateBOM(db, bomId, { summary }, userId);
