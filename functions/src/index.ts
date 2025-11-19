@@ -28,4 +28,7 @@ export { onDocumentUploaded } from './documentRequirements';
 // Import module integration functions
 export { seedAccountingIntegrations } from './moduleIntegrations';
 
+// Import PDF generation functions
+export { generateBOMQuotePDF } from './pdf/generateBOMQuote';
+
 // Material database functions removed - seed catalog feature deprecated

@@ -16,6 +16,7 @@ import {
   ArrowBack as BackIcon,
   Add as AddIcon,
   Calculate as CalculateIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
@@ -26,6 +27,7 @@ import { calculateAllItemCosts } from '@/lib/bom/bomCalculations';
 import { createLogger } from '@vapour/logger';
 import type { BOM, BOMItem, BOMStatus } from '@vapour/types';
 import AddBOMItemDialog, { type AddItemData } from '@/components/bom/AddBOMItemDialog';
+import GeneratePDFDialog from '@/components/bom/GeneratePDFDialog';
 
 const logger = createLogger({ context: 'BOMEditorPage' });
 
@@ -52,6 +54,7 @@ export default function BOMEditorClient() {
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
 
   useEffect(() => {
     loadBOM();
@@ -191,6 +194,15 @@ export default function BOMEditorClient() {
               disabled={calculating || items.length === 0}
             >
               {calculating ? 'Calculating...' : 'Calculate Costs'}
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<PdfIcon />}
+              onClick={() => setPdfDialogOpen(true)}
+              disabled={items.length === 0}
+              color="secondary"
+            >
+              Generate PDF
             </Button>
             <Button
               variant="contained"
@@ -460,12 +472,20 @@ export default function BOMEditorClient() {
 
       {/* Add Item Dialog */}
       {bom && (
-        <AddBOMItemDialog
-          open={addDialogOpen}
-          onClose={() => setAddDialogOpen(false)}
-          onAdd={handleAddItem}
-          entityId={bom.entityId}
-        />
+        <>
+          <AddBOMItemDialog
+            open={addDialogOpen}
+            onClose={() => setAddDialogOpen(false)}
+            onAdd={handleAddItem}
+            entityId={bom.entityId}
+          />
+          <GeneratePDFDialog
+            open={pdfDialogOpen}
+            onClose={() => setPdfDialogOpen(false)}
+            bomId={bomId}
+            bomName={bom.name}
+          />
+        </>
       )}
     </Container>
   );

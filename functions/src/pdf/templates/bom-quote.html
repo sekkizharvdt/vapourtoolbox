@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Techno-Commercial Offer - {{bom.bomCode}}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            font-size: 10pt;
+            line-height: 1.4;
+            color: #333;
+        }
+
+        .page {
+            position: relative;
+            width: 100%;
+        }
+
+        /* Watermark */
+        {{#if watermark}}
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 100pt;
+            font-weight: bold;
+            color: rgba(200, 200, 200, 0.2);
+            z-index: -1;
+            user-select: none;
+        }
+        {{/if}}
+
+        /* Header */
+        .header {
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .header-left {
+            flex: 1;
+        }
+
+        .header-right {
+            text-align: right;
+        }
+
+        .company-logo {
+            max-width: 150px;
+            max-height: 60px;
+            margin-bottom: 10px;
+        }
+
+        .company-name {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #1e3a8a;
+            margin-bottom: 5px;
+        }
+
+        .company-details {
+            font-size: 9pt;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .quote-title {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 5px;
+        }
+
+        .quote-number {
+            font-size: 12pt;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .quote-date {
+            font-size: 9pt;
+            color: #666;
+        }
+
+        /* Customer Section */
+        .customer-section {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #1e3a8a;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 5px;
+        }
+
+        .customer-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #64748b;
+        }
+
+        /* BOM Info Section */
+        .bom-info {
+            background-color: #eff6ff;
+            border-left: 4px solid #2563eb;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .bom-title {
+            font-size: 13pt;
+            font-weight: bold;
+            color: #1e3a8a;
+            margin-bottom: 8px;
+        }
+
+        .bom-details {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            font-size: 9pt;
+        }
+
+        /* Items Table */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 9pt;
+        }
+
+        .items-table thead {
+            background-color: #1e3a8a;
+            color: white;
+        }
+
+        .items-table th {
+            padding: 8px 6px;
+            text-align: left;
+            font-weight: bold;
+            border: 1px solid #cbd5e1;
+        }
+
+        .items-table td {
+            padding: 6px;
+            border: 1px solid #e2e8f0;
+            vertical-align: top;
+        }
+
+        .items-table tbody tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        .items-table tbody tr:hover {
+            background-color: #eff6ff;
+        }
+
+        .item-number {
+            font-weight: bold;
+            color: #2563eb;
+        }
+
+        .item-sub {
+            padding-left: 20px;
+        }
+
+        .component-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            font-size: 7pt;
+            border-radius: 3px;
+            margin-left: 5px;
+        }
+
+        .badge-bought-out {
+            background-color: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+
+        .badge-fabricated {
+            background-color: #f3e8ff;
+            color: #6b21a8;
+            border: 1px solid #c084fc;
+        }
+
+        /* Cost Summary */
+        .cost-summary {
+            background-color: #f8fafc;
+            border: 2px solid #2563eb;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+            page-break-inside: avoid;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 10px;
+        }
+
+        .summary-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .summary-row:last-child {
+            border-bottom: none;
+        }
+
+        .summary-label {
+            font-weight: 500;
+            color: #475569;
+        }
+
+        .summary-value {
+            text-align: right;
+            font-weight: bold;
+            color: #1e293b;
+        }
+
+        .summary-section {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 2px solid #cbd5e1;
+        }
+
+        .summary-section-title {
+            font-size: 10pt;
+            font-weight: bold;
+            color: #1e3a8a;
+            margin-bottom: 8px;
+        }
+
+        .total-row {
+            background-color: #1e3a8a;
+            color: white;
+            padding: 12px 10px !important;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-size: 12pt;
+        }
+
+        .total-row .summary-label,
+        .total-row .summary-value {
+            color: white;
+        }
+
+        /* Terms Section */
+        .terms-section {
+            margin-bottom: 20px;
+            page-break-inside: avoid;
+        }
+
+        .terms-list {
+            list-style-position: inside;
+            padding-left: 0;
+        }
+
+        .terms-list li {
+            padding: 4px 0;
+            line-height: 1.5;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e2e8f0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+
+        .signature-block {
+            text-align: center;
+        }
+
+        .signature-line {
+            border-top: 1px solid #333;
+            margin-top: 60px;
+            padding-top: 8px;
+            font-weight: bold;
+        }
+
+        .signature-title {
+            font-size: 9pt;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
+        /* Page breaks */
+        .page-break {
+            page-break-after: always;
+        }
+
+        /* Print specific */
+        @media print {
+            body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+    {{#if watermark}}
+    <div class="watermark">{{watermark}}</div>
+    {{/if}}
+
+    <div class="page">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                {{#if company.logoUrl}}
+                <img src="{{company.logoUrl}}" alt="{{company.name}}" class="company-logo">
+                {{/if}}
+                <div class="company-name">{{company.name}}</div>
+                <div class="company-details">
+                    {{#if company.address}}<div>{{company.address}}</div>{{/if}}
+                    {{#if company.phone}}<div>Phone: {{company.phone}}</div>{{/if}}
+                    {{#if company.email}}<div>Email: {{company.email}}</div>{{/if}}
+                    {{#if company.website}}<div>Website: {{company.website}}</div>{{/if}}
+                    {{#if company.gstin}}<div>GSTIN: {{company.gstin}}</div>{{/if}}
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="quote-title">TECHNO-COMMERCIAL OFFER</div>
+                <div class="quote-number">Quote #{{quoteNumber}}</div>
+                <div class="quote-date">Date: {{quoteDate}}</div>
+                <div class="quote-date">Valid Until: {{validUntil}}</div>
+            </div>
+        </div>
+
+        <!-- Customer Section -->
+        <div class="customer-section">
+            <div class="section-title">TO</div>
+            <div class="customer-grid">
+                <div>
+                    <div class="info-label">Customer Name:</div>
+                    <div>{{customer.name}}</div>
+                </div>
+                {{#if customer.attention}}
+                <div>
+                    <div class="info-label">Attention:</div>
+                    <div>{{customer.attention}}</div>
+                </div>
+                {{/if}}
+                {{#if customer.address}}
+                <div>
+                    <div class="info-label">Address:</div>
+                    <div>{{customer.address}}</div>
+                </div>
+                {{/if}}
+                {{#if customer.email}}
+                <div>
+                    <div class="info-label">Email:</div>
+                    <div>{{customer.email}}</div>
+                </div>
+                {{/if}}
+            </div>
+        </div>
+
+        <!-- BOM Info -->
+        <div class="bom-info">
+            <div class="bom-title">{{bom.name}}</div>
+            <div class="bom-details">
+                <div><span class="info-label">BOM Code:</span> {{bom.bomCode}}</div>
+                <div><span class="info-label">Category:</span> {{bom.category}}</div>
+                {{#if bom.projectName}}
+                <div><span class="info-label">Project:</span> {{bom.projectName}}</div>
+                {{/if}}
+            </div>
+            {{#if bom.description}}
+            <div style="margin-top: 10px;">{{bom.description}}</div>
+            {{/if}}
+        </div>
+
+        <!-- Items Table -->
+        <div class="section-title">BILL OF MATERIALS</div>
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 8%;">Item No.</th>
+                    <th style="width: 30%;">Description</th>
+                    <th style="width: 12%;">Quantity</th>
+                    {{#if showMaterialCodes}}
+                    <th style="width: 15%;">Material</th>
+                    {{/if}}
+                    {{#if showItemDetails}}
+                    <th style="width: 10%;">Weight</th>
+                    {{/if}}
+                    <th style="width: 15%;">Total Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each items}}
+                <tr>
+                    <td class="item-number">{{this.itemNumber}}</td>
+                    <td {{#if this.isSubItem}}class="item-sub"{{/if}}>
+                        {{this.name}}
+                        {{#if this.componentType}}
+                        {{#if (eq this.componentType "BOUGHT_OUT")}}
+                        <span class="component-badge badge-bought-out">Bought-Out</span>
+                        {{else}}
+                        <span class="component-badge badge-fabricated">Fabricated</span>
+                        {{/if}}
+                        {{/if}}
+                        {{#if ../showItemDetails}}
+                        {{#if this.description}}
+                        <br><small style="color: #64748b;">{{this.description}}</small>
+                        {{/if}}
+                        {{/if}}
+                    </td>
+                    <td>{{this.quantity}}</td>
+                    {{#if ../showMaterialCodes}}
+                    <td>{{this.materialCode}}</td>
+                    {{/if}}
+                    {{#if ../showItemDetails}}
+                    <td>{{this.weight}}</td>
+                    {{/if}}
+                    <td style="text-align: right; font-weight: bold;">{{this.totalPrice}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+
+        <!-- Cost Summary -->
+        <div class="cost-summary">
+            <div class="section-title">COST SUMMARY</div>
+
+            {{#if showCostBreakdown}}
+            <div>
+                <div class="summary-section-title">Direct Costs</div>
+                <div class="summary-row">
+                    <div class="summary-label">Material Cost</div>
+                    <div class="summary-value">{{summary.totalMaterialCost}}</div>
+                </div>
+                <div class="summary-row">
+                    <div class="summary-label">Fabrication Cost</div>
+                    <div class="summary-value">{{summary.totalFabricationCost}}</div>
+                </div>
+                {{#if showServices}}
+                <div class="summary-row">
+                    <div class="summary-label">Service Cost</div>
+                    <div class="summary-value">{{summary.totalServiceCost}}</div>
+                </div>
+                {{/if}}
+                <div class="summary-row" style="font-weight: bold; background-color: #e2e8f0;">
+                    <div class="summary-label">Total Direct Cost</div>
+                    <div class="summary-value">{{summary.totalDirectCost}}</div>
+                </div>
+            </div>
+            {{/if}}
+
+            {{#if showIndirectCosts}}
+            <div class="summary-section">
+                <div class="summary-section-title">Indirect Costs</div>
+                <div class="summary-row">
+                    <div class="summary-label">Overhead</div>
+                    <div class="summary-value">{{summary.overhead}}</div>
+                </div>
+                <div class="summary-row">
+                    <div class="summary-label">Contingency</div>
+                    <div class="summary-value">{{summary.contingency}}</div>
+                </div>
+                <div class="summary-row">
+                    <div class="summary-label">Profit</div>
+                    <div class="summary-value">{{summary.profit}}</div>
+                </div>
+            </div>
+            {{/if}}
+
+            <div class="summary-row total-row">
+                <div class="summary-label">TOTAL QUOTED PRICE</div>
+                <div class="summary-value">{{summary.totalCost}}</div>
+            </div>
+
+            <div style="margin-top: 15px; font-size: 9pt; color: #64748b;">
+                <div><strong>Total Weight:</strong> {{summary.totalWeight}}</div>
+                <div><strong>Number of Items:</strong> {{summary.itemCount}}</div>
+                <div><strong>Currency:</strong> {{summary.currency}}</div>
+                {{#if summary.costConfigName}}
+                <div><strong>Cost Configuration:</strong> {{summary.costConfigName}}</div>
+                {{/if}}
+            </div>
+        </div>
+
+        {{#if customNotes}}
+        <div class="terms-section">
+            <div class="section-title">ADDITIONAL NOTES</div>
+            <p>{{customNotes}}</p>
+        </div>
+        {{/if}}
+
+        <!-- Terms and Conditions -->
+        <div class="terms-section">
+            <div class="section-title">TERMS & CONDITIONS</div>
+            <ol class="terms-list">
+                {{#each termsAndConditions}}
+                <li>{{this}}</li>
+                {{/each}}
+            </ol>
+        </div>
+
+        <!-- Payment Terms -->
+        <div class="terms-section">
+            <div class="section-title">PAYMENT TERMS</div>
+            <ol class="terms-list">
+                {{#each paymentTerms}}
+                <li>{{this}}</li>
+                {{/each}}
+            </ol>
+        </div>
+
+        <!-- Delivery Terms -->
+        <div class="terms-section">
+            <div class="section-title">DELIVERY TERMS</div>
+            <ol class="terms-list">
+                {{#each deliveryTerms}}
+                <li>{{this}}</li>
+                {{/each}}
+            </ol>
+        </div>
+
+        <!-- Footer with Signatures -->
+        <div class="footer">
+            <div class="signature-block">
+                <div class="signature-line">{{company.name}}</div>
+                <div class="signature-title">Authorized Signatory</div>
+            </div>
+            <div class="signature-block">
+                <div class="signature-line">{{customer.name}}</div>
+                <div class="signature-title">Customer Acceptance</div>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; text-align: center; font-size: 8pt; color: #94a3b8;">
+            <p>Generated on {{generatedAt}} | Prepared by {{preparedBy}}</p>
+            <p>This is a computer-generated quotation and does not require a physical signature for validity.</p>
+        </div>
+    </div>
+
+    <!-- Handlebars helper for comparison -->
+    <script>
+        Handlebars.registerHelper('eq', function(a, b) {
+            return a === b;
+        });
+    </script>
+</body>
+</html>
