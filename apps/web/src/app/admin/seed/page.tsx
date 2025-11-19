@@ -36,13 +36,13 @@ export default function SeedMaterialsPage() {
     try {
       // Get Firebase app and functions
       const { app } = getFirebase();
-      const functions = getFunctions(app, 'asia-south1');
+      const functions = getFunctions(app, 'us-central1');
 
       // Call the callable function
       const seedMaterials = httpsCallable<
         { dataType: string; deleteExisting: boolean },
         SeedResult
-      >(functions, 'seedmaterials');
+      >(functions, 'seedMaterials');
 
       const response = await seedMaterials({
         dataType: 'all',

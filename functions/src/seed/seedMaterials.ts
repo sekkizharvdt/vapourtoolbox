@@ -67,10 +67,9 @@ interface SeedMaterialsResult {
  */
 export const seedMaterials = onCall<SeedMaterialsRequest, Promise<SeedMaterialsResult>>(
   {
-    region: 'asia-south1',
+    region: 'us-central1',
     timeoutSeconds: 540,
     memory: '512MiB',
-    cors: ['https://toolbox.vapourdesal.com', 'https://vapour-toolbox.web.app'],
   },
   async (request) => {
     const { dataType, deleteExisting = false } = request.data;
