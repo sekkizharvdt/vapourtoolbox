@@ -119,6 +119,13 @@ interface MaterialWithVariants {
   variants: (PipeVariant | FittingVariant | FlangeVariant)[];
 }
 
+// Union type for all variants with additional material info
+type VariantWithMaterial = (PipeVariant | FittingVariant | FlangeVariant) & {
+  materialCode: string;
+  materialName: string;
+  standard?: string;
+};
+
 export default function MaterialsCatalogPage() {
   const router = useRouter();
   const { db } = getFirebase();
@@ -230,15 +237,17 @@ export default function MaterialsCatalogPage() {
     // Search filter
     if (searchText.trim()) {
       const searchLower = searchText.toLowerCase();
-      filtered = filtered.filter((variant: any) => {
+      filtered = filtered.filter((variant) => {
+        const v = variant as VariantWithMaterial &
+          Partial<PipeVariant & FittingVariant & FlangeVariant>;
         return (
-          variant.materialCode?.toLowerCase().includes(searchLower) ||
-          variant.materialName?.toLowerCase().includes(searchLower) ||
-          variant.nps?.toLowerCase().includes(searchLower) ||
-          variant.dn?.toLowerCase().includes(searchLower) ||
-          variant.schedule?.toLowerCase().includes(searchLower) ||
-          variant.type?.toLowerCase().includes(searchLower) ||
-          variant.pressureClass?.toLowerCase().includes(searchLower)
+          v.materialCode?.toLowerCase().includes(searchLower) ||
+          v.materialName?.toLowerCase().includes(searchLower) ||
+          v.nps?.toLowerCase().includes(searchLower) ||
+          v.dn?.toLowerCase().includes(searchLower) ||
+          v.schedule?.toLowerCase().includes(searchLower) ||
+          v.type?.toLowerCase().includes(searchLower) ||
+          v.pressureClass?.toLowerCase().includes(searchLower)
         );
       });
     }
@@ -247,26 +256,30 @@ export default function MaterialsCatalogPage() {
     if (tabValue === 0) {
       // Pipes
       if (selectedSchedule !== 'ALL') {
-        filtered = filtered.filter((v: any) => v.schedule === selectedSchedule);
+        filtered = filtered.filter((v) => (v as PipeVariant).schedule === selectedSchedule);
       }
       if (selectedNPS !== 'ALL') {
-        filtered = filtered.filter((v: any) => v.nps === selectedNPS);
+        filtered = filtered.filter((v) => (v as PipeVariant).nps === selectedNPS);
       }
     } else if (tabValue === 1) {
       // Fittings
       if (selectedFittingType !== 'ALL') {
-        filtered = filtered.filter((v: any) => v.type === selectedFittingType);
+        filtered = filtered.filter((v) => (v as FittingVariant).type === selectedFittingType);
       }
       if (selectedNPS !== 'ALL') {
-        filtered = filtered.filter((v: any) => v.nps?.split(' x ')[0] === selectedNPS);
+        filtered = filtered.filter(
+          (v) => (v as FittingVariant).nps?.split(' x ')[0] === selectedNPS
+        );
       }
     } else if (tabValue === 2) {
       // Flanges
       if (selectedPressureClass !== 'ALL') {
-        filtered = filtered.filter((v: any) => v.pressureClass === selectedPressureClass);
+        filtered = filtered.filter(
+          (v) => (v as FlangeVariant).pressureClass === selectedPressureClass
+        );
       }
       if (selectedNPS !== 'ALL') {
-        filtered = filtered.filter((v: any) => v.nps === selectedNPS);
+        filtered = filtered.filter((v) => (v as FlangeVariant).nps === selectedNPS);
       }
     }
 
@@ -290,18 +303,20 @@ export default function MaterialsCatalogPage() {
   // Get unique filter options
   const schedules = useMemo(() => {
     const schedSet = new Set<string>();
-    allVariants.forEach((v: any) => {
-      if (v.schedule) schedSet.add(v.schedule);
+    allVariants.forEach((v) => {
+      const pipeVariant = v as Partial<PipeVariant>;
+      if (pipeVariant.schedule) schedSet.add(pipeVariant.schedule);
     });
     return Array.from(schedSet).sort();
   }, [allVariants]);
 
   const npsSizes = useMemo(() => {
     const npsSet = new Set<string>();
-    allVariants.forEach((v: any) => {
-      if (v.nps) {
+    allVariants.forEach((v) => {
+      const variant = v as Partial<PipeVariant & FittingVariant & FlangeVariant>;
+      if (variant.nps) {
         // For fittings like "2 x 1", only get first size
-        const nps = v.nps.split(' x ')[0];
+        const nps = variant.nps.split(' x ')[0] || variant.nps;
         npsSet.add(nps);
       }
     });
@@ -315,16 +330,18 @@ export default function MaterialsCatalogPage() {
 
   const fittingTypes = useMemo(() => {
     const typeSet = new Set<string>();
-    allVariants.forEach((v: any) => {
-      if (v.type) typeSet.add(v.type);
+    allVariants.forEach((v) => {
+      const fittingVariant = v as Partial<FittingVariant>;
+      if (fittingVariant.type) typeSet.add(fittingVariant.type);
     });
     return Array.from(typeSet).sort();
   }, [allVariants]);
 
   const pressureClasses = useMemo(() => {
     const pcSet = new Set<string>();
-    allVariants.forEach((v: any) => {
-      if (v.pressureClass) pcSet.add(v.pressureClass);
+    allVariants.forEach((v) => {
+      const flangeVariant = v as Partial<FlangeVariant>;
+      if (flangeVariant.pressureClass) pcSet.add(flangeVariant.pressureClass);
     });
     return Array.from(pcSet).sort();
   }, [allVariants]);
@@ -362,26 +379,30 @@ export default function MaterialsCatalogPage() {
               </TableCell>
             </TableRow>
           ) : (
-            paginatedVariants.map((variant: any, index) => (
-              <TableRow key={variant.id || index} hover>
-                <TableCell>{variant.nps}</TableCell>
-                <TableCell>{variant.dn}</TableCell>
-                <TableCell>
-                  <Chip label={variant.schedule} size="small" />
-                  {variant.scheduleType && variant.scheduleType !== variant.schedule && (
-                    <Typography variant="caption" display="block" color="text.secondary">
-                      ({variant.scheduleType})
-                    </Typography>
-                  )}
-                </TableCell>
-                <TableCell align="right">{variant.od_inch?.toFixed(3)}</TableCell>
-                <TableCell align="right">{variant.od_mm?.toFixed(2)}</TableCell>
-                <TableCell align="right">{variant.wt_inch?.toFixed(3)}</TableCell>
-                <TableCell align="right">{variant.wt_mm?.toFixed(2)}</TableCell>
-                <TableCell align="right">{variant.weight_lbft?.toFixed(2)}</TableCell>
-                <TableCell align="right">{variant.weight_kgm?.toFixed(2)}</TableCell>
-              </TableRow>
-            ))
+            paginatedVariants.map((variant, index) => {
+              const pipeVariant = variant as PipeVariant;
+              return (
+                <TableRow key={pipeVariant.id || index} hover>
+                  <TableCell>{pipeVariant.nps}</TableCell>
+                  <TableCell>{pipeVariant.dn}</TableCell>
+                  <TableCell>
+                    <Chip label={pipeVariant.schedule} size="small" />
+                    {pipeVariant.scheduleType &&
+                      pipeVariant.scheduleType !== pipeVariant.schedule && (
+                        <Typography variant="caption" display="block" color="text.secondary">
+                          ({pipeVariant.scheduleType})
+                        </Typography>
+                      )}
+                  </TableCell>
+                  <TableCell align="right">{pipeVariant.od_inch?.toFixed(3)}</TableCell>
+                  <TableCell align="right">{pipeVariant.od_mm?.toFixed(2)}</TableCell>
+                  <TableCell align="right">{pipeVariant.wt_inch?.toFixed(3)}</TableCell>
+                  <TableCell align="right">{pipeVariant.wt_mm?.toFixed(2)}</TableCell>
+                  <TableCell align="right">{pipeVariant.weight_lbft?.toFixed(2)}</TableCell>
+                  <TableCell align="right">{pipeVariant.weight_kgm?.toFixed(2)}</TableCell>
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>
@@ -420,22 +441,38 @@ export default function MaterialsCatalogPage() {
               </TableCell>
             </TableRow>
           ) : (
-            paginatedVariants.map((variant: any, index) => (
-              <TableRow key={variant.id || index} hover>
-                <TableCell>
-                  <Chip label={variant.type} size="small" color="primary" variant="outlined" />
-                </TableCell>
-                <TableCell>{variant.nps}</TableCell>
-                <TableCell>{variant.dn}</TableCell>
-                <TableCell align="right">{variant.centerToEnd_inch?.toFixed(2) || '-'}</TableCell>
-                <TableCell align="right">{variant.centerToEnd_mm || '-'}</TableCell>
-                <TableCell align="right">{variant.endToEnd_inch?.toFixed(2) || '-'}</TableCell>
-                <TableCell align="right">{variant.endToEnd_mm || '-'}</TableCell>
-                <TableCell>
-                  <Chip label={variant.applicableSchedules} size="small" variant="outlined" />
-                </TableCell>
-              </TableRow>
-            ))
+            paginatedVariants.map((variant, index) => {
+              const fittingVariant = variant as FittingVariant;
+              return (
+                <TableRow key={fittingVariant.id || index} hover>
+                  <TableCell>
+                    <Chip
+                      label={fittingVariant.type}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell>{fittingVariant.nps}</TableCell>
+                  <TableCell>{fittingVariant.dn}</TableCell>
+                  <TableCell align="right">
+                    {fittingVariant.centerToEnd_inch?.toFixed(2) || '-'}
+                  </TableCell>
+                  <TableCell align="right">{fittingVariant.centerToEnd_mm || '-'}</TableCell>
+                  <TableCell align="right">
+                    {fittingVariant.endToEnd_inch?.toFixed(2) || '-'}
+                  </TableCell>
+                  <TableCell align="right">{fittingVariant.endToEnd_mm || '-'}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={fittingVariant.applicableSchedules}
+                      size="small"
+                      variant="outlined"
+                    />
+                  </TableCell>
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>
@@ -476,22 +513,27 @@ export default function MaterialsCatalogPage() {
               </TableCell>
             </TableRow>
           ) : (
-            paginatedVariants.map((variant: any, index) => (
-              <TableRow key={variant.id || index} hover>
-                <TableCell>
-                  <Chip label={variant.pressureClass} size="small" color="secondary" />
-                </TableCell>
-                <TableCell>{variant.nps}</TableCell>
-                <TableCell>{variant.dn}</TableCell>
-                <TableCell align="right">{variant.outsideDiameter_inch?.toFixed(2)}</TableCell>
-                <TableCell align="right">{variant.outsideDiameter_mm}</TableCell>
-                <TableCell align="right">{variant.boltCircle_inch?.toFixed(2)}</TableCell>
-                <TableCell align="right">{variant.boltCircle_mm}</TableCell>
-                <TableCell align="right">{variant.thickness_inch?.toFixed(2)}</TableCell>
-                <TableCell align="center">{variant.boltHoles}</TableCell>
-                <TableCell>{variant.boltSize_inch}"</TableCell>
-              </TableRow>
-            ))
+            paginatedVariants.map((variant, index) => {
+              const flangeVariant = variant as FlangeVariant;
+              return (
+                <TableRow key={flangeVariant.id || index} hover>
+                  <TableCell>
+                    <Chip label={flangeVariant.pressureClass} size="small" color="secondary" />
+                  </TableCell>
+                  <TableCell>{flangeVariant.nps}</TableCell>
+                  <TableCell>{flangeVariant.dn}</TableCell>
+                  <TableCell align="right">
+                    {flangeVariant.outsideDiameter_inch?.toFixed(2)}
+                  </TableCell>
+                  <TableCell align="right">{flangeVariant.outsideDiameter_mm}</TableCell>
+                  <TableCell align="right">{flangeVariant.boltCircle_inch?.toFixed(2)}</TableCell>
+                  <TableCell align="right">{flangeVariant.boltCircle_mm}</TableCell>
+                  <TableCell align="right">{flangeVariant.thickness_inch?.toFixed(2)}</TableCell>
+                  <TableCell align="center">{flangeVariant.boltHoles}</TableCell>
+                  <TableCell>{flangeVariant.boltSize_inch}&quot;</TableCell>
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>
