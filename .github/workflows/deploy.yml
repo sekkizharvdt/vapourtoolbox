@@ -50,7 +50,7 @@ jobs:
         run: npm install -g firebase-tools
 
       - name: Install Functions dependencies
-        run: cd functions && npm ci
+        run: cd functions && pnpm install --frozen-lockfile
 
       # Note: EXCHANGERATE_API_KEY is now managed as a Firebase Secret
       # It was configured via: firebase functions:secrets:set EXCHANGERATE_API_KEY
