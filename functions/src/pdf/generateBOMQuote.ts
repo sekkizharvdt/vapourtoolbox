@@ -3,10 +3,11 @@
  * Firebase Function to generate professional techno-commercial offer PDFs
  */
 
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
-import * as puppeteer from 'puppeteer';
-import * as Handlebars from 'handlebars';
+import puppeteer from 'puppeteer';
+import Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -30,36 +31,36 @@ interface PDFGenerationResult {
  * Generate BOM Quote PDF
  * Callable Firebase Function
  */
-export const generateBOMQuotePDF = functions
-  .region('asia-south1')
-  .runWith({
+export const generateBOMQuotePDF = onCall<PDFGenerationRequest, Promise<PDFGenerationResult>>(
+  {
+    region: 'asia-south1',
     timeoutSeconds: 540, // 9 minutes (Puppeteer can be slow)
-    memory: '2GB', // Puppeteer needs more memory
-  })
-  .https.onCall(async (data: PDFGenerationRequest, context): Promise<PDFGenerationResult> => {
+    memory: '2GiB', // Puppeteer needs more memory
+  },
+  async (request): Promise<PDFGenerationResult> => {
     try {
       // Authentication check
-      if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+      if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'User must be authenticated');
       }
 
-      const { bomId, options } = data;
+      const { bomId, options } = request.data;
 
       if (!bomId) {
-        throw new functions.https.HttpsError('invalid-argument', 'BOM ID is required');
+        throw new HttpsError('invalid-argument', 'BOM ID is required');
       }
 
-      console.log('Generating PDF for BOM', { bomId, userId: context.auth.uid });
+      logger.info('Generating PDF for BOM', { bomId, userId: request.auth.uid });
 
       // Fetch BOM data from Firestore
       const db = admin.firestore();
       const bomDoc = await db.collection('boms').doc(bomId).get();
 
       if (!bomDoc.exists) {
-        throw new functions.https.HttpsError('not-found', 'BOM not found');
+        throw new HttpsError('not-found', 'BOM not found');
       }
 
-      const bom = { id: bomDoc.id, ...bomDoc.data() };
+      const bom = { id: bomDoc.id, ...bomDoc.data() } as Record<string, unknown>;
 
       // Fetch BOM items
       const itemsSnapshot = await db
@@ -69,17 +70,21 @@ export const generateBOMQuotePDF = functions
         .orderBy('sortOrder', 'asc')
         .get();
 
-      const items = itemsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const items = itemsSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Record<string, unknown>[];
 
       // Fetch cost configuration if referenced
-      let costConfig = null;
-      if (bom.summary?.costConfigId) {
+      let costConfig: Record<string, unknown> | null = null;
+      const summary = bom.summary as Record<string, unknown> | undefined;
+      if (summary?.costConfigId) {
         const configDoc = await db
           .collection('costConfigurations')
-          .doc(bom.summary.costConfigId)
+          .doc(summary.costConfigId as string)
           .get();
         if (configDoc.exists) {
-          costConfig = { id: configDoc.id, ...configDoc.data() };
+          costConfig = { id: configDoc.id, ...configDoc.data() } as Record<string, unknown>;
         }
       }
 
@@ -100,7 +105,7 @@ export const generateBOMQuotePDF = functions
           contentType: 'application/pdf',
           metadata: {
             bomId,
-            generatedBy: context.auth.uid,
+            generatedBy: request.auth.uid,
             generatedAt: new Date().toISOString(),
           },
         },
@@ -116,7 +121,7 @@ export const generateBOMQuotePDF = functions
         new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
       );
 
-      console.log('PDF generated successfully', {
+      logger.info('PDF generated successfully', {
         bomId,
         fileName,
         fileSize: pdfBuffer.length,
@@ -131,7 +136,7 @@ export const generateBOMQuotePDF = functions
         fileSize: pdfBuffer.length,
       };
     } catch (error) {
-      console.error('Error generating PDF', error);
+      logger.error('Error generating PDF', error);
 
       return {
         success: false,
@@ -139,7 +144,8 @@ export const generateBOMQuotePDF = functions
         generatedAt: admin.firestore.Timestamp.now(),
       };
     }
-  });
+  }
+);
 
 /**
  * Prepare data for PDF template
@@ -203,7 +209,7 @@ function preparePDFData(
     },
 
     // Items
-    items: items.map((item, index) => ({
+    items: items.map((item) => ({
       itemNumber: item.itemNumber as string,
       name: item.name as string,
       description: item.description as string,
@@ -294,7 +300,7 @@ function preparePDFData(
  */
 async function renderPDF(data: Record<string, unknown>): Promise<Buffer> {
   // Register Handlebars helpers
-  Handlebars.registerHelper('eq', function (a, b) {
+  Handlebars.registerHelper('eq', function (a: unknown, b: unknown) {
     return a === b;
   });
 
