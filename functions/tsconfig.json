@@ -11,13 +11,12 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
+    "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
       "@vapour/*": ["../packages/*/src"]
     }
   },
   "compileOnSave": true,
-  "include": [
-    "src"
-  ]
+  "include": ["src", "../scripts/seed-data/*.json"]
 }

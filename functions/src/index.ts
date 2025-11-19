@@ -31,4 +31,5 @@ export { seedAccountingIntegrations } from './moduleIntegrations';
 // Import PDF generation functions
 export { generateBOMQuotePDF } from './pdf/generateBOMQuote';
 
-// Material database functions removed - seed catalog feature deprecated
+// Import seed functions for materials
+export { seedMaterials } from './seed/seedMaterials';
