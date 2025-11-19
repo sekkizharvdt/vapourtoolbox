@@ -70,6 +70,7 @@ export const seedMaterials = onCall<SeedMaterialsRequest, Promise<SeedMaterialsR
     region: 'asia-south1',
     timeoutSeconds: 540,
     memory: '512MiB',
+    cors: true, // Enable CORS for all origins
   },
   async (request) => {
     const { dataType, deleteExisting = false } = request.data;

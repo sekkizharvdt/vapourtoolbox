@@ -33,3 +33,4 @@ export { generateBOMQuotePDF } from './pdf/generateBOMQuote';
 
 // Import seed functions for materials
 export { seedMaterials } from './seed/seedMaterials';
+export { seedMaterialsHttp } from './seed/seedMaterialsHttp';

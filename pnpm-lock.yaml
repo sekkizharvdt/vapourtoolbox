@@ -22,6 +22,9 @@ importers:
       eslint:
         specifier: ^9.38.0
         version: 9.38.0(jiti@2.6.1)
+      firebase:
+        specifier: ^11.10.0
+        version: 11.10.0
       firebase-admin:
         specifier: ^13.5.0
         version: 13.5.0(encoding@0.1.13)

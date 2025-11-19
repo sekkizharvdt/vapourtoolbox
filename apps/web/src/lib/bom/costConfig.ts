@@ -58,11 +58,10 @@ export async function createCostConfiguration(
 
   const docRef = await addDoc(collection(db, COLLECTIONS.COST_CONFIGURATIONS), configData);
 
-  const result: CostConfiguration = {
+  return {
     id: docRef.id,
     ...configData,
-  };
-  return result;
+  } as CostConfiguration;
 }
 
 /**
@@ -97,11 +96,10 @@ export async function getActiveCostConfiguration(
     return null;
   }
 
-  const result: CostConfiguration = {
+  return {
     id: docSnap.id,
     ...(docSnap.data() as Omit<CostConfiguration, 'id'>),
-  };
-  return result;
+  } as CostConfiguration;
 }
 
 /**
@@ -118,11 +116,10 @@ export async function getCostConfiguration(
     return null;
   }
 
-  const result: CostConfiguration = {
+  return {
     id: docSnap.id,
     ...(docSnap.data() as Omit<CostConfiguration, 'id'>),
-  };
-  return result;
+  } as CostConfiguration;
 }
 
 /**
@@ -170,13 +167,13 @@ export async function listCostConfigurations(
 
   const querySnapshot = await getDocs(q);
 
-  return querySnapshot.docs.map((doc) => {
-    const result: CostConfiguration = {
-      id: doc.id,
-      ...(doc.data() as Omit<CostConfiguration, 'id'>),
-    };
-    return result;
-  });
+  return querySnapshot.docs.map(
+    (doc) =>
+      ({
+        id: doc.id,
+        ...(doc.data() as Omit<CostConfiguration, 'id'>),
+      }) as CostConfiguration
+  );
 }
 
 /**
