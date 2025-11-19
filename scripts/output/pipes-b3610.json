@@ -1,0 +1,26 @@
+{
+  "standard": "ASME B36.10-2022",
+  "material": {
+    "materialCode": "PP-CS-A106-SMLS",
+    "name": "Carbon Steel Pipe ASTM A106",
+    "description": "Seamless Carbon Steel Pipe for High-Temperature Service - ASME B36.10-2022",
+    "category": "PIPES_CARBON_STEEL",
+    "materialType": "RAW_MATERIAL",
+    "specification": {
+      "standard": "ASME B36.10-2022",
+      "form": "Pipe"
+    },
+    "properties": {},
+    "hasVariants": true,
+    "baseUnit": "meter",
+    "tags": ["pipe", "carbon-steel", "seamless", "ASME", "B36.10"],
+    "isActive": true,
+    "isStandard": true
+  },
+  "variants": [],
+  "metadata": {
+    "generatedAt": "2025-11-19T07:45:48.444Z",
+    "totalVariants": 0,
+    "source": "ASME B36.10-2022"
+  }
+}
