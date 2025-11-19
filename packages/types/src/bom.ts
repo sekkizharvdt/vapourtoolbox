@@ -69,6 +69,12 @@ export const BOM_ITEM_TYPE_LABELS: Record<BOMItemType, string> = {
 export type ShapeParameters = Record<string, number>;
 
 /**
+ * BOM Component Type
+ * Distinguishes between shape-based (fabricated) and bought-out components
+ */
+export type BOMComponentType = 'SHAPE' | 'BOUGHT_OUT';
+
+/**
  * BOM Summary - Calculated totals
  */
 export interface BOMSummary {
@@ -137,14 +143,17 @@ export interface BOMItem {
   quantity: number;
   unit: string; // "nos", "kg", "m", "m²", etc.
 
-  // Shape-based component (Week 1 focus)
+  // Component (shape-based or bought-out)
   component?: {
+    type: BOMComponentType; // 'SHAPE' or 'BOUGHT_OUT'
+    // For shape-based components (fabricated items)
     shapeId?: string; // Link to Shape Database
     shapeType?: string; // Shape type name (e.g., "Cylinder", "Plate")
+    parameters?: ShapeParameters; // Shape parameters {D: 1000, L: 3000}
+    // For both types
     materialId?: string; // Link to Material Database
     materialCode?: string; // Material code for display
-    materialGrade?: string; // Material grade for display
-    parameters?: ShapeParameters; // Shape parameters {D: 1000, L: 3000}
+    materialGrade?: string; // Material grade for display (or model number for bought-out)
   };
 
   // Calculated properties (auto-filled from shape calculations)
@@ -218,6 +227,8 @@ export interface CreateBOMItemInput {
   quantity: number;
   unit: string;
   parentItemId?: string;
+  // Component configuration
+  componentType?: BOMComponentType; // 'SHAPE' or 'BOUGHT_OUT'
   shapeId?: string;
   materialId?: string;
   parameters?: ShapeParameters;
@@ -231,6 +242,7 @@ export interface UpdateBOMItemInput {
   description?: string;
   quantity?: number;
   unit?: string;
+  componentType?: BOMComponentType;
   shapeId?: string;
   materialId?: string;
   parameters?: ShapeParameters;

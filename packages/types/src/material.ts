@@ -174,13 +174,30 @@ export enum MaterialCategory {
   FASTENERS_STUDS = 'FASTENERS_STUDS', // ASTM A193 (Threaded rods)
   FASTENERS_SCREWS = 'FASTENERS_SCREWS', // ASME B18.3 (Cap screws, Set screws)
 
+  // Bought-Out Components - Valves (ASME B16.34)
+  VALVE_GATE = 'VALVE_GATE', // Gate valves (OS&Y, Rising stem)
+  VALVE_GLOBE = 'VALVE_GLOBE', // Globe valves (Angle, Straight)
+  VALVE_BALL = 'VALVE_BALL', // Ball valves (Full port, Reduced port)
+  VALVE_BUTTERFLY = 'VALVE_BUTTERFLY', // Butterfly valves (Wafer, Lug, Flanged)
+  VALVE_CHECK = 'VALVE_CHECK', // Check valves (Swing, Lift, Tilting disc)
+  VALVE_OTHER = 'VALVE_OTHER', // Plug, Diaphragm, Needle valves
+
+  // Bought-Out Components - Pumps
+  PUMP_CENTRIFUGAL = 'PUMP_CENTRIFUGAL', // End suction, Split case, Multistage
+  PUMP_POSITIVE_DISPLACEMENT = 'PUMP_POSITIVE_DISPLACEMENT', // Gear, Lobe, Screw, Diaphragm
+
+  // Bought-Out Components - Instrumentation
+  INSTRUMENT_PRESSURE_GAUGE = 'INSTRUMENT_PRESSURE_GAUGE', // Analog, Digital, Differential
+  INSTRUMENT_TEMPERATURE_SENSOR = 'INSTRUMENT_TEMPERATURE_SENSOR', // RTD, Thermocouple, Thermometer
+  INSTRUMENT_FLOW_METER = 'INSTRUMENT_FLOW_METER', // Orifice, Magnetic, Vortex, Ultrasonic
+  INSTRUMENT_LEVEL_TRANSMITTER = 'INSTRUMENT_LEVEL_TRANSMITTER', // Radar, Ultrasonic, Capacitance
+  INSTRUMENT_CONTROL_VALVE = 'INSTRUMENT_CONTROL_VALVE', // Pneumatic, Electric actuators
+  INSTRUMENT_OTHER = 'INSTRUMENT_OTHER', // Switches, Indicators, Analyzers
+
   // Bought-Out Components - Other
-  VALVES = 'VALVES', // ASME B16.34 (Gate, Globe, Check, Ball)
   FLANGES = 'FLANGES', // ASME B16.5, B16.47 (Slip-on, Weld neck, Blind)
   GASKETS = 'GASKETS', // ASME B16.20, B16.21
-  PUMPS = 'PUMPS',
   MOTORS = 'MOTORS',
-  INSTRUMENTATION = 'INSTRUMENTATION',
   STRAINERS = 'STRAINERS', // Y-type, Basket, Duplex strainers
   SEPARATORS = 'SEPARATORS', // Demisters, Grommets
   ELECTRICAL = 'ELECTRICAL',
@@ -227,12 +244,23 @@ export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
   [MaterialCategory.FASTENERS_BOLT_NUT_WASHER_SETS]: 'Fasteners - Complete Sets',
   [MaterialCategory.FASTENERS_STUDS]: 'Fasteners - Studs',
   [MaterialCategory.FASTENERS_SCREWS]: 'Fasteners - Screws',
-  [MaterialCategory.VALVES]: 'Valves',
+  [MaterialCategory.VALVE_GATE]: 'Valve - Gate',
+  [MaterialCategory.VALVE_GLOBE]: 'Valve - Globe',
+  [MaterialCategory.VALVE_BALL]: 'Valve - Ball',
+  [MaterialCategory.VALVE_BUTTERFLY]: 'Valve - Butterfly',
+  [MaterialCategory.VALVE_CHECK]: 'Valve - Check',
+  [MaterialCategory.VALVE_OTHER]: 'Valve - Other',
+  [MaterialCategory.PUMP_CENTRIFUGAL]: 'Pump - Centrifugal',
+  [MaterialCategory.PUMP_POSITIVE_DISPLACEMENT]: 'Pump - Positive Displacement',
+  [MaterialCategory.INSTRUMENT_PRESSURE_GAUGE]: 'Instrument - Pressure Gauge',
+  [MaterialCategory.INSTRUMENT_TEMPERATURE_SENSOR]: 'Instrument - Temperature Sensor',
+  [MaterialCategory.INSTRUMENT_FLOW_METER]: 'Instrument - Flow Meter',
+  [MaterialCategory.INSTRUMENT_LEVEL_TRANSMITTER]: 'Instrument - Level Transmitter',
+  [MaterialCategory.INSTRUMENT_CONTROL_VALVE]: 'Instrument - Control Valve',
+  [MaterialCategory.INSTRUMENT_OTHER]: 'Instrument - Other',
   [MaterialCategory.FLANGES]: 'Flanges',
   [MaterialCategory.GASKETS]: 'Gaskets',
-  [MaterialCategory.PUMPS]: 'Pumps',
   [MaterialCategory.MOTORS]: 'Motors',
-  [MaterialCategory.INSTRUMENTATION]: 'Instrumentation',
   [MaterialCategory.STRAINERS]: 'Strainers & Filters',
   [MaterialCategory.SEPARATORS]: 'Separators & Demisters',
   [MaterialCategory.ELECTRICAL]: 'Electrical',
@@ -280,22 +308,48 @@ export const MATERIAL_CATEGORY_GROUPS = {
     MaterialCategory.FASTENERS_SCREWS,
   ],
   Components: [
-    MaterialCategory.VALVES,
+    MaterialCategory.VALVE_GATE,
+    MaterialCategory.VALVE_GLOBE,
+    MaterialCategory.VALVE_BALL,
+    MaterialCategory.VALVE_BUTTERFLY,
+    MaterialCategory.VALVE_CHECK,
+    MaterialCategory.VALVE_OTHER,
+    MaterialCategory.PUMP_CENTRIFUGAL,
+    MaterialCategory.PUMP_POSITIVE_DISPLACEMENT,
+    MaterialCategory.INSTRUMENT_PRESSURE_GAUGE,
+    MaterialCategory.INSTRUMENT_TEMPERATURE_SENSOR,
+    MaterialCategory.INSTRUMENT_FLOW_METER,
+    MaterialCategory.INSTRUMENT_LEVEL_TRANSMITTER,
+    MaterialCategory.INSTRUMENT_CONTROL_VALVE,
+    MaterialCategory.INSTRUMENT_OTHER,
     MaterialCategory.FLANGES,
     MaterialCategory.GASKETS,
-    MaterialCategory.PUMPS,
     MaterialCategory.MOTORS,
-    MaterialCategory.INSTRUMENTATION,
     MaterialCategory.STRAINERS,
     MaterialCategory.SEPARATORS,
     MaterialCategory.ELECTRICAL,
   ],
   'Bought-Out Components': [
-    MaterialCategory.VALVES,
-    MaterialCategory.PUMPS,
-    MaterialCategory.INSTRUMENTATION,
+    MaterialCategory.VALVE_GATE,
+    MaterialCategory.VALVE_GLOBE,
+    MaterialCategory.VALVE_BALL,
+    MaterialCategory.VALVE_BUTTERFLY,
+    MaterialCategory.VALVE_CHECK,
+    MaterialCategory.VALVE_OTHER,
+    MaterialCategory.PUMP_CENTRIFUGAL,
+    MaterialCategory.PUMP_POSITIVE_DISPLACEMENT,
+    MaterialCategory.INSTRUMENT_PRESSURE_GAUGE,
+    MaterialCategory.INSTRUMENT_TEMPERATURE_SENSOR,
+    MaterialCategory.INSTRUMENT_FLOW_METER,
+    MaterialCategory.INSTRUMENT_LEVEL_TRANSMITTER,
+    MaterialCategory.INSTRUMENT_CONTROL_VALVE,
+    MaterialCategory.INSTRUMENT_OTHER,
+    MaterialCategory.FLANGES,
+    MaterialCategory.GASKETS,
+    MaterialCategory.MOTORS,
     MaterialCategory.STRAINERS,
     MaterialCategory.SEPARATORS,
+    MaterialCategory.ELECTRICAL,
   ],
   'Other Materials': [
     MaterialCategory.BARS_AND_RODS,

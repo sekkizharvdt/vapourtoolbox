@@ -21,10 +21,11 @@ import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import { getBOMById, getBOMItems } from '@/lib/bom/bomService';
+import { getBOMById, getBOMItems, addBOMItem } from '@/lib/bom/bomService';
 import { calculateAllItemCosts } from '@/lib/bom/bomCalculations';
 import { createLogger } from '@vapour/logger';
 import type { BOM, BOMItem, BOMStatus } from '@vapour/types';
+import AddBOMItemDialog, { type AddItemData } from '@/components/bom/AddBOMItemDialog';
 
 const logger = createLogger({ context: 'BOMEditorPage' });
 
@@ -50,6 +51,7 @@ export default function BOMEditorClient() {
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   useEffect(() => {
     loadBOM();
@@ -102,6 +104,23 @@ export default function BOMEditorClient() {
       setError('Failed to calculate costs. Please try again.');
     } finally {
       setCalculating(false);
+    }
+  };
+
+  const handleAddItem = async (data: AddItemData) => {
+    if (!db || !user?.uid) return;
+
+    try {
+      logger.info('Adding BOM item', { bomId, data });
+
+      await addBOMItem(db, bomId, data, user.uid);
+      logger.info('BOM item added', { bomId });
+
+      // Reload BOM to show new item
+      await loadBOM();
+    } catch (err) {
+      logger.error('Error adding BOM item', { error: err });
+      throw err; // Re-throw to let dialog handle error display
     }
   };
 
@@ -176,7 +195,7 @@ export default function BOMEditorClient() {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => alert('Add Item feature coming in next iteration')}
+              onClick={() => setAddDialogOpen(true)}
             >
               Add Item
             </Button>
@@ -268,7 +287,7 @@ export default function BOMEditorClient() {
                   <Button
                     variant="contained"
                     startIcon={<AddIcon />}
-                    onClick={() => alert('Add Item feature coming in next iteration')}
+                    onClick={() => setAddDialogOpen(true)}
                   >
                     Add First Item
                   </Button>
@@ -285,10 +304,28 @@ export default function BOMEditorClient() {
                             alignItems: 'start',
                           }}
                         >
-                          <Box>
-                            <Typography variant="subtitle1" fontWeight="medium">
-                              {item.itemNumber}. {item.name}
-                            </Typography>
+                          <Box sx={{ flex: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                              <Typography variant="subtitle1" fontWeight="medium">
+                                {item.itemNumber}. {item.name}
+                              </Typography>
+                              {item.component?.type === 'BOUGHT_OUT' && (
+                                <Chip
+                                  label="Bought-Out"
+                                  size="small"
+                                  color="info"
+                                  variant="outlined"
+                                />
+                              )}
+                              {item.component?.type === 'SHAPE' && (
+                                <Chip
+                                  label="Fabricated"
+                                  size="small"
+                                  color="secondary"
+                                  variant="outlined"
+                                />
+                              )}
+                            </Box>
                             {item.description && (
                               <Typography variant="body2" color="text.secondary">
                                 {item.description}
@@ -297,16 +334,27 @@ export default function BOMEditorClient() {
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                               Quantity: {item.quantity} {item.unit}
                             </Typography>
+                            {item.component?.materialCode && (
+                              <Typography variant="caption" color="text.secondary">
+                                Material: {item.component.materialCode}
+                              </Typography>
+                            )}
                           </Box>
-                          <Box sx={{ textAlign: 'right' }}>
+                          <Box sx={{ textAlign: 'right', minWidth: 150 }}>
                             {item.cost?.totalMaterialCost ? (
                               <>
                                 <Typography variant="body2" color="text.secondary">
-                                  Cost
+                                  Total Cost
                                 </Typography>
                                 <Typography variant="h6" color="primary">
                                   {formatCurrency(item.cost.totalMaterialCost)}
                                 </Typography>
+                                {item.cost.totalFabricationCost &&
+                                  item.cost.totalFabricationCost.amount > 0 && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      (Fab: {formatCurrency(item.cost.totalFabricationCost)})
+                                    </Typography>
+                                  )}
                               </>
                             ) : (
                               <Chip label="Not calculated" size="small" variant="outlined" />
@@ -326,11 +374,21 @@ export default function BOMEditorClient() {
       {/* Week 1 Implementation Note */}
       <Alert severity="info" sx={{ mt: 3 }}>
         <Typography variant="body2">
-          <strong>Week 1 Implementation:</strong> This is a simplified BOM editor showing summary
-          and items list. Item management (add/edit/delete), shape/material selectors, and
-          hierarchical tree view will be added in the next iteration.
+          <strong>Phase 2 Implementation:</strong> You can now add bought-out components (valves,
+          pumps, instruments) to your BOM. Shape-based (fabricated) items will be added in the next
+          phase.
         </Typography>
       </Alert>
+
+      {/* Add Item Dialog */}
+      {bom && (
+        <AddBOMItemDialog
+          open={addDialogOpen}
+          onClose={() => setAddDialogOpen(false)}
+          onAdd={handleAddItem}
+          entityId={bom.entityId}
+        />
+      )}
     </Container>
   );
 }

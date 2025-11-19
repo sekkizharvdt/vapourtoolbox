@@ -26,10 +26,98 @@ const logger = createLogger({ context: 'bomCalculations' });
 // ============================================================================
 
 /**
+ * Calculate cost for a bought-out item
+ *
+ * For bought-out items, cost is based directly on material price (no fabrication cost)
+ */
+export async function calculateBoughtOutItemCost(
+  db: Firestore,
+  item: BOMItem
+): Promise<BOMItemCostCalculation | null> {
+  try {
+    // Skip if no component or materialId defined
+    if (!item.component || !item.component.materialId) {
+      logger.debug('Item has no material, skipping cost calculation', {
+        itemId: item.id,
+      });
+      return null;
+    }
+
+    // Verify component type is BOUGHT_OUT
+    if (item.component.type !== 'BOUGHT_OUT') {
+      logger.warn('Component type is not BOUGHT_OUT, use calculateItemCost instead', {
+        itemId: item.id,
+        type: item.component.type,
+      });
+      return null;
+    }
+
+    // Fetch material definition
+    const materialDoc = await getDoc(doc(db, COLLECTIONS.MATERIALS, item.component.materialId));
+    if (!materialDoc.exists()) {
+      logger.warn('Material not found', { materialId: item.component.materialId });
+      return null;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    const material: Material = { id: materialDoc.id, ...materialDoc.data() } as Material;
+
+    // Get material price
+    const materialPrice = material.currentPrice?.pricePerUnit.amount || 0;
+    const currency = material.currentPrice?.pricePerUnit.currency || 'INR';
+
+    // For bought-out items:
+    // - No weight calculation (items are bought complete)
+    // - No fabrication cost (no fabrication needed)
+    // - Cost is direct from material price
+    const weight = 0; // Not applicable for bought-out items
+    const materialCostPerUnit = materialPrice;
+    const fabricationCostPerUnit = 0; // No fabrication for bought-out items
+
+    // Apply quantity
+    const totalWeight = 0;
+    const totalMaterialCost = materialCostPerUnit * item.quantity;
+    const totalFabricationCost = 0;
+
+    logger.info('Bought-out item cost calculated', {
+      itemId: item.id,
+      materialCostPerUnit,
+      totalMaterialCost,
+      quantity: item.quantity,
+    });
+
+    return {
+      weight,
+      totalWeight,
+      materialCostPerUnit: {
+        amount: materialCostPerUnit,
+        currency,
+      },
+      totalMaterialCost: {
+        amount: totalMaterialCost,
+        currency,
+      },
+      fabricationCostPerUnit: {
+        amount: fabricationCostPerUnit,
+        currency,
+      },
+      totalFabricationCost: {
+        amount: totalFabricationCost,
+        currency,
+      },
+    };
+  } catch (error) {
+    logger.error('Error calculating bought-out item cost', { itemId: item.id, error });
+    return null;
+  }
+}
+
+/**
  * Calculate cost for a single BOM item
  *
- * Integrates with Shape Database for weight calculation
- * and Material Database for pricing.
+ * Routes to appropriate calculation based on component type:
+ * - BOUGHT_OUT: Uses direct material pricing
+ * - SHAPE: Integrates with Shape Database for weight and fabrication calculations
  */
 export async function calculateItemCost(
   db: Firestore,
@@ -37,8 +125,21 @@ export async function calculateItemCost(
 ): Promise<BOMItemCostCalculation | null> {
   try {
     // Skip if no component defined
-    if (!item.component || !item.component.shapeId || !item.component.materialId) {
-      logger.debug('Item has no shape or material, skipping cost calculation', {
+    if (!item.component) {
+      logger.debug('Item has no component, skipping cost calculation', {
+        itemId: item.id,
+      });
+      return null;
+    }
+
+    // Route to appropriate calculation based on component type
+    if (item.component.type === 'BOUGHT_OUT') {
+      return calculateBoughtOutItemCost(db, item);
+    }
+
+    // For SHAPE type (or legacy items without type), use shape-based calculation
+    if (!item.component.shapeId || !item.component.materialId) {
+      logger.debug('Shape-based item has no shape or material, skipping cost calculation', {
         itemId: item.id,
       });
       return null;

@@ -1,6 +1,11 @@
 {
   "permissions": {
-    "allow": ["Bash(npx depcheck:*)"],
+    "allow": [
+      "Bash(npx depcheck:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git restore:*)"
+    ],
     "deny": [],
     "ask": []
   }

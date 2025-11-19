@@ -40,7 +40,14 @@ export default function BoughtOutPage() {
       icon: <ValvesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/bought-out/valves',
       comingSoon: true,
-      categories: [MC.VALVES],
+      categories: [
+        MC.VALVE_GATE,
+        MC.VALVE_GLOBE,
+        MC.VALVE_BALL,
+        MC.VALVE_BUTTERFLY,
+        MC.VALVE_CHECK,
+        MC.VALVE_OTHER,
+      ],
     },
     {
       title: 'Pumps',
@@ -48,7 +55,7 @@ export default function BoughtOutPage() {
       icon: <PumpsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/bought-out/pumps',
       comingSoon: true,
-      categories: [MC.PUMPS],
+      categories: [MC.PUMP_CENTRIFUGAL, MC.PUMP_POSITIVE_DISPLACEMENT],
     },
     {
       title: 'Instruments',
@@ -56,7 +63,14 @@ export default function BoughtOutPage() {
       icon: <InstrumentsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/bought-out/instruments',
       comingSoon: true,
-      categories: [MC.INSTRUMENTATION],
+      categories: [
+        MC.INSTRUMENT_PRESSURE_GAUGE,
+        MC.INSTRUMENT_TEMPERATURE_SENSOR,
+        MC.INSTRUMENT_FLOW_METER,
+        MC.INSTRUMENT_LEVEL_TRANSMITTER,
+        MC.INSTRUMENT_CONTROL_VALVE,
+        MC.INSTRUMENT_OTHER,
+      ],
     },
     {
       title: 'Strainers & Filters',

@@ -360,8 +360,9 @@ export async function addBOMItem(
       quantity: input.quantity,
       unit: input.unit,
       component:
-        input.shapeId || input.materialId
+        input.shapeId || input.materialId || input.componentType
           ? {
+              type: input.componentType || 'SHAPE', // Default to SHAPE for backward compatibility
               shapeId: input.shapeId,
               materialId: input.materialId,
               parameters: input.parameters,
@@ -414,6 +415,7 @@ export async function updateBOMItem(
 
     // Handle component updates
     if (
+      updates.componentType !== undefined ||
       updates.shapeId !== undefined ||
       updates.materialId !== undefined ||
       updates.parameters !== undefined
@@ -423,6 +425,7 @@ export async function updateBOMItem(
 
       updateData.component = {
         ...currentData.component,
+        type: updates.componentType ?? currentData.component?.type ?? 'SHAPE',
         shapeId: updates.shapeId ?? currentData.component?.shapeId,
         materialId: updates.materialId ?? currentData.component?.materialId,
         parameters: updates.parameters ?? currentData.component?.parameters,
