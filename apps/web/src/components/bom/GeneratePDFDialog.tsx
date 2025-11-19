@@ -16,7 +16,9 @@ import {
   Grid,
 } from '@mui/material';
 import { PictureAsPdf as PdfIcon, Download as DownloadIcon } from '@mui/icons-material';
-import type { PDFGenerationOptions } from '@vapour/types';
+import { getFirebase } from '@/lib/firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import type { PDFGenerationOptions, PDFGenerationResult } from '@vapour/types';
 
 interface GeneratePDFDialogProps {
   open: boolean;
@@ -68,6 +70,14 @@ export default function GeneratePDFDialog({
     try {
       setGenerating(true);
 
+      // Get Firebase app and auth
+      const { app, auth } = getFirebase();
+      const user = auth.currentUser;
+
+      if (!user) {
+        throw new Error('You must be logged in to generate PDFs');
+      }
+
       const options: PDFGenerationOptions = {
         bomId,
         companyName,
@@ -82,26 +92,24 @@ export default function GeneratePDFDialog({
         showServices,
       };
 
-      const response = await fetch(`/api/bom/${bomId}/generate-pdf`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ options }),
+      // Call Firebase Function directly
+      const functions = getFunctions(app, 'asia-south1');
+      const generatePDF = httpsCallable<
+        { bomId: string; options: PDFGenerationOptions; userId: string },
+        PDFGenerationResult
+      >(functions, 'generateBOMQuotePDF');
+
+      const result = await generatePDF({
+        bomId,
+        options,
+        userId: user.uid,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate PDF');
+      if (!result.data.success || !result.data.pdfUrl) {
+        throw new Error(result.data.error || 'PDF generation failed');
       }
 
-      const result = await response.json();
-
-      if (!result.success || !result.pdfUrl) {
-        throw new Error(result.error || 'PDF generation failed');
-      }
-
-      setPdfUrl(result.pdfUrl);
+      setPdfUrl(result.data.pdfUrl);
     } catch (err) {
       console.error('Error generating PDF:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate PDF');
