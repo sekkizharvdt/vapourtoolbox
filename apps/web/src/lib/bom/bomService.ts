@@ -167,6 +167,7 @@ export async function createBOM(
         totalWeight: 0,
         totalMaterialCost: { amount: 0, currency: 'INR' },
         totalFabricationCost: { amount: 0, currency: 'INR' },
+        totalServiceCost: { amount: 0, currency: 'INR' }, // Phase 3
         totalCost: { amount: 0, currency: 'INR' },
         itemCount: 0,
         currency: 'INR',
@@ -530,6 +531,7 @@ export async function recalculateBOMSummary(
       totalWeight: 0,
       totalMaterialCost: { amount: 0, currency },
       totalFabricationCost: { amount: 0, currency },
+      totalServiceCost: { amount: 0, currency }, // Phase 3: Service costs
       totalCost: { amount: 0, currency },
       itemCount: items.length,
       currency,
@@ -546,11 +548,17 @@ export async function recalculateBOMSummary(
       if (item.cost?.totalFabricationCost) {
         summary.totalFabricationCost.amount += item.cost.totalFabricationCost.amount;
       }
+      // Phase 3: Aggregate service costs
+      if (item.cost?.totalServiceCost) {
+        summary.totalServiceCost.amount += item.cost.totalServiceCost.amount;
+      }
     }
 
-    // Calculate total cost: Material + Fabrication
+    // Calculate total cost: Material + Fabrication + Services
     summary.totalCost.amount =
-      summary.totalMaterialCost.amount + summary.totalFabricationCost.amount;
+      summary.totalMaterialCost.amount +
+      summary.totalFabricationCost.amount +
+      summary.totalServiceCost.amount;
 
     // Update BOM document
     await updateBOM(db, bomId, { summary }, userId);

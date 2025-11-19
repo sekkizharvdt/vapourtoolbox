@@ -96,6 +96,10 @@ export const COLLECTIONS = {
   // Shape Database
   SHAPES: 'shapes',
 
+  // Service Catalog (Phase 3)
+  SERVICES: 'services',
+  SERVICE_RATES: 'serviceRates',
+
   // Module Integration Management (Super Admin)
   MODULE_INTEGRATIONS: 'moduleIntegrations',
 } as const;

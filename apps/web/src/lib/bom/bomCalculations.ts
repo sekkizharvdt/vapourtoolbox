@@ -10,6 +10,7 @@
 import { doc, getDoc, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { calculateShape } from '@/lib/shapes/shapeCalculator';
+import { calculateAllServiceCosts } from '@/lib/services/serviceCalculations';
 import { createLogger } from '@vapour/logger';
 import type {
   BOMItem,
@@ -79,10 +80,20 @@ export async function calculateBoughtOutItemCost(
     const totalMaterialCost = materialCostPerUnit * item.quantity;
     const totalFabricationCost = 0;
 
+    // Phase 3: Calculate service costs
+    const serviceCosts = calculateAllServiceCosts(
+      item.services,
+      materialCostPerUnit,
+      fabricationCostPerUnit,
+      item.quantity,
+      currency
+    );
+
     logger.info('Bought-out item cost calculated', {
       itemId: item.id,
       materialCostPerUnit,
       totalMaterialCost,
+      serviceCostPerUnit: serviceCosts.serviceCostPerUnit.amount,
       quantity: item.quantity,
     });
 
@@ -105,6 +116,9 @@ export async function calculateBoughtOutItemCost(
         amount: totalFabricationCost,
         currency,
       },
+      serviceCostPerUnit: serviceCosts.serviceCostPerUnit,
+      totalServiceCost: serviceCosts.totalServiceCost,
+      serviceBreakdown: serviceCosts.serviceBreakdown,
     };
   } catch (error) {
     logger.error('Error calculating bought-out item cost', { itemId: item.id, error });
@@ -183,6 +197,15 @@ export async function calculateItemCost(
     const totalMaterialCost = materialCostPerUnit * item.quantity;
     const totalFabricationCost = fabricationCostPerUnit * item.quantity;
 
+    // Phase 3: Calculate service costs
+    const serviceCosts = calculateAllServiceCosts(
+      item.services,
+      materialCostPerUnit,
+      fabricationCostPerUnit,
+      item.quantity,
+      currency
+    );
+
     logger.info('Item cost calculated', {
       itemId: item.id,
       weight,
@@ -191,6 +214,7 @@ export async function calculateItemCost(
       totalMaterialCost,
       fabricationCostPerUnit,
       totalFabricationCost,
+      serviceCostPerUnit: serviceCosts.serviceCostPerUnit.amount,
     });
 
     return {
@@ -212,6 +236,9 @@ export async function calculateItemCost(
         amount: totalFabricationCost,
         currency,
       },
+      serviceCostPerUnit: serviceCosts.serviceCostPerUnit,
+      totalServiceCost: serviceCosts.totalServiceCost,
+      serviceBreakdown: serviceCosts.serviceBreakdown,
     };
   } catch (error) {
     logger.error('Error calculating item cost', { itemId: item.id, error });

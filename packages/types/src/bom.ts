@@ -3,6 +3,7 @@
 
 import { Timestamp } from 'firebase/firestore';
 import { TimestampFields, Money, CurrencyCode } from './common';
+import { BOMItemService, ServiceCostBreakdown } from './service';
 
 /**
  * BOM Status
@@ -81,9 +82,12 @@ export interface BOMSummary {
   totalWeight: number; // kg
   totalMaterialCost: Money; // Material costs
   totalFabricationCost: Money; // Fabrication costs (cutting, welding, forming, etc.)
-  totalCost: Money; // Total = Material + Fabrication
+  totalServiceCost: Money; // Phase 3: Service costs (engineering, testing, etc.)
+  totalCost: Money; // Total = Material + Fabrication + Services
   itemCount: number;
   currency: CurrencyCode; // Currency for all cost fields
+  // Optional service breakdown for reporting
+  serviceBreakdown?: Record<string, Money>; // e.g., { "Engineering": {amount: 1000, currency: "INR"} }
 }
 
 /**
@@ -164,12 +168,19 @@ export interface BOMItem {
     surfaceArea?: number; // m²
   };
 
+  // Phase 3: Service assignments
+  services?: BOMItemService[];
+
   // Cost (auto-calculated)
   cost?: {
     materialCostPerUnit?: Money; // Cost for 1 unit
     totalMaterialCost?: Money; // Cost × quantity
     fabricationCostPerUnit?: Money; // Fabrication cost for 1 unit
     totalFabricationCost?: Money; // Fabrication cost × quantity
+    // Phase 3: Service costs
+    serviceCostPerUnit?: Money; // Sum of all service costs for 1 unit
+    totalServiceCost?: Money; // Service cost × quantity
+    serviceBreakdown?: ServiceCostBreakdown[]; // Detailed breakdown by service
   };
 
   // Timestamps
@@ -203,6 +214,10 @@ export interface BOMItemCostCalculation {
   totalMaterialCost: Money;
   fabricationCostPerUnit: Money;
   totalFabricationCost: Money;
+  // Phase 3: Service costs
+  serviceCostPerUnit: Money;
+  totalServiceCost: Money;
+  serviceBreakdown?: ServiceCostBreakdown[];
 }
 
 /**

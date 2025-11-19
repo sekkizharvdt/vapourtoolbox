@@ -253,6 +253,13 @@ export default function BOMEditorClient() {
                 </Typography>
               </Box>
 
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Service Cost
+                </Typography>
+                <Typography variant="h5">{formatCurrency(bom.summary.totalServiceCost)}</Typography>
+              </Box>
+
               <Divider sx={{ my: 2 }} />
 
               <Box>
@@ -347,14 +354,31 @@ export default function BOMEditorClient() {
                                   Total Cost
                                 </Typography>
                                 <Typography variant="h6" color="primary">
-                                  {formatCurrency(item.cost.totalMaterialCost)}
+                                  {formatCurrency({
+                                    amount:
+                                      (item.cost.totalMaterialCost?.amount || 0) +
+                                      (item.cost.totalFabricationCost?.amount || 0) +
+                                      (item.cost.totalServiceCost?.amount || 0),
+                                    currency: item.cost.totalMaterialCost.currency,
+                                  })}
                                 </Typography>
-                                {item.cost.totalFabricationCost &&
-                                  item.cost.totalFabricationCost.amount > 0 && (
-                                    <Typography variant="caption" color="text.secondary">
-                                      (Fab: {formatCurrency(item.cost.totalFabricationCost)})
-                                    </Typography>
-                                  )}
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                                  <Typography variant="caption" color="text.secondary">
+                                    Mat: {formatCurrency(item.cost.totalMaterialCost)}
+                                  </Typography>
+                                  {item.cost.totalFabricationCost &&
+                                    item.cost.totalFabricationCost.amount > 0 && (
+                                      <Typography variant="caption" color="text.secondary">
+                                        Fab: {formatCurrency(item.cost.totalFabricationCost)}
+                                      </Typography>
+                                    )}
+                                  {item.cost.totalServiceCost &&
+                                    item.cost.totalServiceCost.amount > 0 && (
+                                      <Typography variant="caption" color="text.secondary">
+                                        Svc: {formatCurrency(item.cost.totalServiceCost)}
+                                      </Typography>
+                                    )}
+                                </Box>
                               </>
                             ) : (
                               <Chip label="Not calculated" size="small" variant="outlined" />

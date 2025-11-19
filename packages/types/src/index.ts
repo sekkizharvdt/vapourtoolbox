@@ -21,3 +21,4 @@ export * from './exchangeRate';
 export * from './material';
 export * from './shape';
 export * from './bom';
+export * from './service';
