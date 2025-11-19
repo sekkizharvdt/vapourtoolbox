@@ -6,7 +6,6 @@ import {
   Typography,
   Box,
   Paper,
-  Button,
   TextField,
   InputAdornment,
   Chip,
@@ -20,7 +19,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TableSortLabel,
   TablePagination,
   Stack,
   Card,
@@ -30,60 +28,58 @@ import {
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  Add as AddIcon,
   Refresh as RefreshIcon,
-  Edit as EditIcon,
-  Visibility as ViewIcon,
-  Star as StarIcon,
-  StarBorder as StarBorderIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
-import type {
-  Material,
-  MaterialCategory,
-  MaterialSortField,
-  MaterialSortDirection,
-} from '@vapour/types';
-import { MATERIAL_CATEGORY_LABELS, MaterialCategory as MC } from '@vapour/types';
-import { queryMaterials } from '@/lib/materials/materialService';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 
-// Pipe categories
-const PIPE_CATEGORIES: MaterialCategory[] = [
-  MC.PIPES_CARBON_STEEL,
-  MC.PIPES_STAINLESS_304L,
-  MC.PIPES_STAINLESS_316L,
-  MC.PIPES_ALLOY_STEEL,
-];
+// Pipe variant interface
+interface PipeVariant {
+  id: string;
+  nps: string;
+  dn: string;
+  schedule: string;
+  scheduleType?: string;
+  od_inch: number;
+  od_mm: number;
+  wt_inch: number;
+  wt_mm: number;
+  weight_lbft: number;
+  weight_kgm: number;
+}
 
-// Common pipe schedules
-const PIPE_SCHEDULES = ['Sch 10', 'Sch 40', 'Sch 80', 'Sch 160'];
-
-// Construction types
-const CONSTRUCTION_TYPES = ['Seamless', 'Welded'];
+// Material with variants
+interface MaterialWithVariants {
+  id: string;
+  materialCode: string;
+  name: string;
+  category: string;
+  metadata?: {
+    standard?: string;
+    specification?: string;
+    description?: string;
+  };
+  variants: PipeVariant[];
+}
 
 export default function PipesPage() {
   const router = useRouter();
   const { db } = getFirebase();
 
   // State
-  const [materials, setMaterials] = useState<Material[]>([]);
+  const [materials, setMaterials] = useState<MaterialWithVariants[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Category Selection
-  const [selectedCategory, setSelectedCategory] = useState<MaterialCategory | 'ALL'>('ALL');
-  const [selectedSchedule, setSelectedSchedule] = useState<string | 'ALL'>('ALL');
-  const [selectedConstruction, setSelectedConstruction] = useState<string | 'ALL'>('ALL');
-
   // Search & Filters
   const [searchText, setSearchText] = useState('');
-  const [showOnlyStandard, setShowOnlyStandard] = useState(false);
+  const [selectedMaterial, setSelectedMaterial] = useState<string | 'ALL'>('ALL');
+  const [selectedSchedule, setSelectedSchedule] = useState<string | 'ALL'>('ALL');
+  const [selectedNPS, setSelectedNPS] = useState<string | 'ALL'>('ALL');
 
-  // Sorting & Pagination
-  const [sortField, setSortField] = useState<MaterialSortField>('name');
-  const [sortDirection, setSortDirection] = useState<MaterialSortDirection>('asc');
+  // Pagination
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
@@ -95,138 +91,167 @@ export default function PipesPage() {
       setLoading(true);
       setError(null);
 
-      const categoriesToQuery = selectedCategory === 'ALL' ? PIPE_CATEGORIES : [selectedCategory];
+      // Query all pipe categories
+      const pipeCategories = ['PIPES_CARBON_STEEL', 'PIPES_STAINLESS_304L', 'PIPES_STAINLESS_316L'];
 
-      const result = await queryMaterials(db, {
-        categories: categoriesToQuery,
-        isActive: true,
-        isStandard: showOnlyStandard ? true : undefined,
-        sortField,
-        sortDirection,
-        limitResults: 500,
-      });
+      const materialsData: MaterialWithVariants[] = [];
 
-      setMaterials(result.materials);
+      for (const category of pipeCategories) {
+        const materialsRef = collection(db, 'materials');
+        const q = query(materialsRef, where('category', '==', category));
+        const materialsSnapshot = await getDocs(q);
+
+        for (const materialDoc of materialsSnapshot.docs) {
+          const materialData = materialDoc.data();
+
+          // Get variants subcollection
+          const variantsRef = collection(db, 'materials', materialDoc.id, 'variants');
+          const variantsSnapshot = await getDocs(variantsRef);
+
+          const variants = variantsSnapshot.docs.map((variantDoc) => ({
+            id: variantDoc.id,
+            ...variantDoc.data(),
+          })) as PipeVariant[];
+
+          materialsData.push({
+            id: materialDoc.id,
+            materialCode: materialData.materialCode,
+            name: materialData.name,
+            category: materialData.category,
+            metadata: materialData.metadata,
+            variants,
+          });
+        }
+      }
+
+      setMaterials(materialsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load pipes');
     } finally {
       setLoading(false);
     }
-  }, [db, selectedCategory, showOnlyStandard, sortField, sortDirection]);
+  }, [db]);
 
   useEffect(() => {
     loadMaterials();
   }, [loadMaterials]);
 
-  // Filter materials by search text, schedule, and construction
-  const filteredMaterials = useMemo(() => {
-    let filtered = materials;
+  // Get all variants from all materials
+  const allVariants = useMemo(() => {
+    return materials.flatMap((material) =>
+      material.variants.map((variant) => ({
+        ...variant,
+        materialCode: material.materialCode,
+        materialName: material.name,
+        category: material.category,
+        standard: material.metadata?.standard,
+      }))
+    );
+  }, [materials]);
+
+  // Filter variants
+  const filteredVariants = useMemo(() => {
+    let filtered = allVariants;
 
     // Search filter
     if (searchText.trim()) {
       const searchLower = searchText.toLowerCase();
       filtered = filtered.filter(
-        (material) =>
-          material.name.toLowerCase().includes(searchLower) ||
-          material.materialCode.toLowerCase().includes(searchLower) ||
-          material.description?.toLowerCase().includes(searchLower) ||
-          material.specification?.standard?.toLowerCase().includes(searchLower) ||
-          material.specification?.grade?.toLowerCase().includes(searchLower) ||
-          material.specification?.schedule?.toLowerCase().includes(searchLower)
+        (variant) =>
+          variant.materialCode?.toLowerCase().includes(searchLower) ||
+          variant.materialName?.toLowerCase().includes(searchLower) ||
+          variant.nps?.toLowerCase().includes(searchLower) ||
+          variant.dn?.toLowerCase().includes(searchLower) ||
+          variant.schedule?.toLowerCase().includes(searchLower)
       );
+    }
+
+    // Material filter
+    if (selectedMaterial !== 'ALL') {
+      filtered = filtered.filter((v) => v.category === selectedMaterial);
     }
 
     // Schedule filter
     if (selectedSchedule !== 'ALL') {
-      filtered = filtered.filter((m) => {
-        // Check in specification
-        if (m.specification?.schedule?.includes(selectedSchedule)) return true;
-        // Check in variants
-        if (m.hasVariants && m.variants) {
-          return m.variants.some((v) => v.dimensions.schedule?.includes(selectedSchedule));
-        }
-        return false;
-      });
+      filtered = filtered.filter((v) => v.schedule === selectedSchedule);
     }
 
-    // Construction type filter
-    if (selectedConstruction !== 'ALL') {
-      filtered = filtered.filter(
-        (m) =>
-          m.specification?.form?.toLowerCase().includes(selectedConstruction.toLowerCase()) ||
-          m.tags?.some((tag) => tag.toLowerCase().includes(selectedConstruction.toLowerCase()))
-      );
+    // NPS filter
+    if (selectedNPS !== 'ALL') {
+      filtered = filtered.filter((v) => v.nps === selectedNPS);
     }
 
     return filtered;
-  }, [materials, searchText, selectedSchedule, selectedConstruction]);
+  }, [allVariants, searchText, selectedMaterial, selectedSchedule, selectedNPS]);
 
-  // Paginated materials
-  const paginatedMaterials = useMemo(() => {
+  // Paginated variants
+  const paginatedVariants = useMemo(() => {
     const startIndex = page * rowsPerPage;
-    return filteredMaterials.slice(startIndex, startIndex + rowsPerPage);
-  }, [filteredMaterials, page, rowsPerPage]);
+    return filteredVariants.slice(startIndex, startIndex + rowsPerPage);
+  }, [filteredVariants, page, rowsPerPage]);
 
-  // Engineering-focused statistics
+  // Get unique filter options
+  const materialTypes = useMemo(() => {
+    const typeSet = new Set<string>();
+    allVariants.forEach((v) => {
+      if (v.category) typeSet.add(v.category);
+    });
+    return Array.from(typeSet).sort();
+  }, [allVariants]);
+
+  const schedules = useMemo(() => {
+    const schedSet = new Set<string>();
+    allVariants.forEach((v) => {
+      if (v.schedule) schedSet.add(v.schedule);
+    });
+    return Array.from(schedSet).sort();
+  }, [allVariants]);
+
+  const npsSizes = useMemo(() => {
+    const npsSet = new Set<string>();
+    allVariants.forEach((v) => {
+      if (v.nps) npsSet.add(v.nps);
+    });
+    return Array.from(npsSet).sort((a, b) => {
+      // Custom sort for NPS (handles fractions and numbers)
+      const aNum = eval(a.replace('"', ''));
+      const bNum = eval(b.replace('"', ''));
+      return aNum - bNum;
+    });
+  }, [allVariants]);
+
+  // Statistics
   const stats = useMemo(() => {
-    const categoryBreakdown = PIPE_CATEGORIES.reduce(
-      (acc, cat) => {
-        acc[cat] = materials.filter((m) => m.category === cat).length;
-        return acc;
-      },
-      {} as Record<MaterialCategory, number>
-    );
-
-    const scheduleBreakdown: Record<string, number> = {};
-    materials.forEach((m) => {
-      if (m.specification?.schedule) {
-        scheduleBreakdown[m.specification.schedule] =
-          (scheduleBreakdown[m.specification.schedule] || 0) + 1;
-      }
-      if (m.hasVariants && m.variants) {
-        m.variants.forEach((v) => {
-          if (v.dimensions.schedule) {
-            scheduleBreakdown[v.dimensions.schedule] =
-              (scheduleBreakdown[v.dimensions.schedule] || 0) + 1;
-          }
-        });
+    const materialBreakdown: Record<string, number> = {};
+    allVariants.forEach((v) => {
+      if (v.category) {
+        materialBreakdown[v.category] = (materialBreakdown[v.category] || 0) + 1;
       }
     });
 
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const recentlyAdded = materials.filter((m) => {
-      if (!m.createdAt) return false;
-      const createdDate = m.createdAt.toDate();
-      return createdDate >= thirtyDaysAgo;
-    }).length;
-
-    const missingSpecs = materials.filter(
-      (m) =>
-        !m.properties?.density ||
-        !m.specification?.standard ||
-        !m.specification?.grade ||
-        !m.specification?.schedule
-    ).length;
+    const scheduleBreakdown: Record<string, number> = {};
+    allVariants.forEach((v) => {
+      if (v.schedule) {
+        scheduleBreakdown[v.schedule] = (scheduleBreakdown[v.schedule] || 0) + 1;
+      }
+    });
 
     return {
-      total: materials.length,
-      categoryBreakdown,
+      total: allVariants.length,
+      materialBreakdown,
       scheduleBreakdown,
-      recentlyAdded,
-      missingSpecs,
+      materials: materials.length,
     };
-  }, [materials]);
+  }, [allVariants, materials]);
 
-  // Sort handler
-  const handleSort = (field: MaterialSortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-    setPage(0);
+  // Helper to get material display name
+  const getMaterialDisplayName = (category: string) => {
+    const names: Record<string, string> = {
+      PIPES_CARBON_STEEL: 'Carbon Steel',
+      PIPES_STAINLESS_304L: 'SS 304L',
+      PIPES_STAINLESS_316L: 'SS 316L',
+    };
+    return names[category] || category;
   };
 
   return (
@@ -256,7 +281,7 @@ export default function PipesPage() {
               Pipes
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Carbon Steel, Stainless Steel pipes with ASTM schedules (Sch 10, 40, 80)
+              Carbon Steel and Stainless Steel Pipes per ASME B36.10-2022
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 2 }}>
@@ -265,82 +290,52 @@ export default function PipesPage() {
                 <RefreshIcon />
               </IconButton>
             </Tooltip>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => router.push('/materials/pipes/new')}
-            >
-              Add Pipe
-            </Button>
           </Box>
         </Box>
 
-        {/* Engineering-Focused Stats Cards */}
+        {/* Stats Cards */}
         <Stack direction="row" spacing={2} sx={{ mb: 3, flexWrap: 'wrap' }}>
           <Card variant="outlined" sx={{ flex: '1 1 200px' }}>
             <CardContent>
               <Typography color="text.secondary" variant="body2">
-                Total Active Pipes
+                Total Variants
               </Typography>
               <Typography variant="h5" fontWeight="bold">
                 {stats.total}
               </Typography>
             </CardContent>
           </Card>
-          <Card variant="outlined" sx={{ flex: '1 1 250px' }}>
+          <Card variant="outlined" sx={{ flex: '1 1 300px' }}>
             <CardContent>
               <Typography color="text.secondary" variant="body2" gutterBottom>
                 Pipes by Material
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                <Chip
-                  label={`CS: ${stats.categoryBreakdown[MC.PIPES_CARBON_STEEL] || 0}`}
-                  size="small"
-                  variant="outlined"
-                />
-                <Chip
-                  label={`304L: ${stats.categoryBreakdown[MC.PIPES_STAINLESS_304L] || 0}`}
-                  size="small"
-                  variant="outlined"
-                />
-                <Chip
-                  label={`316L: ${stats.categoryBreakdown[MC.PIPES_STAINLESS_316L] || 0}`}
-                  size="small"
-                  variant="outlined"
-                />
+                {Object.entries(stats.materialBreakdown)
+                  .slice(0, 3)
+                  .map(([type, count]) => (
+                    <Chip
+                      key={type}
+                      label={`${getMaterialDisplayName(type)}: ${count}`}
+                      size="small"
+                      variant="outlined"
+                    />
+                  ))}
               </Box>
             </CardContent>
           </Card>
-          <Card variant="outlined" sx={{ flex: '1 1 200px' }}>
-            <CardContent>
-              <Typography color="text.secondary" variant="body2">
-                Recently Added (30d)
-              </Typography>
-              <Typography variant="h5" fontWeight="bold">
-                {stats.recentlyAdded}
-              </Typography>
-            </CardContent>
-          </Card>
-          <Card
-            variant="outlined"
-            sx={{
-              flex: '1 1 200px',
-              borderColor: stats.missingSpecs > 0 ? 'warning.main' : 'divider',
-            }}
-          >
-            <CardContent>
-              <Typography color="text.secondary" variant="body2">
-                Missing Specifications
-              </Typography>
-              <Typography
-                variant="h5"
-                fontWeight="bold"
-                color={stats.missingSpecs > 0 ? 'warning.main' : 'text.primary'}
-              >
-                {stats.missingSpecs}
-              </Typography>
-            </CardContent>
-          </Card>
+          {materials[0]?.metadata?.standard && (
+            <Card variant="outlined" sx={{ flex: '1 1 300px' }}>
+              <CardContent>
+                <Typography color="text.secondary" variant="body2">
+                  Standard
+                </Typography>
+                <Typography variant="body1" fontWeight="medium">
+                  {materials[0].metadata.standard}
+                </Typography>
+              </CardContent>
+            </Card>
+          )}
         </Stack>
 
         {/* Alerts */}
@@ -359,7 +354,7 @@ export default function PipesPage() {
             {/* Search */}
             <TextField
               size="small"
-              placeholder="Search pipes by code, name, grade, standard, or schedule..."
+              placeholder="Search pipes by NPS, DN, schedule, or material..."
               value={searchText}
               onChange={(e) => {
                 setSearchText(e.target.value);
@@ -374,44 +369,32 @@ export default function PipesPage() {
               }}
               sx={{ flexGrow: 1 }}
             />
-
-            {/* Standard Filter */}
-            <Chip
-              icon={showOnlyStandard ? <StarIcon /> : <StarBorderIcon />}
-              label="Standard Only"
-              onClick={() => {
-                setShowOnlyStandard(!showOnlyStandard);
-                setPage(0);
-              }}
-              color={showOnlyStandard ? 'primary' : 'default'}
-              variant={showOnlyStandard ? 'filled' : 'outlined'}
-            />
           </Stack>
 
-          {/* Material Category Filter */}
+          {/* Material Filter */}
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
               Filter by material:
             </Typography>
             <Chip
-              label="All"
+              label="All Materials"
               onClick={() => {
-                setSelectedCategory('ALL');
+                setSelectedMaterial('ALL');
                 setPage(0);
               }}
-              color={selectedCategory === 'ALL' ? 'primary' : 'default'}
-              variant={selectedCategory === 'ALL' ? 'filled' : 'outlined'}
+              color={selectedMaterial === 'ALL' ? 'primary' : 'default'}
+              variant={selectedMaterial === 'ALL' ? 'filled' : 'outlined'}
             />
-            {PIPE_CATEGORIES.map((category) => (
+            {materialTypes.map((type) => (
               <Chip
-                key={category}
-                label={MATERIAL_CATEGORY_LABELS[category].replace(/^Pipes - /, '')}
+                key={type}
+                label={getMaterialDisplayName(type)}
                 onClick={() => {
-                  setSelectedCategory(category);
+                  setSelectedMaterial(type);
                   setPage(0);
                 }}
-                color={selectedCategory === category ? 'primary' : 'default'}
-                variant={selectedCategory === category ? 'filled' : 'outlined'}
+                color={selectedMaterial === type ? 'primary' : 'default'}
+                variant={selectedMaterial === type ? 'filled' : 'outlined'}
               />
             ))}
           </Box>
@@ -430,7 +413,7 @@ export default function PipesPage() {
               color={selectedSchedule === 'ALL' ? 'secondary' : 'default'}
               variant={selectedSchedule === 'ALL' ? 'filled' : 'outlined'}
             />
-            {PIPE_SCHEDULES.map((schedule) => (
+            {schedules.slice(0, 8).map((schedule) => (
               <Chip
                 key={schedule}
                 label={schedule}
@@ -444,30 +427,30 @@ export default function PipesPage() {
             ))}
           </Box>
 
-          {/* Construction Type Filter */}
+          {/* NPS Filter */}
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
-              Filter by construction:
+              Filter by size:
             </Typography>
             <Chip
-              label="All Types"
+              label="All Sizes"
               onClick={() => {
-                setSelectedConstruction('ALL');
+                setSelectedNPS('ALL');
                 setPage(0);
               }}
-              color={selectedConstruction === 'ALL' ? 'info' : 'default'}
-              variant={selectedConstruction === 'ALL' ? 'filled' : 'outlined'}
+              color={selectedNPS === 'ALL' ? 'info' : 'default'}
+              variant={selectedNPS === 'ALL' ? 'filled' : 'outlined'}
             />
-            {CONSTRUCTION_TYPES.map((type) => (
+            {npsSizes.slice(0, 12).map((nps) => (
               <Chip
-                key={type}
-                label={type}
+                key={nps}
+                label={nps}
                 onClick={() => {
-                  setSelectedConstruction(type);
+                  setSelectedNPS(nps);
                   setPage(0);
                 }}
-                color={selectedConstruction === type ? 'info' : 'default'}
-                variant={selectedConstruction === type ? 'filled' : 'outlined'}
+                color={selectedNPS === nps ? 'info' : 'default'}
+                variant={selectedNPS === nps ? 'filled' : 'outlined'}
               />
             ))}
           </Box>
@@ -475,33 +458,17 @@ export default function PipesPage() {
 
         {/* Table */}
         <TableContainer>
-          <Table>
+          <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>
-                  <TableSortLabel
-                    active={sortField === 'materialCode'}
-                    direction={sortField === 'materialCode' ? sortDirection : 'asc'}
-                    onClick={() => handleSort('materialCode')}
-                  >
-                    Material Code
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={sortField === 'name'}
-                    direction={sortField === 'name' ? sortDirection : 'asc'}
-                    onClick={() => handleSort('name')}
-                  >
-                    Name
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>Specification</TableCell>
+                <TableCell>NPS</TableCell>
+                <TableCell>DN (mm)</TableCell>
                 <TableCell>Schedule</TableCell>
-                <TableCell>Construction</TableCell>
-                <TableCell>Properties</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell align="right">OD (mm)</TableCell>
+                <TableCell align="right">ID (mm)</TableCell>
+                <TableCell align="right">WT (mm)</TableCell>
+                <TableCell align="right">Weight (kg/m)</TableCell>
+                <TableCell>Material</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -514,116 +481,73 @@ export default function PipesPage() {
                     </Typography>
                   </TableCell>
                 </TableRow>
-              ) : paginatedMaterials.length === 0 ? (
+              ) : paginatedVariants.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
                     <Typography variant="body1" color="text.secondary">
                       No pipes found
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      {searchText || selectedSchedule !== 'ALL' || selectedConstruction !== 'ALL'
+                      {searchText ||
+                      selectedMaterial !== 'ALL' ||
+                      selectedSchedule !== 'ALL' ||
+                      selectedNPS !== 'ALL'
                         ? 'Try adjusting your filters'
-                        : 'Add pipe materials to get started'}
+                        : 'No pipes data available'}
                     </Typography>
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedMaterials.map((material) => (
-                  <TableRow key={material.id} hover>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="medium">
-                        {material.materialCode}
-                      </Typography>
-                      {material.customCode && (
-                        <Typography variant="caption" color="text.secondary">
-                          {material.customCode}
+                paginatedVariants.map((variant, index) => {
+                  // Calculate ID = OD - 2*WT
+                  const id_mm = variant.od_mm - 2 * variant.wt_mm;
+
+                  return (
+                    <TableRow key={variant.id || index} hover>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="medium">
+                          {variant.nps}
                         </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{material.name}</Typography>
-                      {material.isStandard && (
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{variant.dn}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={variant.schedule} size="small" color="secondary" />
+                        {variant.scheduleType && variant.scheduleType !== variant.schedule && (
+                          <Typography variant="caption" display="block" color="text.secondary">
+                            ({variant.scheduleType})
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell align="right">{variant.od_mm?.toFixed(2)}</TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight="medium" color="primary.main">
+                          {id_mm.toFixed(2)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">{variant.wt_mm?.toFixed(2)}</TableCell>
+                      <TableCell align="right">{variant.weight_kgm?.toFixed(2)}</TableCell>
+                      <TableCell>
                         <Chip
-                          icon={<StarIcon />}
-                          label="Standard"
+                          label={getMaterialDisplayName(variant.category)}
                           size="small"
-                          color="primary"
-                          sx={{ mt: 0.5, height: 20 }}
+                          variant="outlined"
                         />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {material.specification?.standard || '-'}
-                        {material.specification?.grade && ` ${material.specification.grade}`}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {material.specification?.schedule || '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="caption">
-                        {material.specification?.form ||
-                          material.tags?.find(
-                            (t) =>
-                              t.toLowerCase().includes('seamless') ||
-                              t.toLowerCase().includes('welded')
-                          ) ||
-                          '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {material.properties?.density && (
-                        <Typography variant="caption" display="block">
-                          Density: {material.properties.density}{' '}
-                          {material.properties.densityUnit || 'kg/m³'}
-                        </Typography>
-                      )}
-                      {material.properties?.tensileStrength && (
-                        <Typography variant="caption" display="block">
-                          Tensile: {material.properties.tensileStrength} MPa
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={material.isActive ? 'Active' : 'Inactive'}
-                        size="small"
-                        color={material.isActive ? 'success' : 'default'}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="View details">
-                        <IconButton
-                          size="small"
-                          onClick={() => router.push(`/materials/${material.id}`)}
-                        >
-                          <ViewIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Edit pipe">
-                        <IconButton
-                          size="small"
-                          onClick={() => router.push(`/materials/${material.id}/edit`)}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
         </TableContainer>
 
         {/* Pagination */}
-        {!loading && filteredMaterials.length > 0 && (
+        {!loading && filteredVariants.length > 0 && (
           <TablePagination
             component="div"
-            count={filteredMaterials.length}
+            count={filteredVariants.length}
             page={page}
             onPageChange={(_, newPage) => setPage(newPage)}
             rowsPerPage={rowsPerPage}
