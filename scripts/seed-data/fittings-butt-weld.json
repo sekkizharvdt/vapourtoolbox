@@ -1,0 +1,714 @@
+{
+  "metadata": {
+    "standard": "ASME B16.9-2024",
+    "material": "Carbon Steel & Stainless Steel",
+    "specification": "ASTM A234 (CS) / ASTM A403 (SS)",
+    "description": "Factory-made Wrought Butt-Welding Fittings",
+    "note": "Dimensions apply to all schedules: SCH 10, 20, 30, 40, 60, 80, 100, 120, 140, 160, STD, XS, XXS"
+  },
+  "material": {
+    "materialCode": "FT-BW-CS-A234",
+    "name": "Butt-Weld Fittings Carbon Steel ASTM A234 WPB",
+    "category": "FITTINGS_BUTT_WELD",
+    "hasVariants": true,
+    "baseUnit": "piece"
+  },
+  "variants": [
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "1/2",
+      "dn": "15",
+      "centerToEnd_inch": 1.5,
+      "centerToEnd_mm": 38,
+      "outsideDiameter_inch": 0.84,
+      "outsideDiameter_mm": 21.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "3/4",
+      "dn": "20",
+      "centerToEnd_inch": 1.5,
+      "centerToEnd_mm": 38,
+      "outsideDiameter_inch": 1.05,
+      "outsideDiameter_mm": 26.7,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "1",
+      "dn": "25",
+      "centerToEnd_inch": 1.5,
+      "centerToEnd_mm": 38,
+      "outsideDiameter_inch": 1.315,
+      "outsideDiameter_mm": 33.4,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "1 1/4",
+      "dn": "32",
+      "centerToEnd_inch": 1.88,
+      "centerToEnd_mm": 48,
+      "outsideDiameter_inch": 1.66,
+      "outsideDiameter_mm": 42.2,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "1 1/2",
+      "dn": "40",
+      "centerToEnd_inch": 2.25,
+      "centerToEnd_mm": 57,
+      "outsideDiameter_inch": 1.9,
+      "outsideDiameter_mm": 48.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "2",
+      "dn": "50",
+      "centerToEnd_inch": 3.0,
+      "centerToEnd_mm": 76,
+      "outsideDiameter_inch": 2.375,
+      "outsideDiameter_mm": 60.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "2 1/2",
+      "dn": "65",
+      "centerToEnd_inch": 3.75,
+      "centerToEnd_mm": 95,
+      "outsideDiameter_inch": 2.875,
+      "outsideDiameter_mm": 73.0,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "3",
+      "dn": "80",
+      "centerToEnd_inch": 4.5,
+      "centerToEnd_mm": 114,
+      "outsideDiameter_inch": 3.5,
+      "outsideDiameter_mm": 88.9,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "4",
+      "dn": "100",
+      "centerToEnd_inch": 6.0,
+      "centerToEnd_mm": 152,
+      "outsideDiameter_inch": 4.5,
+      "outsideDiameter_mm": 114.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "5",
+      "dn": "125",
+      "centerToEnd_inch": 7.5,
+      "centerToEnd_mm": 190,
+      "outsideDiameter_inch": 5.563,
+      "outsideDiameter_mm": 141.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "6",
+      "dn": "150",
+      "centerToEnd_inch": 9.0,
+      "centerToEnd_mm": 229,
+      "outsideDiameter_inch": 6.625,
+      "outsideDiameter_mm": 168.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "8",
+      "dn": "200",
+      "centerToEnd_inch": 12.0,
+      "centerToEnd_mm": 305,
+      "outsideDiameter_inch": 8.625,
+      "outsideDiameter_mm": 219.1,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "10",
+      "dn": "250",
+      "centerToEnd_inch": 15.0,
+      "centerToEnd_mm": 381,
+      "outsideDiameter_inch": 10.75,
+      "outsideDiameter_mm": 273.0,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "12",
+      "dn": "300",
+      "centerToEnd_inch": 18.0,
+      "centerToEnd_mm": 457,
+      "outsideDiameter_inch": 12.75,
+      "outsideDiameter_mm": 323.8,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "14",
+      "dn": "350",
+      "centerToEnd_inch": 21.0,
+      "centerToEnd_mm": 533,
+      "outsideDiameter_inch": 14.0,
+      "outsideDiameter_mm": 355.6,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "16",
+      "dn": "400",
+      "centerToEnd_inch": 24.0,
+      "centerToEnd_mm": 610,
+      "outsideDiameter_inch": 16.0,
+      "outsideDiameter_mm": 406.4,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "18",
+      "dn": "450",
+      "centerToEnd_inch": 27.0,
+      "centerToEnd_mm": 686,
+      "outsideDiameter_inch": 18.0,
+      "outsideDiameter_mm": 457.0,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "20",
+      "dn": "500",
+      "centerToEnd_inch": 30.0,
+      "centerToEnd_mm": 762,
+      "outsideDiameter_inch": 20.0,
+      "outsideDiameter_mm": 508.0,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "90° Elbow Long Radius",
+      "nps": "24",
+      "dn": "600",
+      "centerToEnd_inch": 36.0,
+      "centerToEnd_mm": 914,
+      "outsideDiameter_inch": 24.0,
+      "outsideDiameter_mm": 610.0,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "45° Elbow Long Radius",
+      "nps": "1/2",
+      "dn": "15",
+      "centerToEnd_inch": 0.75,
+      "centerToEnd_mm": 19,
+      "outsideDiameter_inch": 0.84,
+      "outsideDiameter_mm": 21.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "45° Elbow Long Radius",
+      "nps": "3/4",
+      "dn": "20",
+      "centerToEnd_inch": 0.88,
+      "centerToEnd_mm": 22,
+      "outsideDiameter_inch": 1.05,
+      "outsideDiameter_mm": 26.7,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "45° Elbow Long Radius",
+      "nps": "1",
+      "dn": "25",
+      "centerToEnd_inch": 1.0,
+      "centerToEnd_mm": 25,
+      "outsideDiameter_inch": 1.315,
+      "outsideDiameter_mm": 33.4,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "45° Elbow Long Radius",
+      "nps": "1 1/2",
+      "dn": "40",
+      "centerToEnd_inch": 1.5,
+      "centerToEnd_mm": 38,
+      "outsideDiameter_inch": 1.9,
+      "outsideDiameter_mm": 48.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "45° Elbow Long Radius",
+      "nps": "2",
+      "dn": "50",
+      "centerToEnd_inch": 1.88,
+      "centerToEnd_mm": 48,
+      "outsideDiameter_inch": 2.375,
+      "outsideDiameter_mm": 60.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "45° Elbow Long Radius",
+      "nps": "3",
+      "dn": "80",
+      "centerToEnd_inch": 2.62,
+      "centerToEnd_mm": 67,
+      "outsideDiameter_inch": 3.5,
+      "outsideDiameter_mm": 88.9,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "45° Elbow Long Radius",
+      "nps": "4",
+      "dn": "100",
+      "centerToEnd_inch": 3.5,
+      "centerToEnd_mm": 89,
+      "outsideDiameter_inch": 4.5,
+      "outsideDiameter_mm": 114.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "45° Elbow Long Radius",
+      "nps": "6",
+      "dn": "150",
+      "centerToEnd_inch": 5.25,
+      "centerToEnd_mm": 133,
+      "outsideDiameter_inch": 6.625,
+      "outsideDiameter_mm": 168.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "45° Elbow Long Radius",
+      "nps": "8",
+      "dn": "200",
+      "centerToEnd_inch": 7.0,
+      "centerToEnd_mm": 178,
+      "outsideDiameter_inch": 8.625,
+      "outsideDiameter_mm": 219.1,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "45° Elbow Long Radius",
+      "nps": "10",
+      "dn": "250",
+      "centerToEnd_inch": 8.75,
+      "centerToEnd_mm": 222,
+      "outsideDiameter_inch": 10.75,
+      "outsideDiameter_mm": 273.0,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "45° Elbow Long Radius",
+      "nps": "12",
+      "dn": "300",
+      "centerToEnd_inch": 10.5,
+      "centerToEnd_mm": 267,
+      "outsideDiameter_inch": 12.75,
+      "outsideDiameter_mm": 323.8,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "1/2",
+      "dn": "15",
+      "centerToEnd_inch": 1.5,
+      "centerToEnd_mm": 38,
+      "outsideDiameter_inch": 0.84,
+      "outsideDiameter_mm": 21.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "3/4",
+      "dn": "20",
+      "centerToEnd_inch": 1.5,
+      "centerToEnd_mm": 38,
+      "outsideDiameter_inch": 1.05,
+      "outsideDiameter_mm": 26.7,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "1",
+      "dn": "25",
+      "centerToEnd_inch": 1.5,
+      "centerToEnd_mm": 38,
+      "outsideDiameter_inch": 1.315,
+      "outsideDiameter_mm": 33.4,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "1 1/4",
+      "dn": "32",
+      "centerToEnd_inch": 1.88,
+      "centerToEnd_mm": 48,
+      "outsideDiameter_inch": 1.66,
+      "outsideDiameter_mm": 42.2,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "1 1/2",
+      "dn": "40",
+      "centerToEnd_inch": 2.25,
+      "centerToEnd_mm": 57,
+      "outsideDiameter_inch": 1.9,
+      "outsideDiameter_mm": 48.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "2",
+      "dn": "50",
+      "centerToEnd_inch": 3.0,
+      "centerToEnd_mm": 76,
+      "outsideDiameter_inch": 2.375,
+      "outsideDiameter_mm": 60.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "2 1/2",
+      "dn": "65",
+      "centerToEnd_inch": 3.75,
+      "centerToEnd_mm": 95,
+      "outsideDiameter_inch": 2.875,
+      "outsideDiameter_mm": 73.0,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "3",
+      "dn": "80",
+      "centerToEnd_inch": 4.5,
+      "centerToEnd_mm": 114,
+      "outsideDiameter_inch": 3.5,
+      "outsideDiameter_mm": 88.9,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "4",
+      "dn": "100",
+      "centerToEnd_inch": 6.0,
+      "centerToEnd_mm": 152,
+      "outsideDiameter_inch": 4.5,
+      "outsideDiameter_mm": 114.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "5",
+      "dn": "125",
+      "centerToEnd_inch": 7.5,
+      "centerToEnd_mm": 190,
+      "outsideDiameter_inch": 5.563,
+      "outsideDiameter_mm": 141.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "6",
+      "dn": "150",
+      "centerToEnd_inch": 9.0,
+      "centerToEnd_mm": 229,
+      "outsideDiameter_inch": 6.625,
+      "outsideDiameter_mm": 168.3,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "8",
+      "dn": "200",
+      "centerToEnd_inch": 12.0,
+      "centerToEnd_mm": 305,
+      "outsideDiameter_inch": 8.625,
+      "outsideDiameter_mm": 219.1,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "10",
+      "dn": "250",
+      "centerToEnd_inch": 15.0,
+      "centerToEnd_mm": 381,
+      "outsideDiameter_inch": 10.75,
+      "outsideDiameter_mm": 273.0,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "12",
+      "dn": "300",
+      "centerToEnd_inch": 18.0,
+      "centerToEnd_mm": 457,
+      "outsideDiameter_inch": 12.75,
+      "outsideDiameter_mm": 323.8,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "14",
+      "dn": "350",
+      "centerToEnd_inch": 21.0,
+      "centerToEnd_mm": 533,
+      "outsideDiameter_inch": 14.0,
+      "outsideDiameter_mm": 355.6,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "16",
+      "dn": "400",
+      "centerToEnd_inch": 24.0,
+      "centerToEnd_mm": 610,
+      "outsideDiameter_inch": 16.0,
+      "outsideDiameter_mm": 406.4,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "18",
+      "dn": "450",
+      "centerToEnd_inch": 27.0,
+      "centerToEnd_mm": 686,
+      "outsideDiameter_inch": 18.0,
+      "outsideDiameter_mm": 457.0,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "20",
+      "dn": "500",
+      "centerToEnd_inch": 30.0,
+      "centerToEnd_mm": 762,
+      "outsideDiameter_inch": 20.0,
+      "outsideDiameter_mm": 508.0,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Tee",
+      "nps": "24",
+      "dn": "600",
+      "centerToEnd_inch": 36.0,
+      "centerToEnd_mm": 914,
+      "outsideDiameter_inch": 24.0,
+      "outsideDiameter_mm": 610.0,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Concentric Reducer",
+      "nps": "2 x 1",
+      "dn": "50 x 25",
+      "largeEnd_inch": 2.375,
+      "largeEnd_mm": 60.3,
+      "smallEnd_inch": 1.315,
+      "smallEnd_mm": 33.4,
+      "endToEnd_inch": 3.0,
+      "endToEnd_mm": 76,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Concentric Reducer",
+      "nps": "3 x 2",
+      "dn": "80 x 50",
+      "largeEnd_inch": 3.5,
+      "largeEnd_mm": 88.9,
+      "smallEnd_inch": 2.375,
+      "smallEnd_mm": 60.3,
+      "endToEnd_inch": 4.5,
+      "endToEnd_mm": 114,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Concentric Reducer",
+      "nps": "4 x 2",
+      "dn": "100 x 50",
+      "largeEnd_inch": 4.5,
+      "largeEnd_mm": 114.3,
+      "smallEnd_inch": 2.375,
+      "smallEnd_mm": 60.3,
+      "endToEnd_inch": 6.0,
+      "endToEnd_mm": 152,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Concentric Reducer",
+      "nps": "4 x 3",
+      "dn": "100 x 80",
+      "largeEnd_inch": 4.5,
+      "largeEnd_mm": 114.3,
+      "smallEnd_inch": 3.5,
+      "smallEnd_mm": 88.9,
+      "endToEnd_inch": 6.0,
+      "endToEnd_mm": 152,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Concentric Reducer",
+      "nps": "6 x 4",
+      "dn": "150 x 100",
+      "largeEnd_inch": 6.625,
+      "largeEnd_mm": 168.3,
+      "smallEnd_inch": 4.5,
+      "smallEnd_mm": 114.3,
+      "endToEnd_inch": 9.0,
+      "endToEnd_mm": 229,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Concentric Reducer",
+      "nps": "8 x 6",
+      "dn": "200 x 150",
+      "largeEnd_inch": 8.625,
+      "largeEnd_mm": 219.1,
+      "smallEnd_inch": 6.625,
+      "smallEnd_mm": 168.3,
+      "endToEnd_inch": 12.0,
+      "endToEnd_mm": 305,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Concentric Reducer",
+      "nps": "10 x 8",
+      "dn": "250 x 200",
+      "largeEnd_inch": 10.75,
+      "largeEnd_mm": 273.0,
+      "smallEnd_inch": 8.625,
+      "smallEnd_mm": 219.1,
+      "endToEnd_inch": 15.0,
+      "endToEnd_mm": 381,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Concentric Reducer",
+      "nps": "12 x 10",
+      "dn": "300 x 250",
+      "largeEnd_inch": 12.75,
+      "largeEnd_mm": 323.8,
+      "smallEnd_inch": 10.75,
+      "smallEnd_mm": 273.0,
+      "endToEnd_inch": 18.0,
+      "endToEnd_mm": 457,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Cap",
+      "nps": "1/2",
+      "dn": "15",
+      "outsideDiameter_inch": 0.84,
+      "outsideDiameter_mm": 21.3,
+      "endToEnd_inch": 0.88,
+      "endToEnd_mm": 22,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Cap",
+      "nps": "3/4",
+      "dn": "20",
+      "outsideDiameter_inch": 1.05,
+      "outsideDiameter_mm": 26.7,
+      "endToEnd_inch": 1.0,
+      "endToEnd_mm": 25,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Cap",
+      "nps": "1",
+      "dn": "25",
+      "outsideDiameter_inch": 1.315,
+      "outsideDiameter_mm": 33.4,
+      "endToEnd_inch": 1.12,
+      "endToEnd_mm": 28,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Cap",
+      "nps": "1 1/2",
+      "dn": "40",
+      "outsideDiameter_inch": 1.9,
+      "outsideDiameter_mm": 48.3,
+      "endToEnd_inch": 1.5,
+      "endToEnd_mm": 38,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Cap",
+      "nps": "2",
+      "dn": "50",
+      "outsideDiameter_inch": 2.375,
+      "outsideDiameter_mm": 60.3,
+      "endToEnd_inch": 1.88,
+      "endToEnd_mm": 48,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Cap",
+      "nps": "3",
+      "dn": "80",
+      "outsideDiameter_inch": 3.5,
+      "outsideDiameter_mm": 88.9,
+      "endToEnd_inch": 2.5,
+      "endToEnd_mm": 64,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Cap",
+      "nps": "4",
+      "dn": "100",
+      "outsideDiameter_inch": 4.5,
+      "outsideDiameter_mm": 114.3,
+      "endToEnd_inch": 3.12,
+      "endToEnd_mm": 79,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Cap",
+      "nps": "6",
+      "dn": "150",
+      "outsideDiameter_inch": 6.625,
+      "outsideDiameter_mm": 168.3,
+      "endToEnd_inch": 4.38,
+      "endToEnd_mm": 111,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Cap",
+      "nps": "8",
+      "dn": "200",
+      "outsideDiameter_inch": 8.625,
+      "outsideDiameter_mm": 219.1,
+      "endToEnd_inch": 5.62,
+      "endToEnd_mm": 143,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Cap",
+      "nps": "10",
+      "dn": "250",
+      "outsideDiameter_inch": 10.75,
+      "outsideDiameter_mm": 273.0,
+      "endToEnd_inch": 6.88,
+      "endToEnd_mm": 175,
+      "applicableSchedules": "All"
+    },
+    {
+      "type": "Cap",
+      "nps": "12",
+      "dn": "300",
+      "outsideDiameter_inch": 12.75,
+      "outsideDiameter_mm": 323.8,
+      "endToEnd_inch": 8.12,
+      "endToEnd_mm": 206,
+      "applicableSchedules": "All"
+    }
+  ]
+}
