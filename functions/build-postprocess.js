@@ -25,6 +25,30 @@ if (fs.existsSync(nestedDir)) {
   console.log('✅ Build output already flat - no post-processing needed');
 }
 
+// Copy seed data JSON files to lib directory
+const seedDataSrc = path.join(__dirname, '..', 'scripts', 'seed-data');
+const seedDataDest = path.join(libDir, 'seed-data');
+
+if (fs.existsSync(seedDataSrc)) {
+  console.log('📦 Copying seed data files...');
+
+  if (!fs.existsSync(seedDataDest)) {
+    fs.mkdirSync(seedDataDest, { recursive: true });
+  }
+
+  const seedFiles = fs.readdirSync(seedDataSrc).filter(f => f.endsWith('.json'));
+  for (const file of seedFiles) {
+    fs.copyFileSync(
+      path.join(seedDataSrc, file),
+      path.join(seedDataDest, file)
+    );
+  }
+
+  console.log(`✅ Copied ${seedFiles.length} seed data files`);
+} else {
+  console.log('⚠️  Seed data directory not found - skipping');
+}
+
 /**
  * Recursively copy directory contents
  */

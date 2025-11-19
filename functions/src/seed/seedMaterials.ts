@@ -2,10 +2,11 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
 
-// Import seed data
-import pipesData from '../../../scripts/seed-data/pipes-carbon-steel.json';
-import fittingsData from '../../../scripts/seed-data/fittings-butt-weld.json';
-import flangesData from '../../../scripts/seed-data/flanges-weld-neck.json';
+// Import seed data from the copied location in lib/seed-data
+// The build-postprocess.js script copies these files from scripts/seed-data to lib/seed-data
+import pipesData from '../../seed-data/pipes-carbon-steel.json';
+import fittingsData from '../../seed-data/fittings-butt-weld.json';
+import flangesData from '../../seed-data/flanges-weld-neck.json';
 
 interface SeedDataMetadata {
   standard: string;
