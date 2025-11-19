@@ -337,6 +337,13 @@ service cloud.firestore {
       // Delete: Super admins only (soft delete preferred)
       allow delete: if isSuperAdmin();
 
+      // Material Variants Subcollection (ASME standards data)
+      match /variants/{variantId} {
+        allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+        allow create, update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+        allow delete: if isSuperAdmin();
+      }
+
       // Material Prices Subcollection
       match /prices/{priceId} {
         allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
