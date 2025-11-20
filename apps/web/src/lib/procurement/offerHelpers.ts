@@ -65,7 +65,10 @@ export function getOfferStatusText(status: OfferStatus): string {
 export function getOfferStatusColor(
   status: OfferStatus
 ): 'default' | 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success' {
-  const colorMap: Record<OfferStatus, any> = {
+  const colorMap: Record<
+    OfferStatus,
+    'default' | 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success'
+  > = {
     UPLOADED: 'info',
     UNDER_REVIEW: 'warning',
     EVALUATED: 'primary',

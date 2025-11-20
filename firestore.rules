@@ -606,6 +606,81 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Bought-Out Items (Phase 2: Proposal Foundation)
+    // ============================================
+
+    match /bought_out_items/{itemId} {
+      // Read: Users with VIEW_ESTIMATION permission
+      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+
+      // Create: Users with MANAGE_ESTIMATION permission
+      allow create: if hasPermission(262144) && isInternalUser() &&
+                       request.resource.data.entityId == request.auth.token.entityId &&
+                       request.resource.data.createdBy == request.auth.uid; // MANAGE_ESTIMATION (bit 18)
+
+      // Update: Users with MANAGE_ESTIMATION permission
+      allow update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+
+      // Delete: Soft delete only (set isActive = false), MANAGE_ESTIMATION permission
+      allow delete: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+    }
+
+    // ============================================
+    // Services Catalog (Phase 3: Proposal Foundation)
+    // ============================================
+
+    match /services/{serviceId} {
+      // Read: Users with VIEW_ESTIMATION permission
+      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+
+      // Create: Users with MANAGE_ESTIMATION permission
+      allow create: if hasPermission(262144) && isInternalUser() &&
+                       request.resource.data.entityId == request.auth.token.entityId &&
+                       request.resource.data.createdBy == request.auth.uid; // MANAGE_ESTIMATION (bit 18)
+
+      // Update: Users with MANAGE_ESTIMATION permission
+      allow update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
+    // Service Rates Subcollection (historical pricing data)
+    match /serviceRates/{rateId} {
+      // Read: Users with VIEW_ESTIMATION permission
+      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+
+      // Create: Users with MANAGE_ESTIMATION permission
+      allow create: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+
+      // Update: Users with MANAGE_ESTIMATION permission
+      allow update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
+    // Cost Configurations (Phase 4: Proposal Foundation)
+    // ============================================
+
+    match /costConfigurations/{configId} {
+      // Read: Users with VIEW_ESTIMATION permission
+      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+
+      // Create: Users with MANAGE_ESTIMATION permission
+      allow create: if hasPermission(262144) && isInternalUser() &&
+                       request.resource.data.entityId == request.auth.token.entityId &&
+                       request.resource.data.createdBy == request.auth.uid; // MANAGE_ESTIMATION (bit 18)
+
+      // Update: Users with MANAGE_ESTIMATION permission
+      allow update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
     // BOM (Bill of Materials) / Estimation - Week 1 Sprint
     // ============================================
 

@@ -75,7 +75,10 @@ export function getRFQStatusText(status: RFQStatus): string {
 export function getRFQStatusColor(
   status: RFQStatus
 ): 'default' | 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success' {
-  const colorMap: Record<RFQStatus, any> = {
+  const colorMap: Record<
+    RFQStatus,
+    'default' | 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success'
+  > = {
     DRAFT: 'default',
     ISSUED: 'info',
     OFFERS_RECEIVED: 'primary',
