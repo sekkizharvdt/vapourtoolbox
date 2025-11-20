@@ -9,9 +9,7 @@ import {
   TextField,
   InputAdornment,
   Chip,
-  IconButton,
-  Tooltip,
-  CircularProgress,
+  Button,
   Alert,
   Table,
   TableBody,
@@ -31,6 +29,7 @@ import {
   Refresh as RefreshIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
+import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -235,7 +234,7 @@ export default function FittingsPage() {
   }, [allVariants, materials]);
 
   return (
-    <Container maxWidth={false} sx={{ py: 3 }}>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
       {/* Breadcrumbs */}
       <Breadcrumbs sx={{ mb: 2 }}>
         <Link
@@ -253,26 +252,22 @@ export default function FittingsPage() {
         <Typography color="text.primary">Fittings</Typography>
       </Breadcrumbs>
 
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Box>
-            <Typography variant="h4" component="h1" fontWeight="bold">
-              Fittings
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Butt Weld Fittings per ASME B16.9-2024
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Tooltip title="Refresh fittings list">
-              <IconButton onClick={loadMaterials} disabled={loading}>
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </Box>
+      <PageHeader
+        title="Fittings"
+        subtitle="Butt Weld Fittings per ASME B16.9-2024"
+        action={
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={loadMaterials}
+            disabled={loading}
+          >
+            Refresh
+          </Button>
+        }
+      />
 
+      <Box sx={{ mb: 3 }}>
         {/* Stats Cards */}
         <Stack direction="row" spacing={2} sx={{ mb: 3, flexWrap: 'wrap' }}>
           <Card variant="outlined" sx={{ flex: '1 1 200px' }}>
@@ -418,27 +413,17 @@ export default function FittingsPage() {
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
-                    <CircularProgress />
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                      Loading fittings...
-                    </Typography>
-                  </TableCell>
-                </TableRow>
+                <LoadingState message="Loading fittings..." variant="table" colSpan={6} />
               ) : paginatedVariants.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
-                    <Typography variant="body1" color="text.secondary">
-                      No fittings found
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      {searchText || selectedFittingType !== 'ALL' || selectedNPS !== 'ALL'
-                        ? 'Try adjusting your filters'
-                        : 'No fittings data available'}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
+                <EmptyState
+                  message={
+                    searchText || selectedFittingType !== 'ALL' || selectedNPS !== 'ALL'
+                      ? 'No fittings match your filters. Try adjusting your filter selections.'
+                      : 'No fittings data available. Fitting variants will appear here once loaded.'
+                  }
+                  variant="table"
+                  colSpan={6}
+                />
               ) : (
                 paginatedVariants.map((variant, index) => (
                   <TableRow key={variant.id || index} hover>

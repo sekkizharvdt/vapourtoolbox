@@ -10,9 +10,6 @@ import {
   TextField,
   InputAdornment,
   Chip,
-  IconButton,
-  Tooltip,
-  CircularProgress,
   Alert,
   Table,
   TableBody,
@@ -38,6 +35,7 @@ import {
   StarBorder as StarBorderIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
+import { PageHeader, LoadingState, EmptyState, TableActionCell } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import type {
@@ -180,7 +178,7 @@ export default function PlatesPage() {
   };
 
   return (
-    <Container maxWidth={false} sx={{ py: 3 }}>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
       {/* Breadcrumbs */}
       <Breadcrumbs sx={{ mb: 2 }}>
         <Link
@@ -198,23 +196,19 @@ export default function PlatesPage() {
         <Typography color="text.primary">Plates</Typography>
       </Breadcrumbs>
 
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Box>
-            <Typography variant="h4" component="h1" fontWeight="bold">
-              Plates
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Carbon Steel, Stainless Steel, Duplex, and Alloy plates with technical specifications
-            </Typography>
-          </Box>
+      <PageHeader
+        title="Plates"
+        subtitle="Carbon Steel, Stainless Steel, Duplex, and Alloy plates with technical specifications"
+        action={
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <Tooltip title="Refresh materials list">
-              <IconButton onClick={loadMaterials} disabled={loading}>
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip>
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={loadMaterials}
+              disabled={loading}
+            >
+              Refresh
+            </Button>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -223,8 +217,10 @@ export default function PlatesPage() {
               Add Plate
             </Button>
           </Box>
-        </Box>
+        }
+      />
 
+      <Box sx={{ mb: 3 }}>
         {/* Engineering-Focused Stats Cards */}
         <Stack direction="row" spacing={2} sx={{ mb: 3, flexWrap: 'wrap' }}>
           <Card variant="outlined" sx={{ flex: '1 1 200px' }}>
@@ -404,27 +400,17 @@ export default function PlatesPage() {
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
-                    <CircularProgress />
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                      Loading plates...
-                    </Typography>
-                  </TableCell>
-                </TableRow>
+                <LoadingState message="Loading plates..." variant="table" colSpan={7} />
               ) : paginatedMaterials.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
-                    <Typography variant="body1" color="text.secondary">
-                      No plates found
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      {searchText
-                        ? 'Try adjusting your search criteria'
-                        : 'Add plate materials to get started'}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
+                <EmptyState
+                  message={
+                    searchText
+                      ? 'No plates match your search criteria. Try adjusting your search or filters.'
+                      : 'No plate materials found. Add your first plate material to get started.'
+                  }
+                  variant="table"
+                  colSpan={7}
+                />
               ) : (
                 paginatedMaterials.map((material) => (
                   <TableRow key={material.id} hover>
@@ -491,22 +477,20 @@ export default function PlatesPage() {
                       />
                     </TableCell>
                     <TableCell align="right">
-                      <Tooltip title="View details">
-                        <IconButton
-                          size="small"
-                          onClick={() => router.push(`/materials/${material.id}`)}
-                        >
-                          <ViewIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Edit material">
-                        <IconButton
-                          size="small"
-                          onClick={() => router.push(`/materials/${material.id}/edit`)}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      <TableActionCell
+                        actions={[
+                          {
+                            icon: <ViewIcon />,
+                            label: 'View Details',
+                            onClick: () => router.push(`/materials/${material.id}`),
+                          },
+                          {
+                            icon: <EditIcon />,
+                            label: 'Edit Material',
+                            onClick: () => router.push(`/materials/${material.id}/edit`),
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))

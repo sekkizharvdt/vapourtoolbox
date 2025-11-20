@@ -9,9 +9,7 @@ import {
   TextField,
   InputAdornment,
   Chip,
-  IconButton,
-  Tooltip,
-  CircularProgress,
+  Button,
   Alert,
   Table,
   TableBody,
@@ -31,6 +29,7 @@ import {
   Refresh as RefreshIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
+import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -230,7 +229,7 @@ export default function FlangesPage() {
   }, [allVariants, materials]);
 
   return (
-    <Container maxWidth={false} sx={{ py: 3 }}>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
       {/* Breadcrumbs */}
       <Breadcrumbs sx={{ mb: 2 }}>
         <Link
@@ -248,26 +247,22 @@ export default function FlangesPage() {
         <Typography color="text.primary">Flanges</Typography>
       </Breadcrumbs>
 
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Box>
-            <Typography variant="h4" component="h1" fontWeight="bold">
-              Flanges
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Weld Neck Flanges per ASME B16.5-2025
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Tooltip title="Refresh flanges list">
-              <IconButton onClick={loadMaterials} disabled={loading}>
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </Box>
+      <PageHeader
+        title="Flanges"
+        subtitle="Weld Neck Flanges per ASME B16.5-2025"
+        action={
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={loadMaterials}
+            disabled={loading}
+          >
+            Refresh
+          </Button>
+        }
+      />
 
+      <Box sx={{ mb: 3 }}>
         {/* Stats Cards */}
         <Stack direction="row" spacing={2} sx={{ mb: 3, flexWrap: 'wrap' }}>
           <Card variant="outlined" sx={{ flex: '1 1 200px' }}>
@@ -416,27 +411,17 @@ export default function FlangesPage() {
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 8 }}>
-                    <CircularProgress />
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                      Loading flanges...
-                    </Typography>
-                  </TableCell>
-                </TableRow>
+                <LoadingState message="Loading flanges..." variant="table" colSpan={9} />
               ) : paginatedVariants.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 8 }}>
-                    <Typography variant="body1" color="text.secondary">
-                      No flanges found
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      {searchText || selectedPressureClass !== 'ALL' || selectedNPS !== 'ALL'
-                        ? 'Try adjusting your filters'
-                        : 'No flanges data available'}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
+                <EmptyState
+                  message={
+                    searchText || selectedPressureClass !== 'ALL' || selectedNPS !== 'ALL'
+                      ? 'No flanges match your filters. Try adjusting your filter selections.'
+                      : 'No flanges data available. Flange variants will appear here once loaded.'
+                  }
+                  variant="table"
+                  colSpan={9}
+                />
               ) : (
                 paginatedVariants.map((variant, index) => (
                   <TableRow key={variant.id || index} hover>
