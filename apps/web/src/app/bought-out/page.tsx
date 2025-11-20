@@ -17,16 +17,16 @@ import {
   Chip,
   IconButton,
   TextField,
-  MenuItem,
   InputAdornment,
   CircularProgress,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  FilterList as FilterIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,6 +38,13 @@ import {
   ListBoughtOutItemsOptions,
 } from '@vapour/types';
 import { listBoughtOutItems, deleteBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
+
+interface DynamicColumn {
+  label: string;
+  key: string;
+  format?: (v: any) => string;
+  render?: (specs: any) => string;
+}
 
 export default function BoughtOutPage() {
   const router = useRouter();
@@ -95,6 +102,46 @@ export default function BoughtOutPage() {
       item.itemCode.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Dynamic Columns Configuration
+  const getDynamicColumns = (): DynamicColumn[] => {
+    if (categoryFilter === 'ALL') return [];
+
+    switch (categoryFilter) {
+      case 'PUMP':
+        return [
+          { label: 'Type', key: 'type' },
+          { label: 'Flow Rate', key: 'flowRate', format: (v: any) => `${v} m³/hr` },
+          { label: 'Head', key: 'head', format: (v: any) => `${v} m` },
+        ];
+      case 'VALVE':
+        return [
+          { label: 'Type', key: 'type' },
+          { label: 'Size', key: 'size' },
+          { label: 'Pressure', key: 'pressureRating' },
+        ];
+      case 'INSTRUMENT':
+        return [
+          { label: 'Type', key: 'type' },
+          { label: 'Variable', key: 'variable' },
+          {
+            label: 'Range',
+            key: 'range',
+            render: (specs: any) => `${specs.rangeMin} - ${specs.rangeMax} ${specs.unit}`,
+          },
+        ];
+      case 'ELECTRICAL':
+        return [
+          { label: 'Type', key: 'type' },
+          { label: 'Voltage', key: 'voltage' },
+          { label: 'Power', key: 'powerRating' },
+        ];
+      default:
+        return [];
+    }
+  };
+
+  const dynamicColumns = getDynamicColumns();
+
   return (
     <Container maxWidth="xl">
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -115,9 +162,23 @@ export default function BoughtOutPage() {
         </Button>
       </Box>
 
-      <Card sx={{ mb: 4, p: 2 }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+      <Card sx={{ mb: 4 }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs
+            value={categoryFilter}
+            onChange={(_, newValue) => setCategoryFilter(newValue)}
+            variant="scrollable"
+            scrollButtons="auto"
+          >
+            <Tab label="All Items" value="ALL" />
+            {Object.entries(BOUGHT_OUT_CATEGORY_LABELS).map(([key, label]) => (
+              <Tab key={key} label={label} value={key} />
+            ))}
+          </Tabs>
+        </Box>
+        <Box sx={{ p: 2 }}>
           <TextField
+            fullWidth
             placeholder="Search by name or code..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -128,29 +189,7 @@ export default function BoughtOutPage() {
                 </InputAdornment>
               ),
             }}
-            sx={{ flexGrow: 1, minWidth: 300 }}
           />
-          <TextField
-            select
-            label="Category"
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value as BoughtOutCategory | 'ALL')}
-            sx={{ minWidth: 200 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <FilterIcon />
-                </InputAdornment>
-              ),
-            }}
-          >
-            <MenuItem value="ALL">All Categories</MenuItem>
-            {Object.entries(BOUGHT_OUT_CATEGORY_LABELS).map(([key, label]) => (
-              <MenuItem key={key} value={key}>
-                {label}
-              </MenuItem>
-            ))}
-          </TextField>
         </Box>
       </Card>
 
@@ -160,8 +199,13 @@ export default function BoughtOutPage() {
             <TableRow>
               <TableCell>Item Code</TableCell>
               <TableCell>Name</TableCell>
-              <TableCell>Category</TableCell>
-              <TableCell>Specifications</TableCell>
+              {categoryFilter === 'ALL' && <TableCell>Category</TableCell>}
+
+              {/* Dynamic Headers */}
+              {dynamicColumns.map((col) => (
+                <TableCell key={col.label}>{col.label}</TableCell>
+              ))}
+
               <TableCell align="right">Price</TableCell>
               <TableCell align="center">Actions</TableCell>
             </TableRow>
@@ -169,13 +213,13 @@ export default function BoughtOutPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
+                <TableCell colSpan={6 + dynamicColumns.length} align="center" sx={{ py: 8 }}>
                   <CircularProgress />
                 </TableCell>
               </TableRow>
             ) : filteredItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
+                <TableCell colSpan={6 + dynamicColumns.length} align="center" sx={{ py: 8 }}>
                   <Typography color="text.secondary">No items found</Typography>
                 </TableCell>
               </TableRow>
@@ -195,33 +239,30 @@ export default function BoughtOutPage() {
                       </Typography>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={BOUGHT_OUT_CATEGORY_LABELS[item.category]}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                      {item.specifications.manufacturer && (
-                        <Typography variant="caption">
-                          <strong>Mfr:</strong> {item.specifications.manufacturer}
-                        </Typography>
-                      )}
-                      {item.specifications.model && (
-                        <Typography variant="caption">
-                          <strong>Model:</strong> {item.specifications.model}
-                        </Typography>
-                      )}
-                      {item.specifications.size && (
-                        <Typography variant="caption">
-                          <strong>Size:</strong> {item.specifications.size}
-                        </Typography>
-                      )}
-                    </Box>
-                  </TableCell>
+                  {categoryFilter === 'ALL' && (
+                    <TableCell>
+                      <Chip
+                        label={BOUGHT_OUT_CATEGORY_LABELS[item.category]}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                      />
+                    </TableCell>
+                  )}
+
+                  {/* Dynamic Cells */}
+                  {dynamicColumns.map((col) => (
+                    <TableCell key={col.label}>
+                      {col.render
+                        ? col.render(item.specifications)
+                        : col.format
+                          ? col.format((item.specifications as Record<string, unknown>)[col.key])
+                          : ((item.specifications as Record<string, unknown>)[
+                              col.key
+                            ] as React.ReactNode) || '-'}
+                    </TableCell>
+                  ))}
+
                   <TableCell align="right">
                     <Typography variant="body2" fontWeight="bold">
                       {new Intl.NumberFormat('en-IN', {

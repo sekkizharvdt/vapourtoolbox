@@ -26,13 +26,14 @@ import {
   CurrencyCode,
 } from '@vapour/types';
 import { createBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
+import SpecificationForm from '../components/SpecificationForm';
 
 export default function NewBoughtOutItemPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { db } = getFirebase();
 
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Form State
@@ -40,14 +41,8 @@ export default function NewBoughtOutItemPage() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<BoughtOutCategory>('VALVE');
 
-  // Specifications
-  const [manufacturer, setManufacturer] = useState('');
-  const [model, setModel] = useState('');
-  const [size, setSize] = useState('');
-  const [rating, setRating] = useState('');
-  const [material, setMaterial] = useState('');
-  const [standard, setStandard] = useState('');
-  const [endConnection, setEndConnection] = useState('');
+  // Specifications State
+  const [specs, setSpecs] = useState<Record<string, any>>({});
 
   // Pricing
   const [price, setPrice] = useState('');
@@ -63,7 +58,7 @@ export default function NewBoughtOutItemPage() {
     if (!user) return;
 
     try {
-      setLoading(true);
+      setSaving(true);
       setError(null);
 
       const input: CreateBoughtOutItemInput = {
@@ -71,15 +66,7 @@ export default function NewBoughtOutItemPage() {
         name,
         description,
         category,
-        specifications: {
-          manufacturer,
-          model,
-          size,
-          rating,
-          material,
-          standard,
-          endConnection,
-        },
+        specifications: specs, // Pass dynamic specs
         pricing: {
           listPrice: {
             amount: parseFloat(price) || 0,
@@ -97,7 +84,7 @@ export default function NewBoughtOutItemPage() {
       console.error('Error creating item:', err);
       setError('Failed to create item. Please try again.');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -167,75 +154,12 @@ export default function NewBoughtOutItemPage() {
                 </Grid>
               </CardContent>
             </Card>
-
             <Card sx={{ mb: 3 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
                   Specifications
                 </Typography>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Manufacturer"
-                      value={manufacturer}
-                      onChange={(e) => setManufacturer(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Model Number"
-                      value={model}
-                      onChange={(e) => setModel(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Size / Dimensions"
-                      value={size}
-                      onChange={(e) => setSize(e.target.value)}
-                      placeholder="e.g., 2 inch, DN50"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Rating / Class"
-                      value={rating}
-                      onChange={(e) => setRating(e.target.value)}
-                      placeholder="e.g., Class 150, PN16"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Material"
-                      value={material}
-                      onChange={(e) => setMaterial(e.target.value)}
-                      placeholder="e.g., CF8M, SS316"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Standard"
-                      value={standard}
-                      onChange={(e) => setStandard(e.target.value)}
-                      placeholder="e.g., ASME B16.34"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="End Connection"
-                      value={endConnection}
-                      onChange={(e) => setEndConnection(e.target.value)}
-                      placeholder="e.g., Flanged RF, Butt Weld"
-                    />
-                  </Grid>
-                </Grid>
+                <SpecificationForm category={category} specs={specs} onChange={setSpecs} />
               </CardContent>
             </Card>
           </Grid>
@@ -301,16 +225,16 @@ export default function NewBoughtOutItemPage() {
                 type="submit"
                 variant="contained"
                 size="large"
-                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
-                disabled={loading}
+                startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+                disabled={saving}
               >
-                {loading ? 'Creating...' : 'Create Item'}
+                {saving ? 'Creating...' : 'Create Item'}
               </Button>
               <Button
                 variant="outlined"
                 size="large"
                 onClick={() => router.back()}
-                disabled={loading}
+                disabled={saving}
               >
                 Cancel
               </Button>

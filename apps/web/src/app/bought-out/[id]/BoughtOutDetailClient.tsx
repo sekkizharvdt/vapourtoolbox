@@ -28,6 +28,7 @@ import {
   CurrencyCode,
 } from '@vapour/types';
 import { getBoughtOutItemById, updateBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
+import SpecificationForm from '../components/SpecificationForm';
 
 export default function BoughtOutItemDetailPage() {
   const router = useRouter();
@@ -47,14 +48,11 @@ export default function BoughtOutItemDetailPage() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<BoughtOutCategory>('VALVE');
 
-  // Specifications
-  const [manufacturer, setManufacturer] = useState('');
-  const [model, setModel] = useState('');
-  const [size, setSize] = useState('');
-  const [rating, setRating] = useState('');
-  const [material, setMaterial] = useState('');
-  const [standard, setStandard] = useState('');
-  const [endConnection, setEndConnection] = useState('');
+  // ... (inside component)
+
+  // Specifications State - Dynamic based on category
+  // Using a flexible state object to hold all potential fields
+  const [specs, setSpecs] = useState<Record<string, any>>({});
 
   // Pricing
   const [price, setPrice] = useState('');
@@ -83,13 +81,8 @@ export default function BoughtOutItemDetailPage() {
       setDescription(fetchedItem.description || '');
       setCategory(fetchedItem.category);
 
-      setManufacturer(fetchedItem.specifications.manufacturer || '');
-      setModel(fetchedItem.specifications.model || '');
-      setSize(fetchedItem.specifications.size || '');
-      setRating(fetchedItem.specifications.rating || '');
-      setMaterial(fetchedItem.specifications.material || '');
-      setStandard(fetchedItem.specifications.standard || '');
-      setEndConnection(fetchedItem.specifications.endConnection || '');
+      // Load specs into state
+      setSpecs(fetchedItem.specifications || {});
 
       setPrice(fetchedItem.pricing.listPrice.amount.toString());
       setCurrency(fetchedItem.pricing.currency);
@@ -116,15 +109,7 @@ export default function BoughtOutItemDetailPage() {
         name,
         description,
         category,
-        specifications: {
-          manufacturer,
-          model,
-          size,
-          rating,
-          material,
-          standard,
-          endConnection,
-        },
+        specifications: specs, // Pass the dynamic specs object
         pricing: {
           listPrice: {
             amount: parseFloat(price) || 0,
@@ -256,70 +241,12 @@ export default function BoughtOutItemDetailPage() {
                 </Grid>
               </CardContent>
             </Card>
-
             <Card sx={{ mb: 3 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
                   Specifications
                 </Typography>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Manufacturer"
-                      value={manufacturer}
-                      onChange={(e) => setManufacturer(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Model Number"
-                      value={model}
-                      onChange={(e) => setModel(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Size / Dimensions"
-                      value={size}
-                      onChange={(e) => setSize(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Rating / Class"
-                      value={rating}
-                      onChange={(e) => setRating(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Material"
-                      value={material}
-                      onChange={(e) => setMaterial(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Standard"
-                      value={standard}
-                      onChange={(e) => setStandard(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="End Connection"
-                      value={endConnection}
-                      onChange={(e) => setEndConnection(e.target.value)}
-                    />
-                  </Grid>
-                </Grid>
+                <SpecificationForm category={category} specs={specs} onChange={setSpecs} />
               </CardContent>
             </Card>
           </Grid>
