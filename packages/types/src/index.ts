@@ -24,3 +24,4 @@ export * from './bom';
 export * from './service';
 export * from './costConfig';
 export * from './pdf';
+export * from './boughtOut';
