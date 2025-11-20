@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Box,
@@ -42,8 +42,8 @@ import { listBoughtOutItems, deleteBoughtOutItem } from '@/lib/boughtOut/boughtO
 interface DynamicColumn {
   label: string;
   key: string;
-  format?: (v: any) => string;
-  render?: (specs: any) => string;
+  format?: (v: unknown) => string;
+  render?: (specs: unknown) => string;
 }
 
 export default function BoughtOutPage() {
@@ -59,11 +59,7 @@ export default function BoughtOutPage() {
   // Single-tenant: Use 'company' as entityId
   const entityId = 'company';
 
-  useEffect(() => {
-    loadItems();
-  }, [categoryFilter]);
-
-  const loadItems = async () => {
+  const loadItems = useCallback(async () => {
     try {
       setLoading(true);
       const options: ListBoughtOutItemsOptions = {
@@ -82,7 +78,11 @@ export default function BoughtOutPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [db, categoryFilter]);
+
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this item?')) return;
@@ -110,8 +110,8 @@ export default function BoughtOutPage() {
       case 'PUMP':
         return [
           { label: 'Type', key: 'type' },
-          { label: 'Flow Rate', key: 'flowRate', format: (v: any) => `${v} m³/hr` },
-          { label: 'Head', key: 'head', format: (v: any) => `${v} m` },
+          { label: 'Flow Rate', key: 'flowRate', format: (v: unknown) => `${v} m³/hr` },
+          { label: 'Head', key: 'head', format: (v: unknown) => `${v} m` },
         ];
       case 'VALVE':
         return [
@@ -126,7 +126,10 @@ export default function BoughtOutPage() {
           {
             label: 'Range',
             key: 'range',
-            render: (specs: any) => `${specs.rangeMin} - ${specs.rangeMax} ${specs.unit}`,
+            render: (specs: unknown) => {
+              const s = specs as Record<string, unknown>;
+              return `${s.rangeMin} - ${s.rangeMax} ${s.unit}`;
+            },
           },
         ];
       case 'ELECTRICAL':

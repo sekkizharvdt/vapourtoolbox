@@ -42,7 +42,7 @@ export default function NewBoughtOutItemPage() {
   const [category, setCategory] = useState<BoughtOutCategory>('VALVE');
 
   // Specifications State
-  const [specs, setSpecs] = useState<Record<string, any>>({});
+  const [specs, setSpecs] = useState<Record<string, unknown>>({});
 
   // Pricing
   const [price, setPrice] = useState('');

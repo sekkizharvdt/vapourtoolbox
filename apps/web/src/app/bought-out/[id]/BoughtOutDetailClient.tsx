@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Box,
@@ -52,7 +52,7 @@ export default function BoughtOutItemDetailPage() {
 
   // Specifications State - Dynamic based on category
   // Using a flexible state object to hold all potential fields
-  const [specs, setSpecs] = useState<Record<string, any>>({});
+  const [specs, setSpecs] = useState<Record<string, unknown>>({});
 
   // Pricing
   const [price, setPrice] = useState('');
@@ -60,11 +60,7 @@ export default function BoughtOutItemDetailPage() {
   const [leadTime, setLeadTime] = useState('');
   const [moq, setMoq] = useState('');
 
-  useEffect(() => {
-    loadItem();
-  }, [id]);
-
-  const loadItem = async () => {
+  const loadItem = useCallback(async () => {
     try {
       setLoading(true);
       const fetchedItem = await getBoughtOutItemById(db, id);
@@ -82,7 +78,7 @@ export default function BoughtOutItemDetailPage() {
       setCategory(fetchedItem.category);
 
       // Load specs into state
-      setSpecs(fetchedItem.specifications || {});
+      setSpecs((fetchedItem.specifications as unknown as Record<string, unknown>) || {});
 
       setPrice(fetchedItem.pricing.listPrice.amount.toString());
       setCurrency(fetchedItem.pricing.currency);
@@ -94,7 +90,11 @@ export default function BoughtOutItemDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [db, id]);
+
+  useEffect(() => {
+    loadItem();
+  }, [loadItem]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

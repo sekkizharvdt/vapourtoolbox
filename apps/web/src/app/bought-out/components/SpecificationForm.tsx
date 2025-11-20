@@ -4,8 +4,8 @@ import { BoughtOutCategory } from '@vapour/types';
 
 interface SpecificationFormProps {
   category: BoughtOutCategory;
-  specs: Record<string, any>;
-  onChange: (newSpecs: Record<string, any>) => void;
+  specs: Record<string, unknown>;
+  onChange: (newSpecs: Record<string, unknown>) => void;
   readOnly?: boolean;
 }
 
@@ -15,7 +15,7 @@ export default function SpecificationForm({
   onChange,
   readOnly = false,
 }: SpecificationFormProps) {
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: unknown) => {
     onChange({
       ...specs,
       [field]: value,
