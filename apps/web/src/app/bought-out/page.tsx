@@ -31,7 +31,12 @@ import {
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { BoughtOutItem, BoughtOutCategory, BOUGHT_OUT_CATEGORY_LABELS } from '@vapour/types';
+import {
+  BoughtOutItem,
+  BoughtOutCategory,
+  BOUGHT_OUT_CATEGORY_LABELS,
+  ListBoughtOutItemsOptions,
+} from '@vapour/types';
 import { listBoughtOutItems, deleteBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
 
 export default function BoughtOutPage() {
@@ -54,7 +59,7 @@ export default function BoughtOutPage() {
   const loadItems = async () => {
     try {
       setLoading(true);
-      const options: any = {
+      const options: ListBoughtOutItemsOptions = {
         entityId,
         isActive: true,
       };

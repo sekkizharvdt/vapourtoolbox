@@ -110,7 +110,7 @@ export async function updateBoughtOutItem(
 ): Promise<void> {
   const docRef = doc(db, COLLECTIONS.BOUGHT_OUT_ITEMS, itemId);
 
-  const updates: Record<string, any> = {
+  const updates: Record<string, unknown> = {
     ...input,
     updatedAt: Timestamp.now(),
     updatedBy: userId,
