@@ -78,6 +78,7 @@ export default function PipesPage() {
   const [selectedMaterial, setSelectedMaterial] = useState<string | 'ALL'>('ALL');
   const [selectedSchedule, setSelectedSchedule] = useState<string | 'ALL'>('ALL');
   const [selectedNPS, setSelectedNPS] = useState<string | 'ALL'>('ALL');
+  const [selectedOD, setSelectedOD] = useState<string | 'ALL'>('ALL');
 
   // Pagination
   const [page, setPage] = useState(0);
@@ -181,8 +182,13 @@ export default function PipesPage() {
       filtered = filtered.filter((v) => v.nps === selectedNPS);
     }
 
+    // OD filter
+    if (selectedOD !== 'ALL') {
+      filtered = filtered.filter((v) => v.od_mm?.toFixed(2) === selectedOD);
+    }
+
     return filtered;
-  }, [allVariants, searchText, selectedMaterial, selectedSchedule, selectedNPS]);
+  }, [allVariants, searchText, selectedMaterial, selectedSchedule, selectedNPS, selectedOD]);
 
   // Paginated variants
   const paginatedVariants = useMemo(() => {
@@ -218,6 +224,14 @@ export default function PipesPage() {
       const bNum = eval(b.replace('"', ''));
       return aNum - bNum;
     });
+  }, [allVariants]);
+
+  const odSizes = useMemo(() => {
+    const odSet = new Set<string>();
+    allVariants.forEach((v) => {
+      if (v.od_mm) odSet.add(v.od_mm.toFixed(2));
+    });
+    return Array.from(odSet).sort((a, b) => parseFloat(a) - parseFloat(b));
   }, [allVariants]);
 
   // Statistics
@@ -428,9 +442,9 @@ export default function PipesPage() {
           </Box>
 
           {/* NPS Filter */}
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
-              Filter by size:
+              Filter by NPS:
             </Typography>
             <Chip
               label="All Sizes"
@@ -451,6 +465,34 @@ export default function PipesPage() {
                 }}
                 color={selectedNPS === nps ? 'info' : 'default'}
                 variant={selectedNPS === nps ? 'filled' : 'outlined'}
+              />
+            ))}
+          </Box>
+
+          {/* OD Filter */}
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
+              Filter by OD (mm):
+            </Typography>
+            <Chip
+              label="All ODs"
+              onClick={() => {
+                setSelectedOD('ALL');
+                setPage(0);
+              }}
+              color={selectedOD === 'ALL' ? 'success' : 'default'}
+              variant={selectedOD === 'ALL' ? 'filled' : 'outlined'}
+            />
+            {odSizes.slice(0, 10).map((od) => (
+              <Chip
+                key={od}
+                label={`${od} mm`}
+                onClick={() => {
+                  setSelectedOD(od);
+                  setPage(0);
+                }}
+                color={selectedOD === od ? 'success' : 'default'}
+                variant={selectedOD === od ? 'filled' : 'outlined'}
               />
             ))}
           </Box>
@@ -491,7 +533,8 @@ export default function PipesPage() {
                       {searchText ||
                       selectedMaterial !== 'ALL' ||
                       selectedSchedule !== 'ALL' ||
-                      selectedNPS !== 'ALL'
+                      selectedNPS !== 'ALL' ||
+                      selectedOD !== 'ALL'
                         ? 'Try adjusting your filters'
                         : 'No pipes data available'}
                     </Typography>
