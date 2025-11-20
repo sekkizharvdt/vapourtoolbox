@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import {
-  Box,
+  Container,
   Button,
   Paper,
   Table,
@@ -11,11 +11,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Typography,
   Chip,
-  Stack,
-  IconButton,
-  Tooltip,
   TablePagination,
 } from '@mui/material';
 import {
@@ -25,6 +21,7 @@ import {
   Delete as DeleteIcon,
   Send as SendIcon,
 } from '@mui/icons-material';
+import { PageHeader, LoadingState, EmptyState, TableActionCell, getStatusColor } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, orderBy, doc, deleteDoc } from 'firebase/firestore';
@@ -99,22 +96,25 @@ export default function InvoicesPage() {
 
   if (loading) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography>Loading invoices...</Typography>
-      </Box>
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <LoadingState message="Loading invoices..." variant="page" />
+      </Container>
     );
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Typography variant="h4">Customer Invoices</Typography>
-        {canManage && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
-            New Invoice
-          </Button>
-        )}
-      </Stack>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      <PageHeader
+        title="Customer Invoices"
+        subtitle="Manage customer invoices and track payments"
+        action={
+          canManage && (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
+              New Invoice
+            </Button>
+          )
+        }
+      />
 
       <TableContainer component={Paper}>
         <Table>
@@ -133,13 +133,18 @@ export default function InvoicesPage() {
           </TableHead>
           <TableBody>
             {invoices.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} align="center">
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
-                    No invoices found. Click &quot;New Invoice&quot; to create one.
-                  </Typography>
-                </TableCell>
-              </TableRow>
+              <EmptyState
+                message="No invoices found. Create your first customer invoice to get started."
+                variant="table"
+                colSpan={9}
+                action={
+                  canManage ? (
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
+                      Create First Invoice
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
               paginatedInvoices.map((invoice) => (
                 <TableRow key={invoice.id} hover>
@@ -156,48 +161,38 @@ export default function InvoicesPage() {
                     <Chip
                       label={invoice.status}
                       size="small"
-                      color={
-                        invoice.status === 'POSTED'
-                          ? 'success'
-                          : invoice.status === 'APPROVED'
-                            ? 'info'
-                            : invoice.status === 'DRAFT'
-                              ? 'default'
-                              : invoice.status === 'REJECTED'
-                                ? 'error'
-                                : 'warning'
-                      }
+                      color={getStatusColor(invoice.status, 'invoice')}
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <Tooltip title="View">
-                      <IconButton size="small" onClick={() => handleEdit(invoice)}>
-                        <ViewIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    {canManage && (
-                      <>
-                        <Tooltip title="Edit">
-                          <IconButton size="small" onClick={() => handleEdit(invoice)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Send">
-                          <IconButton size="small" color="primary">
-                            <SendIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDelete(invoice.id!)}
-                            color="error"
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </>
-                    )}
+                    <TableActionCell
+                      actions={[
+                        {
+                          icon: <ViewIcon />,
+                          label: 'View Invoice',
+                          onClick: () => handleEdit(invoice),
+                        },
+                        {
+                          icon: <EditIcon />,
+                          label: 'Edit Invoice',
+                          onClick: () => handleEdit(invoice),
+                          show: canManage && invoice.status === 'DRAFT',
+                        },
+                        {
+                          icon: <SendIcon />,
+                          label: 'Send Invoice',
+                          onClick: () => {},
+                          show: canManage,
+                        },
+                        {
+                          icon: <DeleteIcon />,
+                          label: 'Delete Invoice',
+                          onClick: () => handleDelete(invoice.id!),
+                          color: 'error',
+                          show: canManage,
+                        },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))
@@ -220,6 +215,6 @@ export default function InvoicesPage() {
         onClose={handleDialogClose}
         editingInvoice={editingInvoice}
       />
-    </Box>
+    </Container>
   );
 }

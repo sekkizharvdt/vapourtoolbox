@@ -31,7 +31,8 @@
       "Bash(firebase deploy:*)",
       "Bash(gh workflow run:*)",
       "Bash(pnpm --filter @vapour/ui type-check:*)",
-      "Bash(pnpm --filter @vapour/ui build:*)"
+      "Bash(pnpm --filter @vapour/ui build:*)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []

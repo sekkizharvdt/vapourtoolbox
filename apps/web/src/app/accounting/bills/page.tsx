@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import {
-  Box,
+  Container,
   Button,
   Paper,
   Table,
@@ -11,11 +11,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Typography,
   Chip,
-  Stack,
-  IconButton,
-  Tooltip,
   TablePagination,
 } from '@mui/material';
 import {
@@ -25,6 +21,7 @@ import {
   Delete as DeleteIcon,
   Payment as PaymentIcon,
 } from '@mui/icons-material';
+import { PageHeader, LoadingState, EmptyState, TableActionCell, getStatusColor } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, orderBy, doc, deleteDoc } from 'firebase/firestore';
@@ -99,22 +96,25 @@ export default function BillsPage() {
 
   if (loading) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography>Loading bills...</Typography>
-      </Box>
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <LoadingState message="Loading bills..." variant="page" />
+      </Container>
     );
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Typography variant="h4">Vendor Bills</Typography>
-        {canManage && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
-            New Bill
-          </Button>
-        )}
-      </Stack>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      <PageHeader
+        title="Vendor Bills"
+        subtitle="Track vendor bills and manage payments"
+        action={
+          canManage && (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
+              Record Bill
+            </Button>
+          )
+        }
+      />
 
       <TableContainer component={Paper}>
         <Table>
@@ -134,13 +134,18 @@ export default function BillsPage() {
           </TableHead>
           <TableBody>
             {bills.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={10} align="center">
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
-                    No bills found. Click &quot;New Bill&quot; to create one.
-                  </Typography>
-                </TableCell>
-              </TableRow>
+              <EmptyState
+                message="No bills found. Record your first vendor bill to get started."
+                variant="table"
+                colSpan={10}
+                action={
+                  canManage ? (
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
+                      Record First Bill
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
               paginatedBills.map((bill) => (
                 <TableRow key={bill.id} hover>
@@ -160,48 +165,38 @@ export default function BillsPage() {
                     <Chip
                       label={bill.status}
                       size="small"
-                      color={
-                        bill.status === 'POSTED'
-                          ? 'success'
-                          : bill.status === 'APPROVED'
-                            ? 'info'
-                            : bill.status === 'DRAFT'
-                              ? 'default'
-                              : bill.status === 'VOID'
-                                ? 'error'
-                                : 'warning'
-                      }
+                      color={getStatusColor(bill.status, 'bill')}
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <Tooltip title="View">
-                      <IconButton size="small" onClick={() => handleEdit(bill)}>
-                        <ViewIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    {canManage && (
-                      <>
-                        <Tooltip title="Edit">
-                          <IconButton size="small" onClick={() => handleEdit(bill)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Record Payment">
-                          <IconButton size="small" color="primary">
-                            <PaymentIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDelete(bill.id!)}
-                            color="error"
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </>
-                    )}
+                    <TableActionCell
+                      actions={[
+                        {
+                          icon: <ViewIcon />,
+                          label: 'View Bill',
+                          onClick: () => handleEdit(bill),
+                        },
+                        {
+                          icon: <EditIcon />,
+                          label: 'Edit Bill',
+                          onClick: () => handleEdit(bill),
+                          show: canManage && bill.status === 'DRAFT',
+                        },
+                        {
+                          icon: <PaymentIcon />,
+                          label: 'Record Payment',
+                          onClick: () => {},
+                          show: canManage,
+                        },
+                        {
+                          icon: <DeleteIcon />,
+                          label: 'Delete Bill',
+                          onClick: () => handleDelete(bill.id!),
+                          color: 'error',
+                          show: canManage,
+                        },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))
@@ -224,6 +219,6 @@ export default function BillsPage() {
         onClose={handleDialogClose}
         editingBill={editingBill}
       />
-    </Box>
+    </Container>
   );
 }

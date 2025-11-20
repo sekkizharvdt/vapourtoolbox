@@ -111,7 +111,7 @@ const contextOverrides: Record<string, Partial<Record<string, ChipProps['color']
  */
 export function getStatusColor(
   status: string,
-  context?: 'project' | 'invoice' | 'bill' | 'user' | 'bom' | 'document' | 'entity'
+  context?: 'project' | 'invoice' | 'bill' | 'user' | 'bom' | 'document' | 'entity' | 'transaction'
 ): ChipProps['color'] {
   // Check for context-specific override first
   if (context && contextOverrides[context]?.[status]) {

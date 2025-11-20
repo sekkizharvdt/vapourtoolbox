@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Box,
+  Container,
   Paper,
   Table,
   TableBody,
@@ -10,19 +10,26 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Box,
   Typography,
   Chip,
-  Stack,
-  IconButton,
-  Tooltip,
   TextField,
   MenuItem,
   FormControl,
   InputLabel,
   Select,
   TablePagination,
+  InputAdornment,
 } from '@mui/material';
-import { Visibility as ViewIcon, FilterList as FilterIcon } from '@mui/icons-material';
+import { Visibility as ViewIcon, Search as SearchIcon } from '@mui/icons-material';
+import {
+  PageHeader,
+  LoadingState,
+  EmptyState,
+  FilterBar,
+  TableActionCell,
+  getStatusColor,
+} from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
@@ -116,84 +123,74 @@ export default function TransactionsPage() {
     return labels[type] || type;
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'PAID':
-      case 'POSTED':
-        return 'success';
-      case 'SENT':
-      case 'APPROVED':
-        return 'info';
-      case 'DRAFT':
-        return 'default';
-      case 'OVERDUE':
-        return 'error';
-      default:
-        return 'warning';
-    }
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setFilterType('ALL');
+    setFilterStatus('ALL');
   };
 
   if (loading) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography>Loading transactions...</Typography>
-      </Box>
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <LoadingState message="Loading transactions..." variant="page" />
+      </Container>
     );
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>
-        All Transactions
-      </Typography>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      <PageHeader title="All Transactions" subtitle="View and manage all accounting transactions" />
 
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <FilterIcon />
-          <TextField
-            label="Search"
-            variant="outlined"
-            size="small"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by number, description, or entity..."
-            sx={{ flexGrow: 1 }}
-          />
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>Type</InputLabel>
-            <Select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value as TransactionType | 'ALL')}
-              label="Type"
-            >
-              <MenuItem value="ALL">All Types</MenuItem>
-              <MenuItem value="CUSTOMER_INVOICE">Invoices</MenuItem>
-              <MenuItem value="VENDOR_BILL">Bills</MenuItem>
-              <MenuItem value="JOURNAL_ENTRY">Journal Entries</MenuItem>
-              <MenuItem value="CUSTOMER_PAYMENT">Receipts</MenuItem>
-              <MenuItem value="VENDOR_PAYMENT">Payments</MenuItem>
-              <MenuItem value="BANK_TRANSFER">Transfers</MenuItem>
-              <MenuItem value="EXPENSE_CLAIM">Expenses</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              label="Status"
-            >
-              <MenuItem value="ALL">All Status</MenuItem>
-              <MenuItem value="DRAFT">Draft</MenuItem>
-              <MenuItem value="SENT">Sent</MenuItem>
-              <MenuItem value="APPROVED">Approved</MenuItem>
-              <MenuItem value="PAID">Paid</MenuItem>
-              <MenuItem value="POSTED">Posted</MenuItem>
-              <MenuItem value="OVERDUE">Overdue</MenuItem>
-            </Select>
-          </FormControl>
-        </Stack>
-      </Paper>
+      <FilterBar onClear={handleClearFilters}>
+        <TextField
+          label="Search"
+          size="small"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search by number, description, or entity..."
+          sx={{ minWidth: 300 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Type</InputLabel>
+          <Select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value as TransactionType | 'ALL')}
+            label="Type"
+          >
+            <MenuItem value="ALL">All Types</MenuItem>
+            <MenuItem value="CUSTOMER_INVOICE">Invoices</MenuItem>
+            <MenuItem value="VENDOR_BILL">Bills</MenuItem>
+            <MenuItem value="JOURNAL_ENTRY">Journal Entries</MenuItem>
+            <MenuItem value="CUSTOMER_PAYMENT">Receipts</MenuItem>
+            <MenuItem value="VENDOR_PAYMENT">Payments</MenuItem>
+            <MenuItem value="BANK_TRANSFER">Transfers</MenuItem>
+            <MenuItem value="EXPENSE_CLAIM">Expenses</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            label="Status"
+          >
+            <MenuItem value="ALL">All Status</MenuItem>
+            <MenuItem value="DRAFT">Draft</MenuItem>
+            <MenuItem value="SENT">Sent</MenuItem>
+            <MenuItem value="APPROVED">Approved</MenuItem>
+            <MenuItem value="PAID">Paid</MenuItem>
+            <MenuItem value="POSTED">Posted</MenuItem>
+            <MenuItem value="OVERDUE">Overdue</MenuItem>
+          </Select>
+        </FormControl>
+      </FilterBar>
 
       <TableContainer component={Paper}>
         <Table>
@@ -212,15 +209,15 @@ export default function TransactionsPage() {
           </TableHead>
           <TableBody>
             {paginatedTransactions.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} align="center">
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
-                    {searchTerm || filterType !== 'ALL' || filterStatus !== 'ALL'
-                      ? 'No transactions match the selected filters.'
-                      : 'No transactions found.'}
-                  </Typography>
-                </TableCell>
-              </TableRow>
+              <EmptyState
+                message={
+                  searchTerm || filterType !== 'ALL' || filterStatus !== 'ALL'
+                    ? 'No transactions match the selected filters. Try adjusting your filters or search criteria.'
+                    : 'No transactions found. Transactions will appear here once created.'
+                }
+                variant="table"
+                colSpan={9}
+              />
             ) : (
               paginatedTransactions.map((txn) => (
                 <TableRow key={txn.id} hover>
@@ -240,14 +237,22 @@ export default function TransactionsPage() {
                   <TableCell>{txn.reference || '-'}</TableCell>
                   <TableCell align="right">{formatCurrency(txn.amount)}</TableCell>
                   <TableCell>
-                    <Chip label={txn.status} size="small" color={getStatusColor(txn.status)} />
+                    <Chip
+                      label={txn.status}
+                      size="small"
+                      color={getStatusColor(txn.status, 'transaction')}
+                    />
                   </TableCell>
                   <TableCell align="right">
-                    <Tooltip title="View Details">
-                      <IconButton size="small">
-                        <ViewIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    <TableActionCell
+                      actions={[
+                        {
+                          icon: <ViewIcon />,
+                          label: 'View Details',
+                          onClick: () => {},
+                        },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))
@@ -273,6 +278,6 @@ export default function TransactionsPage() {
           Total: {formatCurrency(filteredTransactions.reduce((sum, txn) => sum + txn.amount, 0))}
         </Typography>
       </Box>
-    </Box>
+    </Container>
   );
 }
