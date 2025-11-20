@@ -13,6 +13,13 @@ import {
   TableRow,
   Chip,
   TablePagination,
+  Grid,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  InputAdornment,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -20,8 +27,20 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Send as SendIcon,
+  Search as SearchIcon,
+  AttachMoney as MoneyIcon,
+  PendingActions as PendingIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
-import { PageHeader, LoadingState, EmptyState, TableActionCell, getStatusColor } from '@vapour/ui';
+import {
+  PageHeader,
+  LoadingState,
+  EmptyState,
+  TableActionCell,
+  getStatusColor,
+  StatCard,
+  FilterBar,
+} from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, orderBy, doc, deleteDoc } from 'firebase/firestore';
@@ -38,6 +57,8 @@ export default function InvoicesPage() {
   const [editingInvoice, setEditingInvoice] = useState<CustomerInvoice | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
@@ -54,6 +75,33 @@ export default function InvoicesPage() {
   );
 
   const { data: invoices, loading } = useFirestoreQuery<CustomerInvoice>(invoicesQuery);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+    const outstanding = invoices
+      .filter((inv) => inv.status !== 'PAID' && inv.status !== 'DRAFT')
+      .reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+    const overdue = invoices
+      .filter((inv) => inv.status === 'OVERDUE')
+      .reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+
+    return { totalInvoiced, outstanding, overdue };
+  }, [invoices]);
+
+  // Filter logic
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter((invoice) => {
+      const matchesSearch =
+        searchTerm === '' ||
+        invoice.transactionNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (invoice.entityName && invoice.entityName.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      const matchesStatus = filterStatus === 'ALL' || invoice.status === filterStatus;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [invoices, searchTerm, filterStatus]);
 
   const handleCreate = () => {
     setEditingInvoice(null);
@@ -91,8 +139,16 @@ export default function InvoicesPage() {
     setPage(0);
   };
 
-  // Paginate invoices in memory (simple client-side pagination)
-  const paginatedInvoices = invoices.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setFilterStatus('ALL');
+  };
+
+  // Paginate filtered invoices
+  const paginatedInvoices = filteredInvoices.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   if (loading) {
     return (
@@ -116,6 +172,67 @@ export default function InvoicesPage() {
         }
       />
 
+      {/* Stats Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} md={4}>
+          <StatCard
+            title="Total Invoiced"
+            value={formatCurrency(stats.totalInvoiced)}
+            icon={<MoneyIcon />}
+            color="primary"
+          />
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <StatCard
+            title="Outstanding Amount"
+            value={formatCurrency(stats.outstanding)}
+            icon={<PendingIcon />}
+            color="warning"
+          />
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <StatCard
+            title="Overdue Amount"
+            value={formatCurrency(stats.overdue)}
+            icon={<WarningIcon />}
+            color="error"
+          />
+        </Grid>
+      </Grid>
+
+      {/* Filters */}
+      <FilterBar onClear={handleClearFilters}>
+        <TextField
+          label="Search"
+          size="small"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search by number or customer..."
+          sx={{ minWidth: 300 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            label="Status"
+          >
+            <MenuItem value="ALL">All Status</MenuItem>
+            <MenuItem value="DRAFT">Draft</MenuItem>
+            <MenuItem value="SENT">Sent</MenuItem>
+            <MenuItem value="PAID">Paid</MenuItem>
+            <MenuItem value="OVERDUE">Overdue</MenuItem>
+          </Select>
+        </FormControl>
+      </FilterBar>
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -132,13 +249,17 @@ export default function InvoicesPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {invoices.length === 0 ? (
+            {paginatedInvoices.length === 0 ? (
               <EmptyState
-                message="No invoices found. Create your first customer invoice to get started."
+                message={
+                  searchTerm || filterStatus !== 'ALL'
+                    ? 'No invoices match the selected filters.'
+                    : 'No invoices found. Create your first customer invoice to get started.'
+                }
                 variant="table"
                 colSpan={9}
                 action={
-                  canManage ? (
+                  canManage && !searchTerm && filterStatus === 'ALL' ? (
                     <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
                       Create First Invoice
                     </Button>
@@ -202,7 +323,7 @@ export default function InvoicesPage() {
         <TablePagination
           rowsPerPageOptions={[25, 50, 100]}
           component="div"
-          count={invoices.length}
+          count={filteredInvoices.length}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}

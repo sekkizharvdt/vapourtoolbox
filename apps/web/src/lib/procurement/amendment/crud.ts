@@ -215,7 +215,7 @@ export async function approveAmendment(
 
     // Apply changes to PO
     const poRef = doc(db, COLLECTIONS.PURCHASE_ORDERS, amendment.purchaseOrderId);
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       status: 'AMENDED',
       lastAmendmentNumber: amendment.amendmentNumber,
       lastAmendmentDate: serverTimestamp(),

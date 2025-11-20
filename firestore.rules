@@ -681,6 +681,49 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Enquiries Collection (Proposal Module)
+    // ============================================
+
+    match /enquiries/{enquiryId} {
+      // Read: Users with VIEW_ESTIMATION permission
+      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+
+      // Create: Users with MANAGE_ESTIMATION permission
+      allow create: if hasPermission(262144) && isInternalUser() &&
+                       request.resource.data.entityId == request.auth.token.entityId &&
+                       request.resource.data.createdBy == request.auth.uid; // MANAGE_ESTIMATION (bit 18)
+
+      // Update: Users with MANAGE_ESTIMATION permission
+      allow update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+
+      // Delete: Soft delete only (update status to CANCELLED)
+      allow delete: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+    }
+
+    // ============================================
+    // Proposals Collection (Proposal Module)
+    // ============================================
+
+    match /proposals/{proposalId} {
+      // Read: Users with VIEW_ESTIMATION permission
+      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+
+      // Create: Users with MANAGE_ESTIMATION permission
+      allow create: if hasPermission(262144) && isInternalUser() &&
+                       request.resource.data.entityId == request.auth.token.entityId &&
+                       request.resource.data.createdBy == request.auth.uid &&
+                       request.resource.data.status == 'DRAFT' &&
+                       request.resource.data.revision >= 1; // MANAGE_ESTIMATION (bit 18)
+
+      // Update: Users with MANAGE_ESTIMATION permission
+      // Approval workflow: users with approval permissions can update approvalHistory
+      allow update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+
+      // Delete: Super admins only (proposals should not be deleted, use revisions)
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
     // BOM (Bill of Materials) / Estimation - Week 1 Sprint
     // ============================================
 

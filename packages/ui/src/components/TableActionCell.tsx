@@ -91,6 +91,7 @@ export const TableActionCell: React.FC<TableActionCellProps> = ({ actions, size 
                 onClick={action.onClick}
                 disabled={action.disabled}
                 color={action.color}
+                aria-label={action.label}
               >
                 {action.icon}
               </IconButton>

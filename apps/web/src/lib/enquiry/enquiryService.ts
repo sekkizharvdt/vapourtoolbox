@@ -1,0 +1,388 @@
+/**
+ * Enquiry Service
+ * Handles CRUD operations for enquiries
+ */
+
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  Timestamp,
+  Firestore,
+  startAfter as firestoreStartAfter,
+} from 'firebase/firestore';
+import { createLogger } from '@vapour/logger';
+import type {
+  Enquiry,
+  CreateEnquiryInput,
+  UpdateEnquiryInput,
+  ListEnquiriesOptions,
+  EnquiryStatus,
+} from '@vapour/types';
+
+const logger = createLogger({ context: 'enquiryService' });
+
+const COLLECTIONS = {
+  ENQUIRIES: 'enquiries',
+  ENTITIES: 'business_entities',
+};
+
+/**
+ * Generate next enquiry number: ENQ-YY-NN
+ * Format: ENQ-25-01, ENQ-25-02, etc.
+ */
+async function generateEnquiryNumber(db: Firestore): Promise<string> {
+  const year = new Date().getFullYear();
+  const twoDigitYear = year.toString().slice(-2); // Get last 2 digits
+  const prefix = `ENQ-${twoDigitYear}-`;
+
+  const q = query(
+    collection(db, COLLECTIONS.ENQUIRIES),
+    where('enquiryNumber', '>=', prefix),
+    where('enquiryNumber', '<', `ENQ-${(parseInt(twoDigitYear) + 1).toString().padStart(2, '0')}-`),
+    orderBy('enquiryNumber', 'desc'),
+    limit(1)
+  );
+
+  const snapshot = await getDocs(q);
+  let nextNumber = 1;
+
+  if (!snapshot.empty) {
+    const firstDoc = snapshot.docs[0];
+    if (firstDoc) {
+      const lastEnquiryNumber = firstDoc.data().enquiryNumber as string;
+      if (lastEnquiryNumber) {
+        const parts = lastEnquiryNumber.split('-');
+        if (parts.length >= 3 && parts[2]) {
+          const lastNumber = parseInt(parts[2], 10);
+          if (!isNaN(lastNumber)) {
+            nextNumber = lastNumber + 1;
+          }
+        }
+      }
+    }
+  }
+
+  return `${prefix}${nextNumber.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Create new enquiry
+ */
+export async function createEnquiry(
+  db: Firestore,
+  input: CreateEnquiryInput,
+  userId: string
+): Promise<Enquiry> {
+  try {
+    // Get client details
+    const clientDoc = await getDoc(doc(db, COLLECTIONS.ENTITIES, input.clientId));
+    if (!clientDoc.exists()) {
+      throw new Error('Client not found');
+    }
+    const client = clientDoc.data();
+
+    // Generate enquiry number
+    const enquiryNumber = await generateEnquiryNumber(db);
+
+    const now = Timestamp.now();
+    const enquiry: Omit<Enquiry, 'id'> = {
+      enquiryNumber,
+      entityId: input.entityId,
+      clientId: input.clientId,
+      clientName: client.name || '',
+      clientContactPerson: input.clientContactPerson,
+      clientEmail: input.clientEmail,
+      clientPhone: input.clientPhone,
+      clientReferenceNumber: input.clientReferenceNumber,
+      title: input.title,
+      description: input.description,
+      receivedDate: input.receivedDate,
+      receivedVia: input.receivedVia,
+      referenceSource: input.referenceSource,
+      projectType: input.projectType,
+      industry: input.industry,
+      location: input.location,
+      urgency: input.urgency,
+      estimatedBudget: input.estimatedBudget,
+      status: 'NEW',
+      assignedToUserId: input.assignedToUserId,
+      assignedToUserName: undefined, // TODO: Fetch from user service
+      attachedDocuments: [],
+      createdAt: now,
+      createdBy: userId,
+      updatedAt: now,
+      updatedBy: userId,
+    };
+
+    const docRef = await addDoc(collection(db, COLLECTIONS.ENQUIRIES), enquiry);
+
+    logger.info('Enquiry created', { enquiryId: docRef.id, enquiryNumber });
+
+    return { id: docRef.id, ...enquiry };
+  } catch (error) {
+    logger.error('Error creating enquiry', { error });
+    throw error;
+  }
+}
+
+/**
+ * Get enquiry by ID
+ */
+export async function getEnquiryById(db: Firestore, enquiryId: string): Promise<Enquiry | null> {
+  try {
+    const docSnap = await getDoc(doc(db, COLLECTIONS.ENQUIRIES, enquiryId));
+    if (!docSnap.exists()) {
+      logger.warn('Enquiry not found', { enquiryId });
+      return null;
+    }
+    return { id: docSnap.id, ...docSnap.data() } as Enquiry;
+  } catch (error) {
+    logger.error('Error fetching enquiry', { enquiryId, error });
+    throw error;
+  }
+}
+
+/**
+ * Get enquiry by number
+ */
+export async function getEnquiryByNumber(
+  db: Firestore,
+  enquiryNumber: string
+): Promise<Enquiry | null> {
+  try {
+    const q = query(
+      collection(db, COLLECTIONS.ENQUIRIES),
+      where('enquiryNumber', '==', enquiryNumber),
+      limit(1)
+    );
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const firstDoc = snapshot.docs[0];
+    if (!firstDoc) {
+      return null;
+    }
+
+    return { id: firstDoc.id, ...firstDoc.data() } as Enquiry;
+  } catch (error) {
+    logger.error('Error fetching enquiry by number', { enquiryNumber, error });
+    throw error;
+  }
+}
+
+/**
+ * List enquiries with filters
+ */
+export async function listEnquiries(
+  db: Firestore,
+  options: ListEnquiriesOptions
+): Promise<Enquiry[]> {
+  try {
+    let q = query(collection(db, COLLECTIONS.ENQUIRIES), where('entityId', '==', options.entityId));
+
+    // Status filter
+    if (options.status) {
+      const statuses = Array.isArray(options.status) ? options.status : [options.status];
+      if (statuses.length > 0) {
+        q = query(q, where('status', 'in', statuses));
+      }
+    }
+
+    // Assigned user filter
+    if (options.assignedToUserId) {
+      q = query(q, where('assignedToUserId', '==', options.assignedToUserId));
+    }
+
+    // Client filter
+    if (options.clientId) {
+      q = query(q, where('clientId', '==', options.clientId));
+    }
+
+    // Urgency filter
+    if (options.urgency) {
+      q = query(q, where('urgency', '==', options.urgency));
+    }
+
+    // Date range filter
+    if (options.dateFrom) {
+      q = query(q, where('receivedDate', '>=', options.dateFrom));
+    }
+    if (options.dateTo) {
+      q = query(q, where('receivedDate', '<=', options.dateTo));
+    }
+
+    // Order by created date (most recent first)
+    q = query(q, orderBy('createdAt', 'desc'));
+
+    // Pagination
+    if (options.startAfter) {
+      const startDoc = await getDoc(doc(db, COLLECTIONS.ENQUIRIES, options.startAfter));
+      if (startDoc.exists()) {
+        q = query(q, firestoreStartAfter(startDoc));
+      }
+    }
+
+    if (options.limit) {
+      q = query(q, limit(options.limit));
+    }
+
+    const snapshot = await getDocs(q);
+    const enquiries = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Enquiry);
+
+    // Client-side search filter (for search term)
+    if (options.searchTerm) {
+      const searchLower = options.searchTerm.toLowerCase();
+      return enquiries.filter(
+        (e) =>
+          e.enquiryNumber.toLowerCase().includes(searchLower) ||
+          e.title.toLowerCase().includes(searchLower) ||
+          e.clientName.toLowerCase().includes(searchLower) ||
+          e.description.toLowerCase().includes(searchLower)
+      );
+    }
+
+    return enquiries;
+  } catch (error) {
+    logger.error('Error listing enquiries', { error });
+    throw error;
+  }
+}
+
+/**
+ * Update enquiry
+ */
+export async function updateEnquiry(
+  db: Firestore,
+  enquiryId: string,
+  input: UpdateEnquiryInput,
+  userId: string
+): Promise<void> {
+  try {
+    const updates: Record<string, unknown> = {
+      ...input,
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    };
+
+    await updateDoc(doc(db, COLLECTIONS.ENQUIRIES, enquiryId), updates);
+
+    logger.info('Enquiry updated', { enquiryId });
+  } catch (error) {
+    logger.error('Error updating enquiry', { enquiryId, error });
+    throw error;
+  }
+}
+
+/**
+ * Update enquiry status
+ */
+export async function updateEnquiryStatus(
+  db: Firestore,
+  enquiryId: string,
+  status: EnquiryStatus,
+  userId: string,
+  outcomeReason?: string
+): Promise<void> {
+  try {
+    const updates: Record<string, unknown> = {
+      status,
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    };
+
+    // Track outcome for terminal statuses
+    if (['WON', 'LOST', 'CANCELLED'].includes(status)) {
+      updates.outcomeDate = Timestamp.now();
+      if (outcomeReason) {
+        updates.outcomeReason = outcomeReason;
+      }
+    }
+
+    // Track proposal submission
+    if (status === 'PROPOSAL_SUBMITTED') {
+      updates.proposalSubmittedAt = Timestamp.now();
+    }
+
+    await updateDoc(doc(db, COLLECTIONS.ENQUIRIES, enquiryId), updates);
+
+    logger.info('Enquiry status updated', { enquiryId, status });
+  } catch (error) {
+    logger.error('Error updating enquiry status', { enquiryId, status, error });
+    throw error;
+  }
+}
+
+/**
+ * Mark enquiry as proposal created
+ */
+export async function markProposalCreated(
+  db: Firestore,
+  enquiryId: string,
+  userId: string
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, COLLECTIONS.ENQUIRIES, enquiryId), {
+      status: 'PROPOSAL_IN_PROGRESS',
+      proposalCreatedAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    });
+
+    logger.info('Enquiry marked as proposal created', { enquiryId });
+  } catch (error) {
+    logger.error('Error marking proposal created', { enquiryId, error });
+    throw error;
+  }
+}
+
+/**
+ * Delete enquiry (soft delete by setting status to CANCELLED)
+ */
+export async function deleteEnquiry(
+  db: Firestore,
+  enquiryId: string,
+  userId: string
+): Promise<void> {
+  try {
+    await updateEnquiryStatus(db, enquiryId, 'CANCELLED', userId, 'Deleted by user');
+    logger.info('Enquiry deleted (soft)', { enquiryId });
+  } catch (error) {
+    logger.error('Error deleting enquiry', { enquiryId, error });
+    throw error;
+  }
+}
+
+/**
+ * Get enquiries count by status (for dashboard)
+ */
+export async function getEnquiriesCountByStatus(
+  db: Firestore,
+  entityId: string
+): Promise<Record<EnquiryStatus, number>> {
+  try {
+    const q = query(collection(db, COLLECTIONS.ENQUIRIES), where('entityId', '==', entityId));
+    const snapshot = await getDocs(q);
+
+    const counts: Record<string, number> = {};
+    snapshot.docs.forEach((doc) => {
+      const status = doc.data().status as EnquiryStatus;
+      counts[status] = (counts[status] || 0) + 1;
+    });
+
+    return counts as Record<EnquiryStatus, number>;
+  } catch (error) {
+    logger.error('Error getting enquiry counts', { error });
+    throw error;
+  }
+}

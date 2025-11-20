@@ -13,6 +13,13 @@ import {
   TableRow,
   Chip,
   TablePagination,
+  Grid,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  InputAdornment,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -20,8 +27,20 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Payment as PaymentIcon,
+  Search as SearchIcon,
+  AttachMoney as MoneyIcon,
+  PendingActions as PendingIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
-import { PageHeader, LoadingState, EmptyState, TableActionCell, getStatusColor } from '@vapour/ui';
+import {
+  PageHeader,
+  LoadingState,
+  EmptyState,
+  TableActionCell,
+  getStatusColor,
+  StatCard,
+  FilterBar,
+} from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, orderBy, doc, deleteDoc } from 'firebase/firestore';
@@ -38,6 +57,8 @@ export default function BillsPage() {
   const [editingBill, setEditingBill] = useState<VendorBill | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
@@ -54,6 +75,33 @@ export default function BillsPage() {
   );
 
   const { data: bills, loading } = useFirestoreQuery<VendorBill>(billsQuery);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const totalBilled = bills.reduce((sum, bill) => sum + (bill.totalAmount || 0), 0);
+    const outstanding = bills
+      .filter((bill) => bill.status !== 'PAID' && bill.status !== 'DRAFT')
+      .reduce((sum, bill) => sum + (bill.totalAmount || 0), 0);
+    const overdue = bills
+      .filter((bill) => bill.status === 'OVERDUE')
+      .reduce((sum, bill) => sum + (bill.totalAmount || 0), 0);
+
+    return { totalBilled, outstanding, overdue };
+  }, [bills]);
+
+  // Filter logic
+  const filteredBills = useMemo(() => {
+    return bills.filter((bill) => {
+      const matchesSearch =
+        searchTerm === '' ||
+        bill.transactionNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (bill.entityName && bill.entityName.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      const matchesStatus = filterStatus === 'ALL' || bill.status === filterStatus;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [bills, searchTerm, filterStatus]);
 
   const handleCreate = () => {
     setEditingBill(null);
@@ -91,8 +139,13 @@ export default function BillsPage() {
     setPage(0);
   };
 
-  // Paginate bills in memory (simple client-side pagination)
-  const paginatedBills = bills.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setFilterStatus('ALL');
+  };
+
+  // Paginate filtered bills
+  const paginatedBills = filteredBills.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   if (loading) {
     return (
@@ -116,6 +169,67 @@ export default function BillsPage() {
         }
       />
 
+      {/* Stats Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} md={4}>
+          <StatCard
+            title="Total Billed"
+            value={formatCurrency(stats.totalBilled)}
+            icon={<MoneyIcon />}
+            color="primary"
+          />
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <StatCard
+            title="Outstanding Amount"
+            value={formatCurrency(stats.outstanding)}
+            icon={<PendingIcon />}
+            color="warning"
+          />
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <StatCard
+            title="Overdue Amount"
+            value={formatCurrency(stats.overdue)}
+            icon={<WarningIcon />}
+            color="error"
+          />
+        </Grid>
+      </Grid>
+
+      {/* Filters */}
+      <FilterBar onClear={handleClearFilters}>
+        <TextField
+          label="Search"
+          size="small"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search by number or vendor..."
+          sx={{ minWidth: 300 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            label="Status"
+          >
+            <MenuItem value="ALL">All Status</MenuItem>
+            <MenuItem value="DRAFT">Draft</MenuItem>
+            <MenuItem value="APPROVED">Approved</MenuItem>
+            <MenuItem value="PAID">Paid</MenuItem>
+            <MenuItem value="OVERDUE">Overdue</MenuItem>
+          </Select>
+        </FormControl>
+      </FilterBar>
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -133,13 +247,17 @@ export default function BillsPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {bills.length === 0 ? (
+            {paginatedBills.length === 0 ? (
               <EmptyState
-                message="No bills found. Record your first vendor bill to get started."
+                message={
+                  searchTerm || filterStatus !== 'ALL'
+                    ? 'No bills match the selected filters.'
+                    : 'No bills found. Record your first vendor bill to get started.'
+                }
                 variant="table"
                 colSpan={10}
                 action={
-                  canManage ? (
+                  canManage && !searchTerm && filterStatus === 'ALL' ? (
                     <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
                       Record First Bill
                     </Button>
@@ -206,7 +324,7 @@ export default function BillsPage() {
         <TablePagination
           rowsPerPageOptions={[25, 50, 100]}
           component="div"
-          count={bills.length}
+          count={filteredBills.length}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}

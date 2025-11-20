@@ -31,7 +31,7 @@ export function determineAmendmentType(
 /**
  * Format value for display
  */
-export function formatValue(value: any): string {
+export function formatValue(value: unknown): string {
   if (value === null || value === undefined) return 'N/A';
   if (typeof value === 'number') return value.toFixed(2);
   if (value instanceof Date || (value && typeof value === 'object' && 'toDate' in value)) {

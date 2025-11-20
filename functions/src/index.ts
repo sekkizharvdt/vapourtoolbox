@@ -32,4 +32,8 @@ export { seedAccountingIntegrations } from './moduleIntegrations';
 export { generateBOMQuotePDF } from './pdf/generateBOMQuote';
 
 // Import seed functions for materials
+// Import seed functions for materials
 export { seedMaterials } from './seed/seedMaterials';
+
+// Import BOM functions
+export { onBOMItemWrite } from './bom';
