@@ -2,8 +2,9 @@ import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
 
 const nextConfig: NextConfig = {
-  // Removed 'output: export' to support dynamic database-driven routes
-  // The app now uses server-side rendering for dynamic pages
+  // Static export for Firebase Hosting
+  // Dynamic routes use server/client component pattern (see /estimation/[id])
+  output: 'export',
   reactStrictMode: true,
   transpilePackages: [
     '@vapour/constants',
