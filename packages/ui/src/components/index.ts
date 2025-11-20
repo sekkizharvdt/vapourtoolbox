@@ -16,6 +16,8 @@ export { EmptyState } from './EmptyState';
 export type { EmptyStateProps } from './EmptyState';
 export { LoadingState } from './LoadingState';
 export type { LoadingStateProps } from './LoadingState';
+export * from './StatCard';
+export * from './FilterBar';
 
 // Table Components
 export { TableActionCell } from './TableActionCell';

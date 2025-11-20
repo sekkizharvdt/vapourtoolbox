@@ -14,13 +14,7 @@ import {
   FormControl,
   InputLabel,
   Chip,
-  IconButton,
-  Tooltip,
-  CircularProgress,
-  Alert,
   Grid,
-  Card,
-  CardContent,
   Table,
   TableBody,
   TableCell,
@@ -29,16 +23,25 @@ import {
   TableRow,
   TableSortLabel,
   TablePagination,
+  Alert,
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Add as AddIcon,
-  Refresh as RefreshIcon,
   Edit as EditIcon,
   Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { collection, query, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
+import {
+  PageHeader,
+  StatCard,
+  FilterBar,
+  LoadingState,
+  EmptyState,
+  TableActionCell,
+  getStatusColor,
+} from '@vapour/ui';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity, Status } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -149,22 +152,6 @@ export default function EntitiesPage() {
     customers: entities.filter((e) => e.roles.includes('CUSTOMER')).length,
   };
 
-  // Get status color
-  const getStatusColor = (status: Status): 'default' | 'success' | 'warning' | 'error' => {
-    switch (status) {
-      case 'active':
-        return 'success';
-      case 'inactive':
-        return 'warning';
-      case 'draft':
-        return 'default';
-      case 'archived':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
   // Handle sort
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -216,25 +203,21 @@ export default function EntitiesPage() {
     <Container maxWidth="xl">
       <Box sx={{ mb: 4 }}>
         {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <div>
-            <Typography variant="h4" component="h1" gutterBottom>
-              Entity Management
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Manage vendors, customers, and business partners
-            </Typography>
-          </div>
-          {hasCreatePermission && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateDialogOpen(true)}
-            >
-              New Entity
-            </Button>
-          )}
-        </Box>
+        <PageHeader
+          title="Entity Management"
+          subtitle="Manage vendors, customers, and business partners"
+          action={
+            hasCreatePermission ? (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateDialogOpen(true)}
+              >
+                New Entity
+              </Button>
+            ) : undefined
+          }
+        />
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -245,122 +228,76 @@ export default function EntitiesPage() {
         {/* Stats Cards */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
-            <Card>
-              <CardContent>
-                <Typography color="text.secondary" gutterBottom variant="body2">
-                  Total Entities
-                </Typography>
-                <Typography variant="h4">{stats.total}</Typography>
-              </CardContent>
-            </Card>
+            <StatCard label="Total Entities" value={stats.total} />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
-            <Card>
-              <CardContent>
-                <Typography color="text.secondary" gutterBottom variant="body2">
-                  Active
-                </Typography>
-                <Typography variant="h4">{stats.active}</Typography>
-              </CardContent>
-            </Card>
+            <StatCard label="Active" value={stats.active} color="success" />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
-            <Card>
-              <CardContent>
-                <Typography color="text.secondary" gutterBottom variant="body2">
-                  Inactive
-                </Typography>
-                <Typography variant="h4">{stats.inactive}</Typography>
-              </CardContent>
-            </Card>
+            <StatCard label="Inactive" value={stats.inactive} color="warning" />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
-            <Card>
-              <CardContent>
-                <Typography color="text.secondary" gutterBottom variant="body2">
-                  Vendors
-                </Typography>
-                <Typography variant="h4">{stats.vendors}</Typography>
-              </CardContent>
-            </Card>
+            <StatCard label="Vendors" value={stats.vendors} color="info" />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
-            <Card>
-              <CardContent>
-                <Typography color="text.secondary" gutterBottom variant="body2">
-                  Customers
-                </Typography>
-                <Typography variant="h4">{stats.customers}</Typography>
-              </CardContent>
-            </Card>
+            <StatCard label="Customers" value={stats.customers} color="primary" />
           </Grid>
         </Grid>
 
         {/* Filters */}
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <TextField
-              placeholder="Search entities..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ flexGrow: 1, minWidth: 300 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <FormControl sx={{ minWidth: 150 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => setStatusFilter(e.target.value as Status | 'all')}
-              >
-                <MenuItem value="all">All Status</MenuItem>
-                <MenuItem value="active">Active</MenuItem>
-                <MenuItem value="inactive">Inactive</MenuItem>
-                <MenuItem value="draft">Draft</MenuItem>
-                <MenuItem value="archived">Archived</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl sx={{ minWidth: 150 }}>
-              <InputLabel>Role</InputLabel>
-              <Select
-                value={roleFilter}
-                label="Role"
-                onChange={(e) => setRoleFilter(e.target.value)}
-              >
-                <MenuItem value="all">All Roles</MenuItem>
-                <MenuItem value="VENDOR">Vendor</MenuItem>
-                <MenuItem value="CUSTOMER">Customer</MenuItem>
-                <MenuItem value="PARTNER">Partner</MenuItem>
-                <MenuItem value="SUPPLIER">Supplier</MenuItem>
-              </Select>
-            </FormControl>
-            <Tooltip title="Refresh">
-              <IconButton onClick={() => window.location.reload()}>
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </Paper>
+        <FilterBar onClear={() => window.location.reload()}>
+          <TextField
+            placeholder="Search entities..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ flexGrow: 1, minWidth: 300 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <FormControl sx={{ minWidth: 150 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              label="Status"
+              onChange={(e) => setStatusFilter(e.target.value as Status | 'all')}
+            >
+              <MenuItem value="all">All Status</MenuItem>
+              <MenuItem value="active">Active</MenuItem>
+              <MenuItem value="inactive">Inactive</MenuItem>
+              <MenuItem value="draft">Draft</MenuItem>
+              <MenuItem value="archived">Archived</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl sx={{ minWidth: 150 }}>
+            <InputLabel>Role</InputLabel>
+            <Select value={roleFilter} label="Role" onChange={(e) => setRoleFilter(e.target.value)}>
+              <MenuItem value="all">All Roles</MenuItem>
+              <MenuItem value="VENDOR">Vendor</MenuItem>
+              <MenuItem value="CUSTOMER">Customer</MenuItem>
+              <MenuItem value="PARTNER">Partner</MenuItem>
+              <MenuItem value="SUPPLIER">Supplier</MenuItem>
+            </Select>
+          </FormControl>
+        </FilterBar>
 
         {/* Entities Table */}
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
-          </Box>
+          <LoadingState message="Loading entities..." variant="table" colSpan={8} />
         ) : filteredAndSortedEntities.length === 0 ? (
-          <Paper sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              {entities.length === 0
+          <EmptyState
+            message={
+              entities.length === 0
                 ? 'No entities yet. Click "New Entity" to create your first entity.'
-                : 'No entities match your search criteria.'}
-            </Typography>
-          </Paper>
+                : 'No entities match your search criteria.'
+            }
+            variant="table"
+            colSpan={8}
+          />
         ) : (
           <TableContainer component={Paper}>
             <Table sx={{ minWidth: 650 }}>
@@ -453,36 +390,31 @@ export default function EntitiesPage() {
                       <Chip
                         label={entity.status}
                         size="small"
-                        color={getStatusColor(entity.status)}
+                        color={getStatusColor(entity.status, 'entity')}
                       />
                     </TableCell>
                     <TableCell align="right">
-                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-                        <Tooltip title="View Details">
-                          <IconButton
-                            size="small"
-                            onClick={() => {
+                      <TableActionCell
+                        actions={[
+                          {
+                            icon: <ViewIcon />,
+                            label: 'View Details',
+                            onClick: () => {
                               setSelectedEntity(entity);
                               setViewDialogOpen(true);
-                            }}
-                          >
-                            <ViewIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        {hasCreatePermission && (
-                          <Tooltip title="Edit Entity">
-                            <IconButton
-                              size="small"
-                              onClick={() => {
-                                setSelectedEntity(entity);
-                                setEditDialogOpen(true);
-                              }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
+                            },
+                          },
+                          {
+                            icon: <EditIcon />,
+                            label: 'Edit Entity',
+                            onClick: () => {
+                              setSelectedEntity(entity);
+                              setEditDialogOpen(true);
+                            },
+                            show: hasCreatePermission,
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

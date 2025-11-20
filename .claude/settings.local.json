@@ -29,7 +29,9 @@
       "Bash(chmod:*)",
       "Bash(firebase functions:list:*)",
       "Bash(firebase deploy:*)",
-      "Bash(gh workflow run:*)"
+      "Bash(gh workflow run:*)",
+      "Bash(pnpm --filter @vapour/ui type-check:*)",
+      "Bash(pnpm --filter @vapour/ui build:*)"
     ],
     "deny": [],
     "ask": []

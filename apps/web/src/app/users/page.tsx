@@ -15,23 +15,19 @@ import {
   TableRow,
   TablePagination,
   Chip,
-  IconButton,
+  Button,
+  Alert,
   TextField,
   InputAdornment,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
-  Button,
-  Tooltip,
-  CircularProgress,
-  Alert,
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Edit as EditIcon,
   PersonAdd as PersonAddIcon,
-  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import {
   collection,
@@ -47,6 +43,15 @@ import type { User, UserStatus } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { EditUserDialog } from '@/components/admin/EditUserDialog';
 import { ApproveUserDialog } from '@/components/admin/ApproveUserDialog';
+import {
+  PageHeader,
+  FilterBar,
+  LoadingState,
+  EmptyState,
+  TableActionCell,
+  getStatusColor,
+  getRoleColor,
+} from '@vapour/ui';
 import { PERMISSION_FLAGS, hasPermission, getAllPermissions } from '@vapour/constants';
 
 export default function UserManagementPage() {
@@ -140,34 +145,12 @@ export default function UserManagementPage() {
     setPage(0);
   };
 
-  // Get user status color
-  const getStatusColor = (status: UserStatus): 'success' | 'warning' | 'error' => {
-    switch (status) {
-      case 'active':
-        return 'success';
-      case 'pending':
-        return 'warning';
-      case 'inactive':
-        return 'error';
-      default:
-        return 'warning';
-    }
-  };
-
   // Get user role label based on permissions
   const getUserRoleLabel = (permissions: number | undefined): string => {
     if (!permissions || permissions === 0) return 'No permissions';
     const allPermissions = getAllPermissions();
     if (permissions === allPermissions) return 'Super Admin';
     return 'User';
-  };
-
-  // Get role chip color
-  const getRoleColor = (permissions: number | undefined): 'primary' | 'default' | 'warning' => {
-    if (!permissions || permissions === 0) return 'warning';
-    const allPermissions = getAllPermissions();
-    if (permissions === allPermissions) return 'primary';
-    return 'default';
   };
 
   // Check user permissions - support both MANAGE_USERS and VIEW_USERS
@@ -194,28 +177,24 @@ export default function UserManagementPage() {
   return (
     <Container maxWidth="xl">
       <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <div>
-            <Typography variant="h4" component="h1" gutterBottom>
-              User Management
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Manage users, roles, and permissions
-            </Typography>
-          </div>
-          {canManageUsers && (
-            <Button
-              variant="contained"
-              startIcon={<PersonAddIcon />}
-              onClick={() => {
-                // TODO: Open invite user dialog
-                alert('Create user dialog coming soon');
-              }}
-            >
-              Invite User
-            </Button>
-          )}
-        </Box>
+        <PageHeader
+          title="User Management"
+          subtitle="Manage users, roles, and permissions"
+          action={
+            canManageUsers ? (
+              <Button
+                variant="contained"
+                startIcon={<PersonAddIcon />}
+                onClick={() => {
+                  // TODO: Open invite user dialog
+                  alert('Create user dialog coming soon');
+                }}
+              >
+                Invite User
+              </Button>
+            ) : undefined
+          }
+        />
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -296,57 +275,44 @@ export default function UserManagementPage() {
         )}
 
         {/* Filters */}
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <TextField
-              placeholder="Search by name or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ flexGrow: 1, minWidth: 300 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+        <FilterBar onClear={() => window.location.reload()}>
+          <TextField
+            placeholder="Search by name or email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ flexGrow: 1, minWidth: 300 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <FormControl sx={{ minWidth: 150 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              label="Status"
+              onChange={(e) => {
+                setStatusFilter(e.target.value as UserStatus | 'all');
+                setPage(0);
               }}
-            />
-            <FormControl sx={{ minWidth: 150 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => {
-                  setStatusFilter(e.target.value as UserStatus | 'all');
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="all">All</MenuItem>
-                <MenuItem value="active">Active</MenuItem>
-                <MenuItem value="pending">Pending</MenuItem>
-                <MenuItem value="inactive">Inactive</MenuItem>
-              </Select>
-            </FormControl>
-            <Tooltip title="Refresh">
-              <IconButton onClick={() => window.location.reload()}>
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </Paper>
+            >
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="active">Active</MenuItem>
+              <MenuItem value="pending">Pending</MenuItem>
+              <MenuItem value="inactive">Inactive</MenuItem>
+            </Select>
+          </FormControl>
+        </FilterBar>
 
         {/* Users Table */}
         <TableContainer component={Paper}>
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-              <CircularProgress />
-            </Box>
+            <LoadingState message="Loading users..." variant="table" colSpan={7} />
           ) : filteredUsers.length === 0 ? (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-              <Typography variant="body1" color="text.secondary">
-                No users found
-              </Typography>
-            </Box>
+            <EmptyState message="No users found" variant="table" colSpan={7} />
           ) : (
             <>
               <Table>
@@ -388,7 +354,7 @@ export default function UserManagementPage() {
                         <Chip
                           label={getUserRoleLabel(user.permissions)}
                           size="small"
-                          color={getRoleColor(user.permissions)}
+                          color={getRoleColor(getUserRoleLabel(user.permissions).toUpperCase())}
                         />
                       </TableCell>
                       <TableCell>
@@ -400,7 +366,7 @@ export default function UserManagementPage() {
                         <Chip
                           label={user.status}
                           size="small"
-                          color={getStatusColor(user.status)}
+                          color={getStatusColor(user.status, 'user')}
                         />
                       </TableCell>
                       <TableCell>
@@ -409,19 +375,19 @@ export default function UserManagementPage() {
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
-                        {canManageUsers && (
-                          <Tooltip title="Edit User">
-                            <IconButton
-                              size="small"
-                              onClick={() => {
+                        <TableActionCell
+                          actions={[
+                            {
+                              icon: <EditIcon />,
+                              label: 'Edit User',
+                              onClick: () => {
                                 setSelectedUser(user);
                                 setEditDialogOpen(true);
-                              }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
+                              },
+                              show: canManageUsers,
+                            },
+                          ]}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
