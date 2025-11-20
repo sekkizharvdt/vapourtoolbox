@@ -203,10 +203,18 @@ export default function FittingsPage() {
       }
     });
     return Array.from(npsSet).sort((a, b) => {
-      // Custom sort for NPS (handles fractions and numbers)
-      const aNum = eval(a.replace('"', ''));
-      const bNum = eval(b.replace('"', ''));
-      return aNum - bNum;
+      // Parse NPS values (handles fractions like "1/2" and numbers like "2")
+      const parseNPS = (nps: string): number => {
+        const cleaned = nps.replace('"', '').trim();
+        if (cleaned.includes('/')) {
+          const parts = cleaned.split('/');
+          const num = parseFloat(parts[0] || '0');
+          const denom = parseFloat(parts[1] || '1');
+          return num / denom;
+        }
+        return parseFloat(cleaned) || 0;
+      };
+      return parseNPS(a) - parseNPS(b);
     });
   }, [allVariants]);
 
