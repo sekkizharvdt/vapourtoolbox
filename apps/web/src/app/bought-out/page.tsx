@@ -15,13 +15,12 @@ import {
   TableRow,
   Paper,
   Chip,
-  IconButton,
   TextField,
   InputAdornment,
-  CircularProgress,
   Tabs,
   Tab,
 } from '@mui/material';
+import { PageHeader, LoadingState, EmptyState, TableActionCell } from '@vapour/ui';
 import {
   Add as AddIcon,
   Search as SearchIcon,
@@ -147,23 +146,19 @@ export default function BoughtOutPage() {
 
   return (
     <Container maxWidth="xl">
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Bought-Out Items
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Manage procurement-ready equipment and components
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => router.push('/bought-out/new')}
-        >
-          New Item
-        </Button>
-      </Box>
+      <PageHeader
+        title="Bought-Out Items"
+        subtitle="Manage procurement-ready equipment and components"
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => router.push('/bought-out/new')}
+          >
+            New Item
+          </Button>
+        }
+      />
 
       <Card sx={{ mb: 4 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -215,17 +210,17 @@ export default function BoughtOutPage() {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={6 + dynamicColumns.length} align="center" sx={{ py: 8 }}>
-                  <CircularProgress />
-                </TableCell>
-              </TableRow>
+              <LoadingState
+                message="Loading items..."
+                variant="table"
+                colSpan={6 + dynamicColumns.length}
+              />
             ) : filteredItems.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6 + dynamicColumns.length} align="center" sx={{ py: 8 }}>
-                  <Typography color="text.secondary">No items found</Typography>
-                </TableCell>
-              </TableRow>
+              <EmptyState
+                message="No items found"
+                variant="table"
+                colSpan={6 + dynamicColumns.length}
+              />
             ) : (
               filteredItems.map((item) => (
                 <TableRow key={item.id} hover>
@@ -275,16 +270,22 @@ export default function BoughtOutPage() {
                     </Typography>
                   </TableCell>
                   <TableCell align="center">
-                    <IconButton
-                      size="small"
-                      onClick={() => router.push(`/bought-out/${item.id}`)}
-                      color="primary"
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton size="small" onClick={() => handleDelete(item.id)} color="error">
-                      <DeleteIcon />
-                    </IconButton>
+                    <TableActionCell
+                      actions={[
+                        {
+                          icon: <EditIcon />,
+                          label: 'Edit Item',
+                          onClick: () => router.push(`/bought-out/${item.id}`),
+                          color: 'primary',
+                        },
+                        {
+                          icon: <DeleteIcon />,
+                          label: 'Delete Item',
+                          onClick: () => handleDelete(item.id),
+                          color: 'error',
+                        },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))

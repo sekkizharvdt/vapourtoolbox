@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react';
 import {
   Container,
-  Typography,
   Box,
   Paper,
   Button,
@@ -16,7 +15,6 @@ import {
   Chip,
   IconButton,
   Tooltip,
-  CircularProgress,
   Alert,
   Grid,
   Card,
@@ -29,7 +27,16 @@ import {
   TableRow,
   TableSortLabel,
   TablePagination,
+  Typography,
 } from '@mui/material';
+import {
+  PageHeader,
+  LoadingState,
+  EmptyState,
+  TableActionCell,
+  getStatusColor,
+  getPriorityColor,
+} from '@vapour/ui';
 import {
   Search as SearchIcon,
   Add as AddIcon,
@@ -147,42 +154,6 @@ export default function ProjectsPage() {
     completed: projects.filter((p) => p.status === 'COMPLETED').length,
   };
 
-  // Get status color
-  const getStatusColor = (
-    status: ProjectStatus
-  ): 'default' | 'primary' | 'warning' | 'success' | 'error' => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'success';
-      case 'PROPOSAL':
-        return 'primary';
-      case 'ON_HOLD':
-        return 'warning';
-      case 'COMPLETED':
-        return 'default';
-      case 'CANCELLED':
-      case 'ARCHIVED':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
-  // Get priority color
-  const getPriorityColor = (priority: ProjectPriority): 'default' | 'warning' | 'error' => {
-    switch (priority) {
-      case 'CRITICAL':
-      case 'HIGH':
-        return 'error';
-      case 'MEDIUM':
-        return 'warning';
-      case 'LOW':
-        return 'default';
-      default:
-        return 'default';
-    }
-  };
-
   // Handle sort
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -234,25 +205,21 @@ export default function ProjectsPage() {
     <Container maxWidth="xl">
       <Box sx={{ mb: 4 }}>
         {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <div>
-            <Typography variant="h4" component="h1" gutterBottom>
-              Project Management
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Manage projects, tasks, and deliverables
-            </Typography>
-          </div>
-          {hasManagePermission && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateDialogOpen(true)}
-            >
-              New Project
-            </Button>
-          )}
-        </Box>
+        <PageHeader
+          title="Project Management"
+          subtitle="Manage projects, tasks, and deliverables"
+          action={
+            hasManagePermission ? (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateDialogOpen(true)}
+              >
+                New Project
+              </Button>
+            ) : undefined
+          }
+        />
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -370,17 +337,16 @@ export default function ProjectsPage() {
 
         {/* Projects Table */}
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
-          </Box>
+          <LoadingState message="Loading projects..." variant="page" />
         ) : filteredAndSortedProjects.length === 0 ? (
-          <Paper sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              {projects.length === 0
+          <EmptyState
+            message={
+              projects.length === 0
                 ? 'No projects yet. Click "New Project" to create your first project.'
-                : 'No projects match your search criteria.'}
-            </Typography>
-          </Paper>
+                : 'No projects match your search criteria.'
+            }
+            variant="paper"
+          />
         ) : (
           <TableContainer component={Paper}>
             <Table sx={{ minWidth: 650 }}>
@@ -460,7 +426,7 @@ export default function ProjectsPage() {
                       <Chip
                         label={project.status}
                         size="small"
-                        color={getStatusColor(project.status)}
+                        color={getStatusColor(project.status, 'project')}
                       />
                     </TableCell>
                     <TableCell>
@@ -477,32 +443,27 @@ export default function ProjectsPage() {
                       <Typography variant="body2">{project.team?.length || 0}</Typography>
                     </TableCell>
                     <TableCell align="right">
-                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-                        <Tooltip title="View Charter">
-                          <IconButton
-                            size="small"
-                            onClick={() => {
+                      <TableActionCell
+                        actions={[
+                          {
+                            icon: <ViewIcon fontSize="small" />,
+                            label: 'View Charter',
+                            onClick: () => {
                               setSelectedProject(project);
                               setCharterDialogOpen(true);
-                            }}
-                          >
-                            <ViewIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        {hasManagePermission && (
-                          <Tooltip title="Edit Project">
-                            <IconButton
-                              size="small"
-                              onClick={() => {
-                                setSelectedProject(project);
-                                setEditDialogOpen(true);
-                              }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
+                            },
+                          },
+                          {
+                            icon: <EditIcon fontSize="small" />,
+                            label: 'Edit Project',
+                            onClick: () => {
+                              setSelectedProject(project);
+                              setEditDialogOpen(true);
+                            },
+                            show: hasManagePermission,
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
