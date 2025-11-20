@@ -13,7 +13,7 @@ import {
   TableRow,
   Chip,
   TablePagination,
-  Grid,
+  Box,
   TextField,
   FormControl,
   InputLabel,
@@ -83,7 +83,7 @@ export default function InvoicesPage() {
       .filter((inv) => inv.status !== 'PAID' && inv.status !== 'DRAFT')
       .reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
     const overdue = invoices
-      .filter((inv) => inv.status === 'OVERDUE')
+      .filter((inv) => inv.status === 'UNPAID' && inv.dueDate && new Date(inv.dueDate) < new Date())
       .reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
 
     return { totalInvoiced, outstanding, overdue };
@@ -172,33 +172,34 @@ export default function InvoicesPage() {
         }
       />
 
-      {/* Stats Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={4}>
-          <StatCard
-            title="Total Invoiced"
-            value={formatCurrency(stats.totalInvoiced)}
-            icon={<MoneyIcon />}
-            color="primary"
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <StatCard
-            title="Outstanding Amount"
-            value={formatCurrency(stats.outstanding)}
-            icon={<PendingIcon />}
-            color="warning"
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <StatCard
-            title="Overdue Amount"
-            value={formatCurrency(stats.overdue)}
-            icon={<WarningIcon />}
-            color="error"
-          />
-        </Grid>
-      </Grid>
+      {/* Stats */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gap: 2,
+          mb: 3,
+        }}
+      >
+        <StatCard
+          label="Total Invoiced"
+          value={formatCurrency(stats.totalInvoiced)}
+          icon={<MoneyIcon />}
+          color="primary"
+        />
+        <StatCard
+          label="Outstanding Amount"
+          value={formatCurrency(stats.outstanding)}
+          icon={<PendingIcon />}
+          color="warning"
+        />
+        <StatCard
+          label="Overdue Amount"
+          value={formatCurrency(stats.overdue)}
+          icon={<WarningIcon />}
+          color="error"
+        />
+      </Box>
 
       {/* Filters */}
       <FilterBar onClear={handleClearFilters}>
