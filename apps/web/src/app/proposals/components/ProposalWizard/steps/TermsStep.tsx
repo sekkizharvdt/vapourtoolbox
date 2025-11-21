@@ -31,6 +31,7 @@ export function TermsStep() {
     formState: { errors },
   } = useFormContext<ProposalFormValues>();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { fields, append, remove } = useFieldArray<any>({
     control,
     name: 'terms.customTerms',
