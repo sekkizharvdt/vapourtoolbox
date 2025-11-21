@@ -103,6 +103,10 @@ export const COLLECTIONS = {
   // Cost Configuration (Phase 4)
   COST_CONFIGURATIONS: 'costConfigurations',
 
+  // Proposal Management
+  ENQUIRIES: 'enquiries',
+  PROPOSALS: 'proposals',
+
   // Module Integration Management (Super Admin)
   MODULE_INTEGRATIONS: 'moduleIntegrations',
 } as const;
