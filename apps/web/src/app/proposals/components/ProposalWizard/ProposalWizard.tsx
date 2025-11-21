@@ -25,7 +25,7 @@ import type { CreateProposalInput, ProposalMilestone } from '@vapour/types';
 // Steps
 import { BasicInfoStep } from './steps/BasicInfoStep';
 import { ScopeOfWorkStep } from './steps/ScopeOfWorkStep';
-// import { ScopeOfSupplyStep } from './steps/ScopeOfSupplyStep';
+import { ScopeOfSupplyStep } from './steps/ScopeOfSupplyStep';
 // import { DeliveryPeriodStep } from './steps/DeliveryPeriodStep';
 // import { PricingStep } from './steps/PricingStep';
 // import { TermsStep } from './steps/TermsStep';
@@ -187,7 +187,7 @@ export function ProposalWizard({ proposalId, initialEnquiryId }: ProposalWizardP
       case 1:
         return <ScopeOfWorkStep />;
       case 2:
-        return <Typography>Scope of Supply Step (Coming Soon)</Typography>;
+        return <ScopeOfSupplyStep />;
       case 3:
         return <Typography>Delivery Period Step (Coming Soon)</Typography>;
       case 4:

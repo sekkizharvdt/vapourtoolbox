@@ -34,7 +34,6 @@ import {
   Thermostat as ThermostatIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
-import Image from 'next/image';
 import { MODULES } from '@vapour/constants';
 
 interface SidebarProps {
@@ -82,7 +81,14 @@ const SIDEBAR_CATEGORIES: CategoryConfig[] = [
   {
     id: 'company-essentials',
     label: 'COMPANY ESSENTIALS',
-    moduleIds: ['procurement', 'accounting', 'project-management', 'estimation', 'thermal-desal'],
+    moduleIds: [
+      'procurement',
+      'accounting',
+      'project-management',
+      'estimation',
+      'proposal-management',
+      'thermal-desal',
+    ],
   },
   {
     id: 'backbone',
@@ -155,12 +161,10 @@ export function Sidebar({
               justifyContent: 'center',
             }}
           >
-            <Image
+            <img
               src="/logo.png"
               alt="VDT Logo"
-              width={32}
-              height={32}
-              style={{ objectFit: 'contain' }}
+              style={{ width: 32, height: 32, objectFit: 'contain' }}
             />
           </Box>
         ) : (
@@ -173,12 +177,10 @@ export function Sidebar({
               alignItems: 'center',
             }}
           >
-            <Image
+            <img
               src="/logo.png"
               alt="Vapour Toolbox Logo"
-              width={150}
-              height={40}
-              style={{ objectFit: 'contain' }}
+              style={{ width: 150, height: 40, objectFit: 'contain' }}
             />
           </Box>
         )}

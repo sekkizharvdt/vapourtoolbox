@@ -227,7 +227,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     icon: 'Assignment',
     color: '#10B981', // Green
     path: '/proposals',
-    status: 'coming_soon',
+    status: 'active',
     requiredPermissions: 8, // MANAGE_PROJECTS (for creating proposals)
     category: 'application',
     estimatedRelease: 'Q1 2026',
