@@ -1,14 +1,27 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Box, Typography, Breadcrumbs, Link as MuiLink } from '@mui/material';
+import { Box, Typography, Breadcrumbs, Link as MuiLink, CircularProgress } from '@mui/material';
 import Link from 'next/link';
-import { ProposalWizard } from '../components/ProposalWizard/ProposalWizard';
+import dynamic from 'next/dynamic';
 
-export default function NewProposalPage() {
+const ProposalWizard = dynamic(
+  () =>
+    import('../components/ProposalWizard/ProposalWizard').then((mod) => ({
+      default: mod.ProposalWizard,
+    })),
+  { ssr: false }
+);
+
+function NewProposalContent() {
   const searchParams = useSearchParams();
   const enquiryId = searchParams.get('enquiryId');
 
+  return <ProposalWizard initialEnquiryId={enquiryId || undefined} />;
+}
+
+export default function NewProposalPage() {
   return (
     <Box>
       <Box sx={{ mb: 4 }}>
@@ -23,7 +36,15 @@ export default function NewProposalPage() {
         </Typography>
       </Box>
 
-      <ProposalWizard initialEnquiryId={enquiryId || undefined} />
+      <Suspense
+        fallback={
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+            <CircularProgress />
+          </Box>
+        }
+      >
+        <NewProposalContent />
+      </Suspense>
     </Box>
   );
 }
