@@ -77,26 +77,33 @@ export function calculateShape(input: CalculateShapeInput): ShapeCalculationResu
     scrapRecoveryValue = scrapWeight * basePrice * 0.3; // Assume 30% recovery value
   }
 
-  // Individual fabrication costs
-  const cuttingCost = perimeter ? calculateCuttingCost(perimeter) : 0;
-  const edgePreparationCost = edgeLength ? calculateEdgeCost(edgeLength) : 0;
+  // Get fabrication rates from shape configuration (with fallback defaults)
+  const cuttingRate = shape.fabricationCost?.cuttingCostPerMeter ?? 50; // ₹50 per meter default
+  const edgePreparationRate = shape.fabricationCost?.edgePreparationCostPerMeter ?? 100; // ₹100 per meter default
+  const weldingRate = shape.fabricationCost?.weldingCostPerMeter ?? 500; // ₹500 per meter default
+  const surfaceTreatmentRate = shape.fabricationCost?.surfaceTreatmentCostPerSqm ?? 50; // ₹50 per m² default
+
+  // Individual fabrication costs using configurable rates
+  const cuttingCost = perimeter ? calculateCuttingCost(perimeter, cuttingRate) : 0;
+  const edgePreparationCost = edgeLength ? calculateEdgeCost(edgeLength, edgePreparationRate) : 0;
   const weldingCost = weldLength
-    ? calculateWeldingCost(weldLength, (parameterValues.t as number) || 10)
+    ? calculateWeldingCost(weldLength, (parameterValues.t as number) || 10, weldingRate)
     : 0;
-  const surfaceTreatmentCost = surfaceArea ? calculateSurfaceTreatmentCost(surfaceArea) : 0;
+  const surfaceTreatmentCost = surfaceArea
+    ? calculateSurfaceTreatmentCost(surfaceArea, surfaceTreatmentRate)
+    : 0;
 
-  // Fabrication cost (base + weight-based + other costs)
-  const fabricationCost =
-    (shape.fabricationCost?.baseCost || 0) + weight * (shape.fabricationCost?.costPerKg || 0);
+  // Base fabrication cost (setup + weight-based)
+  const baseFabricationCost =
+    (shape.fabricationCost?.baseCost || 0) +
+    weight * (shape.fabricationCost?.costPerKg || 0) +
+    (shape.fabricationCost?.laborHours || 0) * 500; // Assume ₹500/hour labor rate
 
-  const totalCost =
-    materialCostActual -
-    scrapRecoveryValue +
-    fabricationCost +
-    cuttingCost +
-    edgePreparationCost +
-    weldingCost +
-    surfaceTreatmentCost;
+  // Total fabrication cost = base + all operation costs
+  const totalFabricationCost =
+    baseFabricationCost + cuttingCost + edgePreparationCost + weldingCost + surfaceTreatmentCost;
+
+  const totalCost = materialCostActual - scrapRecoveryValue + totalFabricationCost;
 
   // Calculate quantity-based totals
   const totalWeight = weight * quantity;
@@ -173,7 +180,7 @@ export function calculateShape(input: CalculateShapeInput): ShapeCalculationResu
       materialCost, // Finished weight × price
       materialCostActual, // Blank weight × price (including scrap)
       scrapRecoveryValue, // Negative value for recovery
-      fabricationCost, // Base + weight-based fabrication cost
+      fabricationCost: totalFabricationCost, // All fabrication costs combined
       surfaceTreatmentCost,
       edgePreparationCost,
       cuttingCost,
@@ -193,34 +200,46 @@ export function calculateShape(input: CalculateShapeInput): ShapeCalculationResu
 }
 
 /**
- * Calculate cutting cost per mm of perimeter
+ * Calculate cutting cost based on perimeter length and rate
+ * @param perimeter - Perimeter length in mm
+ * @param ratePerMeter - Cost per meter in INR
  */
-function calculateCuttingCost(perimeter: number): number {
-  // ₹0.05 per mm of cutting (example rate)
-  return (perimeter / 1000) * 0.05; // Convert to meters
+function calculateCuttingCost(perimeter: number, ratePerMeter: number): number {
+  return (perimeter / 1000) * ratePerMeter; // Convert mm to meters
 }
 
 /**
  * Calculate edge preparation cost
+ * @param edgeLength - Edge length in mm
+ * @param ratePerMeter - Cost per meter in INR
  */
-function calculateEdgeCost(edgeLength: number): number {
-  // ₹0.1 per mm of edge preparation (example rate)
-  return (edgeLength / 1000) * 0.1;
+function calculateEdgeCost(edgeLength: number, ratePerMeter: number): number {
+  return (edgeLength / 1000) * ratePerMeter;
 }
 
 /**
- * Calculate welding cost based on length and thickness
+ * Calculate welding cost based on length, thickness, and base rate
+ * Cost increases with thickness due to more weld passes required
+ * @param weldLength - Weld length in mm
+ * @param thickness - Material thickness in mm
+ * @param baseRatePerMeter - Base welding cost per meter in INR
  */
-function calculateWeldingCost(weldLength: number, thickness: number): number {
-  // Cost increases with thickness (more passes required)
-  const ratePerMm = 0.5 + thickness * 0.05; // ₹0.5 base + ₹0.05 per mm thickness
-  return (weldLength / 1000) * ratePerMm;
+function calculateWeldingCost(
+  weldLength: number,
+  thickness: number,
+  baseRatePerMeter: number
+): number {
+  // Apply thickness multiplier (thicker materials require more passes)
+  const thicknessMultiplier = 1 + (thickness - 10) / 50; // Example: 10mm=1.0x, 20mm=1.2x, 30mm=1.4x
+  const effectiveRate = baseRatePerMeter * Math.max(thicknessMultiplier, 0.5); // Minimum 0.5x
+  return (weldLength / 1000) * effectiveRate;
 }
 
 /**
- * Calculate surface treatment cost (painting, coating, etc.)
+ * Calculate surface treatment cost (painting, coating, blasting, etc.)
+ * @param surfaceArea - Surface area in mm²
+ * @param ratePerSqMeter - Cost per square meter in INR
  */
-function calculateSurfaceTreatmentCost(surfaceArea: number): number {
-  // ₹50 per m² (example rate)
-  return (surfaceArea / 1000000) * 50;
+function calculateSurfaceTreatmentCost(surfaceArea: number, ratePerSqMeter: number): number {
+  return (surfaceArea / 1000000) * ratePerSqMeter; // Convert mm² to m²
 }
