@@ -9,6 +9,7 @@ import { UserStatus, TimestampFields } from './common';
  * Optimized for 1000-byte limit using bitwise permissions
  */
 export interface CustomClaims {
+  entityId?: string; // Business entity ID for multi-entity support
   department?: Department;
   permissions: number; // Bitwise permissions (see permissions.ts)
   domain: 'internal' | 'external'; // vapourdesal.com vs external domains

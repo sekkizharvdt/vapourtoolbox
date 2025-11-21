@@ -51,6 +51,7 @@ export default function CostingSettingsPage() {
 
   useEffect(() => {
     loadActiveConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadActiveConfig = async () => {

@@ -13,6 +13,11 @@ import {
 
 export interface EmptyStateProps {
   /**
+   * Optional title
+   */
+  title?: string;
+
+  /**
    * Message to display
    */
   message: string;
@@ -47,6 +52,7 @@ export interface EmptyStateProps {
  * Provides consistent styling for "no data" states across tables, cards, and pages
  */
 export const EmptyState: React.FC<EmptyStateProps> = ({
+  title,
   message,
   action,
   variant = 'inline',
@@ -61,6 +67,11 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         ...sx,
       }}
     >
+      {title && (
+        <Typography variant="h6" gutterBottom>
+          {title}
+        </Typography>
+      )}
       <Typography variant="body1" color="text.secondary" gutterBottom>
         {message}
       </Typography>

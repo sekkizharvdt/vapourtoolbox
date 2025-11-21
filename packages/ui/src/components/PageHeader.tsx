@@ -21,13 +21,24 @@ export interface PageHeaderProps {
    * Custom sx props for the container
    */
   sx?: SxProps<Theme>;
+
+  /**
+   * Optional children to render (e.g. status chips)
+   */
+  children?: React.ReactNode;
 }
 
 /**
  * Standardized page header component
  * Provides consistent spacing and layout for page titles with optional actions
  */
-export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, action, sx }) => {
+export const PageHeader: React.FC<PageHeaderProps> = ({
+  title,
+  subtitle,
+  action,
+  sx,
+  children,
+}) => {
   return (
     <Box
       sx={{
@@ -47,6 +58,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, action,
             {subtitle}
           </Typography>
         )}
+        {children && <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>{children}</Box>}
       </Box>
       {action && <Box>{action}</Box>}
     </Box>

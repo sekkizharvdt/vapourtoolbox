@@ -84,7 +84,7 @@ export const addressSchema = z.object({
  */
 export const moneySchema = z.object({
   amount: z.number().min(0, 'Amount must be positive'),
-  currency: z.enum(['INR', 'USD', 'EUR', 'GBP', 'AED']).default('INR'),
+  currency: z.enum(['INR', 'USD', 'EUR', 'GBP', 'SGD', 'AED']).default('INR'),
 });
 
 /**
@@ -331,7 +331,7 @@ export const materialPriceSchema = z.object({
   // Price Details
   pricePerUnit: moneySchema,
   unit: z.string().min(1, 'Unit is required'),
-  currency: z.enum(['INR', 'USD', 'EUR', 'GBP', 'AED']).default('INR'),
+  currency: z.enum(['INR', 'USD', 'EUR', 'GBP', 'SGD', 'AED']).default('INR'),
 
   // Vendor & Source
   vendorId: z.string().optional(),
@@ -827,6 +827,39 @@ export const createEnquiryInputSchema = z.object({
   location: z.string().optional(),
   urgency: enquiryUrgencySchema,
   estimatedBudget: moneySchema.optional(),
+  receivedDate: z.date(),
+  requirements: z.array(z.string()).default([]),
+  attachments: z.array(z.any()).default([]),
+  assignedToUserId: z.string().optional(),
+});
+
+/**
+ * Create Enquiry Form schema (for UI with Date objects)
+ * Used with react-hook-form - converts to CreateEnquiryInput on submit
+ * Note: entityId is omitted from form (added programmatically from claims)
+ */
+export const createEnquiryFormSchema = z.object({
+  clientId: z.string().min(1, 'Client is required'),
+  clientContactPerson: z
+    .string()
+    .min(1, 'Contact person is required')
+    .transform(sanitizeDisplayName),
+  clientEmail: emailSchema,
+  clientPhone: phoneSchema,
+  clientReferenceNumber: z.string().optional(),
+  title: z.string().min(3, 'Title must be at least 3 characters').max(200, 'Title too long'),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
+  receivedVia: enquirySourceSchema,
+  referenceSource: z.string().optional(),
+  projectType: enquiryProjectTypeSchema.optional(),
+  industry: z.string().optional(),
+  location: z.string().optional(),
+  urgency: enquiryUrgencySchema,
+  estimatedBudget: moneySchema.optional(),
+  receivedDate: z.date(), // UI uses Date objects
+  requiredDeliveryDate: z.date().optional(),
+  requirements: z.array(z.string()).default([]),
+  attachments: z.array(z.any()).default([]),
   assignedToUserId: z.string().optional(),
 });
 

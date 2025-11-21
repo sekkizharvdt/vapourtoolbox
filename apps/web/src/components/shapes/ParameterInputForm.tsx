@@ -43,6 +43,7 @@ export default function ParameterInputForm({
     });
     setValues(initialValues);
     onParameterChange(initialValues);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shape]);
 
   const handleValueChange = (name: string, value: number) => {

@@ -34,6 +34,7 @@ export default function MaterialSelector({
 
   useEffect(() => {
     loadMaterials();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowedCategories]);
 
   const loadMaterials = async () => {

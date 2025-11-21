@@ -39,6 +39,19 @@ export type EnquiryProjectType =
 export type EnquiryUrgency = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
 /**
+ * Enquiry Document
+ */
+export interface EnquiryDocument {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  fileType: string;
+  uploadedAt: Timestamp;
+  uploadedBy: string;
+}
+
+/**
  * Enquiry Status Labels
  */
 export const ENQUIRY_STATUS_LABELS: Record<EnquiryStatus, string> = {
@@ -116,6 +129,7 @@ export interface Enquiry extends TimestampFields {
   urgency: EnquiryUrgency;
   estimatedBudget?: Money;
   requiredDeliveryDate?: Timestamp;
+  requirements?: string[];
 
   // Status & Workflow
   status: EnquiryStatus;
@@ -123,7 +137,7 @@ export interface Enquiry extends TimestampFields {
   assignedToUserName?: string; // Denormalized
 
   // Documents
-  attachedDocuments: string[]; // Document IDs (RFQ from client, specs, drawings)
+  attachedDocuments: EnquiryDocument[]; // Document metadata
 
   // Audit
   createdBy: string;
@@ -157,6 +171,8 @@ export interface CreateEnquiryInput {
   urgency: EnquiryUrgency;
   estimatedBudget?: Money;
   requiredDeliveryDate?: Timestamp;
+  requirements?: string[];
+  attachments?: EnquiryDocument[];
   assignedToUserId?: string;
 }
 
