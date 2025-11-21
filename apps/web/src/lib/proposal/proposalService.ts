@@ -176,7 +176,8 @@ export async function getProposalById(db: Firestore, proposalId: string): Promis
       logger.warn('Proposal not found', { proposalId });
       return null;
     }
-    return { id: docSnap.id, ...docSnap.data() } as Proposal;
+    const proposal = { id: docSnap.id, ...docSnap.data() } as Proposal;
+    return proposal;
   } catch (error) {
     logger.error('Error fetching proposal', { proposalId, error });
     throw error;
@@ -217,7 +218,8 @@ export async function getProposalByNumber(
       return null;
     }
 
-    return { id: firstDoc.id, ...firstDoc.data() } as Proposal;
+    const proposal = { id: firstDoc.id, ...firstDoc.data() } as Proposal;
+    return proposal;
   } catch (error) {
     logger.error('Error fetching proposal by number', { proposalNumber, error });
     throw error;
@@ -286,7 +288,10 @@ export async function listProposals(
     }
 
     const snapshot = await getDocs(q);
-    const proposals = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Proposal);
+    const proposals: Proposal[] = snapshot.docs.map((doc) => {
+      const data = { id: doc.id, ...doc.data() } as Proposal;
+      return data;
+    });
 
     // Client-side search filter
     if (options.searchTerm) {
@@ -597,7 +602,11 @@ export async function getProposalRevisions(
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Proposal);
+    const proposals: Proposal[] = snapshot.docs.map((doc) => {
+      const data = { id: doc.id, ...doc.data() } as Proposal;
+      return data;
+    });
+    return proposals;
   } catch (error) {
     logger.error('Error fetching proposal revisions', { proposalNumber, error });
     throw error;

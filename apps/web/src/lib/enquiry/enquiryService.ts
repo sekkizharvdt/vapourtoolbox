@@ -25,7 +25,9 @@ import type {
   UpdateEnquiryInput,
   ListEnquiriesOptions,
   EnquiryStatus,
+  EnquiryDocument,
 } from '@vapour/types';
+import { ref, uploadBytes, getDownloadURL, deleteObject, FirebaseStorage } from 'firebase/storage';
 
 const logger = createLogger({ context: 'enquiryService' });
 
@@ -143,7 +145,8 @@ export async function getEnquiryById(db: Firestore, enquiryId: string): Promise<
       logger.warn('Enquiry not found', { enquiryId });
       return null;
     }
-    return { id: docSnap.id, ...docSnap.data() } as Enquiry;
+    const enquiry = { id: docSnap.id, ...docSnap.data() } as Enquiry;
+    return enquiry;
   } catch (error) {
     logger.error('Error fetching enquiry', { enquiryId, error });
     throw error;
@@ -174,7 +177,8 @@ export async function getEnquiryByNumber(
       return null;
     }
 
-    return { id: firstDoc.id, ...firstDoc.data() } as Enquiry;
+    const enquiry = { id: firstDoc.id, ...firstDoc.data() } as Enquiry;
+    return enquiry;
   } catch (error) {
     logger.error('Error fetching enquiry by number', { enquiryNumber, error });
     throw error;
@@ -238,7 +242,10 @@ export async function listEnquiries(
     }
 
     const snapshot = await getDocs(q);
-    const enquiries = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Enquiry);
+    const enquiries: Enquiry[] = snapshot.docs.map((doc) => {
+      const data = { id: doc.id, ...doc.data() } as Enquiry;
+      return data;
+    });
 
     // Client-side search filter (for search term)
     if (options.searchTerm) {
@@ -383,6 +390,113 @@ export async function getEnquiriesCountByStatus(
     return counts as Record<EnquiryStatus, number>;
   } catch (error) {
     logger.error('Error getting enquiry counts', { error });
+    throw error;
+  }
+}
+
+/**
+ * Upload enquiry document
+ */
+export async function uploadEnquiryDocument(
+  db: Firestore,
+  storage: FirebaseStorage,
+  enquiryId: string,
+  file: File,
+  userId: string
+): Promise<EnquiryDocument> {
+  try {
+    // 1. Upload file to Storage
+    const fileName = `${Date.now()}_${file.name}`;
+    const storagePath = `enquiries/${enquiryId}/${fileName}`;
+    const storageRef = ref(storage, storagePath);
+
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadUrl = await getDownloadURL(snapshot.ref);
+
+    // 2. Create document object
+    const document: EnquiryDocument = {
+      id: fileName, // Use filename as ID for simplicity
+      fileName: file.name,
+      fileUrl: downloadUrl,
+      fileSize: file.size,
+      fileType: file.type,
+      uploadedAt: Timestamp.now(),
+      uploadedBy: userId,
+    };
+
+    // 3. Update enquiry document
+    const enquiryRef = doc(db, COLLECTIONS.ENQUIRIES, enquiryId);
+    const enquiryDoc = await getDoc(enquiryRef);
+
+    if (!enquiryDoc.exists()) {
+      throw new Error('Enquiry not found');
+    }
+
+    const currentDocs = (enquiryDoc.data().attachedDocuments as EnquiryDocument[]) || [];
+
+    await updateDoc(enquiryRef, {
+      attachedDocuments: [...currentDocs, document],
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    });
+
+    logger.info('Enquiry document uploaded', { enquiryId, fileName });
+    return document;
+  } catch (error) {
+    logger.error('Error uploading enquiry document', { enquiryId, error });
+    throw error;
+  }
+}
+
+/**
+ * Delete enquiry document
+ */
+export async function deleteEnquiryDocument(
+  db: Firestore,
+  storage: FirebaseStorage,
+  enquiryId: string,
+  documentId: string,
+  userId: string
+): Promise<void> {
+  try {
+    // 1. Get enquiry to find file path
+    const enquiryRef = doc(db, COLLECTIONS.ENQUIRIES, enquiryId);
+    const enquiryDoc = await getDoc(enquiryRef);
+
+    if (!enquiryDoc.exists()) {
+      throw new Error('Enquiry not found');
+    }
+
+    const currentDocs = (enquiryDoc.data().attachedDocuments as EnquiryDocument[]) || [];
+    const docToDelete = currentDocs.find((d) => d.id === documentId);
+
+    if (!docToDelete) {
+      throw new Error('Document not found');
+    }
+
+    // 2. Delete from Storage
+    // Assuming ID is the filename as set in upload
+    const storagePath = `enquiries/${enquiryId}/${docToDelete.id}`;
+    const storageRef = ref(storage, storagePath);
+
+    try {
+      await deleteObject(storageRef);
+    } catch {
+      logger.warn('File not found in storage, removing from db only', { storagePath });
+    }
+
+    // 3. Update enquiry document
+    const updatedDocs = currentDocs.filter((d) => d.id !== documentId);
+
+    await updateDoc(enquiryRef, {
+      attachedDocuments: updatedDocs,
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    });
+
+    logger.info('Enquiry document deleted', { enquiryId, documentId });
+  } catch (error) {
+    logger.error('Error deleting enquiry document', { enquiryId, documentId, error });
     throw error;
   }
 }
