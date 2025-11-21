@@ -23,13 +23,17 @@ import {
   CardContent,
   Breadcrumbs,
   Link,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Refresh as RefreshIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
-import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
+import { PageHeader, LoadingState, EmptyState, FilterBar } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -132,6 +136,13 @@ export default function FlangesPage() {
   useEffect(() => {
     loadMaterials();
   }, [loadMaterials]);
+
+  const handleClearFilters = () => {
+    setSearchText('');
+    setSelectedPressureClass('ALL');
+    setSelectedNPS('ALL');
+    setPage(0);
+  };
 
   // Get all variants from all materials
   const allVariants = useMemo(() => {
@@ -314,84 +325,64 @@ export default function FlangesPage() {
       {/* Main Content */}
       <Paper sx={{ width: '100%' }}>
         {/* Filters */}
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
-            {/* Search */}
-            <TextField
-              size="small"
-              placeholder="Search flanges by pressure class, NPS, or DN..."
-              value={searchText}
+        <FilterBar onClear={handleClearFilters}>
+          <TextField
+            size="small"
+            label="Search"
+            placeholder="Search flanges..."
+            value={searchText}
+            onChange={(e) => {
+              setSearchText(e.target.value);
+              setPage(0);
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ minWidth: 300 }}
+          />
+
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>Pressure Class</InputLabel>
+            <Select
+              value={selectedPressureClass}
+              label="Pressure Class"
               onChange={(e) => {
-                setSearchText(e.target.value);
+                setSelectedPressureClass(e.target.value);
                 setPage(0);
               }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ flexGrow: 1 }}
-            />
-          </Stack>
+            >
+              <MenuItem value="ALL">All Classes</MenuItem>
+              {pressureClasses.map((pc) => (
+                <MenuItem key={pc} value={pc}>
+                  {pc}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-          {/* Pressure Class Filter */}
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
-              Filter by pressure class:
-            </Typography>
-            <Chip
-              label="All Classes"
-              onClick={() => {
-                setSelectedPressureClass('ALL');
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Size</InputLabel>
+            <Select
+              value={selectedNPS}
+              label="Size"
+              onChange={(e) => {
+                setSelectedNPS(e.target.value);
                 setPage(0);
               }}
-              color={selectedPressureClass === 'ALL' ? 'primary' : 'default'}
-              variant={selectedPressureClass === 'ALL' ? 'filled' : 'outlined'}
-            />
-            {pressureClasses.map((pc) => (
-              <Chip
-                key={pc}
-                label={pc}
-                onClick={() => {
-                  setSelectedPressureClass(pc);
-                  setPage(0);
-                }}
-                color={selectedPressureClass === pc ? 'primary' : 'default'}
-                variant={selectedPressureClass === pc ? 'filled' : 'outlined'}
-              />
-            ))}
-          </Box>
-
-          {/* NPS Filter */}
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
-              Filter by size:
-            </Typography>
-            <Chip
-              label="All Sizes"
-              onClick={() => {
-                setSelectedNPS('ALL');
-                setPage(0);
-              }}
-              color={selectedNPS === 'ALL' ? 'secondary' : 'default'}
-              variant={selectedNPS === 'ALL' ? 'filled' : 'outlined'}
-            />
-            {npsSizes.slice(0, 12).map((nps) => (
-              <Chip
-                key={nps}
-                label={nps}
-                onClick={() => {
-                  setSelectedNPS(nps);
-                  setPage(0);
-                }}
-                color={selectedNPS === nps ? 'secondary' : 'default'}
-                variant={selectedNPS === nps ? 'filled' : 'outlined'}
-              />
-            ))}
-          </Box>
-        </Box>
+            >
+              <MenuItem value="ALL">All Sizes</MenuItem>
+              {npsSizes.slice(0, 20).map((nps) => (
+                <MenuItem key={nps} value={nps}>
+                  {nps}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </FilterBar>
 
         {/* Table */}
         <TableContainer>

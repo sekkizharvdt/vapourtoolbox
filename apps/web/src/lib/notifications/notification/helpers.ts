@@ -4,7 +4,7 @@
  * Convenience functions for creating specific types of notifications
  */
 
-import { createNotification } from './crud';
+import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
 
 /**
  * Create PR submitted notification for Engineering Head
@@ -15,8 +15,9 @@ export async function notifyPRSubmitted(
   prId: string,
   submitterName: string
 ): Promise<void> {
-  await createNotification({
-    type: 'PR_SUBMITTED',
+  await createTaskNotification({
+    type: 'actionable',
+    category: 'PR_SUBMITTED',
     userId: engineeringHeadUserId,
     title: `Purchase Request ${prNumber} Submitted`,
     message: `${submitterName} submitted a purchase request for your review`,
@@ -24,6 +25,7 @@ export async function notifyPRSubmitted(
     entityId: prId,
     linkUrl: `/procurement/engineering-approval`,
     priority: 'MEDIUM',
+    autoCompletable: true,
   });
 }
 
@@ -37,8 +39,9 @@ export async function notifyPRApproved(
   approverName: string,
   comments?: string
 ): Promise<void> {
-  await createNotification({
-    type: 'PR_APPROVED',
+  await createTaskNotification({
+    type: 'informational',
+    category: 'PR_APPROVED',
     userId: submitterUserId,
     title: `Purchase Request ${prNumber} Approved`,
     message: comments
@@ -61,8 +64,9 @@ export async function notifyPRRejected(
   reviewerName: string,
   reason: string
 ): Promise<void> {
-  await createNotification({
-    type: 'PR_REJECTED',
+  await createTaskNotification({
+    type: 'informational',
+    category: 'PR_REJECTED',
     userId: submitterUserId,
     title: `Purchase Request ${prNumber} Rejected`,
     message: `Your purchase request was rejected by ${reviewerName}: ${reason}`,
@@ -85,8 +89,9 @@ export async function notifyPRCommented(
 ): Promise<void> {
   const truncatedComment = comment.length > 100 ? comment.substring(0, 100) + '...' : comment;
 
-  await createNotification({
-    type: 'PR_COMMENTED',
+  await createTaskNotification({
+    type: 'informational',
+    category: 'PR_COMMENTED',
     userId: submitterUserId,
     title: `Comment on Purchase Request ${prNumber}`,
     message: `${reviewerName} added a comment: ${truncatedComment}`,
@@ -107,8 +112,9 @@ export async function notifyRFQCreated(
   creatorName: string
 ): Promise<void> {
   const createPromises = userIds.map((userId) =>
-    createNotification({
-      type: 'RFQ_CREATED',
+    createTaskNotification({
+      type: 'informational',
+      category: 'RFQ_CREATED',
       userId,
       title: `RFQ ${rfqNumber} Created`,
       message: `${creatorName} created a new RFQ, ready for PDF download`,
@@ -131,8 +137,9 @@ export async function notifyOfferUploaded(
   rfqId: string,
   vendorName: string
 ): Promise<void> {
-  await createNotification({
-    type: 'OFFER_UPLOADED',
+  await createTaskNotification({
+    type: 'informational',
+    category: 'OFFER_UPLOADED',
     userId: procurementManagerUserId,
     title: `Vendor Offer Received for RFQ ${rfqNumber}`,
     message: `Offer from ${vendorName} has been uploaded`,
@@ -153,8 +160,9 @@ export async function notifyPOPendingApproval(
   creatorName: string,
   amount: number
 ): Promise<void> {
-  await createNotification({
-    type: 'PO_PENDING_APPROVAL',
+  await createTaskNotification({
+    type: 'actionable',
+    category: 'PO_PENDING_APPROVAL',
     userId: directorUserId,
     title: `Purchase Order ${poNumber} Awaiting Approval`,
     message: `${creatorName} submitted a PO for ₹${amount.toLocaleString('en-IN')} for your approval`,
@@ -162,6 +170,7 @@ export async function notifyPOPendingApproval(
     entityId: poId,
     linkUrl: `/procurement/purchase-orders/approve`,
     priority: 'HIGH',
+    autoCompletable: true,
   });
 }
 
@@ -174,8 +183,9 @@ export async function notifyPOApproved(
   poId: string,
   approverName: string
 ): Promise<void> {
-  await createNotification({
-    type: 'PO_APPROVED',
+  await createTaskNotification({
+    type: 'informational',
+    category: 'PO_APPROVED',
     userId: procurementManagerUserId,
     title: `Purchase Order ${poNumber} Approved`,
     message: `Your purchase order was approved by ${approverName}`,
@@ -196,8 +206,9 @@ export async function notifyPORejected(
   rejectorName: string,
   reason: string
 ): Promise<void> {
-  await createNotification({
-    type: 'PO_REJECTED',
+  await createTaskNotification({
+    type: 'informational',
+    category: 'PO_REJECTED',
     userId: procurementManagerUserId,
     title: `Purchase Order ${poNumber} Rejected`,
     message: `Your purchase order was rejected by ${rejectorName}: ${reason}`,
@@ -218,8 +229,9 @@ export async function notifyGoodsReceived(
   inspectorName: string
 ): Promise<void> {
   const createPromises = accountsUserIds.map((userId) =>
-    createNotification({
-      type: 'GOODS_RECEIVED',
+    createTaskNotification({
+      type: 'informational',
+      category: 'GOODS_RECEIVED',
       userId,
       title: `Goods Received for PO ${poNumber}`,
       message: `${inspectorName} verified goods receipt, approved for payment`,
@@ -243,8 +255,9 @@ export async function notifyPaymentRequested(
   amount: number
 ): Promise<void> {
   const createPromises = accountsUserIds.map((userId) =>
-    createNotification({
-      type: 'PAYMENT_REQUESTED',
+    createTaskNotification({
+      type: 'actionable',
+      category: 'PAYMENT_REQUESTED',
       userId,
       title: `Payment Request for PO ${poNumber}`,
       message: `Payment of ₹${amount.toLocaleString('en-IN')} requested`,
@@ -252,6 +265,7 @@ export async function notifyPaymentRequested(
       entityId: poId,
       linkUrl: `/procurement/purchase-orders/${poId}`,
       priority: 'MEDIUM',
+      autoCompletable: true,
     })
   );
 
@@ -268,8 +282,9 @@ export async function notifyWCCIssued(
   wccId: string
 ): Promise<void> {
   const createPromises = userIds.map((userId) =>
-    createNotification({
-      type: 'WCC_ISSUED',
+    createTaskNotification({
+      type: 'informational',
+      category: 'WCC_ISSUED',
       userId,
       title: `Work Completion Certificate ${wccNumber} Issued`,
       message: `WCC issued for PO ${poNumber}`,

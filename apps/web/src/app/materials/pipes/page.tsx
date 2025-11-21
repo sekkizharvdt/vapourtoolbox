@@ -23,13 +23,17 @@ import {
   CardContent,
   Breadcrumbs,
   Link,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Refresh as RefreshIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
-import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
+import { PageHeader, LoadingState, EmptyState, FilterBar } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -135,6 +139,15 @@ export default function PipesPage() {
   useEffect(() => {
     loadMaterials();
   }, [loadMaterials]);
+
+  const handleClearFilters = () => {
+    setSearchText('');
+    setSelectedMaterial('ALL');
+    setSelectedSchedule('ALL');
+    setSelectedNPS('ALL');
+    setSelectedOD('ALL');
+    setPage(0);
+  };
 
   // Get all variants from all materials
   const allVariants = useMemo(() => {
@@ -366,140 +379,101 @@ export default function PipesPage() {
       {/* Main Content */}
       <Paper sx={{ width: '100%' }}>
         {/* Filters */}
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
-            {/* Search */}
-            <TextField
-              size="small"
-              placeholder="Search pipes by NPS, DN, schedule, or material..."
-              value={searchText}
+        <FilterBar onClear={handleClearFilters}>
+          <TextField
+            label="Search"
+            placeholder="Search pipes..."
+            value={searchText}
+            onChange={(e) => {
+              setSearchText(e.target.value);
+              setPage(0);
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ minWidth: 300 }}
+          />
+
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>Material</InputLabel>
+            <Select
+              value={selectedMaterial}
+              label="Material"
               onChange={(e) => {
-                setSearchText(e.target.value);
+                setSelectedMaterial(e.target.value);
                 setPage(0);
               }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ flexGrow: 1 }}
-            />
-          </Stack>
+            >
+              <MenuItem value="ALL">All Materials</MenuItem>
+              {materialTypes.map((type) => (
+                <MenuItem key={type} value={type}>
+                  {getMaterialDisplayName(type)}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-          {/* Material Filter */}
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
-              Filter by material:
-            </Typography>
-            <Chip
-              label="All Materials"
-              onClick={() => {
-                setSelectedMaterial('ALL');
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Schedule</InputLabel>
+            <Select
+              value={selectedSchedule}
+              label="Schedule"
+              onChange={(e) => {
+                setSelectedSchedule(e.target.value);
                 setPage(0);
               }}
-              color={selectedMaterial === 'ALL' ? 'primary' : 'default'}
-              variant={selectedMaterial === 'ALL' ? 'filled' : 'outlined'}
-            />
-            {materialTypes.map((type) => (
-              <Chip
-                key={type}
-                label={getMaterialDisplayName(type)}
-                onClick={() => {
-                  setSelectedMaterial(type);
-                  setPage(0);
-                }}
-                color={selectedMaterial === type ? 'primary' : 'default'}
-                variant={selectedMaterial === type ? 'filled' : 'outlined'}
-              />
-            ))}
-          </Box>
+            >
+              <MenuItem value="ALL">All Schedules</MenuItem>
+              {schedules.slice(0, 20).map((schedule) => (
+                <MenuItem key={schedule} value={schedule}>
+                  {schedule}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-          {/* Schedule Filter */}
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
-              Filter by schedule:
-            </Typography>
-            <Chip
-              label="All Schedules"
-              onClick={() => {
-                setSelectedSchedule('ALL');
+          <FormControl size="small" sx={{ minWidth: 100 }}>
+            <InputLabel>NPS</InputLabel>
+            <Select
+              value={selectedNPS}
+              label="NPS"
+              onChange={(e) => {
+                setSelectedNPS(e.target.value);
                 setPage(0);
               }}
-              color={selectedSchedule === 'ALL' ? 'secondary' : 'default'}
-              variant={selectedSchedule === 'ALL' ? 'filled' : 'outlined'}
-            />
-            {schedules.slice(0, 8).map((schedule) => (
-              <Chip
-                key={schedule}
-                label={schedule}
-                onClick={() => {
-                  setSelectedSchedule(schedule);
-                  setPage(0);
-                }}
-                color={selectedSchedule === schedule ? 'secondary' : 'default'}
-                variant={selectedSchedule === schedule ? 'filled' : 'outlined'}
-              />
-            ))}
-          </Box>
+            >
+              <MenuItem value="ALL">All Sizes</MenuItem>
+              {npsSizes.slice(0, 20).map((nps) => (
+                <MenuItem key={nps} value={nps}>
+                  {nps}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-          {/* NPS Filter */}
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
-              Filter by NPS:
-            </Typography>
-            <Chip
-              label="All Sizes"
-              onClick={() => {
-                setSelectedNPS('ALL');
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>OD (mm)</InputLabel>
+            <Select
+              value={selectedOD}
+              label="OD (mm)"
+              onChange={(e) => {
+                setSelectedOD(e.target.value);
                 setPage(0);
               }}
-              color={selectedNPS === 'ALL' ? 'info' : 'default'}
-              variant={selectedNPS === 'ALL' ? 'filled' : 'outlined'}
-            />
-            {npsSizes.slice(0, 12).map((nps) => (
-              <Chip
-                key={nps}
-                label={nps}
-                onClick={() => {
-                  setSelectedNPS(nps);
-                  setPage(0);
-                }}
-                color={selectedNPS === nps ? 'info' : 'default'}
-                variant={selectedNPS === nps ? 'filled' : 'outlined'}
-              />
-            ))}
-          </Box>
-
-          {/* OD Filter */}
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
-              Filter by OD (mm):
-            </Typography>
-            <Chip
-              label="All ODs"
-              onClick={() => {
-                setSelectedOD('ALL');
-                setPage(0);
-              }}
-              color={selectedOD === 'ALL' ? 'success' : 'default'}
-              variant={selectedOD === 'ALL' ? 'filled' : 'outlined'}
-            />
-            {odSizes.slice(0, 10).map((od) => (
-              <Chip
-                key={od}
-                label={`${od} mm`}
-                onClick={() => {
-                  setSelectedOD(od);
-                  setPage(0);
-                }}
-                color={selectedOD === od ? 'success' : 'default'}
-                variant={selectedOD === od ? 'filled' : 'outlined'}
-              />
-            ))}
-          </Box>
-        </Box>
+            >
+              <MenuItem value="ALL">All ODs</MenuItem>
+              {odSizes.slice(0, 20).map((od) => (
+                <MenuItem key={od} value={od}>
+                  {od}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </FilterBar>
 
         {/* Table */}
         <TableContainer>

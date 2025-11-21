@@ -24,6 +24,10 @@ import {
   CardContent,
   Breadcrumbs,
   Link,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -32,10 +36,9 @@ import {
   Edit as EditIcon,
   Visibility as ViewIcon,
   Star as StarIcon,
-  StarBorder as StarBorderIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
-import { PageHeader, LoadingState, EmptyState, TableActionCell } from '@vapour/ui';
+import { PageHeader, LoadingState, EmptyState, TableActionCell, FilterBar } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import type {
@@ -108,6 +111,13 @@ export default function PlatesPage() {
   useEffect(() => {
     loadMaterials();
   }, [loadMaterials]);
+
+  const handleClearFilters = () => {
+    setSearchText('');
+    setSelectedCategory('ALL');
+    setShowOnlyStandard(false);
+    setPage(0);
+  };
 
   // Filter materials by search text
   const filteredMaterials = useMemo(() => {
@@ -305,68 +315,60 @@ export default function PlatesPage() {
       {/* Main Content */}
       <Paper sx={{ width: '100%' }}>
         {/* Category filter and search */}
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
-            {/* Search */}
-            <TextField
-              size="small"
-              placeholder="Search plates by code, name, grade, or standard..."
-              value={searchText}
+        <FilterBar onClear={handleClearFilters}>
+          <TextField
+            size="small"
+            label="Search"
+            placeholder="Search plates..."
+            value={searchText}
+            onChange={(e) => {
+              setSearchText(e.target.value);
+              setPage(0);
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ minWidth: 300 }}
+          />
+
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Category</InputLabel>
+            <Select
+              value={selectedCategory}
+              label="Category"
               onChange={(e) => {
-                setSearchText(e.target.value);
+                setSelectedCategory(e.target.value as MaterialCategory | 'ALL');
                 setPage(0);
               }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ flexGrow: 1 }}
-            />
+            >
+              <MenuItem value="ALL">All Categories</MenuItem>
+              {PLATE_CATEGORIES.map((category) => (
+                <MenuItem key={category} value={category}>
+                  {MATERIAL_CATEGORY_LABELS[category].replace(/^Plates - /, '')}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-            {/* Standard Filter */}
-            <Chip
-              icon={showOnlyStandard ? <StarIcon /> : <StarBorderIcon />}
-              label="Standard Only"
-              onClick={() => {
-                setShowOnlyStandard(!showOnlyStandard);
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Standard</InputLabel>
+            <Select
+              value={showOnlyStandard ? 'standard' : 'all'}
+              label="Standard"
+              onChange={(e) => {
+                setShowOnlyStandard(e.target.value === 'standard');
                 setPage(0);
               }}
-              color={showOnlyStandard ? 'primary' : 'default'}
-              variant={showOnlyStandard ? 'filled' : 'outlined'}
-            />
-          </Stack>
-
-          {/* Plate Category Filter Chips */}
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
-              Filter by type:
-            </Typography>
-            <Chip
-              label="All Plates"
-              onClick={() => {
-                setSelectedCategory('ALL');
-                setPage(0);
-              }}
-              color={selectedCategory === 'ALL' ? 'primary' : 'default'}
-              variant={selectedCategory === 'ALL' ? 'filled' : 'outlined'}
-            />
-            {PLATE_CATEGORIES.map((category) => (
-              <Chip
-                key={category}
-                label={MATERIAL_CATEGORY_LABELS[category].replace(/^Plates - /, '')}
-                onClick={() => {
-                  setSelectedCategory(category);
-                  setPage(0);
-                }}
-                color={selectedCategory === category ? 'primary' : 'default'}
-                variant={selectedCategory === category ? 'filled' : 'outlined'}
-              />
-            ))}
-          </Box>
-        </Box>
+            >
+              <MenuItem value="all">All Items</MenuItem>
+              <MenuItem value="standard">Standard Only</MenuItem>
+            </Select>
+          </FormControl>
+        </FilterBar>
 
         {/* Table */}
         <TableContainer>

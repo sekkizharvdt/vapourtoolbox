@@ -23,13 +23,17 @@ import {
   CardContent,
   Breadcrumbs,
   Link,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Refresh as RefreshIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
-import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
+import { PageHeader, LoadingState, EmptyState, FilterBar } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -133,6 +137,13 @@ export default function FittingsPage() {
   useEffect(() => {
     loadMaterials();
   }, [loadMaterials]);
+
+  const handleClearFilters = () => {
+    setSearchText('');
+    setSelectedFittingType('ALL');
+    setSelectedNPS('ALL');
+    setPage(0);
+  };
 
   // Get all variants from all materials
   const allVariants = useMemo(() => {
@@ -319,84 +330,64 @@ export default function FittingsPage() {
       {/* Main Content */}
       <Paper sx={{ width: '100%' }}>
         {/* Filters */}
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
-            {/* Search */}
-            <TextField
-              size="small"
-              placeholder="Search fittings by type, NPS, DN, or schedules..."
-              value={searchText}
+        <FilterBar onClear={handleClearFilters}>
+          <TextField
+            size="small"
+            label="Search"
+            placeholder="Search fittings..."
+            value={searchText}
+            onChange={(e) => {
+              setSearchText(e.target.value);
+              setPage(0);
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ minWidth: 300 }}
+          />
+
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>Type</InputLabel>
+            <Select
+              value={selectedFittingType}
+              label="Type"
               onChange={(e) => {
-                setSearchText(e.target.value);
+                setSelectedFittingType(e.target.value);
                 setPage(0);
               }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ flexGrow: 1 }}
-            />
-          </Stack>
+            >
+              <MenuItem value="ALL">All Types</MenuItem>
+              {fittingTypes.map((type) => (
+                <MenuItem key={type} value={type}>
+                  {type}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-          {/* Type Filter */}
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
-              Filter by type:
-            </Typography>
-            <Chip
-              label="All Types"
-              onClick={() => {
-                setSelectedFittingType('ALL');
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Size</InputLabel>
+            <Select
+              value={selectedNPS}
+              label="Size"
+              onChange={(e) => {
+                setSelectedNPS(e.target.value);
                 setPage(0);
               }}
-              color={selectedFittingType === 'ALL' ? 'primary' : 'default'}
-              variant={selectedFittingType === 'ALL' ? 'filled' : 'outlined'}
-            />
-            {fittingTypes.map((type) => (
-              <Chip
-                key={type}
-                label={type}
-                onClick={() => {
-                  setSelectedFittingType(type);
-                  setPage(0);
-                }}
-                color={selectedFittingType === type ? 'primary' : 'default'}
-                variant={selectedFittingType === type ? 'filled' : 'outlined'}
-              />
-            ))}
-          </Box>
-
-          {/* NPS Filter */}
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
-              Filter by size:
-            </Typography>
-            <Chip
-              label="All Sizes"
-              onClick={() => {
-                setSelectedNPS('ALL');
-                setPage(0);
-              }}
-              color={selectedNPS === 'ALL' ? 'secondary' : 'default'}
-              variant={selectedNPS === 'ALL' ? 'filled' : 'outlined'}
-            />
-            {npsSizes.slice(0, 12).map((nps) => (
-              <Chip
-                key={nps}
-                label={nps}
-                onClick={() => {
-                  setSelectedNPS(nps);
-                  setPage(0);
-                }}
-                color={selectedNPS === nps ? 'secondary' : 'default'}
-                variant={selectedNPS === nps ? 'filled' : 'outlined'}
-              />
-            ))}
-          </Box>
-        </Box>
+            >
+              <MenuItem value="ALL">All Sizes</MenuItem>
+              {npsSizes.slice(0, 20).map((nps) => (
+                <MenuItem key={nps} value={nps}>
+                  {nps}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </FilterBar>
 
         {/* Table */}
         <TableContainer>
