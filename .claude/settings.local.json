@@ -32,7 +32,12 @@
       "Bash(gh workflow run:*)",
       "Bash(pnpm --filter @vapour/ui type-check:*)",
       "Bash(pnpm --filter @vapour/ui build:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(pnpm --filter @vapour/web run lint)",
+      "Bash(git reset:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm type-check:*)",
+      "Bash(pnpm --filter @vapour/web build:*)"
     ],
     "deny": [],
     "ask": []
