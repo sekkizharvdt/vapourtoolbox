@@ -967,6 +967,17 @@ export const createProposalSchema = z.object({
     milestones: z.array(z.any()).default([]), // TODO: Define milestone schema
   }),
   paymentTerms: z.string().min(10, 'Payment terms are required'),
+  terms: z
+    .object({
+      warranty: z.string().optional(),
+      guaranteeBank: z.string().optional(),
+      performanceBond: z.string().optional(),
+      liquidatedDamages: z.string().optional(),
+      forceMajeure: z.string().optional(),
+      disputeResolution: z.string().optional(),
+      customTerms: z.array(z.string()).default([]),
+    })
+    .optional(),
 });
 
 /**

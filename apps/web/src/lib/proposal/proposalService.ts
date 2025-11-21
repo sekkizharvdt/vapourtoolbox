@@ -234,7 +234,12 @@ export async function listProposals(
   options: ListProposalsOptions
 ): Promise<Proposal[]> {
   try {
-    let q = query(collection(db, COLLECTIONS.PROPOSALS), where('entityId', '==', options.entityId));
+    let q = query(collection(db, COLLECTIONS.PROPOSALS));
+
+    // Entity filter (optional for Superadmin)
+    if (options.entityId) {
+      q = query(q, where('entityId', '==', options.entityId));
+    }
 
     // Only latest revisions by default
     if (options.isLatestRevision !== false) {

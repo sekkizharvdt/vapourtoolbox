@@ -305,7 +305,7 @@ export interface UpdateProposalInput {
  * List Proposals Options
  */
 export interface ListProposalsOptions {
-  entityId: string;
+  entityId?: string;
   enquiryId?: string;
   status?: ProposalStatus | ProposalStatus[];
   clientId?: string;

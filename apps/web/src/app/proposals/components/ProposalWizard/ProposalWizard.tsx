@@ -26,9 +26,9 @@ import type { CreateProposalInput, ProposalMilestone } from '@vapour/types';
 import { BasicInfoStep } from './steps/BasicInfoStep';
 import { ScopeOfWorkStep } from './steps/ScopeOfWorkStep';
 import { ScopeOfSupplyStep } from './steps/ScopeOfSupplyStep';
-// import { DeliveryPeriodStep } from './steps/DeliveryPeriodStep';
-// import { PricingStep } from './steps/PricingStep';
-// import { TermsStep } from './steps/TermsStep';
+import { DeliveryTimelineStep } from './steps/DeliveryTimelineStep';
+import { PricingStep } from './steps/PricingStep';
+import { TermsStep } from './steps/TermsStep';
 
 const STEPS = [
   'Basic Info',
@@ -189,13 +189,13 @@ export function ProposalWizard({ proposalId, initialEnquiryId }: ProposalWizardP
       case 2:
         return <ScopeOfSupplyStep />;
       case 3:
-        return <Typography>Delivery Period Step (Coming Soon)</Typography>;
+        return <DeliveryTimelineStep />;
       case 4:
-        return <Typography>Pricing Step (Coming Soon)</Typography>;
+        return <PricingStep />;
       case 5:
-        return <Typography>Terms Step (Coming Soon)</Typography>;
+        return <TermsStep />;
       default:
-        return <Typography>Unknown step</Typography>;
+        return null;
     }
   };
 

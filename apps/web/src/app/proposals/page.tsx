@@ -33,6 +33,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { listProposals } from '@/lib/proposal/proposalService';
 import type { Proposal, ProposalStatus } from '@vapour/types';
 import { format } from 'date-fns';
+import { PermissionFlag, hasPermission } from '@vapour/types';
 
 const STATUS_OPTIONS = [
   { value: 'DRAFT', label: 'Draft' },
@@ -84,14 +85,25 @@ export default function ProposalListPage() {
   });
 
   const fetchProposals = useCallback(async () => {
-    if (!db || !claims?.entityId) return;
+    if (!db) return;
+
+    // Check if user has permission to manage entities (Superadmin/Director)
+    const canManageEntities = claims?.permissions
+      ? hasPermission(claims.permissions, PermissionFlag.MANAGE_ENTITIES)
+      : false;
+
+    // If user has no entity ID and cannot manage entities, stop loading
+    if (!claims?.entityId && !canManageEntities) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
       setError(null);
 
       const data = await listProposals(db, {
-        entityId: claims.entityId,
+        entityId: claims?.entityId, // Optional for Superadmin
         status: statusFilter.length > 0 ? (statusFilter as ProposalStatus[]) : undefined,
         searchTerm: searchTerm || undefined,
         dateFrom: dateRange.start ? undefined : undefined, // TODO: Convert Date to Timestamp
@@ -105,7 +117,7 @@ export default function ProposalListPage() {
     } finally {
       setLoading(false);
     }
-  }, [db, claims?.entityId, statusFilter, searchTerm, dateRange]);
+  }, [db, claims, statusFilter, searchTerm, dateRange]);
 
   useEffect(() => {
     fetchProposals();
