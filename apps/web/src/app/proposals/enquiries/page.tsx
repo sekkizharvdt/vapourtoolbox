@@ -47,10 +47,19 @@ import {
 } from '@vapour/ui';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
+import dynamic from 'next/dynamic';
 import { listEnquiries, getEnquiriesCountByStatus } from '@/lib/enquiry/enquiryService';
 import type { Enquiry, EnquiryStatus, EnquiryUrgency } from '@vapour/types';
 import { ENQUIRY_STATUS_LABELS, ENQUIRY_URGENCY_LABELS } from '@vapour/types';
-import { CreateEnquiryDialog } from './components/CreateEnquiryDialog';
+
+// Dynamically import to avoid SSR issues with date pickers
+const CreateEnquiryDialog = dynamic(
+  () =>
+    import('./components/CreateEnquiryDialog').then((mod) => ({
+      default: mod.CreateEnquiryDialog,
+    })),
+  { ssr: false }
+);
 
 const STATUS_COLORS: Record<
   EnquiryStatus,
