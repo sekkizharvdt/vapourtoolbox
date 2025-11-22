@@ -1719,6 +1719,20 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "isLatestRevision",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "proposals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "entityId",
           "order": "ASCENDING"
         },
