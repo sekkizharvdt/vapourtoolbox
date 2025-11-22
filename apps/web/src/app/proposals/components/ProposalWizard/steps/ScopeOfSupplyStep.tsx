@@ -65,7 +65,7 @@ export function ScopeOfSupplyStep() {
     try {
       const items = await getBOMItems(db, bomId);
 
-      const proposalItems: ProposalLineItem[] = items.map((item, index) => {
+      const proposalItems: ProposalLineItemWithBreakdown[] = items.map((item, index) => {
         const materialCost = item.cost?.totalMaterialCost?.amount || 0;
         const fabricationCost = item.cost?.totalFabricationCost?.amount || 0;
         const serviceCost = item.cost?.totalServiceCost?.amount || 0;
@@ -73,7 +73,7 @@ export function ScopeOfSupplyStep() {
 
         const currency = item.cost?.totalMaterialCost?.currency || 'INR';
 
-        return {
+        const proposalItem: ProposalLineItemWithBreakdown = {
           id: crypto.randomUUID(),
           itemNumber: `${index + 1}`,
           itemName: item.name,
@@ -95,7 +95,8 @@ export function ScopeOfSupplyStep() {
             fabrication: fabricationCost,
             service: serviceCost,
           },
-        } as ProposalLineItemWithBreakdown;
+        };
+        return proposalItem;
       });
 
       replace(proposalItems);
