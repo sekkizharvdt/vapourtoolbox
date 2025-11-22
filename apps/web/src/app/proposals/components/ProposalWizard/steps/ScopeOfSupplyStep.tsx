@@ -17,14 +17,26 @@ import {
   TextField,
   MenuItem,
   Alert,
+  Tooltip,
+  Chip,
+  Stack,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
+import InfoIcon from '@mui/icons-material/Info';
 import { ImportBOMDialog } from '../ImportBOMDialog';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { getBOMItems } from '@/lib/bom/bomService';
 import type { ProposalLineItem } from '@vapour/types';
+
+interface ProposalLineItemWithBreakdown extends ProposalLineItem {
+  costBreakdown?: {
+    material: number;
+    fabrication: number;
+    service: number;
+  };
+}
 
 const CATEGORIES = [
   'EQUIPMENT',
@@ -54,10 +66,10 @@ export function ScopeOfSupplyStep() {
       const items = await getBOMItems(db, bomId);
 
       const proposalItems: ProposalLineItem[] = items.map((item, index) => {
-        const totalAmount =
-          (item.cost?.totalMaterialCost?.amount || 0) +
-          (item.cost?.totalFabricationCost?.amount || 0) +
-          (item.cost?.totalServiceCost?.amount || 0);
+        const materialCost = item.cost?.totalMaterialCost?.amount || 0;
+        const fabricationCost = item.cost?.totalFabricationCost?.amount || 0;
+        const serviceCost = item.cost?.totalServiceCost?.amount || 0;
+        const totalAmount = materialCost + fabricationCost + serviceCost;
 
         const currency = item.cost?.totalMaterialCost?.currency || 'INR';
 
@@ -78,7 +90,12 @@ export function ScopeOfSupplyStep() {
             currency: currency,
           },
           bomItemId: item.id,
-        };
+          costBreakdown: {
+            material: materialCost,
+            fabrication: fabricationCost,
+            service: serviceCost,
+          },
+        } as ProposalLineItemWithBreakdown;
       });
 
       replace(proposalItems);
@@ -112,12 +129,14 @@ export function ScopeOfSupplyStep() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell width="20%">Item Name</TableCell>
-              <TableCell width="25%">Description</TableCell>
-              <TableCell width="15%">Category</TableCell>
-              <TableCell width="10%">Qty</TableCell>
-              <TableCell width="10%">Unit</TableCell>
-              <TableCell width="15%">Unit Price</TableCell>
+              <TableCell width="18%">Item Name</TableCell>
+              <TableCell width="20%">Description</TableCell>
+              <TableCell width="12%">Category</TableCell>
+              <TableCell width="8%">Qty</TableCell>
+              <TableCell width="8%">Unit</TableCell>
+              <TableCell width="12%">Unit Price</TableCell>
+              <TableCell width="12%">Total Price</TableCell>
+              <TableCell width="10%">Cost Details</TableCell>
               <TableCell width="5%"></TableCell>
             </TableRow>
           </TableHead>
@@ -194,6 +213,61 @@ export function ScopeOfSupplyStep() {
                   />
                 </TableCell>
                 <TableCell>
+                  <Typography variant="body2">
+                    ₹{((field as ProposalLineItem).totalPrice?.amount || 0).toLocaleString('en-IN')}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  {(field as ProposalLineItem).bomItemId && (
+                    <Tooltip
+                      title={
+                        <Stack spacing={0.5} sx={{ p: 0.5 }}>
+                          <Typography variant="caption">Cost Breakdown:</Typography>
+                          {(field as ProposalLineItemWithBreakdown).costBreakdown && (
+                            <>
+                              {(field as ProposalLineItemWithBreakdown).costBreakdown!.material >
+                                0 && (
+                                <Typography variant="caption">
+                                  Material: ₹
+                                  {(
+                                    field as ProposalLineItemWithBreakdown
+                                  ).costBreakdown!.material.toLocaleString('en-IN')}
+                                </Typography>
+                              )}
+                              {(field as ProposalLineItemWithBreakdown).costBreakdown!.fabrication >
+                                0 && (
+                                <Typography variant="caption">
+                                  Fabrication: ₹
+                                  {(
+                                    field as ProposalLineItemWithBreakdown
+                                  ).costBreakdown!.fabrication.toLocaleString('en-IN')}
+                                </Typography>
+                              )}
+                              {(field as ProposalLineItemWithBreakdown).costBreakdown!.service >
+                                0 && (
+                                <Typography variant="caption">
+                                  Service: ₹
+                                  {(
+                                    field as ProposalLineItemWithBreakdown
+                                  ).costBreakdown!.service.toLocaleString('en-IN')}
+                                </Typography>
+                              )}
+                            </>
+                          )}
+                        </Stack>
+                      }
+                    >
+                      <Chip
+                        icon={<InfoIcon />}
+                        label="BOM"
+                        size="small"
+                        variant="outlined"
+                        sx={{ cursor: 'pointer' }}
+                      />
+                    </Tooltip>
+                  )}
+                </TableCell>
+                <TableCell>
                   <IconButton size="small" color="error" onClick={() => remove(index)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
@@ -202,7 +276,7 @@ export function ScopeOfSupplyStep() {
             ))}
             {fields.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                   No items added. Import from BOM or add manually.
                 </TableCell>
               </TableRow>
