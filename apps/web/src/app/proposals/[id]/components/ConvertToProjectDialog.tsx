@@ -89,7 +89,7 @@ export default function ConvertToProjectDialog({
 
       <DialogContent>
         <Alert severity="info" sx={{ mb: 3 }}>
-          This will create a new project based on this proposal's details. The proposal will be
+          This will create a new project based on this proposal&apos;s details. The proposal will be
           linked to the project.
         </Alert>
 

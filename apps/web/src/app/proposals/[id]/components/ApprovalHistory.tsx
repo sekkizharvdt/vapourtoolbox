@@ -108,7 +108,7 @@ export default function ApprovalHistory({ history }: ApprovalHistoryProps) {
               {record.comments && (
                 <Box sx={{ mt: 1, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
                   <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
-                    "{record.comments}"
+                    &quot;{record.comments}&quot;
                   </Typography>
                 </Box>
               )}

@@ -150,9 +150,9 @@ export const ProposalPDFDocument = ({
   includeDeliverySchedule,
   watermark,
 }: ProposalPDFDocumentProps) => {
-  const formatDate = (timestamp: any) => {
+  const formatDate = (timestamp: { toDate?: () => Date; seconds?: number } | undefined) => {
     if (!timestamp) return 'N/A';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp.seconds * 1000);
+    const date = timestamp.toDate ? timestamp.toDate() : new Date((timestamp.seconds || 0) * 1000);
     return date.toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'long',

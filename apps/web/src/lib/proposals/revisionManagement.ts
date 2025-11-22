@@ -46,7 +46,11 @@ export async function createProposalRevision(
       throw new Error('Proposal not found');
     }
 
-    const currentProposal = { id: proposalSnap.id, ...proposalSnap.data() } as Proposal;
+    const proposalData = proposalSnap.data() as Omit<Proposal, 'id'>;
+    const currentProposal: Proposal = {
+      id: proposalSnap.id,
+      ...proposalData,
+    };
 
     // Create new revision
     const newRevision: Omit<Proposal, 'id'> = {
