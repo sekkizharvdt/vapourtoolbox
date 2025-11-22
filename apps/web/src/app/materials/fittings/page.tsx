@@ -157,6 +157,20 @@ export default function FittingsPage() {
     );
   }, [materials]);
 
+  // Helper function to parse NPS values
+  const parseNPS = (nps: string): number => {
+    // For fittings like "2 x 1", get the first (larger) size
+    const firstSize = nps.split(' x ')[0] || nps;
+    const cleaned = firstSize.replace('"', '').trim();
+    if (cleaned.includes('/')) {
+      const parts = cleaned.split('/');
+      const num = parseFloat(parts[0] || '0');
+      const denom = parseFloat(parts[1] || '1');
+      return num / denom;
+    }
+    return parseFloat(cleaned) || 0;
+  };
+
   // Filter variants
   const filteredVariants = useMemo(() => {
     let filtered = allVariants;
@@ -184,6 +198,22 @@ export default function FittingsPage() {
     if (selectedNPS !== 'ALL') {
       filtered = filtered.filter((v) => v.nps?.split(' x ')[0] === selectedNPS);
     }
+
+    // Sort by Type (alphabetically), then by NPS (ascending)
+    filtered.sort((a, b) => {
+      // First sort by type
+      const typeA = a.type || '';
+      const typeB = b.type || '';
+
+      if (typeA !== typeB) {
+        return typeA.localeCompare(typeB);
+      }
+
+      // If type is the same, sort by NPS
+      const npsA = parseNPS(a.nps || '0');
+      const npsB = parseNPS(b.nps || '0');
+      return npsA - npsB;
+    });
 
     return filtered;
   }, [allVariants, searchText, selectedFittingType, selectedNPS]);

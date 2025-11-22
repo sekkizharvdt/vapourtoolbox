@@ -162,6 +162,37 @@ export default function PipesPage() {
     );
   }, [materials]);
 
+  // Helper function to parse NPS values
+  const parseNPS = (nps: string): number => {
+    const cleaned = nps.replace('"', '').trim();
+    if (cleaned.includes('/')) {
+      const parts = cleaned.split('/');
+      const num = parseFloat(parts[0] || '0');
+      const denom = parseFloat(parts[1] || '1');
+      return num / denom;
+    }
+    return parseFloat(cleaned) || 0;
+  };
+
+  // Helper function to parse schedule for sorting
+  const parseSchedule = (schedule: string): number => {
+    // Extract numeric part from schedules like "Sch 40", "10S", "XXS"
+    const numMatch = schedule.match(/\d+/);
+    if (numMatch) return parseInt(numMatch[0], 10);
+
+    // Handle special schedules
+    const specialSchedules: Record<string, number> = {
+      STD: 40,
+      XS: 80,
+      XXS: 160,
+      '5S': 5,
+      '10S': 10,
+      '40S': 40,
+      '80S': 80,
+    };
+    return specialSchedules[schedule.toUpperCase()] || 999;
+  };
+
   // Filter variants
   const filteredVariants = useMemo(() => {
     let filtered = allVariants;
@@ -198,6 +229,21 @@ export default function PipesPage() {
     if (selectedOD !== 'ALL') {
       filtered = filtered.filter((v) => v.od_mm?.toFixed(2) === selectedOD);
     }
+
+    // Sort by NPS (ascending), then by Schedule (ascending)
+    filtered.sort((a, b) => {
+      const npsA = parseNPS(a.nps || '0');
+      const npsB = parseNPS(b.nps || '0');
+
+      if (npsA !== npsB) {
+        return npsA - npsB;
+      }
+
+      // If NPS is the same, sort by schedule
+      const schedA = parseSchedule(a.schedule || '');
+      const schedB = parseSchedule(b.schedule || '');
+      return schedA - schedB;
+    });
 
     return filtered;
   }, [allVariants, searchText, selectedMaterial, selectedSchedule, selectedNPS, selectedOD]);

@@ -156,6 +156,25 @@ export default function FlangesPage() {
     );
   }, [materials]);
 
+  // Helper function to parse NPS values
+  const parseNPS = (nps: string): number => {
+    const cleaned = nps.replace('"', '').trim();
+    if (cleaned.includes('/')) {
+      const parts = cleaned.split('/');
+      const num = parseFloat(parts[0] || '0');
+      const denom = parseFloat(parts[1] || '1');
+      return num / denom;
+    }
+    return parseFloat(cleaned) || 0;
+  };
+
+  // Helper function to parse pressure class for sorting
+  const parsePressureClass = (pressureClass: string): number => {
+    // Extract numeric part from pressure classes like "150", "300", "600", etc.
+    const numMatch = pressureClass.match(/\d+/);
+    return numMatch ? parseInt(numMatch[0], 10) : 999;
+  };
+
   // Filter variants
   const filteredVariants = useMemo(() => {
     let filtered = allVariants;
@@ -182,6 +201,21 @@ export default function FlangesPage() {
     if (selectedNPS !== 'ALL') {
       filtered = filtered.filter((v) => v.nps === selectedNPS);
     }
+
+    // Sort by Pressure Class (ascending), then by NPS (ascending)
+    filtered.sort((a, b) => {
+      const pcA = parsePressureClass(a.pressureClass || '0');
+      const pcB = parsePressureClass(b.pressureClass || '0');
+
+      if (pcA !== pcB) {
+        return pcA - pcB;
+      }
+
+      // If pressure class is the same, sort by NPS
+      const npsA = parseNPS(a.nps || '0');
+      const npsB = parseNPS(b.nps || '0');
+      return npsA - npsB;
+    });
 
     return filtered;
   }, [allVariants, searchText, selectedPressureClass, selectedNPS]);
