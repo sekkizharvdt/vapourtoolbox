@@ -55,6 +55,7 @@ interface FittingVariant {
   outsideDiameter_inch?: number;
   outsideDiameter_mm?: number;
   applicableSchedules: string;
+  weight_kg?: number;
 }
 
 // Material with variants
@@ -429,12 +430,13 @@ export default function FittingsPage() {
                 <TableCell>DN (mm)</TableCell>
                 <TableCell align="right">Center-to-End (mm)</TableCell>
                 <TableCell align="right">End-to-End (mm)</TableCell>
+                <TableCell align="right">Weight (kg)</TableCell>
                 <TableCell>Applicable Schedules</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <LoadingState message="Loading fittings..." variant="table" colSpan={6} />
+                <LoadingState message="Loading fittings..." variant="table" colSpan={7} />
               ) : paginatedVariants.length === 0 ? (
                 <EmptyState
                   message={
@@ -443,7 +445,7 @@ export default function FittingsPage() {
                       : 'No fittings data available. Fitting variants will appear here once loaded.'
                   }
                   variant="table"
-                  colSpan={6}
+                  colSpan={7}
                 />
               ) : (
                 paginatedVariants.map((variant, index) => (
@@ -459,6 +461,17 @@ export default function FittingsPage() {
                     </TableCell>
                     <TableCell align="right">{variant.centerToEnd_mm || '-'}</TableCell>
                     <TableCell align="right">{variant.endToEnd_mm || '-'}</TableCell>
+                    <TableCell align="right">
+                      {variant.weight_kg ? (
+                        <Typography variant="body2" fontWeight="medium">
+                          {variant.weight_kg.toFixed(2)}
+                        </Typography>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          TBD
+                        </Typography>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Chip label={variant.applicableSchedules} size="small" variant="outlined" />
                     </TableCell>

@@ -54,6 +54,7 @@ interface FlangeVariant {
   boltSize_inch: string;
   raisedFace_inch: number;
   raisedFace_mm: number;
+  weight_kg?: number;
 }
 
 // Material with variants
@@ -432,11 +433,12 @@ export default function FlangesPage() {
                 <TableCell align="center">Bolt Holes</TableCell>
                 <TableCell>Bolt Size</TableCell>
                 <TableCell align="right">Raised Face (mm)</TableCell>
+                <TableCell align="right">Weight (kg)</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <LoadingState message="Loading flanges..." variant="table" colSpan={9} />
+                <LoadingState message="Loading flanges..." variant="table" colSpan={10} />
               ) : paginatedVariants.length === 0 ? (
                 <EmptyState
                   message={
@@ -445,7 +447,7 @@ export default function FlangesPage() {
                       : 'No flanges data available. Flange variants will appear here once loaded.'
                   }
                   variant="table"
-                  colSpan={9}
+                  colSpan={10}
                 />
               ) : (
                 paginatedVariants.map((variant, index) => (
@@ -465,6 +467,17 @@ export default function FlangesPage() {
                     <TableCell align="center">{variant.boltHoles}</TableCell>
                     <TableCell>{variant.boltSize_inch}&quot;</TableCell>
                     <TableCell align="right">{variant.raisedFace_mm?.toFixed(2)}</TableCell>
+                    <TableCell align="right">
+                      {variant.weight_kg ? (
+                        <Typography variant="body2" fontWeight="medium" color="primary.main">
+                          {variant.weight_kg.toFixed(2)}
+                        </Typography>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          —
+                        </Typography>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))
               )}

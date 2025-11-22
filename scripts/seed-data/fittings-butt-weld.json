@@ -4,7 +4,8 @@
     "material": "Carbon Steel & Stainless Steel",
     "specification": "ASTM A234 (CS) / ASTM A403 (SS)",
     "description": "Factory-made Wrought Butt-Welding Fittings",
-    "note": "Dimensions apply to all schedules: SCH 10, 20, 30, 40, 60, 80, 100, 120, 140, 160, STD, XS, XXS"
+    "note": "Dimensions apply to all schedules: SCH 10, 20, 30, 40, 60, 80, 100, 120, 140, 160, STD, XS, XXS",
+    "weightNote": "Weight data (weight_kg field) pending verification. Weights vary by schedule and will be populated after verification."
   },
   "material": {
     "materialCode": "FT-BW-CS-A234",

@@ -5,7 +5,8 @@
     "specification": "ASTM A105 (CS) / ASTM A182 (SS)",
     "description": "Pipe Flanges and Flanged Fittings - Welding Neck Flanges",
     "pressureClasses": ["150#", "300#", "600#", "900#", "1500#", "2500#"],
-    "note": "Dimensions per ASME B16.5 Table 7"
+    "note": "Dimensions per ASME B16.5 Table 7",
+    "weightNote": "Weight data for Carbon Steel (ASTM A105). For Stainless Steel (ASTM A182), multiply by 1.015. Source: WERMAC Engineering Reference."
   },
   "material": {
     "materialCode": "FL-WN-CS-A105",
@@ -28,7 +29,8 @@
       "boltHoles": 4,
       "boltSize_inch": "1/2",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 0.9
     },
     {
       "pressureClass": "150#",
@@ -43,7 +45,8 @@
       "boltHoles": 4,
       "boltSize_inch": "1/2",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 0.9
     },
     {
       "pressureClass": "150#",
@@ -58,7 +61,8 @@
       "boltHoles": 4,
       "boltSize_inch": "1/2",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 1.4
     },
     {
       "pressureClass": "150#",
@@ -73,13 +77,14 @@
       "boltHoles": 4,
       "boltSize_inch": "1/2",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 1.4
     },
     {
       "pressureClass": "150#",
       "nps": "1 1/2",
       "dn": "40",
-      "outsideDiameter_inch": 5.0,
+      "outsideDiameter_inch": 5,
       "outsideDiameter_mm": 127,
       "boltCircle_inch": 3.88,
       "boltCircle_mm": 98,
@@ -88,13 +93,14 @@
       "boltHoles": 4,
       "boltSize_inch": "1/2",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 1.8
     },
     {
       "pressureClass": "150#",
       "nps": "2",
       "dn": "50",
-      "outsideDiameter_inch": 6.0,
+      "outsideDiameter_inch": 6,
       "outsideDiameter_mm": 152,
       "boltCircle_inch": 4.75,
       "boltCircle_mm": 121,
@@ -103,13 +109,14 @@
       "boltHoles": 4,
       "boltSize_inch": "5/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 2.7
     },
     {
       "pressureClass": "150#",
       "nps": "2 1/2",
       "dn": "65",
-      "outsideDiameter_inch": 7.0,
+      "outsideDiameter_inch": 7,
       "outsideDiameter_mm": 178,
       "boltCircle_inch": 5.5,
       "boltCircle_mm": 140,
@@ -118,7 +125,8 @@
       "boltHoles": 4,
       "boltSize_inch": "5/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 4.5
     },
     {
       "pressureClass": "150#",
@@ -126,35 +134,37 @@
       "dn": "80",
       "outsideDiameter_inch": 7.5,
       "outsideDiameter_mm": 190,
-      "boltCircle_inch": 6.0,
+      "boltCircle_inch": 6,
       "boltCircle_mm": 152,
       "thickness_inch": 0.94,
       "thickness_mm": 24,
       "boltHoles": 4,
       "boltSize_inch": "5/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 5.2
     },
     {
       "pressureClass": "150#",
       "nps": "4",
       "dn": "100",
-      "outsideDiameter_inch": 9.0,
+      "outsideDiameter_inch": 9,
       "outsideDiameter_mm": 229,
       "boltCircle_inch": 7.5,
       "boltCircle_mm": 190,
-      "thickness_inch": 1.0,
+      "thickness_inch": 1,
       "thickness_mm": 25,
       "boltHoles": 8,
       "boltSize_inch": "5/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 7.4
     },
     {
       "pressureClass": "150#",
       "nps": "5",
       "dn": "125",
-      "outsideDiameter_inch": 10.0,
+      "outsideDiameter_inch": 10,
       "outsideDiameter_mm": 254,
       "boltCircle_inch": 8.5,
       "boltCircle_mm": 216,
@@ -163,13 +173,14 @@
       "boltHoles": 8,
       "boltSize_inch": "3/4",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 9.5
     },
     {
       "pressureClass": "150#",
       "nps": "6",
       "dn": "150",
-      "outsideDiameter_inch": 11.0,
+      "outsideDiameter_inch": 11,
       "outsideDiameter_mm": 279,
       "boltCircle_inch": 9.5,
       "boltCircle_mm": 241,
@@ -178,7 +189,8 @@
       "boltHoles": 8,
       "boltSize_inch": "3/4",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 11.7
     },
     {
       "pressureClass": "150#",
@@ -193,13 +205,14 @@
       "boltHoles": 8,
       "boltSize_inch": "3/4",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 18.9
     },
     {
       "pressureClass": "150#",
       "nps": "10",
       "dn": "250",
-      "outsideDiameter_inch": 16.0,
+      "outsideDiameter_inch": 16,
       "outsideDiameter_mm": 406,
       "boltCircle_inch": 14.25,
       "boltCircle_mm": 362,
@@ -208,22 +221,24 @@
       "boltHoles": 12,
       "boltSize_inch": "7/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 24.3
     },
     {
       "pressureClass": "150#",
       "nps": "12",
       "dn": "300",
-      "outsideDiameter_inch": 19.0,
+      "outsideDiameter_inch": 19,
       "outsideDiameter_mm": 483,
-      "boltCircle_inch": 17.0,
+      "boltCircle_inch": 17,
       "boltCircle_mm": 432,
       "thickness_inch": 1.75,
       "thickness_mm": 44,
       "boltHoles": 12,
       "boltSize_inch": "7/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 39.6
     },
     {
       "pressureClass": "300#",
@@ -238,7 +253,8 @@
       "boltHoles": 4,
       "boltSize_inch": "1/2",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 0.9
     },
     {
       "pressureClass": "300#",
@@ -253,7 +269,8 @@
       "boltHoles": 4,
       "boltSize_inch": "5/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 1.4
     },
     {
       "pressureClass": "300#",
@@ -268,7 +285,8 @@
       "boltHoles": 4,
       "boltSize_inch": "5/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 1.8
     },
     {
       "pressureClass": "300#",
@@ -283,7 +301,8 @@
       "boltHoles": 4,
       "boltSize_inch": "3/4",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 3.2
     },
     {
       "pressureClass": "300#",
@@ -291,14 +310,15 @@
       "dn": "50",
       "outsideDiameter_inch": 6.5,
       "outsideDiameter_mm": 165,
-      "boltCircle_inch": 5.0,
+      "boltCircle_inch": 5,
       "boltCircle_mm": 127,
-      "thickness_inch": 1.0,
+      "thickness_inch": 1,
       "thickness_mm": 25,
       "boltHoles": 8,
       "boltSize_inch": "5/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 4.1
     },
     {
       "pressureClass": "300#",
@@ -306,20 +326,21 @@
       "dn": "80",
       "outsideDiameter_inch": 7.5,
       "outsideDiameter_mm": 190,
-      "boltCircle_inch": 6.0,
+      "boltCircle_inch": 6,
       "boltCircle_mm": 152,
       "thickness_inch": 1.12,
       "thickness_mm": 28,
       "boltHoles": 8,
       "boltSize_inch": "5/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 8.1
     },
     {
       "pressureClass": "300#",
       "nps": "4",
       "dn": "100",
-      "outsideDiameter_inch": 9.0,
+      "outsideDiameter_inch": 9,
       "outsideDiameter_mm": 229,
       "boltCircle_inch": 7.5,
       "boltCircle_mm": 190,
@@ -328,7 +349,8 @@
       "boltHoles": 8,
       "boltSize_inch": "3/4",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 11.9
     },
     {
       "pressureClass": "300#",
@@ -343,22 +365,24 @@
       "boltHoles": 12,
       "boltSize_inch": "3/4",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 20.3
     },
     {
       "pressureClass": "300#",
       "nps": "8",
       "dn": "200",
-      "outsideDiameter_inch": 15.0,
+      "outsideDiameter_inch": 15,
       "outsideDiameter_mm": 381,
-      "boltCircle_inch": 13.0,
+      "boltCircle_inch": 13,
       "boltCircle_mm": 330,
       "thickness_inch": 1.75,
       "thickness_mm": 44,
       "boltHoles": 12,
       "boltSize_inch": "7/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 31.1
     },
     {
       "pressureClass": "300#",
@@ -368,12 +392,13 @@
       "outsideDiameter_mm": 444,
       "boltCircle_inch": 15.25,
       "boltCircle_mm": 387,
-      "thickness_inch": 2.0,
+      "thickness_inch": 2,
       "thickness_mm": 51,
       "boltHoles": 16,
       "boltSize_inch": "1",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 45
     },
     {
       "pressureClass": "300#",
@@ -381,14 +406,15 @@
       "dn": "300",
       "outsideDiameter_inch": 20.5,
       "outsideDiameter_mm": 521,
-      "boltCircle_inch": 18.0,
+      "boltCircle_inch": 18,
       "boltCircle_mm": 457,
       "thickness_inch": 2.19,
       "thickness_mm": 56,
       "boltHoles": 16,
       "boltSize_inch": "1 1/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 63.9
     },
     {
       "pressureClass": "600#",
@@ -403,7 +429,8 @@
       "boltHoles": 4,
       "boltSize_inch": "1/2",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 1.4
     },
     {
       "pressureClass": "600#",
@@ -418,7 +445,8 @@
       "boltHoles": 4,
       "boltSize_inch": "5/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 1.8
     },
     {
       "pressureClass": "600#",
@@ -426,14 +454,15 @@
       "dn": "50",
       "outsideDiameter_inch": 6.5,
       "outsideDiameter_mm": 165,
-      "boltCircle_inch": 5.0,
+      "boltCircle_inch": 5,
       "boltCircle_mm": 127,
       "thickness_inch": 1.12,
       "thickness_mm": 28,
       "boltHoles": 8,
       "boltSize_inch": "5/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 5.4
     },
     {
       "pressureClass": "600#",
@@ -448,13 +477,14 @@
       "boltHoles": 8,
       "boltSize_inch": "3/4",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 10.4
     },
     {
       "pressureClass": "600#",
       "nps": "4",
       "dn": "100",
-      "outsideDiameter_inch": 10.0,
+      "outsideDiameter_inch": 10,
       "outsideDiameter_mm": 254,
       "boltCircle_inch": 8.5,
       "boltCircle_mm": 216,
@@ -463,13 +493,14 @@
       "boltHoles": 8,
       "boltSize_inch": "7/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 18.9
     },
     {
       "pressureClass": "600#",
       "nps": "6",
       "dn": "150",
-      "outsideDiameter_inch": 14.0,
+      "outsideDiameter_inch": 14,
       "outsideDiameter_mm": 356,
       "boltCircle_inch": 11.5,
       "boltCircle_mm": 292,
@@ -478,7 +509,8 @@
       "boltHoles": 12,
       "boltSize_inch": "1",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 36.5
     },
     {
       "pressureClass": "600#",
@@ -493,28 +525,30 @@
       "boltHoles": 12,
       "boltSize_inch": "1 1/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 54
     },
     {
       "pressureClass": "600#",
       "nps": "10",
       "dn": "250",
-      "outsideDiameter_inch": 20.0,
+      "outsideDiameter_inch": 20,
       "outsideDiameter_mm": 508,
-      "boltCircle_inch": 17.0,
+      "boltCircle_inch": 17,
       "boltCircle_mm": 432,
       "thickness_inch": 2.5,
       "thickness_mm": 64,
       "boltHoles": 16,
       "boltSize_inch": "1 1/4",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 85.5
     },
     {
       "pressureClass": "600#",
       "nps": "12",
       "dn": "300",
-      "outsideDiameter_inch": 22.0,
+      "outsideDiameter_inch": 22,
       "outsideDiameter_mm": 559,
       "boltCircle_inch": 19.25,
       "boltCircle_mm": 489,
@@ -523,7 +557,8 @@
       "boltHoles": 20,
       "boltSize_inch": "1 1/4",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 101.7
     },
     {
       "pressureClass": "900#",
@@ -538,7 +573,8 @@
       "boltHoles": 4,
       "boltSize_inch": "3/4",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 3.8
     },
     {
       "pressureClass": "900#",
@@ -546,14 +582,15 @@
       "dn": "50",
       "outsideDiameter_inch": 6.5,
       "outsideDiameter_mm": 165,
-      "boltCircle_inch": 5.0,
+      "boltCircle_inch": 5,
       "boltCircle_mm": 127,
       "thickness_inch": 1.25,
       "thickness_mm": 32,
       "boltHoles": 8,
       "boltSize_inch": "5/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 10.8
     },
     {
       "pressureClass": "900#",
@@ -568,13 +605,14 @@
       "boltHoles": 8,
       "boltSize_inch": "1 1/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 23.9
     },
     {
       "pressureClass": "900#",
       "nps": "6",
       "dn": "150",
-      "outsideDiameter_inch": 15.0,
+      "outsideDiameter_inch": 15,
       "outsideDiameter_mm": 381,
       "boltCircle_inch": 12.5,
       "boltCircle_mm": 318,
@@ -583,7 +621,8 @@
       "boltHoles": 12,
       "boltSize_inch": "1 1/4",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 49.5
     },
     {
       "pressureClass": "900#",
@@ -598,7 +637,8 @@
       "boltHoles": 12,
       "boltSize_inch": "1 1/2",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 84.2
     },
     {
       "pressureClass": "1500#",
@@ -608,12 +648,13 @@
       "outsideDiameter_mm": 149,
       "boltCircle_inch": 4.25,
       "boltCircle_mm": 108,
-      "thickness_inch": 1.0,
+      "thickness_inch": 1,
       "thickness_mm": 25,
       "boltHoles": 4,
       "boltSize_inch": "7/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 4.1
     },
     {
       "pressureClass": "1500#",
@@ -628,7 +669,8 @@
       "boltHoles": 8,
       "boltSize_inch": "7/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 11.3
     },
     {
       "pressureClass": "1500#",
@@ -643,7 +685,8 @@
       "boltHoles": 8,
       "boltSize_inch": "1 1/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 21.6
     },
     {
       "pressureClass": "1500#",
@@ -653,12 +696,13 @@
       "outsideDiameter_mm": 298,
       "boltCircle_inch": 9.5,
       "boltCircle_mm": 241,
-      "thickness_inch": 2.0,
+      "thickness_inch": 2,
       "thickness_mm": 51,
       "boltHoles": 8,
       "boltSize_inch": "1 1/4",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 32.9
     },
     {
       "pressureClass": "1500#",
@@ -673,7 +717,8 @@
       "boltHoles": 12,
       "boltSize_inch": "1 1/2",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 74.3
     },
     {
       "pressureClass": "2500#",
@@ -688,7 +733,8 @@
       "boltHoles": 4,
       "boltSize_inch": "1",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 5.9
     },
     {
       "pressureClass": "2500#",
@@ -703,7 +749,8 @@
       "boltHoles": 8,
       "boltSize_inch": "1 1/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 18.9
     },
     {
       "pressureClass": "2500#",
@@ -718,13 +765,14 @@
       "boltHoles": 8,
       "boltSize_inch": "1 3/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 42.3
     },
     {
       "pressureClass": "2500#",
       "nps": "4",
       "dn": "100",
-      "outsideDiameter_inch": 13.0,
+      "outsideDiameter_inch": 13,
       "outsideDiameter_mm": 330,
       "boltCircle_inch": 10.75,
       "boltCircle_mm": 273,
@@ -733,7 +781,8 @@
       "boltHoles": 8,
       "boltSize_inch": "1 5/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 65.7
     },
     {
       "pressureClass": "2500#",
@@ -748,7 +797,8 @@
       "boltHoles": 12,
       "boltSize_inch": "1 7/8",
       "raisedFace_inch": 0.06,
-      "raisedFace_mm": 1.6
+      "raisedFace_mm": 1.6,
+      "weight_kg": 170.1
     }
   ]
 }
