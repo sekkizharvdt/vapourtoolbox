@@ -344,10 +344,14 @@ export default function MasterDocumentsPage() {
                               </TableCell>
                               <TableCell>
                                 <Chip
-                                  label={doc.visibility === 'CLIENT_VISIBLE' ? 'Client' : 'Internal'}
+                                  label={
+                                    doc.visibility === 'CLIENT_VISIBLE' ? 'Client' : 'Internal'
+                                  }
                                   size="small"
                                   variant="outlined"
-                                  color={doc.visibility === 'CLIENT_VISIBLE' ? 'primary' : 'default'}
+                                  color={
+                                    doc.visibility === 'CLIENT_VISIBLE' ? 'primary' : 'default'
+                                  }
                                 />
                               </TableCell>
                               <TableCell>
@@ -358,7 +362,9 @@ export default function MasterDocumentsPage() {
                               <TableCell>
                                 <Typography variant="body2">
                                   {doc.dueDate
-                                    ? new Date(doc.dueDate.seconds * 1000).toLocaleDateString()
+                                    ? new Date(doc.dueDate.seconds * 1000)
+                                        .toISOString()
+                                        .split('T')[0]
                                     : '-'}
                                 </Typography>
                               </TableCell>

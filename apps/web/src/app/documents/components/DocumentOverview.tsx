@@ -17,7 +17,8 @@ interface DocumentOverviewProps {
 export default function DocumentOverview({ document }: DocumentOverviewProps) {
   const formatDate = (timestamp: { seconds: number } | undefined) => {
     if (!timestamp) return '-';
-    return new Date(timestamp.seconds * 1000).toLocaleString();
+    const date = new Date(timestamp.seconds * 1000);
+    return date.toISOString().replace('T', ' ').substring(0, 19);
   };
 
   return (
