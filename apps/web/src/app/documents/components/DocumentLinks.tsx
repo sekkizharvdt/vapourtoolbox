@@ -1,6 +1,6 @@
 'use client';
 
-import { Box, Typography, Button, Stack, Grid, Paper, Divider } from '@mui/material';
+import { Box, Typography, Button, Stack, Paper, Divider, Grid } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import type { MasterDocumentEntry } from '@vapour/types';
 
@@ -14,9 +14,9 @@ export default function DocumentLinks({ document }: DocumentLinksProps) {
     <Box sx={{ px: 3 }}>
       <Grid container spacing={3}>
         {/* Predecessors */}
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <Paper sx={{ p: 3 }}>
-            <Stack direction="row" justifyContent="space-between" alignments="center" sx={{ mb: 2 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
               <Typography variant="h6">Predecessors</Typography>
               <Button variant="outlined" size="small" startIcon={<AddIcon />}>
                 Add
@@ -32,7 +32,7 @@ export default function DocumentLinks({ document }: DocumentLinksProps) {
         </Grid>
 
         {/* Successors */}
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <Paper sx={{ p: 3 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
               <Typography variant="h6">Successors</Typography>
@@ -50,7 +50,7 @@ export default function DocumentLinks({ document }: DocumentLinksProps) {
         </Grid>
 
         {/* Related Documents */}
-        <Grid item xs={12}>
+        <Grid xs={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               Related Documents

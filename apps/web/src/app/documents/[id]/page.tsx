@@ -181,7 +181,7 @@ export default function DocumentDetailPage() {
               </Stack>
 
               <Typography variant="h6" color="text.secondary">
-                {document.title}
+                {document.documentTitle}
               </Typography>
 
               {document.description && (

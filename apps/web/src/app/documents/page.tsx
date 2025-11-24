@@ -45,7 +45,7 @@ import { useRouter } from 'next/navigation';
 import type { MasterDocumentEntry } from '@vapour/types';
 import { getMasterDocumentsByProject } from '@/lib/documents/masterDocumentService';
 import CreateDocumentDialog from './components/CreateDocumentDialog';
-import ProjectSelector from '@/components/common/forms/ProjectSelector';
+import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 
 export default function MasterDocumentsPage() {
   const router = useRouter();
@@ -108,8 +108,8 @@ export default function MasterDocumentsPage() {
       filtered = filtered.filter(
         (doc) =>
           doc.documentNumber.toLowerCase().includes(query) ||
-          doc.title.toLowerCase().includes(query) ||
-          doc.description?.toLowerCase().includes(query)
+          doc.documentTitle.toLowerCase().includes(query) ||
+          doc.description.toLowerCase().includes(query)
       );
     }
 
@@ -193,7 +193,7 @@ export default function MasterDocumentsPage() {
         <Paper sx={{ p: 2 }}>
           <ProjectSelector
             value={projectId}
-            onChange={(value) => setProjectId(value || '')}
+            onChange={(value: string | null) => setProjectId(value || '')}
             required
             label="Select Project"
           />
@@ -317,7 +317,7 @@ export default function MasterDocumentsPage() {
                                 </Typography>
                               </TableCell>
                               <TableCell>
-                                <Typography variant="body2">{doc.title}</Typography>
+                                <Typography variant="body2">{doc.documentTitle}</Typography>
                                 {doc.description && (
                                   <Typography variant="caption" color="text.secondary">
                                     {doc.description}

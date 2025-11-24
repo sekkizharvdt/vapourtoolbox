@@ -8,12 +8,12 @@
 
 import {
   Box,
-  Grid,
   Paper,
   Typography,
   Stack,
   Divider,
   Chip,
+  Grid,
 } from '@mui/material';
 import type { MasterDocumentEntry } from '@vapour/types';
 
@@ -38,7 +38,7 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
           </Typography>
           <Divider sx={{ mb: 2 }} />
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <Typography variant="caption" color="text.secondary">
                 Document Number
               </Typography>
@@ -46,37 +46,37 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
                 {document.documentNumber}
               </Typography>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <Typography variant="caption" color="text.secondary">
                 Title
               </Typography>
-              <Typography variant="body1">{document.title}</Typography>
+              <Typography variant="body1">{document.documentTitle}</Typography>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Typography variant="caption" color="text.secondary">
                 Description
               </Typography>
               <Typography variant="body1">{document.description || '-'}</Typography>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <Typography variant="caption" color="text.secondary">
                 Discipline Code
               </Typography>
               <Typography variant="body1">{document.disciplineCode}</Typography>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <Typography variant="caption" color="text.secondary">
                 Sub-Code
               </Typography>
               <Typography variant="body1">{document.subCode || '-'}</Typography>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <Typography variant="caption" color="text.secondary">
                 Document Type
               </Typography>
               <Typography variant="body1">{document.documentType || '-'}</Typography>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <Typography variant="caption" color="text.secondary">
                 Current Revision
               </Typography>
@@ -92,13 +92,13 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
           </Typography>
           <Divider sx={{ mb: 2 }} />
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <Typography variant="caption" color="text.secondary">
                 Status
               </Typography>
               <Typography variant="body1">{document.status}</Typography>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <Typography variant="caption" color="text.secondary">
                 Visibility
               </Typography>
@@ -106,19 +106,13 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
                 {document.visibility === 'CLIENT_VISIBLE' ? 'Client Visible' : 'Internal Only'}
               </Typography>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <Typography variant="caption" color="text.secondary">
                 Due Date
               </Typography>
               <Typography variant="body1">{formatDate(document.dueDate)}</Typography>
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="caption" color="text.secondary">
-                Estimated Hours
-              </Typography>
-              <Typography variant="body1">{document.estimatedHours || '-'}</Typography>
-            </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Typography variant="caption" color="text.secondary">
                 Assigned To
               </Typography>
@@ -146,23 +140,17 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
           </Typography>
           <Divider sx={{ mb: 2 }} />
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={4}>
+            <Grid xs={12} sm={4}>
               <Typography variant="caption" color="text.secondary">
                 Total Submissions
               </Typography>
               <Typography variant="h4">{document.submissionCount}</Typography>
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid xs={12} sm={4}>
               <Typography variant="caption" color="text.secondary">
                 Last Submission
               </Typography>
               <Typography variant="body1">{formatDate(document.lastSubmissionDate)}</Typography>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Typography variant="caption" color="text.secondary">
-                Client Acceptance
-              </Typography>
-              <Typography variant="body1">{formatDate(document.clientAcceptanceDate)}</Typography>
             </Grid>
           </Grid>
         </Paper>
@@ -174,19 +162,19 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
           </Typography>
           <Divider sx={{ mb: 2 }} />
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={4}>
+            <Grid xs={12} sm={4}>
               <Typography variant="caption" color="text.secondary">
                 Supply Items
               </Typography>
               <Typography variant="h4">{document.supplyItemCount}</Typography>
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid xs={12} sm={4}>
               <Typography variant="caption" color="text.secondary">
                 Work Items
               </Typography>
               <Typography variant="h4">{document.workItemCount}</Typography>
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid xs={12} sm={4}>
               <Typography variant="caption" color="text.secondary">
                 Document Links
               </Typography>
@@ -204,7 +192,7 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
           </Typography>
           <Divider sx={{ mb: 2 }} />
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <Typography variant="caption" color="text.secondary">
                 Created By
               </Typography>
@@ -213,7 +201,7 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
                 {formatDate(document.createdAt)}
               </Typography>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <Typography variant="caption" color="text.secondary">
                 Last Updated
               </Typography>

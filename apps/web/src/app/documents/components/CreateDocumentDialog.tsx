@@ -26,13 +26,11 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import type { DisciplineCode } from '@vapour/types';
+import { createMasterDocument } from '@/lib/documents/masterDocumentService';
 import {
-  createMasterDocument,
-  generateDocumentNumber,
-} from '@/lib/documents/masterDocumentService';
-import {
-  getDisciplineCodes,
+  getActiveDisciplineCodes,
   getNumberingConfig,
+  generateDocumentNumber,
 } from '@/lib/documents/documentNumberingService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Timestamp } from 'firebase/firestore';
@@ -63,7 +61,6 @@ export default function CreateDocumentDialog({
   const [visibility, setVisibility] = useState<'CLIENT_VISIBLE' | 'INTERNAL_ONLY'>('CLIENT_VISIBLE');
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [assignedTo, setAssignedTo] = useState<string[]>([]);
-  const [estimatedHours, setEstimatedHours] = useState<number>(0);
 
   // Discipline codes
   const [disciplines, setDisciplines] = useState<DisciplineCode[]>([]);
@@ -87,7 +84,7 @@ export default function CreateDocumentDialog({
 
   const loadDisciplines = async () => {
     try {
-      const data = await getDisciplineCodes(projectId);
+      const data = await getActiveDisciplineCodes(projectId);
       setDisciplines(data);
     } catch (err) {
       console.error('[CreateDocumentDialog] Error loading disciplines:', err);
@@ -148,28 +145,47 @@ export default function CreateDocumentDialog({
         subCode || undefined
       );
 
+      // Get discipline name
+      const selectedDisc = disciplines.find((d) => d.code === disciplineCode);
+      const disciplineName = selectedDisc?.name || disciplineCode;
+
       // Create master document
+      const now = Timestamp.now();
       await createMasterDocument({
         projectId,
+        projectCode,
         documentNumber,
-        title,
-        description: description || undefined,
         disciplineCode,
+        disciplineName,
         subCode: subCode || undefined,
         sequenceNumber: documentNumber.split('-').pop() || '001',
-        documentType: documentType || undefined,
+        documentTitle: title,
+        documentType: documentType || 'General',
+        description: description || '',
         status: 'NOT_STARTED',
-        visibility,
-        dueDate: dueDate ? Timestamp.fromDate(dueDate) : undefined,
-        assignedTo,
-        assignedToNames: [], // Would need to fetch user names
-        estimatedHours: estimatedHours || undefined,
-        submissionCount: 0,
         currentRevision: 'R0',
         predecessors: [],
         successors: [],
+        relatedDocuments: [],
+        assignedTo,
+        assignedToNames: [], // Would need to fetch user names
+        assignedBy: user.uid,
+        assignedByName: user.displayName || user.email || 'Unknown',
+        assignedDate: now,
+        dueDate: dueDate ? Timestamp.fromDate(dueDate) : undefined,
+        inputFiles: [],
+        hasSupplyList: false,
         supplyItemCount: 0,
+        hasWorkList: false,
         workItemCount: 0,
+        visibility,
+        submissionCount: 0,
+        totalComments: 0,
+        openComments: 0,
+        resolvedComments: 0,
+        progressPercentage: 0,
+        priority: 'MEDIUM',
+        tags: [],
         isDeleted: false,
         createdBy: user.uid,
         createdByName: user.displayName || user.email || 'Unknown',
@@ -195,7 +211,6 @@ export default function CreateDocumentDialog({
     setVisibility('CLIENT_VISIBLE');
     setDueDate(null);
     setAssignedTo([]);
-    setEstimatedHours(0);
     setPreviewNumber('');
     setError(null);
   };
@@ -278,9 +293,9 @@ export default function CreateDocumentDialog({
                 <MenuItem value="">
                   <em>None</em>
                 </MenuItem>
-                {availableSubCodes.map((code) => (
-                  <MenuItem key={code} value={code}>
-                    {code}
+                {availableSubCodes.map((subCodeObj) => (
+                  <MenuItem key={subCodeObj.subCode} value={subCodeObj.subCode}>
+                    {subCodeObj.subCode} - {subCodeObj.name}
                   </MenuItem>
                 ))}
               </Select>
@@ -316,7 +331,7 @@ export default function CreateDocumentDialog({
             <DatePicker
               label="Due Date"
               value={dueDate}
-              onChange={(newValue) => setDueDate(newValue)}
+              onChange={(newValue) => setDueDate(newValue as Date | null)}
               slotProps={{
                 textField: {
                   fullWidth: true,
@@ -324,16 +339,6 @@ export default function CreateDocumentDialog({
               }}
             />
           </LocalizationProvider>
-
-          {/* Estimated Hours */}
-          <TextField
-            label="Estimated Hours"
-            type="number"
-            value={estimatedHours}
-            onChange={(e) => setEstimatedHours(Number(e.target.value))}
-            fullWidth
-            inputProps={{ min: 0, step: 1 }}
-          />
         </Stack>
       </DialogContent>
       <DialogActions>
