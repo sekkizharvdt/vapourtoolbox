@@ -793,6 +793,173 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Document Management Module
+    // ============================================
+
+    /**
+     * Document Numbering Configuration (per project)
+     */
+    match /projects/{projectId}/documentNumberingConfig/{configId} {
+      allow read: if isInternalUser() && isAssignedToProject(projectId);
+      allow write: if isInternalUser() && hasPermission(16777216); // MANAGE_MASTER_DOCUMENT_LIST
+    }
+
+    /**
+     * Master Documents (per project)
+     */
+    match /projects/{projectId}/masterDocuments/{masterDocId} {
+      // Read: Internal users assigned to project OR external CLIENT_PM for CLIENT_VISIBLE docs
+      allow read: if (isInternalUser() && isAssignedToProject(projectId)) ||
+                     (isExternalUser() && isAssignedToProject(projectId) &&
+                      resource.data.visibility == 'CLIENT_VISIBLE' &&
+                      hasPermission(536870912)); // VIEW_CLIENT_DOCUMENTS
+
+      // Create: Internal users with MANAGE_MASTER_DOCUMENT_LIST permission
+      allow create: if isInternalUser() &&
+                       isAssignedToProject(projectId) &&
+                       hasPermission(16777216); // MANAGE_MASTER_DOCUMENT_LIST
+
+      // Update: PM with MANAGE_MASTER_DOCUMENT_LIST OR assignees with SUBMIT_DOCUMENTS
+      allow update: if isInternalUser() &&
+                       isAssignedToProject(projectId) &&
+                       (hasPermission(16777216) || // MANAGE_MASTER_DOCUMENT_LIST
+                        (hasPermission(67108864) && // SUBMIT_DOCUMENTS
+                         request.auth.uid in resource.data.assignedTo));
+
+      // Delete: Only PM or Super Admin
+      allow delete: if isInternalUser() &&
+                       (hasPermission(16777216) || isSuperAdmin());
+    }
+
+    /**
+     * Document Submissions (per project)
+     */
+    match /projects/{projectId}/documentSubmissions/{submissionId} {
+      // Read: Internal users OR external CLIENT_PM for CLIENT_VISIBLE master docs
+      allow read: if (isInternalUser() && isAssignedToProject(projectId)) ||
+                     (isExternalUser() && isAssignedToProject(projectId) &&
+                      hasPermission(536870912)); // VIEW_CLIENT_DOCUMENTS
+
+      // Create: Internal users with SUBMIT_DOCUMENTS permission
+      allow create: if isInternalUser() &&
+                       isAssignedToProject(projectId) &&
+                       hasPermission(67108864); // SUBMIT_DOCUMENTS
+
+      // Update: Internal users (for resolutions) OR external CLIENT_PM (for review)
+      allow update: if (isInternalUser() && isAssignedToProject(projectId) &&
+                        hasPermission(67108864)) || // SUBMIT_DOCUMENTS
+                       (isExternalUser() && isAssignedToProject(projectId) &&
+                        hasPermission(134217728)); // REVIEW_DOCUMENTS
+
+      // Delete: Only Super Admin
+      allow delete: if isSuperAdmin();
+    }
+
+    /**
+     * Document Comments (per project)
+     */
+    match /projects/{projectId}/documentComments/{commentId} {
+      // Read: Internal users assigned OR external CLIENT_PM
+      allow read: if (isInternalUser() && isAssignedToProject(projectId)) ||
+                     (isExternalUser() && isAssignedToProject(projectId) &&
+                      hasPermission(134217728)); // REVIEW_DOCUMENTS
+
+      // Create: External CLIENT_PM (add comments) OR internal users (add/respond)
+      allow create: if (isExternalUser() && isAssignedToProject(projectId) &&
+                        hasPermission(134217728)) || // REVIEW_DOCUMENTS
+                       (isInternalUser() && isAssignedToProject(projectId) &&
+                        hasPermission(67108864)); // SUBMIT_DOCUMENTS
+
+      // Update: Internal users for resolutions OR external CLIENT_PM for acceptance
+      allow update: if (isInternalUser() && isAssignedToProject(projectId) &&
+                        (hasPermission(67108864) || // SUBMIT_DOCUMENTS (assignee resolve)
+                         hasPermission(268435456))) || // APPROVE_DOCUMENTS (PM approve)
+                       (isExternalUser() && isAssignedToProject(projectId) &&
+                        hasPermission(134217728) && // REVIEW_DOCUMENTS
+                        isOwner(resource.data.commentedBy)); // Can only update own comments
+
+      // Delete: Only Super Admin
+      allow delete: if isSuperAdmin();
+    }
+
+    /**
+     * Comment Resolution Tables (per project)
+     */
+    match /projects/{projectId}/commentResolutionTables/{crtId} {
+      // Read: Internal users OR external CLIENT_PM
+      allow read: if (isInternalUser() && isAssignedToProject(projectId)) ||
+                     (isExternalUser() && isAssignedToProject(projectId) &&
+                      hasPermission(536870912)); // VIEW_CLIENT_DOCUMENTS
+
+      // Create: Internal users generating CRT
+      allow create: if isInternalUser() &&
+                       isAssignedToProject(projectId) &&
+                       hasPermission(67108864); // SUBMIT_DOCUMENTS
+
+      // Update: Internal users (for export info)
+      allow update: if isInternalUser() &&
+                       isAssignedToProject(projectId) &&
+                       hasPermission(67108864); // SUBMIT_DOCUMENTS
+
+      // Delete: Only Super Admin
+      allow delete: if isSuperAdmin();
+    }
+
+    /**
+     * Supply Items (per project)
+     */
+    match /projects/{projectId}/supplyItems/{supplyItemId} {
+      // Read: Internal users assigned to project
+      allow read: if isInternalUser() && isAssignedToProject(projectId);
+
+      // Create/Update: Internal users assigned to project
+      allow create, update: if isInternalUser() &&
+                               isAssignedToProject(projectId) &&
+                               hasPermission(1073741824); // VIEW_INTERNAL_DOCUMENTS
+
+      // Delete: Only PM or Super Admin
+      allow delete: if isInternalUser() &&
+                       (hasPermission(16777216) || isSuperAdmin());
+    }
+
+    /**
+     * Work Items (per project)
+     */
+    match /projects/{projectId}/workItems/{workItemId} {
+      // Read: Internal users assigned to project
+      allow read: if isInternalUser() && isAssignedToProject(projectId);
+
+      // Create/Update: Internal users assigned to project
+      allow create, update: if isInternalUser() &&
+                               isAssignedToProject(projectId) &&
+                               hasPermission(1073741824); // VIEW_INTERNAL_DOCUMENTS
+
+      // Delete: Only PM or Super Admin
+      allow delete: if isInternalUser() &&
+                       (hasPermission(16777216) || isSuperAdmin());
+    }
+
+    /**
+     * Document Templates (company-wide or project-specific)
+     */
+    match /documentTemplates/{templateId} {
+      // Read: All internal users
+      allow read: if isInternalUser();
+
+      // Create: Users with MANAGE_MASTER_DOCUMENT_LIST permission
+      allow create: if isInternalUser() &&
+                       hasPermission(16777216); // MANAGE_MASTER_DOCUMENT_LIST
+
+      // Update: Template creator OR users with MANAGE_MASTER_DOCUMENT_LIST
+      allow update: if isInternalUser() &&
+                       (isOwner(resource.data.createdBy) ||
+                        hasPermission(16777216)); // MANAGE_MASTER_DOCUMENT_LIST
+
+      // Delete: Only Super Admin
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
     // Default: Deny all
     // ============================================
 

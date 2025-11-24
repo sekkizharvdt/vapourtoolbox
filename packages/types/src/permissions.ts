@@ -43,6 +43,15 @@ export enum PermissionFlag {
   VIEW_PROCUREMENT = 1 << 21, // 2097152 (for CLIENT_PM)
   VIEW_PROJECT_STATUS = 1 << 22, // 4194304 (for CLIENT_PM)
   VIEW_PAYMENT_STATUS = 1 << 23, // 8388608 (for CLIENT_PM)
+
+  // Document Management (24-30)
+  MANAGE_MASTER_DOCUMENT_LIST = 1 << 24, // 16777216 - Create/edit master document list
+  ASSIGN_DOCUMENTS = 1 << 25, // 33554432 - Assign documents to users
+  SUBMIT_DOCUMENTS = 1 << 26, // 67108864 - Submit documents to client
+  REVIEW_DOCUMENTS = 1 << 27, // 134217728 - Client review/comment on documents
+  APPROVE_DOCUMENTS = 1 << 28, // 268435456 - Approve document submissions & comment resolutions
+  VIEW_CLIENT_DOCUMENTS = 1 << 29, // 536870912 - View client-visible documents
+  VIEW_INTERNAL_DOCUMENTS = 1 << 30, // 1073741824 - View internal documents
 }
 
 /**
@@ -154,7 +163,13 @@ export const RolePermissions = {
     PermissionFlag.CREATE_PO,
     PermissionFlag.APPROVE_PO,
     PermissionFlag.CREATE_ESTIMATES,
-    PermissionFlag.APPROVE_ESTIMATES
+    PermissionFlag.APPROVE_ESTIMATES,
+    PermissionFlag.MANAGE_MASTER_DOCUMENT_LIST,
+    PermissionFlag.ASSIGN_DOCUMENTS,
+    PermissionFlag.SUBMIT_DOCUMENTS,
+    PermissionFlag.APPROVE_DOCUMENTS,
+    PermissionFlag.VIEW_CLIENT_DOCUMENTS,
+    PermissionFlag.VIEW_INTERNAL_DOCUMENTS
   ),
 
   DIRECTOR: createPermissions(
@@ -167,7 +182,10 @@ export const RolePermissions = {
     PermissionFlag.VIEW_REPORTS,
     PermissionFlag.APPROVE_PR,
     PermissionFlag.APPROVE_PO,
-    PermissionFlag.APPROVE_ESTIMATES
+    PermissionFlag.APPROVE_ESTIMATES,
+    PermissionFlag.APPROVE_DOCUMENTS,
+    PermissionFlag.VIEW_CLIENT_DOCUMENTS,
+    PermissionFlag.VIEW_INTERNAL_DOCUMENTS
   ),
 
   PROJECT_MANAGER: createPermissions(
@@ -176,7 +194,13 @@ export const RolePermissions = {
     PermissionFlag.GENERATE_TIMESHEETS,
     PermissionFlag.CREATE_PR,
     PermissionFlag.CREATE_RFQ,
-    PermissionFlag.CREATE_ESTIMATES
+    PermissionFlag.CREATE_ESTIMATES,
+    PermissionFlag.MANAGE_MASTER_DOCUMENT_LIST,
+    PermissionFlag.ASSIGN_DOCUMENTS,
+    PermissionFlag.SUBMIT_DOCUMENTS,
+    PermissionFlag.APPROVE_DOCUMENTS,
+    PermissionFlag.VIEW_CLIENT_DOCUMENTS,
+    PermissionFlag.VIEW_INTERNAL_DOCUMENTS
   ),
 
   PROCUREMENT_MANAGER: createPermissions(
@@ -210,11 +234,15 @@ export const RolePermissions = {
   ),
 
   ENGINEER: createPermissions(
-    PermissionFlag.CREATE_ESTIMATES
+    PermissionFlag.CREATE_ESTIMATES,
+    PermissionFlag.SUBMIT_DOCUMENTS,
+    PermissionFlag.VIEW_INTERNAL_DOCUMENTS
   ),
 
   SITE_ENGINEER: createPermissions(
-    PermissionFlag.CREATE_PR
+    PermissionFlag.CREATE_PR,
+    PermissionFlag.SUBMIT_DOCUMENTS,
+    PermissionFlag.VIEW_INTERNAL_DOCUMENTS
   ),
 
   HR_ADMIN: createPermissions(
@@ -231,7 +259,9 @@ export const RolePermissions = {
     // External client PM - view-only procurement for assigned projects
     PermissionFlag.VIEW_PROCUREMENT,
     PermissionFlag.VIEW_PROJECT_STATUS,
-    PermissionFlag.VIEW_PAYMENT_STATUS
+    PermissionFlag.VIEW_PAYMENT_STATUS,
+    PermissionFlag.REVIEW_DOCUMENTS,
+    PermissionFlag.VIEW_CLIENT_DOCUMENTS
   ),
 } as const;
 
@@ -278,4 +308,11 @@ export const PermissionDescriptions: Record<PermissionFlag, string> = {
   [PermissionFlag.VIEW_PROCUREMENT]: 'View procurement',
   [PermissionFlag.VIEW_PROJECT_STATUS]: 'View project status',
   [PermissionFlag.VIEW_PAYMENT_STATUS]: 'View payment status',
+  [PermissionFlag.MANAGE_MASTER_DOCUMENT_LIST]: 'Manage master document list',
+  [PermissionFlag.ASSIGN_DOCUMENTS]: 'Assign documents',
+  [PermissionFlag.SUBMIT_DOCUMENTS]: 'Submit documents',
+  [PermissionFlag.REVIEW_DOCUMENTS]: 'Review and comment on documents',
+  [PermissionFlag.APPROVE_DOCUMENTS]: 'Approve documents and comment resolutions',
+  [PermissionFlag.VIEW_CLIENT_DOCUMENTS]: 'View client-visible documents',
+  [PermissionFlag.VIEW_INTERNAL_DOCUMENTS]: 'View internal documents',
 };
