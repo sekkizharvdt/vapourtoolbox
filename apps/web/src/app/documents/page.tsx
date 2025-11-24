@@ -86,16 +86,35 @@ export default function MasterDocumentsPage() {
   }, [documents, searchQuery, statusFilter, disciplineFilter, visibilityFilter]);
 
   const loadDocuments = async () => {
-    if (!projectId) return;
+    if (!projectId) {
+      console.log('[MasterDocumentsPage] loadDocuments called without projectId');
+      return;
+    }
 
+    console.log('[MasterDocumentsPage] Starting to load documents for project:', projectId);
     setLoading(true);
+
+    // Add timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.error('[MasterDocumentsPage] Query timeout after 10 seconds');
+      setLoading(false);
+      alert('Loading documents timed out. Please check console for errors.');
+    }, 10000);
+
     try {
+      console.log('[MasterDocumentsPage] Calling getMasterDocumentsByProject...');
       const data = await getMasterDocumentsByProject(projectId);
+      console.log('[MasterDocumentsPage] Successfully loaded documents:', data.length);
       setDocuments(data);
+      clearTimeout(timeoutId);
     } catch (error) {
       console.error('[MasterDocumentsPage] Error loading documents:', error);
+      console.error('[MasterDocumentsPage] Error details:', JSON.stringify(error, null, 2));
+      clearTimeout(timeoutId);
+      alert(`Error loading documents: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
+      console.log('[MasterDocumentsPage] Loading complete');
     }
   };
 
