@@ -808,8 +808,12 @@ service cloud.firestore {
      * Master Documents (per project)
      */
     match /projects/{projectId}/masterDocuments/{masterDocId} {
-      // Read: Internal users assigned to project OR external CLIENT_PM for CLIENT_VISIBLE docs
-      allow read: if (isInternalUser() && isAssignedToProject(projectId)) ||
+      // Read: Internal users assigned to project OR with VIEW_ALL_PROJECTS permission
+      //       OR external CLIENT_PM for CLIENT_VISIBLE docs
+      allow read: if (isInternalUser() && (
+                       isAssignedToProject(projectId) ||
+                       hasPermission(32) // VIEW_ALL_PROJECTS
+                     )) ||
                      (isExternalUser() && isAssignedToProject(projectId) &&
                       resource.data.visibility == 'CLIENT_VISIBLE' &&
                       hasPermission(536870912)); // VIEW_CLIENT_DOCUMENTS
@@ -835,8 +839,12 @@ service cloud.firestore {
      * Document Submissions (per project)
      */
     match /projects/{projectId}/documentSubmissions/{submissionId} {
-      // Read: Internal users OR external CLIENT_PM for CLIENT_VISIBLE master docs
-      allow read: if (isInternalUser() && isAssignedToProject(projectId)) ||
+      // Read: Internal users assigned OR with VIEW_ALL_PROJECTS
+      //       OR external CLIENT_PM for CLIENT_VISIBLE master docs
+      allow read: if (isInternalUser() && (
+                       isAssignedToProject(projectId) ||
+                       hasPermission(32) // VIEW_ALL_PROJECTS
+                     )) ||
                      (isExternalUser() && isAssignedToProject(projectId) &&
                       hasPermission(536870912)); // VIEW_CLIENT_DOCUMENTS
 
@@ -859,8 +867,11 @@ service cloud.firestore {
      * Document Comments (per project)
      */
     match /projects/{projectId}/documentComments/{commentId} {
-      // Read: Internal users assigned OR external CLIENT_PM
-      allow read: if (isInternalUser() && isAssignedToProject(projectId)) ||
+      // Read: Internal users assigned OR with VIEW_ALL_PROJECTS OR external CLIENT_PM
+      allow read: if (isInternalUser() && (
+                       isAssignedToProject(projectId) ||
+                       hasPermission(32) // VIEW_ALL_PROJECTS
+                     )) ||
                      (isExternalUser() && isAssignedToProject(projectId) &&
                       hasPermission(134217728)); // REVIEW_DOCUMENTS
 
@@ -886,8 +897,11 @@ service cloud.firestore {
      * Comment Resolution Tables (per project)
      */
     match /projects/{projectId}/commentResolutionTables/{crtId} {
-      // Read: Internal users OR external CLIENT_PM
-      allow read: if (isInternalUser() && isAssignedToProject(projectId)) ||
+      // Read: Internal users assigned OR with VIEW_ALL_PROJECTS OR external CLIENT_PM
+      allow read: if (isInternalUser() && (
+                       isAssignedToProject(projectId) ||
+                       hasPermission(32) // VIEW_ALL_PROJECTS
+                     )) ||
                      (isExternalUser() && isAssignedToProject(projectId) &&
                       hasPermission(536870912)); // VIEW_CLIENT_DOCUMENTS
 
@@ -909,8 +923,11 @@ service cloud.firestore {
      * Supply Items (per project)
      */
     match /projects/{projectId}/supplyItems/{supplyItemId} {
-      // Read: Internal users assigned to project
-      allow read: if isInternalUser() && isAssignedToProject(projectId);
+      // Read: Internal users assigned to project OR with VIEW_ALL_PROJECTS
+      allow read: if isInternalUser() && (
+                     isAssignedToProject(projectId) ||
+                     hasPermission(32) // VIEW_ALL_PROJECTS
+                   );
 
       // Create/Update: Internal users assigned to project
       allow create, update: if isInternalUser() &&
@@ -926,8 +943,11 @@ service cloud.firestore {
      * Work Items (per project)
      */
     match /projects/{projectId}/workItems/{workItemId} {
-      // Read: Internal users assigned to project
-      allow read: if isInternalUser() && isAssignedToProject(projectId);
+      // Read: Internal users assigned to project OR with VIEW_ALL_PROJECTS
+      allow read: if isInternalUser() && (
+                     isAssignedToProject(projectId) ||
+                     hasPermission(32) // VIEW_ALL_PROJECTS
+                   );
 
       // Create/Update: Internal users assigned to project
       allow create, update: if isInternalUser() &&
