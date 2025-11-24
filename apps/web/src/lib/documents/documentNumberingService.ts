@@ -2,8 +2,15 @@
  * Document Numbering Service
  *
  * Manages document numbering configuration and generation
- * Format: {PROJECT_CODE}-{DISCIPLINE}-{SEQUENCE}
- * Example: PRJ-001-01-005
+ * Supports hierarchical sub-code counters
+ *
+ * Formats:
+ * - Without sub-code: {PROJECT_CODE}-{DISCIPLINE}-{SEQUENCE}
+ *   Example: PRJ-001-01-005
+ *
+ * - With sub-code: {PROJECT_CODE}-{DISCIPLINE}-{SUBCODE}-{SEQUENCE}
+ *   Example: PRJ-001-01-A-001
+ *   Each sub-code has independent counter
  */
 
 import {
@@ -164,6 +171,10 @@ export async function getActiveDisciplineCodes(
 /**
  * Generate next document number for a discipline
  * Uses transaction to ensure atomic counter increment
+ *
+ * Formats:
+ * - No sub-code:  PRJ-001-01-005 (uses "01" counter)
+ * - With sub-code: PRJ-001-01-A-001 (uses "01-A" counter, independent from "01")
  */
 export async function generateDocumentNumber(
   projectId: string,
@@ -182,25 +193,34 @@ export async function generateDocumentNumber(
 
     const config = configDoc.data() as Omit<DocumentNumberingConfig, 'id'>;
 
-    // Get current counter
-    const currentCounter = config.sequenceCounters[disciplineCode] || 0;
+    // Determine counter key based on whether sub-code is provided
+    // With sub-code: "01-A", "01-B" (separate counters)
+    // Without sub-code: "01" (main discipline counter)
+    const counterKey = subCode ? `${disciplineCode}-${subCode}` : disciplineCode;
+
+    // Get current counter for this key
+    const currentCounter = config.sequenceCounters[counterKey] || 0;
     const nextCounter = currentCounter + 1;
 
     // Generate sequence with leading zeros
     const sequence = nextCounter.toString().padStart(config.sequenceDigits, '0');
 
     // Build document number
-    let number = `${projectCode}${config.separator}${disciplineCode}${config.separator}${sequence}`;
+    // Format: PROJECT-DISCIPLINE-[SUBCODE-]SEQUENCE
+    let number = `${projectCode}${config.separator}${disciplineCode}`;
 
-    // Add sub-code if provided (for "00" discipline)
     if (subCode) {
-      number += `${config.separator}${subCode}`;
+      // With sub-code: PRJ-001-01-A-001
+      number += `${config.separator}${subCode}${config.separator}${sequence}`;
+    } else {
+      // Without sub-code: PRJ-001-01-005
+      number += `${config.separator}${sequence}`;
     }
 
-    // Update counter
+    // Update counter for this specific key
     const updatedCounters = {
       ...config.sequenceCounters,
-      [disciplineCode]: nextCounter,
+      [counterKey]: nextCounter,
     };
 
     transaction.update(docRef, {
@@ -216,6 +236,9 @@ export async function generateDocumentNumber(
 
 /**
  * Validate document number format
+ * Supports both formats:
+ * - Without sub-code: PRJ-001-01-005
+ * - With sub-code: PRJ-001-01-A-001
  */
 export function validateDocumentNumber(
   documentNumber: string,
@@ -228,12 +251,17 @@ export function validateDocumentNumber(
 ): boolean {
   const { projectCode, separator, disciplineCode, sequenceDigits } = expectedFormat;
 
-  // Basic pattern: PRJ-001-01-005 or PRJ-001-00-003-A
+  // Escape separator for regex
+  const escapedSep = separator.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const escapedProject = projectCode.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+  // Pattern for:
+  // Without sub-code: PRJ-001-01-005
+  // With sub-code: PRJ-001-01-A-001
   const pattern = new RegExp(
-    `^${projectCode.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}` +
-      `${separator}${disciplineCode}` +
-      `${separator}\\d{${sequenceDigits}}` +
-      `(?:${separator}[A-Za-z0-9]+)?$`
+    `^${escapedProject}${escapedSep}${disciplineCode}` +
+      `(?:${escapedSep}[A-Za-z0-9]+)?` + // Optional sub-code
+      `${escapedSep}\\d{${sequenceDigits}}$`
   );
 
   return pattern.test(documentNumber);
@@ -241,6 +269,9 @@ export function validateDocumentNumber(
 
 /**
  * Parse document number into components
+ * Handles both formats:
+ * - Without sub-code: PRJ-001-01-005 → { projectCode: "PRJ-001", disciplineCode: "01", sequence: "005" }
+ * - With sub-code: PRJ-001-01-A-001 → { projectCode: "PRJ-001", disciplineCode: "01", subCode: "A", sequence: "001" }
  */
 export function parseDocumentNumber(
   documentNumber: string,
@@ -257,21 +288,40 @@ export function parseDocumentNumber(
     return null;
   }
 
-  return {
-    projectCode: parts[0],
-    disciplineCode: parts[1],
-    sequence: parts[2],
-    subCode: parts.length > 3 ? parts[3] : undefined,
-  };
+  // Check if it has sub-code (4 parts) or not (3 parts)
+  if (parts.length === 3) {
+    // Format: PROJECT-DISCIPLINE-SEQUENCE
+    return {
+      projectCode: parts[0],
+      disciplineCode: parts[1],
+      sequence: parts[2],
+    };
+  } else if (parts.length === 4) {
+    // Format: PROJECT-DISCIPLINE-SUBCODE-SEQUENCE
+    return {
+      projectCode: parts[0],
+      disciplineCode: parts[1],
+      subCode: parts[2],
+      sequence: parts[3],
+    };
+  } else {
+    // Invalid format
+    return null;
+  }
 }
 
 /**
  * Get next sequence number without committing
  * (for preview purposes)
+ *
+ * @param projectId Project ID
+ * @param disciplineCode Discipline code (e.g., "01")
+ * @param subCode Optional sub-code (e.g., "A") for hierarchical counter
  */
 export async function getNextSequenceNumber(
   projectId: string,
-  disciplineCode: string
+  disciplineCode: string,
+  subCode?: string
 ): Promise<number> {
   const config = await getNumberingConfig(projectId);
 
@@ -279,8 +329,75 @@ export async function getNextSequenceNumber(
     throw new Error('Numbering config not initialized');
   }
 
-  const currentCounter = config.sequenceCounters[disciplineCode] || 0;
+  // Use hierarchical key if sub-code provided
+  const counterKey = subCode ? `${disciplineCode}-${subCode}` : disciplineCode;
+  const currentCounter = config.sequenceCounters[counterKey] || 0;
   return currentCounter + 1;
+}
+
+/**
+ * Initialize counter for a sub-code
+ * Call this when adding a new sub-code to a discipline
+ */
+export async function initializeSubCodeCounter(
+  projectId: string,
+  disciplineCode: string,
+  subCode: string
+): Promise<void> {
+  const config = await getNumberingConfig(projectId);
+
+  if (!config) {
+    throw new Error('Numbering config not initialized');
+  }
+
+  const counterKey = `${disciplineCode}-${subCode}`;
+
+  // Only initialize if counter doesn't exist
+  if (config.sequenceCounters[counterKey] !== undefined) {
+    return; // Counter already exists
+  }
+
+  const updatedCounters = {
+    ...config.sequenceCounters,
+    [counterKey]: 0,
+  };
+
+  const docRef = doc(db, 'projects', projectId, 'documentNumberingConfig', 'config');
+  await updateDoc(docRef, {
+    sequenceCounters: updatedCounters,
+    updatedAt: Timestamp.now(),
+  });
+}
+
+/**
+ * Batch initialize counters for multiple sub-codes
+ */
+export async function initializeSubCodeCounters(
+  projectId: string,
+  disciplineCode: string,
+  subCodes: string[]
+): Promise<void> {
+  const config = await getNumberingConfig(projectId);
+
+  if (!config) {
+    throw new Error('Numbering config not initialized');
+  }
+
+  const updatedCounters = { ...config.sequenceCounters };
+
+  // Initialize each sub-code counter if it doesn't exist
+  for (const subCode of subCodes) {
+    const counterKey = `${disciplineCode}-${subCode}`;
+    if (updatedCounters[counterKey] === undefined) {
+      updatedCounters[counterKey] = 0;
+    }
+  }
+
+  const docRef = doc(db, 'projects', projectId, 'documentNumberingConfig', 'config');
+  await updateDoc(docRef, {
+    sequenceCounters: updatedCounters,
+    updatedAt: Timestamp.now(),
+  });
 }
 
 // ============================================================================
