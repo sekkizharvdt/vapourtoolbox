@@ -82,6 +82,7 @@ export async function getMasterDocumentById(
  * Get all master documents for a project
  */
 export async function getMasterDocumentsByProject(
+  db: any,
   projectId: string,
   filters?: {
     status?: MasterDocumentStatus;
@@ -95,9 +96,7 @@ export async function getMasterDocumentsByProject(
   console.log('[getMasterDocumentsByProject] Filters:', filters);
 
   try {
-    console.log('[getMasterDocumentsByProject] Getting database instance...');
-    const db = getDb();
-    console.log('[getMasterDocumentsByProject] Database instance obtained');
+    console.log('[getMasterDocumentsByProject] Database instance received');
 
     const constraints: QueryConstraint[] = [];
 
@@ -473,14 +472,17 @@ export async function removeInputFile(
 /**
  * Get document statistics for a project
  */
-export async function getDocumentStatistics(projectId: string): Promise<{
+export async function getDocumentStatistics(
+  db: any,
+  projectId: string
+): Promise<{
   total: number;
   byStatus: Record<MasterDocumentStatus, number>;
   byDiscipline: Record<string, number>;
   overdue: number;
   completionRate: number;
 }> {
-  const documents = await getMasterDocumentsByProject(projectId);
+  const documents = await getMasterDocumentsByProject(db, projectId);
 
   const byStatus: Record<string, number> = {};
   const byDiscipline: Record<string, number> = {};

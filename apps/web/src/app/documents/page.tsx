@@ -46,9 +46,12 @@ import type { MasterDocumentEntry } from '@vapour/types';
 import { getMasterDocumentsByProject } from '@/lib/documents/masterDocumentService';
 import CreateDocumentDialog from './components/CreateDocumentDialog';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
+import { getFirebase } from '@/lib/firebase';
 
 export default function MasterDocumentsPage() {
   const router = useRouter();
+  const { db } = getFirebase();
+
   const [loading, setLoading] = useState(true);
   const [documents, setDocuments] = useState<MasterDocumentEntry[]>([]);
   const [filteredDocuments, setFilteredDocuments] = useState<MasterDocumentEntry[]>([]);
@@ -86,6 +89,12 @@ export default function MasterDocumentsPage() {
   }, [documents, searchQuery, statusFilter, disciplineFilter, visibilityFilter]);
 
   const loadDocuments = async () => {
+    if (!db) {
+      console.error('[MasterDocumentsPage] Firebase db not initialized');
+      setLoading(false);
+      return;
+    }
+
     if (!projectId) {
       console.log('[MasterDocumentsPage] loadDocuments called without projectId');
       return;
@@ -103,7 +112,7 @@ export default function MasterDocumentsPage() {
 
     try {
       console.log('[MasterDocumentsPage] Calling getMasterDocumentsByProject...');
-      const data = await getMasterDocumentsByProject(projectId);
+      const data = await getMasterDocumentsByProject(db, projectId);
       console.log('[MasterDocumentsPage] Successfully loaded documents:', data.length);
       setDocuments(data);
       clearTimeout(timeoutId);
