@@ -87,7 +87,7 @@ export default function SubmissionsTable({
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <Typography variant="body2" color="text.secondary">
-          No submissions yet. Click "New Submission" to submit the first revision.
+          No submissions yet. Click &quot;New Submission&quot; to submit the first revision.
         </Typography>
       </Paper>
     );
