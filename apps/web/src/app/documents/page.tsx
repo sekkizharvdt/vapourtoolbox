@@ -18,39 +18,32 @@ import {
   Button,
   TextField,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
-  IconButton,
-  MenuItem,
-  Select,
+  CircularProgress,
+  Collapse,
   FormControl,
   InputLabel,
-  CircularProgress,
-  TablePagination,
-  Tooltip,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Visibility as VisibilityIcon,
   FilterList as FilterListIcon,
-  Send as SendIcon,
-  Link as LinkIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
 import type { MasterDocumentEntry } from '@vapour/types';
 import { getMasterDocumentsByProject } from '@/lib/documents/masterDocumentService';
 import CreateDocumentDialog from './components/CreateDocumentDialog';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
+import { DocumentMetrics } from './components/DocumentMetrics';
+import { QuickFilters } from './components/QuickFilters';
+import { GroupedDocumentsTable } from './components/GroupedDocumentsTable';
 import { getFirebase } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function MasterDocumentsPage() {
-  const router = useRouter();
   const { db } = getFirebase();
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [documents, setDocuments] = useState<MasterDocumentEntry[]>([]);
@@ -61,13 +54,11 @@ export default function MasterDocumentsPage() {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
+  const [quickFilter, setQuickFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [disciplineFilter, setDisciplineFilter] = useState<string>('ALL');
   const [visibilityFilter, setVisibilityFilter] = useState<string>('ALL');
-
-  // Pagination
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(50);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -86,7 +77,7 @@ export default function MasterDocumentsPage() {
   useEffect(() => {
     applyFilters();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [documents, searchQuery, statusFilter, disciplineFilter, visibilityFilter]);
+  }, [documents, searchQuery, quickFilter, statusFilter, disciplineFilter, visibilityFilter]);
 
   const loadDocuments = async () => {
     if (!db) {
@@ -130,6 +121,36 @@ export default function MasterDocumentsPage() {
   const applyFilters = () => {
     let filtered = [...documents];
 
+    // Quick filters
+    if (quickFilter) {
+      switch (quickFilter) {
+        case 'my-docs':
+          if (user?.uid) {
+            filtered = filtered.filter((doc) => doc.assignedTo.includes(user.uid));
+          }
+          break;
+        case 'overdue':
+          filtered = filtered.filter((doc) => {
+            if (!doc.dueDate || doc.status === 'ACCEPTED') return false;
+            const dueDate = new Date(doc.dueDate.seconds * 1000);
+            return dueDate < new Date();
+          });
+          break;
+        case 'pending-review':
+          filtered = filtered.filter(
+            (doc) =>
+              doc.status === 'SUBMITTED' ||
+              doc.status === 'CLIENT_REVIEW' ||
+              doc.status === 'COMMENTED' ||
+              doc.status === 'INTERNAL_REVIEW'
+          );
+          break;
+        case 'client-visible':
+          filtered = filtered.filter((doc) => doc.visibility === 'CLIENT_VISIBLE');
+          break;
+      }
+    }
+
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -157,22 +178,6 @@ export default function MasterDocumentsPage() {
     }
 
     setFilteredDocuments(filtered);
-    setPage(0);
-  };
-
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, 'default' | 'info' | 'warning' | 'success' | 'error'> = {
-      DRAFT: 'default',
-      NOT_STARTED: 'info',
-      IN_PROGRESS: 'warning',
-      SUBMITTED: 'info',
-      UNDER_CLIENT_REVIEW: 'warning',
-      COMMENTS_RECEIVED: 'warning',
-      COMMENTS_RESOLVED: 'info',
-      ACCEPTED: 'success',
-      REJECTED: 'error',
-    };
-    return colors[status] || 'default';
   };
 
   const getUniqueDisciplines = () => {
@@ -180,24 +185,10 @@ export default function MasterDocumentsPage() {
     return Array.from(disciplines).sort();
   };
 
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
   const handleDocumentCreated = () => {
     loadDocuments();
     setCreateDialogOpen(false);
   };
-
-  const paginatedDocuments = filteredDocuments.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
 
   return (
     <Box sx={{ p: 3 }}>
@@ -235,217 +226,130 @@ export default function MasterDocumentsPage() {
           </Paper>
         ) : (
           <>
-            {/* Filters */}
+            {/* Document Metrics */}
+            <DocumentMetrics
+              documents={documents}
+              onMetricClick={(filter) => {
+                if (filter === 'overdue') setQuickFilter('overdue');
+                else if (filter === 'review') setQuickFilter('pending-review');
+                else if (filter === 'completed') setStatusFilter('ACCEPTED');
+              }}
+            />
+
+            {/* Quick Filters */}
+            <QuickFilters
+              activeFilter={quickFilter}
+              onFilterChange={setQuickFilter}
+              currentUserId={user?.uid}
+            />
+
+            {/* Search and Advanced Filters */}
             <Paper sx={{ p: 2 }}>
               <Stack spacing={2}>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <FilterListIcon />
-                  <Typography variant="h6">Filters</Typography>
-                </Stack>
-
-                <Stack direction="row" spacing={2} flexWrap="wrap">
+                <Stack direction="row" spacing={2} alignItems="center">
                   <TextField
-                    label="Search"
+                    label="Search documents"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Document number, title, description..."
-                    sx={{ minWidth: 300 }}
+                    fullWidth
+                    size="small"
                   />
-
-                  <FormControl sx={{ minWidth: 150 }}>
-                    <InputLabel>Status</InputLabel>
-                    <Select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      label="Status"
-                    >
-                      <MenuItem value="ALL">All Statuses</MenuItem>
-                      <MenuItem value="DRAFT">Draft</MenuItem>
-                      <MenuItem value="NOT_STARTED">Not Started</MenuItem>
-                      <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                      <MenuItem value="SUBMITTED">Submitted</MenuItem>
-                      <MenuItem value="UNDER_CLIENT_REVIEW">Under Client Review</MenuItem>
-                      <MenuItem value="COMMENTS_RECEIVED">Comments Received</MenuItem>
-                      <MenuItem value="COMMENTS_RESOLVED">Comments Resolved</MenuItem>
-                      <MenuItem value="ACCEPTED">Accepted</MenuItem>
-                      <MenuItem value="REJECTED">Rejected</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl sx={{ minWidth: 150 }}>
-                    <InputLabel>Discipline</InputLabel>
-                    <Select
-                      value={disciplineFilter}
-                      onChange={(e) => setDisciplineFilter(e.target.value)}
-                      label="Discipline"
-                    >
-                      <MenuItem value="ALL">All Disciplines</MenuItem>
-                      {getUniqueDisciplines().map((disc) => (
-                        <MenuItem key={disc} value={disc}>
-                          {disc}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <FormControl sx={{ minWidth: 150 }}>
-                    <InputLabel>Visibility</InputLabel>
-                    <Select
-                      value={visibilityFilter}
-                      onChange={(e) => setVisibilityFilter(e.target.value)}
-                      label="Visibility"
-                    >
-                      <MenuItem value="ALL">All</MenuItem>
-                      <MenuItem value="CLIENT_VISIBLE">Client Visible</MenuItem>
-                      <MenuItem value="INTERNAL_ONLY">Internal Only</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Button
+                    variant="outlined"
+                    startIcon={<FilterListIcon />}
+                    endIcon={showAdvancedFilters ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  >
+                    Filters
+                  </Button>
                 </Stack>
+
+                {/* Advanced Filters (Collapsible) */}
+                <Collapse in={showAdvancedFilters}>
+                  <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ pt: 1 }}>
+                    <FormControl sx={{ minWidth: 150 }} size="small">
+                      <InputLabel>Status</InputLabel>
+                      <Select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        label="Status"
+                      >
+                        <MenuItem value="ALL">All Statuses</MenuItem>
+                        <MenuItem value="DRAFT">Draft</MenuItem>
+                        <MenuItem value="NOT_STARTED">Not Started</MenuItem>
+                        <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+                        <MenuItem value="SUBMITTED">Submitted</MenuItem>
+                        <MenuItem value="UNDER_CLIENT_REVIEW">Under Client Review</MenuItem>
+                        <MenuItem value="COMMENTS_RECEIVED">Comments Received</MenuItem>
+                        <MenuItem value="COMMENTS_RESOLVED">Comments Resolved</MenuItem>
+                        <MenuItem value="ACCEPTED">Accepted</MenuItem>
+                        <MenuItem value="REJECTED">Rejected</MenuItem>
+                      </Select>
+                    </FormControl>
+
+                    <FormControl sx={{ minWidth: 150 }} size="small">
+                      <InputLabel>Discipline</InputLabel>
+                      <Select
+                        value={disciplineFilter}
+                        onChange={(e) => setDisciplineFilter(e.target.value)}
+                        label="Discipline"
+                      >
+                        <MenuItem value="ALL">All Disciplines</MenuItem>
+                        {getUniqueDisciplines().map((disc) => (
+                          <MenuItem key={disc} value={disc}>
+                            {disc}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <FormControl sx={{ minWidth: 150 }} size="small">
+                      <InputLabel>Visibility</InputLabel>
+                      <Select
+                        value={visibilityFilter}
+                        onChange={(e) => setVisibilityFilter(e.target.value)}
+                        label="Visibility"
+                      >
+                        <MenuItem value="ALL">All</MenuItem>
+                        <MenuItem value="CLIENT_VISIBLE">Client Visible</MenuItem>
+                        <MenuItem value="INTERNAL_ONLY">Internal Only</MenuItem>
+                      </Select>
+                    </FormControl>
+
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setQuickFilter(null);
+                        setStatusFilter('ALL');
+                        setDisciplineFilter('ALL');
+                        setVisibilityFilter('ALL');
+                      }}
+                    >
+                      Clear All
+                    </Button>
+                  </Stack>
+                </Collapse>
               </Stack>
             </Paper>
 
             {/* Documents Table */}
-            <Paper>
-              {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                  <CircularProgress />
-                </Box>
-              ) : (
-                <>
-                  <TableContainer>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Document Number</TableCell>
-                          <TableCell>Title</TableCell>
-                          <TableCell>Discipline</TableCell>
-                          <TableCell>Status</TableCell>
-                          <TableCell>Visibility</TableCell>
-                          <TableCell>Assigned To</TableCell>
-                          <TableCell>Due Date</TableCell>
-                          <TableCell>Submissions</TableCell>
-                          <TableCell align="right">Actions</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {paginatedDocuments.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={9} align="center">
-                              <Typography variant="body2" color="text.secondary">
-                                No documents found
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          paginatedDocuments.map((doc) => (
-                            <TableRow key={doc.id} hover>
-                              <TableCell>
-                                <Typography variant="body2" fontWeight="medium">
-                                  {doc.documentNumber}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2">{doc.documentTitle}</Typography>
-                                {doc.description && (
-                                  <Typography variant="caption" color="text.secondary">
-                                    {doc.description}
-                                  </Typography>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <Chip label={doc.disciplineCode} size="small" />
-                                {doc.subCode && (
-                                  <Chip
-                                    label={doc.subCode}
-                                    size="small"
-                                    variant="outlined"
-                                    sx={{ ml: 0.5 }}
-                                  />
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <Chip
-                                  label={doc.status}
-                                  color={getStatusColor(doc.status)}
-                                  size="small"
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Chip
-                                  label={
-                                    doc.visibility === 'CLIENT_VISIBLE' ? 'Client' : 'Internal'
-                                  }
-                                  size="small"
-                                  variant="outlined"
-                                  color={
-                                    doc.visibility === 'CLIENT_VISIBLE' ? 'primary' : 'default'
-                                  }
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2">
-                                  {doc.assignedTo.length > 0 ? doc.assignedTo.join(', ') : '-'}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2">
-                                  {doc.dueDate
-                                    ? new Date(doc.dueDate.seconds * 1000)
-                                        .toISOString()
-                                        .split('T')[0]
-                                    : '-'}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2">{doc.submissionCount}</Typography>
-                              </TableCell>
-                              <TableCell align="right">
-                                <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                                  <Tooltip title="View Details">
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => router.push(`/documents/${doc.id}`)}
-                                    >
-                                      <VisibilityIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title="Submit to Client">
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => router.push(`/documents/${doc.id}?tab=submit`)}
-                                    >
-                                      <SendIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title="Manage Links">
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => router.push(`/documents/${doc.id}?tab=links`)}
-                                    >
-                                      <LinkIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                </Stack>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-
-                  <TablePagination
-                    component="div"
-                    count={filteredDocuments.length}
-                    page={page}
-                    onPageChange={handleChangePage}
-                    rowsPerPage={rowsPerPage}
-                    onRowsPerPageChange={handleChangeRowsPerPage}
-                    rowsPerPageOptions={[10, 25, 50, 100]}
-                  />
-                </>
-              )}
-            </Paper>
+            {loading ? (
+              <Paper sx={{ p: 4, textAlign: 'center' }}>
+                <CircularProgress />
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  Loading documents...
+                </Typography>
+              </Paper>
+            ) : (
+              <>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Showing {filteredDocuments.length} of {documents.length} documents
+                </Typography>
+                <GroupedDocumentsTable documents={filteredDocuments} />
+              </>
+            )}
           </>
         )}
       </Stack>
