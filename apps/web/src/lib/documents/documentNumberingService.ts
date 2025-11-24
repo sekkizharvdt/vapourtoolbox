@@ -13,17 +13,12 @@
  *   Each sub-code has independent counter
  */
 
-import {
-  collection,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  Timestamp,
-  runTransaction,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
+import { doc, getDoc, setDoc, updateDoc, Timestamp, runTransaction } from 'firebase/firestore';
+import { getFirebase } from '@/lib/firebase';
 import type { DocumentNumberingConfig, DisciplineCode } from '@vapour/types';
+
+// Helper to get database instance
+const getDb = () => getFirebase().db;
 
 // ============================================================================
 // NUMBERING CONFIGURATION
@@ -34,7 +29,7 @@ import type { DocumentNumberingConfig, DisciplineCode } from '@vapour/types';
  */
 export async function initializeProjectNumbering(
   projectId: string,
-  projectCode: string,
+  _projectCode: string,
   createdBy: string
 ): Promise<void> {
   const config: Omit<DocumentNumberingConfig, 'id'> = {
@@ -48,7 +43,7 @@ export async function initializeProjectNumbering(
     updatedAt: Timestamp.now(),
   };
 
-  const docRef = doc(db, 'projects', projectId, 'documentNumberingConfig', 'config');
+  const docRef = doc(getDb(), 'projects', projectId, 'documentNumberingConfig', 'config');
   await setDoc(docRef, config);
 }
 
@@ -58,17 +53,20 @@ export async function initializeProjectNumbering(
 export async function getNumberingConfig(
   projectId: string
 ): Promise<DocumentNumberingConfig | null> {
-  const docRef = doc(db, 'projects', projectId, 'documentNumberingConfig', 'config');
+  const docRef = doc(getDb(), 'projects', projectId, 'documentNumberingConfig', 'config');
   const docSnap = await getDoc(docRef);
 
   if (!docSnap.exists()) {
     return null;
   }
 
-  return {
+  const docData = docSnap.data() as Omit<DocumentNumberingConfig, 'id'>;
+  const data: DocumentNumberingConfig = {
     id: docSnap.id,
-    ...docSnap.data(),
-  } as DocumentNumberingConfig;
+    ...docData,
+  };
+
+  return data;
 }
 
 // ============================================================================
@@ -106,7 +104,7 @@ export async function addDisciplineCode(
     [discipline.code]: 0,
   };
 
-  const docRef = doc(db, 'projects', projectId, 'documentNumberingConfig', 'config');
+  const docRef = doc(getDb(), 'projects', projectId, 'documentNumberingConfig', 'config');
   await updateDoc(docRef, {
     disciplines: updatedDisciplines,
     sequenceCounters: updatedCounters,
@@ -132,7 +130,7 @@ export async function updateDisciplineCode(
     d.code === code ? { ...d, ...updates } : d
   );
 
-  const docRef = doc(db, 'projects', projectId, 'documentNumberingConfig', 'config');
+  const docRef = doc(getDb(), 'projects', projectId, 'documentNumberingConfig', 'config');
   await updateDoc(docRef, {
     disciplines: updatedDisciplines,
     updatedAt: Timestamp.now(),
@@ -142,19 +140,14 @@ export async function updateDisciplineCode(
 /**
  * Delete/deactivate a discipline code
  */
-export async function deactivateDisciplineCode(
-  projectId: string,
-  code: string
-): Promise<void> {
+export async function deactivateDisciplineCode(projectId: string, code: string): Promise<void> {
   await updateDisciplineCode(projectId, code, { isActive: false });
 }
 
 /**
  * Get all active discipline codes for a project
  */
-export async function getActiveDisciplineCodes(
-  projectId: string
-): Promise<DisciplineCode[]> {
+export async function getActiveDisciplineCodes(projectId: string): Promise<DisciplineCode[]> {
   const config = await getNumberingConfig(projectId);
 
   if (!config) {
@@ -182,9 +175,9 @@ export async function generateDocumentNumber(
   disciplineCode: string,
   subCode?: string
 ): Promise<string> {
-  const docRef = doc(db, 'projects', projectId, 'documentNumberingConfig', 'config');
+  const docRef = doc(getDb(), 'projects', projectId, 'documentNumberingConfig', 'config');
 
-  const documentNumber = await runTransaction(db, async (transaction) => {
+  const documentNumber = await runTransaction(getDb(), async (transaction) => {
     const configDoc = await transaction.get(docRef);
 
     if (!configDoc.exists()) {
@@ -252,8 +245,8 @@ export function validateDocumentNumber(
   const { projectCode, separator, disciplineCode, sequenceDigits } = expectedFormat;
 
   // Escape separator for regex
-  const escapedSep = separator.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-  const escapedProject = projectCode.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const escapedSep = separator.replace(/[-\\^$*+?.()|[\]{}]/g, '\\$&');
+  const escapedProject = projectCode.replace(/[-\\^$*+?.()|[\]{}]/g, '\\$&');
 
   // Pattern for:
   // Without sub-code: PRJ-001-01-005
@@ -292,17 +285,17 @@ export function parseDocumentNumber(
   if (parts.length === 3) {
     // Format: PROJECT-DISCIPLINE-SEQUENCE
     return {
-      projectCode: parts[0],
-      disciplineCode: parts[1],
-      sequence: parts[2],
+      projectCode: parts[0]!,
+      disciplineCode: parts[1]!,
+      sequence: parts[2]!,
     };
   } else if (parts.length === 4) {
     // Format: PROJECT-DISCIPLINE-SUBCODE-SEQUENCE
     return {
-      projectCode: parts[0],
-      disciplineCode: parts[1],
-      subCode: parts[2],
-      sequence: parts[3],
+      projectCode: parts[0]!,
+      disciplineCode: parts[1]!,
+      subCode: parts[2]!,
+      sequence: parts[3]!,
     };
   } else {
     // Invalid format
@@ -362,7 +355,7 @@ export async function initializeSubCodeCounter(
     [counterKey]: 0,
   };
 
-  const docRef = doc(db, 'projects', projectId, 'documentNumberingConfig', 'config');
+  const docRef = doc(getDb(), 'projects', projectId, 'documentNumberingConfig', 'config');
   await updateDoc(docRef, {
     sequenceCounters: updatedCounters,
     updatedAt: Timestamp.now(),
@@ -393,7 +386,7 @@ export async function initializeSubCodeCounters(
     }
   }
 
-  const docRef = doc(db, 'projects', projectId, 'documentNumberingConfig', 'config');
+  const docRef = doc(getDb(), 'projects', projectId, 'documentNumberingConfig', 'config');
   await updateDoc(docRef, {
     sequenceCounters: updatedCounters,
     updatedAt: Timestamp.now(),
@@ -506,9 +499,7 @@ export async function initializeWithStandardDisciplines(
   await initializeProjectNumbering(projectId, projectCode, createdBy);
 
   // Add selected discipline codes
-  const disciplinesToAdd = STANDARD_DISCIPLINE_CODES.filter((d) =>
-    selectedCodes.includes(d.code)
-  );
+  const disciplinesToAdd = STANDARD_DISCIPLINE_CODES.filter((d) => selectedCodes.includes(d.code));
 
   for (const discipline of disciplinesToAdd) {
     await addDisciplineCode(projectId, {

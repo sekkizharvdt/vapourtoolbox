@@ -18,12 +18,11 @@ import {
   Timestamp,
   type QueryConstraint,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
-import type {
-  DocumentTemplate,
-  TemplateCategory,
-  TemplateApplicability,
-} from '@vapour/types';
+import { getFirebase } from '@/lib/firebase';
+import type { DocumentTemplate, TemplateCategory, TemplateApplicability } from '@vapour/types';
+
+// Helper to get database instance
+const getDb = () => getFirebase().db;
 
 /**
  * Create a new document template
@@ -43,7 +42,7 @@ export async function createDocumentTemplate(
     updatedAt: now,
   };
 
-  const docRef = await addDoc(collection(db, 'documentTemplates'), templateData);
+  const docRef = await addDoc(collection(getDb(), 'documentTemplates'), templateData);
 
   return docRef.id;
 }
@@ -51,20 +50,21 @@ export async function createDocumentTemplate(
 /**
  * Get template by ID
  */
-export async function getTemplateById(
-  templateId: string
-): Promise<DocumentTemplate | null> {
-  const docRef = doc(db, 'documentTemplates', templateId);
+export async function getTemplateById(templateId: string): Promise<DocumentTemplate | null> {
+  const docRef = doc(getDb(), 'documentTemplates', templateId);
   const docSnap = await getDoc(docRef);
 
   if (!docSnap.exists()) {
     return null;
   }
 
-  return {
+  const docData = docSnap.data() as Omit<DocumentTemplate, 'id'>;
+  const data: DocumentTemplate = {
     id: docSnap.id,
-    ...docSnap.data(),
-  } as DocumentTemplate;
+    ...docData,
+  };
+
+  return data;
 }
 
 /**
@@ -103,7 +103,7 @@ export async function getTemplates(filters?: {
   constraints.push(where('isDeleted', '==', false));
   constraints.push(orderBy('templateName', 'asc'));
 
-  const q = query(collection(db, 'documentTemplates'), ...constraints);
+  const q = query(collection(getDb(), 'documentTemplates'), ...constraints);
 
   const querySnapshot = await getDocs(q);
 
@@ -125,9 +125,7 @@ export async function getTemplates(filters?: {
 /**
  * Get templates for a project
  */
-export async function getTemplatesForProject(
-  projectId: string
-): Promise<DocumentTemplate[]> {
+export async function getTemplatesForProject(projectId: string): Promise<DocumentTemplate[]> {
   // Get company-wide and project-specific templates
   const companyWide = await getTemplates({
     applicability: 'COMPANY_WIDE',
@@ -168,7 +166,7 @@ export async function updateTemplate(
   templateId: string,
   updates: Partial<Omit<DocumentTemplate, 'id' | 'createdAt'>>
 ): Promise<void> {
-  const docRef = doc(db, 'documentTemplates', templateId);
+  const docRef = doc(getDb(), 'documentTemplates', templateId);
 
   await updateDoc(docRef, {
     ...updates,
@@ -217,10 +215,7 @@ export async function activateTemplate(templateId: string): Promise<void> {
 /**
  * Soft delete template
  */
-export async function deleteTemplate(
-  templateId: string,
-  deletedBy: string
-): Promise<void> {
+export async function deleteTemplate(templateId: string, deletedBy: string): Promise<void> {
   await updateTemplate(templateId, {
     isDeleted: true,
     deletedBy,
@@ -300,14 +295,11 @@ export async function getTemplateStatistics(): Promise<{
 
   templates.forEach((template) => {
     byCategory[template.category] = (byCategory[template.category] || 0) + 1;
-    byApplicability[template.applicability] =
-      (byApplicability[template.applicability] || 0) + 1;
+    byApplicability[template.applicability] = (byApplicability[template.applicability] || 0) + 1;
     totalDownloads += template.downloadCount;
   });
 
-  const mostDownloaded = templates
-    .sort((a, b) => b.downloadCount - a.downloadCount)
-    .slice(0, 10);
+  const mostDownloaded = templates.sort((a, b) => b.downloadCount - a.downloadCount).slice(0, 10);
 
   return {
     total: templates.length,

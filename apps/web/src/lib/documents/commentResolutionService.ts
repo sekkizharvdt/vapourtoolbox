@@ -17,15 +17,12 @@ import {
   orderBy,
   Timestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
-import type {
-  DocumentComment,
-  CommentStatus,
-  CommentSeverity,
-  CommentCategory,
-  CommentResolutionTable,
-} from '@vapour/types';
+import { getFirebase } from '@/lib/firebase';
+import type { DocumentComment, CommentStatus, CommentResolutionTable } from '@vapour/types';
 import { updateCommentCounts } from './documentSubmissionService';
+
+// Helper to get database instance
+const getDb = () => getFirebase().db;
 
 /**
  * Add a comment to a submission
@@ -51,7 +48,7 @@ export async function addComment(
   };
 
   const docRef = await addDoc(
-    collection(db, 'projects', data.projectId, 'documentComments'),
+    collection(getDb(), 'projects', data.projectId, 'documentComments'),
     commentData
   );
 
@@ -73,7 +70,7 @@ export async function updateCommentResolution(
     resolvedByName: string;
   }
 ): Promise<void> {
-  const docRef = doc(db, 'projects', projectId, 'documentComments', commentId);
+  const docRef = doc(getDb(), 'projects', projectId, 'documentComments', commentId);
 
   await updateDoc(docRef, {
     ...resolutionData,
@@ -101,7 +98,7 @@ export async function approveCommentResolution(
     pmRemarks?: string;
   }
 ): Promise<void> {
-  const docRef = doc(db, 'projects', projectId, 'documentComments', commentId);
+  const docRef = doc(getDb(), 'projects', projectId, 'documentComments', commentId);
 
   await updateDoc(docRef, {
     ...approvalData,
@@ -120,11 +117,8 @@ export async function approveCommentResolution(
 /**
  * Mark comment as under review
  */
-export async function markCommentUnderReview(
-  projectId: string,
-  commentId: string
-): Promise<void> {
-  const docRef = doc(db, 'projects', projectId, 'documentComments', commentId);
+export async function markCommentUnderReview(projectId: string, commentId: string): Promise<void> {
+  const docRef = doc(getDb(), 'projects', projectId, 'documentComments', commentId);
 
   await updateDoc(docRef, {
     status: 'UNDER_REVIEW' as CommentStatus,
@@ -139,17 +133,20 @@ export async function getCommentById(
   projectId: string,
   commentId: string
 ): Promise<DocumentComment | null> {
-  const docRef = doc(db, 'projects', projectId, 'documentComments', commentId);
+  const docRef = doc(getDb(), 'projects', projectId, 'documentComments', commentId);
   const docSnap = await getDoc(docRef);
 
   if (!docSnap.exists()) {
     return null;
   }
 
-  return {
+  const docData = docSnap.data() as Omit<DocumentComment, 'id'>;
+  const data: DocumentComment = {
     id: docSnap.id,
-    ...docSnap.data(),
-  } as DocumentComment;
+    ...docData,
+  };
+
+  return data;
 }
 
 /**
@@ -160,7 +157,7 @@ export async function getCommentsBySubmission(
   submissionId: string
 ): Promise<DocumentComment[]> {
   const q = query(
-    collection(db, 'projects', projectId, 'documentComments'),
+    collection(getDb(), 'projects', projectId, 'documentComments'),
     where('submissionId', '==', submissionId),
     orderBy('commentNumber', 'asc')
   );
@@ -176,10 +173,7 @@ export async function getCommentsBySubmission(
 /**
  * Recalculate comment counts for a submission
  */
-async function recalculateCommentCounts(
-  projectId: string,
-  submissionId: string
-): Promise<void> {
+async function recalculateCommentCounts(projectId: string, submissionId: string): Promise<void> {
   const comments = await getCommentsBySubmission(projectId, submissionId);
 
   const counts = {
@@ -237,20 +231,17 @@ export async function generateCommentResolutionTable(
   };
 
   const docRef = await addDoc(
-    collection(db, 'projects', projectId, 'commentResolutionTables'),
+    collection(getDb(), 'projects', projectId, 'commentResolutionTables'),
     crtData
   );
 
   // Update submission with CRT info
-  await updateDoc(
-    doc(db, 'projects', projectId, 'documentSubmissions', submissionId),
-    {
-      crtGenerated: true,
-      crtDocumentId: docRef.id,
-      crtGeneratedAt: now,
-      updatedAt: now,
-    }
-  );
+  await updateDoc(doc(getDb(), 'projects', projectId, 'documentSubmissions', submissionId), {
+    crtGenerated: true,
+    crtDocumentId: docRef.id,
+    crtGeneratedAt: now,
+    updatedAt: now,
+  });
 
   return docRef.id;
 }
@@ -262,17 +253,20 @@ export async function getCRTById(
   projectId: string,
   crtId: string
 ): Promise<CommentResolutionTable | null> {
-  const docRef = doc(db, 'projects', projectId, 'commentResolutionTables', crtId);
+  const docRef = doc(getDb(), 'projects', projectId, 'commentResolutionTables', crtId);
   const docSnap = await getDoc(docRef);
 
   if (!docSnap.exists()) {
     return null;
   }
 
-  return {
+  const docData = docSnap.data() as Omit<CommentResolutionTable, 'id'>;
+  const data: CommentResolutionTable = {
     id: docSnap.id,
-    ...docSnap.data(),
-  } as CommentResolutionTable;
+    ...docData,
+  };
+
+  return data;
 }
 
 /**
@@ -286,7 +280,7 @@ export async function exportCRTToPDF(
 ): Promise<string> {
   // TODO: Implement PDF generation using pdfkit or jsPDF
   // For now, just update the export info
-  const docRef = doc(db, 'projects', projectId, 'commentResolutionTables', crtId);
+  const docRef = doc(getDb(), 'projects', projectId, 'commentResolutionTables', crtId);
 
   await updateDoc(docRef, {
     exportedBy,
@@ -309,7 +303,7 @@ export async function exportCRTToExcel(
   exportedByName: string
 ): Promise<string> {
   // TODO: Implement Excel generation using exceljs or xlsx
-  const docRef = doc(db, 'projects', projectId, 'commentResolutionTables', crtId);
+  const docRef = doc(getDb(), 'projects', projectId, 'commentResolutionTables', crtId);
 
   await updateDoc(docRef, {
     exportedBy,

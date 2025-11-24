@@ -16,9 +16,13 @@ import {
   where,
   orderBy,
   Timestamp,
+  type QueryConstraint,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
+import { getFirebase } from '@/lib/firebase';
 import type { WorkItem, WorkItemStatus } from '@vapour/types';
+
+// Helper to get database instance
+const getDb = () => getFirebase().db;
 
 /**
  * Add work item to master document
@@ -39,7 +43,7 @@ export async function addWorkItem(
   };
 
   const docRef = await addDoc(
-    collection(db, 'projects', data.projectId, 'workItems'),
+    collection(getDb(), 'projects', data.projectId, 'workItems'),
     workItemData
   );
 
@@ -57,7 +61,7 @@ export async function updateWorkItem(
   workItemId: string,
   updates: Partial<Omit<WorkItem, 'id' | 'projectId' | 'createdAt'>>
 ): Promise<void> {
-  const docRef = doc(db, 'projects', projectId, 'workItems', workItemId);
+  const docRef = doc(getDb(), 'projects', projectId, 'workItems', workItemId);
 
   await updateDoc(docRef, {
     ...updates,
@@ -125,17 +129,20 @@ export async function getWorkItemById(
   projectId: string,
   workItemId: string
 ): Promise<WorkItem | null> {
-  const docRef = doc(db, 'projects', projectId, 'workItems', workItemId);
+  const docRef = doc(getDb(), 'projects', projectId, 'workItems', workItemId);
   const docSnap = await getDoc(docRef);
 
   if (!docSnap.exists()) {
     return null;
   }
 
-  return {
+  const docData = docSnap.data() as Omit<WorkItem, 'id'>;
+  const data: WorkItem = {
     id: docSnap.id,
-    ...docSnap.data(),
-  } as WorkItem;
+    ...docData,
+  };
+
+  return data;
 }
 
 /**
@@ -146,7 +153,7 @@ export async function getWorkItemsByDocument(
   masterDocumentId: string
 ): Promise<WorkItem[]> {
   const q = query(
-    collection(db, 'projects', projectId, 'workItems'),
+    collection(getDb(), 'projects', projectId, 'workItems'),
     where('masterDocumentId', '==', masterDocumentId),
     where('isDeleted', '==', false),
     orderBy('createdAt', 'asc')
@@ -168,7 +175,7 @@ export async function getWorkItemsByAssignee(
   assignedTo: string,
   status?: WorkItemStatus
 ): Promise<WorkItem[]> {
-  const constraints = [
+  const constraints: QueryConstraint[] = [
     where('assignedTo', '==', assignedTo),
     where('isDeleted', '==', false),
   ];
@@ -179,7 +186,7 @@ export async function getWorkItemsByAssignee(
 
   constraints.push(orderBy('dueDate', 'asc'));
 
-  const q = query(collection(db, 'projects', projectId, 'workItems'), ...constraints);
+  const q = query(collection(getDb(), 'projects', projectId, 'workItems'), ...constraints);
 
   const querySnapshot = await getDocs(q);
 
@@ -192,10 +199,7 @@ export async function getWorkItemsByAssignee(
 /**
  * Soft delete work item
  */
-export async function deleteWorkItem(
-  projectId: string,
-  workItemId: string
-): Promise<void> {
+export async function deleteWorkItem(projectId: string, workItemId: string): Promise<void> {
   const item = await getWorkItemById(projectId, workItemId);
 
   if (!item) {
@@ -213,11 +217,8 @@ export async function deleteWorkItem(
 /**
  * Increment work item count on master document
  */
-async function incrementWorkItemCount(
-  projectId: string,
-  masterDocumentId: string
-): Promise<void> {
-  const docRef = doc(db, 'projects', projectId, 'masterDocuments', masterDocumentId);
+async function incrementWorkItemCount(projectId: string, masterDocumentId: string): Promise<void> {
+  const docRef = doc(getDb(), 'projects', projectId, 'masterDocuments', masterDocumentId);
   const docSnap = await getDoc(docRef);
 
   if (docSnap.exists()) {
@@ -233,11 +234,8 @@ async function incrementWorkItemCount(
 /**
  * Decrement work item count on master document
  */
-async function decrementWorkItemCount(
-  projectId: string,
-  masterDocumentId: string
-): Promise<void> {
-  const docRef = doc(db, 'projects', projectId, 'masterDocuments', masterDocumentId);
+async function decrementWorkItemCount(projectId: string, masterDocumentId: string): Promise<void> {
+  const docRef = doc(getDb(), 'projects', projectId, 'masterDocuments', masterDocumentId);
   const docSnap = await getDoc(docRef);
 
   if (docSnap.exists()) {
@@ -262,7 +260,7 @@ export async function getWorkItemsSummary(projectId: string): Promise<{
   cancelled: number;
 }> {
   const q = query(
-    collection(db, 'projects', projectId, 'workItems'),
+    collection(getDb(), 'projects', projectId, 'workItems'),
     where('isDeleted', '==', false)
   );
 

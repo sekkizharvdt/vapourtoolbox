@@ -12,21 +12,22 @@ import {
   getDocs,
   addDoc,
   updateDoc,
-  deleteDoc,
   query,
   where,
   orderBy,
-  limit,
   Timestamp,
   type QueryConstraint,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
+import { getFirebase } from '@/lib/firebase';
 import type {
   MasterDocumentEntry,
   MasterDocumentStatus,
   DocumentLink,
   DocumentReference,
 } from '@vapour/types';
+
+// Helper to get database instance
+const getDb = () => getFirebase().db;
 
 // ============================================================================
 // CRUD OPERATIONS
@@ -47,7 +48,7 @@ export async function createMasterDocument(
   };
 
   const docRef = await addDoc(
-    collection(db, 'projects', data.projectId, 'masterDocuments'),
+    collection(getDb(), 'projects', data.projectId, 'masterDocuments'),
     masterDocumentData
   );
 
@@ -61,17 +62,20 @@ export async function getMasterDocumentById(
   projectId: string,
   masterDocumentId: string
 ): Promise<MasterDocumentEntry | null> {
-  const docRef = doc(db, 'projects', projectId, 'masterDocuments', masterDocumentId);
+  const docRef = doc(getDb(), 'projects', projectId, 'masterDocuments', masterDocumentId);
   const docSnap = await getDoc(docRef);
 
   if (!docSnap.exists()) {
     return null;
   }
 
-  return {
+  const docData = docSnap.data() as Omit<MasterDocumentEntry, 'id'>;
+  const data: MasterDocumentEntry = {
     id: docSnap.id,
-    ...docSnap.data(),
-  } as MasterDocumentEntry;
+    ...docData,
+  };
+
+  return data;
 }
 
 /**
@@ -112,10 +116,7 @@ export async function getMasterDocumentsByProject(
   // Order by document number
   constraints.push(orderBy('documentNumber', 'asc'));
 
-  const q = query(
-    collection(db, 'projects', projectId, 'masterDocuments'),
-    ...constraints
-  );
+  const q = query(collection(getDb(), 'projects', projectId, 'masterDocuments'), ...constraints);
 
   const querySnapshot = await getDocs(q);
 
@@ -150,7 +151,7 @@ export async function getMasterDocumentsByAssignee(
 
   constraints.push(orderBy('dueDate', 'asc'));
 
-  const q = query(collection(db, 'masterDocuments'), ...constraints);
+  const q = query(collection(getDb(), 'masterDocuments'), ...constraints);
 
   const querySnapshot = await getDocs(q);
 
@@ -168,7 +169,7 @@ export async function updateMasterDocument(
   masterDocumentId: string,
   updates: Partial<Omit<MasterDocumentEntry, 'id' | 'createdAt' | 'projectId'>>
 ): Promise<void> {
-  const docRef = doc(db, 'projects', projectId, 'masterDocuments', masterDocumentId);
+  const docRef = doc(getDb(), 'projects', projectId, 'masterDocuments', masterDocumentId);
 
   await updateDoc(docRef, {
     ...updates,
@@ -183,7 +184,7 @@ export async function updateDocumentStatus(
   projectId: string,
   masterDocumentId: string,
   status: MasterDocumentStatus,
-  updatedBy: string
+  _updatedBy: string
 ): Promise<void> {
   const updates: Partial<MasterDocumentEntry> = {
     status,
@@ -289,9 +290,7 @@ export async function removePredecessor(
   }
 
   // Remove from document's predecessors
-  const updatedPredecessors = doc.predecessors.filter(
-    (p) => p.masterDocumentId !== predecessorId
-  );
+  const updatedPredecessors = doc.predecessors.filter((p) => p.masterDocumentId !== predecessorId);
 
   await updateMasterDocument(projectId, masterDocumentId, {
     predecessors: updatedPredecessors,
@@ -330,10 +329,7 @@ export async function checkPredecessorsCompleted(
   const pendingPredecessors: DocumentLink[] = [];
 
   for (const predecessor of doc.predecessors) {
-    const predecessorDoc = await getMasterDocumentById(
-      projectId,
-      predecessor.masterDocumentId
-    );
+    const predecessorDoc = await getMasterDocumentById(projectId, predecessor.masterDocumentId);
 
     if (
       predecessorDoc &&
@@ -370,10 +366,7 @@ export async function getSuccessorsReadyToStart(
   const readySuccessors: MasterDocumentEntry[] = [];
 
   for (const successor of doc.successors) {
-    const successorDoc = await getMasterDocumentById(
-      projectId,
-      successor.masterDocumentId
-    );
+    const successorDoc = await getMasterDocumentById(projectId, successor.masterDocumentId);
 
     if (successorDoc && successorDoc.status === 'NOT_STARTED') {
       // Check if all predecessors are completed

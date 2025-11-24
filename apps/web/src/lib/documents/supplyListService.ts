@@ -17,8 +17,11 @@ import {
   orderBy,
   Timestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
+import { getFirebase } from '@/lib/firebase';
 import type { SupplyItem, SupplyProcurementStatus } from '@vapour/types';
+
+// Helper to get database instance
+const getDb = () => getFirebase().db;
 
 /**
  * Add supply item to master document
@@ -38,7 +41,7 @@ export async function addSupplyItem(
   };
 
   const docRef = await addDoc(
-    collection(db, 'projects', data.projectId, 'supplyItems'),
+    collection(getDb(), 'projects', data.projectId, 'supplyItems'),
     supplyItemData
   );
 
@@ -56,7 +59,7 @@ export async function updateSupplyItem(
   supplyItemId: string,
   updates: Partial<Omit<SupplyItem, 'id' | 'projectId' | 'createdAt'>>
 ): Promise<void> {
-  const docRef = doc(db, 'projects', projectId, 'supplyItems', supplyItemId);
+  const docRef = doc(getDb(), 'projects', projectId, 'supplyItems', supplyItemId);
 
   await updateDoc(docRef, {
     ...updates,
@@ -87,17 +90,20 @@ export async function getSupplyItemById(
   projectId: string,
   supplyItemId: string
 ): Promise<SupplyItem | null> {
-  const docRef = doc(db, 'projects', projectId, 'supplyItems', supplyItemId);
+  const docRef = doc(getDb(), 'projects', projectId, 'supplyItems', supplyItemId);
   const docSnap = await getDoc(docRef);
 
   if (!docSnap.exists()) {
     return null;
   }
 
-  return {
+  const docData = docSnap.data() as Omit<SupplyItem, 'id'>;
+  const data: SupplyItem = {
     id: docSnap.id,
-    ...docSnap.data(),
-  } as SupplyItem;
+    ...docData,
+  };
+
+  return data;
 }
 
 /**
@@ -108,7 +114,7 @@ export async function getSupplyItemsByDocument(
   masterDocumentId: string
 ): Promise<SupplyItem[]> {
   const q = query(
-    collection(db, 'projects', projectId, 'supplyItems'),
+    collection(getDb(), 'projects', projectId, 'supplyItems'),
     where('masterDocumentId', '==', masterDocumentId),
     where('isDeleted', '==', false),
     orderBy('createdAt', 'asc')
@@ -130,7 +136,7 @@ export async function getSupplyItemsByStatus(
   status: SupplyProcurementStatus
 ): Promise<SupplyItem[]> {
   const q = query(
-    collection(db, 'projects', projectId, 'supplyItems'),
+    collection(getDb(), 'projects', projectId, 'supplyItems'),
     where('procurementStatus', '==', status),
     where('isDeleted', '==', false),
     orderBy('createdAt', 'asc')
@@ -147,19 +153,14 @@ export async function getSupplyItemsByStatus(
 /**
  * Get all supply items pending PR creation
  */
-export async function getSupplyItemsPendingPR(
-  projectId: string
-): Promise<SupplyItem[]> {
+export async function getSupplyItemsPendingPR(projectId: string): Promise<SupplyItem[]> {
   return await getSupplyItemsByStatus(projectId, 'NOT_INITIATED');
 }
 
 /**
  * Soft delete supply item
  */
-export async function deleteSupplyItem(
-  projectId: string,
-  supplyItemId: string
-): Promise<void> {
+export async function deleteSupplyItem(projectId: string, supplyItemId: string): Promise<void> {
   const item = await getSupplyItemById(projectId, supplyItemId);
 
   if (!item) {
@@ -181,7 +182,7 @@ async function incrementSupplyItemCount(
   projectId: string,
   masterDocumentId: string
 ): Promise<void> {
-  const docRef = doc(db, 'projects', projectId, 'masterDocuments', masterDocumentId);
+  const docRef = doc(getDb(), 'projects', projectId, 'masterDocuments', masterDocumentId);
   const docSnap = await getDoc(docRef);
 
   if (docSnap.exists()) {
@@ -201,7 +202,7 @@ async function decrementSupplyItemCount(
   projectId: string,
   masterDocumentId: string
 ): Promise<void> {
-  const docRef = doc(db, 'projects', projectId, 'masterDocuments', masterDocumentId);
+  const docRef = doc(getDb(), 'projects', projectId, 'masterDocuments', masterDocumentId);
   const docSnap = await getDoc(docRef);
 
   if (docSnap.exists()) {
@@ -228,7 +229,7 @@ export async function getSupplyItemsSummary(projectId: string): Promise<{
   completed: number;
 }> {
   const q = query(
-    collection(db, 'projects', projectId, 'supplyItems'),
+    collection(getDb(), 'projects', projectId, 'supplyItems'),
     where('isDeleted', '==', false)
   );
 

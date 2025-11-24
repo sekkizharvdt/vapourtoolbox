@@ -17,8 +17,11 @@ import {
   orderBy,
   Timestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
+import { getFirebase } from '@/lib/firebase';
 import type { DocumentSubmission, ClientReviewStatus } from '@vapour/types';
+
+// Helper to get database instance
+const getDb = () => getFirebase().db;
 
 /**
  * Submit document to client
@@ -26,7 +29,7 @@ import type { DocumentSubmission, ClientReviewStatus } from '@vapour/types';
 export async function submitDocumentToClient(
   data: Omit<
     DocumentSubmission,
-    'id' | 'createdAt' | 'updatedAt' | 'submissionNumber'
+    'id' | 'createdAt' | 'updatedAt' | 'submissionNumber' | 'submittedAt'
   >
 ): Promise<string> {
   // Get submission number (count existing submissions + 1)
@@ -38,18 +41,19 @@ export async function submitDocumentToClient(
   const submissionData: Omit<DocumentSubmission, 'id'> = {
     ...data,
     submissionNumber,
+    submittedAt: now,
     createdAt: now,
     updatedAt: now,
   };
 
   const docRef = await addDoc(
-    collection(db, 'projects', data.projectId, 'documentSubmissions'),
+    collection(getDb(), 'projects', data.projectId, 'documentSubmissions'),
     submissionData
   );
 
   // Update master document submission tracking
   await updateDoc(
-    doc(db, 'projects', data.projectId, 'masterDocuments', data.masterDocumentId),
+    doc(getDb(), 'projects', data.projectId, 'masterDocuments', data.masterDocumentId),
     {
       submissionCount: submissionNumber,
       lastSubmissionId: docRef.id,
@@ -75,7 +79,7 @@ export async function recordClientReview(
     clientRemarks?: string;
   }
 ): Promise<void> {
-  const docRef = doc(db, 'projects', projectId, 'documentSubmissions', submissionId);
+  const docRef = doc(getDb(), 'projects', projectId, 'documentSubmissions', submissionId);
 
   await updateDoc(docRef, {
     ...reviewData,
@@ -122,7 +126,7 @@ export async function createResubmission(
 
   // Link previous submission to new one
   await updateDoc(
-    doc(db, 'projects', projectId, 'documentSubmissions', previousSubmissionId),
+    doc(getDb(), 'projects', projectId, 'documentSubmissions', previousSubmissionId),
     {
       nextSubmissionId: newSubmissionId,
       updatedAt: Timestamp.now(),
@@ -139,17 +143,20 @@ export async function getSubmissionById(
   projectId: string,
   submissionId: string
 ): Promise<DocumentSubmission | null> {
-  const docRef = doc(db, 'projects', projectId, 'documentSubmissions', submissionId);
+  const docRef = doc(getDb(), 'projects', projectId, 'documentSubmissions', submissionId);
   const docSnap = await getDoc(docRef);
 
   if (!docSnap.exists()) {
     return null;
   }
 
-  return {
+  const docData = docSnap.data() as Omit<DocumentSubmission, 'id'>;
+  const data: DocumentSubmission = {
     id: docSnap.id,
-    ...docSnap.data(),
-  } as DocumentSubmission;
+    ...docData,
+  };
+
+  return data;
 }
 
 /**
@@ -160,7 +167,7 @@ export async function getSubmissionsByMasterDocument(
   masterDocumentId: string
 ): Promise<DocumentSubmission[]> {
   const q = query(
-    collection(db, 'projects', projectId, 'documentSubmissions'),
+    collection(getDb(), 'projects', projectId, 'documentSubmissions'),
     where('masterDocumentId', '==', masterDocumentId),
     orderBy('submissionNumber', 'desc')
   );
@@ -196,11 +203,8 @@ export async function updateCommentCounts(
     closedCommentCount: number;
   }
 ): Promise<void> {
-  await updateDoc(
-    doc(db, 'projects', projectId, 'documentSubmissions', submissionId),
-    {
-      ...counts,
-      updatedAt: Timestamp.now(),
-    }
-  );
+  await updateDoc(doc(getDb(), 'projects', projectId, 'documentSubmissions', submissionId), {
+    ...counts,
+    updatedAt: Timestamp.now(),
+  });
 }
