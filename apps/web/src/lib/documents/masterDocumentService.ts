@@ -113,17 +113,19 @@ export async function getMasterDocumentsByProject(
     constraints.push(where('isDeleted', '==', false));
   }
 
-  // Order by document number
-  constraints.push(orderBy('documentNumber', 'asc'));
-
+  // Note: Removed orderBy from query to avoid complex index requirements
+  // Sorting is done in memory instead
   const q = query(collection(getDb(), 'projects', projectId, 'masterDocuments'), ...constraints);
 
   const querySnapshot = await getDocs(q);
 
-  return querySnapshot.docs.map((doc) => ({
+  const documents = querySnapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as MasterDocumentEntry[];
+
+  // Sort by document number in memory
+  return documents.sort((a, b) => a.documentNumber.localeCompare(b.documentNumber));
 }
 
 /**
