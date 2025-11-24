@@ -17,6 +17,7 @@ import {
   orderBy,
   Timestamp,
   type QueryConstraint,
+  type Firestore,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import type {
@@ -82,7 +83,7 @@ export async function getMasterDocumentById(
  * Get all master documents for a project
  */
 export async function getMasterDocumentsByProject(
-  db: any,
+  db: Firestore,
   projectId: string,
   filters?: {
     status?: MasterDocumentStatus;
@@ -473,7 +474,7 @@ export async function removeInputFile(
  * Get document statistics for a project
  */
 export async function getDocumentStatistics(
-  db: any,
+  db: Firestore,
   projectId: string
 ): Promise<{
   total: number;
