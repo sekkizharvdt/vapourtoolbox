@@ -6,15 +6,7 @@
  * Shows detailed information about the master document
  */
 
-import {
-  Box,
-  Paper,
-  Typography,
-  Stack,
-  Divider,
-  Chip,
-  Grid,
-} from '@mui/material';
+import { Box, Paper, Typography, Stack, Divider, Chip } from '@mui/material';
 import type { MasterDocumentEntry } from '@vapour/types';
 
 interface DocumentOverviewProps {
@@ -37,52 +29,58 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
             Basic Information
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          <Grid container spacing={2}>
-            <Grid xs={12} sm={6}>
-              <Typography variant="caption" color="text.secondary">
-                Document Number
-              </Typography>
-              <Typography variant="body1" fontWeight="medium">
-                {document.documentNumber}
-              </Typography>
-            </Grid>
-            <Grid xs={12} sm={6}>
-              <Typography variant="caption" color="text.secondary">
-                Title
-              </Typography>
-              <Typography variant="body1">{document.documentTitle}</Typography>
-            </Grid>
-            <Grid xs={12}>
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
+              <Box sx={{ flex: '1 1 45%', minWidth: '200px' }}>
+                <Typography variant="caption" color="text.secondary">
+                  Document Number
+                </Typography>
+                <Typography variant="body1" fontWeight="medium">
+                  {document.documentNumber}
+                </Typography>
+              </Box>
+              <Box sx={{ flex: '1 1 45%', minWidth: '200px' }}>
+                <Typography variant="caption" color="text.secondary">
+                  Title
+                </Typography>
+                <Typography variant="body1">{document.documentTitle}</Typography>
+              </Box>
+            </Stack>
+            <Box>
               <Typography variant="caption" color="text.secondary">
                 Description
               </Typography>
               <Typography variant="body1">{document.description || '-'}</Typography>
-            </Grid>
-            <Grid xs={12} sm={6}>
-              <Typography variant="caption" color="text.secondary">
-                Discipline Code
-              </Typography>
-              <Typography variant="body1">{document.disciplineCode}</Typography>
-            </Grid>
-            <Grid xs={12} sm={6}>
-              <Typography variant="caption" color="text.secondary">
-                Sub-Code
-              </Typography>
-              <Typography variant="body1">{document.subCode || '-'}</Typography>
-            </Grid>
-            <Grid xs={12} sm={6}>
-              <Typography variant="caption" color="text.secondary">
-                Document Type
-              </Typography>
-              <Typography variant="body1">{document.documentType || '-'}</Typography>
-            </Grid>
-            <Grid xs={12} sm={6}>
-              <Typography variant="caption" color="text.secondary">
-                Current Revision
-              </Typography>
-              <Typography variant="body1">{document.currentRevision}</Typography>
-            </Grid>
-          </Grid>
+            </Box>
+            <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
+              <Box sx={{ flex: '1 1 45%', minWidth: '200px' }}>
+                <Typography variant="caption" color="text.secondary">
+                  Discipline Code
+                </Typography>
+                <Typography variant="body1">{document.disciplineCode}</Typography>
+              </Box>
+              <Box sx={{ flex: '1 1 45%', minWidth: '200px' }}>
+                <Typography variant="caption" color="text.secondary">
+                  Sub-Code
+                </Typography>
+                <Typography variant="body1">{document.subCode || '-'}</Typography>
+              </Box>
+            </Stack>
+            <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
+              <Box sx={{ flex: '1 1 45%', minWidth: '200px' }}>
+                <Typography variant="caption" color="text.secondary">
+                  Document Type
+                </Typography>
+                <Typography variant="body1">{document.documentType || '-'}</Typography>
+              </Box>
+              <Box sx={{ flex: '1 1 45%', minWidth: '200px' }}>
+                <Typography variant="caption" color="text.secondary">
+                  Current Revision
+                </Typography>
+                <Typography variant="body1">{document.currentRevision}</Typography>
+              </Box>
+            </Stack>
+          </Stack>
         </Paper>
 
         {/* Status & Tracking */}
@@ -91,28 +89,30 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
             Status & Tracking
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          <Grid container spacing={2}>
-            <Grid xs={12} sm={6}>
-              <Typography variant="caption" color="text.secondary">
-                Status
-              </Typography>
-              <Typography variant="body1">{document.status}</Typography>
-            </Grid>
-            <Grid xs={12} sm={6}>
-              <Typography variant="caption" color="text.secondary">
-                Visibility
-              </Typography>
-              <Typography variant="body1">
-                {document.visibility === 'CLIENT_VISIBLE' ? 'Client Visible' : 'Internal Only'}
-              </Typography>
-            </Grid>
-            <Grid xs={12} sm={6}>
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
+              <Box sx={{ flex: '1 1 45%', minWidth: '200px' }}>
+                <Typography variant="caption" color="text.secondary">
+                  Status
+                </Typography>
+                <Typography variant="body1">{document.status}</Typography>
+              </Box>
+              <Box sx={{ flex: '1 1 45%', minWidth: '200px' }}>
+                <Typography variant="caption" color="text.secondary">
+                  Visibility
+                </Typography>
+                <Typography variant="body1">
+                  {document.visibility === 'CLIENT_VISIBLE' ? 'Client Visible' : 'Internal Only'}
+                </Typography>
+              </Box>
+            </Stack>
+            <Box sx={{ flex: '1 1 45%', minWidth: '200px' }}>
               <Typography variant="caption" color="text.secondary">
                 Due Date
               </Typography>
               <Typography variant="body1">{formatDate(document.dueDate)}</Typography>
-            </Grid>
-            <Grid xs={12}>
+            </Box>
+            <Box>
               <Typography variant="caption" color="text.secondary">
                 Assigned To
               </Typography>
@@ -129,8 +129,8 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
                   <Typography variant="body2">Not assigned</Typography>
                 )}
               </Stack>
-            </Grid>
-          </Grid>
+            </Box>
+          </Stack>
         </Paper>
 
         {/* Submission Information */}
@@ -139,20 +139,20 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
             Submission Information
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          <Grid container spacing={2}>
-            <Grid xs={12} sm={4}>
+          <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
+            <Box sx={{ flex: '1 1 30%', minWidth: '200px' }}>
               <Typography variant="caption" color="text.secondary">
                 Total Submissions
               </Typography>
               <Typography variant="h4">{document.submissionCount}</Typography>
-            </Grid>
-            <Grid xs={12} sm={4}>
+            </Box>
+            <Box sx={{ flex: '1 1 30%', minWidth: '200px' }}>
               <Typography variant="caption" color="text.secondary">
                 Last Submission
               </Typography>
               <Typography variant="body1">{formatDate(document.lastSubmissionDate)}</Typography>
-            </Grid>
-          </Grid>
+            </Box>
+          </Stack>
         </Paper>
 
         {/* Linked Items */}
@@ -161,28 +161,28 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
             Linked Items
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          <Grid container spacing={2}>
-            <Grid xs={12} sm={4}>
+          <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
+            <Box sx={{ flex: '1 1 30%', minWidth: '200px' }}>
               <Typography variant="caption" color="text.secondary">
                 Supply Items
               </Typography>
               <Typography variant="h4">{document.supplyItemCount}</Typography>
-            </Grid>
-            <Grid xs={12} sm={4}>
+            </Box>
+            <Box sx={{ flex: '1 1 30%', minWidth: '200px' }}>
               <Typography variant="caption" color="text.secondary">
                 Work Items
               </Typography>
               <Typography variant="h4">{document.workItemCount}</Typography>
-            </Grid>
-            <Grid xs={12} sm={4}>
+            </Box>
+            <Box sx={{ flex: '1 1 30%', minWidth: '200px' }}>
               <Typography variant="caption" color="text.secondary">
                 Document Links
               </Typography>
               <Typography variant="h4">
                 {document.predecessors.length + document.successors.length}
               </Typography>
-            </Grid>
-          </Grid>
+            </Box>
+          </Stack>
         </Paper>
 
         {/* Audit Information */}
@@ -191,8 +191,8 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
             Audit Information
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          <Grid container spacing={2}>
-            <Grid xs={12} sm={6}>
+          <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
+            <Box sx={{ flex: '1 1 45%', minWidth: '200px' }}>
               <Typography variant="caption" color="text.secondary">
                 Created By
               </Typography>
@@ -200,14 +200,14 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
               <Typography variant="caption" color="text.secondary">
                 {formatDate(document.createdAt)}
               </Typography>
-            </Grid>
-            <Grid xs={12} sm={6}>
+            </Box>
+            <Box sx={{ flex: '1 1 45%', minWidth: '200px' }}>
               <Typography variant="caption" color="text.secondary">
                 Last Updated
               </Typography>
               <Typography variant="body1">{formatDate(document.updatedAt)}</Typography>
-            </Grid>
-          </Grid>
+            </Box>
+          </Stack>
         </Paper>
       </Stack>
     </Box>
