@@ -41,7 +41,22 @@ export type TaskNotificationCategory =
   // Projects
   | 'MILESTONE_DUE' // Actionable: Complete milestone
   | 'PROJECT_UPDATE_REQUIRED' // Actionable: Update project status
-  | 'PROJECT_DELIVERABLE_DUE'; // Actionable: Submit deliverable
+  | 'PROJECT_DELIVERABLE_DUE' // Actionable: Submit deliverable
+  // Document Management
+  | 'DOCUMENT_ASSIGNED' // Actionable: Work on assigned document
+  | 'DOCUMENT_SUBMISSION_REQUIRED' // Actionable: Submit document for PM review
+  | 'DOCUMENT_INTERNAL_REVIEW' // Actionable: PM to review document before client submission
+  | 'DOCUMENT_APPROVED_FOR_CLIENT' // Informational: PM approved, ready for client
+  | 'DOCUMENT_SUBMITTED_TO_CLIENT' // Informational: Document submitted to client
+  | 'DOCUMENT_CLIENT_REVIEW_PENDING' // Informational: Awaiting client review
+  | 'DOCUMENT_CLIENT_COMMENTED' // Actionable: Client provided comments, resolve them
+  | 'DOCUMENT_COMMENTS_RESOLVED' // Actionable: PM to approve comment resolutions
+  | 'DOCUMENT_RESUBMISSION_REQUIRED' // Actionable: Resubmit revised document
+  | 'DOCUMENT_APPROVED_BY_CLIENT' // Informational: Client approved document
+  | 'DOCUMENT_ACCEPTED_BY_CLIENT' // Informational: Client accepted (final)
+  | 'DOCUMENT_PREDECESSOR_COMPLETED' // Informational: Predecessor complete, can start work
+  | 'WORK_ITEM_ASSIGNED' // Actionable: Complete work item activity
+  | 'SUPPLY_LIST_PR_REQUIRED' // Actionable: Create PR from supply list
 
 /**
  * Task Notification Status

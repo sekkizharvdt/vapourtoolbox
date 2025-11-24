@@ -346,3 +346,674 @@ export interface DocumentActivity {
 
   timestamp: Timestamp;
 }
+
+// ============================================================================
+// DOCUMENT MANAGEMENT MODULE - MASTER DOCUMENT LIST
+// ============================================================================
+
+/**
+ * Document Numbering Configuration per Project
+ * Format: {PROJECT_CODE}-{DISCIPLINE}-{SEQUENCE}
+ * Example: PRJ-001-01-005
+ */
+export interface DocumentNumberingConfig {
+  id: string;
+  projectId: string;
+
+  // Numbering format
+  separator: string;                 // "-" (fixed per user decision)
+  sequenceDigits: number;            // 3 (fixed: 001, 002, 003...)
+
+  // Disciplines defined for this project
+  disciplines: DisciplineCode[];
+
+  // Auto-increment tracking per discipline
+  sequenceCounters: Record<string, number>; // { "01": 5, "02": 12, "00": 3 }
+
+  // Audit
+  createdBy: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/**
+ * Discipline Code Definition
+ * Can be customized per project
+ * Special: "00" for client input files with sub-codes
+ */
+export interface DisciplineCode {
+  code: string;                      // "01", "02", "03", etc. ("00" for client inputs)
+  name: string;                      // "Process", "Mechanical", "Structural", etc.
+  description: string;
+
+  // Sub-codes for discipline (especially for "00" client inputs)
+  subCodes?: DisciplineSubCode[];
+
+  isActive: boolean;
+  sortOrder: number;                 // Display order
+
+  // Audit
+  createdBy: string;
+  createdAt: Timestamp;
+}
+
+/**
+ * Sub-codes for disciplines (e.g., under "00" for client inputs)
+ */
+export interface DisciplineSubCode {
+  subCode: string;                   // "A", "B", "C" or "01", "02", etc.
+  name: string;                      // "Process Data", "Equipment List"
+  description: string;
+  isActive: boolean;
+}
+
+/**
+ * Master Document Status Workflow
+ * From assignment to final client acceptance
+ */
+export type MasterDocumentStatus =
+  | 'NOT_STARTED'        // Initial state - assigned but not started
+  | 'IN_PROGRESS'        // User working on it
+  | 'INTERNAL_REVIEW'    // Submitted for internal PM review
+  | 'PM_APPROVED'        // PM approved, ready for client submission
+  | 'SUBMITTED'          // Submitted to client
+  | 'CLIENT_REVIEW'      // Under client review
+  | 'COMMENTED'          // Client provided comments
+  | 'COMMENT_RESOLUTION' // Resolving comments
+  | 'RESUBMITTED'        // Revised version submitted
+  | 'APPROVED'           // Client approved (with minor comments)
+  | 'ACCEPTED'           // Client accepted (final, no further revisions)
+  | 'ON_HOLD'            // Temporarily paused
+  | 'CANCELLED';         // Cancelled/not required
+
+/**
+ * Master Document Entry in the Project's Master Document List
+ * Central record for tracking document lifecycle
+ */
+export interface MasterDocumentEntry {
+  id: string;
+  projectId: string;
+
+  // Document Numbering
+  documentNumber: string;            // Full number: "PRJ-001-01-005"
+  projectCode: string;               // "PRJ-001"
+  disciplineCode: string;            // "01"
+  disciplineName: string;            // "Process"
+  subCode?: string;                  // For "00" discipline
+  sequenceNumber: string;            // "005"
+
+  // Document Info
+  documentTitle: string;             // "Heat & Material Balance"
+  documentType: string;              // "P&ID", "Datasheet", "Drawing", "Calculation"
+  description: string;
+  category?: string;                 // "Technical", "Commercial", "Quality"
+
+  // Status Tracking
+  status: MasterDocumentStatus;
+  currentRevision: string;           // "R0", "R1", "R2", etc.
+  latestDocumentId?: string;         // Link to latest DocumentRecord
+
+  // Document Linking (Dependencies)
+  predecessors: DocumentLink[];      // Must be completed before this starts
+  successors: DocumentLink[];        // Can start after this is completed
+  relatedDocuments: DocumentLink[];  // Related but not dependent
+
+  // Assignment
+  assignedTo: string[];              // User IDs (can be multiple collaborators)
+  assignedToNames: string[];         // Denormalized for display
+  assignedBy: string;                // Project Manager
+  assignedByName: string;
+  assignedDate: Timestamp;
+
+  // Deadlines
+  plannedStartDate?: Timestamp;
+  dueDate?: Timestamp;
+  actualStartDate?: Timestamp;
+  actualCompletionDate?: Timestamp;
+
+  // Input Files (from PM to assignee)
+  inputFiles: DocumentReference[];   // Reference docs, client inputs, templates
+
+  // Supply List (feeds to procurement)
+  hasSupplyList: boolean;
+  supplyItemCount: number;
+
+  // Work List (activities)
+  hasWorkList: boolean;
+  workItemCount: number;
+
+  // Visibility & Access
+  visibility: 'CLIENT_VISIBLE' | 'INTERNAL_ONLY';
+
+  // Submission Tracking
+  submissionCount: number;           // Total submissions to client
+  lastSubmissionId?: string;
+  lastSubmissionDate?: Timestamp;
+
+  // Comments Tracking
+  totalComments: number;
+  openComments: number;
+  resolvedComments: number;
+
+  // Progress
+  progressPercentage: number;        // 0-100
+
+  // Priority
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+  // Tags
+  tags: string[];
+
+  // Notes
+  notes?: string;                    // Internal notes
+
+  // Audit
+  createdBy: string;
+  createdByName: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+
+  // Soft delete
+  isDeleted: boolean;
+  deletedBy?: string;
+  deletedAt?: Timestamp;
+}
+
+/**
+ * Document Link (Predecessor/Successor/Related)
+ */
+export interface DocumentLink {
+  masterDocumentId: string;
+  documentNumber: string;            // For display
+  documentTitle: string;
+  linkType: 'PREREQUISITE' | 'SUCCESSOR' | 'RELATED';
+  status: MasterDocumentStatus;
+
+  // Denormalized for quick access
+  currentRevision?: string;
+  assignedToNames?: string[];
+
+  createdAt: Timestamp;
+}
+
+/**
+ * Document Reference (for input files, attachments, etc.)
+ */
+export interface DocumentReference {
+  documentId?: string;               // Link to DocumentRecord (if uploaded)
+  fileName: string;
+  fileUrl?: string;
+  fileSize?: number;
+  description?: string;
+  uploadedBy?: string;
+  uploadedAt?: Timestamp;
+}
+
+// ============================================================================
+// DOCUMENT SUBMISSION SYSTEM
+// ============================================================================
+
+/**
+ * Client Response Status for Submissions
+ */
+export type ClientReviewStatus =
+  | 'PENDING'                        // Waiting for client review
+  | 'UNDER_REVIEW'                   // Client reviewing
+  | 'APPROVED'                       // Client approved (no comments)
+  | 'APPROVED_WITH_COMMENTS'         // Approved but has minor comments
+  | 'REJECTED'                       // Rejected, major rework needed
+  | 'CONDITIONALLY_APPROVED';        // Approved pending minor changes
+
+/**
+ * Document Submission Record
+ * Tracks each submission to client with revision history
+ */
+export interface DocumentSubmission {
+  id: string;
+  projectId: string;
+  masterDocumentId: string;
+  documentNumber: string;            // Denormalized
+  documentTitle: string;
+
+  // Submission Info
+  submissionNumber: number;          // 1, 2, 3 (incremental per master doc)
+  revision: string;                  // "R0", "R1", "R2", etc.
+  documentId: string;                // Link to DocumentRecord (the actual file)
+
+  // Submission
+  submittedBy: string;
+  submittedByName: string;
+  submittedAt: Timestamp;
+  submissionNotes?: string;          // Cover notes from submitter
+
+  // Client Response
+  clientStatus: ClientReviewStatus;
+  clientReviewedBy?: string;
+  clientReviewedByName?: string;
+  clientReviewedAt?: Timestamp;
+  clientRemarks?: string;            // General remarks from client
+
+  // Comments
+  commentCount: number;
+  openCommentCount: number;
+  resolvedCommentCount: number;
+  closedCommentCount: number;
+
+  // Comment Resolution Table
+  crtGenerated: boolean;
+  crtDocumentId?: string;            // Link to exported CRT document
+  crtGeneratedAt?: Timestamp;
+
+  // Next Actions
+  requiresResubmission: boolean;
+  nextSubmissionId?: string;         // Link to next submission (if resubmitted)
+  previousSubmissionId?: string;     // Link to previous submission
+
+  // Approval Workflow (2-level: assignee resolves, PM closes)
+  commentsResolvedBy?: string;       // User who resolved comments
+  commentsResolvedAt?: Timestamp;
+  commentsApprovedBy?: string;       // PM who approved resolutions
+  commentsApprovedAt?: Timestamp;
+
+  // Timestamps
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// ============================================================================
+// COMMENT RESOLUTION SYSTEM
+// ============================================================================
+
+/**
+ * Comment Severity Levels
+ */
+export type CommentSeverity = 'CRITICAL' | 'MAJOR' | 'MINOR' | 'SUGGESTION';
+
+/**
+ * Comment Status Workflow
+ * OPEN → UNDER_REVIEW (assignee working) → RESOLVED (assignee done) → CLOSED (PM approved)
+ */
+export type CommentStatus = 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'CLOSED';
+
+/**
+ * Comment Category
+ */
+export type CommentCategory =
+  | 'TECHNICAL'
+  | 'COMMERCIAL'
+  | 'QUALITY'
+  | 'SAFETY'
+  | 'FORMATTING'
+  | 'CLARIFICATION'
+  | 'OTHER';
+
+/**
+ * Document Comment from Client
+ */
+export interface DocumentComment {
+  id: string;
+  projectId: string;
+  submissionId: string;
+  masterDocumentId: string;
+
+  // Comment Identification
+  commentNumber: string;             // "C-001", "C-002", etc.
+  commentText: string;
+
+  // Classification
+  severity: CommentSeverity;
+  category: CommentCategory;
+
+  // Location in Document (optional)
+  pageNumber?: number;
+  section?: string;
+  lineItem?: string;
+
+  // Client Info
+  commentedBy: string;               // Client user ID
+  commentedByName: string;
+  commentedAt: Timestamp;
+
+  // Resolution Workflow (2-level)
+  status: CommentStatus;
+
+  // Level 1: Assignee Resolution
+  resolutionText?: string;           // User's response to comment
+  resolvedBy?: string;               // Assignee who resolved
+  resolvedByName?: string;
+  resolvedAt?: Timestamp;
+
+  // Level 2: PM Approval
+  pmApproved: boolean;
+  pmApprovedBy?: string;             // Project Manager
+  pmApprovedByName?: string;
+  pmApprovedAt?: Timestamp;
+  pmRemarks?: string;                // PM's notes on resolution
+
+  // Client Acceptance (final)
+  clientAccepted: boolean;
+  clientAcceptedAt?: Timestamp;
+  clientAcceptanceRemarks?: string;
+
+  // Attachments (if needed)
+  attachments: DocumentReference[];
+
+  // Audit
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/**
+ * Comment Resolution Table (CRT)
+ * Exportable summary of all comments and resolutions
+ */
+export interface CommentResolutionTable {
+  id: string;
+  projectId: string;
+  submissionId: string;
+  masterDocumentId: string;
+
+  // Document Info
+  documentNumber: string;
+  documentTitle: string;
+  revision: string;
+  submissionDate: Timestamp;
+
+  // Comments (sorted by comment number)
+  comments: DocumentComment[];
+
+  // Summary Statistics
+  totalComments: number;
+  criticalComments: number;
+  majorComments: number;
+  minorComments: number;
+  suggestionComments: number;
+
+  openComments: number;
+  underReviewComments: number;
+  resolvedComments: number;
+  closedComments: number;
+
+  // Export Info
+  exportedBy?: string;
+  exportedByName?: string;
+  exportedAt?: Timestamp;
+  exportFormat?: 'PDF' | 'EXCEL';
+  exportedDocumentId?: string;       // Link to DocumentRecord of exported file
+
+  // Generation
+  generatedAt: Timestamp;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// ============================================================================
+// SUPPLY LIST SYSTEM (Feeds to Procurement)
+// ============================================================================
+
+/**
+ * Supply Item Type
+ */
+export type SupplyItemType = 'RAW_MATERIAL' | 'BOUGHT_OUT_ITEM' | 'SERVICE';
+
+/**
+ * Procurement Status for Supply Items
+ */
+export type SupplyProcurementStatus =
+  | 'NOT_INITIATED'
+  | 'PR_CREATED'
+  | 'RFQ_ISSUED'
+  | 'PO_PLACED'
+  | 'DELIVERED'
+  | 'COMPLETED'
+  | 'CANCELLED';
+
+/**
+ * Supply Item linked to a Master Document
+ * Used to generate Purchase Requests
+ */
+export interface SupplyItem {
+  id: string;
+  projectId: string;
+  masterDocumentId: string;
+  documentNumber: string;            // Denormalized
+
+  // Item Details
+  itemName: string;
+  description: string;
+  itemType: SupplyItemType;
+
+  // Specifications
+  specification: string;
+  drawingReference?: string;
+  materialGrade?: string;
+
+  // Quantity
+  quantity: number;
+  unit: string;                      // "EA", "KG", "MTR", "SET", etc.
+
+  // Estimated Cost
+  estimatedUnitCost?: number;
+  estimatedTotalCost?: number;
+  currency: string;                  // "INR", "USD", etc.
+
+  // Delivery Requirements
+  requiredByDate?: Timestamp;
+  deliveryLocation?: string;
+
+  // Procurement Linkage
+  linkedPurchaseRequestId?: string;
+  linkedPurchaseRequestNumber?: string;
+  linkedRFQId?: string;
+  linkedPOId?: string;
+
+  procurementStatus: SupplyProcurementStatus;
+
+  // Vendor Preference (optional)
+  preferredVendorId?: string;
+  preferredVendorName?: string;
+
+  // Tags
+  tags: string[];
+
+  // Notes
+  notes?: string;
+
+  // Audit
+  createdBy: string;
+  createdByName: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+
+  isDeleted: boolean;
+}
+
+// ============================================================================
+// WORK LIST SYSTEM (Feeds to Task Notifications)
+// ============================================================================
+
+/**
+ * Work Activity Type
+ */
+export type WorkActivityType =
+  | 'INSPECTION'
+  | 'TRANSPORTATION'
+  | 'FABRICATION'
+  | 'ROLLING'
+  | 'WELDING'
+  | 'TESTING'
+  | 'ASSEMBLY'
+  | 'MACHINING'
+  | 'PAINTING'
+  | 'DOCUMENTATION'
+  | 'REVIEW'
+  | 'OTHER';
+
+/**
+ * Work Item Status
+ */
+export type WorkItemStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+/**
+ * Work Item linked to a Master Document
+ * Creates Task Notifications when assigned
+ */
+export interface WorkItem {
+  id: string;
+  projectId: string;
+  masterDocumentId: string;
+  documentNumber: string;            // Denormalized
+
+  // Activity Details
+  activityName: string;
+  activityType: WorkActivityType;
+  description: string;
+
+  // Assignment
+  assignedTo?: string;
+  assignedToName?: string;
+  assignedBy?: string;
+  assignedAt?: Timestamp;
+
+  // Deadlines
+  plannedStartDate?: Timestamp;
+  dueDate?: Timestamp;
+
+  // Status
+  status: WorkItemStatus;
+
+  // Task Integration
+  linkedTaskId?: string;             // Link to TaskNotification
+  taskCreated: boolean;
+  taskCreatedAt?: Timestamp;
+
+  // Time Tracking
+  estimatedHours?: number;
+  actualHours?: number;
+
+  // Dependencies
+  dependsOnWorkItems?: string[];     // IDs of prerequisite work items
+
+  // Location
+  workLocation?: string;             // "Workshop", "Site", "Office", etc.
+
+  // Notes
+  notes?: string;
+
+  // Completion
+  completedBy?: string;
+  completedByName?: string;
+  completedAt?: Timestamp;
+  completionNotes?: string;
+
+  // Attachments (photos, reports)
+  attachments: DocumentReference[];
+
+  // Audit
+  createdBy: string;
+  createdByName: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+
+  isDeleted: boolean;
+}
+
+// ============================================================================
+// DOCUMENT TEMPLATES SYSTEM
+// ============================================================================
+
+/**
+ * Template Category
+ */
+export type TemplateCategory =
+  | 'DRAWING'           // AutoCAD, SolidWorks, etc.
+  | 'DOCUMENT'          // Word, PDF
+  | 'SPREADSHEET'       // Excel
+  | 'CALCULATION'       // MathCAD, Excel
+  | 'REPORT'            // Word, PowerPoint
+  | 'FORM'              // Standardized forms
+  | 'PROCEDURE'         // SOPs, work instructions
+  | 'OTHER';
+
+/**
+ * Template Applicability
+ */
+export type TemplateApplicability = 'COMPANY_WIDE' | 'PROJECT_SPECIFIC' | 'DISCIPLINE_SPECIFIC';
+
+/**
+ * Document Template
+ * Stores standard templates for users to download and use
+ */
+export interface DocumentTemplate {
+  id: string;
+
+  // Template Info
+  templateName: string;
+  templateCode?: string;             // "TPL-DWG-001"
+  description: string;
+  category: TemplateCategory;
+
+  // File
+  fileName: string;
+  fileUrl: string;                   // Firebase Storage URL
+  storageRef: string;
+  fileSize: number;
+  mimeType: string;
+  fileExtension: string;             // "docx", "xlsx", "dwg", "pdf"
+
+  // Applicability
+  applicability: TemplateApplicability;
+
+  // If project-specific
+  projectId?: string;
+  projectName?: string;
+
+  // If discipline-specific
+  disciplineCodes?: string[];        // ["01", "02"] - applicable to these disciplines
+  disciplineNames?: string[];
+
+  // Version
+  version: string;                   // "1.0", "1.1", "2.0"
+  revisionHistory?: TemplateRevision[];
+
+  // Usage Tracking
+  downloadCount: number;
+  lastDownloadedAt?: Timestamp;
+  lastDownloadedBy?: string;
+
+  // Status
+  isActive: boolean;
+  isLatest: boolean;
+
+  // Tags
+  tags: string[];
+
+  // Instructions
+  usageInstructions?: string;        // How to use this template
+
+  // Related Templates
+  relatedTemplateIds?: string[];
+
+  // Audit
+  createdBy: string;
+  createdByName: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+
+  // Soft delete
+  isDeleted: boolean;
+  deletedBy?: string;
+  deletedAt?: Timestamp;
+}
+
+/**
+ * Template Revision History
+ */
+export interface TemplateRevision {
+  version: string;
+  revisionNotes: string;
+  revisedBy: string;
+  revisedByName: string;
+  revisedAt: Timestamp;
+  previousFileUrl?: string;          // Backup of previous version
+}
