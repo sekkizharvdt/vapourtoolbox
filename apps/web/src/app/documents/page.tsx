@@ -52,7 +52,7 @@ export default function MasterDocumentsPage() {
   const router = useRouter();
   const { db } = getFirebase();
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [documents, setDocuments] = useState<MasterDocumentEntry[]>([]);
   const [filteredDocuments, setFilteredDocuments] = useState<MasterDocumentEntry[]>([]);
 
