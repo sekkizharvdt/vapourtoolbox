@@ -1,0 +1,381 @@
+{
+  "metadata": {
+    "standard": "ASTM A36/A240/A387",
+    "title": "Common Structural and Pressure Vessel Plates",
+    "description": "Commonly used plate materials for pressure vessels, structural, and industrial applications",
+    "createdAt": "2025-01-25",
+    "source": "ASTM Standards"
+  },
+  "materials": [
+    {
+      "materialCode": "PL-CS-A36",
+      "customCode": "PL-CS-A36",
+      "name": "Carbon Steel A36 Plate",
+      "description": "Structural carbon steel plate for general construction and fabrication",
+      "category": "PLATES_CARBON_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A36",
+        "grade": "A36",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 7850,
+        "densityUnit": "kg/m3"
+      },
+      "hasVariants": false,
+      "baseUnit": "kg",
+      "tags": ["plate", "carbon-steel", "structural", "A36", "ASTM"],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": []
+    },
+    {
+      "materialCode": "PL-CS-516-60",
+      "customCode": "PL-CS-516",
+      "name": "Carbon Steel SA 516 Gr 60 Plate",
+      "description": "Pressure vessel quality carbon steel plate for moderate and lower temperature service",
+      "category": "PLATES_CARBON_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A516/A516M",
+        "grade": "Grade 60",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 7850,
+        "densityUnit": "kg/m3",
+        "tensileStrength": 415,
+        "yieldStrength": 220
+      },
+      "hasVariants": false,
+      "baseUnit": "kg",
+      "tags": ["plate", "carbon-steel", "pressure-vessel", "SA516", "Gr60", "ASTM"],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": []
+    },
+    {
+      "materialCode": "PL-CS-516-70",
+      "customCode": "PL-CS-516-70",
+      "name": "Carbon Steel SA 516 Gr 70 Plate",
+      "description": "Pressure vessel quality carbon steel plate for moderate and lower temperature service",
+      "category": "PLATES_CARBON_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A516/A516M",
+        "grade": "Grade 70",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 7850,
+        "densityUnit": "kg/m3",
+        "tensileStrength": 485,
+        "yieldStrength": 260
+      },
+      "hasVariants": false,
+      "baseUnit": "kg",
+      "tags": ["plate", "carbon-steel", "pressure-vessel", "SA516", "Gr70", "ASTM"],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": []
+    },
+    {
+      "materialCode": "PL-SS-304",
+      "customCode": "PL-SS-304",
+      "name": "Stainless Steel 304 Plate",
+      "description": "Austenitic stainless steel plate for general corrosion resistance",
+      "category": "PLATES_STAINLESS_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A240",
+        "grade": "304",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 8000,
+        "densityUnit": "kg/m3",
+        "tensileStrength": 515,
+        "yieldStrength": 205
+      },
+      "hasVariants": false,
+      "baseUnit": "kg",
+      "tags": ["plate", "stainless-steel", "304", "austenitic", "ASTM", "A240"],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": []
+    },
+    {
+      "materialCode": "PL-SS-304L",
+      "customCode": "PL-SS-304L",
+      "name": "Stainless Steel 304L Plate",
+      "description": "Low carbon austenitic stainless steel plate with improved weldability",
+      "category": "PLATES_STAINLESS_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A240",
+        "grade": "304L",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 8000,
+        "densityUnit": "kg/m3",
+        "tensileStrength": 485,
+        "yieldStrength": 170
+      },
+      "hasVariants": false,
+      "baseUnit": "kg",
+      "tags": ["plate", "stainless-steel", "304L", "low-carbon", "austenitic", "ASTM", "A240"],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": []
+    },
+    {
+      "materialCode": "PL-SS-316",
+      "customCode": "PL-SS-316",
+      "name": "Stainless Steel 316 Plate",
+      "description": "Molybdenum-bearing austenitic stainless steel plate for improved corrosion resistance",
+      "category": "PLATES_STAINLESS_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A240",
+        "grade": "316",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 8000,
+        "densityUnit": "kg/m3",
+        "tensileStrength": 515,
+        "yieldStrength": 205
+      },
+      "hasVariants": false,
+      "baseUnit": "kg",
+      "tags": ["plate", "stainless-steel", "316", "austenitic", "molybdenum", "ASTM", "A240"],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": []
+    },
+    {
+      "materialCode": "PL-SS-316L",
+      "customCode": "PL-SS-316L",
+      "name": "Stainless Steel 316L Plate",
+      "description": "Low carbon molybdenum-bearing austenitic stainless steel plate",
+      "category": "PLATES_STAINLESS_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A240",
+        "grade": "316L",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 8000,
+        "densityUnit": "kg/m3",
+        "tensileStrength": 485,
+        "yieldStrength": 170
+      },
+      "hasVariants": false,
+      "baseUnit": "kg",
+      "tags": [
+        "plate",
+        "stainless-steel",
+        "316L",
+        "low-carbon",
+        "austenitic",
+        "molybdenum",
+        "ASTM",
+        "A240"
+      ],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": []
+    },
+    {
+      "materialCode": "PL-SS-321",
+      "customCode": "PL-SS-321",
+      "name": "Stainless Steel 321 Plate",
+      "description": "Titanium-stabilized austenitic stainless steel plate for high temperature service",
+      "category": "PLATES_STAINLESS_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A240",
+        "grade": "321",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 8000,
+        "densityUnit": "kg/m3",
+        "tensileStrength": 515,
+        "yieldStrength": 205,
+        "maxOperatingTemp": 900
+      },
+      "hasVariants": false,
+      "baseUnit": "kg",
+      "tags": [
+        "plate",
+        "stainless-steel",
+        "321",
+        "titanium-stabilized",
+        "high-temp",
+        "ASTM",
+        "A240"
+      ],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": []
+    },
+    {
+      "materialCode": "PL-DS-2205",
+      "customCode": "PL-DS-2205",
+      "name": "Duplex Steel 2205 Plate",
+      "description": "Duplex stainless steel plate with high strength and excellent corrosion resistance",
+      "category": "PLATES_DUPLEX_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A240",
+        "grade": "UNS S31803 (2205)",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 7800,
+        "densityUnit": "kg/m3",
+        "tensileStrength": 655,
+        "yieldStrength": 450
+      },
+      "hasVariants": false,
+      "baseUnit": "kg",
+      "tags": ["plate", "duplex-steel", "2205", "S31803", "high-strength", "ASTM", "A240"],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": []
+    },
+    {
+      "materialCode": "PL-DS-2507",
+      "customCode": "PL-DS-2507",
+      "name": "Super Duplex Steel 2507 Plate",
+      "description": "Super duplex stainless steel plate for severe corrosive environments",
+      "category": "PLATES_DUPLEX_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A240",
+        "grade": "UNS S32750 (2507)",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 7800,
+        "densityUnit": "kg/m3",
+        "tensileStrength": 750,
+        "yieldStrength": 550
+      },
+      "hasVariants": false,
+      "baseUnit": "kg",
+      "tags": ["plate", "super-duplex-steel", "2507", "S32750", "high-strength", "ASTM", "A240"],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": []
+    },
+    {
+      "materialCode": "PL-AS-P11",
+      "customCode": "PL-AS-P11",
+      "name": "Alloy Steel P11 Plate",
+      "description": "1.25Cr-0.5Mo alloy steel plate for elevated temperature service",
+      "category": "PLATES_ALLOY_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A387",
+        "grade": "P11 (Gr 11 Cl 2)",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 7850,
+        "densityUnit": "kg/m3",
+        "tensileStrength": 450,
+        "yieldStrength": 205,
+        "maxOperatingTemp": 593
+      },
+      "hasVariants": false,
+      "baseUnit": "kg",
+      "tags": ["plate", "alloy-steel", "P11", "1.25Cr-0.5Mo", "high-temp", "ASTM", "A387"],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": []
+    },
+    {
+      "materialCode": "PL-AS-P22",
+      "customCode": "PL-AS-P22",
+      "name": "Alloy Steel P22 Plate",
+      "description": "2.25Cr-1Mo alloy steel plate for high temperature service",
+      "category": "PLATES_ALLOY_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A387",
+        "grade": "P22 (Gr 22 Cl 2)",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 7850,
+        "densityUnit": "kg/m3",
+        "tensileStrength": 450,
+        "yieldStrength": 205,
+        "maxOperatingTemp": 649
+      },
+      "hasVariants": false,
+      "baseUnit": "kg",
+      "tags": ["plate", "alloy-steel", "P22", "2.25Cr-1Mo", "high-temp", "ASTM", "A387"],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": []
+    },
+    {
+      "materialCode": "PL-AS-P91",
+      "customCode": "PL-AS-P91",
+      "name": "Alloy Steel P91 Plate",
+      "description": "9Cr-1Mo-V alloy steel plate for very high temperature service",
+      "category": "PLATES_ALLOY_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A387",
+        "grade": "P91 (Gr 91)",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 7850,
+        "densityUnit": "kg/m3",
+        "tensileStrength": 585,
+        "yieldStrength": 415,
+        "maxOperatingTemp": 649
+      },
+      "hasVariants": false,
+      "baseUnit": "kg",
+      "tags": ["plate", "alloy-steel", "P91", "9Cr-1Mo-V", "high-temp", "ASTM", "A387"],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": []
+    }
+  ]
+}

@@ -5,17 +5,20 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // Helper function to load seed data - called inside the handler, not at module level
-function loadSeedData(dataType: 'pipes' | 'fittings' | 'flanges'): SeedData {
+function loadSeedData(
+  dataType: 'pipes' | 'fittings' | 'flanges' | 'plates'
+): SeedData | PlatesSeedData {
   const seedDataDir = path.join(__dirname, '..', 'seed-data');
   const fileMap = {
     pipes: 'pipes-carbon-steel.json',
     fittings: 'fittings-butt-weld.json',
     flanges: 'flanges-weld-neck.json',
+    plates: 'plates-common.json',
   };
 
   const filePath = path.join(seedDataDir, fileMap[dataType]);
   const data = fs.readFileSync(filePath, 'utf8');
-  return JSON.parse(data) as SeedData;
+  return JSON.parse(data) as SeedData | PlatesSeedData;
 }
 
 interface SeedDataMetadata {
@@ -41,8 +44,20 @@ interface SeedData {
   variants: Record<string, unknown>[];
 }
 
+// Plates seed data structure (multiple materials, no variants)
+interface PlatesSeedData {
+  metadata: {
+    standard: string;
+    title: string;
+    description: string;
+    createdAt: string;
+    source: string;
+  };
+  materials: Array<Record<string, unknown>>;
+}
+
 interface SeedMaterialsRequest {
-  dataType: 'pipes' | 'fittings' | 'flanges' | 'all';
+  dataType: 'pipes' | 'fittings' | 'flanges' | 'plates' | 'all';
   deleteExisting?: boolean;
 }
 
@@ -54,6 +69,7 @@ interface SeedMaterialsResult {
     pipes?: { materialId: string; variants: number };
     fittings?: { materialId: string; variants: number };
     flanges?: { materialId: string; variants: number };
+    plates?: { materialsCount: number };
   };
 }
 
@@ -90,17 +106,61 @@ export const seedMaterials = onCall<SeedMaterialsRequest, Promise<SeedMaterialsR
     };
 
     try {
-      // Determine which data to seed
+      // Handle plates separately (different structure)
+      if (dataType === 'plates' || dataType === 'all') {
+        logger.info('Processing plates data');
+        const platesData = loadSeedData('plates') as PlatesSeedData;
+
+        let platesCreated = 0;
+        for (const materialData of platesData.materials) {
+          // Check if material already exists
+          const existingQuery = await db
+            .collection('materials')
+            .where('materialCode', '==', materialData.materialCode)
+            .limit(1)
+            .get();
+
+          if (!existingQuery.empty) {
+            if (deleteExisting) {
+              await db
+                .collection('materials')
+                .doc(existingQuery.docs[0].id)
+                .update({
+                  ...materialData,
+                  updatedAt: FieldValue.serverTimestamp(),
+                });
+              logger.info(`Updated existing plate material: ${materialData.materialCode}`);
+            } else {
+              logger.warn(`Plate material ${materialData.materialCode} already exists. Skipping.`);
+              continue;
+            }
+          } else {
+            await db.collection('materials').add({
+              ...materialData,
+              createdAt: FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+            platesCreated++;
+            result.materialsCreated++;
+            logger.info(`Created new plate material: ${materialData.materialCode}`);
+          }
+        }
+
+        result.details.plates = { materialsCount: platesCreated };
+        logger.info(`Completed seeding plates: ${platesCreated} materials created`);
+      }
+
+      // Determine which data to seed (pipes, fittings, flanges)
       const dataSources: Array<{ type: 'pipes' | 'fittings' | 'flanges'; data: SeedData }> = [];
 
       if (dataType === 'pipes' || dataType === 'all') {
-        dataSources.push({ type: 'pipes', data: loadSeedData('pipes') });
+        dataSources.push({ type: 'pipes', data: loadSeedData('pipes') as SeedData });
       }
       if (dataType === 'fittings' || dataType === 'all') {
-        dataSources.push({ type: 'fittings', data: loadSeedData('fittings') });
+        dataSources.push({ type: 'fittings', data: loadSeedData('fittings') as SeedData });
       }
       if (dataType === 'flanges' || dataType === 'all') {
-        dataSources.push({ type: 'flanges', data: loadSeedData('flanges') });
+        dataSources.push({ type: 'flanges', data: loadSeedData('flanges') as SeedData });
       }
 
       // Process each data source
