@@ -209,7 +209,7 @@ export default function NewPlateMaterialPage() {
         description: formData.description,
         category: formData.category as MaterialCategory,
         materialType: formData.materialType,
-        customCode: formData.customCode || undefined,
+        ...(formData.customCode && { customCode: formData.customCode }),
 
         specification: {
           ...(formData.standard && { standard: formData.standard }),
