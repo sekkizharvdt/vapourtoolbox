@@ -361,8 +361,8 @@ export interface DocumentNumberingConfig {
   projectId: string;
 
   // Numbering format
-  separator: string;                 // "-" (fixed per user decision)
-  sequenceDigits: number;            // 3 (fixed: 001, 002, 003...)
+  separator: string; // "-" (fixed per user decision)
+  sequenceDigits: number; // 3 (fixed: 001, 002, 003...)
 
   // Disciplines defined for this project
   disciplines: DisciplineCode[];
@@ -382,15 +382,15 @@ export interface DocumentNumberingConfig {
  * Special: "00" for client input files with sub-codes
  */
 export interface DisciplineCode {
-  code: string;                      // "01", "02", "03", etc. ("00" for client inputs)
-  name: string;                      // "Process", "Mechanical", "Structural", etc.
+  code: string; // "01", "02", "03", etc. ("00" for client inputs)
+  name: string; // "Process", "Mechanical", "Structural", etc.
   description: string;
 
   // Sub-codes for discipline (especially for "00" client inputs)
   subCodes?: DisciplineSubCode[];
 
   isActive: boolean;
-  sortOrder: number;                 // Display order
+  sortOrder: number; // Display order
 
   // Audit
   createdBy: string;
@@ -401,8 +401,8 @@ export interface DisciplineCode {
  * Sub-codes for disciplines (e.g., under "00" for client inputs)
  */
 export interface DisciplineSubCode {
-  subCode: string;                   // "A", "B", "C" or "01", "02", etc.
-  name: string;                      // "Process Data", "Equipment List"
+  subCode: string; // "A", "B", "C" or "01", "02", etc.
+  name: string; // "Process Data", "Equipment List"
   description: string;
   isActive: boolean;
 }
@@ -412,19 +412,19 @@ export interface DisciplineSubCode {
  * From assignment to final client acceptance
  */
 export type MasterDocumentStatus =
-  | 'NOT_STARTED'        // Initial state - assigned but not started
-  | 'IN_PROGRESS'        // User working on it
-  | 'INTERNAL_REVIEW'    // Submitted for internal PM review
-  | 'PM_APPROVED'        // PM approved, ready for client submission
-  | 'SUBMITTED'          // Submitted to client
-  | 'CLIENT_REVIEW'      // Under client review
-  | 'COMMENTED'          // Client provided comments
+  | 'NOT_STARTED' // Initial state - assigned but not started
+  | 'IN_PROGRESS' // User working on it
+  | 'INTERNAL_REVIEW' // Submitted for internal PM review
+  | 'PM_APPROVED' // PM approved, ready for client submission
+  | 'SUBMITTED' // Submitted to client
+  | 'CLIENT_REVIEW' // Under client review
+  | 'COMMENTED' // Client provided comments
   | 'COMMENT_RESOLUTION' // Resolving comments
-  | 'RESUBMITTED'        // Revised version submitted
-  | 'APPROVED'           // Client approved (with minor comments)
-  | 'ACCEPTED'           // Client accepted (final, no further revisions)
-  | 'ON_HOLD'            // Temporarily paused
-  | 'CANCELLED';         // Cancelled/not required
+  | 'RESUBMITTED' // Revised version submitted
+  | 'APPROVED' // Client approved (with minor comments)
+  | 'ACCEPTED' // Client accepted (final, no further revisions)
+  | 'ON_HOLD' // Temporarily paused
+  | 'CANCELLED'; // Cancelled/not required
 
 /**
  * Master Document Entry in the Project's Master Document List
@@ -435,33 +435,33 @@ export interface MasterDocumentEntry {
   projectId: string;
 
   // Document Numbering
-  documentNumber: string;            // Full number: "PRJ-001-01-005"
-  projectCode: string;               // "PRJ-001"
-  disciplineCode: string;            // "01"
-  disciplineName: string;            // "Process"
-  subCode?: string;                  // For "00" discipline
-  sequenceNumber: string;            // "005"
+  documentNumber: string; // Full number: "PRJ-001-01-005"
+  projectCode: string; // "PRJ-001"
+  disciplineCode: string; // "01"
+  disciplineName: string; // "Process"
+  subCode?: string; // For "00" discipline
+  sequenceNumber: string; // "005"
 
   // Document Info
-  documentTitle: string;             // "Heat & Material Balance"
-  documentType: string;              // "P&ID", "Datasheet", "Drawing", "Calculation"
+  documentTitle: string; // "Heat & Material Balance"
+  documentType: string; // "P&ID", "Datasheet", "Drawing", "Calculation"
   description: string;
-  category?: string;                 // "Technical", "Commercial", "Quality"
+  category?: string; // "Technical", "Commercial", "Quality"
 
   // Status Tracking
   status: MasterDocumentStatus;
-  currentRevision: string;           // "R0", "R1", "R2", etc.
-  latestDocumentId?: string;         // Link to latest DocumentRecord
+  currentRevision: string; // "R0", "R1", "R2", etc.
+  latestDocumentId?: string; // Link to latest DocumentRecord
 
   // Document Linking (Dependencies)
-  predecessors: DocumentLink[];      // Must be completed before this starts
-  successors: DocumentLink[];        // Can start after this is completed
-  relatedDocuments: DocumentLink[];  // Related but not dependent
+  predecessors: DocumentLink[]; // Must be completed before this starts
+  successors: DocumentLink[]; // Can start after this is completed
+  relatedDocuments: DocumentLink[]; // Related but not dependent
 
   // Assignment
-  assignedTo: string[];              // User IDs (can be multiple collaborators)
-  assignedToNames: string[];         // Denormalized for display
-  assignedBy: string;                // Project Manager
+  assignedTo: string[]; // User IDs (can be multiple collaborators)
+  assignedToNames: string[]; // Denormalized for display
+  assignedBy: string; // Project Manager
   assignedByName: string;
   assignedDate: Timestamp;
 
@@ -472,7 +472,7 @@ export interface MasterDocumentEntry {
   actualCompletionDate?: Timestamp;
 
   // Input Files (from PM to assignee)
-  inputFiles: DocumentReference[];   // Reference docs, client inputs, templates
+  inputFiles: DocumentReference[]; // Reference docs, client inputs, templates
 
   // Supply List (feeds to procurement)
   hasSupplyList: boolean;
@@ -486,7 +486,7 @@ export interface MasterDocumentEntry {
   visibility: 'CLIENT_VISIBLE' | 'INTERNAL_ONLY';
 
   // Submission Tracking
-  submissionCount: number;           // Total submissions to client
+  submissionCount: number; // Total submissions to client
   lastSubmissionId?: string;
   lastSubmissionDate?: Timestamp;
 
@@ -496,7 +496,7 @@ export interface MasterDocumentEntry {
   resolvedComments: number;
 
   // Progress
-  progressPercentage: number;        // 0-100
+  progressPercentage: number; // 0-100
 
   // Priority
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
@@ -505,7 +505,7 @@ export interface MasterDocumentEntry {
   tags: string[];
 
   // Notes
-  notes?: string;                    // Internal notes
+  notes?: string; // Internal notes
 
   // Audit
   createdBy: string;
@@ -524,7 +524,7 @@ export interface MasterDocumentEntry {
  */
 export interface DocumentLink {
   masterDocumentId: string;
-  documentNumber: string;            // For display
+  documentNumber: string; // For display
   documentTitle: string;
   linkType: 'PREREQUISITE' | 'SUCCESSOR' | 'RELATED';
   status: MasterDocumentStatus;
@@ -540,7 +540,7 @@ export interface DocumentLink {
  * Document Reference (for input files, attachments, etc.)
  */
 export interface DocumentReference {
-  documentId?: string;               // Link to DocumentRecord (if uploaded)
+  documentId?: string; // Link to DocumentRecord (if uploaded)
   fileName: string;
   fileUrl?: string;
   fileSize?: number;
@@ -557,12 +557,12 @@ export interface DocumentReference {
  * Client Response Status for Submissions
  */
 export type ClientReviewStatus =
-  | 'PENDING'                        // Waiting for client review
-  | 'UNDER_REVIEW'                   // Client reviewing
-  | 'APPROVED'                       // Client approved (no comments)
-  | 'APPROVED_WITH_COMMENTS'         // Approved but has minor comments
-  | 'REJECTED'                       // Rejected, major rework needed
-  | 'CONDITIONALLY_APPROVED';        // Approved pending minor changes
+  | 'PENDING' // Waiting for client review
+  | 'UNDER_REVIEW' // Client reviewing
+  | 'APPROVED' // Client approved (no comments)
+  | 'APPROVED_WITH_COMMENTS' // Approved but has minor comments
+  | 'REJECTED' // Rejected, major rework needed
+  | 'CONDITIONALLY_APPROVED'; // Approved pending minor changes
 
 /**
  * Document Submission Record
@@ -572,26 +572,26 @@ export interface DocumentSubmission {
   id: string;
   projectId: string;
   masterDocumentId: string;
-  documentNumber: string;            // Denormalized
+  documentNumber: string; // Denormalized
   documentTitle: string;
 
   // Submission Info
-  submissionNumber: number;          // 1, 2, 3 (incremental per master doc)
-  revision: string;                  // "R0", "R1", "R2", etc.
-  documentId: string;                // Link to DocumentRecord (the actual file)
+  submissionNumber: number; // 1, 2, 3 (incremental per master doc)
+  revision: string; // "R0", "R1", "R2", etc.
+  documentId: string; // Link to DocumentRecord (the actual file)
 
   // Submission
   submittedBy: string;
   submittedByName: string;
   submittedAt: Timestamp;
-  submissionNotes?: string;          // Cover notes from submitter
+  submissionNotes?: string; // Cover notes from submitter
 
   // Client Response
   clientStatus: ClientReviewStatus;
   clientReviewedBy?: string;
   clientReviewedByName?: string;
   clientReviewedAt?: Timestamp;
-  clientRemarks?: string;            // General remarks from client
+  clientRemarks?: string; // General remarks from client
 
   // Comments
   commentCount: number;
@@ -601,18 +601,18 @@ export interface DocumentSubmission {
 
   // Comment Resolution Table
   crtGenerated: boolean;
-  crtDocumentId?: string;            // Link to exported CRT document
+  crtDocumentId?: string; // Link to exported CRT document
   crtGeneratedAt?: Timestamp;
 
   // Next Actions
   requiresResubmission: boolean;
-  nextSubmissionId?: string;         // Link to next submission (if resubmitted)
-  previousSubmissionId?: string;     // Link to previous submission
+  nextSubmissionId?: string; // Link to next submission (if resubmitted)
+  previousSubmissionId?: string; // Link to previous submission
 
   // Approval Workflow (2-level: assignee resolves, PM closes)
-  commentsResolvedBy?: string;       // User who resolved comments
+  commentsResolvedBy?: string; // User who resolved comments
   commentsResolvedAt?: Timestamp;
-  commentsApprovedBy?: string;       // PM who approved resolutions
+  commentsApprovedBy?: string; // PM who approved resolutions
   commentsApprovedAt?: Timestamp;
 
   // Timestamps
@@ -657,7 +657,7 @@ export interface DocumentComment {
   masterDocumentId: string;
 
   // Comment Identification
-  commentNumber: string;             // "C-001", "C-002", etc.
+  commentNumber: string; // "C-001", "C-002", etc.
   commentText: string;
 
   // Classification
@@ -670,7 +670,7 @@ export interface DocumentComment {
   lineItem?: string;
 
   // Client Info
-  commentedBy: string;               // Client user ID
+  commentedBy: string; // Client user ID
   commentedByName: string;
   commentedAt: Timestamp;
 
@@ -678,17 +678,17 @@ export interface DocumentComment {
   status: CommentStatus;
 
   // Level 1: Assignee Resolution
-  resolutionText?: string;           // User's response to comment
-  resolvedBy?: string;               // Assignee who resolved
+  resolutionText?: string; // User's response to comment
+  resolvedBy?: string; // Assignee who resolved
   resolvedByName?: string;
   resolvedAt?: Timestamp;
 
   // Level 2: PM Approval
   pmApproved: boolean;
-  pmApprovedBy?: string;             // Project Manager
+  pmApprovedBy?: string; // Project Manager
   pmApprovedByName?: string;
   pmApprovedAt?: Timestamp;
-  pmRemarks?: string;                // PM's notes on resolution
+  pmRemarks?: string; // PM's notes on resolution
 
   // Client Acceptance (final)
   clientAccepted: boolean;
@@ -739,7 +739,7 @@ export interface CommentResolutionTable {
   exportedByName?: string;
   exportedAt?: Timestamp;
   exportFormat?: 'PDF' | 'EXCEL';
-  exportedDocumentId?: string;       // Link to DocumentRecord of exported file
+  exportedDocumentId?: string; // Link to DocumentRecord of exported file
 
   // Generation
   generatedAt: Timestamp;
@@ -776,7 +776,7 @@ export interface SupplyItem {
   id: string;
   projectId: string;
   masterDocumentId: string;
-  documentNumber: string;            // Denormalized
+  documentNumber: string; // Denormalized
 
   // Item Details
   itemName: string;
@@ -790,12 +790,12 @@ export interface SupplyItem {
 
   // Quantity
   quantity: number;
-  unit: string;                      // "EA", "KG", "MTR", "SET", etc.
+  unit: string; // "EA", "KG", "MTR", "SET", etc.
 
   // Estimated Cost
   estimatedUnitCost?: number;
   estimatedTotalCost?: number;
-  currency: string;                  // "INR", "USD", etc.
+  currency: string; // "INR", "USD", etc.
 
   // Delivery Requirements
   requiredByDate?: Timestamp;
@@ -862,7 +862,7 @@ export interface WorkItem {
   id: string;
   projectId: string;
   masterDocumentId: string;
-  documentNumber: string;            // Denormalized
+  documentNumber: string; // Denormalized
 
   // Activity Details
   activityName: string;
@@ -883,7 +883,7 @@ export interface WorkItem {
   status: WorkItemStatus;
 
   // Task Integration
-  linkedTaskId?: string;             // Link to TaskNotification
+  linkedTaskId?: string; // Link to TaskNotification
   taskCreated: boolean;
   taskCreatedAt?: Timestamp;
 
@@ -892,10 +892,10 @@ export interface WorkItem {
   actualHours?: number;
 
   // Dependencies
-  dependsOnWorkItems?: string[];     // IDs of prerequisite work items
+  dependsOnWorkItems?: string[]; // IDs of prerequisite work items
 
   // Location
-  workLocation?: string;             // "Workshop", "Site", "Office", etc.
+  workLocation?: string; // "Workshop", "Site", "Office", etc.
 
   // Notes
   notes?: string;
@@ -919,6 +919,84 @@ export interface WorkItem {
 }
 
 // ============================================================================
+// DOCUMENT TRANSMITTAL SYSTEM
+// ============================================================================
+
+/**
+ * Document Transmittal Status
+ */
+export type TransmittalStatus = 'DRAFT' | 'GENERATED' | 'SENT' | 'ACKNOWLEDGED';
+
+/**
+ * Document Transmittal
+ * Tracks bulk document submissions to clients
+ */
+export interface DocumentTransmittal {
+  id: string;
+  projectId: string;
+  projectName: string;
+
+  // Transmittal Info
+  transmittalNumber: string; // Auto-generated (e.g., TR-001)
+  transmittalDate: Timestamp;
+  status: TransmittalStatus;
+
+  // Recipient
+  clientName: string;
+  clientContact?: string;
+  recipientEmail?: string;
+
+  // Documents Included
+  documentIds: string[]; // MasterDocument IDs
+  documentCount: number;
+
+  // Cover Notes
+  subject?: string;
+  coverNotes?: string;
+  purposeOfIssue?: string;
+
+  // Files
+  transmittalPdfUrl?: string; // Generated PDF location
+  transmittalPdfId?: string; // DocumentRecord ID
+  zipFileUrl?: string; // ZIP file location
+  zipFileSize?: number;
+
+  // Acknowledgment
+  acknowledgedBy?: string;
+  acknowledgedByName?: string;
+  acknowledgedAt?: Timestamp;
+  acknowledgmentNotes?: string;
+
+  // Audit
+  createdBy: string;
+  createdByName: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  sentAt?: Timestamp;
+}
+
+/**
+ * Transmittal Document Entry
+ * Individual document in a transmittal
+ */
+export interface TransmittalDocumentEntry {
+  masterDocumentId: string;
+  documentNumber: string;
+  documentTitle: string;
+  disciplineCode: string;
+  revision: string;
+  submissionDate: Timestamp;
+  status: MasterDocumentStatus;
+  purposeOfIssue?: string;
+  remarks?: string;
+
+  // File references
+  submissionId?: string;
+  documentFileUrl?: string;
+  crtFileUrl?: string;
+}
+
+// ============================================================================
 // DOCUMENT TEMPLATES SYSTEM
 // ============================================================================
 
@@ -926,13 +1004,13 @@ export interface WorkItem {
  * Template Category
  */
 export type TemplateCategory =
-  | 'DRAWING'           // AutoCAD, SolidWorks, etc.
-  | 'DOCUMENT'          // Word, PDF
-  | 'SPREADSHEET'       // Excel
-  | 'CALCULATION'       // MathCAD, Excel
-  | 'REPORT'            // Word, PowerPoint
-  | 'FORM'              // Standardized forms
-  | 'PROCEDURE'         // SOPs, work instructions
+  | 'DRAWING' // AutoCAD, SolidWorks, etc.
+  | 'DOCUMENT' // Word, PDF
+  | 'SPREADSHEET' // Excel
+  | 'CALCULATION' // MathCAD, Excel
+  | 'REPORT' // Word, PowerPoint
+  | 'FORM' // Standardized forms
+  | 'PROCEDURE' // SOPs, work instructions
   | 'OTHER';
 
 /**
@@ -949,17 +1027,17 @@ export interface DocumentTemplate {
 
   // Template Info
   templateName: string;
-  templateCode?: string;             // "TPL-DWG-001"
+  templateCode?: string; // "TPL-DWG-001"
   description: string;
   category: TemplateCategory;
 
   // File
   fileName: string;
-  fileUrl: string;                   // Firebase Storage URL
+  fileUrl: string; // Firebase Storage URL
   storageRef: string;
   fileSize: number;
   mimeType: string;
-  fileExtension: string;             // "docx", "xlsx", "dwg", "pdf"
+  fileExtension: string; // "docx", "xlsx", "dwg", "pdf"
 
   // Applicability
   applicability: TemplateApplicability;
@@ -969,11 +1047,11 @@ export interface DocumentTemplate {
   projectName?: string;
 
   // If discipline-specific
-  disciplineCodes?: string[];        // ["01", "02"] - applicable to these disciplines
+  disciplineCodes?: string[]; // ["01", "02"] - applicable to these disciplines
   disciplineNames?: string[];
 
   // Version
-  version: string;                   // "1.0", "1.1", "2.0"
+  version: string; // "1.0", "1.1", "2.0"
   revisionHistory?: TemplateRevision[];
 
   // Usage Tracking
@@ -989,7 +1067,7 @@ export interface DocumentTemplate {
   tags: string[];
 
   // Instructions
-  usageInstructions?: string;        // How to use this template
+  usageInstructions?: string; // How to use this template
 
   // Related Templates
   relatedTemplateIds?: string[];
@@ -1015,5 +1093,5 @@ export interface TemplateRevision {
   revisedBy: string;
   revisedByName: string;
   revisedAt: Timestamp;
-  previousFileUrl?: string;          // Backup of previous version
+  previousFileUrl?: string; // Backup of previous version
 }

@@ -37,7 +37,9 @@
       "Bash(git reset:*)",
       "Bash(pnpm lint:*)",
       "Bash(pnpm type-check:*)",
-      "Bash(pnpm --filter @vapour/web build:*)"
+      "Bash(pnpm --filter @vapour/web build:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull:*)"
     ],
     "deny": [],
     "ask": []

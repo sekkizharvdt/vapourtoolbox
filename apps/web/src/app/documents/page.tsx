@@ -30,6 +30,7 @@ import {
   FilterList as FilterListIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
+  Send as SendIcon,
 } from '@mui/icons-material';
 import type { MasterDocumentEntry } from '@vapour/types';
 import { getMasterDocumentsByProject } from '@/lib/documents/masterDocumentService';
@@ -38,6 +39,7 @@ import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { DocumentMetrics } from './components/DocumentMetrics';
 import { QuickFilters } from './components/QuickFilters';
 import { GroupedDocumentsTable } from './components/GroupedDocumentsTable';
+import GenerateTransmittalDialog from './components/transmittals/GenerateTransmittalDialog';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -62,6 +64,7 @@ export default function MasterDocumentsPage() {
 
   // Dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [transmittalDialogOpen, setTransmittalDialogOpen] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -198,14 +201,24 @@ export default function MasterDocumentsPage() {
           <Typography variant="h4" component="h1">
             Master Document List
           </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateDialogOpen(true)}
-            disabled={!projectId}
-          >
-            New Document
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              startIcon={<SendIcon />}
+              onClick={() => setTransmittalDialogOpen(true)}
+              disabled={!projectId || filteredDocuments.length === 0}
+            >
+              Create Transmittal
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateDialogOpen(true)}
+              disabled={!projectId}
+            >
+              New Document
+            </Button>
+          </Stack>
         </Stack>
 
         {/* Project Selector */}
@@ -361,6 +374,17 @@ export default function MasterDocumentsPage() {
         projectId={projectId}
         onDocumentCreated={handleDocumentCreated}
       />
+
+      {/* Generate Transmittal Dialog */}
+      {projectId && (
+        <GenerateTransmittalDialog
+          open={transmittalDialogOpen}
+          onClose={() => setTransmittalDialogOpen(false)}
+          projectId={projectId}
+          projectName={projectId}
+          documents={filteredDocuments}
+        />
+      )}
     </Box>
   );
 }
