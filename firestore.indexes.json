@@ -2181,16 +2181,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "transmittalNumber",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "transmittals",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
           "fieldPath": "projectId",
           "order": "ASCENDING"
         },
