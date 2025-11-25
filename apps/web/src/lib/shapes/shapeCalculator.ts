@@ -36,12 +36,18 @@ export function calculateShape(input: CalculateShapeInput): ShapeCalculationResu
   // Build evaluation context
   const context: EvaluationContext = { ...parameterValues };
 
+  // Filter out non-FormulaDefinition entries (blankDimensions, customFormulas)
+  // and only pass FormulaDefinition objects to the evaluator
+  const formulasToEvaluate: Record<string, FormulaDefinition> = {};
+  for (const [key, value] of Object.entries(shape.formulas)) {
+    // Check if the value is a FormulaDefinition (has expression and variables)
+    if (value && typeof value === 'object' && 'expression' in value && 'variables' in value) {
+      formulasToEvaluate[key] = value as FormulaDefinition;
+    }
+  }
+
   // Evaluate all formulas
-  const formulaResults = evaluateMultipleFormulas(
-    shape.formulas as unknown as Record<string, FormulaDefinition>,
-    context,
-    density
-  );
+  const formulaResults = evaluateMultipleFormulas(formulasToEvaluate, context, density);
 
   // Extract key results
   const volume = formulaResults.volume?.result || 0;

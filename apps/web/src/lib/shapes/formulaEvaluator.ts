@@ -56,7 +56,7 @@ export function evaluateFormula(
     }
 
     // Check that all required variables are provided
-    const missingVars = formula.variables.filter((v) => !(v in scope));
+    const missingVars = (formula.variables || []).filter((v) => !(v in scope));
     if (missingVars.length > 0) {
       throw new Error(`Missing required variables: ${missingVars.join(', ')}`);
     }
