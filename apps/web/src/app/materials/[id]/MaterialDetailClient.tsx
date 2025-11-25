@@ -53,7 +53,17 @@ export default function MaterialDetailClient() {
   }, [materialId]);
 
   const loadMaterial = async () => {
-    if (!db || !materialId) return;
+    if (!materialId) {
+      setError('No material ID provided');
+      setLoading(false);
+      return;
+    }
+
+    if (!db) {
+      setError('Firebase not initialized');
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
