@@ -195,8 +195,21 @@ export default function ShapeCalculatorPage() {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Stepper activeStep={activeStep}>
-            {steps.map((label) => (
-              <Step key={label}>
+            {steps.map((label, index) => (
+              <Step
+                key={label}
+                sx={{ cursor: 'pointer' }}
+                onClick={() => {
+                  // Allow navigation back to previous steps
+                  if (index < activeStep) {
+                    setActiveStep(index);
+                  }
+                  // Allow going to parameter step if shape and material are selected
+                  if (index === 2 && selectedShape && selectedMaterial) {
+                    setActiveStep(2);
+                  }
+                }}
+              >
                 <StepLabel>{label}</StepLabel>
               </Step>
             ))}
@@ -339,9 +352,14 @@ export default function ShapeCalculatorPage() {
       {activeStep === 3 && calculationResult && (
         <Card>
           <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Calculation Results
-            </Typography>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+            >
+              <Typography variant="h6">Calculation Results</Typography>
+              <Button variant="outlined" onClick={() => setActiveStep(2)} sx={{ ml: 2 }}>
+                Edit Parameters
+              </Button>
+            </Box>
             <Divider sx={{ my: 2 }} />
             <CalculationResults result={calculationResult} />
           </CardContent>

@@ -114,7 +114,7 @@ export const rectangularPlate: Omit<
 
     // Weight in kg
     weight: {
-      expression: '(L * W * t * density) / 1000000',
+      expression: '(L * W * t * density) / 1000000000',
       variables: ['L', 'W', 't'],
       unit: 'kg',
       description: 'Plate weight (requires material density)',
