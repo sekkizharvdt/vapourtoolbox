@@ -107,7 +107,7 @@ export default function TransmittalsList({ projectId }: TransmittalsListProps) {
         return;
       }
 
-      console.log('[TransmittalsList] Downloading ZIP for:', transmittal.transmittalNumber);
+      console.warn('[TransmittalsList] Downloading ZIP for:', transmittal.transmittalNumber);
 
       // Get signed download URL from Cloud Function
       const getDownloadUrlFn = httpsCallable(functions, 'getTransmittalDownloadUrl');
@@ -122,7 +122,7 @@ export default function TransmittalsList({ projectId }: TransmittalsListProps) {
       link.click();
       document.body.removeChild(link);
 
-      console.log('[TransmittalsList] ZIP download triggered');
+      console.warn('[TransmittalsList] ZIP download triggered');
     } catch (err) {
       console.error('Failed to download ZIP:', err);
       alert(
@@ -143,7 +143,7 @@ export default function TransmittalsList({ projectId }: TransmittalsListProps) {
         return;
       }
 
-      console.log('[TransmittalsList] Downloading PDF for:', transmittal.transmittalNumber);
+      console.warn('[TransmittalsList] Downloading PDF for:', transmittal.transmittalNumber);
 
       // Get signed download URL from Cloud Function
       const getDownloadUrlFn = httpsCallable(functions, 'getTransmittalDownloadUrl');
@@ -158,7 +158,7 @@ export default function TransmittalsList({ projectId }: TransmittalsListProps) {
       link.click();
       document.body.removeChild(link);
 
-      console.log('[TransmittalsList] PDF download triggered');
+      console.warn('[TransmittalsList] PDF download triggered');
     } catch (err) {
       console.error('Failed to download PDF:', err);
       alert(

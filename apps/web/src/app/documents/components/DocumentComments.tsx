@@ -140,7 +140,7 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
       // 2. Create DocumentComment in Firestore
       // 3. Update MasterDocumentEntry comment counts if needed
 
-      console.log('Adding comment:', data);
+      console.warn('Adding comment:', data);
 
       // For now, show a placeholder alert
       alert('Comment creation will be implemented with Firestore integration');
@@ -166,7 +166,7 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
       // 2. Change status from OPEN to UNDER_REVIEW or RESOLVED
       // 3. Update comment counts
 
-      console.log('Resolving comment:', commentId, resolutionText);
+      console.warn('Resolving comment:', commentId, resolutionText);
       alert('Comment resolution will be implemented');
 
       await loadComments();
@@ -184,7 +184,7 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
       // 2. Change status to CLOSED
       // 3. Update comment counts
 
-      console.log('Approving resolution:', commentId, remarks);
+      console.warn('Approving resolution:', commentId, remarks);
       alert('PM approval will be implemented');
 
       await loadComments();
@@ -202,7 +202,7 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
       // 2. Change status back to OPEN or UNDER_REVIEW
       // 3. Notify assignee of rejection
 
-      console.log('Rejecting resolution:', commentId, remarks);
+      console.warn('Rejecting resolution:', commentId, remarks);
       alert('PM rejection will be implemented');
 
       await loadComments();

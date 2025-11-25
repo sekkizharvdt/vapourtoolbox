@@ -84,7 +84,7 @@ export default function DocumentSupplyList({ document, onUpdate }: DocumentSuppl
       // 2. Update MasterDocumentEntry supplyItemCount
       // 3. Calculate estimated total cost
 
-      console.log('Adding supply item:', data);
+      console.warn('Adding supply item:', data);
 
       // For now, show a placeholder alert
       alert('Supply item creation will be implemented with Firestore integration');
@@ -98,7 +98,7 @@ export default function DocumentSupplyList({ document, onUpdate }: DocumentSuppl
 
   const handleViewItem = (item: SupplyItem) => {
     // TODO: Implement view/edit dialog
-    console.log('Viewing supply item:', item);
+    console.warn('Viewing supply item:', item);
     alert('Supply item details view will be implemented');
   };
 
@@ -109,7 +109,7 @@ export default function DocumentSupplyList({ document, onUpdate }: DocumentSuppl
       // 1. Delete SupplyItem from Firestore
       // 2. Update MasterDocumentEntry supplyItemCount
 
-      console.log('Deleting supply item:', item);
+      console.warn('Deleting supply item:', item);
 
       if (window.confirm(`Delete supply item "${item.itemName}"?`)) {
         alert('Supply item deletion will be implemented');

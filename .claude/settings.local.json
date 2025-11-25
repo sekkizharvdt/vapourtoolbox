@@ -39,7 +39,8 @@
       "Bash(pnpm type-check:*)",
       "Bash(pnpm --filter @vapour/web build:*)",
       "Bash(git fetch:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(pnpm --filter @vapour/functions build:*)"
     ],
     "deny": [],
     "ask": []

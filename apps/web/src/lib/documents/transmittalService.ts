@@ -103,7 +103,7 @@ export async function createTransmittal(
   const transmittalsRef = collection(db, 'projects', data.projectId, 'transmittals');
   const docRef = await addDoc(transmittalsRef, transmittal);
 
-  console.log('[TransmittalService] Created transmittal:', docRef.id, transmittalNumber);
+  console.warn('[TransmittalService] Created transmittal:', docRef.id, transmittalNumber);
   return docRef.id;
 }
 
@@ -142,7 +142,12 @@ export async function getTransmittal(
     return null;
   }
 
-  return { id: snapshot.id, ...snapshot.data() } as DocumentTransmittal;
+  const data = snapshot.data() as Omit<DocumentTransmittal, 'id'>;
+  const transmittal: DocumentTransmittal = {
+    ...data,
+    id: snapshot.id,
+  };
+  return transmittal;
 }
 
 /**
@@ -169,7 +174,7 @@ export async function updateTransmittalStatus(
   }
 
   await updateDoc(transmittalRef, updates as Record<string, unknown>);
-  console.log('[TransmittalService] Updated transmittal status:', transmittalId, status);
+  console.warn('[TransmittalService] Updated transmittal status:', transmittalId, status);
 }
 
 /**
@@ -194,7 +199,7 @@ export async function updateTransmittalFiles(
     updatedAt: Timestamp.now(),
   } as Record<string, unknown>);
 
-  console.log('[TransmittalService] Updated transmittal files:', transmittalId);
+  console.warn('[TransmittalService] Updated transmittal files:', transmittalId);
 }
 
 /**
@@ -219,7 +224,7 @@ export async function acknowledgeTransmittal(
     updatedAt: Timestamp.now(),
   } as Record<string, unknown>);
 
-  console.log('[TransmittalService] Acknowledged transmittal:', transmittalId);
+  console.warn('[TransmittalService] Acknowledged transmittal:', transmittalId);
 }
 
 /**

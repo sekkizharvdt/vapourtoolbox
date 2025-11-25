@@ -93,11 +93,11 @@ export async function getMasterDocumentsByProject(
     onlyDeleted?: boolean;
   }
 ): Promise<MasterDocumentEntry[]> {
-  console.log('[getMasterDocumentsByProject] Called with projectId:', projectId);
-  console.log('[getMasterDocumentsByProject] Filters:', filters);
+  console.warn('[getMasterDocumentsByProject] Called with projectId:', projectId);
+  console.warn('[getMasterDocumentsByProject] Filters:', filters);
 
   try {
-    console.log('[getMasterDocumentsByProject] Database instance received');
+    console.warn('[getMasterDocumentsByProject] Database instance received');
 
     const constraints: QueryConstraint[] = [];
 
@@ -121,7 +121,7 @@ export async function getMasterDocumentsByProject(
       constraints.push(where('isDeleted', '==', false));
     }
 
-    console.log(
+    console.warn(
       '[getMasterDocumentsByProject] Building query with constraints:',
       constraints.length
     );
@@ -129,13 +129,13 @@ export async function getMasterDocumentsByProject(
     // Note: Removed orderBy from query to avoid complex index requirements
     // Sorting is done in memory instead
     const collectionPath = `projects/${projectId}/masterDocuments`;
-    console.log('[getMasterDocumentsByProject] Collection path:', collectionPath);
+    console.warn('[getMasterDocumentsByProject] Collection path:', collectionPath);
 
     const q = query(collection(db, 'projects', projectId, 'masterDocuments'), ...constraints);
-    console.log('[getMasterDocumentsByProject] Query built, executing getDocs...');
+    console.warn('[getMasterDocumentsByProject] Query built, executing getDocs...');
 
     const querySnapshot = await getDocs(q);
-    console.log(
+    console.warn(
       '[getMasterDocumentsByProject] Query completed, documents found:',
       querySnapshot.size
     );
@@ -145,11 +145,11 @@ export async function getMasterDocumentsByProject(
       ...doc.data(),
     })) as MasterDocumentEntry[];
 
-    console.log('[getMasterDocumentsByProject] Mapped documents:', documents.length);
+    console.warn('[getMasterDocumentsByProject] Mapped documents:', documents.length);
 
     // Sort by document number in memory
     const sorted = documents.sort((a, b) => a.documentNumber.localeCompare(b.documentNumber));
-    console.log('[getMasterDocumentsByProject] Documents sorted, returning');
+    console.warn('[getMasterDocumentsByProject] Documents sorted, returning');
 
     return sorted;
   } catch (error) {

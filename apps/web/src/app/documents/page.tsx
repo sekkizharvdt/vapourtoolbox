@@ -96,11 +96,11 @@ export default function MasterDocumentsPage() {
     }
 
     if (!projectId) {
-      console.log('[MasterDocumentsPage] loadDocuments called without projectId');
+      console.warn('[MasterDocumentsPage] loadDocuments called without projectId');
       return;
     }
 
-    console.log('[MasterDocumentsPage] Starting to load documents for project:', projectId);
+    console.warn('[MasterDocumentsPage] Starting to load documents for project:', projectId);
     setLoading(true);
 
     // Add timeout to prevent infinite loading
@@ -111,9 +111,9 @@ export default function MasterDocumentsPage() {
     }, 10000);
 
     try {
-      console.log('[MasterDocumentsPage] Calling getMasterDocumentsByProject...');
+      console.warn('[MasterDocumentsPage] Calling getMasterDocumentsByProject...');
       const data = await getMasterDocumentsByProject(db, projectId);
-      console.log('[MasterDocumentsPage] Successfully loaded documents:', data.length);
+      console.warn('[MasterDocumentsPage] Successfully loaded documents:', data.length);
       setDocuments(data);
       clearTimeout(timeoutId);
     } catch (error) {
@@ -123,7 +123,7 @@ export default function MasterDocumentsPage() {
       alert(`Error loading documents: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
-      console.log('[MasterDocumentsPage] Loading complete');
+      console.warn('[MasterDocumentsPage] Loading complete');
     }
   };
 

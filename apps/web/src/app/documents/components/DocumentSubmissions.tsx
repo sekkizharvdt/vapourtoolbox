@@ -90,7 +90,7 @@ export default function DocumentSubmissions({ document, onUpdate }: DocumentSubm
       // 3. Create DocumentSubmission in Firestore
       // 4. Update MasterDocumentEntry with new revision and submission count
 
-      console.log('Submitting document:', data);
+      console.warn('Submitting document:', data);
 
       // For now, show a placeholder alert
       alert('Document submission will be implemented with Firebase Storage integration');
@@ -110,13 +110,13 @@ export default function DocumentSubmissions({ document, onUpdate }: DocumentSubm
 
   const handleViewComments = (submission: DocumentSubmission) => {
     // TODO: Navigate to comments tab with this submission filtered
-    console.log('View comments for submission:', submission.id);
+    console.warn('View comments for submission:', submission.id);
     alert('Comment navigation will be implemented');
   };
 
   const handleDownloadCRT = (submission: DocumentSubmission) => {
     // TODO: Download CRT document
-    console.log('Download CRT for submission:', submission.id);
+    console.warn('Download CRT for submission:', submission.id);
     alert('CRT download will be implemented');
   };
 

@@ -97,7 +97,7 @@ export default function GenerateTransmittalDialog({
 
     try {
       // Step 1: Create DocumentTransmittal record in Firestore
-      console.log('[GenerateTransmittal] Creating transmittal record...');
+      console.warn('[GenerateTransmittal] Creating transmittal record...');
       const transmittalId = await createTransmittal(db, {
         projectId,
         projectName,
@@ -110,10 +110,10 @@ export default function GenerateTransmittalDialog({
         createdByName: user.displayName || user.email || 'Unknown',
       });
 
-      console.log('[GenerateTransmittal] Transmittal record created:', transmittalId);
+      console.warn('[GenerateTransmittal] Transmittal record created:', transmittalId);
 
       // Step 2: Call Cloud Function to generate PDF and ZIP
-      console.log('[GenerateTransmittal] Calling generateTransmittal Cloud Function...');
+      console.warn('[GenerateTransmittal] Calling generateTransmittal Cloud Function...');
       const generateTransmittalFn = httpsCallable(functions, 'generateTransmittal');
       const result = await generateTransmittalFn({
         transmittalId,
@@ -128,7 +128,7 @@ export default function GenerateTransmittalDialog({
         fileCount: number;
       };
 
-      console.log('[GenerateTransmittal] Generation complete:', data);
+      console.warn('[GenerateTransmittal] Generation complete:', data);
 
       // Step 3: Get download URL for the ZIP file
       const getDownloadUrlFn = httpsCallable(functions, 'getTransmittalDownloadUrl');
@@ -143,7 +143,7 @@ export default function GenerateTransmittalDialog({
       link.click();
       document.body.removeChild(link);
 
-      console.log('[GenerateTransmittal] Download triggered');
+      console.warn('[GenerateTransmittal] Download triggered');
 
       // Show success message
       alert(

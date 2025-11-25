@@ -53,7 +53,7 @@ export default function DocumentLinks({ document, onUpdate }: DocumentLinksProps
       // 4. Check for circular dependencies
       // 5. Update document status if all predecessors are complete
 
-      console.log('Adding link:', { documentId, linkType });
+      console.warn('Adding link:', { documentId, linkType });
 
       // For now, show a placeholder alert
       alert('Document link creation will be implemented with Firestore integration');
@@ -73,7 +73,7 @@ export default function DocumentLinks({ document, onUpdate }: DocumentLinksProps
       // 2. Remove reciprocal link from target document
       // 3. Update Firestore
 
-      console.log('Removing link:', link);
+      console.warn('Removing link:', link);
 
       // For now, show a placeholder alert
       if (window.confirm(`Remove link to ${link.documentNumber}?`)) {

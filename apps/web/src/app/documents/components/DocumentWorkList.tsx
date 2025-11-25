@@ -63,7 +63,7 @@ export default function DocumentWorkList({ document, onUpdate }: DocumentWorkLis
 
   const handleAddItem = async (data: WorkItemData) => {
     try {
-      console.log('Adding work item:', data);
+      console.warn('Adding work item:', data);
       alert('Work item creation will be implemented with Firestore integration');
       await loadWorkItems();
       onUpdate();
