@@ -24,6 +24,9 @@ export { createEntity, updateEntity } from './entities';
 // Export validated accounting operations
 export { createJournalEntry, validateTransactionAmount } from './accounting';
 
+// Export transmittal functions
+export { generateTransmittal, getTransmittalDownloadUrl } from './transmittals';
+
 /**
  * Create Firestore Document for New Users
  *

@@ -24,6 +24,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -40,6 +42,7 @@ import { DocumentMetrics } from './components/DocumentMetrics';
 import { QuickFilters } from './components/QuickFilters';
 import { GroupedDocumentsTable } from './components/GroupedDocumentsTable';
 import GenerateTransmittalDialog from './components/transmittals/GenerateTransmittalDialog';
+import TransmittalsList from './components/transmittals/TransmittalsList';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -65,6 +68,9 @@ export default function MasterDocumentsPage() {
   // Dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [transmittalDialogOpen, setTransmittalDialogOpen] = useState(false);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
     if (projectId) {
@@ -231,12 +237,24 @@ export default function MasterDocumentsPage() {
           />
         </Paper>
 
+        {/* Tabs */}
+        {projectId && (
+          <Paper>
+            <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+              <Tab label="Documents" />
+              <Tab label="Transmittals" />
+            </Tabs>
+          </Paper>
+        )}
+
         {!projectId ? (
           <Paper sx={{ p: 4, textAlign: 'center' }}>
             <Typography variant="body1" color="text.secondary">
               Please select a project to view its master document list
             </Typography>
           </Paper>
+        ) : activeTab === 1 ? (
+          <TransmittalsList projectId={projectId} />
         ) : (
           <>
             {/* Document Metrics */}

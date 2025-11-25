@@ -15,9 +15,11 @@
     "node": "18"
   },
   "dependencies": {
+    "@types/archiver": "^7.0.0",
     "@vapour/firebase": "workspace:*",
     "@vapour/types": "workspace:*",
     "@vapour/validation": "workspace:*",
+    "archiver": "^7.0.1",
     "firebase-admin": "^13.5.0",
     "firebase-functions": "^6.1.1",
     "handlebars": "^4.7.8",

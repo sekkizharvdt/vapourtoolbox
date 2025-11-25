@@ -67,10 +67,6 @@ export default function NewPlateMaterialPage() {
     // Plate Properties
     density: '',
     densityUnit: 'kg/m3' as 'kg/m3' | 'g/cm3',
-    tensileStrength: '',
-    yieldStrength: '',
-    elongation: '',
-    maxOperatingTemp: '',
 
     // Units
     baseUnit: 'kg', // Default to kg for plates
@@ -140,14 +136,6 @@ export default function NewPlateMaterialPage() {
         properties: {
           density: formData.density ? parseFloat(formData.density) : undefined,
           densityUnit: formData.densityUnit,
-          tensileStrength: formData.tensileStrength
-            ? parseFloat(formData.tensileStrength)
-            : undefined,
-          yieldStrength: formData.yieldStrength ? parseFloat(formData.yieldStrength) : undefined,
-          elongation: formData.elongation ? parseFloat(formData.elongation) : undefined,
-          maxOperatingTemp: formData.maxOperatingTemp
-            ? parseFloat(formData.maxOperatingTemp)
-            : undefined,
         },
 
         baseUnit: formData.baseUnit,
@@ -403,7 +391,7 @@ export default function NewPlateMaterialPage() {
               Material Properties
             </Typography>
             <Typography variant="body2" color="text.secondary" gutterBottom>
-              Enter the mechanical and physical properties (required for engineering calculations)
+              Enter the physical properties for weight calculations
             </Typography>
             <Divider sx={{ mb: 2 }} />
           </Box>
@@ -443,54 +431,6 @@ export default function NewPlateMaterialPage() {
                 onChange={(e) => handleChange('baseUnit', e.target.value)}
                 placeholder="kg"
                 helperText="Unit for pricing and quantity (default: kg)"
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Tensile Strength (MPa)"
-                value={formData.tensileStrength}
-                onChange={(e) => handleChange('tensileStrength', e.target.value)}
-                placeholder="e.g., 515"
-                helperText="Ultimate tensile strength in MPa"
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Yield Strength (MPa)"
-                value={formData.yieldStrength}
-                onChange={(e) => handleChange('yieldStrength', e.target.value)}
-                placeholder="e.g., 205"
-                helperText="Minimum yield strength in MPa"
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Elongation (%)"
-                value={formData.elongation}
-                onChange={(e) => handleChange('elongation', e.target.value)}
-                placeholder="e.g., 40"
-                helperText="Elongation at break (%)"
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Max Operating Temperature (°C)"
-                value={formData.maxOperatingTemp}
-                onChange={(e) => handleChange('maxOperatingTemp', e.target.value)}
-                placeholder="e.g., 870"
-                helperText="Maximum operating temperature"
               />
             </Grid>
           </Grid>
