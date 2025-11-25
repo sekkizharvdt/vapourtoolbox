@@ -40,7 +40,10 @@
       "Bash(pnpm --filter @vapour/web build:*)",
       "Bash(git fetch:*)",
       "Bash(git pull:*)",
-      "Bash(pnpm --filter @vapour/functions build:*)"
+      "Bash(pnpm --filter @vapour/functions build:*)",
+      "Bash(pnpm update:*)",
+      "Bash(pnpm audit:*)",
+      "Bash(pnpm why:*)"
     ],
     "deny": [],
     "ask": []
