@@ -32,12 +32,11 @@ import ParameterInputForm from '@/components/shapes/ParameterInputForm';
 import CalculationResults from '@/components/shapes/CalculationResults';
 import FormulaTester from '@/components/shapes/FormulaTester';
 import { calculateShape } from '@/lib/shapes/shapeCalculator';
-import type { Shape, Material, ShapeInstance } from '@vapour/types';
+import type { Shape, Material } from '@vapour/types';
 
-type CalculationResult = Omit<
-  ShapeInstance,
-  'id' | 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy'
->;
+// Flattened calculation result for display (not the database structure)
+// This matches what CalculationResults component expects
+type CalculationResult = Record<string, unknown>;
 
 export default function ShapeCalculatorPage() {
   const [activeStep, setActiveStep] = useState(0);
@@ -83,7 +82,31 @@ export default function ShapeCalculatorPage() {
         quantity,
       });
 
-      setCalculationResult(result);
+      // Flatten the nested structure for the UI component
+      // The calculator returns calculatedValues.weight but CalculationResults expects weight at top level
+      const flattenedResult: CalculationResult = {
+        // Keep all shape/material metadata
+        shapeId: result.shapeId,
+        shapeName: result.shapeName,
+        shapeCategory: result.shapeCategory,
+        materialId: result.materialId,
+        materialName: result.materialName,
+        materialDensity: result.materialDensity,
+        materialPricePerKg: result.materialPricePerKg,
+        parameterValues: result.parameterValues,
+        // Flatten calculatedValues to top level
+        ...result.calculatedValues,
+        // Flatten costEstimate to top level
+        ...result.costEstimate,
+        // Keep top-level properties
+        quantity: result.quantity,
+        totalWeight: result.totalWeight,
+        totalCost: result.totalCost,
+        // Calculate cost per unit for display
+        costPerUnit: result.quantity > 1 ? result.totalCost / result.quantity : result.totalCost,
+      };
+
+      setCalculationResult(flattenedResult);
       setActiveStep(3);
     } catch (error) {
       console.error('Calculation error:', error);
