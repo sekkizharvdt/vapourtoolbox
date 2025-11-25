@@ -19,13 +19,20 @@ import {
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getFirebase } from '@/lib/firebase';
 
+interface SeedMaterialsResult {
+  success: boolean;
+  materialsCreated: number;
+  variantsCreated: number;
+  details: Record<string, unknown>;
+}
+
 export default function SeedMaterialsPage() {
   const [dataType, setDataType] = useState<'pipes' | 'fittings' | 'flanges' | 'plates' | 'all'>(
     'plates'
   );
   const [deleteExisting, setDeleteExisting] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<SeedMaterialsResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleSeed = async () => {
@@ -43,14 +50,11 @@ export default function SeedMaterialsPage() {
       const functions = getFunctions(app);
       const seedMaterials = httpsCallable(functions, 'seedMaterials');
 
-      console.log('Calling seedMaterials with:', { dataType, deleteExisting });
-
       const response = await seedMaterials({ dataType, deleteExisting });
-      setResult(response.data);
-      console.log('Seed materials result:', response.data);
-    } catch (err: any) {
+      setResult(response.data as SeedMaterialsResult);
+    } catch (err) {
       console.error('Error seeding materials:', err);
-      setError(err.message || 'Failed to seed materials');
+      setError(err instanceof Error ? err.message : 'Failed to seed materials');
     } finally {
       setLoading(false);
     }
