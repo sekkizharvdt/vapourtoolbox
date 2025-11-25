@@ -18,6 +18,8 @@ import { Add as AddIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import type { MasterDocumentEntry, SupplyItem } from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { createSupplyItem, deleteSupplyItem } from '@/lib/documents/supplyItemService';
+import { useAuth } from '@/contexts/AuthContext';
 import AddSupplyItemDialog, { type SupplyItemData } from './supply/AddSupplyItemDialog';
 import SupplyItemsTable from './supply/SupplyItemsTable';
 
@@ -28,6 +30,7 @@ interface DocumentSupplyListProps {
 
 export default function DocumentSupplyList({ document, onUpdate }: DocumentSupplyListProps) {
   const { db } = getFirebase();
+  const { user } = useAuth();
 
   const [items, setItems] = useState<SupplyItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,18 +80,31 @@ export default function DocumentSupplyList({ document, onUpdate }: DocumentSuppl
   };
 
   const handleAddItem = async (data: SupplyItemData) => {
+    if (!db || !user) {
+      throw new Error('Firebase not initialized or user not authenticated');
+    }
+
     try {
-      // TODO: Implement actual supply item creation
-      // This will involve:
-      // 1. Create SupplyItem in Firestore
-      // 2. Update MasterDocumentEntry supplyItemCount
-      // 3. Calculate estimated total cost
+      await createSupplyItem(db, {
+        projectId: document.projectId,
+        masterDocumentId: document.id,
+        documentNumber: document.documentNumber,
+        itemName: data.itemName,
+        description: data.description,
+        itemType: data.itemType,
+        specification: data.specification,
+        drawingReference: data.drawingReference,
+        materialGrade: data.materialGrade,
+        quantity: data.quantity,
+        unit: data.unit,
+        estimatedUnitCost: data.estimatedUnitCost,
+        currency: data.currency,
+        notes: data.notes,
+        createdBy: user.uid,
+        createdByName: user.displayName || user.email || 'Unknown',
+      });
 
-      console.warn('Adding supply item:', data);
-
-      // For now, show a placeholder alert
-      alert('Supply item creation will be implemented with Firestore integration');
-
+      console.log('[DocumentSupplyList] Supply item created successfully');
       await loadSupplyItems();
       onUpdate();
     } catch (err) {
@@ -103,21 +119,21 @@ export default function DocumentSupplyList({ document, onUpdate }: DocumentSuppl
   };
 
   const handleDeleteItem = async (item: SupplyItem) => {
+    if (!db) {
+      console.error('Firebase not initialized');
+      return;
+    }
+
     try {
-      // TODO: Implement item deletion
-      // This will involve:
-      // 1. Delete SupplyItem from Firestore
-      // 2. Update MasterDocumentEntry supplyItemCount
-
-      console.warn('Deleting supply item:', item);
-
       if (window.confirm(`Delete supply item "${item.itemName}"?`)) {
-        alert('Supply item deletion will be implemented');
+        await deleteSupplyItem(db, document.projectId, item.id);
+        console.log('[DocumentSupplyList] Supply item deleted successfully');
         await loadSupplyItems();
         onUpdate();
       }
     } catch (err) {
       console.error('Failed to delete supply item:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete supply item');
     }
   };
 

@@ -6,6 +6,8 @@ import { Add as AddIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import type { MasterDocumentEntry, WorkItem } from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { createWorkItem, deleteWorkItem } from '@/lib/documents/workItemService';
+import { useAuth } from '@/contexts/AuthContext';
 import AddWorkItemDialog, { type WorkItemData } from './work/AddWorkItemDialog';
 import WorkItemsTable from './work/WorkItemsTable';
 
@@ -16,6 +18,7 @@ interface DocumentWorkListProps {
 
 export default function DocumentWorkList({ document, onUpdate }: DocumentWorkListProps) {
   const { db } = getFirebase();
+  const { user } = useAuth();
 
   const [items, setItems] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,9 +65,24 @@ export default function DocumentWorkList({ document, onUpdate }: DocumentWorkLis
   };
 
   const handleAddItem = async (data: WorkItemData) => {
+    if (!db || !user) {
+      throw new Error('Firebase not initialized or user not authenticated');
+    }
+
     try {
-      console.warn('Adding work item:', data);
-      alert('Work item creation will be implemented with Firestore integration');
+      await createWorkItem(db, {
+        projectId: document.projectId,
+        masterDocumentId: document.id,
+        documentNumber: document.documentNumber,
+        activityName: data.activityName,
+        activityType: data.activityType,
+        description: data.description,
+        estimatedHours: data.estimatedHours,
+        createdBy: user.uid,
+        createdByName: user.displayName || user.email || 'Unknown',
+      });
+
+      console.log('[DocumentWorkList] Work item created successfully');
       await loadWorkItems();
       onUpdate();
     } catch (err) {
@@ -73,14 +91,21 @@ export default function DocumentWorkList({ document, onUpdate }: DocumentWorkLis
   };
 
   const handleDeleteItem = async (item: WorkItem) => {
+    if (!db) {
+      console.error('Firebase not initialized');
+      return;
+    }
+
     try {
       if (window.confirm(`Delete work item "${item.activityName}"?`)) {
-        alert('Work item deletion will be implemented');
+        await deleteWorkItem(db, document.projectId, item.id);
+        console.log('[DocumentWorkList] Work item deleted successfully');
         await loadWorkItems();
         onUpdate();
       }
     } catch (err) {
       console.error('Failed to delete work item:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete work item');
     }
   };
 

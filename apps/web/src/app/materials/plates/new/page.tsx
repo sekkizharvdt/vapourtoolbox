@@ -119,7 +119,7 @@ export default function NewPlateMaterialPage() {
         Material,
         'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
       > = {
-        materialCode: '', // Will be auto-generated
+        materialCode: formData.customCode || '', // Use custom code if provided, otherwise will be auto-generated
         name: formData.name,
         description: formData.description,
         category: formData.category as MaterialCategory,
@@ -127,9 +127,9 @@ export default function NewPlateMaterialPage() {
         customCode: formData.customCode || undefined,
 
         specification: {
-          standard: formData.standard || undefined,
-          grade: formData.grade || undefined,
-          finish: formData.finish || undefined,
+          ...(formData.standard && { standard: formData.standard }),
+          ...(formData.grade && { grade: formData.grade }),
+          ...(formData.finish && { finish: formData.finish }),
           form: formData.form,
         },
 

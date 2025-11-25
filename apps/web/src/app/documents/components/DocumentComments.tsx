@@ -32,6 +32,13 @@ import {
 import type { MasterDocumentEntry, DocumentComment, CommentStatus } from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import {
+  createComment,
+  resolveComment,
+  approveCommentResolution,
+  rejectCommentResolution,
+} from '@/lib/documents/commentService';
+import { useAuth } from '@/contexts/AuthContext';
 import AddCommentDialog, { type CommentData } from './comments/AddCommentDialog';
 import CommentsTable from './comments/CommentsTable';
 import CommentThreadDialog from './comments/CommentThreadDialog';
@@ -45,6 +52,7 @@ type CommentFilter = 'ALL' | CommentStatus;
 
 export default function DocumentComments({ document, onUpdate }: DocumentCommentsProps) {
   const { db } = getFirebase();
+  const { user } = useAuth();
 
   const [comments, setComments] = useState<DocumentComment[]>([]);
   const [filteredComments, setFilteredComments] = useState<DocumentComment[]>([]);
@@ -133,17 +141,26 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
   };
 
   const handleAddComment = async (data: CommentData) => {
+    if (!db || !user || !latestSubmissionId) {
+      throw new Error('Missing required data for creating comment');
+    }
+
     try {
-      // TODO: Implement actual comment creation
-      // This will involve:
-      // 1. Generate next comment number (C-001, C-002, etc.)
-      // 2. Create DocumentComment in Firestore
-      // 3. Update MasterDocumentEntry comment counts if needed
+      await createComment(db, {
+        projectId: document.projectId,
+        masterDocumentId: document.id,
+        submissionId: latestSubmissionId,
+        commentText: data.commentText,
+        severity: data.severity,
+        category: data.category,
+        pageNumber: data.pageNumber,
+        section: data.section,
+        lineItem: data.lineItem,
+        commentedBy: user.uid,
+        commentedByName: user.displayName || user.email || 'Unknown',
+      });
 
-      console.warn('Adding comment:', data);
-
-      // For now, show a placeholder alert
-      alert('Comment creation will be implemented with Firestore integration');
+      console.log('[DocumentComments] Comment created successfully');
 
       // Reload comments and update parent
       await loadComments();
@@ -159,15 +176,21 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
   };
 
   const handleResolveComment = async (commentId: string, resolutionText: string) => {
-    try {
-      // TODO: Implement comment resolution
-      // This will involve:
-      // 1. Update DocumentComment with resolutionText, resolvedBy, resolvedAt
-      // 2. Change status from OPEN to UNDER_REVIEW or RESOLVED
-      // 3. Update comment counts
+    if (!db || !user || !latestSubmissionId) {
+      throw new Error('Missing required data for resolving comment');
+    }
 
-      console.warn('Resolving comment:', commentId, resolutionText);
-      alert('Comment resolution will be implemented');
+    try {
+      await resolveComment(db, {
+        projectId: document.projectId,
+        submissionId: latestSubmissionId,
+        commentId,
+        resolutionText,
+        resolvedBy: user.uid,
+        resolvedByName: user.displayName || user.email || 'Unknown',
+      });
+
+      console.log('[DocumentComments] Comment resolved successfully');
 
       await loadComments();
       onUpdate();
@@ -177,15 +200,21 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
   };
 
   const handleApproveResolution = async (commentId: string, remarks?: string) => {
-    try {
-      // TODO: Implement PM approval
-      // This will involve:
-      // 1. Update DocumentComment with pmApproved=true, pmApprovedBy, pmApprovedAt, pmRemarks
-      // 2. Change status to CLOSED
-      // 3. Update comment counts
+    if (!db || !user || !latestSubmissionId) {
+      throw new Error('Missing required data for approving resolution');
+    }
 
-      console.warn('Approving resolution:', commentId, remarks);
-      alert('PM approval will be implemented');
+    try {
+      await approveCommentResolution(db, {
+        projectId: document.projectId,
+        submissionId: latestSubmissionId,
+        commentId,
+        pmApprovedBy: user.uid,
+        pmApprovedByName: user.displayName || user.email || 'Unknown',
+        pmRemarks: remarks,
+      });
+
+      console.log('[DocumentComments] Resolution approved successfully');
 
       await loadComments();
       onUpdate();
@@ -195,15 +224,19 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
   };
 
   const handleRejectResolution = async (commentId: string, remarks: string) => {
-    try {
-      // TODO: Implement PM rejection
-      // This will involve:
-      // 1. Update DocumentComment with rejection remarks
-      // 2. Change status back to OPEN or UNDER_REVIEW
-      // 3. Notify assignee of rejection
+    if (!db || !latestSubmissionId) {
+      throw new Error('Missing required data for rejecting resolution');
+    }
 
-      console.warn('Rejecting resolution:', commentId, remarks);
-      alert('PM rejection will be implemented');
+    try {
+      await rejectCommentResolution(db, {
+        projectId: document.projectId,
+        submissionId: latestSubmissionId,
+        commentId,
+        pmRemarks: remarks,
+      });
+
+      console.log('[DocumentComments] Resolution rejected successfully');
 
       await loadComments();
       onUpdate();

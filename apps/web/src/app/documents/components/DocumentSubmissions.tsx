@@ -18,6 +18,8 @@ import { Add as AddIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import type { MasterDocumentEntry, DocumentSubmission } from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { submitDocument } from '@/lib/documents/submissionService';
+import { useAuth } from '@/contexts/AuthContext';
 import SubmitDocumentDialog, { type SubmissionData } from './submissions/SubmitDocumentDialog';
 import SubmissionsTable from './submissions/SubmissionsTable';
 import SubmissionDetailsDialog from './submissions/SubmissionDetailsDialog';
@@ -28,7 +30,8 @@ interface DocumentSubmissionsProps {
 }
 
 export default function DocumentSubmissions({ document, onUpdate }: DocumentSubmissionsProps) {
-  const { db } = getFirebase();
+  const { db, storage } = getFirebase();
+  const { user } = useAuth();
 
   const [submissions, setSubmissions] = useState<DocumentSubmission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,18 +85,28 @@ export default function DocumentSubmissions({ document, onUpdate }: DocumentSubm
   };
 
   const handleSubmit = async (data: SubmissionData) => {
+    if (!db || !storage || !user) {
+      throw new Error('Firebase not initialized or user not authenticated');
+    }
+
     try {
-      // TODO: Implement actual file upload and submission creation
-      // This will involve:
-      // 1. Upload file to Firebase Storage
-      // 2. Create DocumentRecord in Firestore
-      // 3. Create DocumentSubmission in Firestore
-      // 4. Update MasterDocumentEntry with new revision and submission count
+      // Submit document using the submission service
+      const { submissionId, documentId } = await submitDocument(db, storage, {
+        projectId: document.projectId,
+        masterDocumentId: document.id,
+        masterDocument: document,
+        file: data.file,
+        revision: data.revision,
+        submissionNotes: data.submissionNotes,
+        clientVisible: data.clientVisible,
+        submittedBy: user.uid,
+        submittedByName: user.displayName || user.email || 'Unknown',
+      });
 
-      console.warn('Submitting document:', data);
-
-      // For now, show a placeholder alert
-      alert('Document submission will be implemented with Firebase Storage integration');
+      console.log('[DocumentSubmissions] Document submitted successfully:', {
+        submissionId,
+        documentId,
+      });
 
       // Reload submissions and update parent
       await loadSubmissions();

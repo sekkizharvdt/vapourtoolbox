@@ -16,6 +16,8 @@
 import { useState } from 'react';
 import { Box, Typography, Stack, Alert } from '@mui/material';
 import type { MasterDocumentEntry, DocumentLink } from '@vapour/types';
+import { getFirebase } from '@/lib/firebase';
+import { createDocumentLink, removeDocumentLink } from '@/lib/documents/linkService';
 import AddLinkDialog from './links/AddLinkDialog';
 import LinksSection from './links/LinksSection';
 
@@ -27,8 +29,10 @@ interface DocumentLinksProps {
 type LinkDialogType = 'PREREQUISITE' | 'SUCCESSOR' | 'RELATED' | null;
 
 export default function DocumentLinks({ document, onUpdate }: DocumentLinksProps) {
+  const { db } = getFirebase();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<LinkDialogType>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleOpenDialog = (type: LinkDialogType) => {
     setDialogType(type);
@@ -44,43 +48,68 @@ export default function DocumentLinks({ document, onUpdate }: DocumentLinksProps
     documentId: string,
     linkType: 'PREREQUISITE' | 'SUCCESSOR' | 'RELATED'
   ) => {
+    if (!db) {
+      throw new Error('Firebase not initialized');
+    }
+
     try {
-      // TODO: Implement actual link creation
-      // This will involve:
-      // 1. Create DocumentLink object
-      // 2. Update MasterDocumentEntry arrays (predecessors/successors/relatedDocuments)
-      // 3. Create reciprocal link if needed (predecessor → successor, successor → predecessor)
-      // 4. Check for circular dependencies
-      // 5. Update document status if all predecessors are complete
+      setError(null);
 
-      console.warn('Adding link:', { documentId, linkType });
+      await createDocumentLink(db, {
+        projectId: document.projectId,
+        sourceDocumentId: document.id,
+        targetDocumentId: documentId,
+        linkType,
+      });
 
-      // For now, show a placeholder alert
-      alert('Document link creation will be implemented with Firestore integration');
+      console.log('[DocumentLinks] Link created successfully');
 
-      // Update parent
+      // Update parent to refresh document data
       onUpdate();
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Failed to add link');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add link';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     }
   };
 
   const handleRemoveLink = async (link: DocumentLink) => {
+    if (!db) {
+      console.error('Firebase not initialized');
+      return;
+    }
+
     try {
-      // TODO: Implement link removal
-      // This will involve:
-      // 1. Remove link from appropriate array (predecessors/successors/relatedDocuments)
-      // 2. Remove reciprocal link from target document
-      // 3. Update Firestore
+      setError(null);
 
-      console.warn('Removing link:', link);
-
-      // For now, show a placeholder alert
-      if (window.confirm(`Remove link to ${link.documentNumber}?`)) {
-        alert('Document link removal will be implemented with Firestore integration');
-        onUpdate();
+      if (!window.confirm(`Remove link to ${link.documentNumber}?`)) {
+        return;
       }
+
+      // Determine link type based on which array it's in
+      let linkType: 'PREREQUISITE' | 'SUCCESSOR' | 'RELATED';
+      if (document.predecessors.some((l) => l.masterDocumentId === link.masterDocumentId)) {
+        linkType = 'PREREQUISITE';
+      } else if (document.successors.some((l) => l.masterDocumentId === link.masterDocumentId)) {
+        linkType = 'SUCCESSOR';
+      } else {
+        linkType = 'RELATED';
+      }
+
+      await removeDocumentLink(db, {
+        projectId: document.projectId,
+        sourceDocumentId: document.id,
+        targetDocumentId: link.masterDocumentId,
+        linkType,
+      });
+
+      console.log('[DocumentLinks] Link removed successfully');
+
+      // Update parent to refresh document data
+      onUpdate();
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to remove link';
+      setError(errorMessage);
       console.error('Failed to remove link:', err);
     }
   };
@@ -100,6 +129,13 @@ export default function DocumentLinks({ document, onUpdate }: DocumentLinksProps
             Manage document relationships and dependencies
           </Typography>
         </Box>
+
+        {/* Error Alert */}
+        {error && (
+          <Alert severity="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
         {/* Info Alert */}
         <Alert severity="info">
