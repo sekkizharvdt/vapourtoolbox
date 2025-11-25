@@ -159,13 +159,9 @@ export default function PlatesPage() {
       return createdDate >= thirtyDaysAgo;
     }).length;
 
-    // Materials missing key specifications
+    // Materials missing key specifications (for weight calculations)
     const missingSpecs = materials.filter(
-      (m) =>
-        !m.properties?.tensileStrength ||
-        !m.properties?.yieldStrength ||
-        !m.properties?.density ||
-        !m.specification?.standard
+      (m) => !m.properties?.density || !m.specification?.standard
     ).length;
 
     return {

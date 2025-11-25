@@ -44,7 +44,14 @@
       "Bash(pnpm update:*)",
       "Bash(pnpm audit:*)",
       "Bash(pnpm why:*)",
-      "Bash(pnpm --filter @vapour/web lint:*)"
+      "Bash(pnpm --filter @vapour/web lint:*)",
+      "Bash(firebase login:*)",
+      "Bash(firebase functions:shell:*)",
+      "Bash(node scripts/call-seed-materials.js:*)",
+      "Bash(firebase functions:config:get:*)",
+      "Bash(firebase projects:list:*)",
+      "Bash(lsof:*)",
+      "Bash(firebase emulators:start:*)"
     ],
     "deny": [],
     "ask": []
