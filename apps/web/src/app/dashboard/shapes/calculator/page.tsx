@@ -1,78 +1,61 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Typography,
   Box,
-  Card,
-  CardContent,
   Grid,
   Button,
-  Stepper,
-  Step,
-  StepLabel,
   Alert,
   Stack,
-  Divider,
+  Paper,
+  CircularProgress,
 } from '@mui/material';
 import {
-  Calculate as CalculateIcon,
   Save as SaveIcon,
   Share as ShareIcon,
   PictureAsPdf as PdfIcon,
   TableChart as ExcelIcon,
   Science as TestIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
+import { useSearchParams, useRouter } from 'next/navigation';
 
-import ShapeCategorySelector from '@/components/shapes/ShapeCategorySelector';
-import ShapeSelector from '@/components/shapes/ShapeSelector';
-import MaterialSelector from '@/components/shapes/MaterialSelector';
-import ParameterInputForm from '@/components/shapes/ParameterInputForm';
+import CalculatorSidebar from '@/components/shapes/calculator/CalculatorSidebar';
 import CalculationResults from '@/components/shapes/CalculationResults';
 import FormulaTester from '@/components/shapes/FormulaTester';
 import { calculateShape } from '@/lib/shapes/shapeCalculator';
 import type { Shape, Material } from '@vapour/types';
 
 // Flattened calculation result for display (not the database structure)
-// This matches what CalculationResults component expects
 type CalculationResult = Record<string, unknown>;
 
 export default function ShapeCalculatorPage() {
-  const [activeStep, setActiveStep] = useState(0);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // State management
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [parameterValues, setParameterValues] = useState<Record<string, number>>({});
   const [quantity, setQuantity] = useState(1);
   const [calculationResult, setCalculationResult] = useState<CalculationResult | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [calculating, setCalculating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showFormulaTester, setShowFormulaTester] = useState(false);
 
-  const steps = ['Select Shape', 'Choose Material', 'Enter Parameters', 'View Results'];
+  // Auto-calculation function with debouncing
+  const performCalculation = useCallback(() => {
+    if (!selectedShape || !selectedMaterial || Object.keys(parameterValues).length === 0) {
+      setCalculationResult(null);
+      return;
+    }
 
-  const handleCategorySelect = (category: string) => {
-    setSelectedCategory(category);
-  };
+    setCalculating(true);
+    setError(null);
 
-  const handleShapeSelect = (shape: Shape) => {
-    setSelectedShape(shape);
-    setActiveStep(1);
-  };
-
-  const handleMaterialSelect = (material: Material) => {
-    setSelectedMaterial(material);
-    setActiveStep(2);
-  };
-
-  const handleParameterChange = (values: Record<string, number>) => {
-    setParameterValues(values);
-  };
-
-  const handleCalculate = () => {
-    if (!selectedShape || !selectedMaterial) return;
-
-    setLoading(true);
     try {
       // Calculate directly on client-side
       const result = calculateShape({
@@ -83,7 +66,6 @@ export default function ShapeCalculatorPage() {
       });
 
       // Flatten the nested structure for the UI component
-      // The calculator returns calculatedValues.weight but CalculationResults expects weight at top level
       const flattenedResult: CalculationResult = {
         // Keep all shape/material metadata
         shapeId: result.shapeId,
@@ -107,42 +89,121 @@ export default function ShapeCalculatorPage() {
       };
 
       setCalculationResult(flattenedResult);
-      setActiveStep(3);
-    } catch (error) {
-      console.error('Calculation error:', error);
-      alert(error instanceof Error ? error.message : 'Calculation failed');
+    } catch (err) {
+      console.error('Calculation error:', err);
+      setError(err instanceof Error ? err.message : 'Calculation failed');
+      setCalculationResult(null);
     } finally {
-      setLoading(false);
+      setCalculating(false);
+    }
+  }, [selectedShape, selectedMaterial, parameterValues, quantity]);
+
+  // Debounced auto-calculation (300ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      performCalculation();
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [performCalculation]);
+
+  // URL state management - sync state to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    if (selectedCategory) params.set('category', selectedCategory);
+    if (selectedShape) params.set('shape', selectedShape.id);
+    if (selectedMaterial) params.set('material', selectedMaterial.id);
+    if (quantity > 1) params.set('quantity', quantity.toString());
+
+    // Encode parameter values as JSON
+    if (Object.keys(parameterValues).length > 0) {
+      params.set('params', JSON.stringify(parameterValues));
+    }
+
+    const newUrl = params.toString() ? `?${params.toString()}` : '';
+    if (newUrl !== `?${searchParams.toString()}`) {
+      router.replace(`/dashboard/shapes/calculator${newUrl}`, { scroll: false });
+    }
+  }, [
+    selectedCategory,
+    selectedShape,
+    selectedMaterial,
+    parameterValues,
+    quantity,
+    router,
+    searchParams,
+  ]);
+
+  // Handlers
+  const handleCategoryChange = (category: string | null) => {
+    setSelectedCategory(category);
+    // Clear shape when category changes (handled by ShapeDropdown)
+  };
+
+  const handleShapeChange = (shape: Shape | null) => {
+    setSelectedShape(shape);
+    // Clear material when shape changes if not compatible (handled by MaterialDropdown)
+    // Reset parameters when shape changes
+    if (shape?.id !== selectedShape?.id) {
+      setParameterValues({});
     }
   };
 
-  const handleSave = async () => {
-    // TODO: Implement save to database
+  const handleMaterialChange = (material: Material | null) => {
+    setSelectedMaterial(material);
   };
 
-  const handleExportPDF = async () => {
-    // TODO: Implement PDF export
+  const handleParameterChange = (values: Record<string, number>) => {
+    setParameterValues(values);
   };
 
-  const handleExportExcel = async () => {
-    // TODO: Implement Excel export
-  };
-
-  const handleShare = async () => {
-    // TODO: Implement share functionality
+  const handleQuantityChange = (newQuantity: number) => {
+    setQuantity(newQuantity);
   };
 
   const handleReset = () => {
-    setActiveStep(0);
     setSelectedCategory(null);
     setSelectedShape(null);
     setSelectedMaterial(null);
     setParameterValues({});
+    setQuantity(1);
     setCalculationResult(null);
+    setError(null);
+    router.replace('/dashboard/shapes/calculator', { scroll: false });
   };
+
+  const handleSave = async () => {
+    // TODO: Implement save to database
+    console.log('Save calculation:', calculationResult);
+  };
+
+  const handleExportPDF = async () => {
+    // TODO: Implement PDF export
+    console.log('Export PDF:', calculationResult);
+  };
+
+  const handleExportExcel = async () => {
+    // TODO: Implement Excel export
+    console.log('Export Excel:', calculationResult);
+  };
+
+  const handleShare = async () => {
+    // Copy current URL to clipboard
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      alert('Link copied to clipboard!');
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
+  };
+
+  const hasValidInputs =
+    selectedShape && selectedMaterial && Object.keys(parameterValues).length > 0;
 
   return (
     <Container maxWidth="xl">
+      {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Shape Calculator
@@ -154,7 +215,7 @@ export default function ShapeCalculatorPage() {
 
       {/* Quick Actions */}
       <Box sx={{ mb: 3 }}>
-        <Stack direction="row" spacing={2}>
+        <Stack direction="row" spacing={2} flexWrap="wrap">
           <Button
             startIcon={<TestIcon />}
             onClick={() => setShowFormulaTester(!showFormulaTester)}
@@ -178,7 +239,12 @@ export default function ShapeCalculatorPage() {
               </Button>
             </>
           )}
-          <Button onClick={handleReset} variant="outlined" color="secondary">
+          <Button
+            startIcon={<RefreshIcon />}
+            onClick={handleReset}
+            variant="outlined"
+            color="secondary"
+          >
             Reset
           </Button>
         </Stack>
@@ -191,180 +257,84 @@ export default function ShapeCalculatorPage() {
         </Box>
       )}
 
-      {/* Progress Stepper */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Stepper activeStep={activeStep}>
-            {steps.map((label, index) => (
-              <Step
-                key={label}
-                sx={{ cursor: 'pointer' }}
-                onClick={() => {
-                  // Allow navigation back to previous steps
-                  if (index < activeStep) {
-                    setActiveStep(index);
-                  }
-                  // Allow going to parameter step if shape and material are selected
-                  if (index === 2 && selectedShape && selectedMaterial) {
-                    setActiveStep(2);
-                  }
+      {/* Main Content - Sidebar + Results Layout */}
+      <Grid container spacing={3}>
+        {/* Left Sidebar - Input Controls */}
+        <Grid size={{ xs: 12, lg: 4 }}>
+          <CalculatorSidebar
+            selectedCategory={selectedCategory}
+            onCategoryChange={handleCategoryChange}
+            selectedShape={selectedShape}
+            onShapeChange={handleShapeChange}
+            selectedMaterial={selectedMaterial}
+            onMaterialChange={handleMaterialChange}
+            parameterValues={parameterValues}
+            onParameterChange={handleParameterChange}
+            quantity={quantity}
+            onQuantityChange={handleQuantityChange}
+          />
+        </Grid>
+
+        {/* Right Panel - Results */}
+        <Grid size={{ xs: 12, lg: 8 }}>
+          {/* Calculating indicator */}
+          {calculating && hasValidInputs && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+              <CircularProgress size={20} />
+              <Typography variant="body2" color="text.secondary">
+                Calculating...
+              </Typography>
+            </Box>
+          )}
+
+          {/* Error display */}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          {/* Results or placeholder */}
+          {calculationResult ? (
+            <Paper sx={{ p: 3 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  mb: 2,
                 }}
               >
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
-        </CardContent>
-      </Card>
-
-      {/* Step 1: Select Shape */}
-      {activeStep === 0 && (
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Shape Categories
-                </Typography>
-                <ShapeCategorySelector
-                  selectedCategory={selectedCategory}
-                  onCategorySelect={handleCategorySelect}
-                />
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, md: 8 }}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  {selectedCategory ? 'Select Shape' : 'Select a Category'}
-                </Typography>
-                {selectedCategory ? (
-                  <ShapeSelector category={selectedCategory} onShapeSelect={handleShapeSelect} />
-                ) : (
-                  <Alert severity="info">Please select a category from the left panel</Alert>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      )}
-
-      {/* Step 2: Select Material */}
-      {activeStep === 1 && selectedShape && (
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Select Material for {selectedShape.name}
-            </Typography>
-            <Divider sx={{ my: 2 }} />
-            <MaterialSelector
-              allowedCategories={selectedShape.allowedMaterialCategories}
-              onMaterialSelect={handleMaterialSelect}
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Step 3: Enter Parameters */}
-      {activeStep === 2 && selectedShape && selectedMaterial && (
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, md: 8 }}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Enter Parameters for {selectedShape.name}
-                </Typography>
-                <Divider sx={{ my: 2 }} />
-                <ParameterInputForm
-                  shape={selectedShape}
-                  material={selectedMaterial}
-                  onParameterChange={handleParameterChange}
-                  onQuantityChange={setQuantity}
-                />
-                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button
-                    variant="contained"
-                    size="large"
-                    startIcon={<CalculateIcon />}
-                    onClick={handleCalculate}
-                    disabled={loading || Object.keys(parameterValues).length === 0}
-                  >
-                    {loading ? 'Calculating...' : 'Calculate'}
-                  </Button>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Summary
-                </Typography>
-                <Divider sx={{ my: 2 }} />
-                <Stack spacing={2}>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Shape
-                    </Typography>
-                    <Typography variant="body1">{selectedShape.name}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Material
-                    </Typography>
-                    <Typography variant="body1">{selectedMaterial.name}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Density
-                    </Typography>
-                    <Typography variant="body1">
-                      {selectedMaterial.properties?.density || 'N/A'} kg/m³
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Quantity
-                    </Typography>
-                    <Typography variant="body1">{quantity}</Typography>
-                  </Box>
-                  {selectedShape.standard && (
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        Standard
-                      </Typography>
-                      <Typography variant="body2">
-                        {selectedShape.standard.standardBody}{' '}
-                        {selectedShape.standard.standardNumber}
-                      </Typography>
-                    </Box>
-                  )}
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      )}
-
-      {/* Step 4: View Results */}
-      {activeStep === 3 && calculationResult && (
-        <Card>
-          <CardContent>
-            <Box
-              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+                <Typography variant="h6">Calculation Results</Typography>
+              </Box>
+              <CalculationResults result={calculationResult} />
+            </Paper>
+          ) : (
+            <Paper
+              sx={{
+                p: 6,
+                textAlign: 'center',
+                bgcolor: 'action.hover',
+                border: '2px dashed',
+                borderColor: 'divider',
+              }}
             >
-              <Typography variant="h6">Calculation Results</Typography>
-              <Button variant="outlined" onClick={() => setActiveStep(2)} sx={{ ml: 2 }}>
-                Edit Parameters
-              </Button>
-            </Box>
-            <Divider sx={{ my: 2 }} />
-            <CalculationResults result={calculationResult} />
-          </CardContent>
-        </Card>
-      )}
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                {!selectedCategory
+                  ? 'Select a shape category to begin'
+                  : !selectedShape
+                    ? 'Choose a shape from the dropdown'
+                    : !selectedMaterial
+                      ? 'Select a material for the shape'
+                      : 'Enter dimensions to see results'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Results will appear automatically as you enter parameters
+              </Typography>
+            </Paper>
+          )}
+        </Grid>
+      </Grid>
     </Container>
   );
 }
