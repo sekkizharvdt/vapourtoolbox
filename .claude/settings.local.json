@@ -1,6 +1,11 @@
 {
   "permissions": {
-    "allow": ["Bash(pnpm --filter @vapour/types build:*)", "Bash(git log:*)"],
+    "allow": [
+      "Bash(pnpm --filter @vapour/types build:*)",
+      "Bash(git log:*)",
+      "Bash(pnpm exec eslint:*)",
+      "Bash(pnpm --filter @vapour/web run lint:*)"
+    ],
     "deny": [],
     "ask": []
   }

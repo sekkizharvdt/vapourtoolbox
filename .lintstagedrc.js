@@ -1,9 +1,15 @@
 module.exports = {
-  // Only lint TypeScript files in our actual project (exclude inputs/ and e2e/)
-  // NOTE: ESLint temporarily disabled in pre-commit due to v9 migration (eslint.config.js)
-  // CI uses `turbo lint` which handles ESLint v9 correctly
-  'apps/**/!(e2e)/**/*.{ts,tsx}': ['pnpm exec prettier --write'],
-  'apps/**/!(e2e)/*.{ts,tsx}': ['pnpm exec prettier --write'],
+  // Lint and format TypeScript files in our actual project (exclude inputs/ and e2e/)
+  'apps/web/**/*.{ts,tsx}': (filenames) => {
+    const commands = ['pnpm exec prettier --write ' + filenames.join(' ')];
+
+    // Only run ESLint on web app files (Next.js lint handles .eslintrc.json correctly)
+    if (filenames.length > 0) {
+      commands.push(`pnpm --filter @vapour/web run lint --max-warnings=0`);
+    }
+
+    return commands;
+  },
   'packages/**/*.{ts,tsx}': ['pnpm exec prettier --write'],
   'functions/**/*.{ts,tsx}': ['pnpm exec prettier --write'],
   'scripts/**/*.js': ['pnpm exec prettier --write'],
