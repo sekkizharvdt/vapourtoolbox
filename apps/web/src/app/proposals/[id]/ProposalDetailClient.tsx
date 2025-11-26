@@ -60,7 +60,19 @@ export default function ProposalDetailClient() {
   const router = useRouter();
   const db = useFirestore();
   const { user } = useAuth();
-  const proposalId = params.id as string;
+
+  // Handle static export placeholder - extract actual ID from pathname if needed
+  const proposalId = (() => {
+    const paramsId = params.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      return paramsId;
+    }
+    if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/proposals\/([^/]+)(?:\/|$)/);
+      return match?.[1] || paramsId;
+    }
+    return paramsId;
+  })();
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,7 +83,7 @@ export default function ProposalDetailClient() {
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
-    if (!db || !proposalId) return;
+    if (!db || !proposalId || proposalId === 'placeholder') return;
 
     const loadProposal = async () => {
       try {

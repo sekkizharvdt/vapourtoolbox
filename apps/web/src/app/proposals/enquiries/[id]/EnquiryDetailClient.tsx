@@ -50,7 +50,19 @@ export default function EnquiryDetailClient() {
   const router = useRouter();
   const db = useFirestore();
   const { user } = useAuth();
-  const enquiryId = params.id as string;
+
+  // Handle static export placeholder - extract actual ID from pathname if needed
+  const enquiryId = (() => {
+    const paramsId = params.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      return paramsId;
+    }
+    if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/proposals\/enquiries\/([^/]+)(?:\/|$)/);
+      return match?.[1] || paramsId;
+    }
+    return paramsId;
+  })();
 
   const [enquiry, setEnquiry] = useState<Enquiry | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,7 +70,7 @@ export default function EnquiryDetailClient() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   useEffect(() => {
-    if (!db || !enquiryId) return;
+    if (!db || !enquiryId || enquiryId === 'placeholder') return;
 
     const loadEnquiry = async () => {
       try {

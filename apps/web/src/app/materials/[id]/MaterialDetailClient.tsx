@@ -40,7 +40,18 @@ export default function MaterialDetailClient() {
   const params = useParams();
   const { db } = getFirebase();
 
-  const materialId = params.id as string;
+  // Handle static export placeholder - extract actual ID from pathname if needed
+  const materialId = (() => {
+    const paramsId = params.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      return paramsId;
+    }
+    if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/materials\/([^/]+)(?:\/|$)/);
+      return match?.[1] || paramsId;
+    }
+    return paramsId;
+  })();
 
   const [material, setMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,12 +59,14 @@ export default function MaterialDetailClient() {
 
   // Load material
   useEffect(() => {
-    loadMaterial();
+    if (materialId && materialId !== 'placeholder') {
+      loadMaterial();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [materialId]);
 
   const loadMaterial = async () => {
-    if (!materialId) {
+    if (!materialId || materialId === 'placeholder') {
       setError('No material ID provided');
       setLoading(false);
       return;

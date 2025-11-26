@@ -46,7 +46,19 @@ export default function BOMEditorClient() {
   const { user } = useAuth();
   const { db } = getFirebase();
 
-  const bomId = params?.id as string;
+  // Handle static export placeholder - extract actual ID from pathname if needed
+  const bomId = (() => {
+    const paramsId = params?.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      return paramsId;
+    }
+    // For static export, extract ID from pathname
+    if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/estimation\/([^/]+)(?:\/|$)/);
+      return match?.[1] || paramsId;
+    }
+    return paramsId;
+  })();
 
   const [bom, setBOM] = useState<BOM | null>(null);
   const [items, setItems] = useState<BOMItem[]>([]);
@@ -57,12 +69,14 @@ export default function BOMEditorClient() {
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
 
   useEffect(() => {
-    loadBOM();
+    if (bomId && bomId !== 'placeholder') {
+      loadBOM();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bomId]);
 
   const loadBOM = async () => {
-    if (!bomId || !db) return;
+    if (!bomId || bomId === 'placeholder' || !db) return;
 
     try {
       setLoading(true);
