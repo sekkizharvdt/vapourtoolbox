@@ -77,7 +77,7 @@ function CalculationResults({ result }: CalculationResultsProps) {
     <Box>
       {/* Input Summary */}
       {(result.shapeName || result.materialName || result.parameterValues) && (
-        <Paper sx={{ p: 2, mb: 3, bgcolor: 'grey.50' }}>
+        <Paper sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
           <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
             Input Summary
           </Typography>
@@ -130,10 +130,17 @@ function CalculationResults({ result }: CalculationResultsProps) {
         </Paper>
       )}
 
-      {/* Summary Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      {/* Summary Cards - Fixed layout to prevent jumping */}
+      <Grid container spacing={2} sx={{ mb: 3, minHeight: '100px' }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'primary.50' }}>
+          <Paper
+            sx={{
+              p: 2,
+              textAlign: 'center',
+              bgcolor: (theme) =>
+                theme.palette.mode === 'dark' ? 'primary.dark' : 'primary.light',
+            }}
+          >
             <Typography variant="caption" color="text.secondary">
               Weight
             </Typography>
@@ -149,7 +156,14 @@ function CalculationResults({ result }: CalculationResultsProps) {
         </Grid>
 
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.50' }}>
+          <Paper
+            sx={{
+              p: 2,
+              textAlign: 'center',
+              bgcolor: (theme) =>
+                theme.palette.mode === 'dark' ? 'success.dark' : 'success.light',
+            }}
+          >
             <Typography variant="caption" color="text.secondary">
               Total Cost
             </Typography>
@@ -164,7 +178,13 @@ function CalculationResults({ result }: CalculationResultsProps) {
 
         {result.volume && (
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'info.50' }}>
+            <Paper
+              sx={{
+                p: 2,
+                textAlign: 'center',
+                bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'info.dark' : 'info.light'),
+              }}
+            >
               <Typography variant="caption" color="text.secondary">
                 Volume
               </Typography>
@@ -175,7 +195,14 @@ function CalculationResults({ result }: CalculationResultsProps) {
 
         {result.surfaceArea && (
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.50' }}>
+            <Paper
+              sx={{
+                p: 2,
+                textAlign: 'center',
+                bgcolor: (theme) =>
+                  theme.palette.mode === 'dark' ? 'warning.dark' : 'warning.light',
+              }}
+            >
               <Typography variant="caption" color="text.secondary">
                 Surface Area
               </Typography>
