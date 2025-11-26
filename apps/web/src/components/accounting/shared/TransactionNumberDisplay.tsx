@@ -20,19 +20,40 @@ interface TransactionNumberDisplayProps {
    * Helper text to display below the field
    */
   helperText?: string;
+  /**
+   * Whether the field is editable (default: false for backward compatibility)
+   */
+  editable?: boolean;
+  /**
+   * Callback when the transaction number changes (required if editable=true)
+   */
+  onChange?: (value: string) => void;
+  /**
+   * Current value for editable mode
+   */
+  value?: string;
 }
 
 /**
- * Reusable component for displaying transaction numbers (invoices, bills, etc.).
+ * Reusable component for displaying or editing transaction numbers (invoices, bills, etc.).
  * Shows the transaction number if available, or a placeholder indicating it will be auto-generated.
  *
  * @example
  * ```tsx
+ * // Display-only mode (existing behavior)
  * <TransactionNumberDisplay
  *   transactionNumber={invoice?.transactionNumber}
  *   label="Invoice Number"
  *   placeholder="Will be auto-generated (INV-XXXX)"
- *   helperText={invoice ? "Invoice number cannot be changed" : "Invoice number will be generated automatically upon creation"}
+ * />
+ *
+ * // Editable mode (new behavior)
+ * <TransactionNumberDisplay
+ *   value={invoiceNumber}
+ *   onChange={setInvoiceNumber}
+ *   label="Invoice Number"
+ *   placeholder="INV-XXXX"
+ *   editable
  * />
  * ```
  */
@@ -41,19 +62,32 @@ export function TransactionNumberDisplay({
   label,
   placeholder = 'Will be auto-generated',
   helperText,
+  editable = false,
+  onChange,
+  value,
 }: TransactionNumberDisplayProps) {
+  // For editable mode, use the value prop
+  // For display-only mode, use transactionNumber
+  const displayValue = editable ? value || '' : transactionNumber || placeholder;
+
   return (
     <Grid size={{ xs: 12 }}>
       <TextField
         label={label}
-        value={transactionNumber || placeholder}
-        disabled
+        value={displayValue}
+        onChange={editable ? (e) => onChange?.(e.target.value) : undefined}
+        disabled={!editable}
         fullWidth
+        placeholder={editable ? placeholder : undefined}
         helperText={
           helperText ||
-          (transactionNumber
-            ? `${label} cannot be changed`
-            : `${label} will be generated automatically upon creation`)
+          (editable
+            ? transactionNumber
+              ? `${label} cannot be changed`
+              : `${label} will be generated automatically upon creation`
+            : transactionNumber
+              ? `${label} cannot be changed`
+              : `${label} will be generated automatically upon creation`)
         }
       />
     </Grid>

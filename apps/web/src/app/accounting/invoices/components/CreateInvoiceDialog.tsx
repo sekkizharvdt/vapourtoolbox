@@ -26,6 +26,7 @@ interface CreateInvoiceDialogProps {
 export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInvoiceDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [customInvoiceNumber, setCustomInvoiceNumber] = useState('');
 
   // Use transaction form hook
   const formState = useTransactionForm({
@@ -92,9 +93,11 @@ export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInv
       const invoiceDate = new Date(formState.date);
       const invoiceDueDate = formState.dueDate ? new Date(formState.dueDate) : undefined;
 
-      // Generate transaction number
+      // Use custom invoice number if provided, otherwise generate automatically
       const transactionNumber =
-        editingInvoice?.transactionNumber || (await generateTransactionNumber('CUSTOMER_INVOICE'));
+        editingInvoice?.transactionNumber ||
+        customInvoiceNumber.trim() ||
+        (await generateTransactionNumber('CUSTOMER_INVOICE'));
 
       // Generate GL entries using new GL entry generator
       const glInput: InvoiceGLInput = {
@@ -190,6 +193,14 @@ export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInv
           transactionNumber={editingInvoice?.transactionNumber}
           label="Invoice Number"
           placeholder="Will be auto-generated (INV-XXXX)"
+          editable={!editingInvoice}
+          value={customInvoiceNumber}
+          onChange={setCustomInvoiceNumber}
+          helperText={
+            editingInvoice
+              ? 'Invoice number cannot be changed'
+              : 'Leave blank to auto-generate, or enter a custom invoice number'
+          }
         />
 
         {/* Transaction Form Fields */}
