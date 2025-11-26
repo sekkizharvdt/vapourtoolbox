@@ -77,15 +77,23 @@ export function useGSTCalculation(options: UseGSTCalculationOptions): UseGSTCalc
   // Calculate GST details
   const gstDetails = useMemo(() => {
     if (!enabled || !companyState || !entityState || subtotal <= 0) {
+      console.log('[useGSTCalculation] GST not calculated. Reasons:', {
+        enabled,
+        companyState: companyState || '(empty)',
+        entityState: entityState || '(empty)',
+        subtotal,
+      });
       return undefined;
     }
 
-    return calculateGST({
+    const result = calculateGST({
       taxableAmount: subtotal,
       gstRate: averageGstRate,
       sourceState: companyState,
       destinationState: entityState,
     });
+    console.log('[useGSTCalculation] GST calculated:', result);
+    return result;
   }, [enabled, companyState, entityState, subtotal, averageGstRate]);
 
   // Calculate total GST amount
