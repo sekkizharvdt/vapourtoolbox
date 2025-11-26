@@ -82,10 +82,21 @@ export function useLineItemManagement(
 
   const [lineItems, setLineItems] = useState<LineItem[]>(getInitialLineItems);
 
+  // Memoize serialized version for dependency tracking
+  const serializedInitialItems = useMemo(
+    () => JSON.stringify(initialLineItems),
+    [initialLineItems]
+  );
+
   // Update line items when initialLineItems changes (for editing mode)
   useEffect(() => {
-    setLineItems(getInitialLineItems());
-  }, [getInitialLineItems]);
+    if (initialLineItems && initialLineItems.length > 0) {
+      setLineItems(initialLineItems);
+    } else {
+      setLineItems([createEmptyLineItem(defaultGstRate)]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serializedInitialItems, defaultGstRate]);
 
   const addLineItem = useCallback(() => {
     setLineItems((prev) => [...prev, createEmptyLineItem(defaultGstRate)]);
