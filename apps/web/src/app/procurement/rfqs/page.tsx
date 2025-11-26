@@ -49,6 +49,7 @@ import {
   filterRFQsBySearch,
   sortRFQs,
 } from '@/lib/procurement/rfqHelpers';
+import { formatDate } from '@/lib/utils/formatters';
 
 export default function RFQsPage() {
   const router = useRouter();
@@ -333,7 +334,7 @@ export default function RFQsPage() {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
-                          {rfq.createdAt.toDate().toLocaleDateString()}
+                          {formatDate(rfq.createdAt)}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           {rfq.createdByName}

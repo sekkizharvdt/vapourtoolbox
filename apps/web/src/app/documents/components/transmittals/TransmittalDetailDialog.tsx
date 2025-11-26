@@ -36,6 +36,7 @@ import {
   CheckCircle as AcknowledgedIcon,
 } from '@mui/icons-material';
 import type { DocumentTransmittal, TransmittalStatus } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface TransmittalDetailDialogProps {
   open: boolean;
@@ -66,16 +67,6 @@ export default function TransmittalDetailDialog({
     return colors[status] || 'default';
   };
 
-  const formatDate = (timestamp: { seconds: number } | Date): string => {
-    const date = timestamp instanceof Date ? timestamp : new Date(timestamp.seconds * 1000);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const formatFileSize = (bytes?: number): string => {
     if (!bytes) return '-';

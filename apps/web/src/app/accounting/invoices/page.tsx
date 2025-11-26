@@ -49,6 +49,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { CustomerInvoice } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
+import { formatDate } from '@/lib/utils/formatters';
 import { CreateInvoiceDialog } from './components/CreateInvoiceDialog';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 
@@ -320,7 +321,6 @@ export default function InvoicesPage() {
               />
             ) : (
               paginatedInvoices.map((invoice) => {
-                const invoiceDate = toDate(invoice.date);
                 const isDeleted = !!invoice.deletedAt;
 
                 return (
@@ -332,15 +332,7 @@ export default function InvoicesPage() {
                       backgroundColor: isDeleted ? 'action.hover' : 'inherit',
                     }}
                   >
-                    <TableCell>
-                      {invoiceDate
-                        ? invoiceDate.toLocaleDateString('en-GB', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                          })
-                        : 'Invalid Date'}
-                    </TableCell>
+                    <TableCell>{formatDate(invoice.date)}</TableCell>
                     <TableCell>{invoice.transactionNumber}</TableCell>
                     <TableCell>{invoice.entityName || '-'}</TableCell>
                     <TableCell>{invoice.description || '-'}</TableCell>

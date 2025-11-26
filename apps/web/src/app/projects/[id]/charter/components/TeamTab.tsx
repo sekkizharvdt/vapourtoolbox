@@ -25,32 +25,14 @@ import {
   CheckCircle as ActiveIcon,
   Cancel as InactiveIcon,
 } from '@mui/icons-material';
-import type { Timestamp } from 'firebase/firestore';
 import type { Project, ProjectMember } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface TeamTabProps {
   project: Project;
 }
 
 export function TeamTab({ project }: TeamTabProps) {
-  const formatDate = (date?: Timestamp | Date | { toDate: () => Date } | string): string => {
-    if (!date) return 'Not set';
-    let dateObj: Date;
-    if (date instanceof Date) {
-      dateObj = date;
-    } else if (typeof date === 'object' && 'toDate' in date) {
-      dateObj = date.toDate();
-    } else if (typeof date === 'string') {
-      dateObj = new Date(date);
-    } else {
-      return 'Not set';
-    }
-    return dateObj.toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
 
   const getInitials = (name: string): string => {
     const parts = name.split(' ');

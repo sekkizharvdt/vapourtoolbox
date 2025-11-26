@@ -22,6 +22,7 @@ import {
   FolderOpen as ProjectIcon,
 } from '@mui/icons-material';
 import type { Project, ProjectStatus, ProjectPriority } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface ViewProjectDialogProps {
   open: boolean;
@@ -78,16 +79,6 @@ export function ViewProjectDialog({
     }
   };
 
-  // Format date
-  const formatDate = (timestamp: { toDate: () => Date } | undefined): string => {
-    if (!timestamp) return 'N/A';
-    try {
-      const date = timestamp.toDate();
-      return date.toLocaleDateString();
-    } catch {
-      return 'N/A';
-    }
-  };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>

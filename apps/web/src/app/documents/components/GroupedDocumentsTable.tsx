@@ -33,6 +33,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import type { MasterDocumentEntry } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface GroupedDocumentsTableProps {
   documents: MasterDocumentEntry[];
@@ -119,10 +120,6 @@ export function GroupedDocumentsTable({ documents }: GroupedDocumentsTableProps)
     }
   };
 
-  const formatDate = (timestamp: { seconds: number } | null | undefined): string => {
-    if (!timestamp) return '-';
-    return new Date(timestamp.seconds * 1000).toLocaleDateString();
-  };
 
   if (documents.length === 0) {
     return (

@@ -31,7 +31,6 @@ import {
   CalendarToday as DateIcon,
   Timer as UrgencyIcon,
 } from '@mui/icons-material';
-import { Timestamp } from 'firebase/firestore';
 import { PageHeader, LoadingState, EmptyState, getStatusColor } from '@vapour/ui';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,6 +43,7 @@ import {
 } from '@vapour/types';
 import { EnquiryDocumentUpload } from '../components/EnquiryDocumentUpload';
 import { logger } from '@vapour/logger';
+import { formatDate } from '@/lib/utils/formatters';
 
 export default function EnquiryDetailClient() {
   const params = useParams();
@@ -110,15 +110,6 @@ export default function EnquiryDetailClient() {
     } catch (err) {
       console.error('Error deleting enquiry:', err);
     }
-  };
-
-  const formatDate = (timestamp: Timestamp | Date) => {
-    const date = timestamp instanceof Timestamp ? timestamp.toDate() : timestamp;
-    return date.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   if (loading) return <LoadingState message="Loading enquiry details..." />;

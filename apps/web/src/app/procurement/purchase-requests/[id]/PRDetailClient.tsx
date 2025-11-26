@@ -31,6 +31,7 @@ import {
   getPurchaseRequestById,
   getPurchaseRequestItems,
 } from '@/lib/procurement/purchaseRequestService';
+import { formatDate } from '@/lib/utils/formatters';
 
 export default function PRDetailPage() {
   const params = useParams();
@@ -224,7 +225,7 @@ export default function PRDetailPage() {
                   Required By
                 </Typography>
                 <Typography variant="body1">
-                  {pr.requiredBy?.toDate?.()?.toLocaleDateString() || 'Not specified'}
+                  {formatDate(pr.requiredBy) !== '-' ? formatDate(pr.requiredBy) : 'Not specified'}
                 </Typography>
               </Box>
             </Stack>
@@ -262,7 +263,7 @@ export default function PRDetailPage() {
                     Reviewed By
                   </Typography>
                   <Typography variant="body1">
-                    {pr.reviewedByName} on {pr.reviewedAt?.toDate?.()?.toLocaleDateString()}
+                    {pr.reviewedByName} on {formatDate(pr.reviewedAt)}
                   </Typography>
                   {pr.reviewComments && (
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
@@ -278,7 +279,7 @@ export default function PRDetailPage() {
                     Approved By
                   </Typography>
                   <Typography variant="body1">
-                    {pr.approvedByName} on {pr.approvedAt?.toDate?.()?.toLocaleDateString()}
+                    {pr.approvedByName} on {formatDate(pr.approvedAt)}
                   </Typography>
                   {pr.approvalComments && (
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>

@@ -45,6 +45,7 @@ import type {
   CurrencyConfiguration,
   BaseTransaction,
 } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 // Currency display information
 const CURRENCY_INFO: Record<CurrencyCode, { name: string; symbol: string; flag: string }> = {
@@ -472,7 +473,7 @@ export default function CurrencyForexPage() {
                             <Box>
                               <Typography variant="body2">{formatRate(bankRate.rate)}</Typography>
                               <Typography variant="caption" color="text.secondary">
-                                {bankRate.date.toLocaleDateString()}
+                                {formatDate(bankRate.date)}
                               </Typography>
                             </Box>
                           ) : (

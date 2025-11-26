@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import SetupWizard from './components/SetupWizard';
 import { Edit as EditIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
 import { PERMISSION_FLAGS, hasPermission } from '@vapour/constants';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface CompanySettings {
   setupComplete: boolean;
@@ -120,8 +121,7 @@ export default function CompanySettingsPage() {
             <CheckCircleIcon color="success" fontSize="small" />
             <Typography variant="body2" color="text.secondary">
               Setup completed
-              {settings.setupCompletedAt &&
-                ` on ${settings.setupCompletedAt.toDate().toLocaleDateString()}`}
+              {settings.setupCompletedAt && ` on ${formatDate(settings.setupCompletedAt)}`}
             </Typography>
           </Box>
         </Box>

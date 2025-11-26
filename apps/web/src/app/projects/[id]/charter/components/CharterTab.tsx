@@ -26,6 +26,7 @@ import { canManageProjects } from '@vapour/constants';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface CharterTabProps {
   project: Project;
@@ -45,24 +46,6 @@ export function CharterTab({ project }: CharterTabProps) {
   const [budgetAuthority, setBudgetAuthority] = useState(
     project.charter?.authorization?.budgetAuthority || ''
   );
-
-  // Helper to format Firestore timestamps
-  const formatTimestampDate = (
-    timestamp: Timestamp | Date | { toDate?: () => Date } | string | undefined
-  ): string => {
-    if (!timestamp) return 'Not set';
-    let date: Date;
-    if (timestamp instanceof Date) {
-      date = timestamp;
-    } else if (typeof timestamp === 'object' && 'toDate' in timestamp && timestamp.toDate) {
-      date = timestamp.toDate();
-    } else if (typeof timestamp === 'string') {
-      date = new Date(timestamp);
-    } else {
-      return 'Not set';
-    }
-    return date.toLocaleDateString('en-IN');
-  };
 
   const hasManageAccess = claims?.permissions ? canManageProjects(claims.permissions) : false;
   const userId = user?.uid || '';
@@ -339,7 +322,7 @@ export function CharterTab({ project }: CharterTabProps) {
                   Authorized Date
                 </Typography>
                 <Typography variant="body1" fontWeight="medium">
-                  {formatTimestampDate(authorization.authorizedDate)}
+                  {formatDate(authorization.authorizedDate)}
                 </Typography>
               </Grid>
             )}
@@ -359,7 +342,7 @@ export function CharterTab({ project }: CharterTabProps) {
                   Approved At
                 </Typography>
                 <Typography variant="body1" fontWeight="medium">
-                  {formatTimestampDate(authorization.approvedAt)}
+                  {formatDate(authorization.approvedAt)}
                 </Typography>
               </Grid>
             )}

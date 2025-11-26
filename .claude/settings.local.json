@@ -4,7 +4,20 @@
       "Bash(pnpm --filter @vapour/types build:*)",
       "Bash(git log:*)",
       "Bash(pnpm exec eslint:*)",
-      "Bash(pnpm --filter @vapour/web run lint:*)"
+      "Bash(pnpm --filter @vapour/web run lint:*)",
+      "Bash(firebase firestore:indexes:*)",
+      "Bash(pnpm --filter @vapour/web type-check:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(cat:*)",
+      "Bash(pnpm --filter @vapour/firebase build:*)",
+      "Bash(firebase firestore:rules:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(python3:*)",
+      "Bash(pnpm --filter @vapour/web run lint:fix:*)",
+      "Bash(pnpm --filter @vapour/web build:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

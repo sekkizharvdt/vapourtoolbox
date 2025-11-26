@@ -43,6 +43,7 @@ import {
   approvePurchaseRequest,
   rejectPurchaseRequest,
 } from '@/lib/procurement/purchaseRequestService';
+import { formatDate } from '@/lib/utils/formatters';
 
 export default function EngineeringApprovalPage() {
   const router = useRouter();
@@ -279,7 +280,7 @@ export default function EngineeringApprovalPage() {
                     </TableCell>
                     <TableCell>{request.itemCount || 0}</TableCell>
                     <TableCell>
-                      {request.submittedAt?.toDate?.()?.toLocaleDateString() || '-'}
+                      {formatDate(request.submittedAt)}
                     </TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={0.5} justifyContent="center">

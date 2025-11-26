@@ -32,7 +32,7 @@ import {
   Download as DownloadIcon,
 } from '@mui/icons-material';
 import type { Project } from '@vapour/types';
-import type { Timestamp } from 'firebase/firestore';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface ReportsTabProps {
   project: Project;
@@ -96,27 +96,6 @@ export function ReportsTab({ project }: ReportsTabProps) {
 
   const handleGenerateReport = () => {
     setShowPreview(true);
-  };
-
-  const formatDate = (date?: Timestamp | Date | { toDate?: () => Date } | string): string => {
-    if (!date) return 'Not set';
-
-    let dateObj: Date;
-    if (date instanceof Date) {
-      dateObj = date;
-    } else if (typeof date === 'object' && 'toDate' in date && date.toDate) {
-      dateObj = date.toDate();
-    } else if (typeof date === 'string') {
-      dateObj = new Date(date);
-    } else {
-      return 'Not set';
-    }
-
-    return dateObj.toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
   };
 
   const formatCurrency = (amount: number): string => {
@@ -335,7 +314,7 @@ export function ReportsTab({ project }: ReportsTabProps) {
               {project.name}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Report Generated: {formatDate(generatedDate)}
+              Report Generated: {formatDate(generatedDate, 'long')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Report Type: {reportConfig.reportType.toUpperCase()}

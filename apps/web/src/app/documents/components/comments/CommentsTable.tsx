@@ -30,6 +30,7 @@ import {
   CheckCircle as CheckIcon,
 } from '@mui/icons-material';
 import type { DocumentComment } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface CommentsTableProps {
   comments: DocumentComment[];
@@ -64,14 +65,6 @@ export default function CommentsTable({
     return colors[status] || 'default';
   };
 
-  const formatDate = (timestamp: { seconds: number } | null | undefined): string => {
-    if (!timestamp) return '-';
-    return new Date(timestamp.seconds * 1000).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
 
   const getLocationString = (comment: DocumentComment): string => {
     const parts: string[] = [];

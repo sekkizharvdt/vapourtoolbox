@@ -32,6 +32,7 @@ import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { JournalEntry } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { CreateJournalEntryDialog } from './components/CreateJournalEntryDialog';
+import { formatDate } from '@/lib/utils/formatters';
 
 export default function JournalEntriesPage() {
   const { claims } = useAuth();
@@ -151,7 +152,7 @@ export default function JournalEntriesPage() {
             ) : (
               paginatedEntries.map((entry) => (
                 <TableRow key={entry.id} hover>
-                  <TableCell>{new Date(entry.date).toLocaleDateString()}</TableCell>
+                  <TableCell>{formatDate(entry.date)}</TableCell>
                   <TableCell>{entry.transactionNumber}</TableCell>
                   <TableCell>{entry.description || '-'}</TableCell>
                   <TableCell>{entry.reference || '-'}</TableCell>

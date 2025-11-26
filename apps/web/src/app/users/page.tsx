@@ -53,6 +53,7 @@ import {
   getRoleColor,
 } from '@vapour/ui';
 import { PERMISSION_FLAGS, hasPermission, getAllPermissions } from '@vapour/constants';
+import { formatDate } from '@/lib/utils/formatters';
 
 export default function UserManagementPage() {
   const { claims } = useAuth();
@@ -251,7 +252,7 @@ export default function UserManagementPage() {
                         {user.email}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Signed up: {user.createdAt?.toDate().toLocaleDateString()}
+                        Signed up: {formatDate(user.createdAt)}
                       </Typography>
                     </div>
                   </Box>

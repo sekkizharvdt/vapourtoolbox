@@ -36,6 +36,7 @@ import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BaseTransaction, TransactionType } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
+import { formatDate } from '@/lib/utils/formatters';
 
 export default function TransactionsPage() {
   // Note: Auth context available but not currently used
@@ -221,7 +222,7 @@ export default function TransactionsPage() {
             ) : (
               paginatedTransactions.map((txn) => (
                 <TableRow key={txn.id} hover>
-                  <TableCell>{new Date(txn.date).toLocaleDateString()}</TableCell>
+                  <TableCell>{formatDate(txn.date)}</TableCell>
                   <TableCell>
                     <Chip
                       label={getTransactionTypeLabel(txn.type)}

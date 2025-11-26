@@ -37,6 +37,7 @@ import { createRFQFromPRs } from '@/lib/procurement/rfqService';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { formatDate } from '@/lib/utils/formatters';
 
 const steps = ['Select Purchase Requests', 'Select Vendors', 'RFQ Details', 'Review & Create'];
 
@@ -247,7 +248,7 @@ export default function NewRFQPage() {
                         <TableCell>{pr.title}</TableCell>
                         <TableCell>{pr.projectName}</TableCell>
                         <TableCell>{pr.itemCount}</TableCell>
-                        <TableCell>{pr.createdAt.toDate().toLocaleDateString()}</TableCell>
+                        <TableCell>{formatDate(pr.createdAt)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -446,7 +447,7 @@ export default function NewRFQPage() {
                       Due Date:
                     </Typography>
                     <Typography variant="body2">
-                      {new Date(dueDate).toLocaleDateString()}
+                      {formatDate(new Date(dueDate))}
                     </Typography>
                   </Box>
                   {paymentTerms && (

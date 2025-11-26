@@ -34,6 +34,7 @@ import {
   getVariantDisplayName,
   hasVariants,
 } from '@/lib/materials/variantUtils';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface MaterialVariantListProps {
   material: Material;
@@ -196,9 +197,7 @@ export default function MaterialVariantList({
                   <TableCell>
                     <Chip label={availability.label} size="small" color={availability.color} />
                     {variant.discontinuedDate && (
-                      <Tooltip
-                        title={`Discontinued on ${variant.discontinuedDate.toDate?.().toLocaleDateString() || 'N/A'}`}
-                      >
+                      <Tooltip title={`Discontinued on ${formatDate(variant.discontinuedDate)}`}>
                         <IconButton size="small" sx={{ ml: 0.5 }}>
                           <InfoIcon fontSize="small" />
                         </IconButton>

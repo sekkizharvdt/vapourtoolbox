@@ -46,6 +46,7 @@ import {
   updateDocumentRequirement,
   deleteDocumentRequirement,
 } from '@/lib/projects/documentRequirementService';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface DocumentsTabProps {
   project: Project;
@@ -391,23 +392,7 @@ export function DocumentsTab({ project }: DocumentsTabProps) {
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">
-                      {(() => {
-                        if (!requirement.dueDate) return '-';
-                        let dateObj: Date;
-                        if (requirement.dueDate instanceof Date) {
-                          dateObj = requirement.dueDate;
-                        } else if (
-                          typeof requirement.dueDate === 'object' &&
-                          'toDate' in requirement.dueDate
-                        ) {
-                          dateObj = requirement.dueDate.toDate();
-                        } else if (typeof requirement.dueDate === 'string') {
-                          dateObj = new Date(requirement.dueDate);
-                        } else {
-                          return '-';
-                        }
-                        return dateObj.toLocaleDateString('en-IN');
-                      })()}
+                      {formatDate(requirement.dueDate)}
                     </Typography>
                   </TableCell>
                   <TableCell>

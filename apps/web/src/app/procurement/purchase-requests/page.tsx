@@ -38,6 +38,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PurchaseRequest } from '@vapour/types';
 import { listPurchaseRequests } from '@/lib/procurement/purchaseRequestService';
+import { formatDate } from '@/lib/utils/formatters';
 
 export default function PurchaseRequestsPage() {
   const router = useRouter();
@@ -325,7 +326,7 @@ export default function PurchaseRequestsPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      {request.createdAt?.toDate?.()?.toLocaleDateString() || '-'}
+                      {formatDate(request.createdAt)}
                     </TableCell>
                     <TableCell align="center">
                       <IconButton

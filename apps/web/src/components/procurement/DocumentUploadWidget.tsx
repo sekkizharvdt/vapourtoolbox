@@ -29,6 +29,7 @@ import {
   Delete as DeleteIcon,
   GetApp as GetAppIcon,
 } from '@mui/icons-material';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface UploadedDocument {
   id: string;
@@ -197,11 +198,7 @@ export default function DocumentUploadWidget({
                   secondary={
                     <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
                       <Chip label={formatFileSize(doc.fileSize)} size="small" />
-                      <Chip
-                        label={doc.uploadedAt.toLocaleDateString()}
-                        size="small"
-                        variant="outlined"
-                      />
+                      <Chip label={formatDate(doc.uploadedAt)} size="small" variant="outlined" />
                     </Stack>
                   }
                 />

@@ -29,6 +29,7 @@ import {
   CheckCircle as AcknowledgedIcon,
 } from '@mui/icons-material';
 import type { DocumentTransmittal, TransmittalStatus } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface TransmittalsTableProps {
   transmittals: DocumentTransmittal[];
@@ -53,14 +54,6 @@ export default function TransmittalsTable({
     return colors[status] || 'default';
   };
 
-  const formatDate = (timestamp: { seconds: number } | Date): string => {
-    const date = timestamp instanceof Date ? timestamp : new Date(timestamp.seconds * 1000);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
 
   if (transmittals.length === 0) {
     return (

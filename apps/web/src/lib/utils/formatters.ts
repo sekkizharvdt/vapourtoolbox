@@ -35,45 +35,54 @@ export function formatMoney(money: Money): string {
 /**
  * Format date from Firestore Timestamp
  *
- * @param timestamp - Firestore Timestamp or Date
+ * @param timestamp - Firestore Timestamp or Date or string or object with toDate method
  * @param format - Format type ('short', 'long', 'datetime')
- * @returns Formatted date string
+ * @returns Formatted date string in DD-MMM-YYYY format
  */
 export function formatDate(
-  timestamp: Timestamp | Date | undefined | null,
+  timestamp: Timestamp | Date | string | { toDate: () => Date } | undefined | null,
   format: 'short' | 'long' | 'datetime' = 'short'
 ): string {
   if (!timestamp) return '-';
 
-  const date = timestamp instanceof Date ? timestamp : timestamp.toDate();
+  let date: Date;
+  if (timestamp instanceof Date) {
+    date = timestamp;
+  } else if (typeof timestamp === 'string') {
+    date = new Date(timestamp);
+  } else if (typeof timestamp === 'object' && 'toDate' in timestamp) {
+    date = timestamp.toDate();
+  } else {
+    return '-';
+  }
+
+  // Check for invalid date
+  if (isNaN(date.getTime())) return '-';
+
+  const day = date.getDate().toString().padStart(2, '0');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
 
   if (format === 'short') {
-    return date.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
+    // DD-MMM-YYYY (e.g., 26-Nov-2025)
+    return `${day}-${month}-${year}`;
   }
 
   if (format === 'long') {
-    return date.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
+    // DD Month YYYY (e.g., 26 November 2025)
+    const longMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return `${date.getDate()} ${longMonths[date.getMonth()]} ${year}`;
   }
 
   if (format === 'datetime') {
-    return date.toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    // DD-MMM-YYYY HH:MM (e.g., 26-Nov-2025 14:30)
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${day}-${month}-${year} ${hours}:${minutes}`;
   }
 
-  return date.toLocaleDateString('en-IN');
+  return `${day}-${month}-${year}`;
 }
 
 /**

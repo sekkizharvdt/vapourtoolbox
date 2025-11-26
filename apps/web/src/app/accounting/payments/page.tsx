@@ -37,6 +37,7 @@ import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { RecordCustomerPaymentDialog } from './components/RecordCustomerPaymentDialog';
 import { RecordVendorPaymentDialog } from './components/RecordVendorPaymentDialog';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
+import { formatDate } from '@/lib/utils/formatters';
 
 type PaymentType = 'all' | 'customer' | 'vendor';
 type Payment = CustomerPayment | VendorPayment;
@@ -214,7 +215,7 @@ export default function PaymentsPage() {
                       color={payment.type === 'CUSTOMER_PAYMENT' ? 'success' : 'primary'}
                     />
                   </TableCell>
-                  <TableCell>{new Date(payment.paymentDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{formatDate(payment.paymentDate)}</TableCell>
                   <TableCell>{payment.transactionNumber}</TableCell>
                   <TableCell>{payment.entityName || '-'}</TableCell>
                   <TableCell>{payment.paymentMethod}</TableCell>

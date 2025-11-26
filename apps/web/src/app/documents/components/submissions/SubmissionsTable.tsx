@@ -34,6 +34,7 @@ import {
   Description as CRTIcon,
 } from '@mui/icons-material';
 import type { DocumentSubmission } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface SubmissionsTableProps {
   submissions: DocumentSubmission[];
@@ -74,14 +75,6 @@ export default function SubmissionsTable({
     return labels[status] || status;
   };
 
-  const formatDate = (timestamp: { seconds: number } | undefined): string => {
-    if (!timestamp) return '-';
-    return new Date(timestamp.seconds * 1000).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
 
   if (submissions.length === 0) {
     return (

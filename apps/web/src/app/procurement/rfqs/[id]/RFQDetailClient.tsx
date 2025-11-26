@@ -53,6 +53,7 @@ import {
   getEvaluationCompletionPercentage,
   validateRFQForIssuance,
 } from '@/lib/procurement/rfqHelpers';
+import { formatDate } from '@/lib/utils/formatters';
 
 export default function RFQDetailPage() {
   const params = useParams();
@@ -293,7 +294,7 @@ export default function RFQDetailPage() {
                   Due Date
                 </Typography>
                 <Typography variant="body1">
-                  {rfq.dueDate?.toDate().toLocaleDateString()}
+                  {formatDate(rfq.dueDate)}
                 </Typography>
               </Box>
 
@@ -411,7 +412,7 @@ export default function RFQDetailPage() {
                     <TableCell>{item.unit}</TableCell>
                     <TableCell>{item.equipmentCode || '-'}</TableCell>
                     <TableCell>
-                      {item.requiredBy ? item.requiredBy.toDate().toLocaleDateString() : '-'}
+                      {formatDate(item.requiredBy)}
                     </TableCell>
                   </TableRow>
                 ))}

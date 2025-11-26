@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import type { Timestamp } from 'firebase/firestore';
 import type { Project } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface TimelineTabProps {
   project: Project;
@@ -47,22 +48,12 @@ interface TimelineEvent {
 }
 
 export function TimelineTab({ project }: TimelineTabProps) {
-  const formatDate = (date?: Timestamp | Date | { toDate: () => Date } | string): Date | null => {
+  const parseDateToObject = (date?: Timestamp | Date | { toDate: () => Date } | string): Date | null => {
     if (!date) return null;
     if (date instanceof Date) return date;
     if (typeof date === 'object' && 'toDate' in date) return date.toDate();
     if (typeof date === 'string') return new Date(date);
     return null;
-  };
-
-  const formatDateString = (date?: Timestamp | Date | { toDate: () => Date } | string): string => {
-    const dateObj = formatDate(date);
-    if (!dateObj) return 'Not set';
-    return dateObj.toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
   };
 
   const getDaysDifference = (date: Date): number => {
@@ -86,7 +77,7 @@ export function TimelineTab({ project }: TimelineTabProps) {
     const today = new Date();
 
     // Project dates
-    const startDate = formatDate(project.dates?.startDate);
+    const startDate = parseDateToObject(project.dates?.startDate);
     if (startDate) {
       events.push({
         id: 'project-start',
@@ -100,7 +91,7 @@ export function TimelineTab({ project }: TimelineTabProps) {
       });
     }
 
-    const endDate = formatDate(project.dates?.endDate);
+    const endDate = parseDateToObject(project.dates?.endDate);
     if (endDate) {
       events.push({
         id: 'project-end',
@@ -117,7 +108,7 @@ export function TimelineTab({ project }: TimelineTabProps) {
     // Charter deliverables
     const deliverables = project.charter?.deliverables || [];
     deliverables.forEach((deliverable) => {
-      const dueDate = formatDate(deliverable.dueDate);
+      const dueDate = parseDateToObject(deliverable.dueDate);
       if (dueDate) {
         events.push({
           id: `deliverable-${deliverable.id}`,
@@ -135,7 +126,7 @@ export function TimelineTab({ project }: TimelineTabProps) {
     // Procurement items
     const procurementItems = project.procurementItems || [];
     procurementItems.forEach((item) => {
-      const requiredDate = formatDate(item.requiredByDate);
+      const requiredDate = parseDateToObject(item.requiredByDate);
       if (requiredDate) {
         events.push({
           id: `procurement-${item.id}`,
@@ -153,7 +144,7 @@ export function TimelineTab({ project }: TimelineTabProps) {
     // Vendor contracts
     const vendors = project.vendors || [];
     vendors.forEach((vendor) => {
-      const contractStart = formatDate(vendor.contractStartDate);
+      const contractStart = parseDateToObject(vendor.contractStartDate);
       if (contractStart) {
         events.push({
           id: `vendor-start-${vendor.id}`,
@@ -167,7 +158,7 @@ export function TimelineTab({ project }: TimelineTabProps) {
         });
       }
 
-      const contractEnd = formatDate(vendor.contractEndDate);
+      const contractEnd = parseDateToObject(vendor.contractEndDate);
       if (contractEnd) {
         events.push({
           id: `vendor-end-${vendor.id}`,
@@ -185,7 +176,7 @@ export function TimelineTab({ project }: TimelineTabProps) {
     // Document requirements
     const documentRequirements = project.documentRequirements || [];
     documentRequirements.forEach((doc) => {
-      const dueDate = formatDate(doc.dueDate);
+      const dueDate = parseDateToObject(doc.dueDate);
       if (dueDate) {
         events.push({
           id: `document-${doc.id}`,
@@ -208,8 +199,8 @@ export function TimelineTab({ project }: TimelineTabProps) {
   const today = new Date();
 
   // Calculate stats
-  const projectStartDate = formatDate(project.dates?.startDate);
-  const projectEndDate = formatDate(project.dates?.endDate);
+  const projectStartDate = parseDateToObject(project.dates?.startDate);
+  const projectEndDate = parseDateToObject(project.dates?.endDate);
   const totalDuration =
     projectStartDate && projectEndDate
       ? Math.ceil((projectEndDate.getTime() - projectStartDate.getTime()) / (1000 * 60 * 60 * 24))
@@ -294,7 +285,7 @@ export function TimelineTab({ project }: TimelineTabProps) {
               Planned Start
             </Typography>
             <Typography variant="body1" fontWeight="medium">
-              {formatDateString(project.dates?.startDate)}
+              {formatDate(project.dates?.startDate)}
             </Typography>
           </Grid>
 
@@ -303,7 +294,7 @@ export function TimelineTab({ project }: TimelineTabProps) {
               Planned End
             </Typography>
             <Typography variant="body1" fontWeight="medium">
-              {formatDateString(project.dates?.endDate)}
+              {formatDate(project.dates?.endDate)}
             </Typography>
           </Grid>
 
@@ -313,7 +304,7 @@ export function TimelineTab({ project }: TimelineTabProps) {
                 Actual Start
               </Typography>
               <Typography variant="body1" fontWeight="medium">
-                {formatDateString(project.dates.actualStartDate)}
+                {formatDate(project.dates.actualStartDate)}
               </Typography>
             </Grid>
           )}
@@ -324,7 +315,7 @@ export function TimelineTab({ project }: TimelineTabProps) {
                 Actual End
               </Typography>
               <Typography variant="body1" fontWeight="medium">
-                {formatDateString(project.dates.actualEndDate)}
+                {formatDate(project.dates.actualEndDate)}
               </Typography>
             </Grid>
           )}
@@ -366,7 +357,7 @@ export function TimelineTab({ project }: TimelineTabProps) {
               <TimelineItem key={event.id}>
                 <TimelineOppositeContent color="text.secondary" sx={{ flex: 0.3 }}>
                   <Typography variant="body2" fontWeight="medium">
-                    {formatDateString(event.date)}
+                    {formatDate(event.date)}
                   </Typography>
                   <Typography variant="caption">
                     {getDaysDifference(event.date) === 0

@@ -43,6 +43,7 @@ import {
   getDeliveryStatus,
   getPaymentStatus,
 } from '@/lib/procurement/purchaseOrderHelpers';
+import { formatDate } from '@/lib/utils/formatters';
 
 export default function PurchaseOrdersPage() {
   const router = useRouter();
@@ -282,7 +283,7 @@ export default function PurchaseOrdersPage() {
                             variant="outlined"
                           />
                         </TableCell>
-                        <TableCell>{po.createdAt.toDate().toLocaleDateString()}</TableCell>
+                        <TableCell>{formatDate(po.createdAt)}</TableCell>
                       </TableRow>
                     );
                   })}

@@ -36,7 +36,6 @@ import {
   Cancel as LostIcon,
   Description as ProposalIcon,
 } from '@mui/icons-material';
-import { Timestamp } from 'firebase/firestore';
 import {
   PageHeader,
   FilterBar,
@@ -51,6 +50,7 @@ import dynamic from 'next/dynamic';
 import { listEnquiries, getEnquiriesCountByStatus } from '@/lib/enquiry/enquiryService';
 import type { Enquiry, EnquiryStatus, EnquiryUrgency } from '@vapour/types';
 import { ENQUIRY_STATUS_LABELS, ENQUIRY_URGENCY_LABELS } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 // Dynamically import to avoid SSR issues with date pickers
 const CreateEnquiryDialog = dynamic(
@@ -157,14 +157,6 @@ export default function EnquiriesPage() {
     setSearchTerm('');
     setStatusFilter('ALL');
     setUrgencyFilter('ALL');
-  };
-
-  const formatDate = (timestamp: Timestamp) => {
-    return timestamp.toDate().toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   if (loading && enquiries.length === 0) {

@@ -48,6 +48,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { VendorBill } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
+import { formatDate } from '@/lib/utils/formatters';
 import { CreateBillDialog } from './components/CreateBillDialog';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 
@@ -270,7 +271,7 @@ export default function BillsPage() {
             ) : (
               paginatedBills.map((bill) => (
                 <TableRow key={bill.id} hover>
-                  <TableCell>{new Date(bill.date).toLocaleDateString()}</TableCell>
+                  <TableCell>{formatDate(bill.date)}</TableCell>
                   <TableCell>{bill.transactionNumber}</TableCell>
                   <TableCell>{bill.entityName || '-'}</TableCell>
                   <TableCell>{bill.description || '-'}</TableCell>

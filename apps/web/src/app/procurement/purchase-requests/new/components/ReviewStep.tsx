@@ -22,6 +22,7 @@ import {
 } from '@mui/material';
 import type { FormData } from './usePurchaseRequestForm';
 import type { CreatePurchaseRequestItemInput } from '@/lib/procurement/purchaseRequestService';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface ReviewStepProps {
   formData: FormData;
@@ -65,7 +66,7 @@ export function ReviewStep({ formData, lineItems }: ReviewStepProps) {
             </Typography>
             {formData.requiredBy && (
               <Typography variant="body2">
-                <strong>Required By:</strong> {new Date(formData.requiredBy).toLocaleDateString()}
+                <strong>Required By:</strong> {formatDate(new Date(formData.requiredBy))}
               </Typography>
             )}
           </Stack>

@@ -20,31 +20,13 @@ import {
   Assignment as AssignmentIcon,
 } from '@mui/icons-material';
 import type { Project } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 interface OverviewTabProps {
   project: Project;
 }
 
 export function OverviewTab({ project }: OverviewTabProps) {
-  const formatDate = (date?: Date | { toDate?: () => Date } | string): string => {
-    if (!date) return 'Not set';
-    let dateObj: Date;
-    if (date instanceof Date) {
-      dateObj = date;
-    } else if (typeof date === 'object' && date.toDate) {
-      dateObj = date.toDate();
-    } else if (typeof date === 'string') {
-      dateObj = new Date(date);
-    } else {
-      return 'Not set';
-    }
-    return dateObj.toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
   const formatCurrency = (amount?: number, currency = 'INR') => {
     if (amount === undefined || amount === null) return 'Not set';
     return `${currency} ${amount.toLocaleString('en-IN', {

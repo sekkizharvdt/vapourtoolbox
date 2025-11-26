@@ -42,6 +42,7 @@ import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { CreateBankStatementDialog } from './components/CreateBankStatementDialog';
 import { ImportBankStatementDialog } from './components/ImportBankStatementDialog';
 import { ReconciliationWorkspace } from './components/ReconciliationWorkspace';
+import { formatDate } from '@/lib/utils/formatters';
 
 type TabValue = 'statements' | 'reconcile';
 
@@ -273,11 +274,11 @@ export default function BankReconciliationPage() {
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          {new Date(statement.statementDate.toDate()).toLocaleDateString()}
+                          {formatDate(statement.statementDate.toDate())}
                         </TableCell>
                         <TableCell>
-                          {new Date(statement.startDate.toDate()).toLocaleDateString()} -{' '}
-                          {new Date(statement.endDate.toDate()).toLocaleDateString()}
+                          {formatDate(statement.startDate.toDate())} -{' '}
+                          {formatDate(statement.endDate.toDate())}
                         </TableCell>
                         <TableCell align="right">
                           {formatCurrency(statement.openingBalance)}

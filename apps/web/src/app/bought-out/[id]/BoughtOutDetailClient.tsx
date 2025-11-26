@@ -29,6 +29,7 @@ import {
 } from '@vapour/types';
 import { getBoughtOutItemById, updateBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
 import SpecificationForm from '../components/SpecificationForm';
+import { formatDate } from '@/lib/utils/formatters';
 
 export default function BoughtOutItemDetailPage() {
   const router = useRouter();
@@ -171,7 +172,7 @@ export default function BoughtOutItemDetailPage() {
               {item.itemCode}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Created on {item.createdAt.toDate().toLocaleDateString()}
+              Created on {formatDate(item.createdAt)}
             </Typography>
           </Box>
         </Box>
@@ -305,7 +306,7 @@ export default function BoughtOutItemDetailPage() {
                   </Grid>
                   <Grid size={{ xs: 12 }}>
                     <Typography variant="caption" color="text.secondary">
-                      Last updated: {item.pricing.lastUpdated.toDate().toLocaleString()}
+                      Last updated: {formatDate(item.pricing.lastUpdated)}
                     </Typography>
                   </Grid>
                 </Grid>
