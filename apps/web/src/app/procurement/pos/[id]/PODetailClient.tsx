@@ -6,8 +6,8 @@
  * View PO details with approval workflow
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter, useParams, usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { Box, Stack, CircularProgress, Alert, Button } from '@mui/material';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,33 +34,40 @@ import { POWorkflowDialogs } from './components/POWorkflowDialogs';
 export default function PODetailPage() {
   const router = useRouter();
   const params = useParams();
-  const pathname = usePathname();
   const { user } = useAuth();
-
-  // Extract PO ID from URL pathname
-  const poId = useMemo(() => {
-    const paramsId = params.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      return paramsId;
-    }
-    const match = pathname?.match(/\/procurement\/pos\/([^/]+)(?:\/|$)/);
-    return match?.[1] || paramsId;
-  }, [params.id, pathname]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [po, setPO] = useState<PurchaseOrder | null>(null);
   const [items, setItems] = useState<PurchaseOrderItem[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
+  const [poId, setPoId] = useState<string | null>(null);
 
   const dialogState = useWorkflowDialogs();
 
+  // Handle static export placeholder - extract actual ID from pathname on client side
   useEffect(() => {
-    loadPO();
+    const paramsId = params?.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      setPoId(paramsId);
+    } else if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/procurement\/pos\/([^/]+)(?:\/|$)/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setPoId(extractedId);
+      }
+    }
+  }, [params?.id]);
+
+  useEffect(() => {
+    if (poId) {
+      loadPO();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [poId]);
 
   const loadPO = async () => {
+    if (!poId) return;
     setLoading(true);
     setError('');
     try {
@@ -82,7 +89,7 @@ export default function PODetailPage() {
   };
 
   const handleSubmitForApproval = async () => {
-    if (!user || !po) return;
+    if (!user || !po || !poId) return;
 
     setActionLoading(true);
     try {
@@ -98,7 +105,7 @@ export default function PODetailPage() {
   };
 
   const handleApprove = async () => {
-    if (!user || !po) return;
+    if (!user || !po || !poId) return;
 
     setActionLoading(true);
     try {
@@ -114,7 +121,7 @@ export default function PODetailPage() {
   };
 
   const handleReject = async () => {
-    if (!user || !po || !dialogState.rejectionReason.trim()) return;
+    if (!user || !po || !poId || !dialogState.rejectionReason.trim()) return;
 
     setActionLoading(true);
     try {
@@ -130,7 +137,7 @@ export default function PODetailPage() {
   };
 
   const handleIssue = async () => {
-    if (!user || !po) return;
+    if (!user || !po || !poId) return;
 
     setActionLoading(true);
     try {
@@ -146,7 +153,7 @@ export default function PODetailPage() {
   };
 
   const handleCancel = async () => {
-    if (!user || !po || !dialogState.cancellationReason.trim()) return;
+    if (!user || !po || !poId || !dialogState.cancellationReason.trim()) return;
 
     setActionLoading(true);
     try {

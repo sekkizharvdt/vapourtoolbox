@@ -160,8 +160,6 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
         commentedByName: user.displayName || user.email || 'Unknown',
       });
 
-      console.log('[DocumentComments] Comment created successfully');
-
       // Reload comments and update parent
       await loadComments();
       onUpdate();
@@ -190,8 +188,6 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
         resolvedByName: user.displayName || user.email || 'Unknown',
       });
 
-      console.log('[DocumentComments] Comment resolved successfully');
-
       await loadComments();
       onUpdate();
     } catch (err) {
@@ -214,8 +210,6 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
         pmRemarks: remarks,
       });
 
-      console.log('[DocumentComments] Resolution approved successfully');
-
       await loadComments();
       onUpdate();
     } catch (err) {
@@ -235,8 +229,6 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
         commentId,
         pmRemarks: remarks,
       });
-
-      console.log('[DocumentComments] Resolution rejected successfully');
 
       await loadComments();
       onUpdate();

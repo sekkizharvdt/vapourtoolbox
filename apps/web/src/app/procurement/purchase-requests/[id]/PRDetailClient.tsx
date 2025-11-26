@@ -6,8 +6,8 @@
  * View and manage a single Purchase Request
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter, usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import {
   Box,
   Paper,
@@ -36,32 +36,38 @@ import { formatDate } from '@/lib/utils/formatters';
 export default function PRDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const pathname = usePathname();
-
-  // Extract PR ID from URL pathname
-  // For static export with dynamic routes, params.id might initially be 'placeholder'
-  const prId = useMemo(() => {
-    const paramsId = params.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      return paramsId;
-    }
-    const match = pathname?.match(/\/procurement\/purchase-requests\/([^/]+)(?:\/|$)/);
-    return match?.[1] || paramsId;
-  }, [params.id, pathname]);
 
   const [loading, setLoading] = useState(true);
   const [pr, setPr] = useState<PurchaseRequest | null>(null);
   const [items, setItems] = useState<PurchaseRequestItem[]>([]);
   const [error, setError] = useState<string>('');
+  const [prId, setPrId] = useState<string | null>(null);
+
+  // Handle static export placeholder - extract actual ID from pathname on client side
+  useEffect(() => {
+    const paramsId = params?.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      setPrId(paramsId);
+    } else if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(
+        /\/procurement\/purchase-requests\/([^/]+)(?:\/|$)/
+      );
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setPrId(extractedId);
+      }
+    }
+  }, [params?.id]);
 
   useEffect(() => {
-    if (prId && prId !== 'placeholder') {
+    if (prId) {
       loadPR();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prId]);
 
   const loadPR = async () => {
+    if (!prId) return;
     setLoading(true);
     setError('');
     try {
@@ -168,10 +174,7 @@ export default function PRDetailPage() {
               {pr.number}
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center">
-              <Chip
-                label={pr.status.replace(/_/g, ' ')}
-                color={getStatusColor(pr.status)}
-              />
+              <Chip label={pr.status.replace(/_/g, ' ')} color={getStatusColor(pr.status)} />
               <Chip label={pr.priority} color={getPriorityColor(pr.priority)} size="small" />
               <Chip label={pr.type} variant="outlined" size="small" />
               <Chip label={pr.category} variant="outlined" size="small" />

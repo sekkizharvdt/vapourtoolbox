@@ -6,8 +6,8 @@
  * Compare and evaluate vendor offers for an RFQ
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter, usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import {
   Box,
   Paper,
@@ -55,23 +55,12 @@ import type {
 export default function OfferComparisonPage() {
   const params = useParams();
   const router = useRouter();
-  const pathname = usePathname();
   const { user } = useAuth();
-
-  // Extract RFQ ID from URL pathname
-  // For static export with dynamic routes, params.id might initially be 'placeholder'
-  const rfqId = useMemo(() => {
-    const paramsId = params.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      return paramsId;
-    }
-    const match = pathname?.match(/\/procurement\/rfqs\/([^/]+)\/offers/);
-    return match?.[1] || paramsId;
-  }, [params.id, pathname]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [comparisonData, setComparisonData] = useState<OfferComparisonData | null>(null);
+  const [rfqId, setRfqId] = useState<string | null>(null);
 
   // Evaluation dialog
   const [evaluationDialogOpen, setEvaluationDialogOpen] = useState(false);
@@ -80,12 +69,29 @@ export default function OfferComparisonPage() {
   const [evaluationNotes, setEvaluationNotes] = useState('');
   const [redFlags, setRedFlags] = useState('');
 
+  // Handle static export placeholder - extract actual ID from pathname on client side
   useEffect(() => {
-    loadComparison();
+    const paramsId = params?.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      setRfqId(paramsId);
+    } else if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/procurement\/rfqs\/([^/]+)\/offers/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setRfqId(extractedId);
+      }
+    }
+  }, [params?.id]);
+
+  useEffect(() => {
+    if (rfqId) {
+      loadComparison();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rfqId]);
 
   const loadComparison = async () => {
+    if (!rfqId) return;
     setLoading(true);
     setError('');
     try {

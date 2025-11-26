@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter, usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import {
   Container,
   Typography,
@@ -63,33 +63,30 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 export default function ProjectCharterPage() {
   const params = useParams();
   const router = useRouter();
-  const pathname = usePathname();
   const { claims } = useAuth();
-
-  // Extract project ID from URL pathname
-  // For static export with dynamic routes, params.id might initially be 'placeholder'
-  // from pre-generated HTML, so we parse the actual ID from the pathname
-  const projectId = useMemo(() => {
-    const paramsId = params.id as string;
-
-    // If params has a real ID (not placeholder), use it
-    if (paramsId && paramsId !== 'placeholder') {
-      return paramsId;
-    }
-
-    // Otherwise, extract from pathname
-    const match = pathname?.match(/\/projects\/([^/]+)\/charter/);
-    const extractedId = match?.[1] || paramsId;
-    return extractedId;
-  }, [params.id, pathname]);
 
   const [activeTab, setActiveTab] = useState(0);
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
 
   // Check permissions
   const hasViewAccess = claims?.permissions ? canViewProjects(claims.permissions) : false;
+
+  // Handle static export placeholder - extract actual ID from pathname on client side
+  useEffect(() => {
+    const paramsId = params?.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      setProjectId(paramsId);
+    } else if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/projects\/([^/]+)\/charter/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setProjectId(extractedId);
+      }
+    }
+  }, [params?.id]);
 
   // Load project data
   useEffect(() => {

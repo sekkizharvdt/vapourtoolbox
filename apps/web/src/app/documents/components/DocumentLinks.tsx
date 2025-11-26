@@ -62,8 +62,6 @@ export default function DocumentLinks({ document, onUpdate }: DocumentLinksProps
         linkType,
       });
 
-      console.log('[DocumentLinks] Link created successfully');
-
       // Update parent to refresh document data
       onUpdate();
     } catch (err) {
@@ -102,8 +100,6 @@ export default function DocumentLinks({ document, onUpdate }: DocumentLinksProps
         targetDocumentId: link.masterDocumentId,
         linkType,
       });
-
-      console.log('[DocumentLinks] Link removed successfully');
 
       // Update parent to refresh document data
       onUpdate();

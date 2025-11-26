@@ -135,8 +135,6 @@ export async function createComment(db: Firestore, request: CreateCommentRequest
   const commentsRef = collection(db, 'projects', request.projectId, 'documentComments');
   const docRef = await addDoc(commentsRef, comment);
 
-  console.log('[CommentService] Created comment:', docRef.id, commentNumber);
-
   // Update submission comment counts
   await updateSubmissionCommentCounts(db, request.projectId, request.submissionId, {
     commentCount: increment(1),
@@ -174,8 +172,6 @@ export async function resolveComment(db: Firestore, request: ResolveCommentReque
     resolvedAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
-
-  console.log('[CommentService] Resolved comment:', request.commentId);
 
   // Update submission comment counts
   const updates: Record<string, unknown> = {
@@ -220,8 +216,6 @@ export async function approveCommentResolution(
     updatedAt: Timestamp.now(),
   });
 
-  console.log('[CommentService] Approved comment resolution:', request.commentId);
-
   // Update submission comment counts
   await updateSubmissionCommentCounts(db, request.projectId, request.submissionId, {
     resolvedCommentCount: increment(-1),
@@ -251,8 +245,6 @@ export async function rejectCommentResolution(
     updatedAt: Timestamp.now(),
   });
 
-  console.log('[CommentService] Rejected comment resolution:', request.commentId);
-
   // Update submission comment counts
   await updateSubmissionCommentCounts(db, request.projectId, request.submissionId, {
     resolvedCommentCount: increment(-1),
@@ -275,8 +267,6 @@ export async function markCommentUnderReview(
     status: 'UNDER_REVIEW',
     updatedAt: Timestamp.now(),
   });
-
-  console.log('[CommentService] Marked comment under review:', commentId);
 
   // Update submission comment counts
   await updateSubmissionCommentCounts(db, projectId, submissionId, {

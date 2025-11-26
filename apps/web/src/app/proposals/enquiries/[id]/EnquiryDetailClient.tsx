@@ -51,26 +51,28 @@ export default function EnquiryDetailClient() {
   const db = useFirestore();
   const { user } = useAuth();
 
-  // Handle static export placeholder - extract actual ID from pathname if needed
-  const enquiryId = (() => {
-    const paramsId = params.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      return paramsId;
-    }
-    if (typeof window !== 'undefined') {
-      const match = window.location.pathname.match(/\/proposals\/enquiries\/([^/]+)(?:\/|$)/);
-      return match?.[1] || paramsId;
-    }
-    return paramsId;
-  })();
-
   const [enquiry, setEnquiry] = useState<Enquiry | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [enquiryId, setEnquiryId] = useState<string | null>(null);
+
+  // Handle static export placeholder - extract actual ID from pathname on client side
+  useEffect(() => {
+    const paramsId = params?.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      setEnquiryId(paramsId);
+    } else if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/proposals\/enquiries\/([^/]+)(?:\/|$)/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setEnquiryId(extractedId);
+      }
+    }
+  }, [params?.id]);
 
   useEffect(() => {
-    if (!db || !enquiryId || enquiryId === 'placeholder') return;
+    if (!db || !enquiryId) return;
 
     const loadEnquiry = async () => {
       try {

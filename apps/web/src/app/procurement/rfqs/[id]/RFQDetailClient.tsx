@@ -6,8 +6,8 @@
  * View and manage a single RFQ
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter, usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import {
   Box,
   Paper,
@@ -58,36 +58,42 @@ import { formatDate } from '@/lib/utils/formatters';
 export default function RFQDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const pathname = usePathname();
   const { user } = useAuth();
-
-  // Extract RFQ ID from URL pathname
-  // For static export with dynamic routes, params.id might initially be 'placeholder'
-  const rfqId = useMemo(() => {
-    const paramsId = params.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      return paramsId;
-    }
-    const match = pathname?.match(/\/procurement\/rfqs\/([^/]+)(?:\/|$)/);
-    return match?.[1] || paramsId;
-  }, [params.id, pathname]);
 
   const [loading, setLoading] = useState(true);
   const [rfq, setRfq] = useState<RFQ | null>(null);
   const [items, setItems] = useState<RFQItem[]>([]);
   const [error, setError] = useState<string>('');
+  const [rfqId, setRfqId] = useState<string | null>(null);
 
   // Dialogs
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
 
+  // Handle static export placeholder - extract actual ID from pathname on client side
   useEffect(() => {
-    loadRFQ();
+    const paramsId = params?.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      setRfqId(paramsId);
+    } else if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/procurement\/rfqs\/([^/]+)(?:\/|$)/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setRfqId(extractedId);
+      }
+    }
+  }, [params?.id]);
+
+  useEffect(() => {
+    if (rfqId) {
+      loadRFQ();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rfqId]);
 
   const loadRFQ = async () => {
+    if (!rfqId) return;
     setLoading(true);
     setError('');
     try {
@@ -293,9 +299,7 @@ export default function RFQDetailPage() {
                 <Typography variant="subtitle2" color="text.secondary">
                   Due Date
                 </Typography>
-                <Typography variant="body1">
-                  {formatDate(rfq.dueDate)}
-                </Typography>
+                <Typography variant="body1">{formatDate(rfq.dueDate)}</Typography>
               </Box>
 
               <Box flex={1}>
@@ -411,9 +415,7 @@ export default function RFQDetailPage() {
                     <TableCell>{item.quantity}</TableCell>
                     <TableCell>{item.unit}</TableCell>
                     <TableCell>{item.equipmentCode || '-'}</TableCell>
-                    <TableCell>
-                      {formatDate(item.requiredBy)}
-                    </TableCell>
+                    <TableCell>{formatDate(item.requiredBy)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

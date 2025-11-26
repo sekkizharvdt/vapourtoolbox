@@ -55,7 +55,11 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
     });
 
   // Use entity state fetch hook (for GST calculation)
-  const { companyState, entityState, entityName: fetchedEntityName } = useEntityStateFetch(formState.entityId);
+  const {
+    companyState,
+    entityState,
+    entityName: fetchedEntityName,
+  } = useEntityStateFetch(formState.entityId);
 
   // Use GST calculation hook
   const { gstDetails, grandTotal: amountBeforeTDS } = useGSTCalculation({
@@ -87,6 +91,7 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
     if (fetchedEntityName && formState.entityId) {
       formState.setEntityName(fetchedEntityName);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchedEntityName, formState.entityId, formState.setEntityName]);
 
   // Load TDS data when editing

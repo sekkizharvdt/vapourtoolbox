@@ -82,7 +82,6 @@ export default function DocumentWorkList({ document, onUpdate }: DocumentWorkLis
         createdByName: user.displayName || user.email || 'Unknown',
       });
 
-      console.log('[DocumentWorkList] Work item created successfully');
       await loadWorkItems();
       onUpdate();
     } catch (err) {
@@ -99,7 +98,6 @@ export default function DocumentWorkList({ document, onUpdate }: DocumentWorkLis
     try {
       if (window.confirm(`Delete work item "${item.activityName}"?`)) {
         await deleteWorkItem(db, document.projectId, item.id);
-        console.log('[DocumentWorkList] Work item deleted successfully');
         await loadWorkItems();
         onUpdate();
       }

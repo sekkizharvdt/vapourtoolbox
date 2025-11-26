@@ -55,23 +55,11 @@ export default function EditMaterialClient() {
   const { user } = useAuth();
   const { db } = getFirebase();
 
-  // Handle static export placeholder - extract actual ID from pathname if needed
-  const materialId = (() => {
-    const paramsId = params.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      return paramsId;
-    }
-    if (typeof window !== 'undefined') {
-      const match = window.location.pathname.match(/\/materials\/([^/]+)\/edit/);
-      return match?.[1] || paramsId;
-    }
-    return paramsId;
-  })();
-
   const [material, setMaterial] = useState<Material | null>(null);
   const [loadingMaterial, setLoadingMaterial] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [materialId, setMaterialId] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -95,16 +83,30 @@ export default function EditMaterialClient() {
 
   const [tagInput, setTagInput] = useState('');
 
+  // Handle static export placeholder - extract actual ID from pathname on client side
+  useEffect(() => {
+    const paramsId = params?.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      setMaterialId(paramsId);
+    } else if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/materials\/([^/]+)\/edit/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setMaterialId(extractedId);
+      }
+    }
+  }, [params?.id]);
+
   // Load material
   useEffect(() => {
-    if (materialId && materialId !== 'placeholder') {
+    if (materialId) {
       loadMaterial();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [materialId]);
 
   const loadMaterial = async () => {
-    if (!materialId || materialId === 'placeholder') {
+    if (!materialId) {
       setError('No material ID provided');
       setLoadingMaterial(false);
       return;
@@ -183,7 +185,7 @@ export default function EditMaterialClient() {
 
   // Validate and submit
   const handleSubmit = async () => {
-    if (!db || !user || !material) return;
+    if (!db || !user || !material || !materialId) return;
 
     try {
       setSaving(true);

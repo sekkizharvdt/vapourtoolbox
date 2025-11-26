@@ -61,19 +61,6 @@ export default function ProposalDetailClient() {
   const db = useFirestore();
   const { user } = useAuth();
 
-  // Handle static export placeholder - extract actual ID from pathname if needed
-  const proposalId = (() => {
-    const paramsId = params.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      return paramsId;
-    }
-    if (typeof window !== 'undefined') {
-      const match = window.location.pathname.match(/\/proposals\/([^/]+)(?:\/|$)/);
-      return match?.[1] || paramsId;
-    }
-    return paramsId;
-  })();
-
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,9 +68,24 @@ export default function ProposalDetailClient() {
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [proposalId, setProposalId] = useState<string | null>(null);
+
+  // Handle static export placeholder - extract actual ID from pathname on client side
+  useEffect(() => {
+    const paramsId = params?.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      setProposalId(paramsId);
+    } else if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/proposals\/([^/]+)(?:\/|$)/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setProposalId(extractedId);
+      }
+    }
+  }, [params?.id]);
 
   useEffect(() => {
-    if (!db || !proposalId || proposalId === 'placeholder') return;
+    if (!db || !proposalId) return;
 
     const loadProposal = async () => {
       try {
@@ -114,7 +116,7 @@ export default function ProposalDetailClient() {
   };
 
   const reloadProposal = async () => {
-    if (!db) return;
+    if (!db || !proposalId) return;
     try {
       const data = await getProposalById(db, proposalId);
       if (data) setProposal(data);

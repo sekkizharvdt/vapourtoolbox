@@ -112,7 +112,6 @@ export async function createSupplyItem(
   const supplyItemsRef = collection(db, 'projects', request.projectId, 'supplyItems');
   const docRef = await addDoc(supplyItemsRef, supplyItem);
 
-  console.log('[SupplyItemService] Created supply item:', docRef.id);
   return docRef.id;
 }
 
@@ -154,11 +153,6 @@ export async function updateSupplyItemStatus(
   }
 
   await updateDoc(supplyItemRef, updates);
-  console.log(
-    '[SupplyItemService] Updated supply item status:',
-    request.supplyItemId,
-    request.procurementStatus
-  );
 }
 
 /**
@@ -171,7 +165,6 @@ export async function deleteSupplyItem(
 ): Promise<void> {
   const supplyItemRef = doc(db, 'projects', projectId, 'supplyItems', supplyItemId);
   await deleteDoc(supplyItemRef);
-  console.log('[SupplyItemService] Deleted supply item:', supplyItemId);
 }
 
 /**

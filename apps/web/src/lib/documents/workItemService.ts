@@ -92,7 +92,6 @@ export async function createWorkItem(
   const workItemsRef = collection(db, 'projects', request.projectId, 'workItems');
   const docRef = await addDoc(workItemsRef, workItem);
 
-  console.log('[WorkItemService] Created work item:', docRef.id);
   return docRef.id;
 }
 
@@ -126,7 +125,6 @@ export async function updateWorkItemStatus(
   }
 
   await updateDoc(workItemRef, updates);
-  console.log('[WorkItemService] Updated work item status:', request.workItemId, request.status);
 }
 
 /**
@@ -153,8 +151,6 @@ export async function updateWorkItemAssignment(
     assignedAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
-
-  console.log('[WorkItemService] Updated work item assignment:', request.workItemId);
 }
 
 /**
@@ -167,7 +163,6 @@ export async function deleteWorkItem(
 ): Promise<void> {
   const workItemRef = doc(db, 'projects', projectId, 'workItems', workItemId);
   await deleteDoc(workItemRef);
-  console.log('[WorkItemService] Deleted work item:', workItemId);
 }
 
 /**

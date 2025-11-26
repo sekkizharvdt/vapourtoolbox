@@ -54,8 +54,6 @@ async function uploadDocumentFile(
   const fileName = `${timestamp}_${file.name}`;
   const filePath = `projects/${projectId}/documents/${sanitizedDocNumber}/${revision}/${fileName}`;
 
-  console.log('[SubmissionService] Uploading file to:', filePath);
-
   const storageRef = ref(storage, filePath);
   const snapshot = await uploadBytes(storageRef, file, {
     contentType: file.type,
@@ -151,7 +149,6 @@ async function createDocumentRecord(
   };
 
   const docRef = await addDoc(collection(db, 'documents'), documentRecord);
-  console.log('[SubmissionService] Created DocumentRecord:', docRef.id);
   return docRef.id;
 }
 
@@ -241,7 +238,6 @@ async function createDocumentSubmission(
 
   const submissionsRef = collection(db, 'projects', data.projectId, 'documentSubmissions');
   const docRef = await addDoc(submissionsRef, submission);
-  console.log('[SubmissionService] Created DocumentSubmission:', docRef.id);
   return docRef.id;
 }
 
@@ -263,8 +259,6 @@ async function updateMasterDocument(
     status: 'SUBMITTED',
     updatedAt: Timestamp.now(),
   });
-
-  console.log('[SubmissionService] Updated MasterDocumentEntry:', masterDocumentId);
 }
 
 /**
@@ -276,11 +270,6 @@ export async function submitDocument(
   storage: FirebaseStorage,
   request: SubmitDocumentRequest
 ): Promise<{ submissionId: string; documentId: string }> {
-  console.log('[SubmissionService] Starting document submission:', {
-    documentNumber: request.masterDocument.documentNumber,
-    revision: request.revision,
-  });
-
   try {
     // 1. Upload file to Firebase Storage
     const { downloadUrl, filePath, fileSize } = await uploadDocumentFile(
@@ -335,12 +324,6 @@ export async function submitDocument(
       request.revision,
       submissionNumber
     );
-
-    console.log('[SubmissionService] Submission complete:', {
-      submissionId,
-      documentId,
-      submissionNumber,
-    });
 
     return { submissionId, documentId };
   } catch (error) {

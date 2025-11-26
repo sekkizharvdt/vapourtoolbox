@@ -46,20 +46,6 @@ export default function BOMEditorClient() {
   const { user } = useAuth();
   const { db } = getFirebase();
 
-  // Handle static export placeholder - extract actual ID from pathname if needed
-  const bomId = (() => {
-    const paramsId = params?.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      return paramsId;
-    }
-    // For static export, extract ID from pathname
-    if (typeof window !== 'undefined') {
-      const match = window.location.pathname.match(/\/estimation\/([^/]+)(?:\/|$)/);
-      return match?.[1] || paramsId;
-    }
-    return paramsId;
-  })();
-
   const [bom, setBOM] = useState<BOM | null>(null);
   const [items, setItems] = useState<BOMItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,9 +53,25 @@ export default function BOMEditorClient() {
   const [error, setError] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
+  const [bomId, setBomId] = useState<string | null>(null);
+
+  // Handle static export placeholder - extract actual ID from pathname on client side
+  useEffect(() => {
+    const paramsId = params?.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      setBomId(paramsId);
+    } else if (typeof window !== 'undefined') {
+      // For static export, extract ID from pathname
+      const match = window.location.pathname.match(/\/estimation\/([^/]+)(?:\/|$)/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setBomId(extractedId);
+      }
+    }
+  }, [params?.id]);
 
   useEffect(() => {
-    if (bomId && bomId !== 'placeholder') {
+    if (bomId) {
       loadBOM();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -104,7 +106,7 @@ export default function BOMEditorClient() {
   };
 
   const handleCalculateCosts = async () => {
-    if (!db || !user?.uid || !bom) return;
+    if (!db || !user?.uid || !bom || !bomId) return;
 
     try {
       setCalculating(true);
@@ -125,7 +127,7 @@ export default function BOMEditorClient() {
   };
 
   const handleAddItem = async (data: AddItemData) => {
-    if (!db || !user?.uid) return;
+    if (!db || !user?.uid || !bomId) return;
 
     try {
       logger.info('Adding BOM item', { bomId, data });
@@ -496,7 +498,7 @@ export default function BOMEditorClient() {
           <GeneratePDFDialog
             open={pdfDialogOpen}
             onClose={() => setPdfDialogOpen(false)}
-            bomId={bomId}
+            bomId={bomId!}
             bomName={bom.name}
           />
         </>

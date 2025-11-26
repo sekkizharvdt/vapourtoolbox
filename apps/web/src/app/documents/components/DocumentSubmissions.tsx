@@ -91,7 +91,7 @@ export default function DocumentSubmissions({ document, onUpdate }: DocumentSubm
 
     try {
       // Submit document using the submission service
-      const { submissionId, documentId } = await submitDocument(db, storage, {
+      await submitDocument(db, storage, {
         projectId: document.projectId,
         masterDocumentId: document.id,
         masterDocument: document,
@@ -101,11 +101,6 @@ export default function DocumentSubmissions({ document, onUpdate }: DocumentSubm
         clientVisible: data.clientVisible,
         submittedBy: user.uid,
         submittedByName: user.displayName || user.email || 'Unknown',
-      });
-
-      console.log('[DocumentSubmissions] Document submitted successfully:', {
-        submissionId,
-        documentId,
       });
 
       // Reload submissions and update parent

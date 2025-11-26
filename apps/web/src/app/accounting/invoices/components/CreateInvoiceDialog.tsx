@@ -75,7 +75,11 @@ export function CreateInvoiceDialog({
     });
 
   // Use entity state fetch hook (for GST calculation)
-  const { companyState, entityState, entityName: fetchedEntityName } = useEntityStateFetch(formState.entityId);
+  const {
+    companyState,
+    entityState,
+    entityName: fetchedEntityName,
+  } = useEntityStateFetch(formState.entityId);
 
   // Use GST calculation hook
   const { gstDetails, totalGstAmount, grandTotal } = useGSTCalculation({
@@ -98,10 +102,15 @@ export function CreateInvoiceDialog({
       setCurrency((editingInvoice.currency as CurrencyCode) || DEFAULT_CURRENCY);
       setExchangeRate(editingInvoice.exchangeRate || 1);
       if (editingInvoice.attachments) {
-        const loadedAttachments = (editingInvoice.attachments as unknown as FileAttachment[]).map((att) => ({
-          ...att,
-          uploadedAt: att.uploadedAt instanceof Date ? att.uploadedAt : new Date(att.uploadedAt as unknown as string | number),
-        }));
+        const loadedAttachments = (editingInvoice.attachments as unknown as FileAttachment[]).map(
+          (att) => ({
+            ...att,
+            uploadedAt:
+              att.uploadedAt instanceof Date
+                ? att.uploadedAt
+                : new Date(att.uploadedAt as unknown as string | number),
+          })
+        );
         setAttachments(loadedAttachments);
       }
     }
@@ -112,6 +121,7 @@ export function CreateInvoiceDialog({
     if (fetchedEntityName && formState.entityId) {
       formState.setEntityName(fetchedEntityName);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchedEntityName, formState.entityId, formState.setEntityName]);
 
   const handleSave = async () => {
@@ -156,16 +166,23 @@ export function CreateInvoiceDialog({
         lineItems: isForexInvoice
           ? lineItems.map((item) => ({ ...item, amount: item.amount * exchangeRate }))
           : lineItems,
-        gstDetails: isForexInvoice && gstDetails
-          ? {
-              ...gstDetails,
-              taxableAmount: gstDetails.taxableAmount * exchangeRate,
-              cgstAmount: gstDetails.cgstAmount ? gstDetails.cgstAmount * exchangeRate : undefined,
-              sgstAmount: gstDetails.sgstAmount ? gstDetails.sgstAmount * exchangeRate : undefined,
-              igstAmount: gstDetails.igstAmount ? gstDetails.igstAmount * exchangeRate : undefined,
-              totalGST: gstDetails.totalGST * exchangeRate,
-            }
-          : gstDetails,
+        gstDetails:
+          isForexInvoice && gstDetails
+            ? {
+                ...gstDetails,
+                taxableAmount: gstDetails.taxableAmount * exchangeRate,
+                cgstAmount: gstDetails.cgstAmount
+                  ? gstDetails.cgstAmount * exchangeRate
+                  : undefined,
+                sgstAmount: gstDetails.sgstAmount
+                  ? gstDetails.sgstAmount * exchangeRate
+                  : undefined,
+                igstAmount: gstDetails.igstAmount
+                  ? gstDetails.igstAmount * exchangeRate
+                  : undefined,
+                totalGST: gstDetails.totalGST * exchangeRate,
+              }
+            : gstDetails,
         currency: 'INR', // GL entries are always in base currency
         description: formState.description || `Invoice for ${formState.entityName}`,
         entityId: formState.entityId,
@@ -183,14 +200,13 @@ export function CreateInvoiceDialog({
       // Convert FileAttachment dates to Firestore Timestamps
       const firestoreAttachments = attachments.map((att) => ({
         ...att,
-        uploadedAt: att.uploadedAt instanceof Date ? Timestamp.fromDate(att.uploadedAt) : att.uploadedAt,
+        uploadedAt:
+          att.uploadedAt instanceof Date ? Timestamp.fromDate(att.uploadedAt) : att.uploadedAt,
       }));
 
       // Clean gstDetails to remove undefined values (Firestore doesn't accept undefined)
       const cleanGstDetails = gstDetails
-        ? Object.fromEntries(
-            Object.entries(gstDetails).filter(([, value]) => value !== undefined)
-          )
+        ? Object.fromEntries(Object.entries(gstDetails).filter(([, value]) => value !== undefined))
         : undefined;
 
       const invoice = {
@@ -242,7 +258,11 @@ export function CreateInvoiceDialog({
     }
   };
 
-  const dialogTitle = viewOnly ? 'View Invoice' : editingInvoice ? 'Edit Invoice' : 'Create Invoice';
+  const dialogTitle = viewOnly
+    ? 'View Invoice'
+    : editingInvoice
+      ? 'Edit Invoice'
+      : 'Create Invoice';
 
   return (
     <FormDialog

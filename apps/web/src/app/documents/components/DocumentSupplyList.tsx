@@ -104,7 +104,6 @@ export default function DocumentSupplyList({ document, onUpdate }: DocumentSuppl
         createdByName: user.displayName || user.email || 'Unknown',
       });
 
-      console.log('[DocumentSupplyList] Supply item created successfully');
       await loadSupplyItems();
       onUpdate();
     } catch (err) {
@@ -127,7 +126,6 @@ export default function DocumentSupplyList({ document, onUpdate }: DocumentSuppl
     try {
       if (window.confirm(`Delete supply item "${item.itemName}"?`)) {
         await deleteSupplyItem(db, document.projectId, item.id);
-        console.log('[DocumentSupplyList] Supply item deleted successfully');
         await loadSupplyItems();
         onUpdate();
       }

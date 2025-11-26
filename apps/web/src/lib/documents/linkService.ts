@@ -71,8 +71,6 @@ async function hasCircularDependency(
  * Create a document link
  */
 export async function createDocumentLink(db: Firestore, request: CreateLinkRequest): Promise<void> {
-  console.log('[LinkService] Creating document link:', request);
-
   // Get both documents
   const sourceDocRef = doc(
     db,
@@ -198,8 +196,6 @@ export async function createDocumentLink(db: Firestore, request: CreateLinkReque
       }),
     ]);
   }
-
-  console.log('[LinkService] Document link created successfully');
 }
 
 /**
@@ -213,8 +209,6 @@ export interface RemoveLinkRequest {
 }
 
 export async function removeDocumentLink(db: Firestore, request: RemoveLinkRequest): Promise<void> {
-  console.log('[LinkService] Removing document link:', request);
-
   // Get both documents
   const sourceDocRef = doc(
     db,
@@ -309,8 +303,6 @@ export async function removeDocumentLink(db: Firestore, request: RemoveLinkReque
       }),
     ]);
   }
-
-  console.log('[LinkService] Document link removed successfully');
 }
 
 /**
@@ -324,8 +316,6 @@ export async function updateLinksStatus(
   newStatus: string,
   newRevision: string
 ): Promise<void> {
-  console.log('[LinkService] Updating links status for document:', documentId);
-
   const docRef = doc(db, 'projects', projectId, 'masterDocuments', documentId);
   const snapshot = await getDoc(docRef);
 
@@ -387,6 +377,4 @@ export async function updateLinksStatus(
       updatedAt: Timestamp.now(),
     });
   }
-
-  console.log('[LinkService] Links status updated successfully');
 }

@@ -6,8 +6,8 @@
  * Edit an existing purchase request
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter, usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import {
   Box,
   Paper,
@@ -60,24 +60,14 @@ interface LineItemFormData {
 export default function EditPRPage() {
   const params = useParams();
   const router = useRouter();
-  const pathname = usePathname();
   const { user } = useAuth();
-
-  // Extract PR ID from URL pathname
-  const prId = useMemo(() => {
-    const paramsId = params.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      return paramsId;
-    }
-    const match = pathname?.match(/\/procurement\/purchase-requests\/([^/]+)\/edit/);
-    return match?.[1] || paramsId;
-  }, [params.id, pathname]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pr, setPr] = useState<PurchaseRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [prId, setPrId] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -93,14 +83,31 @@ export default function EditPRPage() {
 
   const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
 
+  // Handle static export placeholder - extract actual ID from pathname on client side
   useEffect(() => {
-    if (prId && prId !== 'placeholder') {
+    const paramsId = params?.id as string;
+    if (paramsId && paramsId !== 'placeholder') {
+      setPrId(paramsId);
+    } else if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(
+        /\/procurement\/purchase-requests\/([^/]+)\/edit/
+      );
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setPrId(extractedId);
+      }
+    }
+  }, [params?.id]);
+
+  useEffect(() => {
+    if (prId) {
       loadPR();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prId]);
 
   const loadPR = async () => {
+    if (!prId) return;
     setLoading(true);
     setError(null);
     try {
@@ -263,7 +270,9 @@ export default function EditPRPage() {
         title: formData.title,
         description: formData.description,
         priority: formData.priority,
-        ...(formData.requiredBy && { requiredBy: Timestamp.fromDate(new Date(formData.requiredBy)) }),
+        ...(formData.requiredBy && {
+          requiredBy: Timestamp.fromDate(new Date(formData.requiredBy)),
+        }),
         itemCount: activeItems.length,
         updatedAt: now,
         updatedBy: user.uid,
@@ -458,11 +467,7 @@ export default function EditPRPage() {
             </Stack>
 
             {formData.type === 'PROJECT' && (
-              <ProjectSelector
-                value={formData.projectId}
-                onChange={handleProjectSelect}
-                required
-              />
+              <ProjectSelector value={formData.projectId} onChange={handleProjectSelect} required />
             )}
 
             <TextField
@@ -579,7 +584,11 @@ export default function EditPRPage() {
                             fullWidth
                             value={item.quantity}
                             onChange={(e) =>
-                              handleLineItemChange(index, 'quantity', parseFloat(e.target.value) || 0)
+                              handleLineItemChange(
+                                index,
+                                'quantity',
+                                parseFloat(e.target.value) || 0
+                              )
                             }
                             inputProps={{ min: 0, step: 1 }}
                           />
