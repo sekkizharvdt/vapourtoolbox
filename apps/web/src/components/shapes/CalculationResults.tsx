@@ -20,6 +20,14 @@ import { Warning as WarningIcon, Error as ErrorIcon } from '@mui/icons-material'
 // It contains top-level properties like weight, volume, cost fields, etc.
 // This is intentional - the calculator flattens the nested structure for easier display
 interface CalculationResult {
+  // Shape and material info
+  shapeName?: string;
+  shapeCategory?: string;
+  materialName?: string;
+  materialDensity?: number;
+  materialPricePerKg?: number;
+  parameterValues?: Array<{ name: string; value: number; unit: string }>;
+  // Calculated values
   weight?: number;
   weightUnit?: string;
   totalWeight?: number;
@@ -67,6 +75,61 @@ function CalculationResults({ result }: CalculationResultsProps) {
 
   return (
     <Box>
+      {/* Input Summary */}
+      {(result.shapeName || result.materialName || result.parameterValues) && (
+        <Paper sx={{ p: 2, mb: 3, bgcolor: 'grey.50' }}>
+          <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+            Input Summary
+          </Typography>
+          <Grid container spacing={2}>
+            {result.shapeName && (
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Shape
+                </Typography>
+                <Typography variant="body2">{result.shapeName}</Typography>
+              </Grid>
+            )}
+            {result.materialName && (
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Material
+                </Typography>
+                <Typography variant="body2">{result.materialName}</Typography>
+              </Grid>
+            )}
+            {result.materialDensity && (
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Density
+                </Typography>
+                <Typography variant="body2">{result.materialDensity} kg/m³</Typography>
+              </Grid>
+            )}
+            {result.parameterValues &&
+              Array.isArray(result.parameterValues) &&
+              result.parameterValues.map((param: { name: string; value: number; unit: string }) => (
+                <Grid key={param.name} size={{ xs: 12, sm: 6, md: 4 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {param.name.toUpperCase()}
+                  </Typography>
+                  <Typography variant="body2">
+                    {param.value} {param.unit}
+                  </Typography>
+                </Grid>
+              ))}
+            {result.quantity && (
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Quantity
+                </Typography>
+                <Typography variant="body2">{result.quantity}</Typography>
+              </Grid>
+            )}
+          </Grid>
+        </Paper>
+      )}
+
       {/* Summary Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -105,7 +168,7 @@ function CalculationResults({ result }: CalculationResultsProps) {
               <Typography variant="caption" color="text.secondary">
                 Volume
               </Typography>
-              <Typography variant="h5">{formatNumber(result.volume / 1000000)} L</Typography>
+              <Typography variant="h5">{formatNumber(result.volume / 1000000000, 4)} m³</Typography>
             </Paper>
           </Grid>
         )}
@@ -166,32 +229,36 @@ function CalculationResults({ result }: CalculationResultsProps) {
             {result.volume !== undefined && (
               <TableRow>
                 <TableCell>Volume</TableCell>
-                <TableCell align="right">{formatNumber(result.volume)}</TableCell>
-                <TableCell>{result.volumeUnit}</TableCell>
+                <TableCell align="right">{formatNumber(result.volume / 1000000000, 4)}</TableCell>
+                <TableCell>m³</TableCell>
               </TableRow>
             )}
 
             {result.surfaceArea !== undefined && (
               <TableRow>
                 <TableCell>Total Surface Area</TableCell>
-                <TableCell align="right">{formatNumber(result.surfaceArea)}</TableCell>
-                <TableCell>{result.surfaceAreaUnit}</TableCell>
+                <TableCell align="right">{formatNumber(result.surfaceArea / 1000000, 3)}</TableCell>
+                <TableCell>m²</TableCell>
               </TableRow>
             )}
 
             {result.innerSurfaceArea !== undefined && (
               <TableRow>
                 <TableCell>Inner Surface Area</TableCell>
-                <TableCell align="right">{formatNumber(result.innerSurfaceArea)}</TableCell>
-                <TableCell>{result.surfaceAreaUnit}</TableCell>
+                <TableCell align="right">
+                  {formatNumber(result.innerSurfaceArea / 1000000, 3)}
+                </TableCell>
+                <TableCell>m²</TableCell>
               </TableRow>
             )}
 
             {result.outerSurfaceArea !== undefined && (
               <TableRow>
                 <TableCell>Outer Surface Area</TableCell>
-                <TableCell align="right">{formatNumber(result.outerSurfaceArea)}</TableCell>
-                <TableCell>{result.surfaceAreaUnit}</TableCell>
+                <TableCell align="right">
+                  {formatNumber(result.outerSurfaceArea / 1000000, 3)}
+                </TableCell>
+                <TableCell>m²</TableCell>
               </TableRow>
             )}
 
@@ -222,8 +289,8 @@ function CalculationResults({ result }: CalculationResultsProps) {
                 </TableRow>
                 <TableRow>
                   <TableCell>Blank Area</TableCell>
-                  <TableCell align="right">{formatNumber(result.blankArea)}</TableCell>
-                  <TableCell>{result.blankAreaUnit}</TableCell>
+                  <TableCell align="right">{formatNumber(result.blankArea / 1000000, 3)}</TableCell>
+                  <TableCell>m²</TableCell>
                 </TableRow>
               </>
             )}
