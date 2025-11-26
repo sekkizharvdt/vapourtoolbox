@@ -297,6 +297,7 @@ export function CreateInvoiceDialog({
           onProjectChange={formState.setProjectId}
           entityLabel="Customer"
           entityRole="CUSTOMER"
+          disabled={viewOnly}
         />
 
         {/* Currency Selection */}
@@ -365,6 +366,7 @@ export function CreateInvoiceDialog({
               subtotal={subtotal}
               gstDetails={gstDetails}
               totalAmount={grandTotal}
+              readOnly={viewOnly}
             />
           </Box>
         </Grid>

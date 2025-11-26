@@ -76,7 +76,8 @@ export function useEntityStateFetch(entityId: string | null): UseEntityStateFetc
         setCompanyError(null);
 
         const { db } = getFirebase();
-        const companyDoc = await getDoc(doc(db, COLLECTIONS.COMPANY, 'settings'));
+        // Note: Company settings are stored in 'company/settings', not 'companies/settings'
+        const companyDoc = await getDoc(doc(db, 'company', 'settings'));
 
         if (!isMounted) return;
 
