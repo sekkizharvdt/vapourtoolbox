@@ -186,6 +186,13 @@ export function CreateInvoiceDialog({
         uploadedAt: att.uploadedAt instanceof Date ? Timestamp.fromDate(att.uploadedAt) : att.uploadedAt,
       }));
 
+      // Clean gstDetails to remove undefined values (Firestore doesn't accept undefined)
+      const cleanGstDetails = gstDetails
+        ? Object.fromEntries(
+            Object.entries(gstDetails).filter(([, value]) => value !== undefined)
+          )
+        : undefined;
+
       const invoice = {
         type: 'CUSTOMER_INVOICE' as const,
         date: invoiceDate ? Timestamp.fromDate(invoiceDate) : Timestamp.now(),
@@ -198,7 +205,7 @@ export function CreateInvoiceDialog({
         status: formState.status,
         lineItems,
         subtotal,
-        ...(gstDetails ? { gstDetails } : {}),
+        ...(cleanGstDetails ? { gstDetails: cleanGstDetails } : {}),
         totalAmount: grandTotal,
         amount: grandTotal,
         transactionNumber,

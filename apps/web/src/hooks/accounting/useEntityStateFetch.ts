@@ -84,7 +84,6 @@ export function useEntityStateFetch(entityId: string | null): UseEntityStateFetc
         if (companyDoc.exists()) {
           const data = companyDoc.data();
           const state = data.address?.state || '';
-          console.log('[useEntityStateFetch] Company state loaded:', state, 'Full address:', data.address);
           setCompanyState(state);
         } else {
           console.warn('[useEntityStateFetch] Company settings document not found');
@@ -134,7 +133,6 @@ export function useEntityStateFetch(entityId: string | null): UseEntityStateFetc
         if (entityDoc.exists()) {
           const data = entityDoc.data();
           const state = data.billingAddress?.state || '';
-          console.log('[useEntityStateFetch] Entity state loaded:', state, 'Entity:', data.name, 'Full billingAddress:', data.billingAddress);
           setEntityName(data.name || '');
           setEntityState(state);
         } else {
