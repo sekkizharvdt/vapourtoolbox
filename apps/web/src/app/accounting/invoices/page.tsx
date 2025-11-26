@@ -52,7 +52,7 @@ import { CreateInvoiceDialog } from './components/CreateInvoiceDialog';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 
 // Helper function to convert Firestore Timestamp to Date
-function toDate(value: any): Date | null {
+function toDate(value: Date | Timestamp | unknown): Date | null {
   if (!value) return null;
   if (value instanceof Date) return value;
   if (value instanceof Timestamp) return value.toDate();
@@ -60,7 +60,7 @@ function toDate(value: any): Date | null {
     return value.toDate();
   }
   try {
-    return new Date(value);
+    return new Date(value as string | number);
   } catch {
     return null;
   }
