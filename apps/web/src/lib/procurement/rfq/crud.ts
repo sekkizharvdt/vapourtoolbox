@@ -85,7 +85,9 @@ export async function createRFQ(
   // Extract unique project IDs and names from items
   const projectMap = new Map<string, string>();
   items.forEach((item) => {
-    projectMap.set(item.projectId, item.projectId);
+    if (item.projectId) {
+      projectMap.set(item.projectId, item.projectId);
+    }
   });
   const projectIds = Array.from(projectMap.keys());
 
@@ -231,7 +233,7 @@ export async function createRFQFromPRs(
         specification: prItem.specification,
         quantity: prItem.quantity,
         unit: prItem.unit,
-        projectId: pr.projectId,
+        ...(pr.projectId && { projectId: pr.projectId }),
         equipmentId: prItem.equipmentId,
         equipmentCode: prItem.equipmentCode,
         technicalSpec: prItem.technicalSpec,

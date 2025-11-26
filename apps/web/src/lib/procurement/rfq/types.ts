@@ -51,7 +51,7 @@ export interface CreateRFQItemInput {
   unit: string;
 
   // Project and equipment
-  projectId: string;
+  projectId?: string;
   equipmentId?: string;
   equipmentCode?: string;
 

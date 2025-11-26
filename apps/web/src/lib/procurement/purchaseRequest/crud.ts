@@ -46,6 +46,7 @@ export async function createPurchaseRequest(
     const prNumber = await generatePRNumber();
 
     // Create PR document
+    // Note: Firestore doesn't allow undefined values, so we conditionally add optional fields
     const prData: Omit<PurchaseRequest, 'id'> = {
       number: prNumber,
 
@@ -54,21 +55,21 @@ export async function createPurchaseRequest(
       category: input.category,
 
       // Project linkage
-      projectId: input.projectId,
-      projectName: input.projectName,
+      ...(input.projectId && { projectId: input.projectId }),
+      ...(input.projectName && { projectName: input.projectName }),
 
       // Header
       title: input.title,
       description: input.description,
       priority: input.priority || 'MEDIUM',
-      requiredBy: input.requiredBy ? Timestamp.fromDate(input.requiredBy) : undefined,
+      ...(input.requiredBy && { requiredBy: Timestamp.fromDate(input.requiredBy) }),
 
       // Line items
       itemCount: input.items.length,
 
       // Bulk upload
       isBulkUpload: input.isBulkUpload || false,
-      bulkUploadFileUrl: input.bulkUploadFileUrl,
+      ...(input.bulkUploadFileUrl && { bulkUploadFileUrl: input.bulkUploadFileUrl }),
 
       // Workflow
       status: 'DRAFT',
@@ -88,6 +89,7 @@ export async function createPurchaseRequest(
     batch.set(prRef, prData);
 
     // Create line items
+    // Note: Firestore doesn't allow undefined values, so we conditionally add optional fields
     input.items.forEach((item, index) => {
       const itemData: Omit<PurchaseRequestItem, 'id'> = {
         purchaseRequestId: prRef.id,
@@ -95,36 +97,36 @@ export async function createPurchaseRequest(
         // Item details
         lineNumber: index + 1,
         description: item.description,
-        specification: item.specification,
+        ...(item.specification && { specification: item.specification }),
 
         // Quantity
         quantity: item.quantity,
         unit: item.unit,
 
-        // Material linkage
-        materialId: item.materialId,
-        materialCode: item.materialCode,
-        materialName: item.materialName,
+        // Material linkage (optional)
+        ...(item.materialId && { materialId: item.materialId }),
+        ...(item.materialCode && { materialCode: item.materialCode }),
+        ...(item.materialName && { materialName: item.materialName }),
 
-        // Equipment linkage
-        equipmentId: item.equipmentId,
-        equipmentCode: item.equipmentCode,
-        equipmentName: item.equipmentName,
+        // Equipment linkage (optional)
+        ...(item.equipmentId && { equipmentId: item.equipmentId }),
+        ...(item.equipmentCode && { equipmentCode: item.equipmentCode }),
+        ...(item.equipmentName && { equipmentName: item.equipmentName }),
 
-        // Estimated cost
-        estimatedUnitCost: item.estimatedUnitCost,
-        estimatedTotalCost: item.estimatedUnitCost
-          ? item.estimatedUnitCost * item.quantity
-          : undefined,
+        // Estimated cost (optional)
+        ...(item.estimatedUnitCost && {
+          estimatedUnitCost: item.estimatedUnitCost,
+          estimatedTotalCost: item.estimatedUnitCost * item.quantity,
+        }),
 
-        // Technical requirements
-        technicalSpec: item.technicalSpec,
-        drawingNumbers: item.drawingNumbers,
-        makeModel: item.makeModel,
+        // Technical requirements (optional)
+        ...(item.technicalSpec && { technicalSpec: item.technicalSpec }),
+        ...(item.drawingNumbers && { drawingNumbers: item.drawingNumbers }),
+        ...(item.makeModel && { makeModel: item.makeModel }),
 
-        // Delivery
-        requiredBy: item.requiredBy ? Timestamp.fromDate(item.requiredBy) : undefined,
-        deliveryLocation: item.deliveryLocation,
+        // Delivery (optional)
+        ...(item.requiredBy && { requiredBy: Timestamp.fromDate(item.requiredBy) }),
+        ...(item.deliveryLocation && { deliveryLocation: item.deliveryLocation }),
 
         // Documents
         attachmentCount: 0, // Will be updated when documents uploaded

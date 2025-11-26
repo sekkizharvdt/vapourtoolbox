@@ -370,7 +370,7 @@ export function filterPRsBySearch(prs: PurchaseRequest[], searchText: string): P
       pr.number.toLowerCase().includes(search) ||
       pr.title.toLowerCase().includes(search) ||
       pr.description.toLowerCase().includes(search) ||
-      pr.projectName.toLowerCase().includes(search) ||
+      pr.projectName?.toLowerCase().includes(search) ||
       pr.submittedByName.toLowerCase().includes(search)
     );
   });

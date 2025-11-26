@@ -383,7 +383,7 @@ export function groupRFQItemsByProject(items: RFQItem[]): Map<string, RFQItem[]>
   const grouped = new Map<string, RFQItem[]>();
 
   items.forEach((item) => {
-    const projectId = item.projectId;
+    const projectId = item.projectId || 'no-project';
     const existing = grouped.get(projectId) || [];
     existing.push(item);
     grouped.set(projectId, existing);

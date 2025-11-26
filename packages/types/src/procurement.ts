@@ -29,9 +29,9 @@ export interface PurchaseRequest {
   type: PurchaseRequestType;
   category: PurchaseRequestCategory;
 
-  // Project linkage
-  projectId: string;
-  projectName: string; // Denormalized
+  // Project linkage (required only for type='PROJECT')
+  projectId?: string;
+  projectName?: string; // Denormalized
 
   // Header information
   title: string;
@@ -209,7 +209,7 @@ export interface RFQItem {
   unit: string;
 
   // Equipment linkage
-  projectId: string;
+  projectId?: string;
   equipmentId?: string;
   equipmentCode?: string;
 
