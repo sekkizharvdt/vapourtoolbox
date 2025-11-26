@@ -150,7 +150,26 @@ export async function createPurchaseRequest(
     };
   } catch (error) {
     console.error('[createPurchaseRequest] Error:', error);
-    throw new Error('Failed to create purchase request');
+
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      // Check for common Firestore permission errors
+      if (error.message.includes('permission') || error.message.includes('PERMISSION_DENIED')) {
+        throw new Error(
+          'Permission denied: You need MANAGE_PROCUREMENT permission to create purchase requests. Please contact your administrator.'
+        );
+      }
+
+      // Check for missing required fields
+      if (error.message.includes('missing') || error.message.includes('required')) {
+        throw new Error(`Invalid data: ${error.message}`);
+      }
+
+      // Preserve the original error message
+      throw new Error(`Failed to create purchase request: ${error.message}`);
+    }
+
+    throw new Error('Failed to create purchase request: Unknown error occurred');
   }
 }
 
