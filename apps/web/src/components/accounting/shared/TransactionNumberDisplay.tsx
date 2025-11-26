@@ -76,19 +76,15 @@ export function TransactionNumberDisplay({
         label={label}
         value={displayValue}
         onChange={editable ? (e) => onChange?.(e.target.value) : undefined}
-        disabled={!editable}
+        disabled={!editable && !!transactionNumber}
         fullWidth
         placeholder={editable ? placeholder : undefined}
-        helperText={
-          helperText ||
-          (editable
-            ? transactionNumber
-              ? `${label} cannot be changed`
-              : `${label} will be generated automatically upon creation`
-            : transactionNumber
-              ? `${label} cannot be changed`
-              : `${label} will be generated automatically upon creation`)
-        }
+        helperText={helperText}
+        slotProps={{
+          input: {
+            readOnly: !editable && !!transactionNumber,
+          },
+        }}
       />
     </Grid>
   );
