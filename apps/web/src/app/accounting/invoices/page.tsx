@@ -85,6 +85,7 @@ export default function InvoicesPage() {
       query(
         collection(db, COLLECTIONS.TRANSACTIONS),
         where('type', '==', 'CUSTOMER_INVOICE'),
+        orderBy('deletedAt', 'asc'), // Non-deleted invoices first (null sorts before dates)
         orderBy('date', 'desc')
       ),
     [db]
@@ -92,13 +93,14 @@ export default function InvoicesPage() {
 
   const { data: invoices, loading } = useFirestoreQuery<CustomerInvoice>(invoicesQuery);
 
-  // Calculate stats
+  // Calculate stats (exclude deleted invoices)
   const stats = useMemo(() => {
-    const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
-    const outstanding = invoices
+    const activeInvoices = invoices.filter((inv) => !(inv as any).deletedAt);
+    const totalInvoiced = activeInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+    const outstanding = activeInvoices
       .filter((inv) => inv.status !== 'PAID' && inv.status !== 'DRAFT')
       .reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
-    const overdue = invoices
+    const overdue = activeInvoices
       .filter((inv) => {
         if (inv.status !== 'UNPAID' || !inv.dueDate) return false;
         const dueDate = toDate(inv.dueDate);
@@ -142,11 +144,15 @@ export default function InvoicesPage() {
   };
 
   const handleDelete = async (invoiceId: string) => {
-    if (!confirm('Are you sure you want to delete this invoice?')) return;
+    if (!confirm('Are you sure you want to delete this invoice? It will be moved to the bottom of the list for audit purposes.')) return;
 
     try {
       const { db } = getFirebase();
-      await deleteDoc(doc(db, COLLECTIONS.TRANSACTIONS, invoiceId));
+      const { updateDoc, Timestamp } = await import('firebase/firestore');
+      await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, invoiceId), {
+        deletedAt: Timestamp.now(),
+        deletedBy: claims?.uid || 'unknown',
+      });
     } catch (error) {
       console.error('[InvoicesPage] Error deleting invoice:', error);
       alert('Failed to delete invoice');
@@ -299,9 +305,17 @@ export default function InvoicesPage() {
             ) : (
               paginatedInvoices.map((invoice) => {
                 const invoiceDate = toDate(invoice.date);
+                const isDeleted = !!(invoice as any).deletedAt;
 
                 return (
-                  <TableRow key={invoice.id} hover>
+                  <TableRow
+                    key={invoice.id}
+                    hover
+                    sx={{
+                      opacity: isDeleted ? 0.5 : 1,
+                      backgroundColor: isDeleted ? 'action.hover' : 'inherit',
+                    }}
+                  >
                     <TableCell>
                       {invoiceDate
                         ? invoiceDate.toLocaleDateString('en-GB', {
