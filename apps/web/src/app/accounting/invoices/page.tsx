@@ -91,13 +91,22 @@ export default function InvoicesPage() {
       query(
         collection(db, COLLECTIONS.TRANSACTIONS),
         where('type', '==', 'CUSTOMER_INVOICE'),
-        orderBy('deletedAt', 'asc'), // Non-deleted invoices first (null sorts before dates)
         orderBy('date', 'desc')
       ),
     [db]
   );
 
-  const { data: invoices, loading } = useFirestoreQuery<CustomerInvoiceWithDelete>(invoicesQuery);
+  const { data: rawInvoices, loading } = useFirestoreQuery<CustomerInvoiceWithDelete>(invoicesQuery);
+
+  // Sort invoices: non-deleted first, then by date (already sorted by date from query)
+  const invoices = useMemo(() => {
+    return [...rawInvoices].sort((a, b) => {
+      // Non-deleted items come first
+      if (!a.deletedAt && b.deletedAt) return -1;
+      if (a.deletedAt && !b.deletedAt) return 1;
+      return 0; // Preserve date order from query
+    });
+  }, [rawInvoices]);
 
   // Calculate stats (exclude deleted invoices)
   const stats = useMemo(() => {
