@@ -75,7 +75,7 @@ export function CreateInvoiceDialog({
     });
 
   // Use entity state fetch hook (for GST calculation)
-  const { companyState, entityState, setEntityName } = useEntityStateFetch(formState.entityId);
+  const { companyState, entityState, entityName: fetchedEntityName } = useEntityStateFetch(formState.entityId);
 
   // Use GST calculation hook
   const { gstDetails, totalGstAmount, grandTotal } = useGSTCalculation({
@@ -107,12 +107,12 @@ export function CreateInvoiceDialog({
     }
   }, [open, editingInvoice]);
 
-  // Sync entity name when entity changes
+  // Sync entity name from useEntityStateFetch to form state when entity is selected
   React.useEffect(() => {
-    if (formState.entityName) {
-      setEntityName(formState.entityName);
+    if (fetchedEntityName && formState.entityId) {
+      formState.setEntityName(fetchedEntityName);
     }
-  }, [formState.entityName, setEntityName]);
+  }, [fetchedEntityName, formState.entityId, formState.setEntityName]);
 
   const handleSave = async () => {
     try {
