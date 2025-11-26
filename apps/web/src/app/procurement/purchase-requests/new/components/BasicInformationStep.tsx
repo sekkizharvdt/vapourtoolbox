@@ -13,7 +13,7 @@ import type { FormData } from './usePurchaseRequestForm';
 interface BasicInformationStepProps {
   formData: FormData;
   onInputChange: (field: string, value: string) => void;
-  onProjectSelect: (projectId: string | null) => void;
+  onProjectSelect: (projectId: string | null, projectName?: string) => void;
 }
 
 export function BasicInformationStep({

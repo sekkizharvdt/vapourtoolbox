@@ -12,7 +12,7 @@ const logger = createLogger({ context: 'ProjectSelector' });
 
 interface ProjectSelectorProps {
   value: string | null;
-  onChange: (projectId: string | null) => void;
+  onChange: (projectId: string | null, projectName?: string) => void;
   label?: string;
   required?: boolean;
   disabled?: boolean;
@@ -248,7 +248,7 @@ export function ProjectSelector({
     <Autocomplete
       value={selectedProject}
       onChange={(_, newValue) => {
-        onChange(newValue?.id || null);
+        onChange(newValue?.id || null, newValue?.name);
       }}
       options={projects}
       getOptionLabel={(option) => `${option.code} - ${option.name}`}

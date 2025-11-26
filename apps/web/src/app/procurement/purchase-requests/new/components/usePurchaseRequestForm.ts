@@ -24,7 +24,7 @@ export interface UsePurchaseRequestFormReturn {
   activeStep: number;
   error: string | null;
   handleInputChange: (field: string, value: string) => void;
-  handleProjectSelect: (projectId: string | null) => void;
+  handleProjectSelect: (projectId: string | null, projectName?: string) => void;
   handleLineItemChange: (index: number, field: string, value: string | number) => void;
   handleAddLineItem: () => void;
   handleRemoveLineItem: (index: number) => void;
@@ -66,11 +66,11 @@ export function usePurchaseRequestForm(): UsePurchaseRequestFormReturn {
     }));
   };
 
-  const handleProjectSelect = (projectId: string | null) => {
+  const handleProjectSelect = (projectId: string | null, projectName?: string) => {
     setFormData((prev) => ({
       ...prev,
       projectId: projectId || '',
-      projectName: '',
+      projectName: projectName || '',
     }));
   };
 
