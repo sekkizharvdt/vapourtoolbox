@@ -21,9 +21,15 @@ interface CreateInvoiceDialogProps {
   open: boolean;
   onClose: () => void;
   editingInvoice?: CustomerInvoice | null;
+  viewOnly?: boolean;
 }
 
-export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInvoiceDialogProps) {
+export function CreateInvoiceDialog({
+  open,
+  onClose,
+  editingInvoice,
+  viewOnly = false,
+}: CreateInvoiceDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [customInvoiceNumber, setCustomInvoiceNumber] = useState('');
@@ -177,22 +183,28 @@ export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInv
     }
   };
 
+  const dialogTitle = viewOnly ? 'View Invoice' : editingInvoice ? 'Edit Invoice' : 'Create Invoice';
+
   return (
     <FormDialog
       open={open}
       onClose={onClose}
-      title={editingInvoice ? 'Edit Invoice' : 'Create Invoice'}
+      title={dialogTitle}
       loading={loading}
       error={error}
       onError={setError}
       maxWidth="lg"
       actions={
-        <FormDialogActions
-          onCancel={onClose}
-          onSubmit={handleSave}
-          loading={loading}
-          submitLabel={editingInvoice ? 'Update' : 'Create'}
-        />
+        viewOnly ? (
+          <FormDialogActions onCancel={onClose} cancelLabel="Close" hideSubmit />
+        ) : (
+          <FormDialogActions
+            onCancel={onClose}
+            onSubmit={handleSave}
+            loading={loading}
+            submitLabel={editingInvoice ? 'Update' : 'Create'}
+          />
+        )
       }
     >
       <Grid container spacing={2}>

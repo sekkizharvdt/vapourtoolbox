@@ -70,6 +70,7 @@ export default function InvoicesPage() {
   const { claims } = useAuth();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<CustomerInvoice | null>(null);
+  const [viewMode, setViewMode] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [searchTerm, setSearchTerm] = useState('');
@@ -124,11 +125,19 @@ export default function InvoicesPage() {
 
   const handleCreate = () => {
     setEditingInvoice(null);
+    setViewMode(false);
+    setCreateDialogOpen(true);
+  };
+
+  const handleView = (invoice: CustomerInvoice) => {
+    setEditingInvoice(invoice);
+    setViewMode(true);
     setCreateDialogOpen(true);
   };
 
   const handleEdit = (invoice: CustomerInvoice) => {
     setEditingInvoice(invoice);
+    setViewMode(false);
     setCreateDialogOpen(true);
   };
 
@@ -147,6 +156,7 @@ export default function InvoicesPage() {
   const handleDialogClose = () => {
     setCreateDialogOpen(false);
     setEditingInvoice(null);
+    setViewMode(false);
   };
 
   const handleChangePage = (_event: unknown, newPage: number) => {
@@ -293,7 +303,13 @@ export default function InvoicesPage() {
                 return (
                   <TableRow key={invoice.id} hover>
                     <TableCell>
-                      {invoiceDate ? invoiceDate.toLocaleDateString() : 'Invalid Date'}
+                      {invoiceDate
+                        ? invoiceDate.toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                          })
+                        : 'Invalid Date'}
                     </TableCell>
                     <TableCell>{invoice.transactionNumber}</TableCell>
                     <TableCell>{invoice.entityName || '-'}</TableCell>
@@ -316,7 +332,7 @@ export default function InvoicesPage() {
                           {
                             icon: <ViewIcon />,
                             label: 'View Invoice',
-                            onClick: () => handleEdit(invoice),
+                            onClick: () => handleView(invoice),
                           },
                           {
                             icon: <EditIcon />,
@@ -361,6 +377,7 @@ export default function InvoicesPage() {
         open={createDialogOpen}
         onClose={handleDialogClose}
         editingInvoice={editingInvoice}
+        viewOnly={viewMode}
       />
     </Container>
   );
