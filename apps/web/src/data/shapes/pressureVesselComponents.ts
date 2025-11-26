@@ -131,7 +131,7 @@ export const cylindricalShell: Omit<
     },
 
     weight: {
-      expression: '(pi * ((ID/2 + t)^2 - (ID/2)^2) * L * density) / 1000000',
+      expression: '(pi * ((ID/2 + t)^2 - (ID/2)^2) * L * density) / 1000000000',
       variables: ['ID', 't', 'L'],
       unit: 'kg',
       description: 'Shell weight',
@@ -332,7 +332,7 @@ export const conicalShell: Omit<
 
     weight: {
       expression:
-        '((pi/3) * H * ((D1/2 + t)^2 + (D1/2 + t)*(D2/2 + t) + (D2/2 + t)^2) - (pi/3) * H * ((D1/2)^2 + (D1/2)*(D2/2) + (D2/2)^2)) * density / 1000000',
+        '((pi/3) * H * ((D1/2 + t)^2 + (D1/2 + t)*(D2/2 + t) + (D2/2 + t)^2) - (pi/3) * H * ((D1/2)^2 + (D1/2)*(D2/2) + (D2/2)^2)) * density / 1000000000',
       variables: ['D1', 'D2', 't', 'H'],
       unit: 'kg',
       description: 'Conical shell weight',
@@ -495,7 +495,7 @@ export const hemisphericalHead: Omit<
 
     weight: {
       expression:
-        '((2/3) * pi * ((ID/2 + t)^3 - (ID/2)^3) + pi * ((ID/2 + t)^2 - (ID/2)^2) * SF) * density / 1000000',
+        '((2/3) * pi * ((ID/2 + t)^3 - (ID/2)^3) + pi * ((ID/2 + t)^2 - (ID/2)^2) * SF) * density / 1000000000',
       variables: ['ID', 't', 'SF'],
       unit: 'kg',
       description: 'Head weight',

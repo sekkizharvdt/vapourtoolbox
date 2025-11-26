@@ -101,7 +101,7 @@ export const hxTubeBundle: Omit<
     },
 
     weight: {
-      expression: '(N * pi * ((OD/2)^2 - ((OD - 2*t)/2)^2) * L * density) / 1000000',
+      expression: '(N * pi * ((OD/2)^2 - ((OD - 2*t)/2)^2) * L * density) / 1000000000',
       variables: ['OD', 't', 'L', 'N'],
       unit: 'kg',
       description: 'Total tube bundle weight',
@@ -284,7 +284,7 @@ export const hxTubeSheet: Omit<
     },
 
     weight: {
-      expression: '(pi * (D/2)^2 * t - N * pi * (tubeOD/2)^2 * t) * density / 1000000',
+      expression: '(pi * (D/2)^2 * t - N * pi * (tubeOD/2)^2 * t) * density / 1000000000',
       variables: ['D', 't', 'tubeOD', 'N'],
       unit: 'kg',
       description: 'Net tube sheet weight',
@@ -358,7 +358,7 @@ export const hxTubeSheet: Omit<
         name: 'grossWeight',
         label: 'Gross Weight (before drilling)',
         formula: {
-          expression: 'pi * (D/2)^2 * t * density / 1000000',
+          expression: 'pi * (D/2)^2 * t * density / 1000000000',
           variables: ['D', 't'],
           unit: 'kg',
           description: 'Initial blank weight',
@@ -498,7 +498,7 @@ export const hxBaffle: Omit<
 
     weight: {
       expression:
-        '(pi * (D/2)^2 * t * (1 - baffleCut/100) - N * pi * (tubeOD/2)^2 * t) * density / 1000000',
+        '(pi * (D/2)^2 * t * (1 - baffleCut/100) - N * pi * (tubeOD/2)^2 * t) * density / 1000000000',
       variables: ['D', 't', 'baffleCut', 'tubeOD', 'N'],
       unit: 'kg',
       description: 'Net baffle weight',
@@ -664,7 +664,7 @@ export const hxTubeSupport: Omit<
     },
 
     weight: {
-      expression: '(pi * (D/2)^2 * t - N * pi * (holeD/2)^2 * t) * density / 1000000',
+      expression: '(pi * (D/2)^2 * t - N * pi * (holeD/2)^2 * t) * density / 1000000000',
       variables: ['D', 't', 'holeD', 'N'],
       unit: 'kg',
       description: 'Net support weight',

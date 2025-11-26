@@ -134,7 +134,7 @@ export const straightTube: Omit<
 
     // Weight in kg
     weight: {
-      expression: '(pi * ((OD/2)^2 - ((OD - 2*t)/2)^2) * L * density) / 1000000',
+      expression: '(pi * ((OD/2)^2 - ((OD - 2*t)/2)^2) * L * density) / 1000000000',
       variables: ['OD', 't', 'L'],
       unit: 'kg',
       description: 'Tube weight (requires material density)',

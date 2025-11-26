@@ -335,7 +335,7 @@ export const circularPlate: Omit<
 
     // Weight in kg
     weight: {
-      expression: '(pi * (D/2)^2 * t * density) / 1000000',
+      expression: '(pi * (D/2)^2 * t * density) / 1000000000',
       variables: ['D', 't'],
       unit: 'kg',
       description: 'Circular plate weight (requires material density)',
@@ -555,7 +555,7 @@ export const customPlate: Omit<
 
     // Weight in kg
     weight: {
-      expression: '(area * t * density) / 1000000',
+      expression: '(area * t * density) / 1000000000',
       variables: ['area', 't'],
       unit: 'kg',
       description: 'Custom plate weight (requires material density)',

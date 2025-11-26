@@ -400,7 +400,7 @@ export const customCircularNozzle: Omit<
 
     weight: {
       expression:
-        '(pi * ((nozzleOD/2)^2 - ((nozzleOD - 2*nozzleThickness)/2)^2) * (projectionOutside + projectionInside + shellThickness) * density) / 1000000',
+        '(pi * ((nozzleOD/2)^2 - ((nozzleOD - 2*nozzleThickness)/2)^2) * (projectionOutside + projectionInside + shellThickness) * density) / 1000000000',
       variables: [
         'nozzleOD',
         'nozzleThickness',
@@ -533,7 +533,7 @@ export const customRectangularNozzle: Omit<
     },
 
     weight: {
-      expression: '(2 * (length + width) * plateThickness * projection * density) / 1000000',
+      expression: '(2 * (length + width) * plateThickness * projection * density) / 1000000000',
       variables: ['length', 'width', 'plateThickness', 'projection'],
       unit: 'kg',
       description: 'Approximate weight',
@@ -756,7 +756,7 @@ export const reinforcementPad: Omit<
     },
 
     weight: {
-      expression: '(pi * ((padOD/2)^2 - (nozzleOD/2)^2) * padThickness * density) / 1000000',
+      expression: '(pi * ((padOD/2)^2 - (nozzleOD/2)^2) * padThickness * density) / 1000000000',
       variables: ['padOD', 'nozzleOD', 'padThickness'],
       unit: 'kg',
       description: 'Reinforcement pad weight',

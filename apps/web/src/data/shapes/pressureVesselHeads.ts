@@ -87,7 +87,7 @@ export const ellipsoidalHead: Omit<
 
     weight: {
       expression:
-        '(pi * ((ID/2 + t)^2 * (ID/4 + t) - (ID/2)^2 * (ID/4)) + pi * ((ID/2 + t)^2 - (ID/2)^2) * SF) * density / 1000000',
+        '(pi * ((ID/2 + t)^2 * (ID/4 + t) - (ID/2)^2 * (ID/4)) + pi * ((ID/2 + t)^2 - (ID/2)^2) * SF) * density / 1000000000',
       variables: ['ID', 't', 'SF'],
       unit: 'kg',
       description: 'Head weight',
@@ -251,7 +251,7 @@ export const torisphericialHead: Omit<
 
     weight: {
       expression:
-        '((pi/24) * (ID + 2*t)^2 * (2*(ID + 2*t) + 3*0.06*(ID + 2*t)) - (pi/24) * ID^2 * (2*ID + 3*0.06*ID) + pi * ((ID/2 + t)^2 - (ID/2)^2) * SF) * density / 1000000',
+        '((pi/24) * (ID + 2*t)^2 * (2*(ID + 2*t) + 3*0.06*(ID + 2*t)) - (pi/24) * ID^2 * (2*ID + 3*0.06*ID) + pi * ((ID/2 + t)^2 - (ID/2)^2) * SF) * density / 1000000000',
       variables: ['ID', 't', 'SF'],
       unit: 'kg',
       description: 'F&D head weight',
@@ -425,7 +425,7 @@ export const flatHead: Omit<
     },
 
     weight: {
-      expression: 'pi * (D/2)^2 * t * density / 1000000',
+      expression: 'pi * (D/2)^2 * t * density / 1000000000',
       variables: ['D', 't'],
       unit: 'kg',
       description: 'Flat head weight',
@@ -606,7 +606,7 @@ export const conicalHead: Omit<
 
     weight: {
       expression:
-        '((pi/3) * H * ((D/2 + t)^2 + (D/2 + t)*t + t^2) + pi * ((D/2 + t)^2 - (D/2)^2) * SF) * density / 1000000',
+        '((pi/3) * H * ((D/2 + t)^2 + (D/2 + t)*t + t^2) + pi * ((D/2 + t)^2 - (D/2)^2) * SF) * density / 1000000000',
       variables: ['D', 't', 'H', 'SF'],
       unit: 'kg',
       description: 'Conical head weight',
