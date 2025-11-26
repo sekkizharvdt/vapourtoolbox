@@ -20,6 +20,7 @@ import {
   Select,
   MenuItem,
   InputAdornment,
+  Typography,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -343,11 +344,20 @@ export default function InvoicesPage() {
                     <TableCell>{invoice.transactionNumber}</TableCell>
                     <TableCell>{invoice.entityName || '-'}</TableCell>
                     <TableCell>{invoice.description || '-'}</TableCell>
-                    <TableCell align="right">{formatCurrency(invoice.subtotal || 0)}</TableCell>
                     <TableCell align="right">
-                      {formatCurrency(invoice.gstDetails?.totalGST || invoice.taxAmount || 0)}
+                      {formatCurrency(invoice.subtotal || 0, invoice.currency || 'INR')}
                     </TableCell>
-                    <TableCell align="right">{formatCurrency(invoice.totalAmount || 0)}</TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(invoice.gstDetails?.totalGST || invoice.taxAmount || 0, invoice.currency || 'INR')}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(invoice.totalAmount || 0, invoice.currency || 'INR')}
+                      {invoice.currency && invoice.currency !== 'INR' && invoice.exchangeRate && (
+                        <Typography variant="caption" display="block" color="text.secondary">
+                          ≈ {formatCurrency((invoice.totalAmount || 0) * invoice.exchangeRate, 'INR')}
+                        </Typography>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Chip
                         label={invoice.status}

@@ -1,7 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Grid, Box, Typography, Stack, Button } from '@mui/material';
+import {
+  Grid,
+  Box,
+  Typography,
+  Stack,
+  Button,
+  TextField,
+  MenuItem,
+  InputAdornment,
+} from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { TransactionFormFields } from '@/components/accounting/shared/TransactionFormFields';
 import { LineItemsTable } from '@/components/accounting/shared/LineItemsTable';
@@ -10,7 +19,8 @@ import { FileUpload, type FileAttachment } from '@/components/accounting/shared/
 import { getFirebase } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { CustomerInvoice } from '@vapour/types';
+import type { CustomerInvoice, CurrencyCode } from '@vapour/types';
+import { CURRENCIES, DEFAULT_CURRENCY } from '@vapour/constants';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { generateInvoiceGLEntries, type InvoiceGLInput } from '@/lib/accounting/glEntryGenerator';
 import { useTransactionForm } from '@/hooks/accounting/useTransactionForm';
@@ -35,6 +45,10 @@ export function CreateInvoiceDialog({
   const [error, setError] = useState('');
   const [customInvoiceNumber, setCustomInvoiceNumber] = useState('');
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
+  const [currency, setCurrency] = useState<CurrencyCode>(
+    (editingInvoice?.currency as CurrencyCode) || DEFAULT_CURRENCY
+  );
+  const [exchangeRate, setExchangeRate] = useState<number>(editingInvoice?.exchangeRate || 1);
 
   // Use transaction form hook
   const formState = useTransactionForm({
@@ -71,21 +85,27 @@ export function CreateInvoiceDialog({
     entityState,
   });
 
-  // Reset custom invoice number and attachments when dialog opens/closes
+  // Reset form state when dialog opens/closes
   React.useEffect(() => {
     if (!open) {
       setCustomInvoiceNumber('');
       setError('');
       setAttachments([]);
-    } else if (editingInvoice?.attachments) {
-      // Load existing attachments when editing - convert if needed
-      const loadedAttachments = (editingInvoice.attachments as unknown as FileAttachment[]).map((att) => ({
-        ...att,
-        uploadedAt: att.uploadedAt instanceof Date ? att.uploadedAt : new Date(att.uploadedAt as unknown as string | number),
-      }));
-      setAttachments(loadedAttachments);
+      setCurrency(DEFAULT_CURRENCY);
+      setExchangeRate(1);
+    } else if (editingInvoice) {
+      // Load existing data when editing
+      setCurrency((editingInvoice.currency as CurrencyCode) || DEFAULT_CURRENCY);
+      setExchangeRate(editingInvoice.exchangeRate || 1);
+      if (editingInvoice.attachments) {
+        const loadedAttachments = (editingInvoice.attachments as unknown as FileAttachment[]).map((att) => ({
+          ...att,
+          uploadedAt: att.uploadedAt instanceof Date ? att.uploadedAt : new Date(att.uploadedAt as unknown as string | number),
+        }));
+        setAttachments(loadedAttachments);
+      }
     }
-  }, [open, editingInvoice?.attachments]);
+  }, [open, editingInvoice]);
 
   // Sync entity name when entity changes
   React.useEffect(() => {
@@ -123,15 +143,30 @@ export function CreateInvoiceDialog({
         customInvoiceNumber.trim() ||
         (await generateTransactionNumber('CUSTOMER_INVOICE'));
 
+      // Calculate base amount (in INR) for foreign currency invoices
+      const isForexInvoice = currency !== 'INR';
+      const baseAmount = isForexInvoice ? grandTotal * exchangeRate : grandTotal;
+
       // Generate GL entries using new GL entry generator
       const glInput: InvoiceGLInput = {
         transactionId: editingInvoice?.id || '',
         transactionNumber,
         transactionDate: Timestamp.fromDate(invoiceDate),
-        subtotal,
-        lineItems,
-        gstDetails,
-        currency: 'INR',
+        subtotal: isForexInvoice ? subtotal * exchangeRate : subtotal,
+        lineItems: isForexInvoice
+          ? lineItems.map((item) => ({ ...item, amount: item.amount * exchangeRate }))
+          : lineItems,
+        gstDetails: isForexInvoice && gstDetails
+          ? {
+              ...gstDetails,
+              taxableAmount: gstDetails.taxableAmount * exchangeRate,
+              cgstAmount: gstDetails.cgstAmount ? gstDetails.cgstAmount * exchangeRate : undefined,
+              sgstAmount: gstDetails.sgstAmount ? gstDetails.sgstAmount * exchangeRate : undefined,
+              igstAmount: gstDetails.igstAmount ? gstDetails.igstAmount * exchangeRate : undefined,
+              totalGST: gstDetails.totalGST * exchangeRate,
+            }
+          : gstDetails,
+        currency: 'INR', // GL entries are always in base currency
         description: formState.description || `Invoice for ${formState.entityName}`,
         entityId: formState.entityId,
         projectId: formState.projectId || undefined,
@@ -171,8 +206,9 @@ export function CreateInvoiceDialog({
         glGeneratedAt: Timestamp.now(),
         createdAt: editingInvoice?.createdAt || Timestamp.now(),
         updatedAt: Timestamp.now(),
-        currency: 'INR',
-        baseAmount: grandTotal,
+        currency,
+        exchangeRate: isForexInvoice ? exchangeRate : 1,
+        baseAmount, // Amount in INR
         attachments: firestoreAttachments,
         invoiceDate: invoiceDate ? Timestamp.fromDate(invoiceDate) : Timestamp.now(),
         paymentTerms: 'Net 30',
@@ -262,6 +298,52 @@ export function CreateInvoiceDialog({
           entityLabel="Customer"
           entityRole="CUSTOMER"
         />
+
+        {/* Currency Selection */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            select
+            fullWidth
+            label="Currency"
+            value={currency}
+            onChange={(e) => {
+              const newCurrency = e.target.value as CurrencyCode;
+              setCurrency(newCurrency);
+              // Reset exchange rate to 1 when switching to INR
+              if (newCurrency === 'INR') {
+                setExchangeRate(1);
+              }
+            }}
+            disabled={viewOnly}
+          >
+            {Object.values(CURRENCIES).map((curr) => (
+              <MenuItem key={curr.code} value={curr.code}>
+                {curr.symbol} {curr.code} - {curr.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Grid>
+
+        {/* Exchange Rate (only for foreign currencies) */}
+        {currency !== 'INR' && (
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              fullWidth
+              label="Exchange Rate"
+              type="number"
+              value={exchangeRate}
+              onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 1)}
+              disabled={viewOnly}
+              slotProps={{
+                input: {
+                  startAdornment: <InputAdornment position="start">1 {currency} =</InputAdornment>,
+                  endAdornment: <InputAdornment position="end">INR</InputAdornment>,
+                },
+              }}
+              helperText={`Base amount: ₹${(grandTotal * exchangeRate).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
+            />
+          </Grid>
+        )}
 
         {/* Line Items Table */}
         <Grid size={{ xs: 12 }}>
