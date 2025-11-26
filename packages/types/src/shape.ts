@@ -217,6 +217,7 @@ export interface ShapeFormulas {
   scrapPercentage?: FormulaDefinition; // (Blank area - Finished area) / Blank area × 100
 
   // Edge preparation and welding
+  perimeter?: FormulaDefinition; // Perimeter (for cutting cost calculation)
   edgeLength?: FormulaDefinition; // Perimeter/edge length (for beveling)
   weldLength?: FormulaDefinition; // Weld length estimation
 
@@ -423,6 +424,7 @@ export interface CalculatedValues {
   scrapWeight?: number; // kg (weight of scrap material)
 
   // Edge preparation
+  perimeter?: number; // m (perimeter for cutting operations)
   edgeLength?: number; // m (perimeter for beveling)
   weldLength?: number; // m (total weld length)
 

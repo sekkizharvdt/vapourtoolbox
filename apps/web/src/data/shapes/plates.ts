@@ -154,7 +154,15 @@ export const rectangularPlate: Omit<
       description: 'Inner surface area (one face)',
     },
 
-    // Perimeter/edge length
+    // Perimeter (for cutting cost calculation)
+    perimeter: {
+      expression: '2 * (L + W)',
+      variables: ['L', 'W'],
+      unit: 'mm',
+      description: 'Perimeter for cutting operations',
+    },
+
+    // Edge length (for edge preparation)
     edgeLength: {
       expression: '2 * (L + W)',
       variables: ['L', 'W'],

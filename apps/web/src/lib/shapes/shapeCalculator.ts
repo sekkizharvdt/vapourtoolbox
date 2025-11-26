@@ -7,6 +7,7 @@
 
 import { evaluateMultipleFormulas, type EvaluationContext } from './formulaEvaluator';
 import type { Shape, Material, ShapeInstance, FormulaDefinition } from '@vapour/types';
+import { resolveFabricationRates, type FabricationRates } from '@/config/fabricationRates';
 
 // Type alias for calculation result
 type ShapeCalculationResult = Omit<
@@ -19,6 +20,8 @@ export interface CalculateShapeInput {
   material: Material;
   parameterValues: Record<string, number>;
   quantity?: number;
+  /** Optional user-provided fabrication rates (overrides defaults) */
+  fabricationRates?: Partial<FabricationRates>;
 }
 
 /**
@@ -28,7 +31,7 @@ export interface CalculateShapeInput {
  * @returns Complete calculation results
  */
 export function calculateShape(input: CalculateShapeInput): ShapeCalculationResult {
-  const { shape, material, parameterValues, quantity = 1 } = input;
+  const { shape, material, parameterValues, quantity = 1, fabricationRates: userRates } = input;
 
   // Get material density (default to 7850 kg/m³ for steel if not specified)
   const density = material.properties.density || 7850;
@@ -83,11 +86,22 @@ export function calculateShape(input: CalculateShapeInput): ShapeCalculationResu
     scrapRecoveryValue = scrapWeight * basePrice * 0.3; // Assume 30% recovery value
   }
 
-  // Get fabrication rates from shape configuration (with fallback defaults)
-  const cuttingRate = shape.fabricationCost?.cuttingCostPerMeter ?? 50; // ₹50 per meter default
-  const edgePreparationRate = shape.fabricationCost?.edgePreparationCostPerMeter ?? 100; // ₹100 per meter default
-  const weldingRate = shape.fabricationCost?.weldingCostPerMeter ?? 500; // ₹500 per meter default
-  const surfaceTreatmentRate = shape.fabricationCost?.surfaceTreatmentCostPerSqm ?? 50; // ₹50 per m² default
+  // Resolve fabrication rates using priority system:
+  // 1. User-provided rates (runtime override)
+  // 2. Shape-specific rates
+  // 3. Category/material-specific adjustments
+  // 4. Global defaults
+  const rates = resolveFabricationRates({
+    userRates,
+    shapeRates: shape.fabricationCost,
+    shapeCategory: shape.category,
+    materialType: material.category,
+  });
+
+  const cuttingRate = rates.cuttingCostPerMeter;
+  const edgePreparationRate = rates.edgePreparationCostPerMeter;
+  const weldingRate = rates.weldingCostPerMeter;
+  const surfaceTreatmentRate = rates.surfaceTreatmentCostPerSqm;
 
   // Individual fabrication costs using configurable rates
   const cuttingCost = perimeter ? calculateCuttingCost(perimeter, cuttingRate) : 0;
@@ -101,9 +115,9 @@ export function calculateShape(input: CalculateShapeInput): ShapeCalculationResu
 
   // Base fabrication cost (setup + weight-based)
   const baseFabricationCost =
-    (shape.fabricationCost?.baseCost || 0) +
-    weight * (shape.fabricationCost?.costPerKg || 0) +
-    (shape.fabricationCost?.laborHours || 0) * 500; // Assume ₹500/hour labor rate
+    (rates.baseCost || 0) +
+    weight * (rates.costPerKg || 0) +
+    (shape.fabricationCost?.laborHours || 0) * (rates.laborRatePerHour || 500);
 
   // Total fabrication cost = base + all operation costs
   const totalFabricationCost =
