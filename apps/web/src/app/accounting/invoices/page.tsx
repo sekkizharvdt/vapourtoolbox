@@ -43,13 +43,28 @@ import {
 } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, where, orderBy, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { CustomerInvoice } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { CreateInvoiceDialog } from './components/CreateInvoiceDialog';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
+
+// Helper function to convert Firestore Timestamp to Date
+function toDate(value: any): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (value instanceof Timestamp) return value.toDate();
+  if (typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
+    return value.toDate();
+  }
+  try {
+    return new Date(value);
+  } catch {
+    return null;
+  }
+}
 
 export default function InvoicesPage() {
   const { claims } = useAuth();
@@ -83,7 +98,11 @@ export default function InvoicesPage() {
       .filter((inv) => inv.status !== 'PAID' && inv.status !== 'DRAFT')
       .reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
     const overdue = invoices
-      .filter((inv) => inv.status === 'UNPAID' && inv.dueDate && new Date(inv.dueDate) < new Date())
+      .filter((inv) => {
+        if (inv.status !== 'UNPAID' || !inv.dueDate) return false;
+        const dueDate = toDate(inv.dueDate);
+        return dueDate && dueDate < new Date();
+      })
       .reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
 
     return { totalInvoiced, outstanding, overdue };
@@ -268,56 +287,62 @@ export default function InvoicesPage() {
                 }
               />
             ) : (
-              paginatedInvoices.map((invoice) => (
-                <TableRow key={invoice.id} hover>
-                  <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
-                  <TableCell>{invoice.transactionNumber}</TableCell>
-                  <TableCell>{invoice.entityName || '-'}</TableCell>
-                  <TableCell>{invoice.description || '-'}</TableCell>
-                  <TableCell align="right">{formatCurrency(invoice.subtotal || 0)}</TableCell>
-                  <TableCell align="right">
-                    {formatCurrency(invoice.gstDetails?.totalGST || 0)}
-                  </TableCell>
-                  <TableCell align="right">{formatCurrency(invoice.totalAmount || 0)}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={invoice.status}
-                      size="small"
-                      color={getStatusColor(invoice.status, 'invoice')}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    <TableActionCell
-                      actions={[
-                        {
-                          icon: <ViewIcon />,
-                          label: 'View Invoice',
-                          onClick: () => handleEdit(invoice),
-                        },
-                        {
-                          icon: <EditIcon />,
-                          label: 'Edit Invoice',
-                          onClick: () => handleEdit(invoice),
-                          show: canManage && invoice.status === 'DRAFT',
-                        },
-                        {
-                          icon: <SendIcon />,
-                          label: 'Send Invoice',
-                          onClick: () => {},
-                          show: canManage,
-                        },
-                        {
-                          icon: <DeleteIcon />,
-                          label: 'Delete Invoice',
-                          onClick: () => handleDelete(invoice.id!),
-                          color: 'error',
-                          show: canManage,
-                        },
-                      ]}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))
+              paginatedInvoices.map((invoice) => {
+                const invoiceDate = toDate(invoice.date);
+
+                return (
+                  <TableRow key={invoice.id} hover>
+                    <TableCell>
+                      {invoiceDate ? invoiceDate.toLocaleDateString() : 'Invalid Date'}
+                    </TableCell>
+                    <TableCell>{invoice.transactionNumber}</TableCell>
+                    <TableCell>{invoice.entityName || '-'}</TableCell>
+                    <TableCell>{invoice.description || '-'}</TableCell>
+                    <TableCell align="right">{formatCurrency(invoice.subtotal || 0)}</TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(invoice.gstDetails?.totalGST || invoice.taxAmount || 0)}
+                    </TableCell>
+                    <TableCell align="right">{formatCurrency(invoice.totalAmount || 0)}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={invoice.status}
+                        size="small"
+                        color={getStatusColor(invoice.status, 'invoice')}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <TableActionCell
+                        actions={[
+                          {
+                            icon: <ViewIcon />,
+                            label: 'View Invoice',
+                            onClick: () => handleEdit(invoice),
+                          },
+                          {
+                            icon: <EditIcon />,
+                            label: 'Edit Invoice',
+                            onClick: () => handleEdit(invoice),
+                            show: canManage && invoice.status === 'DRAFT',
+                          },
+                          {
+                            icon: <SendIcon />,
+                            label: 'Send Invoice',
+                            onClick: () => {},
+                            show: canManage,
+                          },
+                          {
+                            icon: <DeleteIcon />,
+                            label: 'Delete Invoice',
+                            onClick: () => handleDelete(invoice.id!),
+                            color: 'error',
+                            show: canManage,
+                          },
+                        ]}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
