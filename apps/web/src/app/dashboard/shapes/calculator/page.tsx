@@ -175,17 +175,14 @@ export default function ShapeCalculatorPage() {
 
   const handleSave = async () => {
     // TODO: Implement save to database
-    console.log('Save calculation:', calculationResult);
   };
 
   const handleExportPDF = async () => {
     // TODO: Implement PDF export
-    console.log('Export PDF:', calculationResult);
   };
 
   const handleExportExcel = async () => {
     // TODO: Implement Excel export
-    console.log('Export Excel:', calculationResult);
   };
 
   const handleShare = async () => {
