@@ -728,65 +728,56 @@ service cloud.firestore {
     // ============================================
 
     match /boms/{bomId} {
-      // Helper function to check BOM access
-      function canAccessBOM() {
-        return isAuthenticated() &&
-          (resource.data.entityId == request.auth.token.entityId || isSuperAdmin());
-      }
+      // Read: Internal users with VIEW_ESTIMATION permission
+      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION = 524288
 
-      // Read: Users in same entity with VIEW_ESTIMATION permission or Super Admins
-      allow read: if canAccessBOM() &&
-        (hasPermission(524288) || isSuperAdmin()); // VIEW_ESTIMATION = 524288
-
-      // Create: Authenticated users with VIEW_ESTIMATION permission in their entity
-      allow create: if isAuthenticated() &&
+      // Create: Internal users with VIEW_ESTIMATION permission
+      allow create: if isInternalUser() &&
         hasPermission(524288) && // VIEW_ESTIMATION
-        request.resource.data.entityId == request.auth.token.entityId &&
         request.resource.data.createdBy == request.auth.uid;
 
-      // Update: Owner or users with MANAGE_ESTIMATION permission in same entity
+      // Update: Owner or users with MANAGE_ESTIMATION permission
       // Week 1: Only DRAFT status allowed
-      allow update: if canAccessBOM() &&
+      allow update: if isInternalUser() &&
         (
           resource.data.createdBy == request.auth.uid || // Owner can edit
-          hasPermission(1048576) // MANAGE_ESTIMATION = 1048576
+          hasPermission(262144) // MANAGE_ESTIMATION = 262144 (bit 18)
         ) &&
-        resource.data.status == 'DRAFT' && // Week 1: Only DRAFT can be edited
-        request.resource.data.status == 'DRAFT'; // Week 1: Status stays DRAFT
+        resource.data.status == 'DRAFT'; // Week 1: Only DRAFT can be edited
 
       // Delete: Only creator or Super Admin
-      allow delete: if canAccessBOM() &&
+      allow delete: if isInternalUser() &&
         (resource.data.createdBy == request.auth.uid || isSuperAdmin()) &&
         resource.data.status == 'DRAFT'; // Week 1: Only DRAFT can be deleted
 
       // BOM Items Subcollection
       match /items/{itemId} {
-        // Read: Same as parent BOM
-        allow read: if canAccessBOM() && hasPermission(524288);
+        // Read: Internal users with VIEW_ESTIMATION permission
+        allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION
 
         // Create: If user can update parent BOM
-        allow create: if canAccessBOM() &&
+        allow create: if isInternalUser() &&
           (
             get(/databases/$(database)/documents/boms/$(bomId)).data.createdBy == request.auth.uid ||
-            hasPermission(1048576)
+            hasPermission(262144) // MANAGE_ESTIMATION
           ) &&
           request.resource.data.bomId == bomId &&
           request.resource.data.createdBy == request.auth.uid;
 
         // Update: If user can update parent BOM
-        allow update: if canAccessBOM() &&
+        allow update: if isInternalUser() &&
           (
             get(/databases/$(database)/documents/boms/$(bomId)).data.createdBy == request.auth.uid ||
-            hasPermission(1048576)
+            hasPermission(262144) // MANAGE_ESTIMATION
           ) &&
           resource.data.bomId == bomId &&
           request.resource.data.bomId == bomId;
 
         // Delete: If user can update parent BOM
-        allow delete: if canAccessBOM() &&
+        allow delete: if isInternalUser() &&
           (
             get(/databases/$(database)/documents/boms/$(bomId)).data.createdBy == request.auth.uid ||
-            hasPermission(1048576)
+            hasPermission(262144) // MANAGE_ESTIMATION
           ) &&
           resource.data.bomId == bomId;
       }

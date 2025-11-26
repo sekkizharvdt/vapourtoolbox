@@ -19,6 +19,7 @@ import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { createBOM } from '@/lib/bom/bomService';
 import { createLogger } from '@vapour/logger';
+import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import type { BOMCategory, CreateBOMInput } from '@vapour/types';
 
 const logger = createLogger({ context: 'NewBOMPage' });
@@ -165,12 +166,15 @@ export default function NewBOMPage() {
               ))}
             </TextField>
 
-            <TextField
-              label="Project Name"
-              fullWidth
-              value={formData.projectName}
-              onChange={(e) => handleChange('projectName', e.target.value)}
-              helperText="Optional: Associated project name"
+            <ProjectSelector
+              value={formData.projectId || null}
+              onChange={(projectId, projectName) => {
+                setFormData((prev) => ({
+                  ...prev,
+                  projectId: projectId || '',
+                  projectName: projectName || '',
+                }));
+              }}
               disabled={loading}
             />
 
