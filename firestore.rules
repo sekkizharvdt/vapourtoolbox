@@ -980,6 +980,18 @@ service cloud.firestore {
     }
 
     // ============================================
+    // System Counters (for sequence generation)
+    // ============================================
+
+    match /counters/{counterId} {
+      // Read: All authenticated users
+      allow read: if isAuthenticated();
+
+      // Write: All authenticated users (for incrementing counters)
+      allow write: if isAuthenticated();
+    }
+
+    // ============================================
     // Default: Deny all
     // ============================================
 

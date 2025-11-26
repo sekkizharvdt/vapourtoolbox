@@ -109,6 +109,9 @@ export const COLLECTIONS = {
 
   // Module Integration Management (Super Admin)
   MODULE_INTEGRATIONS: 'moduleIntegrations',
+
+  // System Counters (for sequence generation)
+  COUNTERS: 'counters',
 } as const;
 
 /**

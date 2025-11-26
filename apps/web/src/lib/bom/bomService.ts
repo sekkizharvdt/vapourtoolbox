@@ -50,31 +50,30 @@ export async function generateBOMCode(db: Firestore): Promise<string> {
   const year = new Date().getFullYear();
   const yearStr = year.toString();
 
-  // Query for BOMs in current year
-  const bomsRef = collection(db, COLLECTIONS.BOMS);
-  const q = query(
-    bomsRef,
-    where('bomCode', '>=', `EST-${yearStr}-0000`),
-    where('bomCode', '<', `EST-${year + 1}-0000`),
-    orderBy('bomCode', 'desc'),
-    firestoreLimit(1)
-  );
+  // Use a counter document for reliable sequence generation
+  // This avoids the need for complex indexes on bomCode
+  const counterRef = doc(db, COLLECTIONS.COUNTERS || 'counters', `bom-${yearStr}`);
 
-  const snapshot = await getDocs(q);
+  try {
+    const counterDoc = await getDoc(counterRef);
+    let sequence = 1;
 
-  let sequence = 1;
-  if (!snapshot.empty) {
-    const lastBOMData = snapshot.docs[0]?.data();
-    if (lastBOMData) {
-      const lastBOM = lastBOMData as BOM;
-      if (lastBOM.bomCode) {
-        const lastSequence = parseInt(lastBOM.bomCode.split('-')[2] || '0');
-        sequence = lastSequence + 1;
-      }
+    if (counterDoc.exists()) {
+      sequence = (counterDoc.data()?.value || 0) + 1;
     }
-  }
 
-  return `EST-${yearStr}-${sequence.toString().padStart(4, '0')}`;
+    // Update the counter
+    const { setDoc } = await import('firebase/firestore');
+    await setDoc(counterRef, { value: sequence, updatedAt: Timestamp.now() });
+
+    return `EST-${yearStr}-${sequence.toString().padStart(4, '0')}`;
+  } catch (error) {
+    // Fallback: generate based on timestamp if counter fails
+    logger.warn('Counter document failed, using timestamp fallback', { error });
+    const timestamp = Date.now().toString().slice(-4);
+    const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+    return `EST-${yearStr}-${timestamp}${random}`;
+  }
 }
 
 /**
