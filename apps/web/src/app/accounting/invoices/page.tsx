@@ -43,13 +43,19 @@ import {
 } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, where, orderBy, doc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { CustomerInvoice } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { CreateInvoiceDialog } from './components/CreateInvoiceDialog';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
+
+// Extended type for soft delete support
+interface CustomerInvoiceWithDelete extends CustomerInvoice {
+  deletedAt?: Timestamp;
+  deletedBy?: string;
+}
 
 // Helper function to convert Firestore Timestamp to Date
 function toDate(value: Date | Timestamp | unknown): Date | null {
@@ -67,7 +73,7 @@ function toDate(value: Date | Timestamp | unknown): Date | null {
 }
 
 export default function InvoicesPage() {
-  const { claims } = useAuth();
+  const { claims, user } = useAuth();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<CustomerInvoice | null>(null);
   const [viewMode, setViewMode] = useState(false);
@@ -91,11 +97,11 @@ export default function InvoicesPage() {
     [db]
   );
 
-  const { data: invoices, loading } = useFirestoreQuery<CustomerInvoice>(invoicesQuery);
+  const { data: invoices, loading } = useFirestoreQuery<CustomerInvoiceWithDelete>(invoicesQuery);
 
   // Calculate stats (exclude deleted invoices)
   const stats = useMemo(() => {
-    const activeInvoices = invoices.filter((inv) => !(inv as any).deletedAt);
+    const activeInvoices = invoices.filter((inv) => !inv.deletedAt);
     const totalInvoiced = activeInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
     const outstanding = activeInvoices
       .filter((inv) => inv.status !== 'PAID' && inv.status !== 'DRAFT')
@@ -151,7 +157,7 @@ export default function InvoicesPage() {
       const { updateDoc, Timestamp } = await import('firebase/firestore');
       await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, invoiceId), {
         deletedAt: Timestamp.now(),
-        deletedBy: claims?.uid || 'unknown',
+        deletedBy: user?.uid || 'unknown',
       });
     } catch (error) {
       console.error('[InvoicesPage] Error deleting invoice:', error);
@@ -305,7 +311,7 @@ export default function InvoicesPage() {
             ) : (
               paginatedInvoices.map((invoice) => {
                 const invoiceDate = toDate(invoice.date);
-                const isDeleted = !!(invoice as any).deletedAt;
+                const isDeleted = !!invoice.deletedAt;
 
                 return (
                   <TableRow

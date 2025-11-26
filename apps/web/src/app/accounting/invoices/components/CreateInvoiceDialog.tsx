@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Grid, Box, Typography, Stack } from '@mui/material';
+import { Grid, Box, Typography, Stack, Button } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { TransactionFormFields } from '@/components/accounting/shared/TransactionFormFields';
 import { LineItemsTable } from '@/components/accounting/shared/LineItemsTable';
 import { TransactionNumberDisplay } from '@/components/accounting/shared/TransactionNumberDisplay';
+import { FileUpload, type FileAttachment } from '@/components/accounting/shared/FileUpload';
 import { getFirebase } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -33,6 +34,7 @@ export function CreateInvoiceDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [customInvoiceNumber, setCustomInvoiceNumber] = useState('');
+  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
 
   // Use transaction form hook
   const formState = useTransactionForm({
@@ -69,13 +71,21 @@ export function CreateInvoiceDialog({
     entityState,
   });
 
-  // Reset custom invoice number when dialog opens/closes
+  // Reset custom invoice number and attachments when dialog opens/closes
   React.useEffect(() => {
     if (!open) {
       setCustomInvoiceNumber('');
       setError('');
+      setAttachments([]);
+    } else if (editingInvoice?.attachments) {
+      // Load existing attachments when editing - convert if needed
+      const loadedAttachments = (editingInvoice.attachments as unknown as FileAttachment[]).map((att) => ({
+        ...att,
+        uploadedAt: att.uploadedAt instanceof Date ? att.uploadedAt : new Date(att.uploadedAt as unknown as string | number),
+      }));
+      setAttachments(loadedAttachments);
     }
-  }, [open]);
+  }, [open, editingInvoice?.attachments]);
 
   // Sync entity name when entity changes
   React.useEffect(() => {
@@ -135,6 +145,12 @@ export function CreateInvoiceDialog({
         return;
       }
 
+      // Convert FileAttachment dates to Firestore Timestamps
+      const firestoreAttachments = attachments.map((att) => ({
+        ...att,
+        uploadedAt: att.uploadedAt instanceof Date ? Timestamp.fromDate(att.uploadedAt) : att.uploadedAt,
+      }));
+
       const invoice = {
         type: 'CUSTOMER_INVOICE' as const,
         date: invoiceDate ? Timestamp.fromDate(invoiceDate) : Timestamp.now(),
@@ -157,7 +173,7 @@ export function CreateInvoiceDialog({
         updatedAt: Timestamp.now(),
         currency: 'INR',
         baseAmount: grandTotal,
-        attachments: [],
+        attachments: firestoreAttachments,
         invoiceDate: invoiceDate ? Timestamp.fromDate(invoiceDate) : Timestamp.now(),
         paymentTerms: 'Net 30',
         paidAmount: 0,
@@ -196,7 +212,11 @@ export function CreateInvoiceDialog({
       maxWidth="lg"
       actions={
         viewOnly ? (
-          <FormDialogActions onCancel={onClose} cancelLabel="Close" hideSubmit />
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+            <Button onClick={onClose} variant="contained">
+              Close
+            </Button>
+          </Box>
         ) : (
           <FormDialogActions
             onCancel={onClose}
@@ -263,6 +283,23 @@ export function CreateInvoiceDialog({
               subtotal={subtotal}
               gstDetails={gstDetails}
               totalAmount={grandTotal}
+            />
+          </Box>
+        </Grid>
+
+        {/* Attachments Section */}
+        <Grid size={{ xs: 12 }}>
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              Attachments
+            </Typography>
+            <FileUpload
+              attachments={attachments}
+              onChange={setAttachments}
+              storagePath={`invoices/${editingInvoice?.transactionNumber || customInvoiceNumber || 'draft'}/`}
+              disabled={viewOnly}
+              maxSizeMB={10}
+              maxFiles={5}
             />
           </Box>
         </Grid>
