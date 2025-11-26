@@ -63,6 +63,14 @@ export function CreateInvoiceDialog({ open, onClose, editingInvoice }: CreateInv
     entityState,
   });
 
+  // Reset custom invoice number when dialog opens/closes
+  React.useEffect(() => {
+    if (!open) {
+      setCustomInvoiceNumber('');
+      setError('');
+    }
+  }, [open]);
+
   // Sync entity name when entity changes
   React.useEffect(() => {
     if (formState.entityName) {

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { LineItem } from '@vapour/types';
 
 interface UseLineItemManagementOptions {
@@ -81,6 +81,11 @@ export function useLineItemManagement(
   }, [initialLineItems, defaultGstRate]);
 
   const [lineItems, setLineItems] = useState<LineItem[]>(getInitialLineItems);
+
+  // Update line items when initialLineItems changes (for editing mode)
+  useEffect(() => {
+    setLineItems(getInitialLineItems());
+  }, [getInitialLineItems]);
 
   const addLineItem = useCallback(() => {
     setLineItems((prev) => [...prev, createEmptyLineItem(defaultGstRate)]);
