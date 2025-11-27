@@ -16,7 +16,7 @@
 | ---------------- | ------ | ------------- | -------------------------------------------- |
 | **Architecture** | 9.5/10 | ✅ Excellent  | Clean monorepo, strong type system           |
 | **Security**     | 9.0/10 | ✅ Strong     | No critical issues, good practices           |
-| **Code Quality** | 8.5/10 | ⚠️ Good       | 34 TODOs, 180+ console.logs                  |
+| **Code Quality** | 8.5/10 | ⚠️ Good       | 34 TODOs, console.logs cleaned up            |
 | **Integrations** | 7.0/10 | ⚠️ Partial    | Procurement↔Accounting good, gaps elsewhere |
 | **Performance**  | 7.0/10 | ⚠️ Needs Work | Missing memoization, lazy loading            |
 | **Task Module**  | 6.5/10 | ⚠️ MVP Ready  | Solid foundation, needs hardening            |
@@ -29,7 +29,7 @@
 | Total Service Files     | 80+                         |
 | Total TODO Comments     | 34 actionable               |
 | Console Statements      | 180+ (most need cleanup)    |
-| Firestore Indexes       | 137 composite indexes       |
+| Firestore Indexes       | 149 composite indexes       |
 | Security Rules Coverage | 59% explicit rules          |
 
 ---
@@ -135,12 +135,14 @@ Goods Receipt (GR)
 
 #### Critical TODOs (Fix Immediately)
 
-| File                                        | Line  | Issue                           |
-| ------------------------------------------- | ----- | ------------------------------- |
-| `lib/procurement/purchaseOrderService.ts`   | 43-75 | Non-atomic PO number generation |
-| `lib/procurement/goodsReceiptService.ts`    | 42-74 | Non-atomic GR number generation |
-| `lib/bom/bomService.ts`                     | 49-77 | Non-atomic BOM code generation  |
-| `lib/projects/charterProcurementService.ts` | 145   | PR number counter logic         |
+| File                                        | Line  | Issue                            | Status     |
+| ------------------------------------------- | ----- | -------------------------------- | ---------- |
+| `lib/procurement/purchaseOrderService.ts`   | 43-75 | Non-atomic PO number generation  | ✅ FIXED   |
+| `lib/procurement/goodsReceiptService.ts`    | 42-74 | Non-atomic GR number generation  | ✅ FIXED   |
+| `lib/procurement/packingListService.ts`     | -     | Non-atomic PL number generation  | ✅ FIXED   |
+| `lib/procurement/workCompletionService.ts`  | -     | Non-atomic WCC number generation | ✅ FIXED   |
+| `lib/bom/bomService.ts`                     | 49-77 | Non-atomic BOM code generation   | ⚠️ Pending |
+| `lib/projects/charterProcurementService.ts` | 145   | PR number counter logic          | ⚠️ Pending |
 
 #### Feature TODOs (Plan for Sprint)
 
@@ -190,7 +192,7 @@ Goods Receipt (GR)
 ████████████████░░░░░░░░ 70% Projects
 ███████████████░░░░░░░░░ 65% Documents
 ██████████████░░░░░░░░░░ 60% Materials
-█████████████░░░░░░░░░░░ 55% BOM/Estimation
+██████████████████░░░░░░ 75% BOM/Estimation (Shape-based items added)
 ████████████░░░░░░░░░░░░ 50% Tasks
 ████░░░░░░░░░░░░░░░░░░░░ 20% Entities (CRUD only)
 ░░░░░░░░░░░░░░░░░░░░░░░░  0% Thermal Desal
@@ -221,7 +223,7 @@ Goods Receipt (GR)
 
 #### BOM/Estimation
 
-- [ ] Shape-based items (fabricated components)
+- [x] Shape-based items (fabricated components) ✅ COMPLETED
 - [ ] Copy/clone BOM functionality
 - [ ] BOM comparison tool
 - [ ] Cost breakdown PDF export
@@ -455,10 +457,10 @@ const filteredTasks = useMemo(() =>
 
 ### What's Missing ❌
 
-| Feature                                     | Priority | Effort |
-| ------------------------------------------- | -------- | ------ |
-| **Firestore indexes for taskNotifications** | Critical | 1h     |
-| **Cloud Functions for auto-completion**     | High     | 4h     |
+| Feature                                     | Priority | Effort | Status     |
+| ------------------------------------------- | -------- | ------ | ---------- |
+| **Firestore indexes for taskNotifications** | Critical | 1h     | ✅ ADDED   |
+| **Cloud Functions for auto-completion**     | High     | 4h     | ⚠️ Pending |
 | **Email notifications**                     | High     | 4h     |
 | **Task detail page/modal**                  | Medium   | 3h     |
 | **Deadline/overdue alerts**                 | Medium   | 2h     |
@@ -519,11 +521,12 @@ async function submitPurchaseRequest(prId: string) {
 
 ### Immediate (This Week)
 
-| #   | Task                                        | Owner   | Effort |
-| --- | ------------------------------------------- | ------- | ------ |
-| 1   | Add missing taskNotifications indexes       | Backend | 1h     |
-| 2   | Fix PO/GR number generation race conditions | Backend | 3h     |
-| 3   | Remove debug console.log statements         | All     | 2h     |
+| #   | Task                                        | Owner    | Effort | Status     |
+| --- | ------------------------------------------- | -------- | ------ | ---------- |
+| 1   | Add missing taskNotifications indexes       | Backend  | 1h     | ✅ DONE    |
+| 2   | Fix PO/GR number generation race conditions | Backend  | 3h     | ✅ DONE    |
+| 3   | Add shape-based items to BOM                | Frontend | 4h     | ✅ DONE    |
+| 4   | Remove debug console.log statements         | All      | 2h     | ⚠️ Partial |
 
 ### Short-term (Next 2 Sprints)
 
@@ -587,7 +590,7 @@ async function submitPurchaseRequest(prId: string) {
 
 | File                     | Purpose                  |
 | ------------------------ | ------------------------ |
-| `firestore.indexes.json` | 137 composite indexes    |
+| `firestore.indexes.json` | 149 composite indexes    |
 | `firestore.rules`        | 993 lines security rules |
 | `packages/types/src/`    | All type definitions     |
 
