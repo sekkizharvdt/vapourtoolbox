@@ -19,8 +19,8 @@ import { createProposalSchema } from '@vapour/validation';
 import { Timestamp } from 'firebase/firestore';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
-import { createProposal, getProposalById } from '@/lib/proposal/proposalService';
-import type { CreateProposalInput, ProposalMilestone } from '@vapour/types';
+import { createProposal, getProposalById, updateProposal } from '@/lib/proposal/proposalService';
+import type { CreateProposalInput, ProposalMilestone, UpdateProposalInput } from '@vapour/types';
 
 // Steps
 import { BasicInfoStep } from './steps/BasicInfoStep';
@@ -148,15 +148,33 @@ export function ProposalWizard({ proposalId, initialEnquiryId }: ProposalWizardP
       };
 
       if (proposalId) {
-        // Update logic would go here
-        // await updateProposal(db, proposalId, updateInput, user.uid);
+        // Update existing proposal
+        const updateInput: UpdateProposalInput = {
+          title: data.title,
+          validityDate: Timestamp.fromDate(data.validityDate),
+          scopeOfWork: {
+            summary: data.scopeOfWork.summary,
+            objectives: data.scopeOfWork.objectives || [],
+            deliverables: data.scopeOfWork.deliverables || [],
+            inclusions: data.scopeOfWork.inclusions || [],
+            exclusions: data.scopeOfWork.exclusions || [],
+            assumptions: data.scopeOfWork.assumptions || [],
+          },
+          deliveryPeriod: {
+            durationInWeeks: data.deliveryPeriod.durationInWeeks,
+            description: data.deliveryPeriod.description,
+            milestones: (data.deliveryPeriod.milestones || []) as ProposalMilestone[],
+          },
+          pricing: {
+            paymentTerms: data.paymentTerms,
+          },
+        };
+        await updateProposal(db, proposalId, updateInput, user.uid);
+        router.push(`/proposals/${proposalId}`);
       } else {
         const newProposal = await createProposal(db, createInput, user.uid);
-        router.push(`/proposals/${newProposal.id}/edit`);
+        router.push(`/proposals/${newProposal.id}`);
       }
-
-      // For now, just move next or finish
-      // setActiveStep((prev) => prev + 1);
     } catch (err) {
       console.error('Error saving proposal:', err);
       setError('Failed to save proposal');
