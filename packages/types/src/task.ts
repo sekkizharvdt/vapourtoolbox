@@ -57,6 +57,12 @@ export type TaskNotificationCategory =
   | 'DOCUMENT_PREDECESSOR_COMPLETED' // Informational: Predecessor complete, can start work
   | 'WORK_ITEM_ASSIGNED' // Actionable: Complete work item activity
   | 'SUPPLY_LIST_PR_REQUIRED' // Actionable: Create PR from supply list
+  // Proposals
+  | 'PROPOSAL_SUBMITTED' // Actionable: Review and approve/reject proposal
+  | 'PROPOSAL_APPROVED' // Informational: Your proposal was approved
+  | 'PROPOSAL_REJECTED' // Informational: Your proposal was rejected
+  | 'PROPOSAL_CHANGES_REQUESTED' // Informational: Changes needed on proposal
+  | 'ENQUIRY_ASSIGNED'; // Actionable: Work on assigned enquiry
 
 /**
  * Task Notification Status

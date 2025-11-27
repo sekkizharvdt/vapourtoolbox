@@ -9,6 +9,11 @@ import { doc, updateDoc, getDoc, Timestamp, type Firestore } from 'firebase/fire
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { Proposal, ApprovalRecord, ProposalStatus } from '@vapour/types';
+import {
+  createTaskNotification,
+  findTaskNotificationByEntity,
+  completeActionableTask,
+} from '@/lib/tasks/taskNotificationService';
 
 const logger = createLogger({ context: 'proposalApproval' });
 
@@ -45,6 +50,26 @@ export async function submitProposalForApproval(
       updatedAt: Timestamp.now(),
       updatedBy: userId,
     });
+
+    // Create actionable task for approver
+    // NOTE: Approver user ID should be obtained from entity settings or user role query
+    // For now, this functionality is ready but requires the approverUserId parameter
+    // TODO: Pass approverUserId when calling this function, or implement getProposalApproverUserId() helper
+    // Example:
+    // await createTaskNotification({
+    //   type: 'actionable',
+    //   category: 'PROPOSAL_SUBMITTED',
+    //   userId: approverUserId,
+    //   assignedBy: userId,
+    //   assignedByName: userName,
+    //   title: `Review Proposal ${proposal.proposalNumber}`,
+    //   message: `${userName} submitted proposal "${proposal.title}" for your review`,
+    //   entityType: 'PROPOSAL',
+    //   entityId: proposalId,
+    //   linkUrl: `/proposals/${proposalId}`,
+    //   priority: 'HIGH',
+    //   autoCompletable: true,
+    // });
 
     logger.info('Proposal submitted for approval', { proposalId, userId });
   } catch (error) {
@@ -94,6 +119,36 @@ export async function approveProposal(
       updatedBy: userId,
     });
 
+    // Auto-complete the review task if it exists
+    const reviewTask = await findTaskNotificationByEntity(
+      'PROPOSAL',
+      proposalId,
+      'PROPOSAL_SUBMITTED',
+      'in_progress'
+    );
+    if (reviewTask) {
+      await completeActionableTask(reviewTask.id, userId, true);
+    }
+
+    // Create informational notification for submitter
+    if (proposal.submittedByUserId) {
+      await createTaskNotification({
+        type: 'informational',
+        category: 'PROPOSAL_APPROVED',
+        userId: proposal.submittedByUserId,
+        assignedBy: userId,
+        assignedByName: userName,
+        title: `Proposal ${proposal.proposalNumber} Approved`,
+        message: comments
+          ? `Your proposal was approved by ${userName}: ${comments}`
+          : `Your proposal "${proposal.title}" was approved by ${userName} and is ready to submit to client`,
+        entityType: 'PROPOSAL',
+        entityId: proposalId,
+        linkUrl: `/proposals/${proposalId}`,
+        priority: 'HIGH',
+      });
+    }
+
     logger.info('Proposal approved', { proposalId, userId });
   } catch (error) {
     logger.error('Error approving proposal', { proposalId, error });
@@ -142,6 +197,34 @@ export async function rejectProposal(
       updatedBy: userId,
     });
 
+    // Auto-complete the review task if it exists
+    const reviewTask = await findTaskNotificationByEntity(
+      'PROPOSAL',
+      proposalId,
+      'PROPOSAL_SUBMITTED',
+      'in_progress'
+    );
+    if (reviewTask) {
+      await completeActionableTask(reviewTask.id, userId, true);
+    }
+
+    // Create informational notification for submitter
+    if (proposal.submittedByUserId) {
+      await createTaskNotification({
+        type: 'informational',
+        category: 'PROPOSAL_REJECTED',
+        userId: proposal.submittedByUserId,
+        assignedBy: userId,
+        assignedByName: userName,
+        title: `Proposal ${proposal.proposalNumber} Rejected`,
+        message: `Your proposal was rejected by ${userName}: ${comments}`,
+        entityType: 'PROPOSAL',
+        entityId: proposalId,
+        linkUrl: `/proposals/${proposalId}`,
+        priority: 'HIGH',
+      });
+    }
+
     logger.info('Proposal rejected', { proposalId, userId });
   } catch (error) {
     logger.error('Error rejecting proposal', { proposalId, error });
@@ -189,6 +272,34 @@ export async function requestProposalChanges(
       updatedAt: Timestamp.now(),
       updatedBy: userId,
     });
+
+    // Auto-complete the review task if it exists
+    const reviewTask = await findTaskNotificationByEntity(
+      'PROPOSAL',
+      proposalId,
+      'PROPOSAL_SUBMITTED',
+      'in_progress'
+    );
+    if (reviewTask) {
+      await completeActionableTask(reviewTask.id, userId, true);
+    }
+
+    // Create informational notification for submitter
+    if (proposal.submittedByUserId) {
+      await createTaskNotification({
+        type: 'informational',
+        category: 'PROPOSAL_CHANGES_REQUESTED',
+        userId: proposal.submittedByUserId,
+        assignedBy: userId,
+        assignedByName: userName,
+        title: `Changes Requested: ${proposal.proposalNumber}`,
+        message: `${userName} requested changes to your proposal: ${comments}`,
+        entityType: 'PROPOSAL',
+        entityId: proposalId,
+        linkUrl: `/proposals/${proposalId}`,
+        priority: 'HIGH',
+      });
+    }
 
     logger.info('Changes requested for proposal', { proposalId, userId });
   } catch (error) {
