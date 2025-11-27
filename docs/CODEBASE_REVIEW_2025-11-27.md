@@ -187,20 +187,69 @@ Goods Receipt (GR)
 ### Module Completion Status
 
 ```
-█████████████████████░░░ 85% Procurement
+█████████████████░░░░░░░ 70% Procurement (UI gaps: Packing List, GR, WCC, 3WM, Amendments)
 ██████████████████░░░░░░ 75% Accounting
 ████████████████░░░░░░░░ 70% Projects
 ███████████████░░░░░░░░░ 65% Documents
 ██████████████░░░░░░░░░░ 60% Materials
 ██████████████████░░░░░░ 75% BOM/Estimation (Shape-based items added)
 ████████████░░░░░░░░░░░░ 50% Tasks
-████░░░░░░░░░░░░░░░░░░░░ 20% Entities (CRUD only)
+██████████░░░░░░░░░░░░░░ 45% Entities (Bank Details, Shipping Address, Credit Terms added)
 ░░░░░░░░░░░░░░░░░░░░░░░░  0% Thermal Desal
 ```
 
 ### Missing Features by Module
 
-#### Procurement
+#### Entities ✅ RECENTLY UPDATED
+
+- [x] Bank Details management (multiple accounts per entity) ✅ COMPLETED
+- [x] Shipping Address with "Same as billing" toggle ✅ COMPLETED
+- [x] Credit Terms (credit days, credit limit) ✅ COMPLETED
+- [ ] Entity approval workflow
+- [ ] Document attachments per entity
+- [ ] Audit trail / activity log
+- [ ] Entity merging (duplicate resolution)
+- [ ] Bulk import/export
+
+#### Procurement - DETAILED GAP ANALYSIS
+
+**What's Working (Backend + UI):**
+
+- ✅ Purchase Request (PR): Full CRUD, approval workflow, submission
+- ✅ RFQ: Creation, issuance, offer collection
+- ✅ Offers: Evaluation, comparison, recommendation
+- ✅ Purchase Order (PO): Full lifecycle, approval, issuance
+
+**What's Missing (Backend exists, NO UI):**
+
+| Feature                         | Backend Status            | UI Status      | Priority |
+| ------------------------------- | ------------------------- | -------------- | -------- |
+| **Packing List**                | ✅ Complete service       | ❌ No pages    | High     |
+| **Goods Receipt**               | ✅ Complete service       | ❌ No pages    | Critical |
+| **Work Completion Certificate** | ✅ Complete service       | ❌ No pages    | Medium   |
+| **Three-Way Match**             | ✅ Full matching logic    | ❌ No pages    | High     |
+| **PO Amendments**               | ✅ Full CRUD + versioning | ❌ No pages    | High     |
+| **RFQ PDF Generation**          | ⚠️ TODO in code           | ❌ Missing     | Medium   |
+| **Order Acknowledgement**       | ✅ Fields exist           | ❌ No workflow | Medium   |
+
+**Missing UI Pages to Create:**
+
+```
+/procurement/packing-lists/           (list, detail, create, edit)
+/procurement/goods-receipts/          (list, detail, create with inspection)
+/procurement/work-completion/         (list, detail, create)
+/procurement/three-way-matches/       (dashboard, detail, discrepancy resolution)
+/procurement/pos/[id]/amendments/     (list, create, approve)
+/procurement/pos/[id]/versions/       (version history comparison)
+```
+
+**Service Files Ready for UI:**
+
+- `lib/procurement/packingListService.ts` - Full CRUD
+- `lib/procurement/goodsReceiptService.ts` - Full CRUD + inspection
+- `lib/procurement/workCompletionService.ts` - Full CRUD
+- `lib/procurement/threeWayMatch/` - Matching + discrepancy logic
+- `lib/procurement/amendment/` - Full CRUD + versioning
 
 - [ ] Excel bulk upload for line items
 - [ ] PDF generation for RFQs
