@@ -21,12 +21,15 @@ import {
   Grid,
   Typography,
   Divider,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity, EntityRole } from '@vapour/types';
 import { ContactsManager, EntityContactData } from './ContactsManager';
+import { BankDetailsManager, BankDetailsData } from './BankDetailsManager';
 import {
   validatePAN,
   validateGSTIN,
@@ -55,6 +58,9 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
   // Form state - Contacts
   const [contacts, setContacts] = useState<EntityContactData[]>([]);
 
+  // Form state - Bank Details
+  const [bankDetails, setBankDetails] = useState<BankDetailsData[]>([]);
+
   // Form state - Address & Tax
   const [addressLine1, setAddressLine1] = useState('');
   const [addressLine2, setAddressLine2] = useState('');
@@ -64,6 +70,19 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
   const [country, setCountry] = useState('India');
   const [gstin, setGstin] = useState('');
   const [pan, setPan] = useState('');
+
+  // Form state - Shipping Address
+  const [sameAsBilling, setSameAsBilling] = useState(false);
+  const [shippingLine1, setShippingLine1] = useState('');
+  const [shippingLine2, setShippingLine2] = useState('');
+  const [shippingCity, setShippingCity] = useState('');
+  const [shippingState, setShippingState] = useState('');
+  const [shippingPostalCode, setShippingPostalCode] = useState('');
+  const [shippingCountry, setShippingCountry] = useState('India');
+
+  // Form state - Credit Terms
+  const [creditDays, setCreditDays] = useState('');
+  const [creditLimit, setCreditLimit] = useState('');
 
   // Validate PAN in real-time
   const panValidation = useMemo(() => {
@@ -117,6 +136,66 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
       setCountry(entity.billingAddress?.country || 'India');
       setGstin(entity.taxIdentifiers?.gstin || '');
       setPan(entity.taxIdentifiers?.pan || '');
+
+      // Load bank details
+      if (
+        entity.bankDetails &&
+        Array.isArray(entity.bankDetails) &&
+        entity.bankDetails.length > 0
+      ) {
+        setBankDetails(
+          entity.bankDetails.map((bd, index) => ({
+            id: `bank-${index}`,
+            bankName: bd.bankName,
+            accountNumber: bd.accountNumber,
+            accountName: bd.accountName,
+            ifscCode: bd.ifscCode,
+            swiftCode: bd.swiftCode,
+            iban: bd.iban,
+            branchName: bd.branchName,
+            branchAddress: bd.branchAddress,
+          }))
+        );
+      } else {
+        setBankDetails([]);
+      }
+
+      // Load shipping address
+      if (entity.shippingAddress) {
+        // Check if shipping address is same as billing
+        const isSame =
+          entity.billingAddress?.line1 === entity.shippingAddress.line1 &&
+          entity.billingAddress?.city === entity.shippingAddress.city &&
+          entity.billingAddress?.state === entity.shippingAddress.state &&
+          entity.billingAddress?.postalCode === entity.shippingAddress.postalCode;
+
+        setSameAsBilling(isSame);
+        if (!isSame) {
+          setShippingLine1(entity.shippingAddress.line1 || '');
+          setShippingLine2(entity.shippingAddress.line2 || '');
+          setShippingCity(entity.shippingAddress.city || '');
+          setShippingState(entity.shippingAddress.state || '');
+          setShippingPostalCode(entity.shippingAddress.postalCode || '');
+          setShippingCountry(entity.shippingAddress.country || 'India');
+        }
+      } else {
+        setSameAsBilling(false);
+        setShippingLine1('');
+        setShippingLine2('');
+        setShippingCity('');
+        setShippingState('');
+        setShippingPostalCode('');
+        setShippingCountry('India');
+      }
+
+      // Load credit terms
+      if (entity.creditTerms) {
+        setCreditDays(entity.creditTerms.creditDays?.toString() || '');
+        setCreditLimit(entity.creditTerms.creditLimit?.toString() || '');
+      } else {
+        setCreditDays('');
+        setCreditLimit('');
+      }
     }
   }, [entity]);
 
@@ -229,6 +308,66 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
           gstin: gstin.trim() || null,
           pan: pan.trim() || null,
         };
+      }
+
+      // Add optional bank details
+      if (bankDetails.length > 0) {
+        updateData.bankDetails = bankDetails.map((bd) => ({
+          bankName: bd.bankName,
+          accountNumber: bd.accountNumber,
+          accountName: bd.accountName,
+          ifscCode: bd.ifscCode || null,
+          swiftCode: bd.swiftCode || null,
+          iban: bd.iban || null,
+          branchName: bd.branchName || null,
+          branchAddress: bd.branchAddress || null,
+        }));
+      } else {
+        updateData.bankDetails = null;
+      }
+
+      // Add optional shipping address
+      if (sameAsBilling) {
+        // Copy billing address to shipping
+        if (addressLine1.trim() || city.trim() || state.trim() || postalCode.trim()) {
+          updateData.shippingAddress = {
+            line1: addressLine1.trim() || null,
+            line2: addressLine2.trim() || null,
+            city: city.trim() || null,
+            state: state.trim() || null,
+            postalCode: postalCode.trim() || null,
+            country: country.trim() || 'India',
+          };
+        } else {
+          updateData.shippingAddress = null;
+        }
+      } else if (
+        shippingLine1.trim() ||
+        shippingCity.trim() ||
+        shippingState.trim() ||
+        shippingPostalCode.trim()
+      ) {
+        updateData.shippingAddress = {
+          line1: shippingLine1.trim() || null,
+          line2: shippingLine2.trim() || null,
+          city: shippingCity.trim() || null,
+          state: shippingState.trim() || null,
+          postalCode: shippingPostalCode.trim() || null,
+          country: shippingCountry.trim() || 'India',
+        };
+      } else {
+        updateData.shippingAddress = null;
+      }
+
+      // Add optional credit terms
+      if (creditDays || creditLimit) {
+        updateData.creditTerms = {
+          creditDays: creditDays ? parseInt(creditDays, 10) : 0,
+          creditLimit: creditLimit ? parseFloat(creditLimit) : null,
+          currency: 'INR',
+        };
+      } else {
+        updateData.creditTerms = null;
       }
 
       await updateDoc(entityRef, updateData);
@@ -412,6 +551,145 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
                         : 'Optional - 15 characters'
                     }
                     inputProps={{ maxLength: 15, style: { textTransform: 'uppercase' } }}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+          </Box>
+
+          {/* Shipping Address */}
+          <Box>
+            <Typography variant="subtitle2" color="primary" gutterBottom>
+              Shipping Address (Optional)
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={sameAsBilling}
+                    onChange={(e) => setSameAsBilling(e.target.checked)}
+                    disabled={loading}
+                  />
+                }
+                label="Same as billing address"
+              />
+
+              {!sameAsBilling && (
+                <>
+                  <TextField
+                    label="Address Line 1"
+                    value={shippingLine1}
+                    onChange={(e) => setShippingLine1(e.target.value)}
+                    fullWidth
+                    placeholder="Street address (optional)"
+                    disabled={loading}
+                  />
+
+                  <TextField
+                    label="Address Line 2"
+                    value={shippingLine2}
+                    onChange={(e) => setShippingLine2(e.target.value)}
+                    fullWidth
+                    placeholder="Apartment, suite, etc. (optional)"
+                    disabled={loading}
+                  />
+
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        label="City"
+                        value={shippingCity}
+                        onChange={(e) => setShippingCity(e.target.value)}
+                        fullWidth
+                        placeholder="Optional"
+                        disabled={loading}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        label="State"
+                        value={shippingState}
+                        onChange={(e) => setShippingState(e.target.value)}
+                        fullWidth
+                        placeholder="Optional"
+                        disabled={loading}
+                      />
+                    </Grid>
+                  </Grid>
+
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        label="Postal Code"
+                        value={shippingPostalCode}
+                        onChange={(e) => setShippingPostalCode(e.target.value)}
+                        fullWidth
+                        placeholder="Optional"
+                        disabled={loading}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        label="Country"
+                        value={shippingCountry}
+                        onChange={(e) => setShippingCountry(e.target.value)}
+                        fullWidth
+                        placeholder="Optional"
+                        disabled={loading}
+                      />
+                    </Grid>
+                  </Grid>
+                </>
+              )}
+            </Box>
+          </Box>
+
+          {/* Bank Details */}
+          <Box>
+            <Typography variant="subtitle2" color="primary" gutterBottom>
+              Bank Details (Optional)
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            <BankDetailsManager
+              bankDetails={bankDetails}
+              onChange={setBankDetails}
+              disabled={loading}
+            />
+          </Box>
+
+          {/* Credit Terms */}
+          <Box>
+            <Typography variant="subtitle2" color="primary" gutterBottom>
+              Credit Terms (Optional)
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    label="Credit Days"
+                    type="number"
+                    value={creditDays}
+                    onChange={(e) => setCreditDays(e.target.value)}
+                    fullWidth
+                    placeholder="e.g., 30"
+                    helperText="Payment due days from invoice date"
+                    disabled={loading}
+                    inputProps={{ min: 0 }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    label="Credit Limit (INR)"
+                    type="number"
+                    value={creditLimit}
+                    onChange={(e) => setCreditLimit(e.target.value)}
+                    fullWidth
+                    placeholder="e.g., 100000"
+                    helperText="Maximum outstanding amount allowed"
+                    disabled={loading}
+                    inputProps={{ min: 0 }}
                   />
                 </Grid>
               </Grid>

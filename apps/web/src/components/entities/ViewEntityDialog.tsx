@@ -22,6 +22,7 @@ import {
   Business as BusinessIcon,
   Store as StoreIcon,
   Handshake as PartnerIcon,
+  AccountBalance as BankIcon,
 } from '@mui/icons-material';
 import type { BusinessEntity, EntityRole } from '@vapour/types';
 
@@ -35,7 +36,15 @@ interface ViewEntityDialogProps {
   canDelete: boolean; // Can delete entity
 }
 
-export function ViewEntityDialog({ open, entity, onClose, onEdit, onDelete, canEdit, canDelete }: ViewEntityDialogProps) {
+export function ViewEntityDialog({
+  open,
+  entity,
+  onClose,
+  onEdit,
+  onDelete,
+  canEdit,
+  canDelete,
+}: ViewEntityDialogProps) {
   if (!entity) return null;
 
   // Get role icon
@@ -65,9 +74,7 @@ export function ViewEntityDialog({ open, entity, onClose, onEdit, onDelete, canE
       <DialogTitle>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Box sx={{ color: 'primary.main' }}>
-              {getRoleIcon(entity.roles)}
-            </Box>
+            <Box sx={{ color: 'primary.main' }}>{getRoleIcon(entity.roles)}</Box>
             <Box>
               <Typography variant="h6">{entity.name}</Typography>
               <Typography variant="caption" color="text.secondary">
@@ -101,12 +108,7 @@ export function ViewEntityDialog({ open, entity, onClose, onEdit, onDelete, canE
         {/* Roles */}
         <Box sx={{ mb: 3 }}>
           {entity.roles.map((role) => (
-            <Chip
-              key={role}
-              label={role}
-              color={getRoleColor(role)}
-              sx={{ mr: 1 }}
-            />
+            <Chip key={role} label={role} color={getRoleColor(role)} sx={{ mr: 1 }} />
           ))}
         </Box>
 
@@ -124,9 +126,7 @@ export function ViewEntityDialog({ open, entity, onClose, onEdit, onDelete, canE
                     <Typography variant="caption" color="text.secondary">
                       Legal Name
                     </Typography>
-                    <Typography variant="body2">
-                      {entity.legalName || entity.name}
-                    </Typography>
+                    <Typography variant="body2">{entity.legalName || entity.name}</Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">
@@ -191,20 +191,15 @@ export function ViewEntityDialog({ open, entity, onClose, onEdit, onDelete, canE
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
                   <Box>
-                    <Typography variant="body2">
-                      {entity.billingAddress.line1}
-                    </Typography>
+                    <Typography variant="body2">{entity.billingAddress.line1}</Typography>
                     {entity.billingAddress.line2 && (
-                      <Typography variant="body2">
-                        {entity.billingAddress.line2}
-                      </Typography>
+                      <Typography variant="body2">{entity.billingAddress.line2}</Typography>
                     )}
                     <Typography variant="body2">
-                      {entity.billingAddress.city}, {entity.billingAddress.state} {entity.billingAddress.postalCode}
+                      {entity.billingAddress.city}, {entity.billingAddress.state}{' '}
+                      {entity.billingAddress.postalCode}
                     </Typography>
-                    <Typography variant="body2">
-                      {entity.billingAddress.country}
-                    </Typography>
+                    <Typography variant="body2">{entity.billingAddress.country}</Typography>
                   </Box>
                 </CardContent>
               </Card>
@@ -226,9 +221,7 @@ export function ViewEntityDialog({ open, entity, onClose, onEdit, onDelete, canE
                         <Typography variant="caption" color="text.secondary">
                           GSTIN
                         </Typography>
-                        <Typography variant="body2">
-                          {entity.taxIdentifiers.gstin}
-                        </Typography>
+                        <Typography variant="body2">{entity.taxIdentifiers.gstin}</Typography>
                       </Box>
                     )}
                     {entity.taxIdentifiers.pan && (
@@ -236,9 +229,7 @@ export function ViewEntityDialog({ open, entity, onClose, onEdit, onDelete, canE
                         <Typography variant="caption" color="text.secondary">
                           PAN
                         </Typography>
-                        <Typography variant="body2">
-                          {entity.taxIdentifiers.pan}
-                        </Typography>
+                        <Typography variant="body2">{entity.taxIdentifiers.pan}</Typography>
                       </Box>
                     )}
                   </Box>
@@ -246,6 +237,157 @@ export function ViewEntityDialog({ open, entity, onClose, onEdit, onDelete, canE
               </Card>
             </Grid>
           )}
+
+          {/* Shipping Address */}
+          {entity.shippingAddress && (
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="subtitle2" color="primary" gutterBottom>
+                    Shipping Address
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
+                  <Box>
+                    {entity.shippingAddress.line1 && (
+                      <Typography variant="body2">{entity.shippingAddress.line1}</Typography>
+                    )}
+                    {entity.shippingAddress.line2 && (
+                      <Typography variant="body2">{entity.shippingAddress.line2}</Typography>
+                    )}
+                    <Typography variant="body2">
+                      {[
+                        entity.shippingAddress.city,
+                        entity.shippingAddress.state,
+                        entity.shippingAddress.postalCode,
+                      ]
+                        .filter(Boolean)
+                        .join(', ')}
+                    </Typography>
+                    {entity.shippingAddress.country && (
+                      <Typography variant="body2">{entity.shippingAddress.country}</Typography>
+                    )}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+
+          {/* Bank Details */}
+          {entity.bankDetails && entity.bankDetails.length > 0 && (
+            <Grid size={{ xs: 12 }}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="subtitle2" color="primary" gutterBottom>
+                    Bank Details ({entity.bankDetails.length})
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {entity.bankDetails.map((bank, index) => (
+                      <Box
+                        key={index}
+                        sx={{
+                          p: 2,
+                          bgcolor: 'action.hover',
+                          borderRadius: 1,
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <BankIcon color="primary" fontSize="small" />
+                          <Typography variant="subtitle2">{bank.bankName}</Typography>
+                        </Box>
+                        <Grid container spacing={1}>
+                          <Grid size={{ xs: 12, sm: 6 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              Account Name
+                            </Typography>
+                            <Typography variant="body2">{bank.accountName}</Typography>
+                          </Grid>
+                          <Grid size={{ xs: 12, sm: 6 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              Account Number
+                            </Typography>
+                            <Typography variant="body2">{bank.accountNumber}</Typography>
+                          </Grid>
+                          {bank.ifscCode && (
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                IFSC Code
+                              </Typography>
+                              <Typography variant="body2">{bank.ifscCode}</Typography>
+                            </Grid>
+                          )}
+                          {bank.swiftCode && (
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                SWIFT Code
+                              </Typography>
+                              <Typography variant="body2">{bank.swiftCode}</Typography>
+                            </Grid>
+                          )}
+                          {bank.iban && (
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                IBAN
+                              </Typography>
+                              <Typography variant="body2">{bank.iban}</Typography>
+                            </Grid>
+                          )}
+                          {bank.branchName && (
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                Branch
+                              </Typography>
+                              <Typography variant="body2">{bank.branchName}</Typography>
+                            </Grid>
+                          )}
+                        </Grid>
+                      </Box>
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+
+          {/* Credit Terms */}
+          {entity.creditTerms &&
+            (entity.creditTerms.creditDays || entity.creditTerms.creditLimit) && (
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle2" color="primary" gutterBottom>
+                      Credit Terms
+                    </Typography>
+                    <Divider sx={{ mb: 2 }} />
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {entity.creditTerms.creditDays !== undefined && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Credit Days
+                          </Typography>
+                          <Typography variant="body2">
+                            {entity.creditTerms.creditDays} days
+                          </Typography>
+                        </Box>
+                      )}
+                      {entity.creditTerms.creditLimit !== undefined && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Credit Limit
+                          </Typography>
+                          <Typography variant="body2">
+                            {new Intl.NumberFormat('en-IN', {
+                              style: 'currency',
+                              currency: entity.creditTerms.currency || 'INR',
+                            }).format(entity.creditTerms.creditLimit)}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            )}
         </Grid>
       </DialogContent>
       <DialogActions>

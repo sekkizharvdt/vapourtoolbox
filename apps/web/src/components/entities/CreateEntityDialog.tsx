@@ -21,11 +21,14 @@ import {
   Grid,
   Typography,
   Divider,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import { httpsCallable } from 'firebase/functions';
 import { getFirebase } from '@/lib/firebase';
 import type { EntityRole } from '@vapour/types';
 import { ContactsManager, EntityContactData } from './ContactsManager';
+import { BankDetailsManager, BankDetailsData } from './BankDetailsManager';
 import {
   validatePAN,
   validateGSTIN,
@@ -53,6 +56,9 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
   // Form state - Contacts
   const [contacts, setContacts] = useState<EntityContactData[]>([]);
 
+  // Form state - Bank Details
+  const [bankDetails, setBankDetails] = useState<BankDetailsData[]>([]);
+
   // Form state - Address & Tax
   const [addressLine1, setAddressLine1] = useState('');
   const [addressLine2, setAddressLine2] = useState('');
@@ -62,6 +68,19 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
   const [country, setCountry] = useState('India');
   const [gstin, setGstin] = useState('');
   const [pan, setPan] = useState('');
+
+  // Form state - Shipping Address
+  const [sameAsBilling, setSameAsBilling] = useState(false);
+  const [shippingLine1, setShippingLine1] = useState('');
+  const [shippingLine2, setShippingLine2] = useState('');
+  const [shippingCity, setShippingCity] = useState('');
+  const [shippingState, setShippingState] = useState('');
+  const [shippingPostalCode, setShippingPostalCode] = useState('');
+  const [shippingCountry, setShippingCountry] = useState('India');
+
+  // Form state - Credit Terms
+  const [creditDays, setCreditDays] = useState('');
+  const [creditLimit, setCreditLimit] = useState('');
 
   // Validate PAN in real-time
   const panValidation = useMemo(() => {
@@ -181,6 +200,54 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
                 pan: pan.trim() || undefined,
               }
             : undefined,
+        // Optional bank details
+        bankDetails:
+          bankDetails.length > 0
+            ? bankDetails.map((bd) => ({
+                bankName: bd.bankName,
+                accountNumber: bd.accountNumber,
+                accountName: bd.accountName,
+                ifscCode: bd.ifscCode || undefined,
+                swiftCode: bd.swiftCode || undefined,
+                iban: bd.iban || undefined,
+                branchName: bd.branchName || undefined,
+                branchAddress: bd.branchAddress || undefined,
+              }))
+            : undefined,
+        // Optional shipping address
+        shippingAddress: sameAsBilling
+          ? addressLine1.trim() || city.trim() || state.trim() || postalCode.trim()
+            ? {
+                line1: addressLine1.trim() || undefined,
+                line2: addressLine2.trim() || undefined,
+                city: city.trim() || undefined,
+                state: state.trim() || undefined,
+                postalCode: postalCode.trim() || undefined,
+                country: country.trim() || 'India',
+              }
+            : undefined
+          : shippingLine1.trim() ||
+              shippingCity.trim() ||
+              shippingState.trim() ||
+              shippingPostalCode.trim()
+            ? {
+                line1: shippingLine1.trim() || undefined,
+                line2: shippingLine2.trim() || undefined,
+                city: shippingCity.trim() || undefined,
+                state: shippingState.trim() || undefined,
+                postalCode: shippingPostalCode.trim() || undefined,
+                country: shippingCountry.trim() || 'India',
+              }
+            : undefined,
+        // Optional credit terms
+        creditTerms:
+          creditDays || creditLimit
+            ? {
+                creditDays: creditDays ? parseInt(creditDays, 10) : 0,
+                creditLimit: creditLimit ? parseFloat(creditLimit) : undefined,
+                currency: 'INR',
+              }
+            : undefined,
         status: 'ACTIVE' as const,
         isActive: true,
       };
@@ -212,6 +279,7 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
     setLegalName('');
     setRoles([]);
     setContacts([]);
+    setBankDetails([]);
     setAddressLine1('');
     setAddressLine2('');
     setCity('');
@@ -220,6 +288,15 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
     setCountry('India');
     setGstin('');
     setPan('');
+    setSameAsBilling(false);
+    setShippingLine1('');
+    setShippingLine2('');
+    setShippingCity('');
+    setShippingState('');
+    setShippingPostalCode('');
+    setShippingCountry('India');
+    setCreditDays('');
+    setCreditLimit('');
     setError('');
   };
 
@@ -394,6 +471,145 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
                         : 'Optional - 15 characters'
                     }
                     inputProps={{ maxLength: 15, style: { textTransform: 'uppercase' } }}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+          </Box>
+
+          {/* Shipping Address */}
+          <Box>
+            <Typography variant="subtitle2" color="primary" gutterBottom>
+              Shipping Address (Optional)
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={sameAsBilling}
+                    onChange={(e) => setSameAsBilling(e.target.checked)}
+                    disabled={loading}
+                  />
+                }
+                label="Same as billing address"
+              />
+
+              {!sameAsBilling && (
+                <>
+                  <TextField
+                    label="Address Line 1"
+                    value={shippingLine1}
+                    onChange={(e) => setShippingLine1(e.target.value)}
+                    fullWidth
+                    placeholder="Street address (optional)"
+                    disabled={loading}
+                  />
+
+                  <TextField
+                    label="Address Line 2"
+                    value={shippingLine2}
+                    onChange={(e) => setShippingLine2(e.target.value)}
+                    fullWidth
+                    placeholder="Apartment, suite, etc. (optional)"
+                    disabled={loading}
+                  />
+
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        label="City"
+                        value={shippingCity}
+                        onChange={(e) => setShippingCity(e.target.value)}
+                        fullWidth
+                        placeholder="Optional"
+                        disabled={loading}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        label="State"
+                        value={shippingState}
+                        onChange={(e) => setShippingState(e.target.value)}
+                        fullWidth
+                        placeholder="Optional"
+                        disabled={loading}
+                      />
+                    </Grid>
+                  </Grid>
+
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        label="Postal Code"
+                        value={shippingPostalCode}
+                        onChange={(e) => setShippingPostalCode(e.target.value)}
+                        fullWidth
+                        placeholder="Optional"
+                        disabled={loading}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        label="Country"
+                        value={shippingCountry}
+                        onChange={(e) => setShippingCountry(e.target.value)}
+                        fullWidth
+                        placeholder="Optional"
+                        disabled={loading}
+                      />
+                    </Grid>
+                  </Grid>
+                </>
+              )}
+            </Box>
+          </Box>
+
+          {/* Bank Details */}
+          <Box>
+            <Typography variant="subtitle2" color="primary" gutterBottom>
+              Bank Details (Optional)
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            <BankDetailsManager
+              bankDetails={bankDetails}
+              onChange={setBankDetails}
+              disabled={loading}
+            />
+          </Box>
+
+          {/* Credit Terms */}
+          <Box>
+            <Typography variant="subtitle2" color="primary" gutterBottom>
+              Credit Terms (Optional)
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    label="Credit Days"
+                    type="number"
+                    value={creditDays}
+                    onChange={(e) => setCreditDays(e.target.value)}
+                    fullWidth
+                    placeholder="e.g., 30"
+                    helperText="Payment due days from invoice date"
+                    disabled={loading}
+                    inputProps={{ min: 0 }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    label="Credit Limit (INR)"
+                    type="number"
+                    value={creditLimit}
+                    onChange={(e) => setCreditLimit(e.target.value)}
+                    fullWidth
+                    placeholder="e.g., 100000"
+                    helperText="Maximum outstanding amount allowed"
+                    disabled={loading}
+                    inputProps={{ min: 0 }}
                   />
                 </Grid>
               </Grid>
