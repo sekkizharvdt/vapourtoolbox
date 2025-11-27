@@ -711,22 +711,24 @@ The sidebar organizes modules into three logical categories:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Recommended Workflow Sequence
+### Recommended Workflow Sequence (Organized by Frequency of Usage)
 
-Based on typical business processes, the module order should follow this workflow:
+The sidebar is organized with most frequently used modules at the top:
 
 ```
-1. Setup Phase (One-time/Infrequent)
-   User Management → Entity Management → Material/Shape/BOM Setup
-                                              ↓
-2. Sales Cycle
-   Enquiry → Proposal → (Accepted) → Project Charter
-                                         ↓
-3. Execution Cycle
+1. Execution Cycle (Daily - Most Frequent)
    Project Charter → Procurement (PR→RFQ→PO→GR) → Accounting
                          ↓                            ↓
                     Documents ← ─ ─ ─ ─ ─ ─ ─ ─ → Time Tracking
+                                              ↑
+2. Sales Cycle (Weekly/As Needed)
+   Enquiry → Proposal → (Accepted) → Project Charter
+                                              ↑
+3. Setup Phase (One-time/Infrequent - Bottom of Sidebar)
+   User Management → Entity Management → Material/Shape/BOM Setup
 ```
+
+**Rationale:** Daily Essentials (Time Tracking, Documents) appear first for quick access, followed by Company Essentials (Procurement, Accounting, Projects) for core operations, with Backbone (Master Data, Settings) at the bottom since they're configured once and rarely changed.
 
 ---
 
