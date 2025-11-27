@@ -479,12 +479,12 @@ export default function BOMEditorClient() {
         </Box>
       </Box>
 
-      {/* Week 1 Implementation Note */}
-      <Alert severity="info" sx={{ mt: 3 }}>
+      {/* BOM Features Info */}
+      <Alert severity="success" sx={{ mt: 3 }}>
         <Typography variant="body2">
-          <strong>Phase 2 Implementation:</strong> You can now add bought-out components (valves,
-          pumps, instruments) to your BOM. Shape-based (fabricated) items will be added in the next
-          phase.
+          <strong>BOM Features:</strong> Add bought-out components (valves, pumps, instruments) or
+          fabricated shape-based items (plates, shells, heads, nozzles) with automatic weight and
+          cost calculations.
         </Typography>
       </Alert>
 

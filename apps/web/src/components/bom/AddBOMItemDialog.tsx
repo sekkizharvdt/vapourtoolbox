@@ -13,12 +13,18 @@ import {
   MenuItem,
   CircularProgress,
   Alert,
+  Divider,
+  Typography,
 } from '@mui/material';
-import { useState } from 'react';
-import { BOMItemType, BOMComponentType, type Material } from '@vapour/types';
+import { useState, useMemo } from 'react';
+import { BOMItemType, BOMComponentType, type Material, type Shape } from '@vapour/types';
 import { BOM_ITEM_TYPE_LABELS } from '@vapour/types';
 import MaterialSelector from './MaterialSelector';
+import ShapeSelector from './ShapeSelector';
+import ShapeParameterInput from './ShapeParameterInput';
+import ShapeCalculationResults from './ShapeCalculationResults';
 import { getAllBoughtOutCategories } from '@/lib/bom/boughtOutHelpers';
+import { calculateShape } from '@/lib/shapes/shapeCalculator';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -80,8 +86,52 @@ export default function AddBOMItemDialog({
   // Bought-out specific
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
 
-  // Shape-based specific (placeholder for now)
-  const [shapeId, setShapeId] = useState('');
+  // Shape-based specific
+  const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
+  const [shapeMaterial, setShapeMaterial] = useState<Material | null>(null);
+  const [shapeParameters, setShapeParameters] = useState<Record<string, number | string | boolean>>(
+    {}
+  );
+  const [parameterErrors, setParameterErrors] = useState<Record<string, string>>({});
+
+  // Calculate shape results when parameters change
+  const shapeCalculationResult = useMemo(() => {
+    if (!selectedShape || !shapeMaterial) return null;
+
+    // Check all required parameters are filled
+    const requiredParams = selectedShape.parameters.filter((p) => p.required);
+    const missingParams = requiredParams.filter(
+      (p) => shapeParameters[p.name] === undefined || shapeParameters[p.name] === ''
+    );
+
+    if (missingParams.length > 0) return null;
+
+    // Convert parameters to numbers for calculation
+    const numericParams: Record<string, number> = {};
+    for (const [key, value] of Object.entries(shapeParameters)) {
+      if (typeof value === 'number') {
+        numericParams[key] = value;
+      } else if (typeof value === 'string') {
+        const num = parseFloat(value);
+        if (!isNaN(num)) {
+          numericParams[key] = num;
+        }
+      }
+    }
+
+    try {
+      const result = calculateShape({
+        shape: selectedShape,
+        material: shapeMaterial,
+        parameterValues: numericParams,
+        quantity,
+      });
+      return result;
+    } catch (err) {
+      console.error('Shape calculation error:', err);
+      return null;
+    }
+  }, [selectedShape, shapeMaterial, shapeParameters, quantity]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -97,7 +147,10 @@ export default function AddBOMItemDialog({
     setQuantity(1);
     setUnit('nos');
     setSelectedMaterial(null);
-    setShapeId('');
+    setSelectedShape(null);
+    setShapeMaterial(null);
+    setShapeParameters({});
+    setParameterErrors({});
     setError(null);
     onClose();
   };
@@ -124,13 +177,38 @@ export default function AddBOMItemDialog({
       return;
     }
 
-    if (componentType === 'SHAPE' && !shapeId) {
-      setError('Shape-based items not yet implemented. Please use Bought-Out tab.');
-      return;
+    if (componentType === 'SHAPE') {
+      if (!selectedShape) {
+        setError('Please select a shape');
+        return;
+      }
+      if (!shapeMaterial) {
+        setError('Please select a material for the shape');
+        return;
+      }
+      if (!shapeCalculationResult) {
+        setError('Please fill in all required parameters');
+        return;
+      }
     }
 
     try {
       setLoading(true);
+
+      // Convert parameters to numbers for storage
+      const numericParams: Record<string, number> = {};
+      if (componentType === 'SHAPE') {
+        for (const [key, value] of Object.entries(shapeParameters)) {
+          if (typeof value === 'number') {
+            numericParams[key] = value;
+          } else if (typeof value === 'string') {
+            const num = parseFloat(value);
+            if (!isNaN(num)) {
+              numericParams[key] = num;
+            }
+          }
+        }
+      }
 
       const data: AddItemData = {
         itemType,
@@ -139,8 +217,14 @@ export default function AddBOMItemDialog({
         quantity,
         unit,
         componentType,
-        materialId: componentType === 'BOUGHT_OUT' ? selectedMaterial?.id : undefined,
-        shapeId: componentType === 'SHAPE' ? shapeId : undefined,
+        materialId:
+          componentType === 'BOUGHT_OUT'
+            ? selectedMaterial?.id
+            : componentType === 'SHAPE'
+              ? shapeMaterial?.id
+              : undefined,
+        shapeId: componentType === 'SHAPE' ? selectedShape?.id : undefined,
+        parameters: componentType === 'SHAPE' ? numericParams : undefined,
       };
 
       await onAdd(data);
@@ -153,12 +237,26 @@ export default function AddBOMItemDialog({
     }
   };
 
-  // Auto-fill name from material when selected
+  // Auto-fill name from material when selected (bought-out tab)
   const handleMaterialChange = (_materialId: string | null, material: Material | null) => {
     setSelectedMaterial(material);
     if (material && !name) {
       setName(material.name);
     }
+  };
+
+  // Handle shape selection
+  const handleShapeChange = (_shapeId: string | null, shape: Shape | null) => {
+    setSelectedShape(shape);
+    setShapeParameters({}); // Reset parameters when shape changes
+    if (shape && !name) {
+      setName(shape.name);
+    }
+  };
+
+  // Handle shape material selection
+  const handleShapeMaterialChange = (_materialId: string | null, material: Material | null) => {
+    setShapeMaterial(material);
   };
 
   return (
@@ -175,7 +273,7 @@ export default function AddBOMItemDialog({
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
           <Tabs value={tabValue} onChange={handleTabChange}>
             <Tab label="Bought-Out Component" />
-            <Tab label="Fabricated (Shape-Based)" disabled />
+            <Tab label="Fabricated (Shape-Based)" />
           </Tabs>
         </Box>
 
@@ -258,12 +356,132 @@ export default function AddBOMItemDialog({
           </Box>
         </TabPanel>
 
-        {/* Shape-Based Tab (Placeholder) */}
+        {/* Shape-Based Tab */}
         <TabPanel value={tabValue} index={1}>
-          <Alert severity="info">
-            Shape-based (fabricated) items are coming soon. For now, please use the Bought-Out
-            Component tab to add items.
-          </Alert>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Shape Selection */}
+            <ShapeSelector
+              value={selectedShape?.id || null}
+              onChange={handleShapeChange}
+              label="Select Shape *"
+              required
+            />
+
+            {/* Material Selection for Shape */}
+            {selectedShape && (
+              <>
+                <Divider sx={{ my: 1 }} />
+                <Typography variant="subtitle2" color="text.secondary">
+                  Material Selection
+                </Typography>
+                <MaterialSelector
+                  value={shapeMaterial?.id || null}
+                  onChange={handleShapeMaterialChange}
+                  categories={
+                    selectedShape.allowedMaterialCategories?.length
+                      ? selectedShape.allowedMaterialCategories
+                      : undefined
+                  }
+                  materialType="RAW_MATERIAL"
+                  label="Select Material *"
+                  required
+                  entityId={entityId}
+                />
+              </>
+            )}
+
+            {/* Shape Parameters */}
+            {selectedShape && shapeMaterial && (
+              <>
+                <Divider sx={{ my: 1 }} />
+                <Typography variant="subtitle2" color="text.secondary">
+                  Dimensions
+                </Typography>
+                <ShapeParameterInput
+                  shape={selectedShape}
+                  values={shapeParameters}
+                  onChange={setShapeParameters}
+                  errors={parameterErrors}
+                />
+              </>
+            )}
+
+            {/* Item Details */}
+            {selectedShape && (
+              <>
+                <Divider sx={{ my: 1 }} />
+                <Typography variant="subtitle2" color="text.secondary">
+                  Item Details
+                </Typography>
+
+                <TextField
+                  label="Item Type"
+                  select
+                  value={itemType}
+                  onChange={(e) => setItemType(e.target.value as BOMItemType)}
+                  fullWidth
+                >
+                  {Object.entries(BOM_ITEM_TYPE_LABELS).map(([value, label]) => (
+                    <MenuItem key={value} value={value}>
+                      {label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                <TextField
+                  label="Item Name *"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  fullWidth
+                  required
+                  helperText="Auto-filled from shape, can be customized"
+                />
+
+                <TextField
+                  label="Description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  fullWidth
+                  multiline
+                  rows={2}
+                />
+
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <TextField
+                    label="Quantity *"
+                    type="number"
+                    value={quantity}
+                    onChange={(e) => setQuantity(Number(e.target.value))}
+                    inputProps={{ min: 1, step: 1 }}
+                    required
+                    sx={{ flex: 1 }}
+                  />
+                  <TextField
+                    label="Unit *"
+                    value={unit}
+                    onChange={(e) => setUnit(e.target.value)}
+                    required
+                    sx={{ flex: 1 }}
+                    helperText='e.g., "nos", "pcs"'
+                  />
+                </Box>
+              </>
+            )}
+
+            {/* Calculation Results */}
+            {shapeCalculationResult && (
+              <>
+                <Divider sx={{ my: 1 }} />
+                <ShapeCalculationResults
+                  calculatedValues={shapeCalculationResult.calculatedValues}
+                  costEstimate={shapeCalculationResult.costEstimate}
+                  quantity={quantity}
+                  totalWeight={shapeCalculationResult.totalWeight}
+                  totalCost={shapeCalculationResult.totalCost}
+                />
+              </>
+            )}
+          </Box>
         </TabPanel>
       </DialogContent>
 

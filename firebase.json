@@ -21,7 +21,11 @@
         "destination": "/estimation/placeholder.html"
       },
       {
-        "source": "/procurement/purchase-requests/**",
+        "source": "/procurement/purchase-requests/*/edit",
+        "destination": "/procurement/purchase-requests/placeholder/edit.html"
+      },
+      {
+        "source": "/procurement/purchase-requests/*",
         "destination": "/procurement/purchase-requests/placeholder.html"
       },
       {

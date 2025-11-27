@@ -14,9 +14,9 @@ import {
   query,
   where,
   orderBy,
-  limit,
   Timestamp,
   writeBatch,
+  runTransaction,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -36,41 +36,52 @@ import {
 } from './accountingIntegration';
 
 // ============================================================================
-// GR NUMBER GENERATION
+// GR NUMBER GENERATION (ATOMIC)
 // ============================================================================
 
+/**
+ * Generate GR number using atomic transaction
+ * Uses a counter document to prevent race conditions
+ * Format: GR/YYYY/MM/XXXX
+ */
 async function generateGRNumber(): Promise<string> {
   const { db } = getFirebase();
 
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
+  const counterKey = `gr-${year}-${month}`;
 
-  const monthStart = new Date(year, now.getMonth(), 1);
-  const monthEnd = new Date(year, now.getMonth() + 1, 0, 23, 59, 59);
+  const counterRef = doc(db, COLLECTIONS.COUNTERS, counterKey);
 
-  const q = query(
-    collection(db, COLLECTIONS.GOODS_RECEIPTS),
-    where('createdAt', '>=', Timestamp.fromDate(monthStart)),
-    where('createdAt', '<=', Timestamp.fromDate(monthEnd)),
-    orderBy('createdAt', 'desc'),
-    limit(1)
-  );
+  const grNumber = await runTransaction(db, async (transaction) => {
+    const counterDoc = await transaction.get(counterRef);
 
-  const snapshot = await getDocs(q);
+    let sequence = 1;
+    if (counterDoc.exists()) {
+      const data = counterDoc.data();
+      sequence = (data.value || 0) + 1;
+      transaction.update(counterRef, {
+        value: sequence,
+        updatedAt: Timestamp.now(),
+      });
+    } else {
+      // Initialize counter for this month
+      transaction.set(counterRef, {
+        type: 'goods_receipt',
+        year,
+        month: parseInt(month, 10),
+        value: sequence,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+    }
 
-  let sequence = 1;
-  if (!snapshot.empty && snapshot.docs[0]) {
-    const lastGR = snapshot.docs[0].data() as GoodsReceipt;
-    const lastNumber = lastGR.number;
-    const parts = lastNumber.split('/');
-    const lastSequenceStr = parts[parts.length - 1];
-    const lastSequence = parseInt(lastSequenceStr || '0', 10);
-    sequence = lastSequence + 1;
-  }
+    const sequenceStr = String(sequence).padStart(4, '0');
+    return `GR/${year}/${month}/${sequenceStr}`;
+  });
 
-  const sequenceStr = String(sequence).padStart(4, '0');
-  return `GR/${year}/${month}/${sequenceStr}`;
+  return grNumber;
 }
 
 // ============================================================================
