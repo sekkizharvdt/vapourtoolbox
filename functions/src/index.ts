@@ -53,3 +53,10 @@ export {
   onTransactionWriteUpdateProjectFinancials,
   onProjectBudgetChange,
 } from './projectFinancials';
+
+// Import procurement → projects sync functions
+export {
+  onPOStatusSyncToProject,
+  onRFQStatusSyncToProject,
+  onGoodsReceiptSyncToProject,
+} from './procurementProjectSync';
