@@ -17,6 +17,14 @@
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
       {
+        "source": "/estimation/**",
+        "destination": "/estimation/placeholder.html"
+      },
+      {
+        "source": "/procurement/purchase-requests/**",
+        "destination": "/procurement/purchase-requests/placeholder.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
