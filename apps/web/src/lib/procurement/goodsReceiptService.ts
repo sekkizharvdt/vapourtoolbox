@@ -340,3 +340,52 @@ export async function approveGRForPayment(
 
   logger.info('Goods Receipt approved for payment', { grId });
 }
+
+// ============================================================================
+// LIST GOODS RECEIPTS
+// ============================================================================
+
+export interface ListGoodsReceiptsFilters {
+  status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'ISSUES_FOUND';
+  purchaseOrderId?: string;
+  projectId?: string;
+  approvedForPayment?: boolean;
+}
+
+export async function listGoodsReceipts(
+  filters: ListGoodsReceiptsFilters = {}
+): Promise<GoodsReceipt[]> {
+  const { db } = getFirebase();
+
+  const constraints: ReturnType<typeof where>[] = [];
+
+  if (filters.status) {
+    constraints.push(where('status', '==', filters.status));
+  }
+  if (filters.purchaseOrderId) {
+    constraints.push(where('purchaseOrderId', '==', filters.purchaseOrderId));
+  }
+  if (filters.projectId) {
+    constraints.push(where('projectId', '==', filters.projectId));
+  }
+  if (filters.approvedForPayment !== undefined) {
+    constraints.push(where('approvedForPayment', '==', filters.approvedForPayment));
+  }
+
+  const q = query(
+    collection(db, COLLECTIONS.GOODS_RECEIPTS),
+    ...constraints,
+    orderBy('createdAt', 'desc')
+  );
+
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as GoodsReceipt[];
+}
+
+export async function getGoodsReceiptsByPO(purchaseOrderId: string): Promise<GoodsReceipt[]> {
+  return listGoodsReceipts({ purchaseOrderId });
+}

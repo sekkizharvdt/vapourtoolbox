@@ -127,3 +127,47 @@ export async function getDefaultToleranceConfig(
     throw error;
   }
 }
+
+/**
+ * List three-way matches with optional filters
+ */
+export interface ListThreeWayMatchesFilters {
+  status?: ThreeWayMatch['status'];
+  purchaseOrderId?: string;
+  vendorId?: string;
+  projectId?: string;
+}
+
+export async function listThreeWayMatches(
+  db: Firestore,
+  filters: ListThreeWayMatchesFilters = {}
+): Promise<ThreeWayMatch[]> {
+  try {
+    const matchesRef = collection(db, COLLECTIONS.THREE_WAY_MATCHES);
+    const constraints: ReturnType<typeof where>[] = [];
+
+    if (filters.status) {
+      constraints.push(where('status', '==', filters.status));
+    }
+    if (filters.purchaseOrderId) {
+      constraints.push(where('purchaseOrderId', '==', filters.purchaseOrderId));
+    }
+    if (filters.vendorId) {
+      constraints.push(where('vendorId', '==', filters.vendorId));
+    }
+    if (filters.projectId) {
+      constraints.push(where('projectId', '==', filters.projectId));
+    }
+
+    const q = query(matchesRef, ...constraints, orderBy('matchedAt', 'desc'));
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as ThreeWayMatch[];
+  } catch (error) {
+    logger.error('Failed to list three-way matches', { error, filters });
+    throw error;
+  }
+}

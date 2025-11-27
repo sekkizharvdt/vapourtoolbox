@@ -258,3 +258,57 @@ export async function getPLItems(plId: string): Promise<PackingListItem[]> {
     ...doc.data(),
   })) as PackingListItem[];
 }
+
+// ============================================================================
+// LIST PACKING LISTS
+// ============================================================================
+
+export interface ListPackingListsFilters {
+  status?: PackingListStatus;
+  purchaseOrderId?: string;
+  projectId?: string;
+  vendorId?: string;
+  limit?: number;
+}
+
+export async function listPackingLists(
+  filters: ListPackingListsFilters = {}
+): Promise<PackingList[]> {
+  const { db } = getFirebase();
+
+  const constraints: ReturnType<typeof where>[] = [];
+
+  if (filters.status) {
+    constraints.push(where('status', '==', filters.status));
+  }
+  if (filters.purchaseOrderId) {
+    constraints.push(where('purchaseOrderId', '==', filters.purchaseOrderId));
+  }
+  if (filters.projectId) {
+    constraints.push(where('projectId', '==', filters.projectId));
+  }
+  if (filters.vendorId) {
+    constraints.push(where('vendorId', '==', filters.vendorId));
+  }
+
+  const q = query(
+    collection(db, COLLECTIONS.PACKING_LISTS),
+    ...constraints,
+    orderBy('createdAt', 'desc')
+  );
+
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as PackingList[];
+}
+
+// ============================================================================
+// LIST PACKING LISTS BY PO
+// ============================================================================
+
+export async function getPackingListsByPO(purchaseOrderId: string): Promise<PackingList[]> {
+  return listPackingLists({ purchaseOrderId });
+}

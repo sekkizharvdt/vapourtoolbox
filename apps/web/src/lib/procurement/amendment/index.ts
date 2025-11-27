@@ -29,7 +29,13 @@ export {
 } from './crud';
 
 // Export query operations
-export { getAmendmentHistory, getAmendmentApprovalHistory } from './queries';
+export {
+  getAmendmentHistory,
+  getAmendmentApprovalHistory,
+  listAmendments,
+  getAmendmentById,
+  type ListAmendmentsFilters,
+} from './queries';
 
 // Export versioning operations
 export { getPurchaseOrderVersions, createVersionSnapshot, compareVersions } from './versioning';

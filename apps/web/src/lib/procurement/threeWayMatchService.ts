@@ -31,4 +31,7 @@ export {
   rejectMatch,
   getMatchHistory,
   getDefaultToleranceConfig,
+  listThreeWayMatches,
 } from './threeWayMatch';
+
+export type { ListThreeWayMatchesFilters } from './threeWayMatch';

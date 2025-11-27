@@ -24,6 +24,8 @@ import {
   Assignment as AssignmentIcon,
   LocalShipping as LocalShippingIcon,
   Receipt as ReceiptIcon,
+  CompareArrows as CompareArrowsIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -70,25 +72,34 @@ export default function ProcurementPage() {
       path: '/procurement/pos',
     },
     {
-      title: 'Goods Receipt',
-      description: 'Record received goods, verify quality, and update inventory',
-      icon: <LocalShippingIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/procurement/goods-receipt',
-      comingSoon: true,
-    },
-    {
-      title: 'Work Completion',
-      description: 'Track service completion and acceptance for service POs',
-      icon: <AssignmentIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/procurement/work-completion',
-      comingSoon: true,
-    },
-    {
       title: 'Packing Lists',
       description: 'Manage packing lists for shipments and deliveries',
       icon: <ReceiptIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/procurement/packing-lists',
-      comingSoon: true,
+    },
+    {
+      title: 'Goods Receipts',
+      description: 'Record received goods, verify quality, and inspect items',
+      icon: <LocalShippingIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/procurement/goods-receipts',
+    },
+    {
+      title: 'Work Completion',
+      description: 'Issue work completion certificates for service POs',
+      icon: <AssignmentIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/procurement/work-completion',
+    },
+    {
+      title: 'Three-Way Match',
+      description: 'Match POs, goods receipts, and vendor bills for payment approval',
+      icon: <CompareArrowsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/procurement/three-way-match',
+    },
+    {
+      title: 'PO Amendments',
+      description: 'Create and manage amendments to approved purchase orders',
+      icon: <EditIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/procurement/amendments',
     },
   ];
 

@@ -35,6 +35,8 @@ export {
   getMatchLineItems,
   getMatchHistory,
   getDefaultToleranceConfig,
+  listThreeWayMatches,
+  type ListThreeWayMatchesFilters,
 } from './queries';
 
 // Export discrepancy management

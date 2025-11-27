@@ -62,3 +62,70 @@ export async function getAmendmentApprovalHistory(
     throw error;
   }
 }
+
+/**
+ * List all amendments with optional filters
+ */
+export interface ListAmendmentsFilters {
+  status?: PurchaseOrderAmendment['status'];
+  purchaseOrderId?: string;
+  amendmentType?: PurchaseOrderAmendment['amendmentType'];
+}
+
+export async function listAmendments(
+  db: Firestore,
+  filters: ListAmendmentsFilters = {}
+): Promise<PurchaseOrderAmendment[]> {
+  try {
+    const amendmentsRef = collection(db, COLLECTIONS.PURCHASE_ORDER_AMENDMENTS);
+    const constraints: ReturnType<typeof where>[] = [];
+
+    if (filters.status) {
+      constraints.push(where('status', '==', filters.status));
+    }
+    if (filters.purchaseOrderId) {
+      constraints.push(where('purchaseOrderId', '==', filters.purchaseOrderId));
+    }
+    if (filters.amendmentType) {
+      constraints.push(where('amendmentType', '==', filters.amendmentType));
+    }
+
+    const q = query(amendmentsRef, ...constraints, orderBy('amendmentDate', 'desc'));
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as PurchaseOrderAmendment[];
+  } catch (error) {
+    logger.error('Failed to list amendments', { error, filters });
+    throw error;
+  }
+}
+
+/**
+ * Get a single amendment by ID
+ */
+export async function getAmendmentById(
+  db: Firestore,
+  amendmentId: string
+): Promise<PurchaseOrderAmendment | null> {
+  try {
+    const { doc: docRef, getDoc } = await import('firebase/firestore');
+    const amendmentDoc = await getDoc(
+      docRef(db, COLLECTIONS.PURCHASE_ORDER_AMENDMENTS, amendmentId)
+    );
+
+    if (!amendmentDoc.exists()) {
+      return null;
+    }
+
+    return {
+      id: amendmentDoc.id,
+      ...amendmentDoc.data(),
+    } as PurchaseOrderAmendment;
+  } catch (error) {
+    logger.error('Failed to get amendment', { error, amendmentId });
+    throw error;
+  }
+}
