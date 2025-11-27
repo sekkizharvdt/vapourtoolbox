@@ -243,15 +243,24 @@ export function getModulesByCategory(category: 'core' | 'application') {
 }
 
 /**
- * Get modules accessible by user permissions
+ * Get modules accessible by user permissions and allowed modules list
  * Import PERMISSION_FLAGS from @vapour/constants and use hasPermission helper
+ * @param userPermissions - Bitwise permission flags
+ * @param allowedModules - Optional array of module IDs the user can access (empty = all modules)
  */
-export function getModulesByPermissions(userPermissions: number) {
+export function getModulesByPermissions(userPermissions: number, allowedModules?: string[]) {
   return Object.values(MODULES).filter((module) => {
-    // If no permission required, accessible by all
-    if (module.requiredPermissions === undefined) return true;
-    // Check if user has required permissions using bitwise AND
-    return (userPermissions & module.requiredPermissions) === module.requiredPermissions;
+    // Check permission requirement
+    if (module.requiredPermissions !== undefined) {
+      if ((userPermissions & module.requiredPermissions) !== module.requiredPermissions) {
+        return false;
+      }
+    }
+    // Check module visibility (if allowedModules is set, must include this module)
+    if (allowedModules && allowedModules.length > 0) {
+      if (!allowedModules.includes(module.id)) return false;
+    }
+    return true;
   });
 }
 
@@ -271,10 +280,26 @@ export function getModuleById(id: string): ModuleDefinition | undefined {
 
 /**
  * Check if user has access to a specific module
+ * @param moduleId - The module ID to check
+ * @param userPermissions - Bitwise permission flags
+ * @param allowedModules - Optional array of module IDs the user can access (empty = all modules)
  */
-export function hasModuleAccess(moduleId: string, userPermissions: number): boolean {
+export function hasModuleAccess(
+  moduleId: string,
+  userPermissions: number,
+  allowedModules?: string[]
+): boolean {
   const module = getModuleById(moduleId);
   if (!module) return false;
-  if (module.requiredPermissions === undefined) return true;
-  return (userPermissions & module.requiredPermissions) === module.requiredPermissions;
+
+  // Check permission requirement
+  const hasPermission =
+    module.requiredPermissions === undefined ||
+    (userPermissions & module.requiredPermissions) === module.requiredPermissions;
+
+  // Check module visibility (if allowedModules is set, must include this module)
+  const hasVisibility =
+    !allowedModules || allowedModules.length === 0 || allowedModules.includes(moduleId);
+
+  return hasPermission && hasVisibility;
 }

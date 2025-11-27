@@ -40,6 +40,7 @@ interface SidebarProps {
   mobileOpen: boolean;
   onMobileClose: () => void;
   userPermissions?: number;
+  allowedModules?: string[]; // Module IDs user can access (empty = all modules)
   collapsed: boolean;
   onToggleCollapse: () => void;
 }
@@ -108,6 +109,7 @@ export function Sidebar({
   mobileOpen,
   onMobileClose,
   userPermissions = 0,
+  allowedModules,
   collapsed,
   onToggleCollapse,
 }: SidebarProps) {
@@ -116,12 +118,20 @@ export function Sidebar({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Filter modules based on user permissions (include both active and coming_soon modules)
+  // Filter modules based on user permissions and allowed modules
   const accessibleModules = Object.values(MODULES).filter((module) => {
     // Include both active and coming_soon modules
     if (module.status !== 'active' && module.status !== 'coming_soon') return false;
-    // If no permission required, accessible by all
+
+    // Check module visibility (if allowedModules is set, must include this module)
+    // Empty array or undefined means all modules are accessible
+    if (allowedModules && allowedModules.length > 0) {
+      if (!allowedModules.includes(module.id)) return false;
+    }
+
+    // If no permission required, accessible by all (visibility check already passed)
     if (module.requiredPermissions === undefined) return true;
+
     // Check if user has required permissions using bitwise AND
     return (userPermissions & module.requiredPermissions) === module.requiredPermissions;
   });

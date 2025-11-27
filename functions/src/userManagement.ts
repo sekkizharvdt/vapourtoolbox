@@ -3,12 +3,7 @@ import type { FirestoreEvent, Change } from 'firebase-functions/v2/firestore';
 import type { DocumentSnapshot } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
 import * as admin from 'firebase-admin';
-import {
-  auditUserAction,
-  auditRoleChange,
-  auditPermissionChange,
-  calculateFieldChanges,
-} from './utils/audit';
+import { auditUserAction, auditPermissionChange, calculateFieldChanges } from './utils/audit';
 
 /**
  * =====================================================================================
@@ -26,21 +21,32 @@ import {
  */
 
 /**
- * Count active SUPER_ADMIN users in the system
+ * Count active users with full admin permissions (MANAGE_USERS permission)
  * Used to prevent deletion/deactivation of the last admin
  */
-async function countActiveSuperAdmins(): Promise<number> {
+async function countActiveAdmins(): Promise<number> {
   const db = admin.firestore();
   const usersRef = db.collection('users');
 
+  // Query for active users - we'll check permissions in code
+  // since Firestore doesn't support bitwise operations in queries
   const snapshot = await usersRef
-    .where('roles', 'array-contains', 'SUPER_ADMIN')
     .where('status', '==', 'active')
     .where('isActive', '==', true)
-    .count()
     .get();
 
-  return snapshot.data().count;
+  // Count users with MANAGE_USERS permission (bit 0)
+  let count = 0;
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    const permissions = data.permissions || 0;
+    // Check if user has MANAGE_USERS permission (1 << 0 = 1)
+    if ((permissions & PERMISSION_FLAGS.MANAGE_USERS) === PERMISSION_FLAGS.MANAGE_USERS) {
+      count++;
+    }
+  });
+
+  return count;
 }
 
 // Permission flags - MUST match packages/constants/src/permissions.ts EXACTLY
@@ -93,112 +99,9 @@ const PERMISSION_FLAGS = {
   RECONCILE_ACCOUNTS: 1 << 26, // 67108864 - Bank reconciliation
 };
 
-// Helper to get all permissions (for SUPER_ADMIN)
-function getAllPermissions(): number {
-  return Object.values(PERMISSION_FLAGS).reduce((acc, perm) => acc | perm, 0);
-}
-
-// Role to Permissions Mapping - MUST match packages/constants/src/permissions.ts EXACTLY
-const ROLE_PERMISSIONS: Record<string, number> = {
-  SUPER_ADMIN: getAllPermissions(), // All permissions
-
-  DIRECTOR:
-    PERMISSION_FLAGS.MANAGE_USERS |
-    PERMISSION_FLAGS.VIEW_USERS |
-    PERMISSION_FLAGS.MANAGE_ROLES |
-    PERMISSION_FLAGS.MANAGE_PROJECTS |
-    PERMISSION_FLAGS.VIEW_PROJECTS |
-    PERMISSION_FLAGS.VIEW_ENTITIES |
-    PERMISSION_FLAGS.CREATE_ENTITIES |
-    PERMISSION_FLAGS.EDIT_ENTITIES |
-    PERMISSION_FLAGS.MANAGE_COMPANY_SETTINGS |
-    PERMISSION_FLAGS.VIEW_ANALYTICS |
-    PERMISSION_FLAGS.EXPORT_DATA |
-    PERMISSION_FLAGS.MANAGE_TIME_TRACKING |
-    PERMISSION_FLAGS.VIEW_TIME_TRACKING |
-    PERMISSION_FLAGS.MANAGE_ACCOUNTING |
-    PERMISSION_FLAGS.VIEW_ACCOUNTING |
-    PERMISSION_FLAGS.MANAGE_PROCUREMENT |
-    PERMISSION_FLAGS.VIEW_PROCUREMENT |
-    PERMISSION_FLAGS.MANAGE_ESTIMATION |
-    PERMISSION_FLAGS.VIEW_ESTIMATION |
-    PERMISSION_FLAGS.MANAGE_CHART_OF_ACCOUNTS |
-    PERMISSION_FLAGS.CREATE_TRANSACTIONS |
-    PERMISSION_FLAGS.APPROVE_TRANSACTIONS |
-    PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS |
-    PERMISSION_FLAGS.MANAGE_COST_CENTRES |
-    PERMISSION_FLAGS.MANAGE_FOREX |
-    PERMISSION_FLAGS.RECONCILE_ACCOUNTS,
-
-  HR_ADMIN:
-    PERMISSION_FLAGS.MANAGE_USERS | PERMISSION_FLAGS.VIEW_USERS | PERMISSION_FLAGS.MANAGE_ROLES,
-
-  FINANCE_MANAGER:
-    PERMISSION_FLAGS.VIEW_PROJECTS |
-    PERMISSION_FLAGS.VIEW_ANALYTICS |
-    PERMISSION_FLAGS.EXPORT_DATA |
-    PERMISSION_FLAGS.VIEW_TIME_TRACKING |
-    PERMISSION_FLAGS.MANAGE_ACCOUNTING |
-    PERMISSION_FLAGS.VIEW_ACCOUNTING |
-    PERMISSION_FLAGS.MANAGE_CHART_OF_ACCOUNTS |
-    PERMISSION_FLAGS.CREATE_TRANSACTIONS |
-    PERMISSION_FLAGS.APPROVE_TRANSACTIONS |
-    PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS |
-    PERMISSION_FLAGS.MANAGE_COST_CENTRES |
-    PERMISSION_FLAGS.MANAGE_FOREX |
-    PERMISSION_FLAGS.RECONCILE_ACCOUNTS,
-
-  ACCOUNTANT:
-    PERMISSION_FLAGS.VIEW_TIME_TRACKING |
-    PERMISSION_FLAGS.VIEW_ACCOUNTING |
-    PERMISSION_FLAGS.CREATE_TRANSACTIONS |
-    PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS |
-    PERMISSION_FLAGS.RECONCILE_ACCOUNTS,
-
-  PROJECT_MANAGER:
-    PERMISSION_FLAGS.MANAGE_PROJECTS |
-    PERMISSION_FLAGS.VIEW_PROJECTS |
-    PERMISSION_FLAGS.VIEW_ENTITIES |
-    PERMISSION_FLAGS.VIEW_ANALYTICS |
-    PERMISSION_FLAGS.VIEW_TIME_TRACKING |
-    PERMISSION_FLAGS.MANAGE_PROCUREMENT |
-    PERMISSION_FLAGS.VIEW_PROCUREMENT,
-
-  ENGINEERING_HEAD:
-    PERMISSION_FLAGS.VIEW_PROJECTS |
-    PERMISSION_FLAGS.VIEW_ENTITIES |
-    PERMISSION_FLAGS.MANAGE_ESTIMATION |
-    PERMISSION_FLAGS.VIEW_ESTIMATION,
-
-  ENGINEER: PERMISSION_FLAGS.VIEW_ESTIMATION,
-
-  PROCUREMENT_MANAGER:
-    PERMISSION_FLAGS.VIEW_PROJECTS |
-    PERMISSION_FLAGS.VIEW_ENTITIES |
-    PERMISSION_FLAGS.CREATE_ENTITIES |
-    PERMISSION_FLAGS.EDIT_ENTITIES |
-    PERMISSION_FLAGS.MANAGE_PROCUREMENT |
-    PERMISSION_FLAGS.VIEW_PROCUREMENT |
-    PERMISSION_FLAGS.MANAGE_ESTIMATION |
-    PERMISSION_FLAGS.VIEW_ESTIMATION,
-
-  SITE_ENGINEER: PERMISSION_FLAGS.VIEW_PROCUREMENT,
-
-  TEAM_MEMBER: 0, // No special permissions
-
-  CLIENT_PM: PERMISSION_FLAGS.VIEW_PROCUREMENT,
-};
-
-// Calculate combined permissions from multiple roles
-function calculatePermissionsFromRoles(roles: string[]): number {
-  let permissions = 0;
-  for (const role of roles) {
-    const rolePermissions = ROLE_PERMISSIONS[role];
-    if (rolePermissions !== undefined) {
-      permissions |= rolePermissions;
-    }
-  }
-  return permissions;
+// Helper to check if user has admin permissions
+function hasAdminPermission(permissions: number): boolean {
+  return (permissions & PERMISSION_FLAGS.MANAGE_USERS) === PERMISSION_FLAGS.MANAGE_USERS;
 }
 
 /**
@@ -231,22 +134,21 @@ export const onUserUpdate = onDocumentWritten(
         const previousData =
           change && change.before && change.before.exists ? change.before.data() : null;
 
-        // === SUPER ADMIN SAFEGUARD ===
-        // Prevent deleting the last SUPER_ADMIN to avoid system lockout
+        // === ADMIN SAFEGUARD ===
+        // Prevent deleting the last admin user to avoid system lockout
         if (previousData) {
-          const wasSuperAdmin =
-            Array.isArray(previousData.roles) && previousData.roles.includes('SUPER_ADMIN');
+          const hadAdminPermission = hasAdminPermission(previousData.permissions || 0);
           const wasActive = previousData.status === 'active' && previousData.isActive === true;
 
-          if (wasSuperAdmin && wasActive) {
-            const activeSuperAdminCount = await countActiveSuperAdmins();
-            if (activeSuperAdminCount <= 0) {
-              // This was the last active Super Admin
+          if (hadAdminPermission && wasActive) {
+            const activeAdminCount = await countActiveAdmins();
+            if (activeAdminCount <= 0) {
+              // This was the last active admin
               console.error(
-                `Cannot delete last SUPER_ADMIN: ${previousData.email || userId}. At least one active SUPER_ADMIN must exist.`
+                `Cannot delete last admin user: ${previousData.email || userId}. At least one active admin must exist.`
               );
               throw new Error(
-                'Cannot delete the last SUPER_ADMIN. System must have at least one active administrator.'
+                'Cannot delete the last admin user. System must have at least one active administrator.'
               );
             }
           }
@@ -269,7 +171,7 @@ export const onUserUpdate = onDocumentWritten(
             actorName: 'System',
             metadata: {
               deletedAt: new Date().toISOString(),
-              previousRoles: previousData.roles || [],
+              previousPermissions: previousData.permissions || 0,
               previousStatus: previousData.status || 'unknown',
               triggeredBy: 'onUserUpdate',
             },
@@ -288,16 +190,12 @@ export const onUserUpdate = onDocumentWritten(
     const isNewDocument = !previousData;
 
     // Check what changed (needed for audit logging)
-    const rolesChanged =
-      !isNewDocument && JSON.stringify(userData?.roles) !== JSON.stringify(previousData?.roles);
     const statusChanged = !isNewDocument && userData?.status !== previousData?.status;
     const permissionsChanged =
       !isNewDocument && userData?.permissions !== previousData?.permissions;
-
-    // ALWAYS recalculate permissions from roles to ensure they stay in sync
-    // This ensures that when permission definitions change, all users automatically
-    // get updated permissions on their next document write.
-    // The small performance cost is worth the reliability gain.
+    const allowedModulesChanged =
+      !isNewDocument &&
+      JSON.stringify(userData?.allowedModules) !== JSON.stringify(previousData?.allowedModules);
 
     // Skip if user doesn't have email (shouldn't happen, but defensive)
     if (!userData?.email) {
@@ -309,20 +207,20 @@ export const onUserUpdate = onDocumentWritten(
       // Get user from Firebase Auth to ensure they exist
       const user = await admin.auth().getUser(userId);
 
-      // === SUPER ADMIN SAFEGUARD ===
-      // Prevent deactivating the last SUPER_ADMIN to avoid system lockout
+      // === ADMIN SAFEGUARD ===
+      // Prevent deactivating the last admin user to avoid system lockout
       const wasActive = previousData?.status === 'active' && previousData?.isActive === true;
       const isBeingDeactivated = wasActive && (userData.status !== 'active' || !userData.isActive);
-      const isSuperAdmin = Array.isArray(userData.roles) && userData.roles.includes('SUPER_ADMIN');
+      const isAdmin = hasAdminPermission(userData.permissions || 0);
 
-      if (isBeingDeactivated && isSuperAdmin) {
-        const activeSuperAdminCount = await countActiveSuperAdmins();
-        if (activeSuperAdminCount <= 1) {
+      if (isBeingDeactivated && isAdmin) {
+        const activeAdminCount = await countActiveAdmins();
+        if (activeAdminCount <= 1) {
           console.error(
-            `Cannot deactivate last SUPER_ADMIN: ${user.email}. At least one active SUPER_ADMIN must exist.`
+            `Cannot deactivate last admin user: ${user.email}. At least one active admin must exist.`
           );
           throw new Error(
-            'Cannot deactivate the last SUPER_ADMIN. System must have at least one active administrator.'
+            'Cannot deactivate the last admin user. System must have at least one active administrator.'
           );
         }
       }
@@ -341,31 +239,23 @@ export const onUserUpdate = onDocumentWritten(
       }
 
       // User is active - set up custom claims
-      const roles = userData.roles || [];
-
-      // Validate roles array
-      if (!Array.isArray(roles) || roles.length === 0) {
-        console.warn(`User ${user.email} has no roles, clearing claims`);
-        await admin.auth().setCustomUserClaims(userId, null);
-        return;
-      }
-
-      // ALWAYS calculate permissions from roles - roles are the single source of truth
-      // This ensures permissions stay in sync with role definitions
-      // Uses shared function from @vapour/constants
-      const permissions = calculatePermissionsFromRoles(roles);
+      // Permissions are stored directly on the user document (no roles)
+      const permissions = userData.permissions || 0;
       const domain = getUserDomain(userData.email);
+
+      // Get allowed modules (empty array means all modules)
+      const allowedModules = Array.isArray(userData.allowedModules) ? userData.allowedModules : [];
 
       // Ensure assignedProjects field exists (required for queries)
       const assignedProjects = Array.isArray(userData.assignedProjects)
         ? userData.assignedProjects
         : [];
 
-      // Set custom claims (including assignedProjects for project access validation)
+      // Set custom claims (permissions-based, no roles)
       const customClaims = {
-        roles,
         permissions,
         domain,
+        allowedModules,
         assignedProjects, // Add assignedProjects to avoid Firestore reads in rules
         ...(userData.department && { department: userData.department }),
       };
@@ -373,41 +263,19 @@ export const onUserUpdate = onDocumentWritten(
       await admin.auth().setCustomUserClaims(userId, customClaims);
 
       console.log(`Updated custom claims for user ${user.email}:`, {
-        roles,
         permissions,
         domain,
+        allowedModules: allowedModules.length > 0 ? allowedModules : 'all',
       });
 
-      // Update user document with all calculated/required fields
+      // Update user document with calculated domain field
       // This ensures data consistency between Firestore and Auth claims
       await change.after.ref.update({
         domain,
-        permissions,
-        assignedProjects,
         lastClaimUpdate: FieldValue.serverTimestamp(),
       });
 
       // === AUDIT LOGGING ===
-      // Track role changes
-      if (!isNewDocument && rolesChanged) {
-        const roleChanges = calculateFieldChanges(previousData || {}, userData, ['roles']);
-
-        await auditRoleChange({
-          action: 'ROLE_ASSIGNED',
-          userId,
-          userEmail: userData.email,
-          changes: roleChanges,
-          actorId: 'system',
-          actorEmail: 'system@vapourdesal.com',
-          actorName: 'System',
-          metadata: {
-            previousRoles: previousData?.roles || [],
-            newRoles: roles,
-            triggeredBy: 'onUserUpdate',
-          },
-        });
-      }
-
       // Track permission changes
       if (!isNewDocument && permissionsChanged) {
         const permissionChanges = calculateFieldChanges(previousData || {}, { permissions }, [
@@ -425,7 +293,28 @@ export const onUserUpdate = onDocumentWritten(
           metadata: {
             previousPermissions: previousData?.permissions || 0,
             newPermissions: permissions,
-            roles,
+            triggeredBy: 'onUserUpdate',
+          },
+        });
+      }
+
+      // Track allowed modules changes
+      if (!isNewDocument && allowedModulesChanged) {
+        const moduleChanges = calculateFieldChanges(previousData || {}, userData, [
+          'allowedModules',
+        ]);
+
+        await auditPermissionChange({
+          action: 'CLAIMS_UPDATED',
+          userId,
+          userEmail: userData.email,
+          changes: moduleChanges,
+          actorId: 'system',
+          actorEmail: 'system@vapourdesal.com',
+          actorName: 'System',
+          metadata: {
+            previousAllowedModules: previousData?.allowedModules || [],
+            newAllowedModules: allowedModules,
             triggeredBy: 'onUserUpdate',
           },
         });

@@ -11,20 +11,30 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Chip,
   Box,
   Typography,
   Alert,
   CircularProgress,
-  OutlinedInput,
-  SelectChangeEvent,
   TextField,
+  FormGroup,
+  FormControlLabel,
+  Checkbox,
+  Divider,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
+import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { User, UserRole, Department } from '@vapour/types';
-import { getDepartmentOptions } from '@vapour/constants';
+import type { User, Department } from '@vapour/types';
+import {
+  getDepartmentOptions,
+  PERMISSION_FLAGS,
+  PERMISSION_PRESETS,
+  MODULES,
+} from '@vapour/constants';
 
 interface ApproveUserDialogProps {
   open: boolean;
@@ -33,41 +43,103 @@ interface ApproveUserDialogProps {
   onSuccess: () => void;
 }
 
-// Internal roles only (CLIENT_PM not allowed for approval)
-const INTERNAL_ROLES: UserRole[] = [
-  'SUPER_ADMIN',
-  'DIRECTOR',
-  'HR_ADMIN',
-  'FINANCE_MANAGER',
-  'ACCOUNTANT',
-  'PROJECT_MANAGER',
-  'ENGINEERING_HEAD',
-  'ENGINEER',
-  'PROCUREMENT_MANAGER',
-  'SITE_ENGINEER',
-  'TEAM_MEMBER',
-];
+// Group permissions by category for the UI
+const PERMISSION_GROUPS = {
+  'User & System': [
+    { flag: 'MANAGE_USERS', label: 'Manage Users' },
+    { flag: 'VIEW_USERS', label: 'View Users' },
+    { flag: 'MANAGE_ROLES', label: 'Manage Roles' },
+    { flag: 'MANAGE_COMPANY_SETTINGS', label: 'Manage Company Settings' },
+  ],
+  Projects: [
+    { flag: 'MANAGE_PROJECTS', label: 'Manage Projects' },
+    { flag: 'VIEW_PROJECTS', label: 'View Projects' },
+  ],
+  Entities: [
+    { flag: 'VIEW_ENTITIES', label: 'View Entities' },
+    { flag: 'CREATE_ENTITIES', label: 'Create Entities' },
+    { flag: 'EDIT_ENTITIES', label: 'Edit Entities' },
+    { flag: 'DELETE_ENTITIES', label: 'Delete Entities' },
+  ],
+  Procurement: [
+    { flag: 'MANAGE_PROCUREMENT', label: 'Manage Procurement' },
+    { flag: 'VIEW_PROCUREMENT', label: 'View Procurement' },
+  ],
+  Accounting: [
+    { flag: 'MANAGE_ACCOUNTING', label: 'Manage Accounting' },
+    { flag: 'VIEW_ACCOUNTING', label: 'View Accounting' },
+    { flag: 'MANAGE_CHART_OF_ACCOUNTS', label: 'Manage Chart of Accounts' },
+    { flag: 'CREATE_TRANSACTIONS', label: 'Create Transactions' },
+    { flag: 'APPROVE_TRANSACTIONS', label: 'Approve Transactions' },
+    { flag: 'VIEW_FINANCIAL_REPORTS', label: 'View Financial Reports' },
+    { flag: 'MANAGE_COST_CENTRES', label: 'Manage Cost Centres' },
+    { flag: 'MANAGE_FOREX', label: 'Manage Forex' },
+    { flag: 'RECONCILE_ACCOUNTS', label: 'Reconcile Accounts' },
+  ],
+  Estimation: [
+    { flag: 'MANAGE_ESTIMATION', label: 'Manage Estimation' },
+    { flag: 'VIEW_ESTIMATION', label: 'View Estimation' },
+  ],
+  'Time & Analytics': [
+    { flag: 'MANAGE_TIME_TRACKING', label: 'Manage Time Tracking' },
+    { flag: 'VIEW_TIME_TRACKING', label: 'View Time Tracking' },
+    { flag: 'VIEW_ANALYTICS', label: 'View Analytics' },
+    { flag: 'EXPORT_DATA', label: 'Export Data' },
+  ],
+} as const;
+
+// Get all module IDs for the module selection
+const ALL_MODULES = Object.values(MODULES)
+  .filter((m) => m.status === 'active')
+  .map((m) => ({ id: m.id, name: m.name }));
 
 export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUserDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   // Form state
-  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>([]);
+  const [permissions, setPermissions] = useState(0);
   const [department, setDepartment] = useState<Department | ''>('');
   const [jobTitle, setJobTitle] = useState('');
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  const [allModulesAccess, setAllModulesAccess] = useState(true);
 
-  const handleRolesChange = (event: SelectChangeEvent<UserRole[]>) => {
-    const value = event.target.value;
-    setSelectedRoles(typeof value === 'string' ? [value as UserRole] : value);
+  // Apply a permission preset
+  const applyPreset = (presetName: keyof typeof PERMISSION_PRESETS) => {
+    setPermissions(PERMISSION_PRESETS[presetName]);
+  };
+
+  // Toggle a permission flag
+  const togglePermission = (flag: keyof typeof PERMISSION_FLAGS) => {
+    const flagValue = PERMISSION_FLAGS[flag];
+    if ((permissions & flagValue) === flagValue) {
+      setPermissions(permissions & ~flagValue);
+    } else {
+      setPermissions(permissions | flagValue);
+    }
+  };
+
+  // Check if a permission is set
+  const hasPermission = (flag: keyof typeof PERMISSION_FLAGS) => {
+    const flagValue = PERMISSION_FLAGS[flag];
+    return (permissions & flagValue) === flagValue;
+  };
+
+  // Toggle module selection
+  const toggleModule = (moduleId: string) => {
+    if (selectedModules.includes(moduleId)) {
+      setSelectedModules(selectedModules.filter((m) => m !== moduleId));
+    } else {
+      setSelectedModules([...selectedModules, moduleId]);
+    }
   };
 
   const handleApprove = async () => {
     if (!user) return;
 
     // Validation
-    if (selectedRoles.length === 0) {
-      setError('At least one role is required');
+    if (permissions === 0) {
+      setError('At least one permission is required');
       return;
     }
 
@@ -83,11 +155,12 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
       const { db } = getFirebase();
       const userRef = doc(db, COLLECTIONS.USERS, user.uid);
 
-      // Update user document - set to active and assign roles
+      // Update user document - set to active and assign permissions
       await updateDoc(userRef, {
-        roles: selectedRoles,
+        permissions,
         department,
         jobTitle: jobTitle.trim() || null,
+        allowedModules: allModulesAccess ? [] : selectedModules,
         status: 'active',
         isActive: true,
         updatedAt: Timestamp.now(),
@@ -100,12 +173,15 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
       onClose();
 
       // Reset form
-      setSelectedRoles([]);
+      setPermissions(0);
       setDepartment('');
       setJobTitle('');
+      setSelectedModules([]);
+      setAllModulesAccess(true);
     } catch (err: unknown) {
       console.error('Error approving user:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to approve user. Please try again.';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to approve user. Please try again.';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -115,7 +191,11 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
   const handleReject = async () => {
     if (!user) return;
 
-    if (!confirm(`Are you sure you want to reject ${user.displayName}? This will mark them as inactive.`)) {
+    if (
+      !confirm(
+        `Are you sure you want to reject ${user.displayName}? This will mark them as inactive.`
+      )
+    ) {
       return;
     }
 
@@ -137,7 +217,8 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
       onClose();
     } catch (err: unknown) {
       console.error('Error rejecting user:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to reject user. Please try again.';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to reject user. Please try again.';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -147,9 +228,11 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
   const handleClose = () => {
     if (!loading) {
       setError('');
-      setSelectedRoles([]);
+      setPermissions(0);
       setDepartment('');
       setJobTitle('');
+      setSelectedModules([]);
+      setAllModulesAccess(true);
       onClose();
     }
   };
@@ -157,7 +240,7 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
   if (!user) return null;
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle>Approve New User</DialogTitle>
       <DialogContent>
         {error && (
@@ -191,30 +274,6 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
             placeholder="e.g., Senior Engineer"
           />
 
-          {/* Roles (Multi-select) */}
-          <FormControl fullWidth required>
-            <InputLabel>Roles</InputLabel>
-            <Select
-              multiple
-              value={selectedRoles}
-              onChange={handleRolesChange}
-              input={<OutlinedInput label="Roles" />}
-              renderValue={(selected) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {selected.map((role) => (
-                    <Chip key={role} label={role.replace(/_/g, ' ')} size="small" />
-                  ))}
-                </Box>
-              )}
-            >
-              {INTERNAL_ROLES.map((role) => (
-                <MenuItem key={role} value={role}>
-                  {role.replace(/_/g, ' ')}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
           {/* Department */}
           <FormControl fullWidth required>
             <InputLabel>Department</InputLabel>
@@ -231,11 +290,115 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
             </Select>
           </FormControl>
 
+          <Divider sx={{ my: 1 }} />
+
+          {/* Permission Presets */}
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Quick Permission Presets
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              <Button size="small" variant="outlined" onClick={() => applyPreset('FULL_ACCESS')}>
+                Full Access
+              </Button>
+              <Button size="small" variant="outlined" onClick={() => applyPreset('MANAGER')}>
+                Manager
+              </Button>
+              <Button size="small" variant="outlined" onClick={() => applyPreset('FINANCE')}>
+                Finance
+              </Button>
+              <Button size="small" variant="outlined" onClick={() => applyPreset('ENGINEERING')}>
+                Engineering
+              </Button>
+              <Button size="small" variant="outlined" onClick={() => applyPreset('PROCUREMENT')}>
+                Procurement
+              </Button>
+              <Button size="small" variant="outlined" onClick={() => applyPreset('VIEWER')}>
+                Viewer
+              </Button>
+              <Button size="small" variant="text" color="inherit" onClick={() => setPermissions(0)}>
+                Clear All
+              </Button>
+            </Box>
+          </Box>
+
+          {/* Detailed Permissions */}
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Detailed Permissions
+            </Typography>
+            {Object.entries(PERMISSION_GROUPS).map(([groupName, perms]) => (
+              <Accordion key={groupName} defaultExpanded={groupName === 'User & System'}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography variant="body2">{groupName}</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <FormGroup row>
+                    {perms.map(({ flag, label }) => (
+                      <FormControlLabel
+                        key={flag}
+                        control={
+                          <Checkbox
+                            checked={hasPermission(flag as keyof typeof PERMISSION_FLAGS)}
+                            onChange={() => togglePermission(flag as keyof typeof PERMISSION_FLAGS)}
+                            size="small"
+                          />
+                        }
+                        label={<Typography variant="body2">{label}</Typography>}
+                        sx={{ minWidth: '180px' }}
+                      />
+                    ))}
+                  </FormGroup>
+                </AccordionDetails>
+              </Accordion>
+            ))}
+          </Box>
+
+          <Divider sx={{ my: 1 }} />
+
+          {/* Module Access */}
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Module Access
+            </Typography>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={allModulesAccess}
+                  onChange={(e) => setAllModulesAccess(e.target.checked)}
+                />
+              }
+              label="Access to all modules (based on permissions)"
+            />
+            {!allModulesAccess && (
+              <Box sx={{ mt: 1, pl: 2 }}>
+                <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+                  Select specific modules this user can access:
+                </Typography>
+                <FormGroup row>
+                  {ALL_MODULES.map((module) => (
+                    <FormControlLabel
+                      key={module.id}
+                      control={
+                        <Checkbox
+                          checked={selectedModules.includes(module.id)}
+                          onChange={() => toggleModule(module.id)}
+                          size="small"
+                        />
+                      }
+                      label={<Typography variant="body2">{module.name}</Typography>}
+                      sx={{ minWidth: '180px' }}
+                    />
+                  ))}
+                </FormGroup>
+              </Box>
+            )}
+          </Box>
+
           {/* Info */}
           <Alert severity="info">
-            Once approved, the user will receive an in-app notification and their custom claims
-            will be automatically configured. They will need to refresh the page to see the
-            changes.
+            Once approved, the user will receive an in-app notification and their custom claims will
+            be automatically configured. They will need to refresh the page to see the changes.
           </Alert>
         </Box>
       </DialogContent>

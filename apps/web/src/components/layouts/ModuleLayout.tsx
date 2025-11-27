@@ -19,6 +19,11 @@ interface ModuleLayoutProps {
    * The module name displayed in the access denied message
    */
   moduleName: string;
+  /**
+   * Optional module ID for visibility check (from MODULES constant)
+   * If provided, user's allowedModules will be checked
+   */
+  moduleId?: string;
 }
 
 /**
@@ -49,7 +54,12 @@ interface ModuleLayoutProps {
  * }
  * ```
  */
-export function ModuleLayout({ children, permissionCheck, moduleName }: ModuleLayoutProps) {
+export function ModuleLayout({
+  children,
+  permissionCheck,
+  moduleName,
+  moduleId,
+}: ModuleLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     // Load collapsed state from localStorage
@@ -175,7 +185,17 @@ export function ModuleLayout({ children, permissionCheck, moduleName }: ModuleLa
 
   // Check module-specific permissions
   const userPermissions = claims.permissions || 0;
-  const hasAccess = permissionCheck(userPermissions);
+  const allowedModules = claims.allowedModules || [];
+  const hasPermissionAccess = permissionCheck(userPermissions);
+
+  // Check module visibility (if moduleId provided and allowedModules is restricted)
+  const hasModuleVisibility =
+    !moduleId || // No moduleId means no visibility check
+    !allowedModules || // No allowedModules means all modules visible
+    allowedModules.length === 0 || // Empty array means all modules visible
+    allowedModules.includes(moduleId); // Check if this module is allowed
+
+  const hasAccess = hasPermissionAccess && hasModuleVisibility;
 
   // If no permission, show access denied
   if (!hasAccess) {
@@ -202,7 +222,8 @@ export function ModuleLayout({ children, permissionCheck, moduleName }: ModuleLa
       <Sidebar
         mobileOpen={mobileOpen}
         onMobileClose={handleDrawerToggle}
-        userPermissions={claims?.permissions || 0}
+        userPermissions={userPermissions}
+        allowedModules={allowedModules}
         collapsed={sidebarCollapsed}
         onToggleCollapse={handleSidebarToggle}
       />

@@ -31,7 +31,13 @@ import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { User, Department, UserStatus } from '@vapour/types';
-import { getDepartmentOptions, PERMISSION_FLAGS, hasPermission } from '@vapour/constants';
+import { getDepartmentOptions, PERMISSION_FLAGS, hasPermission, MODULES } from '@vapour/constants';
+import { Divider, FormGroup, FormControlLabel } from '@mui/material';
+
+// Get all active modules for the module selection
+const ALL_MODULES = Object.values(MODULES)
+  .filter((m) => m.status === 'active')
+  .map((m) => ({ id: m.id, name: m.name }));
 
 interface EditUserDialogProps {
   open: boolean;
@@ -53,6 +59,8 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
   const [department, setDepartment] = useState<Department | ''>('');
   const [status, setStatus] = useState<UserStatus>('active');
   const [permissions, setPermissions] = useState<number>(0);
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  const [allModulesAccess, setAllModulesAccess] = useState(true);
 
   // Initialize form when user changes
   useEffect(() => {
@@ -64,6 +72,10 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
       setDepartment(user.department || '');
       setStatus(user.status);
       setPermissions(user.permissions || 0);
+      // Module visibility: empty array means all modules
+      const userModules = user.allowedModules || [];
+      setSelectedModules(userModules);
+      setAllModulesAccess(userModules.length === 0);
       setSaveSuccess(false);
       setError('');
     }
@@ -80,6 +92,15 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
         return prev | permission;
       }
     });
+  };
+
+  // Toggle module selection
+  const toggleModule = (moduleId: string) => {
+    if (selectedModules.includes(moduleId)) {
+      setSelectedModules(selectedModules.filter((m) => m !== moduleId));
+    } else {
+      setSelectedModules([...selectedModules, moduleId]);
+    }
   };
 
   const handleSave = async () => {
@@ -107,6 +128,7 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
         department: department || null,
         status,
         permissions,
+        allowedModules: allModulesAccess ? [] : selectedModules,
         updatedAt: Timestamp.now(),
       });
 
@@ -556,11 +578,56 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
             </Box>
           </Box>
 
+          <Divider sx={{ my: 2 }} />
+
+          {/* Module Visibility */}
+          <Box>
+            <Typography variant="subtitle2" gutterBottom>
+              Module Visibility
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+              Control which modules appear in the sidebar for this user. Even with access to all
+              modules, permissions still apply.
+            </Typography>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={allModulesAccess}
+                  onChange={(e) => setAllModulesAccess(e.target.checked)}
+                />
+              }
+              label="Access to all modules (based on permissions)"
+            />
+            {!allModulesAccess && (
+              <Box sx={{ mt: 1, pl: 2 }}>
+                <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+                  Select specific modules this user can see:
+                </Typography>
+                <FormGroup row>
+                  {ALL_MODULES.map((module) => (
+                    <FormControlLabel
+                      key={module.id}
+                      control={
+                        <Checkbox
+                          checked={selectedModules.includes(module.id)}
+                          onChange={() => toggleModule(module.id)}
+                          size="small"
+                        />
+                      }
+                      label={<Typography variant="body2">{module.name}</Typography>}
+                      sx={{ minWidth: '180px' }}
+                    />
+                  ))}
+                </FormGroup>
+              </Box>
+            )}
+          </Box>
+
           {/* Info about custom claims */}
           <Alert severity="info">
-            When you save changes to roles, department, or permissions, custom claims will be
-            automatically updated by the system. Users may need to sign out and sign back in to see
-            permission changes.
+            When you save changes to department, permissions, or module visibility, custom claims
+            will be automatically updated by the system. Users may need to sign out and sign back in
+            to see permission changes.
           </Alert>
         </Box>
       </DialogContent>

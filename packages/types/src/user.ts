@@ -13,6 +13,7 @@ export interface CustomClaims {
   department?: Department;
   permissions: number; // Bitwise permissions (see permissions.ts)
   domain: 'internal' | 'external'; // vapourdesal.com vs external domains
+  allowedModules?: string[]; // Module IDs user can access (empty = all modules)
 }
 
 /**
@@ -27,6 +28,7 @@ export interface User extends TimestampFields {
   // Permissions and department
   department?: Department;
   permissions: number; // Bitwise permissions (see permissions.ts)
+  allowedModules?: string[]; // Module IDs user can access (empty = all modules)
   jobTitle?: string;
 
   // Contact info

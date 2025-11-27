@@ -34,13 +34,12 @@ service cloud.firestore {
     }
 
     /**
-     * Check if user is a Super Admin (highest privilege level)
-     * Super Admins can perform destructive operations like deletes
+     * Check if user has full admin permissions (highest privilege level)
+     * Admins can perform destructive operations like deletes
+     * Uses MANAGE_USERS permission (bit 0 = 1) as the admin indicator
      */
     function isSuperAdmin() {
-      return isAuthenticated() &&
-             request.auth.token.roles != null &&
-             request.auth.token.roles.hasAny(['SUPER_ADMIN']);
+      return isAuthenticated() && hasPermission(1); // MANAGE_USERS permission
     }
 
     /**
