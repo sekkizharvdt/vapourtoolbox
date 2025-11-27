@@ -25,74 +25,82 @@ let emulatorConnected = false;
  * Throws clear error if environment variables are missing
  */
 export function initializeFirebase() {
-  if (!getApps().length) {
+  const apps = getApps();
+
+  if (!apps.length) {
     // Validate and get configuration (will throw if invalid)
     const config = getFirebaseClientConfig();
-
     app = initializeApp(config);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    functions = getFunctions(app);
-    storage = getStorage(app);
-
-    // Connect to emulators ONLY in development/test environments
-    // CRITICAL: Do NOT use window.location.hostname check to prevent
-    // emulator connections in production builds accessed via localhost
-    if (!emulatorConnected && typeof window !== 'undefined') {
-      // Only enable emulators if explicitly set at BUILD time
-      // Never use runtime hostname checks to avoid production contamination
-      const useEmulator =
-        process.env.NEXT_PUBLIC_USE_EMULATOR === 'true' || process.env.NODE_ENV === 'test';
-
-      if (useEmulator && process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL) {
-        try {
-          connectAuthEmulator(auth, process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL, {
-            disableWarnings: true,
-          });
-          logger.info('✅ Connected to Auth Emulator');
-        } catch (error) {
-          logger.warn('Auth emulator already connected');
-        }
-      }
-
-      if (useEmulator && process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL) {
-        try {
-          const [host, port] = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL.split(':');
-          if (host && port) {
-            connectFirestoreEmulator(db, host, parseInt(port));
-            logger.info('✅ Connected to Firestore Emulator');
-          }
-        } catch (error) {
-          logger.warn('Firestore emulator already connected');
-        }
-      }
-
-      if (useEmulator && process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_FUNCTIONS_URL) {
-        try {
-          const [host, port] = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_FUNCTIONS_URL.split(':');
-          if (host && port) {
-            connectFunctionsEmulator(functions, host, parseInt(port));
-            logger.info('✅ Connected to Functions Emulator');
-          }
-        } catch (error) {
-          logger.warn('Functions emulator already connected');
-        }
-      }
-
-      // Expose Firebase instances to window ONLY for E2E testing
-      if (useEmulator && process.env.NODE_ENV === 'test') {
-        interface WindowWithFirebase extends Window {
-          __firebaseAuth?: Auth;
-          __firebaseDb?: Firestore;
-        }
-        (window as WindowWithFirebase).__firebaseAuth = auth;
-        (window as WindowWithFirebase).__firebaseDb = db;
-        logger.info('🧪 Firebase instances exposed to window for testing');
-      }
-
-      emulatorConnected = true;
-    }
+  } else {
+    // apps[0] is guaranteed to exist since we're in the else branch of !apps.length
+    app = apps[0]!;
   }
+
+  // Always initialize/update service instances
+  // These getters are idempotent and return the existing instance if available
+  auth = getAuth(app);
+  db = getFirestore(app);
+  functions = getFunctions(app);
+  storage = getStorage(app);
+
+  // Connect to emulators ONLY in development/test environments
+  // CRITICAL: Do NOT use window.location.hostname check to prevent
+  // emulator connections in production builds accessed via localhost
+  if (!emulatorConnected && typeof window !== 'undefined') {
+    // Only enable emulators if explicitly set at BUILD time
+    // Never use runtime hostname checks to avoid production contamination
+    const useEmulator =
+      process.env.NEXT_PUBLIC_USE_EMULATOR === 'true' || process.env.NODE_ENV === 'test';
+
+    if (useEmulator && process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL) {
+      try {
+        connectAuthEmulator(auth, process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL, {
+          disableWarnings: true,
+        });
+        logger.info('✅ Connected to Auth Emulator');
+      } catch (error) {
+        logger.warn('Auth emulator already connected');
+      }
+    }
+
+    if (useEmulator && process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL) {
+      try {
+        const [host, port] = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL.split(':');
+        if (host && port) {
+          connectFirestoreEmulator(db, host, parseInt(port));
+          logger.info('✅ Connected to Firestore Emulator');
+        }
+      } catch (error) {
+        logger.warn('Firestore emulator already connected');
+      }
+    }
+
+    if (useEmulator && process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_FUNCTIONS_URL) {
+      try {
+        const [host, port] = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_FUNCTIONS_URL.split(':');
+        if (host && port) {
+          connectFunctionsEmulator(functions, host, parseInt(port));
+          logger.info('✅ Connected to Functions Emulator');
+        }
+      } catch (error) {
+        logger.warn('Functions emulator already connected');
+      }
+    }
+
+    // Expose Firebase instances to window ONLY for E2E testing
+    if (useEmulator && process.env.NODE_ENV === 'test') {
+      interface WindowWithFirebase extends Window {
+        __firebaseAuth?: Auth;
+        __firebaseDb?: Firestore;
+      }
+      (window as WindowWithFirebase).__firebaseAuth = auth;
+      (window as WindowWithFirebase).__firebaseDb = db;
+      logger.info('🧪 Firebase instances exposed to window for testing');
+    }
+
+    emulatorConnected = true;
+  }
+
   return { app, auth, db, functions, storage };
 }
 
