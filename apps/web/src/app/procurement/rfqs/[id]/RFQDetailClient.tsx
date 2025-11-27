@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Box,
   Paper,
@@ -56,7 +56,7 @@ import {
 import { formatDate } from '@/lib/utils/formatters';
 
 export default function RFQDetailPage() {
-  const params = useParams();
+  const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
 
@@ -71,19 +71,16 @@ export default function RFQDetailPage() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
 
-  // Handle static export placeholder - extract actual ID from pathname on client side
+  // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
-    const paramsId = params?.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      setRfqId(paramsId);
-    } else if (typeof window !== 'undefined') {
-      const match = window.location.pathname.match(/\/procurement\/rfqs\/([^/]+)(?:\/|$)/);
+    if (pathname) {
+      const match = pathname.match(/\/procurement\/rfqs\/([^/]+)(?:\/|$)/);
       const extractedId = match?.[1];
       if (extractedId && extractedId !== 'placeholder') {
         setRfqId(extractedId);
       }
     }
-  }, [params?.id]);
+  }, [pathname]);
 
   useEffect(() => {
     if (rfqId) {

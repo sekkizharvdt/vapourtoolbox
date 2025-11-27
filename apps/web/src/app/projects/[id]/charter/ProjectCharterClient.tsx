@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Container,
   Typography,
@@ -61,7 +61,7 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 }
 
 export default function ProjectCharterPage() {
-  const params = useParams();
+  const pathname = usePathname();
   const router = useRouter();
   const { claims } = useAuth();
 
@@ -74,19 +74,16 @@ export default function ProjectCharterPage() {
   // Check permissions
   const hasViewAccess = claims?.permissions ? canViewProjects(claims.permissions) : false;
 
-  // Handle static export placeholder - extract actual ID from pathname on client side
+  // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
-    const paramsId = params?.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      setProjectId(paramsId);
-    } else if (typeof window !== 'undefined') {
-      const match = window.location.pathname.match(/\/projects\/([^/]+)\/charter/);
+    if (pathname) {
+      const match = pathname.match(/\/projects\/([^/]+)\/charter/);
       const extractedId = match?.[1];
       if (extractedId && extractedId !== 'placeholder') {
         setProjectId(extractedId);
       }
     }
-  }, [params?.id]);
+  }, [pathname]);
 
   // Load project data
   useEffect(() => {

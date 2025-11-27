@@ -28,7 +28,7 @@ import {
   StarBorder as StarBorderIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import type { Material } from '@vapour/types';
 import { MATERIAL_CATEGORY_LABELS, MaterialCategory } from '@vapour/types';
@@ -37,7 +37,7 @@ import { formatMoney, formatDate } from '@/lib/utils/formatters';
 
 export default function MaterialDetailClient() {
   const router = useRouter();
-  const params = useParams();
+  const pathname = usePathname();
   const { db } = getFirebase();
 
   const [material, setMaterial] = useState<Material | null>(null);
@@ -45,19 +45,16 @@ export default function MaterialDetailClient() {
   const [error, setError] = useState<string | null>(null);
   const [materialId, setMaterialId] = useState<string | null>(null);
 
-  // Handle static export placeholder - extract actual ID from pathname on client side
+  // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
-    const paramsId = params?.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      setMaterialId(paramsId);
-    } else if (typeof window !== 'undefined') {
-      const match = window.location.pathname.match(/\/materials\/([^/]+)(?:\/|$)/);
+    if (pathname) {
+      const match = pathname.match(/\/materials\/([^/]+)(?:\/|$)/);
       const extractedId = match?.[1];
       if (extractedId && extractedId !== 'placeholder') {
         setMaterialId(extractedId);
       }
     }
-  }, [params?.id]);
+  }, [pathname]);
 
   // Load material
   useEffect(() => {

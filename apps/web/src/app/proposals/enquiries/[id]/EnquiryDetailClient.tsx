@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Box,
   Button,
@@ -46,7 +46,7 @@ import { logger } from '@vapour/logger';
 import { formatDate } from '@/lib/utils/formatters';
 
 export default function EnquiryDetailClient() {
-  const params = useParams();
+  const pathname = usePathname();
   const router = useRouter();
   const db = useFirestore();
   const { user } = useAuth();
@@ -57,19 +57,16 @@ export default function EnquiryDetailClient() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [enquiryId, setEnquiryId] = useState<string | null>(null);
 
-  // Handle static export placeholder - extract actual ID from pathname on client side
+  // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
-    const paramsId = params?.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      setEnquiryId(paramsId);
-    } else if (typeof window !== 'undefined') {
-      const match = window.location.pathname.match(/\/proposals\/enquiries\/([^/]+)(?:\/|$)/);
+    if (pathname) {
+      const match = pathname.match(/\/proposals\/enquiries\/([^/]+)(?:\/|$)/);
       const extractedId = match?.[1];
       if (extractedId && extractedId !== 'placeholder') {
         setEnquiryId(extractedId);
       }
     }
-  }, [params?.id]);
+  }, [pathname]);
 
   useEffect(() => {
     if (!db || !enquiryId) return;

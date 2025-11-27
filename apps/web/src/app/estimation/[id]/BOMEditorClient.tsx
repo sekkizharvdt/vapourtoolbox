@@ -18,7 +18,7 @@ import {
   Calculate as CalculateIcon,
   PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,7 +42,7 @@ const statusColors: Record<BOMStatus, 'default' | 'info' | 'warning' | 'success'
 
 export default function BOMEditorClient() {
   const router = useRouter();
-  const params = useParams();
+  const pathname = usePathname();
   const { user } = useAuth();
   const { db } = getFirebase();
 
@@ -55,20 +55,16 @@ export default function BOMEditorClient() {
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [bomId, setBomId] = useState<string | null>(null);
 
-  // Handle static export placeholder - extract actual ID from pathname on client side
+  // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
-    const paramsId = params?.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      setBomId(paramsId);
-    } else if (typeof window !== 'undefined') {
-      // For static export, extract ID from pathname
-      const match = window.location.pathname.match(/\/estimation\/([^/]+)(?:\/|$)/);
+    if (pathname) {
+      const match = pathname.match(/\/estimation\/([^/]+)(?:\/|$)/);
       const extractedId = match?.[1];
       if (extractedId && extractedId !== 'placeholder') {
         setBomId(extractedId);
       }
     }
-  }, [params?.id]);
+  }, [pathname]);
 
   useEffect(() => {
     if (bomId) {

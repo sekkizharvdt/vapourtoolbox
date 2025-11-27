@@ -28,7 +28,7 @@ import {
   Save as SaveIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { MaterialCategory, Material, MATERIAL_CATEGORY_LABELS } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -51,7 +51,7 @@ const COMMON_FINISHES = ['2B', 'BA', 'No. 4', 'No. 8', 'HL (Hairline)', 'Hot Rol
 
 export default function EditMaterialClient() {
   const router = useRouter();
-  const params = useParams();
+  const pathname = usePathname();
   const { user } = useAuth();
   const { db } = getFirebase();
 
@@ -83,19 +83,16 @@ export default function EditMaterialClient() {
 
   const [tagInput, setTagInput] = useState('');
 
-  // Handle static export placeholder - extract actual ID from pathname on client side
+  // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
-    const paramsId = params?.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      setMaterialId(paramsId);
-    } else if (typeof window !== 'undefined') {
-      const match = window.location.pathname.match(/\/materials\/([^/]+)\/edit/);
+    if (pathname) {
+      const match = pathname.match(/\/materials\/([^/]+)\/edit/);
       const extractedId = match?.[1];
       if (extractedId && extractedId !== 'placeholder') {
         setMaterialId(extractedId);
       }
     }
-  }, [params?.id]);
+  }, [pathname]);
 
   // Load material
   useEffect(() => {

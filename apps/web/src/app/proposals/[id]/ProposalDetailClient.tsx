@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Box,
   Button,
@@ -56,7 +56,7 @@ import ApprovalHistory from './components/ApprovalHistory';
 import ConvertToProjectDialog from './components/ConvertToProjectDialog';
 
 export default function ProposalDetailClient() {
-  const params = useParams();
+  const pathname = usePathname();
   const router = useRouter();
   const db = useFirestore();
   const { user } = useAuth();
@@ -70,19 +70,16 @@ export default function ProposalDetailClient() {
   const [actionLoading, setActionLoading] = useState(false);
   const [proposalId, setProposalId] = useState<string | null>(null);
 
-  // Handle static export placeholder - extract actual ID from pathname on client side
+  // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
-    const paramsId = params?.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      setProposalId(paramsId);
-    } else if (typeof window !== 'undefined') {
-      const match = window.location.pathname.match(/\/proposals\/([^/]+)(?:\/|$)/);
+    if (pathname) {
+      const match = pathname.match(/\/proposals\/([^/]+)(?:\/|$)/);
       const extractedId = match?.[1];
       if (extractedId && extractedId !== 'placeholder') {
         setProposalId(extractedId);
       }
     }
-  }, [params?.id]);
+  }, [pathname]);
 
   useEffect(() => {
     if (!db || !proposalId) return;

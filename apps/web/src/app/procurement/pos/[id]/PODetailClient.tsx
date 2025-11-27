@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Box, Stack, CircularProgress, Alert, Button } from '@mui/material';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,7 +33,7 @@ import { POWorkflowDialogs } from './components/POWorkflowDialogs';
 
 export default function PODetailPage() {
   const router = useRouter();
-  const params = useParams();
+  const pathname = usePathname();
   const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -45,19 +45,16 @@ export default function PODetailPage() {
 
   const dialogState = useWorkflowDialogs();
 
-  // Handle static export placeholder - extract actual ID from pathname on client side
+  // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
-    const paramsId = params?.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      setPoId(paramsId);
-    } else if (typeof window !== 'undefined') {
-      const match = window.location.pathname.match(/\/procurement\/pos\/([^/]+)(?:\/|$)/);
+    if (pathname) {
+      const match = pathname.match(/\/procurement\/pos\/([^/]+)(?:\/|$)/);
       const extractedId = match?.[1];
       if (extractedId && extractedId !== 'placeholder') {
         setPoId(extractedId);
       }
     }
-  }, [params?.id]);
+  }, [pathname]);
 
   useEffect(() => {
     if (poId) {

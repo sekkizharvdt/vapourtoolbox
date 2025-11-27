@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Box,
   Paper,
@@ -58,7 +58,7 @@ interface LineItemFormData {
 }
 
 export default function EditPRPage() {
-  const params = useParams();
+  const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
 
@@ -83,21 +83,16 @@ export default function EditPRPage() {
 
   const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
 
-  // Handle static export placeholder - extract actual ID from pathname on client side
+  // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
-    const paramsId = params?.id as string;
-    if (paramsId && paramsId !== 'placeholder') {
-      setPrId(paramsId);
-    } else if (typeof window !== 'undefined') {
-      const match = window.location.pathname.match(
-        /\/procurement\/purchase-requests\/([^/]+)\/edit/
-      );
+    if (pathname) {
+      const match = pathname.match(/\/procurement\/purchase-requests\/([^/]+)\/edit/);
       const extractedId = match?.[1];
       if (extractedId && extractedId !== 'placeholder') {
         setPrId(extractedId);
       }
     }
-  }, [params?.id]);
+  }, [pathname]);
 
   useEffect(() => {
     if (prId) {
