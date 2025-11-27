@@ -307,6 +307,20 @@
       ]
     },
     {
+      "collectionGroup": "purchaseRequestItems",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "purchaseRequestId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lineNumber",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "rfqs",
       "queryScope": "COLLECTION",
       "fields": [
