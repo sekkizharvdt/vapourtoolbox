@@ -74,7 +74,13 @@ export default function BOMEditorClient() {
   }, [bomId]);
 
   const loadBOM = async () => {
-    if (!bomId || bomId === 'placeholder' || !db) return;
+    // eslint-disable-next-line no-console
+    console.log('[BOMEditorClient] loadBOM called', { bomId, hasDb: !!db });
+    if (!bomId || bomId === 'placeholder' || !db) {
+      // eslint-disable-next-line no-console
+      console.log('[BOMEditorClient] loadBOM returning early', { bomId, hasDb: !!db });
+      return;
+    }
 
     try {
       setLoading(true);
