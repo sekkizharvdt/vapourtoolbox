@@ -75,31 +75,37 @@ interface CategoryConfig {
 
 const SIDEBAR_CATEGORIES: CategoryConfig[] = [
   {
-    id: 'daily-essentials',
-    label: 'DAILY ESSENTIALS',
-    moduleIds: ['time-tracking', 'document-management'],
-  },
-  {
-    id: 'company-essentials',
-    label: 'COMPANY ESSENTIALS',
+    // 1. Execution Cycle - Daily, most frequent operations
+    id: 'execution-cycle',
+    label: 'EXECUTION CYCLE',
     moduleIds: [
-      'procurement',
-      'accounting',
-      'project-management',
-      'estimation',
-      'proposal-management',
-      'thermal-desal',
+      'project-management', // Project Charter
+      'procurement', // PR → RFQ → PO → GR
+      'accounting', // Financial tracking
+      'document-management', // Supporting documents
+      'time-tracking', // Daily time entries
     ],
   },
   {
-    id: 'backbone',
-    label: 'BACKBONE',
+    // 2. Sales Cycle - Weekly/as-needed
+    id: 'sales-cycle',
+    label: 'SALES CYCLE',
     moduleIds: [
+      'proposal-management', // Enquiry → Proposal
+      'estimation', // Cost estimation for proposals
+      'thermal-desal', // Specialized estimations
+    ],
+  },
+  {
+    // 3. Setup Phase - One-time/infrequent, bottom of sidebar
+    id: 'setup',
+    label: 'SETUP',
+    moduleIds: [
+      'user-management',
+      'entity-management',
       'material-database',
       'shape-database',
       'bought-out-database',
-      'entity-management',
-      'user-management',
       'company-settings',
     ],
   },
