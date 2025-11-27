@@ -677,5 +677,427 @@ async function submitPurchaseRequest(prId: string) {
 
 ---
 
+## 10. Sidebar Module Organization & Sequence
+
+### Current Sidebar Structure
+
+The sidebar organizes modules into three logical categories:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    SIDEBAR MODULE SEQUENCE                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  DAILY ESSENTIALS (Most frequently used)                        │
+│  ├── Time Tracking                                              │
+│  └── Document Management                                        │
+│                                                                 │
+│  COMPANY ESSENTIALS (Core business operations)                  │
+│  ├── Procurement                                                │
+│  ├── Accounting                                                 │
+│  ├── Project Management                                         │
+│  ├── Estimation (BOM)                                           │
+│  ├── Proposal Management                                        │
+│  └── Thermal Desalination (Future - Q2 2026)                    │
+│                                                                 │
+│  BACKBONE (Master data & configuration)                         │
+│  ├── Material Database                                          │
+│  ├── Shape Database                                             │
+│  ├── Bought-out Database                                        │
+│  ├── Entity Management                                          │
+│  ├── User Management                                            │
+│  └── Company Settings                                           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Recommended Workflow Sequence
+
+Based on typical business processes, the module order should follow this workflow:
+
+```
+1. Setup Phase (One-time/Infrequent)
+   User Management → Entity Management → Material/Shape/BOM Setup
+                                              ↓
+2. Sales Cycle
+   Enquiry → Proposal → (Accepted) → Project Charter
+                                         ↓
+3. Execution Cycle
+   Project Charter → Procurement (PR→RFQ→PO→GR) → Accounting
+                         ↓                            ↓
+                    Documents ← ─ ─ ─ ─ ─ ─ ─ ─ → Time Tracking
+```
+
+---
+
+## 11. User Management Module Analysis
+
+### Current Implementation Status: **75% Complete**
+
+### Permission System Architecture
+
+**Bitwise Permission System** (27 Active Flags):
+
+```typescript
+// Core Permissions (Bit Positions 0-15)
+MANAGE_USERS = 1 << 0; // 1
+VIEW_ALL_PROJECTS = 1 << 1; // 2
+MANAGE_SETTINGS = 1 << 2; // 4
+APPROVE_BUDGETS = 1 << 3; // 8
+VIEW_FINANCIAL_DATA = 1 << 4; // 16
+MANAGE_VENDORS = 1 << 5; // 32
+APPROVE_PURCHASES = 1 << 6; // 64
+MANAGE_DOCUMENTS = 1 << 7; // 128
+EDIT_MASTER_DATA = 1 << 8; // 256
+VIEW_REPORTS = 1 << 9; // 512
+CREATE_INVOICES = 1 << 10; // 1024
+APPROVE_PAYMENTS = 1 << 11; // 2048
+ACCESS_API = 1 << 12; // 4096
+MANAGE_PROPOSALS = 1 << 13; // 8192
+MANAGE_ACCOUNTING = 1 << 14; // 16384
+VIEW_ACCOUNTING = 1 << 15; // 32768
+
+// Extended Permissions (Bit Positions 16-27)
+MANAGE_PROJECTS = 1 << 16; // 65536
+MANAGE_DOCUMENTS_ADV = 1 << 17; // 131072
+// ... through position 27
+```
+
+### User Roles Defined
+
+| Role                 | Key Permissions                       | Task Types Received               |
+| -------------------- | ------------------------------------- | --------------------------------- |
+| **SUPER_ADMIN**      | All permissions (immutable)           | System alerts only                |
+| **ADMIN**            | User management, settings             | User-related tasks                |
+| **ENGINEERING_HEAD** | PR approval, project oversight        | PR_SUBMITTED, technical reviews   |
+| **PROJECT_MANAGER**  | Project management, document control  | Document assignments, deadlines   |
+| **PROCUREMENT_HEAD** | Purchase approvals, vendor management | PO_PENDING_APPROVAL, RFQ tasks    |
+| **FINANCE_HEAD**     | Invoice approval, payment processing  | PAYMENT_REQUESTED, bill approvals |
+| **ENGINEER**         | Technical work, documentation         | DOCUMENT_ASSIGNED, work items     |
+| **VIEWER**           | Read-only access                      | Informational notifications only  |
+
+### User Management Gaps
+
+| Feature                         | Status      | Priority |
+| ------------------------------- | ----------- | -------- |
+| User CRUD (Create/Edit)         | ✅ Complete | -        |
+| Permission assignment           | ✅ Complete | -        |
+| Role-based defaults             | ✅ Complete | -        |
+| Super admin protection          | ✅ Complete | -        |
+| Audit logging                   | ✅ Complete | -        |
+| **User invitation flow**        | ❌ Missing  | High     |
+| **Bulk user operations**        | ❌ Missing  | Medium   |
+| **User preferences UI**         | ❌ Missing  | Low      |
+| **Role hierarchy UI**           | ❌ Missing  | Low      |
+| **Dynamic user by role lookup** | ❌ Missing  | Critical |
+
+### Critical Gap: Dynamic User Assignment by Role
+
+**Problem:** Task assignment requires explicit user IDs, but there's no service to dynamically find users by role.
+
+```typescript
+// CURRENT: Requires explicit user ID
+createTaskNotification({
+  userId: 'known-user-id-123',  // ❌ Where does this come from?
+  category: 'PR_SUBMITTED',
+  ...
+});
+
+// NEEDED: Dynamic lookup by role/permission
+const approvers = await getUsersByPermission(APPROVE_PURCHASES);
+for (const approver of approvers) {
+  createTaskNotification({ userId: approver.id, ... });
+}
+```
+
+**Impact:** PR submission tasks fail because `engineeringHeadUserId` is never provided to the `submitPurchaseRequest` function.
+
+---
+
+## 12. Task Assignment Analysis by Module
+
+### Task Assignment Flow Across Modules
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    TASK ASSIGNMENT ACROSS WORKFLOWS                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  PROCUREMENT WORKFLOW                                                        │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐              │
+│  │ Create   │ → │ Submit   │ → │ Engineer │ → │ Procure  │              │
+│  │   PR     │    │   PR     │    │ Approval │    │  Head    │              │
+│  └──────────┘    └──────────┘    └──────────┘    └──────────┘              │
+│       │              │               │               │                      │
+│       ↓              ↓               ↓               ↓                      │
+│    No task       Task to         Task to         Task to                   │
+│                  Eng Head        Proc Head       Finance                   │
+│                  ⚠️ BROKEN       ✅ Works        ✅ Works                  │
+│                                                                             │
+│  DOCUMENT WORKFLOW                                                          │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐              │
+│  │ Assign   │ → │ Upload   │ → │ Internal │ → │ Client   │              │
+│  │   Doc    │    │ Version  │    │  Review  │    │  Submit  │              │
+│  └──────────┘    └──────────┘    └──────────┘    └──────────┘              │
+│       │              │               │               │                      │
+│       ↓              ↓               ↓               ↓                      │
+│   Task to        Implicit       Task to PM       Task to                   │
+│   assignee       ✅ Works       ⚠️ MISSING       sales                     │
+│   ✅ Works                                       ⚠️ MISSING                │
+│                                                                             │
+│  ACCOUNTING WORKFLOW                                                        │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐                              │
+│  │ Bill     │ → │ Payment  │ → │ Reconcile│                              │
+│  │ Created  │    │ Request  │    │  Bank    │                              │
+│  └──────────┘    └──────────┘    └──────────┘                              │
+│       │              │               │                                      │
+│       ↓              ↓               ↓                                      │
+│   Informational  Task to         No task                                   │
+│   ✅ Works       Finance         ⚠️ MISSING                                │
+│                  ✅ Works                                                   │
+│                                                                             │
+│  PROJECT WORKFLOW                                                           │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐                              │
+│  │ Charter  │ → │ Approval │ → │ Milestone│                              │
+│  │  Submit  │    │  Needed  │    │  Due     │                              │
+│  └──────────┘    └──────────┘    └──────────┘                              │
+│       │              │               │                                      │
+│       ↓              ↓               ↓                                      │
+│   Task to         No task         No task                                  │
+│   approver?       ⚠️ MISSING      ⚠️ MISSING                               │
+│   ⚠️ UNCLEAR                                                               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Task Assignment Summary by Module
+
+| Module          | Task Creation Points                    | Working | Broken/Missing       | Notes                   |
+| --------------- | --------------------------------------- | ------- | -------------------- | ----------------------- |
+| **Procurement** | PR Submit, PO Approval, Payment Request | 60%     | PR submission broken | Need user lookup        |
+| **Documents**   | Document assigned, submission           | 40%     | Review tasks missing | No PM assignment        |
+| **Accounting**  | Invoice/bill approval, payment          | 70%     | Reconciliation tasks | Missing deadline alerts |
+| **Projects**    | Charter approval, milestones            | 20%     | Most tasks missing   | Critical gap            |
+| **Proposals**   | Approval, client follow-up              | 0%      | All tasks missing    | Not integrated          |
+| **Estimation**  | BOM approval                            | 0%      | Not implemented      | No approval workflow    |
+
+### Required Task Integration Points
+
+```typescript
+// HIGH PRIORITY - Implement these task triggers:
+
+// 1. Procurement - PR Submission (FIX EXISTING)
+onPRSubmit → getUsersByRole('ENGINEERING_HEAD') → createTasks
+
+// 2. Projects - Charter Submission (NEW)
+onCharterSubmit → getCharterApprovers() → createTasks
+
+// 3. Documents - Internal Review (NEW)
+onDocumentReady → getProjectManager() → createTask
+
+// 4. Proposals - Approval Needed (NEW)
+onProposalSubmitted → getProposalApprovers() → createTasks
+
+// 5. Estimation - BOM Approval (NEW)
+onBOMSubmitted → getBOMApprovers() → createTasks
+```
+
+---
+
+## 13. Detailed Module Analysis
+
+### 13.1 Projects Module
+
+**Completion: 70%**
+
+| Feature                 | Status  | Notes                                             |
+| ----------------------- | ------- | ------------------------------------------------- |
+| Project CRUD            | ✅ 100% | Complete                                          |
+| Charter creation        | ✅ 100% | 10-tab comprehensive UI                           |
+| Charter approval        | ⚠️ 85%  | Missing task creation, PR atomicity               |
+| Procurement integration | ✅ 90%  | Auto-PR creation works                            |
+| Accounting integration  | ⚠️ 70%  | **BUG:** Status mismatch (lowercase vs uppercase) |
+| Document integration    | ⚠️ 80%  | Task notifications missing                        |
+| Budget tracking         | ⚠️ 85%  | Lock enforcement gaps                             |
+| Risk management         | ⚠️ 60%  | No escalation workflow                            |
+| Vendor management       | ⚠️ 75%  | No performance analytics                          |
+| Progress reporting      | ⚠️ 70%  | Generation logic unclear                          |
+| Task notifications      | ❌ 40%  | Multiple integration gaps                         |
+
+**Critical Bug:** Cost centre status check uses lowercase (`'active'`) but Project types use uppercase (`'ACTIVE'`). Cost centres never marked as active.
+
+### 13.2 Accounting Module
+
+**Completion: 75%**
+
+| Feature                | Status  | Notes                          |
+| ---------------------- | ------- | ------------------------------ |
+| Chart of Accounts      | ✅ 100% | Hierarchical 4-level structure |
+| Customer Invoices      | ✅ 100% | Full lifecycle                 |
+| Vendor Bills           | ✅ 100% | TDS support                    |
+| Payments               | ✅ 100% | Multi-allocation               |
+| Journal Entries        | ✅ 100% | Double-entry validation        |
+| Bank Reconciliation    | ✅ 90%  | Statement import works         |
+| GST Compliance         | ✅ 90%  | CGST/SGST/IGST                 |
+| TDS Compliance         | ✅ 85%  | Section-based tracking         |
+| Financial Reports      | ✅ 85%  | 6 report types                 |
+| Cost Centres           | ✅ 80%  | Project-linked                 |
+| **Credit/Debit Notes** | ❌ 0%   | NOT IMPLEMENTED                |
+| **Approval Workflows** | ⚠️ 50%  | Types defined, not enforced    |
+| **Period Locking**     | ❌ 0%   | Type defined, no UI            |
+| **Year-End Closing**   | ❌ 0%   | Type defined, no UI            |
+
+### 13.3 Document Management Module
+
+**Completion: 65%**
+
+| Feature                        | Status  | Notes                      |
+| ------------------------------ | ------- | -------------------------- |
+| Master Document List           | ✅ 100% | Central tracking           |
+| Document Records               | ✅ 100% | File storage & versioning  |
+| Submissions workflow           | ✅ 95%  | Client review, revisions   |
+| Comment system                 | ✅ 90%  | Two-level resolution       |
+| Supply list integration        | ✅ 85%  | Feeds procurement          |
+| Work list integration          | ✅ 80%  | Creates task notifications |
+| Transmittals                   | ✅ 85%  | Bulk submission            |
+| Document numbering             | ✅ 95%  | Discipline-based           |
+| Document linking               | ✅ 90%  | Predecessor/successor      |
+| Document templates             | ⚠️ 60%  | Type defined, minimal UI   |
+| **CRT PDF generation**         | ❌ 0%   | TODO in code               |
+| **Transmittal ZIP generation** | ⚠️ 50%  | Referenced, not found      |
+| **Email notifications**        | ❌ 0%   | Not implemented            |
+
+### 13.4 Materials & BOM Module
+
+**Completion: 70%**
+
+| Feature               | Status | Notes                                  |
+| --------------------- | ------ | -------------------------------------- |
+| Material Database     | ✅ 90% | 50+ categories                         |
+| Material variants     | ⚠️ 70% | Backend exists, UI incomplete          |
+| Material pricing      | ✅ 85% | Multiple sources, quantity breaks      |
+| Shape Database        | ⚠️ 60% | **Backend missing** - client-side only |
+| Shape calculations    | ✅ 90% | Formula evaluation works               |
+| Bought-out items      | ⚠️ 70% | Separate from materials (inconsistent) |
+| BOM creation          | ✅ 85% | Hierarchical items                     |
+| BOM costing           | ✅ 90% | 4-phase calculation                    |
+| Service costs         | ✅ 85% | 5 calculation methods                  |
+| Cost configuration    | ✅ 80% | Overhead/contingency/profit            |
+| **Shape backend DB**  | ❌ 0%  | Critical gap                           |
+| **Full-text search**  | ❌ 0%  | Client-side only                       |
+| **Stock integration** | ❌ 0%  | Not linked to BOM                      |
+
+**Critical Gap:** Shapes are client-side only with no Firestore collection. Cannot create/modify shapes via UI.
+
+### 13.5 Estimation Module
+
+**Completion: 75%**
+
+| Feature                  | Status  | Notes                         |
+| ------------------------ | ------- | ----------------------------- |
+| BOM creation             | ✅ 100% | Auto-generated codes          |
+| Item management          | ✅ 95%  | Hierarchical numbering        |
+| Shape-based items        | ✅ 90%  | Parameter-driven calculations |
+| Bought-out items         | ✅ 90%  | Direct material pricing       |
+| Cost calculations        | ✅ 90%  | 4-phase costing               |
+| Service costs            | ✅ 85%  | Rate overrides                |
+| PDF generation           | ✅ 80%  | Cloud function                |
+| Cost configuration       | ✅ 80%  | Entity-level                  |
+| **Approval workflow**    | ❌ 0%   | Status field exists, no UI    |
+| **Task integration**     | ❌ 0%   | Not implemented               |
+| **Versioning**           | ❌ 0%   | Placeholder only              |
+| **Proposal integration** | ⚠️ 50%  | Can import, no auto-link      |
+
+### 13.6 Proposal Management Module
+
+**Completion: 70%**
+
+| Feature                 | Status  | Notes                 |
+| ----------------------- | ------- | --------------------- |
+| Enquiry management      | ✅ 95%  | Full CRUD, numbering  |
+| Proposal creation       | ✅ 90%  | 6-step wizard         |
+| Revision management     | ✅ 100% | Full history tracking |
+| Internal approval       | ✅ 85%  | Multi-level, history  |
+| Project conversion      | ✅ 100% | Full data mapping     |
+| BOM import              | ✅ 90%  | Scope of supply       |
+| PDF generation          | ✅ 80%  | On-demand             |
+| Customer linking        | ✅ 85%  | Denormalized          |
+| **Edit functionality**  | ❌ 0%   | Route missing         |
+| **Task integration**    | ❌ 0%   | Not implemented       |
+| **Email notifications** | ❌ 0%   | Not implemented       |
+| **Client acceptance**   | ⚠️ 30%  | Internal status only  |
+
+### 13.7 Entity Management Module
+
+**Completion: 50%**
+
+| Feature                  | Status  | Notes                   |
+| ------------------------ | ------- | ----------------------- |
+| Entity CRUD              | ✅ 100% | Full lifecycle          |
+| Multi-role support       | ✅ 100% | CUSTOMER/VENDOR/PARTNER |
+| Contact management       | ✅ 90%  | Multiple contacts       |
+| Bank details             | ✅ 100% | **Recently added**      |
+| Shipping address         | ✅ 100% | **Recently added**      |
+| Credit terms             | ✅ 100% | **Recently added**      |
+| Tax identifiers          | ✅ 90%  | GST/PAN/VAT             |
+| **Approval workflow**    | ❌ 0%   | Not implemented         |
+| **Document attachments** | ❌ 0%   | Not implemented         |
+| **Audit trail**          | ❌ 0%   | Not implemented         |
+| **Entity merging**       | ❌ 0%   | Not implemented         |
+| **Bulk import/export**   | ❌ 0%   | Not implemented         |
+
+---
+
+## 14. Cross-Module Integration Matrix
+
+### Current Integration Status
+
+| From ↓ / To →   | Projects        | Procurement       | Accounting        | Documents       | Tasks  | Entities          |
+| --------------- | --------------- | ----------------- | ----------------- | --------------- | ------ | ----------------- |
+| **Projects**    | -               | ✅ Charter→PR     | ✅ Cost Centre    | ⚠️ Requirements | ⚠️ 40% | ✅ Client         |
+| **Procurement** | ✅ Status sync  | -                 | ✅ Bills/Payments | ⚠️ PO docs      | ⚠️ 60% | ✅ Vendors        |
+| **Accounting**  | ✅ Budget sync  | ⚠️ Payment status | -                 | ❌              | ⚠️ 70% | ✅ Entity balance |
+| **Documents**   | ⚠️ Requirements | ⚠️ Supply→PR      | ❌                | -               | ⚠️ 40% | ❌                |
+| **Estimation**  | ⚠️ Project link | ❌ BOM→PR         | ❌                | ❌              | ❌     | ❌                |
+| **Proposals**   | ✅ Conversion   | ❌                | ❌                | ❌              | ❌     | ✅ Customer       |
+
+### Integration Priority for Next Phase
+
+| Integration                                | Impact   | Effort | Priority |
+| ------------------------------------------ | -------- | ------ | -------- |
+| Task → All modules (user lookup)           | Critical | 4h     | P0       |
+| Estimation → Procurement (BOM→PR)          | High     | 6h     | P1       |
+| Documents → Tasks (review assignments)     | High     | 3h     | P1       |
+| Projects → Tasks (charter/milestone tasks) | High     | 4h     | P1       |
+| Proposals → Tasks (approval tasks)         | Medium   | 3h     | P2       |
+| Accounting → Tasks (reconciliation tasks)  | Medium   | 2h     | P2       |
+
+---
+
+## 15. Immediate Action Items
+
+### Critical Fixes (This Sprint)
+
+| #   | Issue                                | Location                    | Impact                      | Effort |
+| --- | ------------------------------------ | --------------------------- | --------------------------- | ------ |
+| 1   | Fix cost centre status case mismatch | `functions/src/projects.ts` | Budget tracking broken      | 30min  |
+| 2   | Implement getUsersByRole/Permission  | `lib/users/`                | Task assignment broken      | 2h     |
+| 3   | Fix PR submission task creation      | `lib/procurement/`          | PR workflow incomplete      | 1h     |
+| 4   | Create Shape backend DB              | `lib/shapes/`               | Shape management impossible | 4h     |
+
+### High Priority (Next 2 Sprints)
+
+| #   | Feature                | Module      | Notes            |
+| --- | ---------------------- | ----------- | ---------------- |
+| 1   | Goods Receipt UI       | Procurement | Service ready    |
+| 2   | Three-Way Match UI     | Procurement | Service ready    |
+| 3   | Proposal edit page     | Proposals   | Route missing    |
+| 4   | Credit/Debit Notes     | Accounting  | Types needed     |
+| 5   | Charter approval tasks | Projects    | Task integration |
+| 6   | Document review tasks  | Documents   | PM assignment    |
+
+---
+
 _Generated by Claude Code - Comprehensive Codebase Review_
 _Review Duration: Full analysis with subagent exploration_
+_Last Updated: November 27, 2025_
