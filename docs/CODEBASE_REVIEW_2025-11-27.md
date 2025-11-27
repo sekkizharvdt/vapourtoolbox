@@ -187,31 +187,33 @@ Goods Receipt (GR)
 ### Module Completion Status
 
 ```
-█████████████████░░░░░░░ 70% Procurement (UI gaps: Packing List, GR, WCC, 3WM, Amendments)
+██████████████████████░░ 90% Procurement (All UI pages complete)
 ██████████████████░░░░░░ 75% Accounting
 ████████████████░░░░░░░░ 70% Projects
 ███████████████░░░░░░░░░ 65% Documents
 ██████████████░░░░░░░░░░ 60% Materials
 ██████████████████░░░░░░ 75% BOM/Estimation (Shape-based items added)
 ████████████░░░░░░░░░░░░ 50% Tasks
-██████████░░░░░░░░░░░░░░ 45% Entities (Bank Details, Shipping Address, Credit Terms added)
+███████████████████░░░░░ 75% Entities (Bank Details, Shipping Address, Credit Terms, Module Visibility added)
 ░░░░░░░░░░░░░░░░░░░░░░░░  0% Thermal Desal
 ```
 
 ### Missing Features by Module
 
-#### Entities ✅ RECENTLY UPDATED
+#### Entities ✅ RECENTLY UPDATED (75% Complete)
 
 - [x] Bank Details management (multiple accounts per entity) ✅ COMPLETED
 - [x] Shipping Address with "Same as billing" toggle ✅ COMPLETED
 - [x] Credit Terms (credit days, credit limit) ✅ COMPLETED
-- [ ] Entity approval workflow
-- [ ] Document attachments per entity
-- [ ] Audit trail / activity log
-- [ ] Entity merging (duplicate resolution)
-- [ ] Bulk import/export
+- [x] Module visibility control (allowedModules per user) ✅ COMPLETED
+- [x] Permission-based authorization (roles removed) ✅ COMPLETED
+- [ ] Entity approval workflow - _Deferred_
+- [ ] Document attachments per entity - _Deferred_
+- [ ] Audit trail / activity log - _To be implemented application-wide_
+- [ ] Entity merging (duplicate resolution) - _Deferred_
+- [ ] Bulk import/export - _Deferred_
 
-#### Procurement - DETAILED GAP ANALYSIS
+#### Procurement ✅ RECENTLY UPDATED (90% Complete)
 
 **What's Working (Backend + UI):**
 
@@ -219,42 +221,37 @@ Goods Receipt (GR)
 - ✅ RFQ: Creation, issuance, offer collection
 - ✅ Offers: Evaluation, comparison, recommendation
 - ✅ Purchase Order (PO): Full lifecycle, approval, issuance
+- ✅ Packing Lists: List, detail, create pages
+- ✅ Goods Receipts: List, detail, create with inspection workflow
+- ✅ Work Completion Certificates: List, detail, create pages
+- ✅ Three-Way Match: List, detail, discrepancy resolution, approve/reject
+- ✅ PO Amendments: List, detail, create, approval workflow
 
-**What's Missing (Backend exists, NO UI):**
-
-| Feature                         | Backend Status            | UI Status      | Priority |
-| ------------------------------- | ------------------------- | -------------- | -------- |
-| **Packing List**                | ✅ Complete service       | ❌ No pages    | High     |
-| **Goods Receipt**               | ✅ Complete service       | ❌ No pages    | Critical |
-| **Work Completion Certificate** | ✅ Complete service       | ❌ No pages    | Medium   |
-| **Three-Way Match**             | ✅ Full matching logic    | ❌ No pages    | High     |
-| **PO Amendments**               | ✅ Full CRUD + versioning | ❌ No pages    | High     |
-| **RFQ PDF Generation**          | ⚠️ TODO in code           | ❌ Missing     | Medium   |
-| **Order Acknowledgement**       | ✅ Fields exist           | ❌ No workflow | Medium   |
-
-**Missing UI Pages to Create:**
+**UI Pages Implemented:**
 
 ```
-/procurement/packing-lists/           (list, detail, create, edit)
-/procurement/goods-receipts/          (list, detail, create with inspection)
-/procurement/work-completion/         (list, detail, create)
-/procurement/three-way-matches/       (dashboard, detail, discrepancy resolution)
-/procurement/pos/[id]/amendments/     (list, create, approve)
-/procurement/pos/[id]/versions/       (version history comparison)
+/procurement/packing-lists/           ✅ (list, detail, create)
+/procurement/goods-receipts/          ✅ (list, detail, create with inspection)
+/procurement/work-completion/         ✅ (list, detail, create)
+/procurement/three-way-match/         ✅ (list, detail, discrepancy resolution)
+/procurement/amendments/              ✅ (list, detail, create, approve/reject)
 ```
 
-**Service Files Ready for UI:**
+**Helper Functions Added:**
 
-- `lib/procurement/packingListService.ts` - Full CRUD
-- `lib/procurement/goodsReceiptService.ts` - Full CRUD + inspection
-- `lib/procurement/workCompletionService.ts` - Full CRUD
-- `lib/procurement/threeWayMatch/` - Matching + discrepancy logic
-- `lib/procurement/amendment/` - Full CRUD + versioning
+- `lib/procurement/packingListHelpers.ts` - Status/color helpers, filtering, stats
+- `lib/procurement/goodsReceiptHelpers.ts` - Status/condition helpers
+- `lib/procurement/workCompletionHelpers.ts` - Completion status, filtering
+- `lib/procurement/threeWayMatchHelpers.ts` - Match status, variance colors
+- `lib/procurement/amendmentHelpers.ts` - Status/type helpers, available actions
+
+**Remaining Items (Lower Priority):**
 
 - [ ] Excel bulk upload for line items
 - [ ] PDF generation for RFQs
 - [ ] Email notifications to vendors
 - [ ] Vendor portal access
+- [ ] Order acknowledgement workflow
 
 #### Accounting
 
@@ -1031,22 +1028,22 @@ onBOMSubmitted → getBOMApprovers() → createTasks
 
 ### 13.7 Entity Management Module
 
-**Completion: 50%**
+**Completion: 75%**
 
-| Feature                  | Status  | Notes                   |
-| ------------------------ | ------- | ----------------------- |
-| Entity CRUD              | ✅ 100% | Full lifecycle          |
-| Multi-role support       | ✅ 100% | CUSTOMER/VENDOR/PARTNER |
-| Contact management       | ✅ 90%  | Multiple contacts       |
-| Bank details             | ✅ 100% | **Recently added**      |
-| Shipping address         | ✅ 100% | **Recently added**      |
-| Credit terms             | ✅ 100% | **Recently added**      |
-| Tax identifiers          | ✅ 90%  | GST/PAN/VAT             |
-| **Approval workflow**    | ❌ 0%   | Not implemented         |
-| **Document attachments** | ❌ 0%   | Not implemented         |
-| **Audit trail**          | ❌ 0%   | Not implemented         |
-| **Entity merging**       | ❌ 0%   | Not implemented         |
-| **Bulk import/export**   | ❌ 0%   | Not implemented         |
+| Feature                  | Status  | Notes                              |
+| ------------------------ | ------- | ---------------------------------- |
+| Entity CRUD              | ✅ 100% | Full lifecycle                     |
+| Multi-role support       | ✅ 100% | CUSTOMER/VENDOR/PARTNER            |
+| Contact management       | ✅ 90%  | Multiple contacts                  |
+| Bank details             | ✅ 100% | Multiple accounts per entity       |
+| Shipping address         | ✅ 100% | Same as billing toggle             |
+| Credit terms             | ✅ 100% | Credit days, credit limit          |
+| Tax identifiers          | ✅ 90%  | GST/PAN/VAT                        |
+| **Approval workflow**    | ⚠️ 0%   | Deferred - lower priority          |
+| **Document attachments** | ⚠️ 0%   | Deferred - lower priority          |
+| **Audit trail**          | ⚠️ 0%   | To be implemented application-wide |
+| **Entity merging**       | ⚠️ 0%   | Deferred - lower priority          |
+| **Bulk import/export**   | ⚠️ 0%   | Deferred - lower priority          |
 
 ---
 
@@ -1091,15 +1088,18 @@ onBOMSubmitted → getBOMApprovers() → createTasks
 
 | #   | Feature                | Module      | Notes            |
 | --- | ---------------------- | ----------- | ---------------- |
-| 1   | Goods Receipt UI       | Procurement | Service ready    |
-| 2   | Three-Way Match UI     | Procurement | Service ready    |
-| 3   | Proposal edit page     | Proposals   | Route missing    |
-| 4   | Credit/Debit Notes     | Accounting  | Types needed     |
-| 5   | Charter approval tasks | Projects    | Task integration |
-| 6   | Document review tasks  | Documents   | PM assignment    |
+| 1   | Goods Receipt UI       | Procurement | ✅ DONE          |
+| 2   | Three-Way Match UI     | Procurement | ✅ DONE          |
+| 3   | Packing Lists UI       | Procurement | ✅ DONE          |
+| 4   | Work Completion UI     | Procurement | ✅ DONE          |
+| 5   | PO Amendments UI       | Procurement | ✅ DONE          |
+| 6   | Proposal edit page     | Proposals   | Route missing    |
+| 7   | Credit/Debit Notes     | Accounting  | Types needed     |
+| 8   | Charter approval tasks | Projects    | Task integration |
+| 9   | Document review tasks  | Documents   | PM assignment    |
 
 ---
 
 _Generated by Claude Code - Comprehensive Codebase Review_
 _Review Duration: Full analysis with subagent exploration_
-_Last Updated: November 27, 2025_
+_Last Updated: November 27, 2025 (Procurement UI completed)_
