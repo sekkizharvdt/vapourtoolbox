@@ -37,3 +37,13 @@ export { seedMaterials } from './seed/seedMaterials';
 
 // Import BOM functions
 export { onBOMItemWrite } from './bom';
+
+// Import task auto-completion functions
+export {
+  onPurchaseRequestStatusChange,
+  onPurchaseOrderStatusChange,
+  onInvoiceStatusChange,
+  onPaymentLedgerStatusChange,
+  onDocumentStatusChange,
+  onDocumentSubmissionCreated,
+} from './taskAutoCompletion';
