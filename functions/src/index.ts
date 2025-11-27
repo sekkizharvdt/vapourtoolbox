@@ -47,3 +47,9 @@ export {
   onDocumentStatusChange,
   onDocumentSubmissionCreated,
 } from './taskAutoCompletion';
+
+// Import project financials functions (Accounting → Projects integration)
+export {
+  onTransactionWriteUpdateProjectFinancials,
+  onProjectBudgetChange,
+} from './projectFinancials';
