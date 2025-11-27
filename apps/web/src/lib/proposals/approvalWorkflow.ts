@@ -14,6 +14,7 @@ import {
   findTaskNotificationByEntity,
   completeActionableTask,
 } from '@/lib/tasks/taskNotificationService';
+import { getProposalApprovers } from './userHelpers';
 
 const logger = createLogger({ context: 'proposalApproval' });
 
@@ -51,25 +52,32 @@ export async function submitProposalForApproval(
       updatedBy: userId,
     });
 
-    // Create actionable task for approver
-    // NOTE: Approver user ID should be obtained from entity settings or user role query
-    // For now, this functionality is ready but requires the approverUserId parameter
-    // TODO: Pass approverUserId when calling this function, or implement getProposalApproverUserId() helper
-    // Example:
-    // await createTaskNotification({
-    //   type: 'actionable',
-    //   category: 'PROPOSAL_SUBMITTED',
-    //   userId: approverUserId,
-    //   assignedBy: userId,
-    //   assignedByName: userName,
-    //   title: `Review Proposal ${proposal.proposalNumber}`,
-    //   message: `${userName} submitted proposal "${proposal.title}" for your review`,
-    //   entityType: 'PROPOSAL',
-    //   entityId: proposalId,
-    //   linkUrl: `/proposals/${proposalId}`,
-    //   priority: 'HIGH',
-    //   autoCompletable: true,
-    // });
+    // Create actionable task for approvers (users with APPROVE_ESTIMATES permission)
+    if (proposal.entityId) {
+      const approverIds = await getProposalApprovers(db, proposal.entityId);
+
+      for (const approverId of approverIds) {
+        await createTaskNotification({
+          type: 'actionable',
+          category: 'PROPOSAL_SUBMITTED',
+          userId: approverId,
+          assignedBy: userId,
+          assignedByName: userName,
+          title: `Review Proposal ${proposal.proposalNumber}`,
+          message: `${userName} submitted proposal "${proposal.title}" for your review`,
+          entityType: 'PROPOSAL',
+          entityId: proposalId,
+          linkUrl: `/proposals/${proposalId}`,
+          priority: 'HIGH',
+          autoCompletable: true,
+        });
+      }
+
+      logger.debug('Created approval tasks', {
+        proposalId,
+        approverCount: approverIds.length,
+      });
+    }
 
     logger.info('Proposal submitted for approval', { proposalId, userId });
   } catch (error) {
