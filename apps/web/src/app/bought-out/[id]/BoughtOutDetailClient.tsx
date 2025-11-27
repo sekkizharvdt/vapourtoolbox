@@ -17,7 +17,7 @@ import {
   Chip,
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import {
@@ -33,11 +33,11 @@ import { formatDate } from '@/lib/utils/formatters';
 
 export default function BoughtOutItemDetailPage() {
   const router = useRouter();
-  const params = useParams();
+  const pathname = usePathname();
   const { user } = useAuth();
   const { db } = getFirebase();
-  const id = params.id as string;
 
+  const [id, setId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +61,19 @@ export default function BoughtOutItemDetailPage() {
   const [leadTime, setLeadTime] = useState('');
   const [moq, setMoq] = useState('');
 
+  // Extract ID from pathname for static export compatibility
+  useEffect(() => {
+    if (pathname) {
+      const match = pathname.match(/\/bought-out\/([^/]+)(?:\/|$)/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setId(extractedId);
+      }
+    }
+  }, [pathname]);
+
   const loadItem = useCallback(async () => {
+    if (!id) return;
     try {
       setLoading(true);
       const fetchedItem = await getBoughtOutItemById(db, id);
@@ -99,7 +111,7 @@ export default function BoughtOutItemDetailPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !id) return;
 
     try {
       setSaving(true);
@@ -135,7 +147,7 @@ export default function BoughtOutItemDetailPage() {
     }
   };
 
-  if (loading) {
+  if (loading || !id) {
     return (
       <Container maxWidth="lg">
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>

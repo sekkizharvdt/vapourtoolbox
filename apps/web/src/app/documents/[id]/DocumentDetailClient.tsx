@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, usePathname } from 'next/navigation';
 import {
   Box,
   Paper,
@@ -65,19 +65,30 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-interface DocumentDetailClientProps {
-  documentId: string;
-}
-
-export default function DocumentDetailClient({ documentId }: DocumentDetailClientProps) {
+export default function DocumentDetailClient() {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
 
+  const [documentId, setDocumentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [document, setDocument] = useState<MasterDocumentEntry | null>(null);
   const [currentTab, setCurrentTab] = useState(0);
 
+  // Extract document ID from pathname for static export compatibility
   useEffect(() => {
-    loadDocument();
+    if (pathname) {
+      const match = pathname.match(/\/documents\/([^/]+)(?:\/|$)/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setDocumentId(extractedId);
+      }
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    if (documentId) {
+      loadDocument();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId]);
 
@@ -128,7 +139,7 @@ export default function DocumentDetailClient({ documentId }: DocumentDetailClien
     return colors[status] || 'default';
   };
 
-  if (loading) {
+  if (loading || !documentId) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
         <CircularProgress />
