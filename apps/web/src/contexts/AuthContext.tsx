@@ -85,7 +85,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { auth } = getFirebase();
     let isMounted = true; // Track if component is mounted
 
+    // eslint-disable-next-line no-console
+    console.log('[AuthContext] Setting up auth listener');
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // eslint-disable-next-line no-console
+      console.log('[AuthContext] Auth state changed', {
+        hasUser: !!firebaseUser,
+        uid: firebaseUser?.uid,
+      });
+
       try {
         if (firebaseUser) {
           try {
