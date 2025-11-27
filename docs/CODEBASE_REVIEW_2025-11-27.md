@@ -256,18 +256,30 @@ Goods Receipt (GR)
 - Manual document linking to requirements
 - Missing: Auto-matching based on type
 
-### Missing Integrations (Critical)
+### Recently Implemented Integrations ✅
+
+#### 3. Accounting → Projects ✅ IMPLEMENTED
+
+**File:** `functions/src/projectFinancials.ts`
+
+- `onTransactionWriteUpdateProjectFinancials`: Updates cost centre actualSpent and project budget.actual
+- `onProjectBudgetChange`: Syncs project budget changes to cost centre
+- Automatic variance calculation
+
+#### 4. Procurement → Projects ✅ IMPLEMENTED
+
+**File:** `functions/src/procurementProjectSync.ts`
+
+- `onPOStatusSyncToProject`: PO status → Charter item status (PO_PLACED, DELIVERED)
+- `onRFQStatusSyncToProject`: RFQ issued → Charter item RFQ_ISSUED
+- `onGoodsReceiptSyncToProject`: GR completed → Charter item DELIVERED
+
+### Remaining Integrations (Lower Priority)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    MISSING INTEGRATION FLOWS                    │
+│                    REMAINING INTEGRATION FLOWS                  │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Accounting ──X──▶ Projects                                     │
-│  (Cost centre transactions should update project financials)    │
-│                                                                 │
-│  Procurement ──X──▶ Projects                                    │
-│  (PO status should sync back to charter items)                  │
 │                                                                 │
 │  Accounting ──X──▶ Procurement                                  │
 │  (Payment confirmation should update invoice status)            │
@@ -283,13 +295,13 @@ Goods Receipt (GR)
 
 ### Integration Priority
 
-| Integration              | Impact | Effort | Priority |
-| ------------------------ | ------ | ------ | -------- |
-| Accounting → Projects    | High   | 3h     | P1       |
-| Procurement → Projects   | High   | 3h     | P1       |
-| Accounting → Procurement | Medium | 2h     | P2       |
-| BOM → Procurement        | High   | 4h     | P2       |
-| Materials → Procurement  | Medium | 4h     | P3       |
+| Integration              | Impact | Effort | Priority | Status     |
+| ------------------------ | ------ | ------ | -------- | ---------- |
+| Accounting → Projects    | High   | 3h     | P1       | ✅ DONE    |
+| Procurement → Projects   | High   | 3h     | P1       | ✅ DONE    |
+| Accounting → Procurement | Medium | 2h     | P2       | ⚠️ Pending |
+| BOM → Procurement        | High   | 4h     | P2       | ⚠️ Pending |
+| Materials → Procurement  | Medium | 4h     | P3       | ⚠️ Pending |
 
 ---
 
@@ -550,15 +562,15 @@ async function submitPurchaseRequest(prId: string) {
 
 ### Short-term (Next 2 Sprints)
 
-| #   | Task                                         | Impact | Effort | Status     |
-| --- | -------------------------------------------- | ------ | ------ | ---------- |
-| 1   | Add Cloud Functions for task auto-completion | High   | 4h     | ✅ DONE    |
-| 2   | Implement Accounting → Projects integration  | High   | 3h     | ⚠️ Pending |
-| 3   | Implement Procurement → Projects status sync | High   | 3h     | ⚠️ Pending |
-| 4   | Add email notification system                | High   | 4h     |            |
-| 5   | Complete Excel upload functionality          | Medium | 4h     |            |
-| 6   | Add missing React.memo optimizations         | Medium | 3h     |            |
-| 7   | Add error boundaries to critical components  | Medium | 2h     |            |
+| #   | Task                                         | Impact | Effort | Status  |
+| --- | -------------------------------------------- | ------ | ------ | ------- |
+| 1   | Add Cloud Functions for task auto-completion | High   | 4h     | ✅ DONE |
+| 2   | Implement Accounting → Projects integration  | High   | 3h     | ✅ DONE |
+| 3   | Implement Procurement → Projects status sync | High   | 3h     | ✅ DONE |
+| 4   | Add email notification system                | High   | 4h     |         |
+| 5   | Complete Excel upload functionality          | Medium | 4h     |         |
+| 6   | Add missing React.memo optimizations         | Medium | 3h     |         |
+| 7   | Add error boundaries to critical components  | Medium | 2h     |         |
 
 ### Medium-term (Next Quarter)
 
