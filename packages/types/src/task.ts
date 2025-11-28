@@ -285,3 +285,238 @@ export interface UserTimeStats {
   currentActiveEntry?: TimeEntry;
   currentActiveTask?: TaskNotification;
 }
+
+// ============================================================================
+// SLACK-LIKE TASK CHANNEL TYPES
+// ============================================================================
+
+/**
+ * Default channel IDs (these are derived, not stored in DB)
+ */
+export type DefaultTaskChannelId =
+  | 'general'
+  | 'procurement'
+  | 'documents'
+  | 'accounting'
+  | 'approvals'
+  | 'enquiries'
+  | 'proposals';
+
+/**
+ * Task Channel
+ * Represents a channel in the Slack-like task interface
+ */
+export interface TaskChannel {
+  id: string;
+  name: string;
+  icon: string;
+  description?: string;
+  categories: TaskNotificationCategory[];
+  isDefault: boolean;
+}
+
+/**
+ * Mapping of default channels to task categories
+ */
+export const TASK_CHANNEL_DEFINITIONS: Record<DefaultTaskChannelId, TaskChannel> = {
+  general: {
+    id: 'general',
+    name: 'General',
+    icon: 'Hash',
+    description: 'Project-wide announcements and updates',
+    categories: ['MILESTONE_DUE', 'PROJECT_UPDATE_REQUIRED', 'PROJECT_DELIVERABLE_DUE'],
+    isDefault: true,
+  },
+  procurement: {
+    id: 'procurement',
+    name: 'Procurement',
+    icon: 'ShoppingCart',
+    description: 'Purchase requests, RFQs, POs, and goods receipts',
+    categories: [
+      'PR_SUBMITTED',
+      'PR_APPROVED',
+      'PR_REJECTED',
+      'PR_COMMENTED',
+      'RFQ_CREATED',
+      'OFFER_UPLOADED',
+      'PO_PENDING_APPROVAL',
+      'PO_APPROVED',
+      'PO_REJECTED',
+      'GOODS_RECEIVED',
+      'WCC_ISSUED',
+    ],
+    isDefault: true,
+  },
+  documents: {
+    id: 'documents',
+    name: 'Documents',
+    icon: 'FileText',
+    description: 'Document reviews, submissions, and approvals',
+    categories: [
+      'DOCUMENT_ASSIGNED',
+      'DOCUMENT_SUBMISSION_REQUIRED',
+      'DOCUMENT_INTERNAL_REVIEW',
+      'DOCUMENT_APPROVED_FOR_CLIENT',
+      'DOCUMENT_SUBMITTED_TO_CLIENT',
+      'DOCUMENT_CLIENT_REVIEW_PENDING',
+      'DOCUMENT_CLIENT_COMMENTED',
+      'DOCUMENT_COMMENTS_RESOLVED',
+      'DOCUMENT_RESUBMISSION_REQUIRED',
+      'DOCUMENT_APPROVED_BY_CLIENT',
+      'DOCUMENT_ACCEPTED_BY_CLIENT',
+      'DOCUMENT_PREDECESSOR_COMPLETED',
+      'WORK_ITEM_ASSIGNED',
+      'SUPPLY_LIST_PR_REQUIRED',
+    ],
+    isDefault: true,
+  },
+  accounting: {
+    id: 'accounting',
+    name: 'Accounting',
+    icon: 'Calculator',
+    description: 'Invoices, payments, and financial tasks',
+    categories: [
+      'INVOICE_APPROVAL_REQUIRED',
+      'PAYMENT_APPROVED',
+      'PAYMENT_COMPLETED',
+      'PAYMENT_REQUESTED',
+    ],
+    isDefault: true,
+  },
+  approvals: {
+    id: 'approvals',
+    name: 'Approvals',
+    icon: 'CheckCircle',
+    description: 'Cross-module approval tasks',
+    categories: [], // Will contain approval-type tasks from other channels
+    isDefault: true,
+  },
+  enquiries: {
+    id: 'enquiries',
+    name: 'Enquiries',
+    icon: 'HelpCircle',
+    description: 'Customer enquiries and follow-ups',
+    categories: ['ENQUIRY_ASSIGNED'],
+    isDefault: true,
+  },
+  proposals: {
+    id: 'proposals',
+    name: 'Proposals',
+    icon: 'FileSignature',
+    description: 'Proposal drafts, reviews, and approvals',
+    categories: [
+      'PROPOSAL_SUBMITTED',
+      'PROPOSAL_APPROVED',
+      'PROPOSAL_REJECTED',
+      'PROPOSAL_CHANGES_REQUESTED',
+    ],
+    isDefault: true,
+  },
+};
+
+/**
+ * Get channel ID from task category
+ */
+export function getChannelIdFromCategory(category: TaskNotificationCategory): DefaultTaskChannelId {
+  for (const [channelId, channel] of Object.entries(TASK_CHANNEL_DEFINITIONS)) {
+    if (channel.categories.includes(category)) {
+      return channelId as DefaultTaskChannelId;
+    }
+  }
+  // Default to general if category not mapped
+  return 'general';
+}
+
+/**
+ * Check if a category is an approval-type task
+ */
+export function isApprovalCategory(category: TaskNotificationCategory): boolean {
+  const approvalCategories: TaskNotificationCategory[] = [
+    'PR_SUBMITTED',
+    'PO_PENDING_APPROVAL',
+    'INVOICE_APPROVAL_REQUIRED',
+    'PROPOSAL_SUBMITTED',
+    'DOCUMENT_INTERNAL_REVIEW',
+    'DOCUMENT_COMMENTS_RESOLVED',
+  ];
+  return approvalCategories.includes(category);
+}
+
+/**
+ * Project Channel (custom channels created per project)
+ * Stored in projectChannels collection
+ */
+export interface ProjectChannel {
+  id: string;
+  projectId: string;
+  name: string;
+  icon?: string;
+  description?: string;
+  isDefault: boolean;
+  createdBy: string;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+/**
+ * Task Workspace
+ * Represents a project as a workspace in the Slack-like interface
+ */
+export interface TaskWorkspace {
+  id: string; // Project ID or 'pre-sales'
+  name: string;
+  type: 'project' | 'pre-sales';
+  channels: TaskChannel[];
+  unreadCount?: number;
+}
+
+// ============================================================================
+// THREAD & MENTION TYPES (For Phase C)
+// ============================================================================
+
+/**
+ * Task Thread
+ * Thread for discussions on a task
+ */
+export interface TaskThread {
+  id: string;
+  taskNotificationId: string;
+  projectId?: string;
+  channelId: string;
+  messageCount: number;
+  lastMessageAt: Timestamp;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+/**
+ * Task Message
+ * Message in a thread
+ */
+export interface TaskMessage {
+  id: string;
+  threadId: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  content: string;
+  mentions: string[]; // userIds mentioned
+  createdAt: Timestamp;
+  editedAt?: Timestamp;
+}
+
+/**
+ * Task Mention
+ * Mention notification for @mentions
+ */
+export interface TaskMention {
+  id: string;
+  messageId: string;
+  threadId: string;
+  taskNotificationId: string;
+  mentionedUserId: string;
+  mentionedByUserId: string;
+  mentionedByName: string;
+  read: boolean;
+  createdAt: Timestamp;
+}

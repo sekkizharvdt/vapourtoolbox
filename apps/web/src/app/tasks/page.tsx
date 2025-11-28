@@ -3,387 +3,189 @@
 /**
  * Tasks Page
  *
- * Unified task-notification management with integrated time tracking
- * Shows all actionable and informational items with time stats
+ * Slack-like task management with project channels, threaded discussions,
+ * and real-time updates. Shows tasks filtered by selected workspace/channel.
  */
 
-import React, { useState, useEffect } from 'react';
-import {
-  Container,
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Stack,
-  Chip,
-  CircularProgress,
-  Alert,
-} from '@mui/material';
-import {
-  Assignment as AssignmentIcon,
-  Schedule as ScheduleIcon,
-  CheckCircle as CheckCircleIcon,
-  Notifications as NotificationsIcon,
-} from '@mui/icons-material';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Box, Alert, Snackbar } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
-import { TaskNotificationList, TimerWidget } from '@/components/tasks';
-import {
-  getUserTaskNotifications,
-  getTaskNotificationSummary,
-  acknowledgeInformational,
-  startActionableTask,
-  completeActionableTask,
-  markAsRead,
-  acknowledgeAllInformational,
-} from '@/lib/tasks/taskNotificationService';
+import { useTasksLayout } from './context';
+import { ChannelView } from './components/ChannelView';
+import { TimerWidget } from '@/components/tasks';
+import { startActionableTask, completeActionableTask } from '@/lib/tasks/taskNotificationService';
 import {
   startTimeEntry,
   stopTimeEntry,
   pauseTimeEntry,
   resumeTimeEntry,
   getActiveTimeEntry,
-  getUserTimeStats,
 } from '@/lib/tasks/timeEntryService';
-import type {
-  TaskNotification,
-  TaskNotificationSummary,
-  TimeEntry,
-  UserTimeStats,
-} from '@vapour/types';
-import { formatDuration } from '@/lib/tasks/timeEntryService';
+import type { TimeEntry, TaskNotification } from '@vapour/types';
 
 export default function TasksPage() {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<TaskNotification[]>([]);
-  const [summary, setSummary] = useState<TaskNotificationSummary | null>(null);
-  const [timeStats, setTimeStats] = useState<UserTimeStats | null>(null);
-  const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
-  const [activeTask, setActiveTask] = useState<TaskNotification | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    tasks,
+    selectedWorkspaceId,
+    selectedChannelId,
+    selectedView,
+    selectedWorkspaceName,
+    tasksByWorkspace,
+    isLoading,
+    onToggleSidebar,
+    showSidebarToggle,
+  } = useTasksLayout();
+
+  // Error state
   const [error, setError] = useState<string | null>(null);
 
-  // Load data
-  const loadData = async () => {
-    if (!user) return;
+  // Active timer state
+  const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
+  const [activeTask, setActiveTask] = useState<TaskNotification | null>(null);
 
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const [notifs, sum, stats, active] = await Promise.all([
-        getUserTaskNotifications({ userId: user.uid }),
-        getTaskNotificationSummary(user.uid),
-        getUserTimeStats(user.uid),
-        getActiveTimeEntry(user.uid),
-      ]);
-
-      setNotifications(notifs);
-      setSummary(sum);
-      setTimeStats(stats);
-      setActiveEntry(active);
-
-      // If there's an active entry, find the task
-      if (active) {
-        const task = notifs.find((n) => n.id === active.taskNotificationId);
-        setActiveTask(task || null);
-      }
-    } catch (err) {
-      console.error('Failed to load tasks:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load tasks');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Load active timer on mount
   useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+    async function loadActiveEntry() {
+      if (!user) return;
+      try {
+        const entry = await getActiveTimeEntry(user.uid);
+        setActiveEntry(entry);
+        if (entry) {
+          const task = tasks.find((t) => t.id === entry.taskNotificationId);
+          setActiveTask(task || null);
+        }
+      } catch (err) {
+        console.error('Failed to load active entry:', err);
+      }
+    }
+    loadActiveEntry();
+  }, [user, tasks]);
+
+  // Get tasks for current view
+  const currentTasks = React.useMemo(() => {
+    if (selectedView === 'my-tasks') {
+      // Show all pending/in-progress tasks
+      return tasks.filter((t) => t.status === 'pending' || t.status === 'in_progress');
+    }
+    if (selectedView === 'mentions') {
+      // Placeholder for Phase C
+      return [];
+    }
+    // Channel view - tasks are filtered by ChannelView component
+    if (selectedWorkspaceId) {
+      return tasksByWorkspace[selectedWorkspaceId] || [];
+    }
+    return [];
+  }, [selectedView, selectedWorkspaceId, tasks, tasksByWorkspace]);
 
   // Handlers
-  const handleAcknowledge = async (id: string) => {
-    try {
-      await acknowledgeInformational(id);
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to acknowledge');
-    }
-  };
+  const handleStartTask = useCallback(
+    async (taskId: string) => {
+      if (!user) return;
 
-  const handleStartTask = async (id: string) => {
-    if (!user) return;
-
-    try {
-      // Start the task
-      await startActionableTask(id, user.uid);
-      // Start time entry
-      await startTimeEntry(user.uid, id);
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start task');
-    }
-  };
-
-  const handleCompleteTask = async (id: string) => {
-    if (!user) return;
-
-    try {
-      // Stop any active time entry
-      if (activeEntry) {
-        await stopTimeEntry(activeEntry.id);
+      try {
+        // Start the task
+        await startActionableTask(taskId, user.uid);
+        // Start time entry and get active entry
+        await startTimeEntry(user.uid, taskId);
+        const entry = await getActiveTimeEntry(user.uid);
+        const task = tasks.find((t) => t.id === taskId);
+        setActiveEntry(entry);
+        setActiveTask(task || null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to start task');
       }
-      // Complete the task
-      await completeActionableTask(id, user.uid, false);
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to complete task');
-    }
-  };
+    },
+    [user, tasks]
+  );
 
-  const handleMarkRead = async (id: string) => {
-    try {
-      await markAsRead(id);
-      await loadData();
-    } catch (err) {
-      console.error('Failed to mark as read:', err);
-    }
-  };
+  const handleCompleteTask = useCallback(
+    async (taskId: string) => {
+      if (!user) return;
 
-  const handleAcknowledgeAll = async () => {
-    if (!user) return;
+      try {
+        // Stop any active time entry for this task
+        if (activeEntry && activeEntry.taskNotificationId === taskId) {
+          await stopTimeEntry(activeEntry.id);
+          setActiveEntry(null);
+          setActiveTask(null);
+        }
+        // Complete the task
+        await completeActionableTask(taskId, user.uid, false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to complete task');
+      }
+    },
+    [user, activeEntry]
+  );
 
-    try {
-      await acknowledgeAllInformational(user.uid);
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to acknowledge all');
-    }
-  };
+  const handleViewThread = useCallback((_taskId: string) => {
+    // Placeholder for Phase C - will open thread panel
+    // Thread panel implementation coming in Phase C
+  }, []);
 
-  const handlePauseTimer = async (entryId: string) => {
+  // Timer handlers
+  const handlePauseTimer = useCallback(async (entryId: string) => {
     try {
       await pauseTimeEntry(entryId);
-      await loadData();
+      const entry = await getActiveTimeEntry(entryId);
+      setActiveEntry(entry);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to pause timer');
     }
-  };
+  }, []);
 
-  const handleResumeTimer = async (entryId: string) => {
+  const handleResumeTimer = useCallback(async (entryId: string) => {
     try {
       await resumeTimeEntry(entryId);
-      await loadData();
+      const entry = await getActiveTimeEntry(entryId);
+      setActiveEntry(entry);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to resume timer');
     }
-  };
+  }, []);
 
-  const handleStopTimer = async (entryId: string) => {
+  const handleStopTimer = useCallback(async (entryId: string) => {
     try {
       await stopTimeEntry(entryId);
-      await loadData();
+      setActiveEntry(null);
+      setActiveTask(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to stop timer');
     }
-  };
+  }, []);
+
+  // Clear error
+  const handleCloseError = useCallback(() => {
+    setError(null);
+  }, []);
 
   if (!user) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ p: 4 }}>
         <Alert severity="warning">Please log in to view your tasks.</Alert>
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          My Tasks
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Manage your task notifications and track your time
-        </Typography>
-      </Box>
-
-      {/* Error Alert */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
-
-      {/* Loading State */}
-      {isLoading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      )}
-
-      {/* Content */}
-      {!isLoading && (
-        <>
-          {/* Stats Cards */}
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} sx={{ mb: 4 }} flexWrap="wrap">
-            {/* Pending Tasks */}
-            <Box
-              sx={{
-                flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 12px)', md: '1 1 calc(25% - 18px)' },
-              }}
-            >
-              <Card>
-                <CardContent>
-                  <Stack spacing={2}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <AssignmentIcon color="primary" />
-                      <Chip label="Pending" size="small" color="warning" />
-                    </Stack>
-                    <Typography variant="h3">{summary?.pending || 0}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Pending Tasks
-                    </Typography>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Box>
-
-            {/* In Progress */}
-            <Box
-              sx={{
-                flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 12px)', md: '1 1 calc(25% - 18px)' },
-              }}
-            >
-              <Card>
-                <CardContent>
-                  <Stack spacing={2}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <ScheduleIcon color="primary" />
-                      <Chip label="Active" size="small" color="primary" />
-                    </Stack>
-                    <Typography variant="h3">{summary?.inProgress || 0}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      In Progress
-                    </Typography>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Box>
-
-            {/* Completed */}
-            <Box
-              sx={{
-                flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 12px)', md: '1 1 calc(25% - 18px)' },
-              }}
-            >
-              <Card>
-                <CardContent>
-                  <Stack spacing={2}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <CheckCircleIcon color="success" />
-                      <Chip label="Done" size="small" color="success" />
-                    </Stack>
-                    <Typography variant="h3">{summary?.completed || 0}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Completed
-                    </Typography>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Box>
-
-            {/* Unread */}
-            <Box
-              sx={{
-                flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 12px)', md: '1 1 calc(25% - 18px)' },
-              }}
-            >
-              <Card>
-                <CardContent>
-                  <Stack spacing={2}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <NotificationsIcon color="error" />
-                      <Chip label="Unread" size="small" color="error" />
-                    </Stack>
-                    <Typography variant="h3">{summary?.unread || 0}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Unread Notifications
-                    </Typography>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Box>
-          </Stack>
-
-          {/* Time Stats */}
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ mb: 4 }}>
-            <Box sx={{ flex: 1 }}>
-              <Card>
-                <CardContent>
-                  <Stack spacing={1}>
-                    <Typography variant="overline" color="text.secondary">
-                      Time Today
-                    </Typography>
-                    <Typography variant="h4" color="primary.main">
-                      {formatDuration(timeStats?.today.totalTime || 0)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {timeStats?.today.completedTasks || 0} tasks completed
-                    </Typography>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Box>
-
-            <Box sx={{ flex: 1 }}>
-              <Card>
-                <CardContent>
-                  <Stack spacing={1}>
-                    <Typography variant="overline" color="text.secondary">
-                      Time This Week
-                    </Typography>
-                    <Typography variant="h4" color="primary.main">
-                      {formatDuration(timeStats?.thisWeek.totalTime || 0)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {timeStats?.thisWeek.completedTasks || 0} tasks completed
-                    </Typography>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Box>
-
-            <Box sx={{ flex: 1 }}>
-              <Card>
-                <CardContent>
-                  <Stack spacing={1}>
-                    <Typography variant="overline" color="text.secondary">
-                      Time This Month
-                    </Typography>
-                    <Typography variant="h4" color="primary.main">
-                      {formatDuration(timeStats?.thisMonth.totalTime || 0)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {timeStats?.thisMonth.completedTasks || 0} tasks completed
-                    </Typography>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Box>
-          </Stack>
-
-          {/* Task List */}
-          <TaskNotificationList
-            notifications={notifications}
-            onAcknowledge={handleAcknowledge}
-            onStartTask={handleStartTask}
-            onCompleteTask={handleCompleteTask}
-            onMarkRead={handleMarkRead}
-            onAcknowledgeAll={handleAcknowledgeAll}
-            isLoading={isLoading}
-          />
-        </>
-      )}
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Channel View */}
+      <ChannelView
+        workspaceName={selectedWorkspaceName || 'All Projects'}
+        channelId={selectedChannelId || undefined}
+        view={selectedView}
+        tasks={currentTasks}
+        isLoading={isLoading}
+        error={error}
+        onStartTask={handleStartTask}
+        onCompleteTask={handleCompleteTask}
+        onViewThread={handleViewThread}
+        activeTaskId={activeTask?.id}
+        onToggleSidebar={onToggleSidebar}
+        showSidebarToggle={showSidebarToggle}
+      />
 
       {/* Floating Timer Widget */}
       {activeEntry && activeTask && (
@@ -395,6 +197,18 @@ export default function TasksPage() {
           onStop={handleStopTimer}
         />
       )}
-    </Container>
+
+      {/* Error Snackbar */}
+      <Snackbar
+        open={!!error}
+        autoHideDuration={6000}
+        onClose={handleCloseError}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseError} severity="error" sx={{ width: '100%' }}>
+          {error}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 }

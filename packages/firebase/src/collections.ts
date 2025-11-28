@@ -25,6 +25,12 @@ export const COLLECTIONS = {
   LEAVES: 'leaves',
   ON_DUTY: 'on_duty',
 
+  // Slack-like Task Channels (Phase A-C)
+  PROJECT_CHANNELS: 'projectChannels', // Custom channels per project
+  TASK_THREADS: 'taskThreads', // Threaded discussions on tasks
+  TASK_MESSAGES: 'taskMessages', // Messages in threads
+  TASK_MENTIONS: 'taskMentions', // @mention notifications
+
   // Accounting
   ACCOUNTS: 'accounts',
   TRANSACTIONS: 'transactions',
