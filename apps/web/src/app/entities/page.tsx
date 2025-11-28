@@ -76,7 +76,7 @@ export default function EntitiesPage() {
   const [roleFilter, setRoleFilter] = useState<string>('all');
 
   // Sorting
-  type SortField = 'name' | 'code' | 'contactPerson' | 'email' | 'status' | 'createdAt';
+  type SortField = 'name' | 'contactPerson' | 'status' | 'createdAt';
   const [sortField, setSortField] = useState<SortField>('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
@@ -136,14 +136,8 @@ export default function EntitiesPage() {
         case 'name':
           comparison = (a.name || '').localeCompare(b.name || '');
           break;
-        case 'code':
-          comparison = (a.code || '').localeCompare(b.code || '');
-          break;
         case 'contactPerson':
           comparison = (a.contactPerson || '').localeCompare(b.contactPerson || '');
-          break;
-        case 'email':
-          comparison = (a.email || '').localeCompare(b.email || '');
           break;
         case 'status':
           comparison = (a.status || '').localeCompare(b.status || '');
@@ -302,7 +296,7 @@ export default function EntitiesPage() {
 
         {/* Entities Table */}
         {loading ? (
-          <LoadingState message="Loading entities..." variant="table" colSpan={8} />
+          <LoadingState message="Loading entities..." variant="table" colSpan={5} />
         ) : filteredAndSortedEntities.length === 0 ? (
           <EmptyState
             message={
@@ -311,22 +305,13 @@ export default function EntitiesPage() {
                 : 'No entities match your search criteria.'
             }
             variant="table"
-            colSpan={8}
+            colSpan={5}
           />
         ) : (
           <TableContainer component={Paper}>
             <Table sx={{ minWidth: 650 }}>
               <TableHead>
                 <TableRow>
-                  <TableCell>
-                    <TableSortLabel
-                      active={sortField === 'code'}
-                      direction={sortField === 'code' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('code')}
-                    >
-                      Code
-                    </TableSortLabel>
-                  </TableCell>
                   <TableCell>
                     <TableSortLabel
                       active={sortField === 'name'}
@@ -348,16 +333,6 @@ export default function EntitiesPage() {
                   </TableCell>
                   <TableCell>
                     <TableSortLabel
-                      active={sortField === 'email'}
-                      direction={sortField === 'email' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('email')}
-                    >
-                      Email
-                    </TableSortLabel>
-                  </TableCell>
-                  <TableCell>Phone</TableCell>
-                  <TableCell>
-                    <TableSortLabel
                       active={sortField === 'status'}
                       direction={sortField === 'status' ? sortDirection : 'asc'}
                       onClick={() => handleSort('status')}
@@ -377,29 +352,37 @@ export default function EntitiesPage() {
                   >
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium">
-                        {entity.code}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="medium">
                         {entity.name}
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                         {entity.roles.map((role) => (
-                          <Chip key={role} label={role} size="small" variant="outlined" />
+                          <Chip
+                            key={role}
+                            label={role}
+                            size="small"
+                            sx={{
+                              ...(role === 'VENDOR' && {
+                                bgcolor: 'info.main',
+                                color: 'info.contrastText',
+                              }),
+                              ...(role === 'CUSTOMER' && {
+                                bgcolor: 'secondary.main',
+                                color: 'secondary.contrastText',
+                              }),
+                              ...(role !== 'VENDOR' &&
+                                role !== 'CUSTOMER' && {
+                                  bgcolor: 'grey.200',
+                                  color: 'text.primary',
+                                }),
+                            }}
+                          />
                         ))}
                       </Box>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">{entity.contactPerson}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{entity.email}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{entity.phone}</Typography>
                     </TableCell>
                     <TableCell>
                       <Chip
