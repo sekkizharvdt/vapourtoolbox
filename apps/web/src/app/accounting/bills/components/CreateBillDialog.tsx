@@ -29,6 +29,7 @@ interface CreateBillDialogProps {
 export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [vendorBillNumber, setVendorBillNumber] = useState('');
 
   // Use transaction form hook
   const formState = useTransactionForm({
@@ -94,14 +95,17 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchedEntityName, formState.entityId, formState.setEntityName]);
 
-  // Load TDS data when editing
+  // Load TDS data and vendor bill number when editing
   React.useEffect(() => {
     if (open && editingBill) {
+      setVendorBillNumber(editingBill.vendorInvoiceNumber || '');
       if (editingBill.tdsDeducted) {
         setTdsDeducted(true);
         setTdsSection((editingBill.tdsDetails?.section as TDSSectionType) || '194C');
         setVendorPAN(editingBill.tdsDetails?.panNumber || '');
       }
+    } else if (open) {
+      setVendorBillNumber('');
     }
   }, [open, editingBill, setTdsDeducted, setTdsSection, setVendorPAN]);
 
@@ -109,6 +113,12 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
     try {
       setLoading(true);
       setError('');
+
+      if (!vendorBillNumber.trim()) {
+        setError('Please enter the vendor bill/invoice number');
+        setLoading(false);
+        return;
+      }
 
       if (!formState.entityId) {
         setError('Please select a vendor');
@@ -155,6 +165,11 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
         return;
       }
 
+      // Clean gstDetails to remove undefined values (Firestore doesn't accept undefined)
+      const cleanGstDetails = gstDetails
+        ? Object.fromEntries(Object.entries(gstDetails).filter(([, v]) => v !== undefined))
+        : null;
+
       const bill = {
         type: 'VENDOR_BILL' as const,
         date: billDate ? Timestamp.fromDate(billDate) : Timestamp.now(),
@@ -162,18 +177,24 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
         entityId: formState.entityId,
         entityName: formState.entityName,
         description: formState.description,
-        reference: formState.reference || undefined,
-        projectId: formState.projectId || undefined,
+        reference: formState.reference || '',
+        projectId: formState.projectId || '',
         status: formState.status,
-        lineItems,
+        lineItems: lineItems.map((item) => ({
+          ...item,
+          // Remove undefined fields from line items
+          hsnCode: item.hsnCode || '',
+          sacCode: item.sacCode || '',
+        })),
         subtotal,
-        ...(gstDetails ? { gstDetails } : {}),
+        ...(cleanGstDetails ? { gstDetails: cleanGstDetails } : {}),
         tdsDeducted,
         ...(tdsDetails ? { tdsDetails } : {}),
         tdsAmount,
         totalAmount,
         amount: totalAmount,
         transactionNumber,
+        vendorInvoiceNumber: vendorBillNumber.trim(),
         entries: glResult.entries,
         glGeneratedAt: Timestamp.now(),
         createdAt: editingBill?.createdAt || Timestamp.now(),
@@ -219,11 +240,14 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
       }
     >
       <Grid container spacing={2}>
-        {/* Bill Number */}
+        {/* Vendor Bill/Invoice Number (editable) */}
         <TransactionNumberDisplay
-          transactionNumber={editingBill?.transactionNumber}
-          label="Bill Number"
-          placeholder="Will be auto-generated (BILL-XXXX)"
+          value={vendorBillNumber}
+          onChange={setVendorBillNumber}
+          label="Vendor Bill/Invoice Number"
+          placeholder="Enter vendor's bill number"
+          helperText="Enter the bill/invoice number from the vendor"
+          editable
         />
 
         {/* Transaction Form Fields */}
