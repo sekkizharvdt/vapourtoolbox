@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Container,
   Typography,
@@ -45,12 +46,26 @@ import {
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity, Status } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { CreateEntityDialog } from '@/components/entities/CreateEntityDialog';
-import { EditEntityDialog } from '@/components/entities/EditEntityDialog';
-import { ViewEntityDialog } from '@/components/entities/ViewEntityDialog';
-import { DeleteEntityDialog } from '@/components/entities/DeleteEntityDialog';
 import { canViewEntities, canCreateEntities } from '@vapour/constants';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
+
+// Lazy load heavy dialog components
+const CreateEntityDialog = dynamic(
+  () => import('@/components/entities/CreateEntityDialog').then((mod) => mod.CreateEntityDialog),
+  { ssr: false }
+);
+const EditEntityDialog = dynamic(
+  () => import('@/components/entities/EditEntityDialog').then((mod) => mod.EditEntityDialog),
+  { ssr: false }
+);
+const ViewEntityDialog = dynamic(
+  () => import('@/components/entities/ViewEntityDialog').then((mod) => mod.ViewEntityDialog),
+  { ssr: false }
+);
+const DeleteEntityDialog = dynamic(
+  () => import('@/components/entities/DeleteEntityDialog').then((mod) => mod.DeleteEntityDialog),
+  { ssr: false }
+);
 
 export default function EntitiesPage() {
   const { claims } = useAuth();

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Container,
   Box,
@@ -49,13 +50,31 @@ import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { Project, ProjectStatus, ProjectPriority } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { CreateProjectDialog } from '@/components/projects/CreateProjectDialog';
-import { EditProjectDialog } from '@/components/projects/EditProjectDialog';
-import { ViewProjectDialog } from '@/components/projects/ViewProjectDialog';
-import { DeleteProjectDialog } from '@/components/projects/DeleteProjectDialog';
-import { ProjectCharterDialog } from '@/components/projects/ProjectCharterDialog';
 import { canViewProjects, canManageProjects } from '@vapour/constants';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
+
+// Lazy load heavy dialog components
+const CreateProjectDialog = dynamic(
+  () => import('@/components/projects/CreateProjectDialog').then((mod) => mod.CreateProjectDialog),
+  { ssr: false }
+);
+const EditProjectDialog = dynamic(
+  () => import('@/components/projects/EditProjectDialog').then((mod) => mod.EditProjectDialog),
+  { ssr: false }
+);
+const ViewProjectDialog = dynamic(
+  () => import('@/components/projects/ViewProjectDialog').then((mod) => mod.ViewProjectDialog),
+  { ssr: false }
+);
+const DeleteProjectDialog = dynamic(
+  () => import('@/components/projects/DeleteProjectDialog').then((mod) => mod.DeleteProjectDialog),
+  { ssr: false }
+);
+const ProjectCharterDialog = dynamic(
+  () =>
+    import('@/components/projects/ProjectCharterDialog').then((mod) => mod.ProjectCharterDialog),
+  { ssr: false }
+);
 
 export default function ProjectsPage() {
   const { claims } = useAuth();

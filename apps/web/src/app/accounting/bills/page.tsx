@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Container,
   Button,
@@ -49,8 +50,13 @@ import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { VendorBill } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { formatDate } from '@/lib/utils/formatters';
-import { CreateBillDialog } from './components/CreateBillDialog';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
+
+// Lazy load heavy dialog component
+const CreateBillDialog = dynamic(
+  () => import('./components/CreateBillDialog').then((mod) => mod.CreateBillDialog),
+  { ssr: false }
+);
 
 export default function BillsPage() {
   const { claims } = useAuth();

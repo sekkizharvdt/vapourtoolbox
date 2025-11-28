@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Container,
   Button,
@@ -50,8 +51,13 @@ import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { CustomerInvoice } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { formatDate } from '@/lib/utils/formatters';
-import { CreateInvoiceDialog } from './components/CreateInvoiceDialog';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
+
+// Lazy load heavy dialog component
+const CreateInvoiceDialog = dynamic(
+  () => import('./components/CreateInvoiceDialog').then((mod) => mod.CreateInvoiceDialog),
+  { ssr: false }
+);
 
 // Extended type for soft delete support
 interface CustomerInvoiceWithDelete extends CustomerInvoice {
@@ -98,7 +104,8 @@ export default function InvoicesPage() {
     [db]
   );
 
-  const { data: rawInvoices, loading } = useFirestoreQuery<CustomerInvoiceWithDelete>(invoicesQuery);
+  const { data: rawInvoices, loading } =
+    useFirestoreQuery<CustomerInvoiceWithDelete>(invoicesQuery);
 
   // Sort invoices: non-deleted first, then by date (already sorted by date from query)
   const invoices = useMemo(() => {
@@ -161,7 +168,12 @@ export default function InvoicesPage() {
   };
 
   const handleDelete = async (invoiceId: string) => {
-    if (!confirm('Are you sure you want to delete this invoice? It will be moved to the bottom of the list for audit purposes.')) return;
+    if (
+      !confirm(
+        'Are you sure you want to delete this invoice? It will be moved to the bottom of the list for audit purposes.'
+      )
+    )
+      return;
 
     try {
       const { db } = getFirebase();
@@ -340,13 +352,17 @@ export default function InvoicesPage() {
                       {formatCurrency(invoice.subtotal || 0, invoice.currency || 'INR')}
                     </TableCell>
                     <TableCell align="right">
-                      {formatCurrency(invoice.gstDetails?.totalGST || invoice.taxAmount || 0, invoice.currency || 'INR')}
+                      {formatCurrency(
+                        invoice.gstDetails?.totalGST || invoice.taxAmount || 0,
+                        invoice.currency || 'INR'
+                      )}
                     </TableCell>
                     <TableCell align="right">
                       {formatCurrency(invoice.totalAmount || 0, invoice.currency || 'INR')}
                       {invoice.currency && invoice.currency !== 'INR' && invoice.exchangeRate && (
                         <Typography variant="caption" display="block" color="text.secondary">
-                          ≈ {formatCurrency((invoice.totalAmount || 0) * invoice.exchangeRate, 'INR')}
+                          ≈{' '}
+                          {formatCurrency((invoice.totalAmount || 0) * invoice.exchangeRate, 'INR')}
                         </Typography>
                       )}
                     </TableCell>

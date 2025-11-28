@@ -11,6 +11,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Box,
   Paper,
@@ -36,15 +37,22 @@ import {
 } from '@mui/icons-material';
 import type { MasterDocumentEntry } from '@vapour/types';
 import { getMasterDocumentsByProject } from '@/lib/documents/masterDocumentService';
-import CreateDocumentDialog from './components/CreateDocumentDialog';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { DocumentMetrics } from './components/DocumentMetrics';
 import { QuickFilters } from './components/QuickFilters';
 import { GroupedDocumentsTable } from './components/GroupedDocumentsTable';
-import GenerateTransmittalDialog from './components/transmittals/GenerateTransmittalDialog';
 import TransmittalsList from './components/transmittals/TransmittalsList';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+
+// Lazy load heavy dialog components
+const CreateDocumentDialog = dynamic(() => import('./components/CreateDocumentDialog'), {
+  ssr: false,
+});
+const GenerateTransmittalDialog = dynamic(
+  () => import('./components/transmittals/GenerateTransmittalDialog'),
+  { ssr: false }
+);
 
 export default function MasterDocumentsPage() {
   const { db } = getFirebase();

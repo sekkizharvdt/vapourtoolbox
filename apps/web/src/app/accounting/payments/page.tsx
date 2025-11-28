@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Box,
   Button,
@@ -34,10 +35,22 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { CustomerPayment, VendorPayment } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
-import { RecordCustomerPaymentDialog } from './components/RecordCustomerPaymentDialog';
-import { RecordVendorPaymentDialog } from './components/RecordVendorPaymentDialog';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { formatDate } from '@/lib/utils/formatters';
+
+// Lazy load heavy dialog components
+const RecordCustomerPaymentDialog = dynamic(
+  () =>
+    import('./components/RecordCustomerPaymentDialog').then(
+      (mod) => mod.RecordCustomerPaymentDialog
+    ),
+  { ssr: false }
+);
+const RecordVendorPaymentDialog = dynamic(
+  () =>
+    import('./components/RecordVendorPaymentDialog').then((mod) => mod.RecordVendorPaymentDialog),
+  { ssr: false }
+);
 
 type PaymentType = 'all' | 'customer' | 'vendor';
 type Payment = CustomerPayment | VendorPayment;
