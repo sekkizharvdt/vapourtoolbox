@@ -29,6 +29,7 @@ import {
 } from '@mui/material';
 import { CloudUpload as UploadIcon } from '@mui/icons-material';
 import type { MasterDocumentEntry } from '@vapour/types';
+import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
 
 interface SubmitDocumentDialogProps {
   open: boolean;
@@ -42,6 +43,7 @@ export interface SubmissionData {
   revision: string;
   submissionNotes: string;
   clientVisible: boolean;
+  reviewerId?: string;
 }
 
 export default function SubmitDocumentDialog({
@@ -53,6 +55,7 @@ export default function SubmitDocumentDialog({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [submissionNotes, setSubmissionNotes] = useState('');
   const [clientVisible, setClientVisible] = useState(true);
+  const [reviewerId, setReviewerId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,12 +100,14 @@ export default function SubmitDocumentDialog({
         revision: nextRevision,
         submissionNotes,
         clientVisible,
+        reviewerId: reviewerId || undefined,
       });
 
       // Reset form
       setSelectedFile(null);
       setSubmissionNotes('');
       setClientVisible(true);
+      setReviewerId(null);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit document');
@@ -115,6 +120,7 @@ export default function SubmitDocumentDialog({
     if (!submitting) {
       setSelectedFile(null);
       setSubmissionNotes('');
+      setReviewerId(null);
       setError(null);
       onClose();
     }
@@ -214,6 +220,16 @@ export default function SubmitDocumentDialog({
             placeholder="Enter cover notes, changes summary, or special instructions..."
             disabled={submitting}
             fullWidth
+          />
+
+          {/* Reviewer Assignment */}
+          <ApproverSelector
+            value={reviewerId}
+            onChange={setReviewerId}
+            label="Assign Reviewer"
+            approvalType="document"
+            helperText="Select a reviewer to be notified when this document is submitted (optional)"
+            disabled={submitting}
           />
 
           {/* Client Visibility */}

@@ -101,6 +101,7 @@ export default function DocumentSubmissions({ document, onUpdate }: DocumentSubm
         clientVisible: data.clientVisible,
         submittedBy: user.uid,
         submittedByName: user.displayName || user.email || 'Unknown',
+        reviewerId: data.reviewerId,
       });
 
       // Reload submissions and update parent

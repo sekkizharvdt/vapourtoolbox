@@ -36,6 +36,7 @@ export interface SubmitDocumentRequest {
   clientVisible: boolean;
   submittedBy: string;
   submittedByName: string;
+  reviewerId?: string;
 }
 
 /**
@@ -324,6 +325,34 @@ export async function submitDocument(
       request.revision,
       submissionNumber
     );
+
+    // 6. Create task notification for assigned reviewer
+    if (request.reviewerId) {
+      try {
+        const { createTaskNotification } = await import('@/lib/tasks/taskNotificationService');
+        await createTaskNotification({
+          type: 'actionable',
+          category: 'DOCUMENT_INTERNAL_REVIEW',
+          userId: request.reviewerId,
+          assignedBy: request.submittedBy,
+          assignedByName: request.submittedByName,
+          title: `Review Document: ${request.masterDocument.documentNumber}`,
+          message: `${request.submittedByName} submitted ${request.masterDocument.documentTitle} (${request.revision}) for your review`,
+          entityType: 'DOCUMENT',
+          entityId: request.masterDocumentId,
+          linkUrl: `/documents/${request.masterDocumentId}?tab=submit`,
+          priority: 'MEDIUM',
+          autoCompletable: true,
+          projectId: request.projectId,
+        });
+      } catch (notificationError) {
+        console.error(
+          '[SubmissionService] Error creating reviewer notification:',
+          notificationError
+        );
+        // Don't fail the submission if notification fails
+      }
+    }
 
     return { submissionId, documentId };
   } catch (error) {

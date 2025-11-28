@@ -90,8 +90,13 @@ export default function PODetailPage() {
 
     setActionLoading(true);
     try {
-      await submitPOForApproval(poId, user.uid);
-      dialogState.setSubmitDialogOpen(false);
+      await submitPOForApproval(
+        poId,
+        user.uid,
+        user.displayName || 'Unknown',
+        dialogState.selectedApproverId || undefined
+      );
+      dialogState.resetSubmitForm();
       await loadPO();
     } catch (err) {
       console.error('[PODetailPage] Error submitting PO:', err);

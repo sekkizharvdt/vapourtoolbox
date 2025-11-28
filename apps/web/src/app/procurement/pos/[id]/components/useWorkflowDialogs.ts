@@ -18,6 +18,7 @@ export interface WorkflowDialogState {
   approvalComments: string;
   rejectionReason: string;
   cancellationReason: string;
+  selectedApproverId: string | null;
 
   // Actions
   setSubmitDialogOpen: (open: boolean) => void;
@@ -28,11 +29,13 @@ export interface WorkflowDialogState {
   setApprovalComments: (comments: string) => void;
   setRejectionReason: (reason: string) => void;
   setCancellationReason: (reason: string) => void;
+  setSelectedApproverId: (id: string | null) => void;
 
   // Reset functions
   resetApprovalForm: () => void;
   resetRejectionForm: () => void;
   resetCancellationForm: () => void;
+  resetSubmitForm: () => void;
 }
 
 export function useWorkflowDialogs(): WorkflowDialogState {
@@ -45,6 +48,7 @@ export function useWorkflowDialogs(): WorkflowDialogState {
   const [approvalComments, setApprovalComments] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [cancellationReason, setCancellationReason] = useState('');
+  const [selectedApproverId, setSelectedApproverId] = useState<string | null>(null);
 
   const resetApprovalForm = () => {
     setApprovalComments('');
@@ -61,6 +65,11 @@ export function useWorkflowDialogs(): WorkflowDialogState {
     setCancelDialogOpen(false);
   };
 
+  const resetSubmitForm = () => {
+    setSelectedApproverId(null);
+    setSubmitDialogOpen(false);
+  };
+
   return {
     submitDialogOpen,
     approveDialogOpen,
@@ -70,6 +79,7 @@ export function useWorkflowDialogs(): WorkflowDialogState {
     approvalComments,
     rejectionReason,
     cancellationReason,
+    selectedApproverId,
     setSubmitDialogOpen,
     setApproveDialogOpen,
     setRejectDialogOpen,
@@ -78,8 +88,10 @@ export function useWorkflowDialogs(): WorkflowDialogState {
     setApprovalComments,
     setRejectionReason,
     setCancellationReason,
+    setSelectedApproverId,
     resetApprovalForm,
     resetRejectionForm,
     resetCancellationForm,
+    resetSubmitForm,
   };
 }

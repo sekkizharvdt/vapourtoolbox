@@ -34,6 +34,7 @@ import type {
   OfferItem,
 } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
+import { formatCurrency } from './purchaseOrderHelpers';
 
 const logger = createLogger({ context: 'purchaseOrderService' });
 
@@ -337,18 +338,50 @@ export async function listPOs(
 // PO WORKFLOW
 // ============================================================================
 
-export async function submitPOForApproval(poId: string, userId: string): Promise<void> {
+export async function submitPOForApproval(
+  poId: string,
+  userId: string,
+  userName: string,
+  approverId?: string
+): Promise<void> {
   const { db } = getFirebase();
+
+  // Get PO for notification details
+  const po = await getPOById(poId);
+  if (!po) {
+    throw new Error('Purchase Order not found');
+  }
 
   await updateDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId), {
     status: 'PENDING_APPROVAL',
     submittedForApprovalAt: Timestamp.now(),
     submittedBy: userId,
+    ...(approverId && { approverId }),
     updatedAt: Timestamp.now(),
     updatedBy: userId,
   });
 
-  logger.info('PO submitted for approval', { poId });
+  // Create task notification for selected approver
+  if (approverId) {
+    const { createTaskNotification } = await import('@/lib/tasks/taskNotificationService');
+    await createTaskNotification({
+      type: 'actionable',
+      category: 'PO_PENDING_APPROVAL',
+      userId: approverId,
+      assignedBy: userId,
+      assignedByName: userName,
+      title: `Review Purchase Order ${po.number}`,
+      message: `${userName} submitted a purchase order for your approval: ${po.vendorName} - ${formatCurrency(po.grandTotal, po.currency)}`,
+      entityType: 'PURCHASE_ORDER',
+      entityId: poId,
+      linkUrl: `/procurement/pos/${poId}`,
+      priority: 'HIGH',
+      autoCompletable: true,
+      projectId: po.projectIds[0], // Use first project ID
+    });
+  }
+
+  logger.info('PO submitted for approval', { poId, approverId });
 }
 
 export async function approvePO(

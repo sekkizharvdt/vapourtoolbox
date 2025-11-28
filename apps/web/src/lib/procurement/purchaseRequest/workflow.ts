@@ -55,26 +55,24 @@ export async function submitPurchaseRequestForApproval(
       updatedBy: userId,
     });
 
-    // Create task-notification for Engineering Head
-    // NOTE: Engineering Head user ID should be obtained from project settings or user role query
-    // For now, this functionality is ready but requires the engineeringHeadUserId parameter
-    // TODO: Pass engineeringHeadUserId when calling this function, or implement getEngineeringHeadUserId() helper
-    // Example:
-    // await createTaskNotification({
-    //   type: 'actionable',
-    //   category: 'PR_SUBMITTED',
-    //   userId: engineeringHeadUserId,
-    //   assignedBy: userId,
-    //   assignedByName: userName,
-    //   title: `Review Purchase Request ${pr.number}`,
-    //   message: `${userName} submitted a purchase request for your review`,
-    //   entityType: 'PURCHASE_REQUEST',
-    //   entityId: prId,
-    //   linkUrl: `/procurement/purchase-requests/${prId}`,
-    //   priority: 'MEDIUM',
-    //   autoCompletable: true,
-    //   projectId: pr.projectId,
-    // });
+    // Create task notification for the selected approver (if specified)
+    if (pr.approverId) {
+      await createTaskNotification({
+        type: 'actionable',
+        category: 'PR_SUBMITTED',
+        userId: pr.approverId,
+        assignedBy: userId,
+        assignedByName: userName,
+        title: `Review Purchase Request ${pr.number}`,
+        message: `${userName} submitted a purchase request for your review: ${pr.title}`,
+        entityType: 'PURCHASE_REQUEST',
+        entityId: prId,
+        linkUrl: `/procurement/purchase-requests/${prId}`,
+        priority: pr.priority === 'URGENT' ? 'HIGH' : 'MEDIUM',
+        autoCompletable: true,
+        projectId: pr.projectId,
+      });
+    }
   } catch (error) {
     console.error('[submitPurchaseRequestForApproval] Error:', error);
     throw error;

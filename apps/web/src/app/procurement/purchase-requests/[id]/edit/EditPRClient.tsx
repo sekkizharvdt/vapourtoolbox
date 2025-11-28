@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
+import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
 import type { PurchaseRequest } from '@vapour/types';
 import {
   getPurchaseRequestById,
@@ -79,6 +80,7 @@ export default function EditPRPage() {
     description: '',
     priority: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT',
     requiredBy: '',
+    approverId: '', // User ID of the selected approver
   });
 
   const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
@@ -134,6 +136,7 @@ export default function EditPRPage() {
         description: prData.description,
         priority: prData.priority,
         requiredBy: prData.requiredBy?.toDate?.()?.toISOString().split('T')[0] || '',
+        approverId: prData.approverId || '',
       });
 
       // Populate line items
@@ -268,6 +271,7 @@ export default function EditPRPage() {
         ...(formData.requiredBy && {
           requiredBy: Timestamp.fromDate(new Date(formData.requiredBy)),
         }),
+        ...(formData.approverId && { approverId: formData.approverId }),
         itemCount: activeItems.length,
         updatedAt: now,
         updatedBy: user.uid,
@@ -507,6 +511,15 @@ export default function EditPRPage() {
                 fullWidth
               />
             </Stack>
+
+            <ApproverSelector
+              value={formData.approverId || null}
+              onChange={(userId) => handleInputChange('approverId', userId || '')}
+              label="Approver"
+              approvalType="pr"
+              helperText="Select who should approve this purchase request"
+              excludeUserIds={user ? [user.uid] : []}
+            />
           </Stack>
         </Paper>
 

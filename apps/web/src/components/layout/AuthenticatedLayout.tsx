@@ -9,10 +9,26 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useSessionTimeout } from '@/hooks/useSessionTimeout';
 
-export function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+interface AuthenticatedLayoutProps {
+  children: React.ReactNode;
+  /** If true, the main sidebar starts collapsed (64px icons only). Useful for modules with secondary sidebars. */
+  defaultSidebarCollapsed?: boolean;
+  /** If true, removes padding from main content area. Useful for modules with their own layout. */
+  noPadding?: boolean;
+}
+
+export function AuthenticatedLayout({
+  children,
+  defaultSidebarCollapsed,
+  noPadding,
+}: AuthenticatedLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    // Load collapsed state from localStorage
+    // If defaultSidebarCollapsed is explicitly set, use it
+    if (defaultSidebarCollapsed !== undefined) {
+      return defaultSidebarCollapsed;
+    }
+    // Otherwise load from localStorage
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('sidebar-collapsed');
       return saved === 'true';
@@ -118,7 +134,7 @@ export function AuthenticatedLayout({ children }: { children: React.ReactNode })
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: noPadding ? 0 : 3,
           width: { xs: '100%', md: `calc(100% - ${sidebarWidth}px)` },
           ml: { xs: 0, md: `${sidebarWidth}px` },
           minHeight: '100vh',

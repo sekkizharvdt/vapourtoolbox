@@ -54,6 +54,9 @@ export interface PurchaseRequest {
   submittedByName: string; // Denormalized
   submittedAt?: Timestamp;
 
+  // Selected approver (optional - if specified, creates task notification)
+  approverId?: string;
+
   reviewedBy?: string;
   reviewedByName?: string; // Denormalized
   reviewedAt?: Timestamp;
@@ -489,6 +492,9 @@ export interface PurchaseOrder {
   // Approval workflow
   submittedForApprovalAt?: Timestamp;
   submittedBy?: string;
+
+  // Selected approver (optional - if specified, creates task notification)
+  approverId?: string;
 
   approvedBy?: string;
   approvedByName?: string;

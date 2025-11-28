@@ -15,8 +15,10 @@ import {
   Typography,
   TextField,
   CircularProgress,
+  Box,
 } from '@mui/material';
 import type { WorkflowDialogState } from './useWorkflowDialogs';
+import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
 
 interface POWorkflowDialogsProps {
   dialogState: WorkflowDialogState;
@@ -48,10 +50,19 @@ export function POWorkflowDialogs({
       >
         <DialogTitle>Submit for Approval</DialogTitle>
         <DialogContent>
-          <Typography>
+          <Typography gutterBottom>
             Are you sure you want to submit this Purchase Order for approval? Once submitted, you
             will not be able to edit it.
           </Typography>
+          <Box sx={{ mt: 2 }}>
+            <ApproverSelector
+              value={dialogState.selectedApproverId}
+              onChange={(userId) => dialogState.setSelectedApproverId(userId)}
+              label="Assign Approver"
+              approvalType="po"
+              helperText="Select who should approve this purchase order (optional)"
+            />
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => dialogState.setSubmitDialogOpen(false)} disabled={actionLoading}>

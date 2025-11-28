@@ -1,25 +1,26 @@
 'use client';
 
 /**
- * Tasks Layout
+ * Flow Layout
  *
- * Provides the Slack-like interface layout for the tasks module.
- * - Hides the main app sidebar when in tasks view
- * - Shows workspace sidebar (projects + channels)
+ * Provides the Slack-like interface layout for the Flow module.
+ * Uses AuthenticatedLayout with collapsed main sidebar + workspace sidebar
+ * - Main app sidebar: Collapsed by default (64px icons)
+ * - Workspace sidebar: 260px (projects + channels)
  * - Responsive: drawer on mobile, fixed on desktop
  */
 
 import { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Box, Drawer, Toolbar, useTheme, useMediaQuery, CircularProgress } from '@mui/material';
+import { Box, Drawer, useTheme, useMediaQuery, CircularProgress } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
-import { DashboardAppBar } from '@/components/dashboard/AppBar';
+import { AuthenticatedLayout } from '@/components/layout/AuthenticatedLayout';
 import { WorkspaceSidebar } from './components/WorkspaceSidebar';
 import { buildWorkspaces, subscribeToUserTasks } from '@/lib/tasks/channelService';
 import { TasksLayoutContext, type TasksLayoutContextValue } from './context';
 import type { TaskNotification, DefaultTaskChannelId } from '@vapour/types';
 
-const SIDEBAR_WIDTH = 260;
+const WORKSPACE_SIDEBAR_WIDTH = 260;
 
 // Loading fallback for Suspense
 function TasksLayoutSkeleton() {
@@ -39,13 +40,13 @@ function TasksLayoutSkeleton() {
 
 // Inner layout component that uses useSearchParams
 function TasksLayoutInner({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Mobile sidebar state
+  // Mobile workspace sidebar state
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Task data
@@ -165,32 +166,10 @@ function TasksLayoutInner({ children }: { children: React.ReactNode }) {
     setTimeout(() => setIsLoading(false), 500);
   }, []);
 
-  // Toggle mobile sidebar
+  // Toggle mobile workspace sidebar
   const handleToggleSidebar = useCallback(() => {
     setMobileOpen((prev) => !prev);
   }, []);
-
-  // Auth loading state
-  if (authLoading) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh',
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  // Redirect if not authenticated
-  if (!user) {
-    router.push('/login');
-    return null;
-  }
 
   // Context value
   const contextValue: TasksLayoutContextValue = {
@@ -210,8 +189,8 @@ function TasksLayoutInner({ children }: { children: React.ReactNode }) {
     refreshTasks,
   };
 
-  // Sidebar content
-  const sidebarContent = (
+  // Workspace sidebar content
+  const workspaceSidebarContent = (
     <WorkspaceSidebar
       workspaces={workspaces}
       selectedWorkspaceId={workspaceId}
@@ -228,76 +207,61 @@ function TasksLayoutInner({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <TasksLayoutContext.Provider value={contextValue}>
-      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-        {/* App Bar */}
-        <DashboardAppBar
-          onMenuClick={handleToggleSidebar}
-          sidebarWidth={isMobile ? 0 : SIDEBAR_WIDTH}
-        />
-
-        {/* Mobile Drawer */}
-        {isMobile && (
-          <Drawer
-            variant="temporary"
-            open={mobileOpen}
-            onClose={handleToggleSidebar}
-            ModalProps={{ keepMounted: true }}
-            sx={{
-              '& .MuiDrawer-paper': {
-                width: SIDEBAR_WIDTH,
-                boxSizing: 'border-box',
-              },
-            }}
-          >
-            <Toolbar /> {/* Spacer for AppBar */}
-            {sidebarContent}
-          </Drawer>
-        )}
-
-        {/* Desktop Sidebar */}
-        {!isMobile && (
-          <Box
-            component="nav"
-            sx={{
-              width: SIDEBAR_WIDTH,
-              flexShrink: 0,
-            }}
-          >
-            <Box
+    <AuthenticatedLayout defaultSidebarCollapsed noPadding>
+      <TasksLayoutContext.Provider value={contextValue}>
+        <Box sx={{ display: 'flex', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+          {/* Mobile Workspace Drawer */}
+          {isMobile && (
+            <Drawer
+              variant="temporary"
+              open={mobileOpen}
+              onClose={handleToggleSidebar}
+              ModalProps={{ keepMounted: true }}
               sx={{
-                position: 'fixed',
-                width: SIDEBAR_WIDTH,
-                height: '100vh',
-                top: 0,
-                left: 0,
-                display: 'flex',
-                flexDirection: 'column',
+                '& .MuiDrawer-paper': {
+                  width: WORKSPACE_SIDEBAR_WIDTH,
+                  boxSizing: 'border-box',
+                },
               }}
             >
-              <Toolbar /> {/* Spacer for AppBar */}
-              {sidebarContent}
-            </Box>
-          </Box>
-        )}
+              {workspaceSidebarContent}
+            </Drawer>
+          )}
 
-        {/* Main Content */}
-        <Box
-          component="main"
-          sx={{
-            flexGrow: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100vh',
-            overflow: 'hidden',
-            bgcolor: 'background.default',
-          }}
-        >
-          <Toolbar /> {/* Spacer for AppBar */}
-          {children}
+          {/* Desktop Workspace Sidebar */}
+          {!isMobile && (
+            <Box
+              component="nav"
+              sx={{
+                width: WORKSPACE_SIDEBAR_WIDTH,
+                flexShrink: 0,
+                borderRight: 1,
+                borderColor: 'divider',
+                height: '100%',
+                overflow: 'auto',
+              }}
+            >
+              {workspaceSidebarContent}
+            </Box>
+          )}
+
+          {/* Main Content */}
+          <Box
+            component="main"
+            sx={{
+              flexGrow: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              overflow: 'hidden',
+              bgcolor: 'background.default',
+            }}
+          >
+            {children}
+          </Box>
         </Box>
-      </Box>
-    </TasksLayoutContext.Provider>
+      </TasksLayoutContext.Provider>
+    </AuthenticatedLayout>
   );
 }
 
