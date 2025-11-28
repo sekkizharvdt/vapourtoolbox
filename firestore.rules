@@ -224,6 +224,60 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Task Threads, Messages & Mentions (Phase C)
+    // ============================================
+
+    match /taskThreads/{threadId} {
+      // Read: Internal users can read threads for tasks they have access to
+      allow read: if isInternalUser();
+
+      // Create: Internal users can create threads
+      allow create: if isInternalUser();
+
+      // Update: Internal users can update threads (e.g., update messageCount)
+      allow update: if isInternalUser();
+
+      // Delete: Only super admins
+      allow delete: if isSuperAdmin();
+    }
+
+    match /taskMessages/{messageId} {
+      // Read: Internal users can read messages
+      allow read: if isInternalUser();
+
+      // Create: Internal users can create messages
+      allow create: if isInternalUser() &&
+                       isOwner(request.resource.data.userId);
+
+      // Update: Users can edit their own messages
+      allow update: if isInternalUser() &&
+                       isOwner(resource.data.userId);
+
+      // Delete: Users can delete their own messages OR super admins
+      allow delete: if (isInternalUser() && isOwner(resource.data.userId)) ||
+                       isSuperAdmin();
+    }
+
+    match /taskMentions/{mentionId} {
+      // Read: Users can read their own mentions
+      allow read: if isAuthenticated() &&
+                     isOwner(resource.data.mentionedUserId);
+
+      // Create: Internal users can create mentions when sending messages
+      allow create: if isInternalUser();
+
+      // Update: Users can mark their own mentions as read
+      allow update: if isAuthenticated() &&
+                       isOwner(resource.data.mentionedUserId) &&
+                       request.resource.data.diff(resource.data)
+                         .affectedKeys()
+                         .hasOnly(['read']);
+
+      // Delete: Only super admins
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
     // Accounting Collections
     // ============================================
 
