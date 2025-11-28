@@ -1,6 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+/**
+ * Module Card Component
+ *
+ * Displays a module with icon, stats, and navigation
+ * Memoized for performance in dashboard grid
+ */
+
+import { useState, useCallback, memo } from 'react';
 import {
   Card,
   CardContent,
@@ -53,17 +60,20 @@ interface ModuleCardProps {
   stats?: ModuleStats;
 }
 
-export function ModuleCard({ module, stats }: ModuleCardProps) {
+function ModuleCardComponent({ module, stats }: ModuleCardProps) {
   const router = useRouter();
   const [isHovered, setIsHovered] = useState(false);
   const config = moduleConfig[module.id] || { icon: <AssignmentIcon />, color: '#0891B2' };
   const isComingSoon = module.status === 'coming_soon';
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     if (!isComingSoon) {
       router.push(module.path);
     }
-  };
+  }, [isComingSoon, router, module.path]);
+
+  const handleMouseEnter = useCallback(() => setIsHovered(true), []);
+  const handleMouseLeave = useCallback(() => setIsHovered(false), []);
 
   // Determine badge count (prioritize pendingCount, then recentCount, then totalCount)
   const badgeCount = stats?.pendingCount ?? stats?.recentCount ?? stats?.totalCount;
@@ -71,8 +81,8 @@ export function ModuleCard({ module, stats }: ModuleCardProps) {
 
   return (
     <Card
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       sx={{
         height: '100%',
         display: 'flex',
@@ -191,3 +201,6 @@ export function ModuleCard({ module, stats }: ModuleCardProps) {
     </Card>
   );
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export const ModuleCard = memo(ModuleCardComponent);

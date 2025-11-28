@@ -1,7 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Autocomplete, TextField, CircularProgress, Chip } from '@mui/material';
+/**
+ * Entity Selector Component
+ *
+ * Autocomplete selector for Business Entities with skeleton loading
+ * Optimized with useCallback and useMemo
+ */
+
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { Autocomplete, TextField, CircularProgress, Chip, Skeleton, Box } from '@mui/material';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -24,8 +31,9 @@ interface EntitySelectorProps {
  * - Searchable by code and name
  * - Shows entity roles as chips
  * - Can filter by role (vendor/customer/partner)
+ * - Skeleton loading state for better perceived performance
  */
-export function EntitySelector({
+function EntitySelectorComponent({
   value,
   onChange,
   label = 'Entity',
@@ -38,6 +46,12 @@ export function EntitySelector({
   const [entities, setEntities] = useState<BusinessEntity[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEntity, setSelectedEntity] = useState<BusinessEntity | null>(null);
+
+  // Memoize the role filter array
+  const roleFilter = useMemo(() => {
+    if (!filterByRole) return null;
+    return Array.isArray(filterByRole) ? filterByRole : [filterByRole];
+  }, [filterByRole]);
 
   // Load entities from Firestore
   useEffect(() => {
@@ -96,10 +110,9 @@ export function EntitySelector({
       let filteredEntities = entitiesData;
 
       // Filter by role
-      if (filterByRole) {
-        const roles = Array.isArray(filterByRole) ? filterByRole : [filterByRole];
+      if (roleFilter) {
         filteredEntities = filteredEntities.filter((entity) =>
-          entity.roles.some((role) => roles.includes(role))
+          entity.roles.some((role) => roleFilter.includes(role))
         );
       }
 
@@ -108,7 +121,7 @@ export function EntitySelector({
     });
 
     return () => unsubscribe();
-  }, [filterByRole]);
+  }, [roleFilter]);
 
   // Update selected entity when value changes
   useEffect(() => {
@@ -120,14 +133,41 @@ export function EntitySelector({
     }
   }, [value, entities]);
 
+  // Memoize change handler
+  const handleChange = useCallback(
+    (_: unknown, newValue: BusinessEntity | null) => {
+      onChange(newValue?.id || null);
+    },
+    [onChange]
+  );
+
+  // Memoize option label getter
+  const getOptionLabel = useCallback(
+    (option: BusinessEntity) => `${option.code} - ${option.name}`,
+    []
+  );
+
+  // Memoize option equality checker
+  const isOptionEqualToValue = useCallback(
+    (option: BusinessEntity, val: BusinessEntity) => option.id === val.id,
+    []
+  );
+
+  // Show skeleton during initial load
+  if (loading && entities.length === 0) {
+    return (
+      <Box>
+        <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 1 }} />
+      </Box>
+    );
+  }
+
   return (
     <Autocomplete
       value={selectedEntity}
-      onChange={(_, newValue) => {
-        onChange(newValue?.id || null);
-      }}
+      onChange={handleChange}
       options={entities}
-      getOptionLabel={(option) => `${option.code} - ${option.name}`}
+      getOptionLabel={getOptionLabel}
       renderOption={(props, option) => (
         <li {...props} key={option.id}>
           <div style={{ width: '100%' }}>
@@ -167,7 +207,10 @@ export function EntitySelector({
       )}
       loading={loading}
       disabled={disabled}
-      isOptionEqualToValue={(option, value) => option.id === value.id}
+      isOptionEqualToValue={isOptionEqualToValue}
     />
   );
 }
+
+// Memoize the component
+export const EntitySelector = memo(EntitySelectorComponent);

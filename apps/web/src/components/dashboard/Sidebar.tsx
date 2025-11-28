@@ -1,5 +1,13 @@
 'use client';
 
+/**
+ * Sidebar Navigation Component
+ *
+ * Categorized navigation with collapsible state
+ * Optimized with useMemo for filtered modules
+ */
+
+import { useMemo, useCallback, memo } from 'react';
 import {
   Drawer,
   List,
@@ -111,7 +119,7 @@ const SIDEBAR_CATEGORIES: CategoryConfig[] = [
   },
 ];
 
-export function Sidebar({
+function SidebarComponent({
   mobileOpen,
   onMobileClose,
   userPermissions = 0,
@@ -124,36 +132,43 @@ export function Sidebar({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Filter modules based on user permissions and allowed modules
-  const accessibleModules = Object.values(MODULES).filter((module) => {
-    // Include both active and coming_soon modules
-    if (module.status !== 'active' && module.status !== 'coming_soon') return false;
+  // Memoize accessible modules to avoid recalculation on every render
+  const accessibleModules = useMemo(() => {
+    return Object.values(MODULES).filter((module) => {
+      // Include both active and coming_soon modules
+      if (module.status !== 'active' && module.status !== 'coming_soon') return false;
 
-    // Check module visibility (if allowedModules is set, must include this module)
-    // Empty array or undefined means all modules are accessible
-    if (allowedModules && allowedModules.length > 0) {
-      if (!allowedModules.includes(module.id)) return false;
-    }
+      // Check module visibility (if allowedModules is set, must include this module)
+      // Empty array or undefined means all modules are accessible
+      if (allowedModules && allowedModules.length > 0) {
+        if (!allowedModules.includes(module.id)) return false;
+      }
 
-    // If no permission required, accessible by all (visibility check already passed)
-    if (module.requiredPermissions === undefined) return true;
+      // If no permission required, accessible by all (visibility check already passed)
+      if (module.requiredPermissions === undefined) return true;
 
-    // Check if user has required permissions using bitwise AND
-    return (userPermissions & module.requiredPermissions) === module.requiredPermissions;
-  });
+      // Check if user has required permissions using bitwise AND
+      return (userPermissions & module.requiredPermissions) === module.requiredPermissions;
+    });
+  }, [userPermissions, allowedModules]);
 
-  // Group modules by category
-  const modulesByCategory = SIDEBAR_CATEGORIES.map((category) => ({
-    ...category,
-    modules: accessibleModules.filter((module) => category.moduleIds.includes(module.id)),
-  })).filter((category) => category.modules.length > 0); // Only show categories with accessible modules
+  // Memoize modules grouped by category
+  const modulesByCategory = useMemo(() => {
+    return SIDEBAR_CATEGORIES.map((category) => ({
+      ...category,
+      modules: accessibleModules.filter((module) => category.moduleIds.includes(module.id)),
+    })).filter((category) => category.modules.length > 0);
+  }, [accessibleModules]);
 
-  const handleNavigation = (path: string) => {
-    router.push(path);
-    if (isMobile) {
-      onMobileClose();
-    }
-  };
+  const handleNavigation = useCallback(
+    (path: string) => {
+      router.push(path);
+      if (isMobile) {
+        onMobileClose();
+      }
+    },
+    [router, isMobile, onMobileClose]
+  );
 
   const drawerContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -372,3 +387,6 @@ export function Sidebar({
     </>
   );
 }
+
+// Memoize the Sidebar component
+export const Sidebar = memo(SidebarComponent);
