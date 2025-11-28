@@ -9,7 +9,7 @@
  * - Responsive: drawer on mobile, fixed on desktop
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Box, Drawer, Toolbar, useTheme, useMediaQuery, CircularProgress } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,7 +21,24 @@ import type { TaskNotification, DefaultTaskChannelId } from '@vapour/types';
 
 const SIDEBAR_WIDTH = 260;
 
-export default function TasksLayout({ children }: { children: React.ReactNode }) {
+// Loading fallback for Suspense
+function TasksLayoutSkeleton() {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+      }}
+    >
+      <CircularProgress />
+    </Box>
+  );
+}
+
+// Inner layout component that uses useSearchParams
+function TasksLayoutInner({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -281,5 +298,14 @@ export default function TasksLayout({ children }: { children: React.ReactNode })
         </Box>
       </Box>
     </TasksLayoutContext.Provider>
+  );
+}
+
+// Main layout export wrapped in Suspense
+export default function TasksLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<TasksLayoutSkeleton />}>
+      <TasksLayoutInner>{children}</TasksLayoutInner>
+    </Suspense>
   );
 }
