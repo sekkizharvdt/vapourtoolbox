@@ -143,19 +143,19 @@ function TasksLayoutInner({ children }: { children: React.ReactNode }) {
   // Navigation handlers
   const handleSelectChannel = useCallback(
     (wsId: string, chId: DefaultTaskChannelId) => {
-      router.push(`/tasks?workspace=${wsId}&channel=${chId}`);
+      router.push(`/flow?workspace=${wsId}&channel=${chId}`);
       if (isMobile) setMobileOpen(false);
     },
     [router, isMobile]
   );
 
   const handleSelectMyTasks = useCallback(() => {
-    router.push('/tasks?view=my-tasks');
+    router.push('/flow?view=my-tasks');
     if (isMobile) setMobileOpen(false);
   }, [router, isMobile]);
 
   const handleSelectMentions = useCallback(() => {
-    router.push('/tasks?view=mentions');
+    router.push('/flow?view=mentions');
     if (isMobile) setMobileOpen(false);
   }, [router, isMobile]);
 

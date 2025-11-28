@@ -92,12 +92,12 @@ export const MODULES: Record<string, ModuleDefinition> = {
 
   TIME_TRACKING: {
     id: 'time-tracking',
-    name: 'Tasks',
-    shortName: 'Tasks',
-    description: 'Track time, tasks, leaves, and on-duty records',
+    name: 'Flow',
+    shortName: 'Flow',
+    description: 'Track tasks, time entries, and team collaboration',
     icon: 'Schedule',
     color: '#0891B2', // Vapour Cyan
-    path: '/time',
+    path: '/flow',
     status: 'active',
     // No requiredPermissions - accessible by all users
     category: 'application',

@@ -64,7 +64,7 @@ export default function TaskNotificationBell({
 
   const handleViewAll = () => {
     handleClose();
-    router.push('/tasks');
+    router.push('/flow');
   };
 
   const handleMarkAllRead = () => {
