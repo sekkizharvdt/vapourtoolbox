@@ -91,28 +91,19 @@ export function ModuleLayout({
     }
   }, [pathname]);
 
-  // Auth loading timeout and debug logging
+  // Auth loading timeout handler
   useEffect(() => {
-    console.error('[ModuleLayout] Auth state:', {
-      loading,
-      hasUser: !!user,
-      hasClaims: !!claims,
-      pathname,
-      moduleName,
-    });
-
     if (!loading) {
       setAuthTimeout(false);
       return;
     }
 
     const timer = setTimeout(() => {
-      console.error('[ModuleLayout] Auth loading timeout - forcing render after 5 seconds');
       setAuthTimeout(true);
     }, 5000);
 
     return () => clearTimeout(timer);
-  }, [loading, user, claims, pathname, moduleName]);
+  }, [loading]);
 
   // Redirect based on auth state (only once per route to prevent redirect loops)
   useEffect(() => {
@@ -160,7 +151,6 @@ export function ModuleLayout({
 
   // If auth loading timed out, show error and allow render
   if (authTimeout && loading) {
-    console.error('[ModuleLayout] Rendering despite auth timeout');
     return (
       <Container maxWidth="xl">
         <Box sx={{ py: 4, textAlign: 'center' }}>

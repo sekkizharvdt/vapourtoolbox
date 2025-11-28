@@ -4,9 +4,10 @@
  * Task Notification Item Component
  *
  * Individual notification/task card with actions
+ * Memoized for performance in lists
  */
 
-import React from 'react';
+import React, { useCallback, memo } from 'react';
 import { Card, CardContent, Stack, Typography, Chip, Button, IconButton, Box } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
@@ -29,7 +30,54 @@ interface TaskNotificationItemProps {
   showActions?: boolean;
 }
 
-export default function TaskNotificationItem({
+// Helper functions moved outside component to avoid recreation
+const getPriorityColor = (
+  priority: string
+): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+  switch (priority) {
+    case 'URGENT':
+      return 'error';
+    case 'HIGH':
+      return 'warning';
+    case 'MEDIUM':
+      return 'info';
+    case 'LOW':
+    default:
+      return 'default';
+  }
+};
+
+const getStatusColor = (
+  status: string
+): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+  switch (status) {
+    case 'completed':
+      return 'success';
+    case 'in_progress':
+      return 'primary';
+    case 'acknowledged':
+      return 'info';
+    case 'pending':
+    default:
+      return 'default';
+  }
+};
+
+const getStatusText = (status: string) => {
+  switch (status) {
+    case 'completed':
+      return 'Completed';
+    case 'in_progress':
+      return 'In Progress';
+    case 'acknowledged':
+      return 'Acknowledged';
+    case 'pending':
+    default:
+      return 'Pending';
+  }
+};
+
+function TaskNotificationItemComponent({
   notification,
   onAcknowledge,
   onStartTask,
@@ -39,79 +87,42 @@ export default function TaskNotificationItem({
 }: TaskNotificationItemProps) {
   const router = useRouter();
 
-  const getPriorityColor = (
-    priority: string
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (priority) {
-      case 'URGENT':
-        return 'error';
-      case 'HIGH':
-        return 'warning';
-      case 'MEDIUM':
-        return 'info';
-      case 'LOW':
-      default:
-        return 'default';
-    }
-  };
-
-  const getStatusColor = (
-    status: string
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (status) {
-      case 'completed':
-        return 'success';
-      case 'in_progress':
-        return 'primary';
-      case 'acknowledged':
-        return 'info';
-      case 'pending':
-      default:
-        return 'default';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'Completed';
-      case 'in_progress':
-        return 'In Progress';
-      case 'acknowledged':
-        return 'Acknowledged';
-      case 'pending':
-      default:
-        return 'Pending';
-    }
-  };
-
-  const handleViewTask = () => {
+  const handleViewTask = useCallback(() => {
     if (!notification.read && onMarkRead) {
       onMarkRead(notification.id);
     }
     router.push(notification.linkUrl);
-  };
+  }, [notification.read, notification.id, notification.linkUrl, onMarkRead, router]);
 
-  const handleAcknowledge = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onAcknowledge) {
-      onAcknowledge(notification.id);
-    }
-  };
+  const handleAcknowledge = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (onAcknowledge) {
+        onAcknowledge(notification.id);
+      }
+    },
+    [onAcknowledge, notification.id]
+  );
 
-  const handleStartTask = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onStartTask) {
-      onStartTask(notification.id);
-    }
-  };
+  const handleStartTask = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (onStartTask) {
+        onStartTask(notification.id);
+      }
+    },
+    [onStartTask, notification.id]
+  );
 
-  const handleCompleteTask = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onCompleteTask) {
-      onCompleteTask(notification.id);
-    }
-  };
+  const handleCompleteTask = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (onCompleteTask) {
+        onCompleteTask(notification.id);
+      }
+    },
+    [onCompleteTask, notification.id]
+  );
 
   return (
     <Card
@@ -303,3 +314,7 @@ export default function TaskNotificationItem({
     </Card>
   );
 }
+
+// Memoize the component to prevent unnecessary re-renders in lists
+const TaskNotificationItem = memo(TaskNotificationItemComponent);
+export default TaskNotificationItem;

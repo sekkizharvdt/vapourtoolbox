@@ -4,9 +4,10 @@
  * Task Notification List Component
  *
  * Full list view with filters and tabs
+ * Optimized with useMemo for filtered data and useCallback for handlers
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   Box,
   Tabs,
@@ -52,24 +53,61 @@ export default function TaskNotificationList({
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Filter notifications based on active tab
-  const getFilteredByTab = (notifications: TaskNotification[]): TaskNotification[] => {
+  // Memoize tab change handler
+  const handleTabChange = useCallback((_: React.SyntheticEvent, value: FilterTab) => {
+    setActiveTab(value);
+  }, []);
+
+  // Memoize search change handler
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  }, []);
+
+  // Memoize priority filter handler
+  const handlePriorityChange = useCallback((e: { target: { value: string } }) => {
+    setPriorityFilter(e.target.value);
+  }, []);
+
+  // Memoize status filter handler
+  const handleStatusChange = useCallback((e: { target: { value: string } }) => {
+    setStatusFilter(e.target.value);
+  }, []);
+
+  // Memoize counts to avoid recalculation on every render
+  const counts = useMemo(
+    () => ({
+      all: notifications.length,
+      actionable: notifications.filter((n) => n.type === 'actionable').length,
+      informational: notifications.filter((n) => n.type === 'informational').length,
+      completed: notifications.filter((n) => n.status === 'completed').length,
+    }),
+    [notifications]
+  );
+
+  // Memoize pending informational count
+  const pendingInformational = useMemo(
+    () => notifications.filter((n) => n.type === 'informational' && n.status === 'pending').length,
+    [notifications]
+  );
+
+  // Memoize filtered notifications
+  const filteredNotifications = useMemo(() => {
+    // Filter by tab
+    let filtered: TaskNotification[];
     switch (activeTab) {
       case 'actionable':
-        return notifications.filter((n) => n.type === 'actionable');
+        filtered = notifications.filter((n) => n.type === 'actionable');
+        break;
       case 'informational':
-        return notifications.filter((n) => n.type === 'informational');
+        filtered = notifications.filter((n) => n.type === 'informational');
+        break;
       case 'completed':
-        return notifications.filter((n) => n.status === 'completed');
+        filtered = notifications.filter((n) => n.status === 'completed');
+        break;
       case 'all':
       default:
-        return notifications;
+        filtered = notifications;
     }
-  };
-
-  // Apply search and additional filters
-  const getFilteredNotifications = (): TaskNotification[] => {
-    let filtered = getFilteredByTab(notifications);
 
     // Search filter
     if (searchQuery.trim()) {
@@ -93,31 +131,13 @@ export default function TaskNotificationList({
     }
 
     return filtered;
-  };
-
-  const filteredNotifications = getFilteredNotifications();
-
-  // Count for each tab
-  const counts = {
-    all: notifications.length,
-    actionable: notifications.filter((n) => n.type === 'actionable').length,
-    informational: notifications.filter((n) => n.type === 'informational').length,
-    completed: notifications.filter((n) => n.status === 'completed').length,
-  };
-
-  const pendingInformational = notifications.filter(
-    (n) => n.type === 'informational' && n.status === 'pending'
-  ).length;
+  }, [notifications, activeTab, searchQuery, priorityFilter, statusFilter]);
 
   return (
     <Box>
       {/* Header with Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs
-          value={activeTab}
-          onChange={(_, value) => setActiveTab(value)}
-          aria-label="notification tabs"
-        >
+        <Tabs value={activeTab} onChange={handleTabChange} aria-label="notification tabs">
           <Tab label={`All (${counts.all})`} value="all" />
           <Tab label={`Actionable (${counts.actionable})`} value="actionable" />
           <Tab label={`Informational (${counts.informational})`} value="informational" />
@@ -131,7 +151,7 @@ export default function TaskNotificationList({
         <TextField
           placeholder="Search notifications..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={handleSearchChange}
           size="small"
           sx={{ minWidth: 300, flexGrow: 1 }}
           InputProps={{
@@ -146,11 +166,7 @@ export default function TaskNotificationList({
         {/* Priority Filter */}
         <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Priority</InputLabel>
-          <Select
-            value={priorityFilter}
-            label="Priority"
-            onChange={(e) => setPriorityFilter(e.target.value)}
-          >
+          <Select value={priorityFilter} label="Priority" onChange={handlePriorityChange}>
             <MenuItem value="all">All Priorities</MenuItem>
             <MenuItem value="URGENT">Urgent</MenuItem>
             <MenuItem value="HIGH">High</MenuItem>
@@ -162,11 +178,7 @@ export default function TaskNotificationList({
         {/* Status Filter */}
         <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Status</InputLabel>
-          <Select
-            value={statusFilter}
-            label="Status"
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
+          <Select value={statusFilter} label="Status" onChange={handleStatusChange}>
             <MenuItem value="all">All Status</MenuItem>
             <MenuItem value="pending">Pending</MenuItem>
             <MenuItem value="in_progress">In Progress</MenuItem>
