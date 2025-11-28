@@ -12,14 +12,14 @@
 
 ### Overall Health Score: **B+ (Good with Notable Gaps)**
 
-| Category         | Score  | Status       | Notes                                            |
-| ---------------- | ------ | ------------ | ------------------------------------------------ |
-| **Architecture** | 9.5/10 | ✅ Excellent | Clean monorepo, strong type system               |
-| **Security**     | 9.0/10 | ✅ Strong    | No critical issues, good practices               |
-| **Code Quality** | 8.5/10 | ⚠️ Good      | 34 TODOs, console.logs cleaned up                |
-| **Integrations** | 7.0/10 | ⚠️ Partial   | Procurement↔Accounting good, gaps elsewhere     |
-| **Performance**  | 8.0/10 | ✅ Improved  | React.memo + memoization added to key components |
-| **Task Module**  | 6.5/10 | ⚠️ MVP Ready | Solid foundation, needs hardening                |
+| Category         | Score  | Status       | Notes                                              |
+| ---------------- | ------ | ------------ | -------------------------------------------------- |
+| **Architecture** | 9.5/10 | ✅ Excellent | Clean monorepo, strong type system                 |
+| **Security**     | 9.0/10 | ✅ Strong    | No critical issues, good practices                 |
+| **Code Quality** | 8.5/10 | ⚠️ Good      | 34 TODOs, console.logs cleaned up                  |
+| **Integrations** | 7.0/10 | ⚠️ Partial   | Procurement↔Accounting good, gaps elsewhere       |
+| **Performance**  | 8.5/10 | ✅ Improved  | React.memo, memoization, lazy loading all complete |
+| **Task Module**  | 6.5/10 | ⚠️ MVP Ready | Solid foundation, needs hardening                  |
 
 ### Key Metrics
 
@@ -425,7 +425,7 @@ await runTransaction(db, async (transaction) => {
 | Missing useCallback      | 8+    | ✅ **DONE** - EntitySelector, TaskNotificationList, ModuleCard, Sidebar      |
 | Expensive computations   | 5+    | ✅ **DONE** - useMemo added to Sidebar, TaskNotificationList, EntitySelector |
 | Missing skeletons        | 5+    | ✅ **PARTIAL** - EntitySelector now has skeleton loading                     |
-| Missing lazy loading     | 3+    | ⚠️ Pending - Heavy MUI imports                                               |
+| Missing lazy loading     | 3+    | ✅ **DONE** - Dialog components lazy loaded with next/dynamic                |
 | Missing error boundaries | 6+    | ✅ **EXISTS** - ErrorBoundary component available                            |
 
 ### Completed Optimizations (November 28, 2025)
@@ -459,6 +459,15 @@ await runTransaction(db, async (transaction) => {
 - Removed debug `console.error` statements from `ModuleLayout.tsx`
 - Added skeleton loading to `EntitySelector` during initial data fetch
 - Moved pure helper functions outside components (TaskNotificationItem)
+
+**Lazy loaded dialog components (using next/dynamic):**
+
+- `invoices/page.tsx`: CreateInvoiceDialog
+- `projects/page.tsx`: CreateProjectDialog, EditProjectDialog, ViewProjectDialog, DeleteProjectDialog, ProjectCharterDialog
+- `bills/page.tsx`: CreateBillDialog
+- `payments/page.tsx`: RecordCustomerPaymentDialog, RecordVendorPaymentDialog
+- `documents/page.tsx`: CreateDocumentDialog, GenerateTransmittalDialog
+- `entities/page.tsx`: CreateEntityDialog, EditEntityDialog, ViewEntityDialog, DeleteEntityDialog
 
 ### Accessibility Issues
 
