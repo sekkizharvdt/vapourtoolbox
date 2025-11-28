@@ -1,43 +1,17 @@
-'use client';
-
 /**
  * Edit Proposal Page
  *
  * Loads ProposalWizard in edit mode with the proposal ID
  */
 
-import { useParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import EditProposalClient from './EditProposalClient';
 
-// Dynamic import to avoid SSR issues
-const ProposalWizard = dynamic(
-  () => import('../../components/ProposalWizard/ProposalWizard').then((mod) => mod.ProposalWizard),
-  {
-    loading: () => (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress size={40} />
-        <Typography variant="body2" sx={{ ml: 2 }}>
-          Loading editor...
-        </Typography>
-      </Box>
-    ),
-    ssr: false,
-  }
-);
+// For static export, we need to provide at least one path
+// Client-side component will parse actual ID from URL pathname
+export function generateStaticParams() {
+  return [{ id: 'placeholder' }];
+}
 
-export default function EditProposalPage() {
-  const params = useParams();
-  const proposalId = params.id as string;
-
-  // Handle placeholder ID for static export
-  if (proposalId === 'placeholder') {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress size={40} />
-      </Box>
-    );
-  }
-
-  return <ProposalWizard proposalId={proposalId} />;
+export default function Page() {
+  return <EditProposalClient />;
 }
