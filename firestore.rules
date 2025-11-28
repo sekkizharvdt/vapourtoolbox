@@ -176,6 +176,27 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Task Notifications Collection (Flow Module)
+    // ============================================
+
+    match /taskNotifications/{notificationId} {
+      // Read: Users can read their own task notifications
+      allow read: if isAuthenticated() &&
+                     isOwner(resource.data.userId);
+
+      // Create: Internal users can create task notifications for themselves or others
+      allow create: if isInternalUser();
+
+      // Update: Users can update their own notifications (mark read, complete, etc.)
+      //         OR internal users can update any notification (for workflow)
+      allow update: if isAuthenticated() &&
+                       (isOwner(resource.data.userId) || isInternalUser());
+
+      // Delete: Only super admins
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
     // Time Entries Collection
     // ============================================
 
@@ -187,9 +208,9 @@ service cloud.firestore {
                    );
 
       // Create: Internal users can create their own entries
+      // Note: projectId may be optional for general time tracking
       allow create: if isInternalUser() &&
-                       isOwner(request.resource.data.userId) &&
-                       isAssignedToProject(request.resource.data.projectId);
+                       isOwner(request.resource.data.userId);
 
       // Update: Internal users - own entries (if not approved) OR have MANAGE_TIME_TRACKING
       allow update: if isInternalUser() && (
