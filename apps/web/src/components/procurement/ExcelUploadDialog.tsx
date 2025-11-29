@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import {
   Dialog,
   DialogTitle,
@@ -112,53 +112,58 @@ export default function ExcelUploadDialog({
 
   const parseClientSide = async (file: File) => {
     try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const sheetName = workbook.SheetNames[0];
-      if (!sheetName) {
+      const workbook = new ExcelJS.Workbook();
+      const arrayBuffer = await file.arrayBuffer();
+      await workbook.xlsx.load(arrayBuffer);
+
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) {
         setError('File has no sheets');
         return;
       }
-      const sheet = workbook.Sheets[sheetName];
-      if (!sheet) {
-        setError('Failed to read sheet');
-        return;
-      }
 
-      // Convert sheet to JSON (with header row) - returns array of arrays
-      const rawData = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 });
-
-      if (rawData.length < 2) {
+      const rowCount = worksheet.rowCount;
+      if (rowCount < 2) {
         setError('File is empty or has no data rows');
         return;
       }
 
       // Skip header row, parse data rows
       const items: ParsedItem[] = [];
-      for (let i = 1; i < rawData.length; i++) {
-        const row = rawData[i];
-        if (!row || !Array.isArray(row) || row.length === 0) continue;
+      worksheet.eachRow((row, rowNumber) => {
+        // Skip header row
+        if (rowNumber === 1) return;
+
+        // Get cell values (1-indexed in exceljs)
+        const getCellValue = (colNumber: number): string => {
+          const cell = row.getCell(colNumber);
+          if (cell.value === null || cell.value === undefined) return '';
+          if (typeof cell.value === 'object' && 'text' in cell.value) {
+            return String(cell.value.text || '');
+          }
+          return String(cell.value);
+        };
 
         // Expected format: LineNumber, Description, Quantity, Unit, EquipmentCode, Remarks
-        const lineNumber = Number(row[0]) || i;
-        const description = String(row[1] || '').trim();
-        const quantity = Number(row[2]) || 0;
-        const unit = String(row[3] || 'EA').trim();
-        const equipmentCode = row[4] ? String(row[4]).trim() : undefined;
-        const remarks = row[5] ? String(row[5]).trim() : undefined;
+        const lineNumber = Number(getCellValue(1)) || rowNumber - 1;
+        const description = getCellValue(2).trim();
+        const quantity = Number(getCellValue(3)) || 0;
+        const unit = getCellValue(4).trim() || 'EA';
+        const equipmentCode = getCellValue(5).trim() || undefined;
+        const remarks = getCellValue(6).trim() || undefined;
 
         // Skip rows without description
-        if (!description) continue;
+        if (!description) return;
 
         items.push({
           lineNumber,
           description,
           quantity: quantity > 0 ? quantity : 1,
-          unit: unit || 'EA',
+          unit,
           equipmentCode,
           remarks,
         });
-      }
+      });
 
       if (items.length === 0) {
         setError('No valid items found in the file. Please check the format.');

@@ -221,12 +221,13 @@ export async function calculateShape(input: CalculationInput): Promise<Calculati
 
   try {
     // Get material if not provided
-    let material = input.material;
+    let material: Material | undefined = input.material;
     if (!material) {
-      material = await getMaterialById(materialId);
-      if (!material) {
+      const fetchedMaterial = await getMaterialById(materialId);
+      if (!fetchedMaterial) {
         throw new Error(`Material not found: ${materialId}`);
       }
+      material = fetchedMaterial;
     }
 
     // Build parameter map
