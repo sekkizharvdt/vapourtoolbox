@@ -877,22 +877,23 @@ service cloud.firestore {
       //       OR external CLIENT_PM for CLIENT_VISIBLE docs
       allow read: if (isInternalUser() && (
                        isAssignedToProject(projectId) ||
-                       hasPermission(32) // VIEW_ALL_PROJECTS
+                       hasPermission(32) || // VIEW_ALL_PROJECTS
+                       hasPermission(16777216) // MANAGE_MASTER_DOCUMENT_LIST
                      )) ||
                      (isExternalUser() && isAssignedToProject(projectId) &&
                       resource.data.visibility == 'CLIENT_VISIBLE' &&
                       hasPermission(536870912)); // VIEW_CLIENT_DOCUMENTS
 
       // Create: Internal users with MANAGE_MASTER_DOCUMENT_LIST permission
+      // Note: isAssignedToProject check removed to allow bulk imports
       allow create: if isInternalUser() &&
-                       isAssignedToProject(projectId) &&
                        hasPermission(16777216); // MANAGE_MASTER_DOCUMENT_LIST
 
       // Update: PM with MANAGE_MASTER_DOCUMENT_LIST OR assignees with SUBMIT_DOCUMENTS
       allow update: if isInternalUser() &&
-                       isAssignedToProject(projectId) &&
                        (hasPermission(16777216) || // MANAGE_MASTER_DOCUMENT_LIST
-                        (hasPermission(67108864) && // SUBMIT_DOCUMENTS
+                        (isAssignedToProject(projectId) &&
+                         hasPermission(67108864) && // SUBMIT_DOCUMENTS
                          request.auth.uid in resource.data.assignedTo));
 
       // Delete: Only PM or Super Admin
