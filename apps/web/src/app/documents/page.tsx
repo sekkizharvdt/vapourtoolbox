@@ -34,6 +34,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Send as SendIcon,
+  Upload as UploadIcon,
 } from '@mui/icons-material';
 import type { MasterDocumentEntry } from '@vapour/types';
 import { getMasterDocumentsByProject } from '@/lib/documents/masterDocumentService';
@@ -53,6 +54,10 @@ const GenerateTransmittalDialog = dynamic(
   () => import('./components/transmittals/GenerateTransmittalDialog'),
   { ssr: false }
 );
+const DocumentRegisterUploadDialog = dynamic(
+  () => import('./components/DocumentRegisterUploadDialog'),
+  { ssr: false }
+);
 
 export default function MasterDocumentsPage() {
   const { db } = getFirebase();
@@ -64,6 +69,7 @@ export default function MasterDocumentsPage() {
 
   // Selected project
   const [projectId, setProjectId] = useState<string>('');
+  const [projectCode, setProjectCode] = useState<string>('');
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,6 +82,7 @@ export default function MasterDocumentsPage() {
   // Dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [transmittalDialogOpen, setTransmittalDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   // Tab state
   const [activeTab, setActiveTab] = useState(0);
@@ -218,6 +225,14 @@ export default function MasterDocumentsPage() {
           <Stack direction="row" spacing={1}>
             <Button
               variant="outlined"
+              startIcon={<UploadIcon />}
+              onClick={() => setImportDialogOpen(true)}
+              disabled={!projectId}
+            >
+              Import Register
+            </Button>
+            <Button
+              variant="outlined"
               startIcon={<SendIcon />}
               onClick={() => setTransmittalDialogOpen(true)}
               disabled={!projectId || filteredDocuments.length === 0}
@@ -239,7 +254,16 @@ export default function MasterDocumentsPage() {
         <Paper sx={{ p: 2 }}>
           <ProjectSelector
             value={projectId}
-            onChange={(value: string | null) => setProjectId(value || '')}
+            onChange={(value: string | null, projectName?: string) => {
+              setProjectId(value || '');
+              // Extract project code from project name (format: "CODE - Name")
+              if (projectName) {
+                const code = projectName.split(' - ')[0] || value || '';
+                setProjectCode(code);
+              } else {
+                setProjectCode('');
+              }
+            }}
             required
             label="Select Project"
           />
@@ -409,6 +433,17 @@ export default function MasterDocumentsPage() {
           projectId={projectId}
           projectName={projectId}
           documents={filteredDocuments}
+        />
+      )}
+
+      {/* Import Document Register Dialog */}
+      {projectId && (
+        <DocumentRegisterUploadDialog
+          open={importDialogOpen}
+          onClose={() => setImportDialogOpen(false)}
+          projectId={projectId}
+          projectCode={projectCode || projectId}
+          onDocumentsImported={loadDocuments}
         />
       )}
     </Box>

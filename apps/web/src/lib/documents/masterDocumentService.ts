@@ -16,6 +16,7 @@ import {
   where,
   orderBy,
   Timestamp,
+  writeBatch,
   type QueryConstraint,
   type Firestore,
 } from 'firebase/firestore';
@@ -524,4 +525,155 @@ export async function getDocumentStatistics(
     overdue,
     completionRate,
   };
+}
+
+// ============================================================================
+// BULK IMPORT
+// ============================================================================
+
+/**
+ * Row data parsed from Excel document register
+ */
+export interface DocumentRegisterRow {
+  documentNumber: string;
+  documentTitle: string;
+  disciplineCode?: string;
+  disciplineName?: string;
+  documentType?: string;
+  description?: string;
+}
+
+/**
+ * Result of bulk import operation
+ */
+export interface BulkImportResult {
+  created: number;
+  errors: Array<{ row: number; documentNumber: string; message: string }>;
+}
+
+/**
+ * Bulk create master documents from Excel import
+ * Uses batch writes for efficiency (max 500 per batch)
+ */
+export async function bulkCreateMasterDocuments(
+  projectId: string,
+  projectCode: string,
+  documents: DocumentRegisterRow[],
+  createdBy: string,
+  createdByName: string
+): Promise<BulkImportResult> {
+  const db = getDb();
+  const now = Timestamp.now();
+  const errors: BulkImportResult['errors'] = [];
+  let created = 0;
+
+  // Process in batches of 500 (Firestore limit)
+  const batchSize = 500;
+  const batches: DocumentRegisterRow[][] = [];
+  for (let i = 0; i < documents.length; i += batchSize) {
+    batches.push(documents.slice(i, i + batchSize));
+  }
+
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+    const batchDocs = batches[batchIndex];
+    if (!batchDocs) continue;
+
+    const batch = writeBatch(db);
+    let batchCreated = 0;
+
+    for (let i = 0; i < batchDocs.length; i++) {
+      const docData = batchDocs[i];
+      if (!docData) continue;
+
+      const rowIndex = batchIndex * batchSize + i + 2; // +2 for 1-indexed and header row
+
+      // Validate required fields
+      if (!docData.documentNumber?.trim()) {
+        errors.push({
+          row: rowIndex,
+          documentNumber: docData.documentNumber || '(empty)',
+          message: 'Document number is required',
+        });
+        continue;
+      }
+
+      if (!docData.documentTitle?.trim()) {
+        errors.push({
+          row: rowIndex,
+          documentNumber: docData.documentNumber,
+          message: 'Document title is required',
+        });
+        continue;
+      }
+
+      // Extract sequence number from document number if possible
+      const parts = docData.documentNumber.split('-');
+      const sequenceNumber = parts[parts.length - 1] || '001';
+
+      const masterDocumentData: Omit<MasterDocumentEntry, 'id'> = {
+        projectId,
+        documentNumber: docData.documentNumber.trim(),
+        projectCode,
+        disciplineCode: docData.disciplineCode?.trim() || '00',
+        disciplineName: docData.disciplineName?.trim() || 'General',
+        sequenceNumber,
+        documentTitle: docData.documentTitle.trim(),
+        documentType: docData.documentType?.trim() || 'GENERAL',
+        description: docData.description?.trim() || '',
+        status: 'NOT_STARTED',
+        currentRevision: 'R0',
+        predecessors: [],
+        successors: [],
+        relatedDocuments: [],
+        assignedTo: [],
+        assignedToNames: [],
+        assignedBy: createdBy,
+        assignedByName: createdByName,
+        assignedDate: now,
+        inputFiles: [],
+        hasSupplyList: false,
+        supplyItemCount: 0,
+        hasWorkList: false,
+        workItemCount: 0,
+        visibility: 'INTERNAL_ONLY',
+        submissionCount: 0,
+        totalComments: 0,
+        openComments: 0,
+        resolvedComments: 0,
+        progressPercentage: 0,
+        priority: 'MEDIUM',
+        tags: [],
+        createdBy,
+        createdByName,
+        createdAt: now,
+        updatedAt: now,
+        isDeleted: false,
+      };
+
+      const docRef = doc(collection(db, 'projects', projectId, 'masterDocuments'));
+      batch.set(docRef, masterDocumentData);
+      batchCreated++;
+      created++;
+    }
+
+    // Commit this batch if there are documents to create
+    if (batchCreated > 0) {
+      await batch.commit();
+    }
+  }
+
+  return { created, errors };
+}
+
+/**
+ * Check for duplicate document numbers in a project
+ */
+export async function checkDuplicateDocumentNumbers(
+  db: Firestore,
+  projectId: string,
+  documentNumbers: string[]
+): Promise<string[]> {
+  const existingDocs = await getMasterDocumentsByProject(db, projectId);
+  const existingNumbers = new Set(existingDocs.map((d) => d.documentNumber.toLowerCase()));
+  return documentNumbers.filter((num) => existingNumbers.has(num.toLowerCase()));
 }
