@@ -258,7 +258,7 @@ jobs:
 
       - name: Start Firebase Emulators and Run Tests
         run: |
-          firebase emulators:exec --only firestore,auth "pnpm --filter @vapour/web test:integration" --project test-project --import=./emulator-data --rules firestore.test.rules
+          firebase emulators:exec --only firestore,auth --config firebase.test.json "pnpm --filter @vapour/web test:integration" --project test-project
         env:
           FIRESTORE_EMULATOR_HOST: localhost:8080
           FIREBASE_AUTH_EMULATOR_HOST: localhost:9099
