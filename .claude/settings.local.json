@@ -53,7 +53,22 @@
       "Bash(pnpm --filter @vapour/types build:ts:*)",
       "Bash(pnpm --filter @vapour/constants build:*)",
       "Bash(gh run view:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm remove:*)",
+      "Bash(pnpm --filter \"@vapour/*\" --filter \"!@vapour/web\" build:*)",
+      "Bash(gh run watch:*)",
+      "Bash(for file in /home/sekki/projects/VDT-Unified/apps/web/src/lib/procurement/*Helpers.ts)",
+      "Bash(do echo '=== $(basename $file) ===')",
+      "Bash(done)",
+      "Bash(xargs cat:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm --filter @vapour/web test)",
+      "Bash(pnpm --filter @vapour/web test:*)",
+      "Bash(chmod:*)",
+      "Bash(npx jest --showConfig)",
+      "Bash(npx jest:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []

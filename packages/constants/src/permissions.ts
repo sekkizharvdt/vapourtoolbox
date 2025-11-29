@@ -56,7 +56,13 @@ export const PERMISSION_FLAGS = {
   MANAGE_FOREX: 1 << 25, // 33554432 - Manage currency and forex settings
   RECONCILE_ACCOUNTS: 1 << 26, // 67108864 - Bank reconciliation
 
-  // Reserved for future use (bits 27-31)
+  // Document Management (bits 27-30)
+  MANAGE_DOCUMENTS: 1 << 27, // 134217728 - Create/edit master document list, bulk imports
+  SUBMIT_DOCUMENTS: 1 << 28, // 268435456 - Submit documents for review
+  REVIEW_DOCUMENTS: 1 << 29, // 536870912 - Client review/comment on documents (external users)
+  APPROVE_DOCUMENTS: 1 << 30, // 1073741824 - Approve document submissions & comment resolutions
+
+  // Note: Bit 31 is reserved (sign bit issues in JavaScript)
 } as const;
 
 /**
@@ -91,6 +97,11 @@ export const PERMISSION_BITS = {
   MANAGE_COST_CENTRES: 16777216,
   MANAGE_FOREX: 33554432,
   RECONCILE_ACCOUNTS: 67108864,
+  // Document Management
+  MANAGE_DOCUMENTS: 134217728,
+  SUBMIT_DOCUMENTS: 268435456,
+  REVIEW_DOCUMENTS: 536870912,
+  APPROVE_DOCUMENTS: 1073741824,
 } as const;
 
 /**
@@ -213,6 +224,25 @@ export function canManageTimeTracking(permissions: number): boolean {
 }
 
 /**
+ * Document Management permission helpers
+ */
+export function canManageDocuments(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.MANAGE_DOCUMENTS);
+}
+
+export function canSubmitDocuments(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.SUBMIT_DOCUMENTS);
+}
+
+export function canReviewDocuments(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.REVIEW_DOCUMENTS);
+}
+
+export function canApproveDocuments(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.APPROVE_DOCUMENTS);
+}
+
+/**
  * Permission presets for common user types
  * These are convenience presets for quickly setting up users.
  * Not tied to any "role" concept - just predefined permission combinations.
@@ -257,7 +287,21 @@ export const PERMISSION_PRESETS = {
     PERMISSION_FLAGS.VIEW_ENTITIES |
     PERMISSION_FLAGS.MANAGE_ESTIMATION |
     PERMISSION_FLAGS.VIEW_ESTIMATION |
-    PERMISSION_FLAGS.VIEW_PROCUREMENT,
+    PERMISSION_FLAGS.VIEW_PROCUREMENT |
+    PERMISSION_FLAGS.SUBMIT_DOCUMENTS, // Engineers can submit documents
+
+  // Project Manager access - includes document management
+  PROJECT_MANAGER:
+    PERMISSION_FLAGS.MANAGE_PROJECTS |
+    PERMISSION_FLAGS.VIEW_PROJECTS |
+    PERMISSION_FLAGS.VIEW_ENTITIES |
+    PERMISSION_FLAGS.CREATE_ENTITIES |
+    PERMISSION_FLAGS.VIEW_ANALYTICS |
+    PERMISSION_FLAGS.VIEW_PROCUREMENT |
+    PERMISSION_FLAGS.VIEW_ESTIMATION |
+    PERMISSION_FLAGS.MANAGE_DOCUMENTS | // Can manage master document list
+    PERMISSION_FLAGS.SUBMIT_DOCUMENTS |
+    PERMISSION_FLAGS.APPROVE_DOCUMENTS, // Can approve document submissions
 
   // Procurement access
   PROCUREMENT:

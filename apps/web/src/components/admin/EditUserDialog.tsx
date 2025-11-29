@@ -453,6 +453,46 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
                     <TableCell align="center">—</TableCell>
                   </TableRow>
 
+                  {/* Document Management */}
+                  <TableRow>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        Documents
+                        <Tooltip title="Manage: Create/edit master document list, bulk imports. Submit: Submit documents for review. Approve: Approve submissions">
+                          <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Tooltip title="Submit documents for review">
+                        <Checkbox
+                          checked={hasPermission(permissions, PERMISSION_FLAGS.SUBMIT_DOCUMENTS)}
+                          onChange={() => togglePermission(PERMISSION_FLAGS.SUBMIT_DOCUMENTS)}
+                          size="small"
+                        />
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Tooltip title="Manage master document list">
+                        <Checkbox
+                          checked={hasPermission(permissions, PERMISSION_FLAGS.MANAGE_DOCUMENTS)}
+                          onChange={() => togglePermission(PERMISSION_FLAGS.MANAGE_DOCUMENTS)}
+                          size="small"
+                        />
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell align="center">—</TableCell>
+                    <TableCell align="center">
+                      <Tooltip title="Approve document submissions">
+                        <Checkbox
+                          checked={hasPermission(permissions, PERMISSION_FLAGS.APPROVE_DOCUMENTS)}
+                          onChange={() => togglePermission(PERMISSION_FLAGS.APPROVE_DOCUMENTS)}
+                          size="small"
+                        />
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+
                   {/* Material Database (Read-only indicator) */}
                   <TableRow sx={{ bgcolor: 'action.hover' }}>
                     <TableCell>

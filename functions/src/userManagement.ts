@@ -97,6 +97,12 @@ const PERMISSION_FLAGS = {
   MANAGE_COST_CENTRES: 1 << 24, // 16777216 - Manage project cost centres
   MANAGE_FOREX: 1 << 25, // 33554432 - Manage currency and forex settings
   RECONCILE_ACCOUNTS: 1 << 26, // 67108864 - Bank reconciliation
+
+  // Document Management (bits 27-30)
+  MANAGE_DOCUMENTS: 1 << 27, // 134217728 - Create/edit master document list, bulk imports
+  SUBMIT_DOCUMENTS: 1 << 28, // 268435456 - Submit documents for review
+  REVIEW_DOCUMENTS: 1 << 29, // 536870912 - Client review/comment (external users)
+  APPROVE_DOCUMENTS: 1 << 30, // 1073741824 - Approve document submissions
 };
 
 // Helper to check if user has admin permissions
