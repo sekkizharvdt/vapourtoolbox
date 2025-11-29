@@ -48,6 +48,8 @@ const config: Config = {
     '/out/',
     '/playwright-report/',
     '/test-results/',
+    '/e2e/', // Playwright E2E tests - run separately with `pnpm test:e2e`
+    '/__integration__/', // Integration tests - run separately with `pnpm test:integration`
   ],
 
   // Module file extensions
