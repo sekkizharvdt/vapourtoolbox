@@ -14,6 +14,10 @@ module.exports = {
   'functions/**/*.{ts,tsx}': ['pnpm exec prettier --write'],
   'scripts/**/*.js': ['pnpm exec prettier --write'],
 
+  // Run tests for changed test files (use -- to pass flags through turbo)
+  'apps/web/**/*.test.{ts,tsx}': ['pnpm --filter @vapour/web test -- --passWithNoTests --bail'],
+  'packages/**/*.test.{ts,tsx}': ['pnpm test -- --passWithNoTests --bail'],
+
   // Format E2E tests (no eslint, just prettier)
   'apps/**/e2e/**/*.{ts,tsx}': ['pnpm exec prettier --write'],
 

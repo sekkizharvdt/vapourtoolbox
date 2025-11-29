@@ -86,6 +86,37 @@ Extended `packages/types/src/audit.ts` with:
 - **Parent entity tracking** for nested entities
 - **Compliance fields** for SOX/GDPR requirements
 
+### 4. Testing Infrastructure ✅ (NEW)
+
+**CI Pipeline Integration:**
+
+- ✅ Added Unit Tests job to GitHub Actions workflow
+- ✅ Tests run after lint/type-check, before build
+- ✅ Coverage reports uploaded as artifacts
+
+**Turbo Configuration:**
+
+- ✅ Added `test`, `test:watch`, `test:coverage` tasks to turbo.json
+- ✅ Tests depend on package builds
+
+**Pre-commit Hooks:**
+
+- ✅ Changed test files trigger test execution via lint-staged
+- ✅ Tests run with `--bail` flag for fast failure
+
+**Cloud Functions Testing:**
+
+- ✅ Added Jest configuration for `@vapour/functions`
+- ✅ Created jest.setup.ts with firebase-functions-test
+- ✅ Added sample tests for formulaEngineService
+- ✅ Added test scripts to package.json
+
+**Coverage Thresholds:**
+
+- Web app: 0% (gradual increase planned)
+- Cloud Functions: 0% (gradual increase planned)
+- Target: 50% by Q2 2026, 80% by Q4 2026
+
 ---
 
 ## 1. Module Architecture Map
@@ -387,6 +418,7 @@ interface AuditLog {
 | 3   | Console.log cleanup              | ✅ DONE |
 | 4   | Backup file cleanup              | ✅ DONE |
 | 5   | Audit trail types extension      | ✅ DONE |
+| 6   | CI testing infrastructure        | ✅ DONE |
 
 ### Short-term (Next 2 Sprints)
 
