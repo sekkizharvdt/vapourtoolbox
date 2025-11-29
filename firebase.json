@@ -29,6 +29,10 @@
         "destination": "/procurement/purchase-requests/placeholder.html"
       },
       {
+        "source": "/documents/*",
+        "destination": "/documents/placeholder.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
