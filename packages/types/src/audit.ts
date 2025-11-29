@@ -24,6 +24,10 @@ export type AuditAction =
   | 'PROJECT_CREATED'
   | 'PROJECT_UPDATED'
   | 'PROJECT_DELETED'
+  | 'PROJECT_STATUS_CHANGED'
+  | 'CHARTER_SUBMITTED'
+  | 'CHARTER_APPROVED'
+  | 'CHARTER_REJECTED'
   // Authentication
   | 'LOGIN_SUCCESS'
   | 'LOGIN_FAILED'
@@ -34,10 +38,108 @@ export type AuditAction =
   | 'ENTITY_CREATED'
   | 'ENTITY_UPDATED'
   | 'ENTITY_DELETED'
+  // Procurement - Purchase Requests
+  | 'PR_CREATED'
+  | 'PR_UPDATED'
+  | 'PR_SUBMITTED'
+  | 'PR_APPROVED'
+  | 'PR_REJECTED'
+  | 'PR_CANCELLED'
+  // Procurement - RFQ
+  | 'RFQ_CREATED'
+  | 'RFQ_UPDATED'
+  | 'RFQ_ISSUED'
+  | 'RFQ_CANCELLED'
+  | 'QUOTATION_RECEIVED'
+  | 'QUOTATION_EVALUATED'
+  // Procurement - Purchase Orders
+  | 'PO_CREATED'
+  | 'PO_UPDATED'
+  | 'PO_APPROVED'
+  | 'PO_REJECTED'
+  | 'PO_ISSUED'
+  | 'PO_AMENDED'
+  | 'PO_CANCELLED'
+  // Procurement - Goods Receipt
+  | 'GR_CREATED'
+  | 'GR_UPDATED'
+  | 'GR_COMPLETED'
+  | 'GR_REJECTED'
+  // Procurement - Three-Way Match
+  | 'MATCH_CREATED'
+  | 'MATCH_APPROVED'
+  | 'MATCH_REJECTED'
+  | 'MATCH_DISCREPANCY_RESOLVED'
+  // Accounting - Transactions
+  | 'TRANSACTION_CREATED'
+  | 'TRANSACTION_UPDATED'
+  | 'TRANSACTION_APPROVED'
+  | 'TRANSACTION_VOIDED'
+  // Accounting - Invoices & Bills
+  | 'INVOICE_CREATED'
+  | 'INVOICE_UPDATED'
+  | 'INVOICE_APPROVED'
+  | 'INVOICE_PAID'
+  | 'INVOICE_CANCELLED'
+  | 'BILL_CREATED'
+  | 'BILL_UPDATED'
+  | 'BILL_APPROVED'
+  | 'BILL_PAID'
+  // Accounting - Payments
+  | 'PAYMENT_CREATED'
+  | 'PAYMENT_APPROVED'
+  | 'PAYMENT_COMPLETED'
+  | 'PAYMENT_CANCELLED'
+  // Accounting - GL & Cost Centres
+  | 'GL_ENTRY_CREATED'
+  | 'ACCOUNT_CREATED'
+  | 'ACCOUNT_UPDATED'
+  | 'COST_CENTRE_CREATED'
+  | 'COST_CENTRE_UPDATED'
+  // Documents
+  | 'DOCUMENT_CREATED'
+  | 'DOCUMENT_UPDATED'
+  | 'DOCUMENT_DELETED'
+  | 'DOCUMENT_ASSIGNED'
+  | 'DOCUMENT_SUBMITTED'
+  | 'DOCUMENT_APPROVED'
+  | 'DOCUMENT_REJECTED'
+  | 'DOCUMENT_REVISION_CREATED'
+  | 'COMMENT_CREATED'
+  | 'COMMENT_RESOLVED'
+  | 'COMMENT_APPROVED'
+  // Materials & BOM
+  | 'MATERIAL_CREATED'
+  | 'MATERIAL_UPDATED'
+  | 'MATERIAL_DELETED'
+  | 'BOM_CREATED'
+  | 'BOM_UPDATED'
+  | 'BOM_DELETED'
+  | 'BOM_ITEM_ADDED'
+  | 'BOM_ITEM_UPDATED'
+  | 'BOM_ITEM_DELETED'
+  // Proposals
+  | 'PROPOSAL_CREATED'
+  | 'PROPOSAL_UPDATED'
+  | 'PROPOSAL_SUBMITTED'
+  | 'PROPOSAL_APPROVED'
+  | 'PROPOSAL_REJECTED'
+  | 'PROPOSAL_REVISION_CREATED'
+  | 'ENQUIRY_CREATED'
+  | 'ENQUIRY_UPDATED'
+  // Tasks
+  | 'TASK_CREATED'
+  | 'TASK_UPDATED'
+  | 'TASK_STARTED'
+  | 'TASK_COMPLETED'
+  | 'TASK_REASSIGNED'
+  | 'TIME_ENTRY_STARTED'
+  | 'TIME_ENTRY_STOPPED'
   // System
   | 'CONFIG_CHANGED'
   | 'BACKUP_CREATED'
   | 'DATA_EXPORTED'
+  | 'DATA_IMPORTED'
   // Invitation
   | 'INVITATION_SENT'
   | 'INVITATION_ACCEPTED'
@@ -51,13 +153,50 @@ export type AuditEntityType =
   | 'ROLE'
   | 'PERMISSION'
   | 'PROJECT'
+  | 'PROJECT_CHARTER'
   | 'ENTITY'
   | 'VENDOR'
   | 'CUSTOMER'
   | 'PARTNER'
   | 'COMPANY'
   | 'INVITATION'
-  | 'SYSTEM';
+  | 'SYSTEM'
+  // Procurement
+  | 'PURCHASE_REQUEST'
+  | 'PURCHASE_REQUEST_ITEM'
+  | 'RFQ'
+  | 'QUOTATION'
+  | 'PURCHASE_ORDER'
+  | 'PURCHASE_ORDER_ITEM'
+  | 'PURCHASE_ORDER_AMENDMENT'
+  | 'GOODS_RECEIPT'
+  | 'PACKING_LIST'
+  | 'THREE_WAY_MATCH'
+  // Accounting
+  | 'TRANSACTION'
+  | 'INVOICE'
+  | 'BILL'
+  | 'PAYMENT'
+  | 'GL_ACCOUNT'
+  | 'GL_ENTRY'
+  | 'COST_CENTRE'
+  // Documents
+  | 'MASTER_DOCUMENT'
+  | 'DOCUMENT_SUBMISSION'
+  | 'DOCUMENT_COMMENT'
+  | 'TRANSMITTAL'
+  // Materials & BOM
+  | 'MATERIAL'
+  | 'SHAPE'
+  | 'BOM'
+  | 'BOM_ITEM'
+  | 'BOUGHT_OUT_ITEM'
+  // Proposals
+  | 'PROPOSAL'
+  | 'ENQUIRY'
+  // Tasks
+  | 'TASK_NOTIFICATION'
+  | 'TIME_ENTRY';
 
 /**
  * Audit log severity levels
@@ -71,6 +210,7 @@ export interface AuditFieldChange {
   field: string;
   oldValue: unknown;
   newValue: unknown;
+  fieldType?: 'string' | 'number' | 'boolean' | 'array' | 'object' | 'timestamp';
 }
 
 /**
@@ -94,8 +234,13 @@ export interface AuditLog {
   entityId: string;
   entityName?: string;
 
+  // Parent entity (for nested entities like PR items, PO items, etc.)
+  parentEntityType?: AuditEntityType;
+  parentEntityId?: string;
+
   // Change tracking
   changes?: AuditFieldChange[];
+  changeCount?: number; // Denormalized for sorting
 
   // Context
   description: string;
@@ -111,6 +256,10 @@ export interface AuditLog {
   // Status
   success: boolean;
   errorMessage?: string;
+
+  // Compliance
+  isComplianceSensitive?: boolean; // Flag for SOX, GDPR, etc.
+  retentionDays?: number; // Override default retention
 }
 
 /**
