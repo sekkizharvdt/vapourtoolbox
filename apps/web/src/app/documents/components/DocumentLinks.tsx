@@ -152,6 +152,7 @@ export default function DocumentLinks({ document, onUpdate }: DocumentLinksProps
             <LinksSection
               title="Predecessors"
               links={document.predecessors}
+              projectId={document.projectId}
               onAdd={() => handleOpenDialog('PREREQUISITE')}
               onRemove={handleRemoveLink}
               emptyMessage="No predecessor documents. This document can start immediately."
@@ -162,6 +163,7 @@ export default function DocumentLinks({ document, onUpdate }: DocumentLinksProps
             <LinksSection
               title="Successors"
               links={document.successors}
+              projectId={document.projectId}
               onAdd={() => handleOpenDialog('SUCCESSOR')}
               onRemove={handleRemoveLink}
               emptyMessage="No successor documents. No other documents depend on this one."
@@ -174,6 +176,7 @@ export default function DocumentLinks({ document, onUpdate }: DocumentLinksProps
           <LinksSection
             title="Related Documents"
             links={document.relatedDocuments}
+            projectId={document.projectId}
             onAdd={() => handleOpenDialog('RELATED')}
             onRemove={handleRemoveLink}
             emptyMessage="No related documents linked."

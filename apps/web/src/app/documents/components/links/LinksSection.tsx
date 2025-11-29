@@ -37,6 +37,7 @@ import type { DocumentLink } from '@vapour/types';
 interface LinksSectionProps {
   title: string;
   links: DocumentLink[];
+  projectId: string;
   onAdd: () => void;
   onRemove: (link: DocumentLink) => void;
   emptyMessage: string;
@@ -45,6 +46,7 @@ interface LinksSectionProps {
 export default function LinksSection({
   title,
   links,
+  projectId,
   onAdd,
   onRemove,
   emptyMessage,
@@ -117,7 +119,9 @@ export default function LinksSection({
                   <Tooltip title="View Document">
                     <IconButton
                       size="small"
-                      onClick={() => router.push(`/documents/${link.masterDocumentId}`)}
+                      onClick={() =>
+                        router.push(`/documents/${link.masterDocumentId}?projectId=${projectId}`)
+                      }
                     >
                       <ViewIcon fontSize="small" />
                     </IconButton>

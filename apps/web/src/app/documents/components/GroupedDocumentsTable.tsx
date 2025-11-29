@@ -120,7 +120,6 @@ export function GroupedDocumentsTable({ documents }: GroupedDocumentsTableProps)
     }
   };
 
-
   if (documents.length === 0) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
@@ -241,7 +240,9 @@ export function GroupedDocumentsTable({ documents }: GroupedDocumentsTableProps)
                           <Tooltip title="View Details">
                             <IconButton
                               size="small"
-                              onClick={() => router.push(`/documents/${doc.id}`)}
+                              onClick={() =>
+                                router.push(`/documents/${doc.id}?projectId=${doc.projectId}`)
+                              }
                             >
                               <VisibilityIcon fontSize="small" />
                             </IconButton>
@@ -249,7 +250,11 @@ export function GroupedDocumentsTable({ documents }: GroupedDocumentsTableProps)
                           <Tooltip title="Submit">
                             <IconButton
                               size="small"
-                              onClick={() => router.push(`/documents/${doc.id}?tab=submit`)}
+                              onClick={() =>
+                                router.push(
+                                  `/documents/${doc.id}?projectId=${doc.projectId}&tab=submit`
+                                )
+                              }
                             >
                               <SendIcon fontSize="small" />
                             </IconButton>
@@ -257,7 +262,11 @@ export function GroupedDocumentsTable({ documents }: GroupedDocumentsTableProps)
                           <Tooltip title="Links">
                             <IconButton
                               size="small"
-                              onClick={() => router.push(`/documents/${doc.id}?tab=links`)}
+                              onClick={() =>
+                                router.push(
+                                  `/documents/${doc.id}?projectId=${doc.projectId}&tab=links`
+                                )
+                              }
                             >
                               <LinkIcon fontSize="small" />
                             </IconButton>
