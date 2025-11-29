@@ -2505,16 +2505,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "taskNotificationId",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "taskThreads",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
           "fieldPath": "projectId",
           "order": "ASCENDING"
         },
