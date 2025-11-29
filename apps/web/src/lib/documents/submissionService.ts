@@ -112,13 +112,12 @@ async function createDocumentRecord(
 
     // Multi-level linking
     projectId: data.projectId,
-    projectName: undefined, // Will be denormalized later if needed
-    projectCode: undefined,
+    // projectName and projectCode omitted - will be denormalized later if needed
 
     // Primary entity linkage
     entityType: 'PROJECT' as const,
     entityId: data.projectId,
-    entityNumber: undefined,
+    // entityNumber omitted
 
     // Version control
     version: parseInt(data.revision.replace('R', ''), 10) || 0,
@@ -127,7 +126,7 @@ async function createDocumentRecord(
 
     // Metadata
     title: data.documentTitle,
-    description: undefined,
+    // description omitted
     tags: [],
 
     // Status

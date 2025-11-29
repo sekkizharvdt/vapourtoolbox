@@ -5,6 +5,20 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "displayName",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "roles",
           "arrayConfig": "CONTAINS"
         },
