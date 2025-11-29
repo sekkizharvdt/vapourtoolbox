@@ -250,11 +250,18 @@ jobs:
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
+      - name: Setup Java for Firebase Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       - name: Start Firebase Emulators and Run Tests
         run: |
-          firebase emulators:exec --only firestore,auth "pnpm --filter @vapour/web test:integration" --project vapour-toolbox
+          firebase emulators:exec --only firestore,auth "pnpm --filter @vapour/web test:integration" --project test-project --import=./emulator-data --rules firestore.test.rules
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          FIRESTORE_EMULATOR_HOST: localhost:8080
+          FIREBASE_AUTH_EMULATOR_HOST: localhost:9099
 
   # Job 7: E2E Tests (with Playwright)
   e2e-tests:
@@ -285,10 +292,12 @@ jobs:
         run: pnpm --filter "@vapour/*" --filter "!@vapour/web" build
 
       - name: Install Playwright Browsers
+        working-directory: apps/web
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E Tests
-        run: pnpm --filter @vapour/web test:e2e
+        working-directory: apps/web
+        run: pnpm test:e2e
         env:
           NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyCxzqzAUTT3Ouiv-szpfO1Au4LwEMnP-4w
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: vapour-toolbox.firebaseapp.com

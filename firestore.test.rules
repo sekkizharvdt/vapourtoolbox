@@ -1,0 +1,13 @@
+// Permissive rules for integration testing only
+// These rules allow all read/write operations without authentication
+// DO NOT use in production!
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow all operations for integration testing
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
