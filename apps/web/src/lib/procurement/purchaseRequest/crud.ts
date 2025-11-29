@@ -16,6 +16,7 @@ import {
   limit,
   Timestamp,
   writeBatch,
+  increment,
   type QueryConstraint,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -321,22 +322,17 @@ export async function updatePurchaseRequest(
 
 /**
  * Increment attachment count for a PR item
+ * Uses atomic increment to prevent race conditions when multiple users upload simultaneously
  */
 export async function incrementAttachmentCount(itemId: string): Promise<void> {
   const { db } = getFirebase();
 
   try {
     const itemRef = doc(db, COLLECTIONS.PURCHASE_REQUEST_ITEMS, itemId);
-    const itemSnap = await getDoc(itemRef);
 
-    if (!itemSnap.exists()) {
-      throw new Error('Purchase request item not found');
-    }
-
-    const item = itemSnap.data() as PurchaseRequestItem;
-
+    // Use atomic increment - no read required, handles concurrent updates correctly
     await updateDoc(itemRef, {
-      attachmentCount: (item.attachmentCount || 0) + 1,
+      attachmentCount: increment(1),
       updatedAt: Timestamp.now(),
     });
   } catch (error) {
