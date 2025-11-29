@@ -30,8 +30,8 @@ import type { BOM, BOMStatus, BOMCategory } from '@vapour/types';
 
 const logger = createLogger({ context: 'EstimationPage' });
 
-// Week 1: Temporary hardcoded entity ID (will be replaced with proper entity management)
-const DEFAULT_ENTITY_ID = 'default-entity';
+// Fallback entity ID for users without entity assignment
+const FALLBACK_ENTITY_ID = 'default-entity';
 
 // Status color mapping
 const statusColors: Record<BOMStatus, 'default' | 'info' | 'warning' | 'success' | 'error'> = {
@@ -59,8 +59,11 @@ const categoryLabels: Record<BOMCategory, string> = {
 
 export default function EstimationPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { db } = getFirebase();
+
+  // Get entity ID from claims or use fallback
+  const entityId = claims?.entityId || FALLBACK_ENTITY_ID;
 
   const [boms, setBOMs] = useState<BOM[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,7 +82,7 @@ export default function EstimationPage() {
       setError(null);
 
       const bomList = await listBOMs(db, {
-        entityId: DEFAULT_ENTITY_ID,
+        entityId,
         limit: 100,
       });
 

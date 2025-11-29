@@ -12,8 +12,7 @@ import type {
   FormulaDefinition,
 } from '@vapour/types';
 import { evaluateFormula, evaluateFormulas } from './formulaEngineService';
-// TODO: Implement materialService
-// import { getMaterialById } from './materialService';
+import { getMaterialById } from './materialService';
 
 export interface CalculationInput {
   shapeId: string;
@@ -224,11 +223,10 @@ export async function calculateShape(input: CalculationInput): Promise<Calculati
     // Get material if not provided
     let material = input.material;
     if (!material) {
-      // TODO: Implement getMaterialById
-      // material = await getMaterialById(materialId);
-      // if (!material) {
-      throw new Error('Material must be provided in input (materialService not yet implemented)');
-      // }
+      material = await getMaterialById(materialId);
+      if (!material) {
+        throw new Error(`Material not found: ${materialId}`);
+      }
     }
 
     // Build parameter map

@@ -6,21 +6,15 @@
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import type { Shape, ShapeCategory, ShapeType, MaterialCategory } from '@vapour/types';
 import { COLLECTIONS } from '@vapour/firebase';
-// TODO: Implement codeGenerationService
-// import { generateDocumentCode } from './codeGenerationService';
+import { generateDocumentCode } from './codeGenerationService';
 
 const db = getFirestore();
 
 /**
- * Generate a unique shape code (SHP-YYYY-NNNN)
- * TODO: Use proper code generation service
+ * Generate a unique shape code using the code generation service
  */
 async function generateShapeCode(): Promise<string> {
-  const year = new Date().getFullYear();
-  const randomNum = Math.floor(Math.random() * 10000)
-    .toString()
-    .padStart(4, '0');
-  return `SHP-${year}-${randomNum}`;
+  return generateDocumentCode('SHAPE');
 }
 
 /**

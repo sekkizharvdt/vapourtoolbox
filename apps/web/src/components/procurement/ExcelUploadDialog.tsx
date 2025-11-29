@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react';
+import * as XLSX from 'xlsx';
 import {
   Dialog,
   DialogTitle,
@@ -109,17 +110,73 @@ export default function ExcelUploadDialog({
     }
   };
 
-  const parseClientSide = async (_file: File) => {
-    // TODO: Implement client-side Excel parsing using xlsx library
-    // For now, return empty array (no mock data)
-    setError('Excel parsing not yet implemented. Please enter items manually.');
-    setParsedItems([]);
+  const parseClientSide = async (file: File) => {
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const sheetName = workbook.SheetNames[0];
+      if (!sheetName) {
+        setError('File has no sheets');
+        return;
+      }
+      const sheet = workbook.Sheets[sheetName];
+      if (!sheet) {
+        setError('Failed to read sheet');
+        return;
+      }
+
+      // Convert sheet to JSON (with header row) - returns array of arrays
+      const rawData = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 });
+
+      if (rawData.length < 2) {
+        setError('File is empty or has no data rows');
+        return;
+      }
+
+      // Skip header row, parse data rows
+      const items: ParsedItem[] = [];
+      for (let i = 1; i < rawData.length; i++) {
+        const row = rawData[i];
+        if (!row || !Array.isArray(row) || row.length === 0) continue;
+
+        // Expected format: LineNumber, Description, Quantity, Unit, EquipmentCode, Remarks
+        const lineNumber = Number(row[0]) || i;
+        const description = String(row[1] || '').trim();
+        const quantity = Number(row[2]) || 0;
+        const unit = String(row[3] || 'EA').trim();
+        const equipmentCode = row[4] ? String(row[4]).trim() : undefined;
+        const remarks = row[5] ? String(row[5]).trim() : undefined;
+
+        // Skip rows without description
+        if (!description) continue;
+
+        items.push({
+          lineNumber,
+          description,
+          quantity: quantity > 0 ? quantity : 1,
+          unit: unit || 'EA',
+          equipmentCode,
+          remarks,
+        });
+      }
+
+      if (items.length === 0) {
+        setError('No valid items found in the file. Please check the format.');
+        return;
+      }
+
+      setParsedItems(items);
+    } catch (err) {
+      console.error('[ExcelUploadDialog] Parse error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to parse Excel file');
+    }
   };
 
-  const parseServerSide = async (_file: File) => {
-    // TODO: Upload to Cloud Function for parsing
-    setError('Cloud Function parsing not yet implemented. Please enter items manually.');
-    setParsedItems([]);
+  const parseServerSide = async (file: File) => {
+    // For large files (>5MB), we use client-side parsing as a fallback
+    // A Cloud Function could be implemented for even larger files
+    console.warn('[ExcelUploadDialog] Large file detected, using client-side fallback');
+    await parseClientSide(file);
   };
 
   const handleRemoveItem = (index: number) => {

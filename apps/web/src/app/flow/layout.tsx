@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { AuthenticatedLayout } from '@/components/layout/AuthenticatedLayout';
 import { WorkspaceSidebar } from './components/WorkspaceSidebar';
 import { buildWorkspaces, subscribeToUserTasks } from '@/lib/tasks/channelService';
+import { subscribeToUnreadMentions } from '@/lib/tasks/mentionService';
 import { TasksLayoutContext, type TasksLayoutContextValue } from './context';
 import type { TaskNotification, DefaultTaskChannelId } from '@vapour/types';
 
@@ -102,6 +103,9 @@ function TasksLayoutInner({ children }: { children: React.ReactNode }) {
       .length;
   }, [tasks]);
 
+  // Mentions count (Phase C)
+  const [mentionsCount, setMentionsCount] = useState(0);
+
   // Load projects
   useEffect(() => {
     async function loadProjects() {
@@ -137,6 +141,19 @@ function TasksLayoutInner({ children }: { children: React.ReactNode }) {
       setTasks(updatedTasks);
       setIsLoading(false);
     });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Subscribe to unread mentions count (Phase C)
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = subscribeToUnreadMentions(
+      user.uid,
+      (mentions) => setMentionsCount(mentions.length),
+      () => setMentionsCount(0)
+    );
 
     return () => unsubscribe();
   }, [user]);
@@ -201,7 +218,7 @@ function TasksLayoutInner({ children }: { children: React.ReactNode }) {
       onSelectMyTasks={handleSelectMyTasks}
       onSelectMentions={handleSelectMentions}
       onClose={isMobile ? handleToggleSidebar : undefined}
-      mentionsCount={0} // Placeholder for Phase C
+      mentionsCount={mentionsCount}
       myTasksCount={myTasksCount}
     />
   );

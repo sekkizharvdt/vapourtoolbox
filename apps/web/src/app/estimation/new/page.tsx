@@ -24,8 +24,8 @@ import type { BOMCategory, CreateBOMInput } from '@vapour/types';
 
 const logger = createLogger({ context: 'NewBOMPage' });
 
-// Week 1: Temporary hardcoded entity ID
-const DEFAULT_ENTITY_ID = 'default-entity';
+// Fallback entity ID for users without entity assignment
+const FALLBACK_ENTITY_ID = 'default-entity';
 
 // Category options
 const categories: { value: BOMCategory; label: string }[] = [
@@ -44,8 +44,11 @@ const categories: { value: BOMCategory; label: string }[] = [
 
 export default function NewBOMPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { db } = getFirebase();
+
+  // Get entity ID from claims or use fallback
+  const entityId = claims?.entityId || FALLBACK_ENTITY_ID;
 
   const [formData, setFormData] = useState<Omit<CreateBOMInput, 'entityId'>>({
     name: '',
@@ -81,7 +84,7 @@ export default function NewBOMPage() {
 
       const input: CreateBOMInput = {
         ...formData,
-        entityId: DEFAULT_ENTITY_ID,
+        entityId,
       };
 
       const bom = await createBOM(db, input, user.uid);
