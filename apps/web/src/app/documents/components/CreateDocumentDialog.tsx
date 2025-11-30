@@ -58,7 +58,9 @@ export default function CreateDocumentDialog({
   const [disciplineCode, setDisciplineCode] = useState('');
   const [subCode, setSubCode] = useState('');
   const [documentType, setDocumentType] = useState('');
-  const [visibility, setVisibility] = useState<'CLIENT_VISIBLE' | 'INTERNAL_ONLY'>('CLIENT_VISIBLE');
+  const [visibility, setVisibility] = useState<'CLIENT_VISIBLE' | 'INTERNAL_ONLY'>(
+    'CLIENT_VISIBLE'
+  );
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [assignedTo, setAssignedTo] = useState<string[]>([]);
 
@@ -162,7 +164,7 @@ export default function CreateDocumentDialog({
         documentTitle: title,
         documentType: documentType || 'General',
         description: description || '',
-        status: 'NOT_STARTED',
+        status: 'DRAFT',
         currentRevision: 'R0',
         predecessors: [],
         successors: [],
@@ -316,9 +318,7 @@ export default function CreateDocumentDialog({
             <InputLabel>Visibility</InputLabel>
             <Select
               value={visibility}
-              onChange={(e) =>
-                setVisibility(e.target.value as 'CLIENT_VISIBLE' | 'INTERNAL_ONLY')
-              }
+              onChange={(e) => setVisibility(e.target.value as 'CLIENT_VISIBLE' | 'INTERNAL_ONLY')}
               label="Visibility"
             >
               <MenuItem value="CLIENT_VISIBLE">Client Visible</MenuItem>

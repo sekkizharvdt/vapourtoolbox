@@ -41,20 +41,19 @@ interface EditDocumentDialogProps {
   onUpdate: () => void;
 }
 
-const STATUS_OPTIONS: { value: MasterDocumentStatus; label: string }[] = [
-  { value: 'NOT_STARTED', label: 'Not Started' },
-  { value: 'IN_PROGRESS', label: 'In Progress' },
-  { value: 'INTERNAL_REVIEW', label: 'Internal Review' },
-  { value: 'PM_APPROVED', label: 'PM Approved' },
-  { value: 'SUBMITTED', label: 'Submitted' },
-  { value: 'CLIENT_REVIEW', label: 'Client Review' },
-  { value: 'COMMENTED', label: 'Commented' },
-  { value: 'COMMENT_RESOLUTION', label: 'Comment Resolution' },
-  { value: 'RESUBMITTED', label: 'Resubmitted' },
-  { value: 'APPROVED', label: 'Approved' },
-  { value: 'ACCEPTED', label: 'Accepted' },
-  { value: 'ON_HOLD', label: 'On Hold' },
-  { value: 'CANCELLED', label: 'Cancelled' },
+const STATUS_OPTIONS: { value: MasterDocumentStatus; label: string; description: string }[] = [
+  { value: 'DRAFT', label: 'Draft', description: 'Initial state - not yet started' },
+  { value: 'IN_PROGRESS', label: 'In Progress', description: 'User working on document' },
+  { value: 'SUBMITTED', label: 'Submitted', description: 'Submitted to client' },
+  {
+    value: 'UNDER_REVIEW',
+    label: 'Under Review',
+    description: 'Client reviewing or comments pending',
+  },
+  { value: 'APPROVED', label: 'Approved', description: 'Client approved' },
+  { value: 'ACCEPTED', label: 'Accepted', description: 'Final - no further revisions' },
+  { value: 'ON_HOLD', label: 'On Hold', description: 'Temporarily paused' },
+  { value: 'CANCELLED', label: 'Cancelled', description: 'Document cancelled' },
 ];
 
 export default function EditDocumentDialog({
@@ -185,7 +184,12 @@ export default function EditDocumentDialog({
             >
               {STATUS_OPTIONS.map((opt) => (
                 <MenuItem key={opt.value} value={opt.value}>
-                  {opt.label}
+                  <Stack>
+                    <Typography variant="body2">{opt.label}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {opt.description}
+                    </Typography>
+                  </Stack>
                 </MenuItem>
               ))}
             </Select>

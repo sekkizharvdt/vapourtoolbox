@@ -4,7 +4,7 @@
  * Submit Document Dialog
  *
  * Dialog for submitting a new document revision to the client
- * - File upload
+ * - Multi-file upload (Native + PDF + Supporting)
  * - Revision auto-increment
  * - Submission notes
  * - Client visibility toggle
@@ -26,9 +26,24 @@ import {
   Box,
   Chip,
   LinearProgress,
+  IconButton,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  ListItemSecondaryAction,
+  FormControl,
+  Select,
+  MenuItem,
 } from '@mui/material';
-import { CloudUpload as UploadIcon } from '@mui/icons-material';
-import type { MasterDocumentEntry } from '@vapour/types';
+import {
+  CloudUpload as UploadIcon,
+  Delete as DeleteIcon,
+  PictureAsPdf as PdfIcon,
+  InsertDriveFile as FileIcon,
+  Description as NativeIcon,
+} from '@mui/icons-material';
+import type { MasterDocumentEntry, SubmissionFileType } from '@vapour/types';
 import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
 
 interface SubmitDocumentDialogProps {
@@ -38,13 +53,31 @@ interface SubmitDocumentDialogProps {
   onSubmit: (data: SubmissionData) => Promise<void>;
 }
 
-export interface SubmissionData {
+export interface SubmissionFileData {
   file: File;
+  fileType: SubmissionFileType;
+  isPrimary: boolean;
+}
+
+export interface SubmissionData {
+  files: SubmissionFileData[];
   revision: string;
   submissionNotes: string;
   clientVisible: boolean;
   reviewerId?: string;
 }
+
+const FILE_TYPE_LABELS: Record<SubmissionFileType, string> = {
+  NATIVE: 'Native (Editable)',
+  PDF: 'PDF',
+  SUPPORTING: 'Supporting',
+};
+
+const FILE_TYPE_ICONS: Record<SubmissionFileType, React.ReactNode> = {
+  NATIVE: <NativeIcon color="primary" />,
+  PDF: <PdfIcon color="error" />,
+  SUPPORTING: <FileIcon color="action" />,
+};
 
 export default function SubmitDocumentDialog({
   open,
@@ -52,7 +85,7 @@ export default function SubmitDocumentDialog({
   document,
   onSubmit,
 }: SubmitDocumentDialogProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<SubmissionFileData[]>([]);
   const [submissionNotes, setSubmissionNotes] = useState('');
   const [clientVisible, setClientVisible] = useState(true);
   const [reviewerId, setReviewerId] = useState<string | null>(null);
@@ -79,22 +112,95 @@ export default function SubmitDocumentDialog({
 
   const nextRevision = getNextRevision();
 
+  const detectFileType = (file: File): SubmissionFileType => {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') return 'PDF';
+    if (['dwg', 'dxf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext || '')) {
+      return 'NATIVE';
+    }
+    return 'SUPPORTING';
+  };
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
+    const files = event.target.files;
+    if (!files) return;
+
+    const newFiles: SubmissionFileData[] = [];
+    let hasError = false;
+
+    Array.from(files).forEach((file) => {
       // Validate file size (50MB max)
       if (file.size > 50 * 1024 * 1024) {
-        setError('File size must be less than 50MB');
+        setError(`File "${file.name}" exceeds 50MB limit`);
+        hasError = true;
         return;
       }
-      setSelectedFile(file);
+
+      // Check for duplicate
+      if (selectedFiles.some((f) => f.file.name === file.name)) {
+        return; // Skip duplicates
+      }
+
+      const fileType = detectFileType(file);
+      const isPrimary = fileType === 'PDF' && !selectedFiles.some((f) => f.isPrimary);
+
+      newFiles.push({
+        file,
+        fileType,
+        isPrimary,
+      });
+    });
+
+    if (!hasError) {
       setError(null);
+      setSelectedFiles((prev) => [...prev, ...newFiles]);
     }
+
+    // Reset input
+    event.target.value = '';
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles((prev) => {
+      const newFiles = [...prev];
+      const removed = newFiles.splice(index, 1)[0];
+
+      // If we removed the primary file, set a new primary
+      if (removed?.isPrimary && newFiles.length > 0) {
+        const pdfFile = newFiles.find((f) => f.fileType === 'PDF');
+        if (pdfFile) {
+          pdfFile.isPrimary = true;
+        } else if (newFiles[0]) {
+          newFiles[0].isPrimary = true;
+        }
+      }
+
+      return newFiles;
+    });
+  };
+
+  const handleSetPrimary = (index: number) => {
+    setSelectedFiles((prev) =>
+      prev.map((f, i) => ({
+        ...f,
+        isPrimary: i === index,
+      }))
+    );
+  };
+
+  const handleChangeFileType = (index: number, fileType: SubmissionFileType) => {
+    setSelectedFiles((prev) => prev.map((f, i) => (i === index ? { ...f, fileType } : f)));
   };
 
   const handleSubmit = async () => {
-    if (!selectedFile) {
-      setError('Please select a file to upload');
+    if (selectedFiles.length === 0) {
+      setError('Please select at least one file to upload');
+      return;
+    }
+
+    // Ensure there's a primary file
+    if (!selectedFiles.some((f) => f.isPrimary)) {
+      setError('Please mark one file as the primary file');
       return;
     }
 
@@ -103,7 +209,7 @@ export default function SubmitDocumentDialog({
 
     try {
       await onSubmit({
-        file: selectedFile,
+        files: selectedFiles,
         revision: nextRevision,
         submissionNotes,
         clientVisible,
@@ -111,7 +217,7 @@ export default function SubmitDocumentDialog({
       });
 
       // Reset form
-      setSelectedFile(null);
+      setSelectedFiles([]);
       setSubmissionNotes('');
       setClientVisible(true);
       setReviewerId(null);
@@ -125,7 +231,7 @@ export default function SubmitDocumentDialog({
 
   const handleClose = () => {
     if (!submitting) {
-      setSelectedFile(null);
+      setSelectedFiles([]);
       setSubmissionNotes('');
       setReviewerId(null);
       setError(null);
@@ -156,7 +262,7 @@ export default function SubmitDocumentDialog({
               <Typography variant="body2" color="text.secondary">
                 Current Revision:
               </Typography>
-              <Chip label={document.currentRevision} size="small" />
+              <Chip label={document.currentRevision || 'None'} size="small" />
               <Typography variant="body2" color="text.secondary">
                 →
               </Typography>
@@ -173,10 +279,11 @@ export default function SubmitDocumentDialog({
           {/* File Upload */}
           <Box>
             <input
-              accept=".pdf,.doc,.docx,.dwg,.dxf,.xlsx,.xls"
+              accept=".pdf,.doc,.docx,.dwg,.dxf,.xlsx,.xls,.ppt,.pptx,.jpg,.jpeg,.png,.zip"
               style={{ display: 'none' }}
               id="document-file-upload"
               type="file"
+              multiple
               onChange={handleFileSelect}
               disabled={submitting}
             />
@@ -188,34 +295,81 @@ export default function SubmitDocumentDialog({
                 fullWidth
                 disabled={submitting}
               >
-                {selectedFile ? 'Change File' : 'Select File'}
+                Add Files
               </Button>
             </label>
 
-            {selectedFile && (
-              <Box
-                sx={{
-                  mt: 1,
-                  p: 2,
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                  bgcolor: 'background.default',
-                }}
-              >
-                <Typography variant="body2" fontWeight="medium">
-                  {selectedFile.name}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {formatFileSize(selectedFile.size)}
-                </Typography>
-              </Box>
-            )}
-
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-              Supported formats: PDF, Word, AutoCAD (DWG/DXF), Excel (max 50MB)
+              Upload native file (DWG, DOCX, etc.) and/or PDF. Max 50MB per file.
             </Typography>
           </Box>
+
+          {/* Selected Files List */}
+          {selectedFiles.length > 0 && (
+            <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}>
+              <List dense>
+                {selectedFiles.map((fileData, index) => (
+                  <ListItem
+                    key={index}
+                    sx={{
+                      bgcolor: fileData.isPrimary ? 'action.selected' : 'transparent',
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      {FILE_TYPE_ICONS[fileData.fileType]}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
+                            {fileData.file.name}
+                          </Typography>
+                          {fileData.isPrimary && (
+                            <Chip label="Primary" size="small" color="primary" />
+                          )}
+                        </Stack>
+                      }
+                      secondary={formatFileSize(fileData.file.size)}
+                    />
+                    <ListItemSecondaryAction>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <FormControl size="small" sx={{ minWidth: 100 }}>
+                          <Select
+                            value={fileData.fileType}
+                            onChange={(e) =>
+                              handleChangeFileType(index, e.target.value as SubmissionFileType)
+                            }
+                            size="small"
+                            disabled={submitting}
+                          >
+                            <MenuItem value="NATIVE">{FILE_TYPE_LABELS.NATIVE}</MenuItem>
+                            <MenuItem value="PDF">{FILE_TYPE_LABELS.PDF}</MenuItem>
+                            <MenuItem value="SUPPORTING">{FILE_TYPE_LABELS.SUPPORTING}</MenuItem>
+                          </Select>
+                        </FormControl>
+                        {!fileData.isPrimary && (
+                          <Button
+                            size="small"
+                            onClick={() => handleSetPrimary(index)}
+                            disabled={submitting}
+                          >
+                            Set Primary
+                          </Button>
+                        )}
+                        <IconButton
+                          size="small"
+                          onClick={() => handleRemoveFile(index)}
+                          disabled={submitting}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
+          )}
 
           {/* Submission Notes */}
           <TextField
@@ -267,7 +421,7 @@ export default function SubmitDocumentDialog({
           {submitting && (
             <Box>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                Uploading and submitting...
+                Uploading {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''}...
               </Typography>
               <LinearProgress />
             </Box>
@@ -279,7 +433,11 @@ export default function SubmitDocumentDialog({
         <Button onClick={handleClose} disabled={submitting}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={!selectedFile || submitting}>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={selectedFiles.length === 0 || submitting}
+        >
           {submitting ? 'Submitting...' : 'Submit'}
         </Button>
       </DialogActions>

@@ -90,12 +90,12 @@ export default function DocumentSubmissions({ document, onUpdate }: DocumentSubm
     }
 
     try {
-      // Submit document using the submission service
+      // Submit document using the submission service (multi-file support)
       await submitDocument(db, storage, {
         projectId: document.projectId,
         masterDocumentId: document.id,
         masterDocument: document,
-        file: data.file,
+        files: data.files,
         revision: data.revision,
         submissionNotes: data.submissionNotes,
         clientVisible: data.clientVisible,

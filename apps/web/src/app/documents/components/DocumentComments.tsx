@@ -28,8 +28,15 @@ import {
   Add as AddIcon,
   Refresh as RefreshIcon,
   FilterList as FilterIcon,
+  CloudUpload as UploadIcon,
 } from '@mui/icons-material';
-import type { MasterDocumentEntry, DocumentComment, CommentStatus } from '@vapour/types';
+import type {
+  MasterDocumentEntry,
+  DocumentComment,
+  CommentStatus,
+  DocumentSubmission,
+  CommentResolutionSheet,
+} from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import {
@@ -42,6 +49,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import AddCommentDialog, { type CommentData } from './comments/AddCommentDialog';
 import CommentsTable from './comments/CommentsTable';
 import CommentThreadDialog from './comments/CommentThreadDialog';
+import UploadCRSDialog from './comments/UploadCRSDialog';
+import CRSList from './comments/CRSList';
+import { getCRSByMasterDocument } from '@/lib/documents/crsService';
 
 interface DocumentCommentsProps {
   document: MasterDocumentEntry;
@@ -63,14 +73,18 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
   // Dialog states
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [threadDialogOpen, setThreadDialogOpen] = useState(false);
+  const [uploadCRSDialogOpen, setUploadCRSDialogOpen] = useState(false);
   const [selectedComment, setSelectedComment] = useState<DocumentComment | null>(null);
 
-  // Get latest submission ID (for adding comments)
+  // Submissions and CRS
+  const [submissions, setSubmissions] = useState<DocumentSubmission[]>([]);
+  const [crsList, setCRSList] = useState<CommentResolutionSheet[]>([]);
   const [latestSubmissionId, setLatestSubmissionId] = useState<string | undefined>();
 
   useEffect(() => {
     loadComments();
-    loadLatestSubmission();
+    loadSubmissions();
+    loadCRSList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [document.id]);
 
@@ -120,7 +134,7 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
     }
   };
 
-  const loadLatestSubmission = async () => {
+  const loadSubmissions = async () => {
     if (!db) return;
 
     try {
@@ -132,11 +146,32 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
       );
 
       const snapshot = await getDocs(q);
-      if (!snapshot.empty && snapshot.docs[0]) {
-        setLatestSubmissionId(snapshot.docs[0].id);
+      const data: DocumentSubmission[] = [];
+
+      snapshot.forEach((doc) => {
+        data.push({
+          id: doc.id,
+          ...doc.data(),
+        } as DocumentSubmission);
+      });
+
+      setSubmissions(data);
+      if (data.length > 0 && data[0]) {
+        setLatestSubmissionId(data[0].id);
       }
     } catch (err) {
-      console.error('[DocumentComments] Error loading latest submission:', err);
+      console.error('[DocumentComments] Error loading submissions:', err);
+    }
+  };
+
+  const loadCRSList = async () => {
+    if (!db) return;
+
+    try {
+      const data = await getCRSByMasterDocument(db, document.projectId, document.id);
+      setCRSList(data);
+    } catch (err) {
+      console.error('[DocumentComments] Error loading CRS list:', err);
     }
   };
 
@@ -273,11 +308,21 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
           <Stack direction="row" spacing={1}>
             <Button
               startIcon={<RefreshIcon />}
-              onClick={loadComments}
+              onClick={() => {
+                loadComments();
+                loadCRSList();
+              }}
               disabled={loading}
               size="small"
             >
               Refresh
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<UploadIcon />}
+              onClick={() => setUploadCRSDialogOpen(true)}
+            >
+              Upload CRS
             </Button>
             <Button
               variant="contained"
@@ -325,6 +370,9 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
           </ToggleButtonGroup>
         </Stack>
 
+        {/* Uploaded CRS Files */}
+        {crsList.length > 0 && <CRSList crsList={crsList} />}
+
         {/* Comments Table */}
         <CommentsTable
           comments={filteredComments}
@@ -364,6 +412,17 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
         onResolve={handleResolveComment}
         onApprove={handleApproveResolution}
         onReject={handleRejectResolution}
+      />
+
+      <UploadCRSDialog
+        open={uploadCRSDialogOpen}
+        onClose={() => setUploadCRSDialogOpen(false)}
+        document={document}
+        submissions={submissions}
+        onSuccess={() => {
+          loadCRSList();
+          onUpdate();
+        }}
       />
     </Box>
   );

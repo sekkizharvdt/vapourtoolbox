@@ -162,11 +162,7 @@ export default function MasterDocumentsPage() {
           break;
         case 'pending-review':
           filtered = filtered.filter(
-            (doc) =>
-              doc.status === 'SUBMITTED' ||
-              doc.status === 'CLIENT_REVIEW' ||
-              doc.status === 'COMMENTED' ||
-              doc.status === 'INTERNAL_REVIEW'
+            (doc) => doc.status === 'SUBMITTED' || doc.status === 'UNDER_REVIEW'
           );
           break;
         case 'client-visible':
@@ -340,14 +336,13 @@ export default function MasterDocumentsPage() {
                       >
                         <MenuItem value="ALL">All Statuses</MenuItem>
                         <MenuItem value="DRAFT">Draft</MenuItem>
-                        <MenuItem value="NOT_STARTED">Not Started</MenuItem>
                         <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
                         <MenuItem value="SUBMITTED">Submitted</MenuItem>
-                        <MenuItem value="UNDER_CLIENT_REVIEW">Under Client Review</MenuItem>
-                        <MenuItem value="COMMENTS_RECEIVED">Comments Received</MenuItem>
-                        <MenuItem value="COMMENTS_RESOLVED">Comments Resolved</MenuItem>
+                        <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
+                        <MenuItem value="APPROVED">Approved</MenuItem>
                         <MenuItem value="ACCEPTED">Accepted</MenuItem>
-                        <MenuItem value="REJECTED">Rejected</MenuItem>
+                        <MenuItem value="ON_HOLD">On Hold</MenuItem>
+                        <MenuItem value="CANCELLED">Cancelled</MenuItem>
                       </Select>
                     </FormControl>
 

@@ -2,9 +2,9 @@
  * Document Submission Service
  *
  * Handles document submission operations:
- * - File upload to Firebase Storage
+ * - Multi-file upload to Firebase Storage
  * - Creating DocumentRecord entries
- * - Creating DocumentSubmission entries
+ * - Creating DocumentSubmission entries with file array
  * - Updating MasterDocumentEntry metadata
  */
 
@@ -21,12 +21,43 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, type FirebaseStorage } from 'firebase/storage';
-import type { DocumentRecord, DocumentSubmission, MasterDocumentEntry } from '@vapour/types';
+import type {
+  DocumentRecord,
+  DocumentSubmission,
+  MasterDocumentEntry,
+  SubmissionFile,
+  SubmissionFileType,
+} from '@vapour/types';
 
 /**
- * Submit a new document revision
+ * File data for submission
+ */
+export interface SubmissionFileData {
+  file: File;
+  fileType: SubmissionFileType;
+  isPrimary: boolean;
+}
+
+/**
+ * Submit a new document revision (multi-file support)
  */
 export interface SubmitDocumentRequest {
+  projectId: string;
+  masterDocumentId: string;
+  masterDocument: MasterDocumentEntry;
+  files: SubmissionFileData[];
+  revision: string;
+  submissionNotes?: string;
+  clientVisible: boolean;
+  submittedBy: string;
+  submittedByName: string;
+  reviewerId?: string;
+}
+
+/**
+ * Legacy single-file request (backward compatibility)
+ */
+export interface SubmitDocumentRequestLegacy {
   projectId: string;
   masterDocumentId: string;
   masterDocument: MasterDocumentEntry;
@@ -47,13 +78,14 @@ async function uploadDocumentFile(
   projectId: string,
   documentNumber: string,
   revision: string,
-  file: File
+  file: File,
+  fileType: SubmissionFileType
 ): Promise<{ downloadUrl: string; filePath: string; fileSize: number }> {
-  // Construct storage path: projects/{projectId}/documents/{documentNumber}/{revision}/{filename}
+  // Construct storage path: projects/{projectId}/documents/{documentNumber}/{revision}/{fileType}/{filename}
   const sanitizedDocNumber = documentNumber.replace(/\//g, '-');
   const timestamp = Date.now();
   const fileName = `${timestamp}_${file.name}`;
-  const filePath = `projects/${projectId}/documents/${sanitizedDocNumber}/${revision}/${fileName}`;
+  const filePath = `projects/${projectId}/documents/${sanitizedDocNumber}/${revision}/${fileType.toLowerCase()}/${fileName}`;
 
   const storageRef = ref(storage, filePath);
   const snapshot = await uploadBytes(storageRef, file, {
@@ -62,6 +94,7 @@ async function uploadDocumentFile(
       originalName: file.name,
       documentNumber: documentNumber,
       revision: revision,
+      fileType: fileType,
       uploadedAt: new Date().toISOString(),
     },
   });
@@ -182,7 +215,7 @@ async function getNextSubmissionNumber(
 }
 
 /**
- * Create DocumentSubmission entry
+ * Create DocumentSubmission entry with multiple files
  */
 async function createDocumentSubmission(
   db: Firestore,
@@ -193,12 +226,15 @@ async function createDocumentSubmission(
     documentTitle: string;
     submissionNumber: number;
     revision: string;
-    documentId: string;
+    primaryDocumentId: string;
+    files: SubmissionFile[];
     submittedBy: string;
     submittedByName: string;
     submissionNotes?: string;
   }
 ): Promise<string> {
+  const primaryFile = data.files.find((f) => f.isPrimary);
+
   const submission: Omit<DocumentSubmission, 'id'> = {
     projectId: data.projectId,
     masterDocumentId: data.masterDocumentId,
@@ -208,7 +244,11 @@ async function createDocumentSubmission(
     // Submission Info
     submissionNumber: data.submissionNumber,
     revision: data.revision,
-    documentId: data.documentId,
+    documentId: data.primaryDocumentId, // Backward compatibility
+
+    // Multiple files
+    files: data.files,
+    primaryFileId: primaryFile?.id,
 
     // Submission
     submittedBy: data.submittedBy,
@@ -262,38 +302,93 @@ async function updateMasterDocument(
 }
 
 /**
- * Main submission function
+ * Generate unique file ID
+ */
+function generateFileId(): string {
+  return `file_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
+/**
+ * Main submission function (multi-file support)
  * Orchestrates the entire submission process
  */
 export async function submitDocument(
   db: Firestore,
   storage: FirebaseStorage,
   request: SubmitDocumentRequest
-): Promise<{ submissionId: string; documentId: string }> {
+): Promise<{ submissionId: string; documentId: string; fileIds: string[] }> {
   try {
-    // 1. Upload file to Firebase Storage
-    const { downloadUrl, filePath, fileSize } = await uploadDocumentFile(
-      storage,
-      request.projectId,
-      request.masterDocument.documentNumber,
-      request.revision,
-      request.file
-    );
+    const uploadedFiles: SubmissionFile[] = [];
+    let primaryDocumentId = '';
+    const fileIds: string[] = [];
 
-    // 2. Create DocumentRecord
-    const documentId = await createDocumentRecord(db, {
-      projectId: request.projectId,
-      documentNumber: request.masterDocument.documentNumber,
-      documentTitle: request.masterDocument.documentTitle,
-      revision: request.revision,
-      downloadUrl,
-      filePath,
-      fileName: request.file.name,
-      fileSize,
-      fileType: request.file.type || 'application/octet-stream',
-      submittedBy: request.submittedBy,
-      submittedByName: request.submittedByName,
-    });
+    // 1. Upload all files to Firebase Storage
+    for (const fileData of request.files) {
+      const { downloadUrl, filePath, fileSize } = await uploadDocumentFile(
+        storage,
+        request.projectId,
+        request.masterDocument.documentNumber,
+        request.revision,
+        fileData.file,
+        fileData.fileType
+      );
+
+      // 2. Create DocumentRecord for primary file (backward compat)
+      let documentRecordId: string | undefined;
+      if (fileData.isPrimary) {
+        documentRecordId = await createDocumentRecord(db, {
+          projectId: request.projectId,
+          documentNumber: request.masterDocument.documentNumber,
+          documentTitle: request.masterDocument.documentTitle,
+          revision: request.revision,
+          downloadUrl,
+          filePath,
+          fileName: fileData.file.name,
+          fileSize,
+          fileType: fileData.file.type || 'application/octet-stream',
+          submittedBy: request.submittedBy,
+          submittedByName: request.submittedByName,
+        });
+        primaryDocumentId = documentRecordId;
+      }
+
+      const fileId = generateFileId();
+      fileIds.push(fileId);
+
+      uploadedFiles.push({
+        id: fileId,
+        fileType: fileData.fileType,
+        fileName: fileData.file.name,
+        fileUrl: downloadUrl,
+        storagePath: filePath,
+        fileSize: fileSize,
+        mimeType: fileData.file.type || 'application/octet-stream',
+        isPrimary: fileData.isPrimary,
+        documentRecordId,
+        uploadedAt: Timestamp.now(),
+      });
+    }
+
+    // Ensure we have a primary document ID
+    if (!primaryDocumentId && uploadedFiles.length > 0) {
+      // Create DocumentRecord for first file if no primary was set
+      const firstFile = uploadedFiles[0]!;
+      primaryDocumentId = await createDocumentRecord(db, {
+        projectId: request.projectId,
+        documentNumber: request.masterDocument.documentNumber,
+        documentTitle: request.masterDocument.documentTitle,
+        revision: request.revision,
+        downloadUrl: firstFile.fileUrl,
+        filePath: firstFile.storagePath,
+        fileName: firstFile.fileName,
+        fileSize: firstFile.fileSize,
+        fileType: firstFile.mimeType,
+        submittedBy: request.submittedBy,
+        submittedByName: request.submittedByName,
+      });
+      firstFile.documentRecordId = primaryDocumentId;
+      firstFile.isPrimary = true;
+    }
 
     // 3. Get next submission number
     const submissionNumber = await getNextSubmissionNumber(
@@ -310,7 +405,8 @@ export async function submitDocument(
       documentTitle: request.masterDocument.documentTitle,
       submissionNumber,
       revision: request.revision,
-      documentId,
+      primaryDocumentId,
+      files: uploadedFiles,
       submittedBy: request.submittedBy,
       submittedByName: request.submittedByName,
       submissionNotes: request.submissionNotes,
@@ -353,7 +449,7 @@ export async function submitDocument(
       }
     }
 
-    return { submissionId, documentId };
+    return { submissionId, documentId: primaryDocumentId, fileIds };
   } catch (error) {
     console.error('[SubmissionService] Error submitting document:', error);
     throw new Error(
@@ -362,6 +458,30 @@ export async function submitDocument(
         : 'Failed to submit document'
     );
   }
+}
+
+/**
+ * Legacy submission function (single file)
+ * Converts to multi-file format for backward compatibility
+ */
+export async function submitDocumentLegacy(
+  db: Firestore,
+  storage: FirebaseStorage,
+  request: SubmitDocumentRequestLegacy
+): Promise<{ submissionId: string; documentId: string }> {
+  const multiFileRequest: SubmitDocumentRequest = {
+    ...request,
+    files: [
+      {
+        file: request.file,
+        fileType: request.file.type === 'application/pdf' ? 'PDF' : 'NATIVE',
+        isPrimary: true,
+      },
+    ],
+  };
+
+  const result = await submitDocument(db, storage, multiFileRequest);
+  return { submissionId: result.submissionId, documentId: result.documentId };
 }
 
 /**

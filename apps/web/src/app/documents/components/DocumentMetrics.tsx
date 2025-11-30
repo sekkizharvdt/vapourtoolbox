@@ -37,13 +37,9 @@ export function DocumentMetrics({ documents, onMetricClick }: DocumentMetricsPro
     return dueDate < new Date();
   }).length;
 
-  // In Review: submitted, under client review, or commented
+  // In Review: submitted or under review
   const inReview = documents.filter(
-    (doc) =>
-      doc.status === 'SUBMITTED' ||
-      doc.status === 'CLIENT_REVIEW' ||
-      doc.status === 'COMMENTED' ||
-      doc.status === 'INTERNAL_REVIEW'
+    (doc) => doc.status === 'SUBMITTED' || doc.status === 'UNDER_REVIEW'
   ).length;
 
   // Completed this month: accepted documents

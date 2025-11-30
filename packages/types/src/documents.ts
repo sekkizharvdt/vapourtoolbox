@@ -412,19 +412,25 @@ export interface DisciplineSubCode {
  * From assignment to final client acceptance
  */
 export type MasterDocumentStatus =
-  | 'NOT_STARTED' // Initial state - assigned but not started
+  | 'DRAFT' // Initial state - not yet started
   | 'IN_PROGRESS' // User working on it
-  | 'INTERNAL_REVIEW' // Submitted for internal PM review
-  | 'PM_APPROVED' // PM approved, ready for client submission
   | 'SUBMITTED' // Submitted to client
-  | 'CLIENT_REVIEW' // Under client review
-  | 'COMMENTED' // Client provided comments
-  | 'COMMENT_RESOLUTION' // Resolving comments
-  | 'RESUBMITTED' // Revised version submitted
-  | 'APPROVED' // Client approved (with minor comments)
-  | 'ACCEPTED' // Client accepted (final, no further revisions)
+  | 'UNDER_REVIEW' // Client reviewing or has comments to resolve
+  | 'APPROVED' // Client approved
+  | 'ACCEPTED' // Final acceptance - no further revisions
   | 'ON_HOLD' // Temporarily paused
   | 'CANCELLED'; // Cancelled/not required
+
+// Legacy status mapping for backward compatibility
+export const LEGACY_STATUS_MAP: Record<string, MasterDocumentStatus> = {
+  NOT_STARTED: 'DRAFT',
+  INTERNAL_REVIEW: 'IN_PROGRESS',
+  PM_APPROVED: 'IN_PROGRESS',
+  CLIENT_REVIEW: 'UNDER_REVIEW',
+  COMMENTED: 'UNDER_REVIEW',
+  COMMENT_RESOLUTION: 'UNDER_REVIEW',
+  RESUBMITTED: 'SUBMITTED',
+};
 
 /**
  * Master Document Entry in the Project's Master Document List
@@ -565,6 +571,31 @@ export type ClientReviewStatus =
   | 'CONDITIONALLY_APPROVED'; // Approved pending minor changes
 
 /**
+ * File Type for submission attachments
+ * NATIVE: Original editable file (DWG, DOCX, XLSX, etc.)
+ * PDF: PDF version for client viewing
+ * SUPPORTING: Additional supporting documents
+ */
+export type SubmissionFileType = 'NATIVE' | 'PDF' | 'SUPPORTING';
+
+/**
+ * File attachment for a submission
+ * Supports multiple files per submission (native + PDF)
+ */
+export interface SubmissionFile {
+  id: string;
+  fileType: SubmissionFileType;
+  fileName: string;
+  fileUrl: string;
+  storagePath: string;
+  fileSize: number;
+  mimeType: string;
+  isPrimary: boolean; // The main file for client viewing (usually PDF)
+  documentRecordId?: string; // Link to DocumentRecord if created
+  uploadedAt: Timestamp;
+}
+
+/**
  * Document Submission Record
  * Tracks each submission to client with revision history
  */
@@ -578,7 +609,11 @@ export interface DocumentSubmission {
   // Submission Info
   submissionNumber: number; // 1, 2, 3 (incremental per master doc)
   revision: string; // "R0", "R1", "R2", etc.
-  documentId: string; // Link to DocumentRecord (the actual file)
+  documentId: string; // Link to primary DocumentRecord (backward compat)
+
+  // Multiple files support
+  files?: SubmissionFile[]; // All files in this submission
+  primaryFileId?: string; // Quick reference to main file (usually PDF)
 
   // Submission
   submittedBy: string;
@@ -743,6 +778,51 @@ export interface CommentResolutionTable {
 
   // Generation
   generatedAt: Timestamp;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// ============================================================================
+// COMMENT RESOLUTION SHEET (Client Uploaded)
+// ============================================================================
+
+/**
+ * Comment Resolution Sheet uploaded by client
+ * Contains client feedback that can be manually entered as comments
+ */
+export interface CommentResolutionSheet {
+  id: string;
+  projectId: string;
+  masterDocumentId: string;
+  submissionId: string; // Which submission this CRS is for
+
+  // Document Info (denormalized)
+  documentNumber: string;
+  documentTitle: string;
+  revision: string;
+
+  // File Info
+  fileName: string;
+  fileUrl: string;
+  storagePath: string;
+  fileSize: number;
+  mimeType: string;
+
+  // Status
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'; // Entry progress
+  commentsExtracted: number; // How many comments were entered from this sheet
+
+  // Upload Info
+  uploadedBy: string;
+  uploadedByName: string;
+  uploadedAt: Timestamp;
+
+  // Processing Info (for future AI parsing)
+  processedAt?: Timestamp;
+  processedBy?: string;
+  processingNotes?: string;
+
+  // Audit
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

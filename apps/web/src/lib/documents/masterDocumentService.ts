@@ -405,7 +405,7 @@ export async function getSuccessorsReadyToStart(
   for (const successor of doc.successors) {
     const successorDoc = await getMasterDocumentById(projectId, successor.masterDocumentId);
 
-    if (successorDoc && successorDoc.status === 'NOT_STARTED') {
+    if (successorDoc && successorDoc.status === 'DRAFT') {
       // Check if all predecessors are completed
       const { allCompleted } = await checkPredecessorsCompleted(
         projectId,
@@ -620,7 +620,7 @@ export async function bulkCreateMasterDocuments(
         documentTitle: docData.documentTitle.trim(),
         documentType: docData.documentType?.trim() || 'GENERAL',
         description: docData.description?.trim() || '',
-        status: 'NOT_STARTED',
+        status: 'DRAFT',
         currentRevision: 'R0',
         predecessors: [],
         successors: [],

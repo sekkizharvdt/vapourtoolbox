@@ -108,15 +108,18 @@ export function GroupedDocumentsTable({ documents }: GroupedDocumentsTableProps)
     switch (doc.status) {
       case 'ACCEPTED':
         return '🟢'; // Green for completed
+      case 'APPROVED':
+        return '🟢'; // Green for approved
       case 'SUBMITTED':
-      case 'CLIENT_REVIEW':
-      case 'COMMENTED':
-      case 'INTERNAL_REVIEW':
+      case 'UNDER_REVIEW':
         return '🟡'; // Yellow for in review
-      case 'NOT_STARTED':
+      case 'DRAFT':
         return '⚪'; // White for not started
+      case 'ON_HOLD':
+      case 'CANCELLED':
+        return '🔴'; // Red for on hold or cancelled
       default:
-        return '🟡'; // Yellow for in progress
+        return '🔵'; // Blue for in progress
     }
   };
 
