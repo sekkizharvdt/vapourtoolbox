@@ -89,7 +89,7 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
       clientPhone: '',
       receivedVia: 'EMAIL',
       receivedDate: new Date(),
-      urgency: 'MEDIUM',
+      urgency: 'STANDARD',
       projectType: 'SUPPLY_ONLY',
       description: '',
       requirements: [],

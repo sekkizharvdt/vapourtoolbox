@@ -67,6 +67,12 @@ export const USER_STATUSES: Record<UserStatus, StatusConfig> = {
  * Project status configurations
  */
 export const PROJECT_STATUSES: Record<ProjectStatus, StatusConfig> = {
+  PLANNING: {
+    value: 'PLANNING',
+    label: 'Planning',
+    color: '#6366F1', // Indigo
+    variant: 'info',
+  },
   PROPOSAL: {
     value: 'PROPOSAL',
     label: 'Proposal',

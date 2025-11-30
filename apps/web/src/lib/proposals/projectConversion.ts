@@ -7,7 +7,7 @@
 import { collection, doc, addDoc, updateDoc, Timestamp, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import type { Proposal, Project, ProjectStatus } from '@vapour/types';
+import type { Proposal, Project, CharterBudgetLineItem } from '@vapour/types';
 
 const logger = createLogger({ context: 'projectConversion' });
 
@@ -47,13 +47,35 @@ export async function convertProposalToProject(
       proposal.deliveryPeriod.durationInWeeks
     );
 
+    // Generate budget line items from proposal scope of supply
+    const now = Timestamp.now();
+    const budgetLineItems: CharterBudgetLineItem[] = (proposal.scopeOfSupply || []).map(
+      (item, idx) => ({
+        id: `budget-${idx + 1}`,
+        lineNumber: idx + 1,
+        description: item.itemName || item.description || `Line Item ${idx + 1}`,
+        executionType: 'IN_HOUSE' as const,
+        estimatedCost: item.totalPrice?.amount || 0,
+        currency: 'INR' as const,
+        status: 'PLANNED' as const,
+        scopeLinkage: {
+          type: 'IN_SCOPE_ITEM' as const,
+          id: `scope-${idx}`,
+          description: item.description,
+        },
+        createdAt: now,
+        updatedAt: now,
+        createdBy: userId,
+      })
+    );
+
     // Create project
     const newProject: Omit<Project, 'id'> = {
       // Basic Info
       code: projectNumber,
       name: proposal.title,
       description: proposal.scopeOfWork.summary,
-      status: 'PLANNING' as ProjectStatus,
+      status: 'PLANNING',
       priority: 'MEDIUM',
 
       // Organization
@@ -89,6 +111,7 @@ export async function convertProposalToProject(
       // Dates
       dates: {
         startDate,
+        endDate: estimatedEndDate,
       },
 
       // Budget (from proposal pricing)
@@ -134,6 +157,8 @@ export async function convertProposalToProject(
           assumptions: proposal.scopeOfWork.assumptions || [],
           constraints: [],
         },
+        // Budget line items from proposal scope of supply
+        budgetLineItems: budgetLineItems.length > 0 ? budgetLineItems : undefined,
         risks: [],
         stakeholders: [
           {

@@ -11,7 +11,6 @@ import {
   getDocs,
   query,
   where,
-  serverTimestamp,
   type Firestore,
   Timestamp,
 } from 'firebase/firestore';
@@ -168,8 +167,8 @@ export function createDiscrepancy(
     affectsPayment,
     resolved: false,
     requiresApproval: severity === 'CRITICAL' || severity === 'HIGH',
-    createdAt: serverTimestamp() as unknown as Timestamp,
-    updatedAt: serverTimestamp() as unknown as Timestamp,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
     createdBy: userId,
     updatedBy: userId,
   };

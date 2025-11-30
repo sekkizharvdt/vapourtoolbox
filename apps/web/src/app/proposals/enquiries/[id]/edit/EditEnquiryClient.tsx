@@ -98,7 +98,7 @@ export default function EditEnquiryClient() {
       projectType: 'SUPPLY_ONLY',
       industry: '',
       location: '',
-      urgency: 'MEDIUM',
+      urgency: 'STANDARD',
       estimatedBudgetAmount: '',
       estimatedBudgetCurrency: 'INR',
       receivedDate: new Date(),

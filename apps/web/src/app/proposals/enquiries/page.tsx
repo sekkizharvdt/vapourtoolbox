@@ -78,9 +78,7 @@ const URGENCY_COLORS: Record<
   EnquiryUrgency,
   'default' | 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success'
 > = {
-  LOW: 'default',
-  MEDIUM: 'info',
-  HIGH: 'warning',
+  STANDARD: 'default',
   URGENT: 'error',
 };
 

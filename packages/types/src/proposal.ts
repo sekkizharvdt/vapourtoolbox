@@ -202,6 +202,45 @@ export interface ApprovalRecord {
 }
 
 /**
+ * Proposal Attachment
+ * Represents a file attached to a proposal (drawings, specs, etc.)
+ */
+export interface ProposalAttachment {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  storagePath: string;
+  fileSize: number;
+  mimeType: string;
+  fileType: ProposalAttachmentType;
+  description?: string;
+  uploadedAt: Timestamp;
+  uploadedBy: string;
+  uploadedByName: string;
+}
+
+/**
+ * Proposal Attachment Type
+ */
+export type ProposalAttachmentType =
+  | 'DRAWING'
+  | 'SPECIFICATION'
+  | 'DATASHEET'
+  | 'SUPPORTING'
+  | 'OTHER';
+
+/**
+ * Proposal Attachment Type Labels
+ */
+export const PROPOSAL_ATTACHMENT_TYPE_LABELS: Record<ProposalAttachmentType, string> = {
+  DRAWING: 'Drawing',
+  SPECIFICATION: 'Specification',
+  DATASHEET: 'Data Sheet',
+  SUPPORTING: 'Supporting Document',
+  OTHER: 'Other',
+};
+
+/**
  * Proposal Entity
  */
 export interface Proposal extends TimestampFields {
@@ -258,9 +297,12 @@ export interface Proposal extends TimestampFields {
   projectId?: string;
   projectNumber?: string;
 
-  // Documents
-  attachedDocuments: string[];
+  // Documents & Attachments
+  attachments: ProposalAttachment[];
+  /** @deprecated Use attachments instead */
+  attachedDocuments?: string[];
   generatedPdfUrl?: string;
+  generatedPdfStoragePath?: string;
 
   // Audit
   createdBy: string;

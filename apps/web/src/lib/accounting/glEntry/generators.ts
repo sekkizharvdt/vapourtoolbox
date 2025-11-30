@@ -139,17 +139,14 @@ export async function generateInvoiceGLEntries(
 
     return validateAndReturnEntries(entries, errors);
   } catch (error) {
-    console.error('[generateInvoiceGLEntries] Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return {
       success: false,
       entries: [],
       totalDebit: 0,
       totalCredit: 0,
       isBalanced: false,
-      errors: [
-        'Failed to generate GL entries: ' +
-          (error instanceof Error ? error.message : 'Unknown error'),
-      ],
+      errors: [`Failed to generate invoice GL entries: ${errorMessage}`],
     };
   }
 }
@@ -297,17 +294,14 @@ export async function generateBillGLEntries(
 
     return validateAndReturnEntries(entries, errors);
   } catch (error) {
-    console.error('[generateBillGLEntries] Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return {
       success: false,
       entries: [],
       totalDebit: 0,
       totalCredit: 0,
       isBalanced: false,
-      errors: [
-        'Failed to generate GL entries: ' +
-          (error instanceof Error ? error.message : 'Unknown error'),
-      ],
+      errors: [`Failed to generate bill GL entries: ${errorMessage}`],
     };
   }
 }
@@ -373,17 +367,14 @@ export async function generateCustomerPaymentGLEntries(
 
     return validateAndReturnEntries(entries, errors);
   } catch (error) {
-    console.error('[generateCustomerPaymentGLEntries] Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return {
       success: false,
       entries: [],
       totalDebit: 0,
       totalCredit: 0,
       isBalanced: false,
-      errors: [
-        'Failed to generate GL entries: ' +
-          (error instanceof Error ? error.message : 'Unknown error'),
-      ],
+      errors: [`Failed to generate customer payment GL entries: ${errorMessage}`],
     };
   }
 }
@@ -449,17 +440,14 @@ export async function generateVendorPaymentGLEntries(
 
     return validateAndReturnEntries(entries, errors);
   } catch (error) {
-    console.error('[generateVendorPaymentGLEntries] Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return {
       success: false,
       entries: [],
       totalDebit: 0,
       totalCredit: 0,
       isBalanced: false,
-      errors: [
-        'Failed to generate GL entries: ' +
-          (error instanceof Error ? error.message : 'Unknown error'),
-      ],
+      errors: [`Failed to generate vendor payment GL entries: ${errorMessage}`],
     };
   }
 }

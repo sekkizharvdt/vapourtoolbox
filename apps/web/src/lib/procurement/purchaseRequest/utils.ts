@@ -48,10 +48,16 @@ export async function generatePRNumber(): Promise<string> {
     const lastPR = snapshot.docs[0].data() as PurchaseRequest;
     // Extract sequence from last PR number (PR/2025/11/0001 -> 0001)
     const lastNumber = lastPR.number;
-    const parts = lastNumber.split('/');
-    const lastSequenceStr = parts[parts.length - 1];
-    const lastSequence = parseInt(lastSequenceStr || '0', 10);
-    sequence = lastSequence + 1;
+    if (lastNumber && typeof lastNumber === 'string') {
+      const parts = lastNumber.split('/');
+      if (parts.length >= 4) {
+        const lastSequenceStr = parts[3]; // PR/YYYY/MM/XXXX -> index 3
+        const lastSequence = parseInt(lastSequenceStr || '0', 10);
+        if (!isNaN(lastSequence)) {
+          sequence = lastSequence + 1;
+        }
+      }
+    }
   }
 
   const sequenceStr = String(sequence).padStart(4, '0');
@@ -191,7 +197,6 @@ export async function validateProjectBudget(
       },
     };
   } catch (error) {
-    console.error('[validateProjectBudget] Error:', error);
     return {
       valid: false,
       error: `Budget validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,

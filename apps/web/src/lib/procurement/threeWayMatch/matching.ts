@@ -4,15 +4,7 @@
  * Main matching algorithm for PO, GR, and Vendor Invoice
  */
 
-import {
-  collection,
-  doc,
-  addDoc,
-  serverTimestamp,
-  type Firestore,
-  Timestamp,
-  writeBatch,
-} from 'firebase/firestore';
+import { collection, doc, addDoc, type Firestore, Timestamp, writeBatch } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { ThreeWayMatch, MatchLineItem, MatchDiscrepancy } from '@vapour/types';
@@ -30,6 +22,9 @@ import {
 import { getDefaultToleranceConfig } from './queries';
 
 const logger = createLogger({ context: 'threeWayMatchService' });
+
+// Epsilon for floating-point comparisons - use 0.005 for currency (half a paisa)
+const CURRENCY_EPSILON = 0.005;
 
 /**
  * Perform 3-way match between PO, GR, and Vendor Invoice
@@ -88,8 +83,8 @@ export async function performThreeWayMatch(
           invoiceLine.description.toLowerCase().includes(item.description.toLowerCase())
       );
 
-      // Find corresponding GR item
-      const grItem = grItems.find((item) => item.poItemId === poItem?.id);
+      // Find corresponding GR item (only if we found a PO item)
+      const grItem = poItem ? grItems.find((item) => item.poItemId === poItem.id) : undefined;
 
       if (!poItem || !grItem) {
         unmatchedLines++;
@@ -175,19 +170,19 @@ export async function performThreeWayMatch(
         receivedQuantity: grItem.receivedQuantity,
         invoicedQuantity: invoiceLine.quantity,
         acceptedQuantity: grItem.acceptedQuantity,
-        quantityMatched: Math.abs(qtyVariance) < 0.01,
+        quantityMatched: Math.abs(qtyVariance) < CURRENCY_EPSILON,
         quantityVariance: qtyVariance,
         quantityVariancePercentage: qtyVariancePercent,
         unit: poItem.unit,
         poUnitPrice: poItem.unitPrice,
         invoiceUnitPrice: invoiceLine.unitPrice,
-        priceMatched: Math.abs(priceVariance) < 0.01,
+        priceMatched: Math.abs(priceVariance) < CURRENCY_EPSILON,
         priceVariance,
         priceVariancePercentage: priceVariancePercent,
         poLineTotal,
         grLineTotal,
         invoiceLineTotal,
-        amountMatched: Math.abs(amountVariance) < 0.01,
+        amountMatched: Math.abs(amountVariance) < CURRENCY_EPSILON,
         amountVariance,
         amountVariancePercentage: amountVariancePercent,
         poTaxRate: invoiceLine.gstRate,
@@ -200,12 +195,12 @@ export async function performThreeWayMatch(
         withinTolerance: lineWithinTolerance,
         hasDiscrepancy: !lineWithinTolerance,
         discrepancyTypes: [],
-        createdAt: serverTimestamp() as unknown as Timestamp,
-        updatedAt: serverTimestamp() as unknown as Timestamp,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
       };
 
       // Create line-level discrepancies
-      if (!qtyWithinTolerance && Math.abs(qtyVariance) > 0.01) {
+      if (!qtyWithinTolerance && Math.abs(qtyVariance) > CURRENCY_EPSILON) {
         matchLineItem.discrepancyTypes.push('QUANTITY_MISMATCH');
         discrepancies.push(
           createDiscrepancy(
@@ -227,7 +222,7 @@ export async function performThreeWayMatch(
         );
       }
 
-      if (!priceWithinTolerance && Math.abs(priceVariance) > 0.01) {
+      if (!priceWithinTolerance && Math.abs(priceVariance) > CURRENCY_EPSILON) {
         matchLineItem.discrepancyTypes.push('PRICE_MISMATCH');
         discrepancies.push(
           createDiscrepancy(
@@ -249,7 +244,7 @@ export async function performThreeWayMatch(
         );
       }
 
-      if (!amountWithinTolerance && Math.abs(amountVariance) > 0.01) {
+      if (!amountWithinTolerance && Math.abs(amountVariance) > CURRENCY_EPSILON) {
         matchLineItem.discrepancyTypes.push('AMOUNT_MISMATCH');
       }
 
@@ -336,9 +331,9 @@ export async function performThreeWayMatch(
       matchType,
       matchedBy: userId,
       matchedByName: userName,
-      matchedAt: serverTimestamp() as unknown as Timestamp,
-      createdAt: serverTimestamp() as unknown as Timestamp,
-      updatedAt: serverTimestamp() as unknown as Timestamp,
+      matchedAt: Timestamp.now(),
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
       createdBy: userId,
       updatedBy: userId,
     };

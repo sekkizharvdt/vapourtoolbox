@@ -193,33 +193,44 @@ export async function createPOFromOffer(
   const poRef = await addDoc(collection(db, COLLECTIONS.PURCHASE_ORDERS), poData);
 
   // Create PO items from offer items
-  // First, fetch RFQ items to get projectId for each item
+  // Batch fetch RFQ items to get projectId for each item (avoid N+1 query)
   const rfqItemMap = new Map<
     string,
     { projectId: string; equipmentId?: string; equipmentCode?: string }
   >();
 
-  for (const item of offerItems) {
-    if (!rfqItemMap.has(item.rfqItemId)) {
-      try {
-        const rfqItemDoc = await getDoc(doc(db, COLLECTIONS.RFQ_ITEMS, item.rfqItemId));
-        if (rfqItemDoc.exists()) {
-          const rfqItemData = rfqItemDoc.data();
-          rfqItemMap.set(item.rfqItemId, {
+  // Get unique RFQ item IDs
+  const uniqueRfqItemIds = [...new Set(offerItems.map((item) => item.rfqItemId))];
+
+  // Batch fetch all RFQ items in parallel (Firestore doesn't support 'in' for document refs,
+  // but we can use Promise.all for parallel fetching)
+  const rfqItemPromises = uniqueRfqItemIds.map(async (rfqItemId) => {
+    try {
+      const rfqItemDoc = await getDoc(doc(db, COLLECTIONS.RFQ_ITEMS, rfqItemId));
+      if (rfqItemDoc.exists()) {
+        const rfqItemData = rfqItemDoc.data();
+        return {
+          id: rfqItemId,
+          data: {
             projectId: rfqItemData.projectId || '',
             equipmentId: rfqItemData.equipmentId,
             equipmentCode: rfqItemData.equipmentCode,
-          });
-        } else {
-          logger.warn('RFQ item not found', { rfqItemId: item.rfqItemId });
-          rfqItemMap.set(item.rfqItemId, { projectId: '' });
-        }
-      } catch (err) {
-        console.error(`[purchaseOrderService] Error fetching RFQ item ${item.rfqItemId}:`, err);
-        rfqItemMap.set(item.rfqItemId, { projectId: '' });
+          },
+        };
+      } else {
+        logger.warn('RFQ item not found', { rfqItemId });
+        return { id: rfqItemId, data: { projectId: '' } };
       }
+    } catch (err) {
+      logger.error('Error fetching RFQ item', { rfqItemId, error: err });
+      return { id: rfqItemId, data: { projectId: '' } };
     }
-  }
+  });
+
+  const rfqItemResults = await Promise.all(rfqItemPromises);
+  rfqItemResults.forEach(({ id, data }) => {
+    rfqItemMap.set(id, data);
+  });
 
   const batch = writeBatch(db);
 
@@ -430,7 +441,7 @@ export async function approvePO(
 
       logger.info('Advance payment created', { paymentId });
     } catch (err) {
-      console.error('[purchaseOrderService] Error creating advance payment:', err);
+      logger.error('Error creating advance payment', { poId, error: err });
       // Note: PO is already approved, advance payment can be created manually
       // We don't fail the approval if payment creation fails
     }

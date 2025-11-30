@@ -35,8 +35,9 @@ export type EnquiryProjectType =
 
 /**
  * Enquiry Urgency Level
+ * Simplified to 2 levels for clearer prioritization
  */
-export type EnquiryUrgency = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export type EnquiryUrgency = 'STANDARD' | 'URGENT';
 
 /**
  * Enquiry Document
@@ -91,9 +92,7 @@ export const ENQUIRY_PROJECT_TYPE_LABELS: Record<EnquiryProjectType, string> = {
  * Enquiry Urgency Labels
  */
 export const ENQUIRY_URGENCY_LABELS: Record<EnquiryUrgency, string> = {
-  LOW: 'Low',
-  MEDIUM: 'Medium',
-  HIGH: 'High',
+  STANDARD: 'Standard',
   URGENT: 'Urgent',
 };
 

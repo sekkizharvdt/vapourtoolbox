@@ -40,8 +40,9 @@ export async function createBankStatement(
     const docRef = await addDoc(collection(db, 'bankStatements'), statement);
     return docRef.id;
   } catch (error) {
-    console.error('[createBankStatement] Error:', error);
-    throw new Error('Failed to create bank statement');
+    throw new Error(
+      `Failed to create bank statement: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -70,50 +71,65 @@ export async function addBankTransactions(
 
     await batch.commit();
   } catch (error) {
-    console.error('[addBankTransactions] Error:', error);
-    throw new Error('Failed to add bank transactions');
+    throw new Error(
+      `Failed to add bank transactions: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
 /**
- * Get unmatched accounting transactions for a bank account and period
+ * Accounting transaction with reconciliation status
  */
+interface AccountingTransaction {
+  id: string;
+  bankAccountId: string;
+  date: Timestamp;
+  status: string;
+  isReconciled?: boolean;
+  amount?: number;
+  description?: string;
+  type?: string;
+  reference?: string;
+}
+
 export async function getUnmatchedAccountingTransactions(
   db: Firestore,
   accountId: string,
   startDate: Timestamp,
   endDate: Timestamp
-): Promise<unknown[]> {
-  try {
-    const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    const q = query(
-      transactionsRef,
-      where('bankAccountId', '==', accountId),
-      where('date', '>=', startDate),
-      where('date', '<=', endDate),
-      where('status', '==', 'POSTED'),
-      orderBy('date', 'desc')
-    );
+): Promise<AccountingTransaction[]> {
+  const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
+  const q = query(
+    transactionsRef,
+    where('bankAccountId', '==', accountId),
+    where('date', '>=', startDate),
+    where('date', '<=', endDate),
+    where('status', '==', 'POSTED'),
+    orderBy('date', 'desc')
+  );
 
-    const snapshot = await getDocs(q);
-    const transactions: unknown[] = [];
+  const snapshot = await getDocs(q);
+  const transactions: AccountingTransaction[] = [];
 
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      // Only include if not already reconciled
-      if (!data.isReconciled) {
-        transactions.push({
-          id: doc.id,
-          ...data,
-        });
-      }
-    });
+  snapshot.forEach((docSnapshot) => {
+    const data = docSnapshot.data();
+    // Only include if not already reconciled
+    if (!data.isReconciled) {
+      transactions.push({
+        id: docSnapshot.id,
+        bankAccountId: data.bankAccountId,
+        date: data.date,
+        status: data.status,
+        isReconciled: data.isReconciled,
+        amount: data.amount,
+        description: data.description,
+        type: data.type,
+        reference: data.reference,
+      });
+    }
+  });
 
-    return transactions;
-  } catch (error) {
-    console.error('[getUnmatchedAccountingTransactions] Error:', error);
-    throw error;
-  }
+  return transactions;
 }
 
 /**
@@ -123,28 +139,36 @@ export async function getUnmatchedBankTransactions(
   db: Firestore,
   statementId: string
 ): Promise<BankTransaction[]> {
-  try {
-    const transactionsRef = collection(db, 'bankTransactions');
-    const q = query(
-      transactionsRef,
-      where('statementId', '==', statementId),
-      where('isReconciled', '==', false),
-      orderBy('transactionDate', 'desc')
-    );
+  const transactionsRef = collection(db, 'bankTransactions');
+  const q = query(
+    transactionsRef,
+    where('statementId', '==', statementId),
+    where('isReconciled', '==', false),
+    orderBy('transactionDate', 'desc')
+  );
 
-    const snapshot = await getDocs(q);
-    const transactions: BankTransaction[] = [];
+  const snapshot = await getDocs(q);
+  const transactions: BankTransaction[] = [];
 
-    snapshot.forEach((doc) => {
-      transactions.push({
-        id: doc.id,
-        ...doc.data(),
-      } as unknown as BankTransaction);
+  snapshot.forEach((docSnapshot) => {
+    const data = docSnapshot.data();
+    transactions.push({
+      id: docSnapshot.id,
+      statementId: data.statementId,
+      accountId: data.accountId,
+      transactionDate: data.transactionDate,
+      valueDate: data.valueDate,
+      description: data.description,
+      reference: data.reference,
+      debitAmount: data.debitAmount ?? data.debit ?? 0,
+      creditAmount: data.creditAmount ?? data.credit ?? 0,
+      balance: data.balance,
+      isReconciled: data.isReconciled,
+      reconciledWith: data.reconciledWith,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
     });
+  });
 
-    return transactions;
-  } catch (error) {
-    console.error('[getUnmatchedBankTransactions] Error:', error);
-    throw error;
-  }
+  return transactions;
 }

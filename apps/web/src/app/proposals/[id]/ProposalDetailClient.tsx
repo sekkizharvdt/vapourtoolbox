@@ -22,6 +22,7 @@ import {
   ArrowBack as BackIcon,
   MoreVert as MoreIcon,
   PictureAsPdf as PdfIcon,
+  CloudUpload as SavePdfIcon,
   Edit as EditIcon,
   Send as SendIcon,
   Check as ApproveIcon,
@@ -31,13 +32,14 @@ import {
   Business as BusinessIcon,
   Email as EmailIcon,
   CalendarToday as DateIcon,
+  OpenInNew as OpenIcon,
 } from '@mui/icons-material';
 import { Timestamp } from 'firebase/firestore';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProposalById } from '@/lib/proposal/proposalService';
-import { generateProposalPDF } from '@/lib/proposals/proposalPDF';
+import { generateAndDownloadProposalPDF } from '@/lib/proposals/proposalPDF';
 import {
   submitProposalForApproval,
   approveProposal,
@@ -54,6 +56,7 @@ import { logger } from '@vapour/logger';
 import StatusBadge from './components/StatusBadge';
 import ApprovalHistory from './components/ApprovalHistory';
 import ConvertToProjectDialog from './components/ConvertToProjectDialog';
+import ProposalAttachments from './components/ProposalAttachments';
 
 export default function ProposalDetailClient() {
   const pathname = usePathname();
@@ -122,16 +125,25 @@ export default function ProposalDetailClient() {
     }
   };
 
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = async (saveToStorage: boolean = false) => {
     if (!proposal || !db) return;
     try {
       setPdfGenerating(true);
-      await generateProposalPDF(proposal, {
-        showCostBreakdown: true,
-        showIndirectCosts: true,
-        includeTerms: true,
-        includeDeliverySchedule: true,
-      });
+      await generateAndDownloadProposalPDF(
+        db,
+        proposal,
+        {
+          showCostBreakdown: true,
+          showIndirectCosts: true,
+          includeTerms: true,
+          includeDeliverySchedule: true,
+        },
+        saveToStorage
+      );
+      // Reload proposal to get updated PDF URL if saved
+      if (saveToStorage) {
+        await reloadProposal();
+      }
     } catch (err) {
       logger.error('Error generating PDF', { error: err });
       setError('Failed to generate PDF');
@@ -272,15 +284,39 @@ export default function ProposalDetailClient() {
         subtitle={proposal.title}
         action={
           <Box sx={{ display: 'flex', gap: 2 }}>
-            {/* PDF Download */}
+            {/* PDF Actions */}
             {actions.canDownloadPDF && (
+              <>
+                <Button
+                  variant="outlined"
+                  startIcon={<PdfIcon />}
+                  onClick={() => handleDownloadPDF(false)}
+                  disabled={pdfGenerating}
+                >
+                  {pdfGenerating ? 'Generating...' : 'Download PDF'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<SavePdfIcon />}
+                  onClick={() => handleDownloadPDF(true)}
+                  disabled={pdfGenerating}
+                  title="Download and save PDF to storage"
+                >
+                  Save PDF
+                </Button>
+              </>
+            )}
+            {/* View Saved PDF */}
+            {proposal.generatedPdfUrl && (
               <Button
-                variant="outlined"
-                startIcon={<PdfIcon />}
-                onClick={handleDownloadPDF}
-                disabled={pdfGenerating}
+                variant="text"
+                size="small"
+                startIcon={<OpenIcon />}
+                href={proposal.generatedPdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                {pdfGenerating ? 'Generating...' : 'Download PDF'}
+                View Saved PDF
               </Button>
             )}
 
@@ -464,7 +500,7 @@ export default function ProposalDetailClient() {
 
           {/* Approval History */}
           {proposal.approvalHistory && proposal.approvalHistory.length > 0 && (
-            <Card>
+            <Card sx={{ mb: 3 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
                   Approval History
@@ -473,6 +509,13 @@ export default function ProposalDetailClient() {
               </CardContent>
             </Card>
           )}
+
+          {/* Attachments */}
+          <ProposalAttachments
+            proposal={proposal}
+            onUpdate={reloadProposal}
+            readOnly={!['DRAFT'].includes(proposal.status)}
+          />
         </Grid>
 
         {/* Sidebar */}

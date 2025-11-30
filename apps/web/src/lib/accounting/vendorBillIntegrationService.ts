@@ -80,11 +80,12 @@ export async function createVendorBillFromMatch(
     const transactionNumber = 'VB-' + now.toMillis().toString();
 
     // Create vendor bill
-    const vendorBillData: Omit<VendorBill, 'id'> = {
+    // Note: Firestore Timestamps are stored directly and converted at read time
+    const vendorBillData = {
       // BaseTransaction fields
       type: 'VENDOR_BILL',
       transactionNumber,
-      date: now as unknown as Date,
+      date: now,
       description: 'Vendor bill for PO ' + match.poNumber + ' - ' + match.vendorName,
       amount: totalAmount,
       currency: 'INR',
@@ -98,7 +99,7 @@ export async function createVendorBillFromMatch(
 
       // VendorBill specific fields
       vendorGSTIN: match.vendorGSTIN,
-      billDate: now as unknown as Date,
+      billDate: now,
       vendorInvoiceNumber: match.vendorInvoiceNumber,
       lineItems: invoiceLineItems,
       subtotal,
@@ -113,9 +114,9 @@ export async function createVendorBillFromMatch(
       sourceDocumentType: 'vendorInvoice',
 
       // Metadata
-      createdAt: now as unknown as Date,
+      createdAt: now,
       createdBy: userId,
-      updatedAt: now as unknown as Date,
+      updatedAt: now,
       updatedBy: userId,
     };
 

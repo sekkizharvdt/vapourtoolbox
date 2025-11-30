@@ -139,7 +139,7 @@ export async function createProposal(
       terms: {},
       status: 'DRAFT',
       approvalHistory: [],
-      attachedDocuments: [],
+      attachments: [],
       createdAt: now,
       createdBy: userId,
       updatedAt: now,

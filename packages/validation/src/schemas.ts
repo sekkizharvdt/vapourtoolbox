@@ -802,8 +802,9 @@ export const enquiryProjectTypeSchema = z.enum([
 
 /**
  * Enquiry Urgency enum schema
+ * Simplified to 2 levels for clearer prioritization
  */
-export const enquiryUrgencySchema = z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']);
+export const enquiryUrgencySchema = z.enum(['STANDARD', 'URGENT']);
 
 /**
  * Create Enquiry Input schema

@@ -25,7 +25,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import InfoIcon from '@mui/icons-material/Info';
-import { ImportBOMDialog } from '../ImportBOMDialog';
+import { ImportBOMDialog, type ImportBOMResult } from '../ImportBOMDialog';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { getBOMItems } from '@/lib/bom/bomService';
 import type { ProposalLineItem } from '@vapour/types';
@@ -50,20 +50,24 @@ const CATEGORIES = [
 ];
 
 export function ScopeOfSupplyStep() {
-  const { control, register } = useFormContext();
+  const { control, register, setValue } = useFormContext();
   const { fields, append, remove, replace } = useFieldArray({
     control,
     name: 'scopeOfSupply',
   });
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
   const db = useFirestore();
 
-  const handleImportBOM = async (bomId: string) => {
+  const handleImportBOM = async (result: ImportBOMResult) => {
     if (!db) return;
     setImportError(null);
+    setImportSuccess(null);
+
     try {
-      const items = await getBOMItems(db, bomId);
+      const items = await getBOMItems(db, result.bomId);
+      const summary = result.bom.summary;
 
       const proposalItems: ProposalLineItemWithBreakdown[] = items.map((item, index) => {
         const materialCost = item.cost?.totalMaterialCost?.amount || 0;
@@ -100,6 +104,40 @@ export function ScopeOfSupplyStep() {
       });
 
       replace(proposalItems);
+
+      // If user opted to include cost config, calculate and set percentages
+      if (result.includeCostConfig && summary) {
+        const directCost = summary.totalDirectCost?.amount || 0;
+
+        if (directCost > 0) {
+          // Calculate percentages from BOM summary amounts
+          const overheadAmount = summary.overhead?.amount || 0;
+          const contingencyAmount = summary.contingency?.amount || 0;
+          const profitAmount = summary.profit?.amount || 0;
+
+          // Calculate percentages based on direct cost
+          const overheadPct = directCost > 0 ? (overheadAmount / directCost) * 100 : 0;
+          const contingencyPct = directCost > 0 ? (contingencyAmount / directCost) * 100 : 0;
+          // Profit is calculated on subtotal + overhead + contingency in the BOM
+          const baseForProfit = directCost + overheadAmount + contingencyAmount;
+          const profitPct = baseForProfit > 0 ? (profitAmount / baseForProfit) * 100 : 0;
+
+          // Set the form values for PricingStep
+          if (overheadPct > 0) setValue('overheadPercentage', Math.round(overheadPct * 10) / 10);
+          if (contingencyPct > 0)
+            setValue('contingencyPercentage', Math.round(contingencyPct * 10) / 10);
+          if (profitPct > 0) setValue('profitMarginPercentage', Math.round(profitPct * 10) / 10);
+
+          setImportSuccess(
+            `Imported ${items.length} items with cost configuration (Overhead, Contingency, Profit).`
+          );
+        } else {
+          setImportSuccess(`Imported ${items.length} items from BOM.`);
+        }
+      } else {
+        setImportSuccess(`Imported ${items.length} items from BOM.`);
+      }
+
       setImportDialogOpen(false);
     } catch (error) {
       console.error('Error importing BOM:', error);
@@ -123,6 +161,12 @@ export function ScopeOfSupplyStep() {
       {importError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setImportError(null)}>
           {importError}
+        </Alert>
+      )}
+
+      {importSuccess && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setImportSuccess(null)}>
+          {importSuccess}
         </Alert>
       )}
 
