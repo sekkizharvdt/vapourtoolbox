@@ -42,6 +42,7 @@ import DocumentComments from '../components/DocumentComments';
 import DocumentSupplyList from '../components/DocumentSupplyList';
 import DocumentWorkList from '../components/DocumentWorkList';
 import DocumentLinks from '../components/DocumentLinks';
+import EditDocumentDialog from '../components/EditDocumentDialog';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -73,6 +74,7 @@ export default function DocumentDetailClient() {
   const [loading, setLoading] = useState(true);
   const [document, setDocument] = useState<MasterDocumentEntry | null>(null);
   const [currentTab, setCurrentTab] = useState(0);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   // Extract document ID from pathname for static export compatibility
   useEffect(() => {
@@ -209,7 +211,11 @@ export default function DocumentDetailClient() {
             </Stack>
 
             <Stack direction="row" spacing={1}>
-              <Button startIcon={<EditIcon />} variant="outlined">
+              <Button
+                startIcon={<EditIcon />}
+                variant="outlined"
+                onClick={() => setEditDialogOpen(true)}
+              >
                 Edit
               </Button>
               <Button startIcon={<SendIcon />} variant="contained" onClick={() => setCurrentTab(1)}>
@@ -261,6 +267,14 @@ export default function DocumentDetailClient() {
           </TabPanel>
         </Paper>
       </Stack>
+
+      {/* Edit Document Dialog */}
+      <EditDocumentDialog
+        open={editDialogOpen}
+        onClose={() => setEditDialogOpen(false)}
+        document={document}
+        onUpdate={loadDocument}
+      />
     </Box>
   );
 }

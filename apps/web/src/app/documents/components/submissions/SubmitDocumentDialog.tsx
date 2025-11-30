@@ -60,7 +60,14 @@ export default function SubmitDocumentDialog({
   const [error, setError] = useState<string | null>(null);
 
   // Calculate next revision
+  // First submission should be R0 (when submissionCount is 0)
+  // Subsequent submissions increment from current revision
   const getNextRevision = (): string => {
+    // If no submissions yet, first submission is R0
+    if (document.submissionCount === 0) {
+      return 'R0';
+    }
+    // Otherwise increment from current revision
     const current = document.currentRevision || 'R0';
     const match = current.match(/R(\d+)/);
     if (match && match[1]) {
