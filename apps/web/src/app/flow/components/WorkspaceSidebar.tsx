@@ -28,14 +28,6 @@ import {
   ExpandMore as ExpandMoreIcon,
   ChevronRight as ChevronRightIcon,
   Tag as HashIcon,
-  Assignment as AssignmentIcon,
-  AlternateEmail as MentionsIcon,
-  ShoppingCart as ShoppingCartIcon,
-  Description as DescriptionIcon,
-  Calculate as CalculatorIcon,
-  CheckCircle as CheckCircleIcon,
-  HelpOutline as HelpCircleIcon,
-  DriveFileRenameOutline as FileSignatureIcon,
   Folder as FolderIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
@@ -46,17 +38,7 @@ import type {
   DefaultTaskChannelId,
 } from '@vapour/types';
 import { getChannelUnreadCounts } from '@/lib/tasks/channelService';
-
-// Channel icon mapping
-const channelIcons: Record<string, React.ReactNode> = {
-  Hash: <HashIcon fontSize="small" />,
-  ShoppingCart: <ShoppingCartIcon fontSize="small" />,
-  FileText: <DescriptionIcon fontSize="small" />,
-  Calculator: <CalculatorIcon fontSize="small" />,
-  CheckCircle: <CheckCircleIcon fontSize="small" />,
-  HelpCircle: <HelpCircleIcon fontSize="small" />,
-  FileSignature: <FileSignatureIcon fontSize="small" />,
-};
+import { channelIconsSmall, viewIcons } from './channelIcons';
 
 interface WorkspaceSidebarProps {
   workspaces: TaskWorkspace[];
@@ -106,7 +88,7 @@ const ChannelItem = memo(function ChannelItem({
         }}
       >
         <ListItemIcon sx={{ minWidth: 28, color: 'text.secondary' }}>
-          {channelIcons[channel.icon] || <HashIcon fontSize="small" />}
+          {channelIconsSmall[channel.icon] || <HashIcon fontSize="small" />}
         </ListItemIcon>
         <ListItemText
           primary={channel.name}
@@ -288,9 +270,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar({
               },
             }}
           >
-            <ListItemIcon sx={{ minWidth: 36 }}>
-              <AssignmentIcon fontSize="small" />
-            </ListItemIcon>
+            <ListItemIcon sx={{ minWidth: 36 }}>{viewIcons.myTasks}</ListItemIcon>
             <ListItemText
               primary="My Tasks"
               primaryTypographyProps={{
@@ -322,9 +302,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar({
               },
             }}
           >
-            <ListItemIcon sx={{ minWidth: 36 }}>
-              <MentionsIcon fontSize="small" />
-            </ListItemIcon>
+            <ListItemIcon sx={{ minWidth: 36 }}>{viewIcons.mentions}</ListItemIcon>
             <ListItemText
               primary="@Mentions"
               primaryTypographyProps={{

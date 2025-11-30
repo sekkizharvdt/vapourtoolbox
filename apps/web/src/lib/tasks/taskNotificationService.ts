@@ -18,9 +18,11 @@ import {
   limit as firestoreLimit,
   Timestamp,
   type QueryConstraint,
+  type DocumentData,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type {
   TaskNotification,
   CreateTaskNotificationInput,
@@ -28,6 +30,43 @@ import type {
   TaskNotificationSummary,
   TaskNotificationStatus,
 } from '@vapour/types';
+
+const logger = createLogger({ context: 'taskNotificationService' });
+
+/**
+ * Convert Firestore DocumentData to TaskNotification with proper type safety
+ */
+function docToTaskNotification(id: string, data: DocumentData): TaskNotification {
+  return {
+    id,
+    type: data.type,
+    category: data.category,
+    userId: data.userId,
+    assignedBy: data.assignedBy,
+    assignedByName: data.assignedByName,
+    title: data.title,
+    message: data.message,
+    priority: data.priority,
+    projectId: data.projectId,
+    equipmentId: data.equipmentId,
+    entityType: data.entityType,
+    entityId: data.entityId,
+    linkUrl: data.linkUrl,
+    status: data.status,
+    read: data.read,
+    autoCompletable: data.autoCompletable,
+    completionConfirmed: data.completionConfirmed,
+    metadata: data.metadata,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    acknowledgedAt: data.acknowledgedAt,
+    timeStarted: data.timeStarted,
+    timeCompleted: data.timeCompleted,
+    totalDuration: data.totalDuration,
+    autoCompletedAt: data.autoCompletedAt,
+    manuallyCompletedAt: data.manuallyCompletedAt,
+  };
+}
 
 // ============================================================================
 // CREATE TASK NOTIFICATION
@@ -87,7 +126,7 @@ export async function createTaskNotification(input: CreateTaskNotificationInput)
 
     return docRef.id;
   } catch (error) {
-    console.error('[createTaskNotification] Error:', error);
+    logger.error('Failed to create task notification', { error });
     throw new Error('Failed to create task notification');
   }
 }
@@ -155,16 +194,13 @@ export async function getUserTaskNotifications(
     const snapshot = await getDocs(q);
 
     const taskNotifications: TaskNotification[] = [];
-    snapshot.forEach((doc) => {
-      taskNotifications.push({
-        id: doc.id,
-        ...doc.data(),
-      } as TaskNotification);
+    snapshot.forEach((docSnap) => {
+      taskNotifications.push(docToTaskNotification(docSnap.id, docSnap.data()));
     });
 
     return taskNotifications;
   } catch (error) {
-    console.error('[getUserTaskNotifications] Error:', error);
+    logger.error('Failed to get task notifications', { error, filters });
     throw new Error('Failed to get task notifications');
   }
 }
@@ -185,13 +221,9 @@ export async function getTaskNotificationById(
       return null;
     }
 
-    const notification: TaskNotification = {
-      id: docSnap.id,
-      ...docSnap.data(),
-    } as unknown as TaskNotification;
-    return notification;
+    return docToTaskNotification(docSnap.id, docSnap.data());
   } catch (error) {
-    console.error('[getTaskNotificationById] Error:', error);
+    logger.error('Failed to get task notification', { error, taskNotificationId });
     throw new Error('Failed to get task notification');
   }
 }
@@ -232,13 +264,9 @@ export async function findTaskNotificationByEntity(
     }
 
     const docData = snapshot.docs[0];
-    const notification: TaskNotification = {
-      id: docData.id,
-      ...docData.data(),
-    } as unknown as TaskNotification;
-    return notification;
+    return docToTaskNotification(docData.id, docData.data());
   } catch (error) {
-    console.error('[findTaskNotificationByEntity] Error:', error);
+    logger.error('Failed to find task notification by entity', { error, entityType, entityId });
     return null;
   }
 }
@@ -261,7 +289,7 @@ export async function markAsRead(taskNotificationId: string): Promise<void> {
       updatedAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error('[markAsRead] Error:', error);
+    logger.error('Failed to mark as read', { error, taskNotificationId });
     throw new Error('Failed to mark as read');
   }
 }
@@ -280,7 +308,7 @@ export async function markAllAsRead(userId: string): Promise<void> {
 
     await Promise.all(updatePromises);
   } catch (error) {
-    console.error('[markAllAsRead] Error:', error);
+    logger.error('Failed to mark all as read', { error, userId });
     throw new Error('Failed to mark all as read');
   }
 }
@@ -310,7 +338,7 @@ export async function acknowledgeInformational(taskNotificationId: string): Prom
       updatedAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error('[acknowledgeInformational] Error:', error);
+    logger.error('Failed to acknowledge informational notification', { error, taskNotificationId });
     throw error;
   }
 }
@@ -332,7 +360,7 @@ export async function acknowledgeAllInformational(userId: string): Promise<void>
 
     await Promise.all(acknowledgePromises);
   } catch (error) {
-    console.error('[acknowledgeAllInformational] Error:', error);
+    logger.error('Failed to acknowledge all informational notifications', { error, userId });
     throw new Error('Failed to acknowledge all informational notifications');
   }
 }
@@ -374,7 +402,7 @@ export async function startActionableTask(
       updatedAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error('[startActionableTask] Error:', error);
+    logger.error('Failed to start actionable task', { error, taskNotificationId, userId });
     throw error;
   }
 }
@@ -422,7 +450,7 @@ export async function completeActionableTask(
 
     await updateDoc(doc(db, COLLECTIONS.TASK_NOTIFICATIONS, taskNotificationId), updates);
   } catch (error) {
-    console.error('[completeActionableTask] Error:', error);
+    logger.error('Failed to complete actionable task', { error, taskNotificationId, userId });
     throw error;
   }
 }
@@ -441,7 +469,7 @@ export async function confirmAutoCompletion(taskNotificationId: string): Promise
       updatedAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error('[confirmAutoCompletion] Error:', error);
+    logger.error('Failed to confirm auto-completion', { error, taskNotificationId });
     throw new Error('Failed to confirm auto-completion');
   }
 }
@@ -462,7 +490,7 @@ export async function updateTaskDuration(
       updatedAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error('[updateTaskDuration] Error:', error);
+    logger.error('Failed to update task duration', { error, taskNotificationId, totalDuration });
     throw new Error('Failed to update task duration');
   }
 }
@@ -487,7 +515,7 @@ export async function getUnreadCount(userId: string): Promise<number> {
     const snapshot = await getDocs(q);
     return snapshot.size;
   } catch (error) {
-    console.error('[getUnreadCount] Error:', error);
+    logger.error('Failed to get unread count', { error, userId });
     return 0;
   }
 }
@@ -509,7 +537,7 @@ export async function getPendingActionCount(userId: string): Promise<number> {
     const snapshot = await getDocs(q);
     return snapshot.size;
   } catch (error) {
-    console.error('[getPendingActionCount] Error:', error);
+    logger.error('Failed to get pending action count', { error, userId });
     return 0;
   }
 }
@@ -555,7 +583,7 @@ export async function getTaskNotificationSummary(userId: string): Promise<TaskNo
 
     return summary;
   } catch (error) {
-    console.error('[getTaskNotificationSummary] Error:', error);
+    logger.error('Failed to get task notification summary', { error, userId });
     throw new Error('Failed to get task notification summary');
   }
 }

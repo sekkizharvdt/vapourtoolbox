@@ -25,28 +25,10 @@ import {
   FilterList as FilterIcon,
   Menu as MenuIcon,
   Tag as HashIcon,
-  ShoppingCart as ShoppingCartIcon,
-  Description as DescriptionIcon,
-  Calculate as CalculatorIcon,
-  CheckCircle as CheckCircleIcon,
-  HelpOutline as HelpCircleIcon,
-  DriveFileRenameOutline as FileSignatureIcon,
-  Assignment as AssignmentIcon,
-  AlternateEmail as MentionsIcon,
 } from '@mui/icons-material';
 import type { DefaultTaskChannelId } from '@vapour/types';
 import { TASK_CHANNEL_DEFINITIONS } from '@vapour/types';
-
-// Channel icon mapping
-const channelIcons: Record<string, React.ReactNode> = {
-  Hash: <HashIcon />,
-  ShoppingCart: <ShoppingCartIcon />,
-  FileText: <DescriptionIcon />,
-  Calculator: <CalculatorIcon />,
-  CheckCircle: <CheckCircleIcon />,
-  HelpCircle: <HelpCircleIcon />,
-  FileSignature: <FileSignatureIcon />,
-};
+import { channelIcons, viewIcons } from './channelIcons';
 
 interface ChannelHeaderProps {
   workspaceName: string;
@@ -79,11 +61,11 @@ export const ChannelHeader = memo(function ChannelHeader({
 
   if (view === 'my-tasks') {
     title = 'My Tasks';
-    icon = <AssignmentIcon />;
+    icon = viewIcons.myTasksLarge;
     description = 'All tasks assigned to you across all projects';
   } else if (view === 'mentions') {
     title = '@Mentions';
-    icon = <MentionsIcon />;
+    icon = viewIcons.mentionsLarge;
     description = 'Messages where you were mentioned';
   } else if (channel) {
     title = `#${channel.name.toLowerCase()}`;

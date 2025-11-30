@@ -106,10 +106,11 @@ function TasksLayoutInner({ children }: { children: React.ReactNode }) {
   // Mentions count (Phase C)
   const [mentionsCount, setMentionsCount] = useState(0);
 
-  // Load projects
+  // Load projects - depend on user.uid to prevent memory leaks from recreating subscription
+  const userId = user?.uid;
   useEffect(() => {
     async function loadProjects() {
-      if (!user) return;
+      if (!userId) return;
 
       try {
         // Import project service dynamically to avoid circular deps
@@ -122,41 +123,41 @@ function TasksLayoutInner({ children }: { children: React.ReactNode }) {
             projectNumber: p.code,
           }))
         );
-      } catch (error) {
-        console.error('[TasksLayout] Failed to load projects:', error);
+      } catch {
+        // Silently handle project load failure - UI will show empty projects list
         setProjects([]);
       }
     }
 
     loadProjects();
-  }, [user]);
+  }, [userId]);
 
-  // Subscribe to user tasks
+  // Subscribe to user tasks - depend on userId to prevent memory leaks
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     setIsLoading(true);
 
-    const unsubscribe = subscribeToUserTasks(user.uid, (updatedTasks) => {
+    const unsubscribe = subscribeToUserTasks(userId, (updatedTasks) => {
       setTasks(updatedTasks);
       setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [userId]);
 
-  // Subscribe to unread mentions count (Phase C)
+  // Subscribe to unread mentions count - depend on userId to prevent memory leaks
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     const unsubscribe = subscribeToUnreadMentions(
-      user.uid,
+      userId,
       (mentions) => setMentionsCount(mentions.length),
       () => setMentionsCount(0)
     );
 
     return () => unsubscribe();
-  }, [user]);
+  }, [userId]);
 
   // Navigation handlers
   const handleSelectChannel = useCallback(

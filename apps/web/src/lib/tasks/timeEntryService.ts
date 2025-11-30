@@ -18,9 +18,11 @@ import {
   limit as firestoreLimit,
   Timestamp,
   type QueryConstraint,
+  type DocumentData,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type {
   TimeEntry,
   TimeEntryFilters,
@@ -28,6 +30,29 @@ import type {
   UserTimeStats,
 } from '@vapour/types';
 import { updateTaskDuration } from './taskNotificationService';
+
+const logger = createLogger({ context: 'timeEntryService' });
+
+/**
+ * Convert Firestore DocumentData to TimeEntry with proper type safety
+ */
+function docToTimeEntry(id: string, data: DocumentData): TimeEntry {
+  return {
+    id,
+    userId: data.userId,
+    taskNotificationId: data.taskNotificationId,
+    startTime: data.startTime,
+    endTime: data.endTime,
+    duration: data.duration,
+    isActive: data.isActive,
+    description: data.description,
+    pausedAt: data.pausedAt,
+    pausedDuration: data.pausedDuration,
+    resumedAt: data.resumedAt,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+  };
+}
 
 // ============================================================================
 // CREATE & START TIME ENTRY
@@ -64,7 +89,7 @@ export async function startTimeEntry(
 
     return docRef.id;
   } catch (error) {
-    console.error('[startTimeEntry] Error:', error);
+    logger.error('Failed to start time entry', { error, userId, taskNotificationId });
     throw new Error('Failed to start time entry');
   }
 }
@@ -110,7 +135,7 @@ export async function stopTimeEntry(entryId: string): Promise<void> {
     // Update task notification's total duration
     await updateTaskTotalDuration(timeEntry.taskNotificationId);
   } catch (error) {
-    console.error('[stopTimeEntry] Error:', error);
+    logger.error('Failed to stop time entry', { error, entryId });
     throw error;
   }
 }
@@ -135,7 +160,7 @@ export async function stopActiveTimeEntries(userId: string): Promise<void> {
 
     await Promise.all(stopPromises);
   } catch (error) {
-    console.error('[stopActiveTimeEntries] Error:', error);
+    logger.error('Failed to stop active time entries', { error, userId });
     // Don't throw - this is called before starting new entries
   }
 }
@@ -174,7 +199,7 @@ export async function pauseTimeEntry(entryId: string): Promise<void> {
       updatedAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error('[pauseTimeEntry] Error:', error);
+    logger.error('Failed to pause time entry', { error, entryId });
     throw error;
   }
 }
@@ -215,7 +240,7 @@ export async function resumeTimeEntry(entryId: string): Promise<void> {
       updatedAt: now,
     });
   } catch (error) {
-    console.error('[resumeTimeEntry] Error:', error);
+    logger.error('Failed to resume time entry', { error, entryId });
     throw error;
   }
 }
@@ -246,13 +271,9 @@ export async function getActiveTimeEntry(userId: string): Promise<TimeEntry | nu
     }
 
     const docData = snapshot.docs[0];
-    const entry: TimeEntry = {
-      id: docData.id,
-      ...docData.data(),
-    } as unknown as TimeEntry;
-    return entry;
+    return docToTimeEntry(docData.id, docData.data());
   } catch (error) {
-    console.error('[getActiveTimeEntry] Error:', error);
+    logger.error('Failed to get active time entry', { error, userId });
     return null;
   }
 }
@@ -302,16 +323,13 @@ export async function getTimeEntries(filters: TimeEntryFilters): Promise<TimeEnt
     const snapshot = await getDocs(q);
 
     const timeEntries: TimeEntry[] = [];
-    snapshot.forEach((doc) => {
-      timeEntries.push({
-        id: doc.id,
-        ...doc.data(),
-      } as TimeEntry);
+    snapshot.forEach((docSnap) => {
+      timeEntries.push(docToTimeEntry(docSnap.id, docSnap.data()));
     });
 
     return timeEntries;
   } catch (error) {
-    console.error('[getTimeEntries] Error:', error);
+    logger.error('Failed to get time entries', { error, filters });
     throw new Error('Failed to get time entries');
   }
 }
@@ -345,7 +363,7 @@ export async function calculateTotalTime(taskNotificationId: string): Promise<nu
 
     return totalSeconds;
   } catch (error) {
-    console.error('[calculateTotalTime] Error:', error);
+    logger.error('Failed to calculate total time', { error, taskNotificationId });
     return 0;
   }
 }
@@ -359,7 +377,7 @@ async function updateTaskTotalDuration(taskNotificationId: string): Promise<void
     const totalDuration = await calculateTotalTime(taskNotificationId);
     await updateTaskDuration(taskNotificationId, totalDuration);
   } catch (error) {
-    console.error('[updateTaskTotalDuration] Error:', error);
+    logger.error('Failed to update task total duration', { error, taskNotificationId });
     // Don't throw - duration update is not critical
   }
 }
@@ -370,25 +388,45 @@ async function updateTaskTotalDuration(taskNotificationId: string): Promise<void
 
 /**
  * Get time tracking summary for a user within a date range
+ * Uses a single query by fetching all entries and filtering client-side
  */
 export async function getTimeTrackingSummary(
   userId: string,
   startDate?: Date,
   endDate?: Date
 ): Promise<TimeTrackingSummary> {
+  const { db } = getFirebase();
+
   try {
-    const timeEntries = await getTimeEntries({
-      userId,
-      startDate,
-      endDate,
-      isActive: false, // Only completed entries
+    // Single query to get all entries (both active and inactive)
+    const constraints: QueryConstraint[] = [where('userId', '==', userId)];
+
+    if (startDate) {
+      constraints.push(where('startTime', '>=', Timestamp.fromDate(startDate)));
+    }
+
+    if (endDate) {
+      constraints.push(where('startTime', '<=', Timestamp.fromDate(endDate)));
+    }
+
+    constraints.push(orderBy('startTime', 'desc'));
+
+    const q = query(collection(db, COLLECTIONS.TIME_ENTRIES), ...constraints);
+    const snapshot = await getDocs(q);
+
+    const allEntries: TimeEntry[] = [];
+    snapshot.forEach((docSnap) => {
+      allEntries.push(docToTimeEntry(docSnap.id, docSnap.data()));
     });
 
-    const totalTime = timeEntries.reduce((sum, entry) => sum + entry.duration, 0);
-    const activeEntries = await getTimeEntries({ userId, isActive: true });
+    // Filter and aggregate client-side
+    const completedEntries = allEntries.filter((e) => !e.isActive);
+    const activeEntries = allEntries.filter((e) => e.isActive);
+
+    const totalTime = completedEntries.reduce((sum, entry) => sum + entry.duration, 0);
 
     // Get unique task notification IDs to count completed tasks
-    const completedTaskIds = new Set(timeEntries.map((e) => e.taskNotificationId));
+    const completedTaskIds = new Set(completedEntries.map((e) => e.taskNotificationId));
 
     const averageTaskDuration = completedTaskIds.size > 0 ? totalTime / completedTaskIds.size : 0;
 
@@ -399,7 +437,7 @@ export async function getTimeTrackingSummary(
       averageTaskDuration,
     };
   } catch (error) {
-    console.error('[getTimeTrackingSummary] Error:', error);
+    logger.error('Failed to get time tracking summary', { error, userId, startDate, endDate });
     return {
       totalTime: 0,
       activeEntries: 0,

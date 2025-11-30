@@ -44,6 +44,9 @@ export default function TasksPage() {
   // Error state
   const [error, setError] = useState<string | null>(null);
 
+  // Loading state to prevent race conditions (double-clicks)
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+
   // Active timer state
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
   const [activeTask, setActiveTask] = useState<TaskNotification | null>(null);
@@ -55,23 +58,24 @@ export default function TasksPage() {
   // Users for @mention autocomplete (Phase C)
   const [users, setUsers] = useState<User[]>([]);
 
-  // Load active timer on mount
+  // Load active timer on mount - use stable userId reference
+  const userId = user?.uid;
   useEffect(() => {
     async function loadActiveEntry() {
-      if (!user) return;
+      if (!userId) return;
       try {
-        const entry = await getActiveTimeEntry(user.uid);
+        const entry = await getActiveTimeEntry(userId);
         setActiveEntry(entry);
         if (entry) {
           const task = tasks.find((t) => t.id === entry.taskNotificationId);
           setActiveTask(task || null);
         }
-      } catch (err) {
-        console.error('Failed to load active entry:', err);
+      } catch {
+        // Silently handle - timer widget just won't show
       }
     }
     loadActiveEntry();
-  }, [user, tasks]);
+  }, [userId, tasks]);
 
   // Load users for @mention autocomplete (Phase C)
   useEffect(() => {
@@ -107,8 +111,8 @@ export default function TasksPage() {
         });
         setUsers(usersData);
       },
-      (err) => {
-        console.error('[TasksPage] Error fetching users:', err);
+      () => {
+        // Silently handle - @mentions will show limited user list
       }
     );
 
@@ -132,31 +136,35 @@ export default function TasksPage() {
     return [];
   }, [selectedView, selectedWorkspaceId, tasks, tasksByWorkspace]);
 
-  // Handlers
+  // Handlers - with race condition protection
   const handleStartTask = useCallback(
     async (taskId: string) => {
-      if (!user) return;
+      if (!userId || actionInProgress) return;
 
+      setActionInProgress(taskId);
       try {
         // Start the task
-        await startActionableTask(taskId, user.uid);
+        await startActionableTask(taskId, userId);
         // Start time entry and get active entry
-        await startTimeEntry(user.uid, taskId);
-        const entry = await getActiveTimeEntry(user.uid);
+        await startTimeEntry(userId, taskId);
+        const entry = await getActiveTimeEntry(userId);
         const task = tasks.find((t) => t.id === taskId);
         setActiveEntry(entry);
         setActiveTask(task || null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to start task');
+      } finally {
+        setActionInProgress(null);
       }
     },
-    [user, tasks]
+    [userId, tasks, actionInProgress]
   );
 
   const handleCompleteTask = useCallback(
     async (taskId: string) => {
-      if (!user) return;
+      if (!userId || actionInProgress) return;
 
+      setActionInProgress(taskId);
       try {
         // Stop any active time entry for this task
         if (activeEntry && activeEntry.taskNotificationId === taskId) {
@@ -165,12 +173,14 @@ export default function TasksPage() {
           setActiveTask(null);
         }
         // Complete the task
-        await completeActionableTask(taskId, user.uid, false);
+        await completeActionableTask(taskId, userId, false);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to complete task');
+      } finally {
+        setActionInProgress(null);
       }
     },
-    [user, activeEntry]
+    [userId, activeEntry, actionInProgress]
   );
 
   const handleViewThread = useCallback(

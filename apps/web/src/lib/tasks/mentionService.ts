@@ -22,13 +22,17 @@ import {
   limit,
   Timestamp,
   onSnapshot,
+  writeBatch,
   type Unsubscribe,
   type DocumentSnapshot,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { TaskMention, TaskMessage, TaskThread } from '@vapour/types';
+
+const logger = createLogger({ context: 'mentionService' });
 
 // Helper to convert doc snapshot to typed object
 function toMention(docSnap: DocumentSnapshot | QueryDocumentSnapshot): TaskMention {
@@ -194,15 +198,27 @@ export async function markMentionAsRead(mentionId: string): Promise<void> {
 }
 
 /**
- * Mark multiple mentions as read
+ * Mark multiple mentions as read using batch writes for efficiency
+ * Firestore batches support up to 500 operations
  */
 export async function markMentionsAsRead(mentionIds: string[]): Promise<void> {
-  const { db } = getFirebase();
+  if (mentionIds.length === 0) return;
 
-  // Update each mention (could be optimized with batch writes)
-  await Promise.all(
-    mentionIds.map((id) => updateDoc(doc(db, COLLECTIONS.TASK_MENTIONS, id), { read: true }))
-  );
+  const { db } = getFirebase();
+  const BATCH_SIZE = 500;
+
+  // Process in chunks of 500 (Firestore batch limit)
+  for (let i = 0; i < mentionIds.length; i += BATCH_SIZE) {
+    const batch = writeBatch(db);
+    const chunk = mentionIds.slice(i, i + BATCH_SIZE);
+
+    chunk.forEach((id) => {
+      const mentionRef = doc(db, COLLECTIONS.TASK_MENTIONS, id);
+      batch.update(mentionRef, { read: true });
+    });
+
+    await batch.commit();
+  }
 }
 
 /**
@@ -257,7 +273,7 @@ export function subscribeToUnreadMentions(
       callback(snapshot.docs.map(toMention));
     },
     (error) => {
-      console.error('[MentionService] Error subscribing to mentions:', error);
+      logger.error('Error subscribing to mentions', { error, userId });
       onError?.(error);
     }
   );
