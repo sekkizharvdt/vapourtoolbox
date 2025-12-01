@@ -13,8 +13,6 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
   Chip,
   IconButton,
   Stack,
@@ -38,6 +36,14 @@ import {
   InputLabel,
   ImageList,
   ImageListItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  Badge,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -47,6 +53,7 @@ import {
   FilterList as FilterIcon,
   OpenInNew as OpenInNewIcon,
   Visibility as VisibilityIcon,
+  AttachFile as AttachFileIcon,
 } from '@mui/icons-material';
 import {
   collection,
@@ -114,6 +121,8 @@ export function FeedbackList() {
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
 
   // Subscribe to feedback collection
   useEffect(() => {
@@ -206,6 +215,21 @@ export function FeedbackList() {
     setDetailDialogOpen(true);
   };
 
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Paginated feedback
+  const paginatedFeedback = filteredFeedback.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -286,7 +310,7 @@ export function FeedbackList() {
         </Stack>
       </Paper>
 
-      {/* Feedback List */}
+      {/* Feedback Table */}
       {filteredFeedback.length === 0 ? (
         <Alert severity="info">
           {feedback.length === 0
@@ -294,99 +318,131 @@ export function FeedbackList() {
             : 'No feedback matches your filters.'}
         </Alert>
       ) : (
-        <Stack spacing={2}>
-          {filteredFeedback.map((item) => (
-            <Card key={item.id} variant="outlined">
-              <CardContent>
-                <Stack direction="row" spacing={2} alignItems="flex-start">
-                  {/* Type Icon */}
-                  <Box
-                    sx={{
-                      p: 1,
-                      borderRadius: 1,
-                      bgcolor: `${typeConfig[item.type].color}.lighter`,
-                      color: `${typeConfig[item.type].color}.main`,
-                    }}
-                  >
-                    {typeConfig[item.type].icon}
-                  </Box>
-
-                  {/* Content */}
-                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
-                      <Typography variant="subtitle1" fontWeight={600} noWrap>
-                        {item.title}
+        <TableContainer component={Paper}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ width: 120 }}>Type</TableCell>
+                <TableCell>Title</TableCell>
+                <TableCell sx={{ width: 180 }}>Submitted By</TableCell>
+                <TableCell sx={{ width: 130 }}>Status</TableCell>
+                <TableCell sx={{ width: 140 }}>Submitted</TableCell>
+                <TableCell sx={{ width: 60 }} align="center">
+                  📎
+                </TableCell>
+                <TableCell sx={{ width: 100 }} align="right">
+                  Actions
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {paginatedFeedback.map((item) => (
+                <TableRow key={item.id} hover>
+                  {/* Type */}
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{
+                          color: `${typeConfig[item.type].color}.main`,
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
+                        {typeConfig[item.type].icon}
+                      </Box>
+                      <Typography variant="body2">
+                        {typeConfig[item.type].label.split(' ')[0]}
                       </Typography>
-                      <Chip
-                        label={typeConfig[item.type].label}
-                        size="small"
-                        color={typeConfig[item.type].color}
-                        variant="outlined"
-                      />
-                      <Chip
-                        label={statusConfig[item.status].label}
-                        size="small"
-                        color={statusConfig[item.status].color}
-                      />
-                    </Stack>
+                    </Box>
+                  </TableCell>
 
+                  {/* Title */}
+                  <TableCell>
                     <Typography
                       variant="body2"
-                      color="text.secondary"
                       sx={{
+                        maxWidth: 300,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        mb: 1,
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      {item.description}
+                      {item.title}
                     </Typography>
+                  </TableCell>
 
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <Typography variant="caption" color="text.secondary">
-                        By {item.userName} ({item.userEmail})
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {formatDistanceToNow(item.createdAt.toDate(), { addSuffix: true })}
-                      </Typography>
-                      {item.screenshotUrls?.length > 0 && (
-                        <Chip
-                          label={`${item.screenshotUrls.length} screenshot(s)`}
-                          size="small"
-                          variant="outlined"
-                        />
-                      )}
-                    </Stack>
-                  </Box>
+                  {/* Submitted By */}
+                  <TableCell>
+                    <Typography variant="body2" noWrap>
+                      {item.userName}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" noWrap component="div">
+                      {item.userEmail}
+                    </Typography>
+                  </TableCell>
+
+                  {/* Status */}
+                  <TableCell>
+                    <Chip
+                      label={statusConfig[item.status].label}
+                      size="small"
+                      color={statusConfig[item.status].color}
+                    />
+                  </TableCell>
+
+                  {/* Submitted */}
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {formatDistanceToNow(item.createdAt.toDate(), { addSuffix: true })}
+                    </Typography>
+                  </TableCell>
+
+                  {/* Screenshots */}
+                  <TableCell align="center">
+                    {item.screenshotUrls?.length > 0 && (
+                      <Badge badgeContent={item.screenshotUrls.length} color="primary">
+                        <AttachFileIcon fontSize="small" color="action" />
+                      </Badge>
+                    )}
+                  </TableCell>
 
                   {/* Actions */}
-                  <Stack direction="row" spacing={1}>
-                    <Tooltip title="View Details">
-                      <IconButton onClick={() => openDetailDialog(item)}>
-                        <VisibilityIcon />
-                      </IconButton>
-                    </Tooltip>
-                    {item.pageUrl && (
-                      <Tooltip title="Open Page URL">
-                        <IconButton
-                          component="a"
-                          href={item.pageUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <OpenInNewIcon />
+                  <TableCell align="right">
+                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+                      <Tooltip title="View Details">
+                        <IconButton size="small" onClick={() => openDetailDialog(item)}>
+                          <VisibilityIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                    )}
-                  </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
-          ))}
-        </Stack>
+                      {item.pageUrl && (
+                        <Tooltip title="Open Page URL">
+                          <IconButton
+                            size="small"
+                            component="a"
+                            href={item.pageUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <OpenInNewIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <TablePagination
+            rowsPerPageOptions={[10, 25, 50, 100]}
+            component="div"
+            count={filteredFeedback.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
+        </TableContainer>
       )}
 
       {/* Detail Dialog */}

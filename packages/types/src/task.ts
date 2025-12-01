@@ -35,7 +35,10 @@ export type TaskNotificationCategory =
   | 'TASK_DEADLINE_APPROACHING' // Informational: Task deadline soon
   | 'TASK_COMPLETED' // Informational: Task you assigned was completed
   // Accounting
+  | 'INVOICE_SUBMITTED' // Actionable: Review and approve/reject invoice
   | 'INVOICE_APPROVAL_REQUIRED' // Actionable: Approve invoice
+  | 'INVOICE_APPROVED' // Informational: Your invoice was approved
+  | 'INVOICE_REJECTED' // Informational: Your invoice was rejected
   | 'PAYMENT_APPROVED' // Informational: Payment was approved
   | 'PAYMENT_COMPLETED' // Informational: Payment was completed
   // Projects
@@ -376,7 +379,10 @@ export const TASK_CHANNEL_DEFINITIONS: Record<DefaultTaskChannelId, TaskChannel>
     icon: 'Calculator',
     description: 'Invoices, payments, and financial tasks',
     categories: [
+      'INVOICE_SUBMITTED',
       'INVOICE_APPROVAL_REQUIRED',
+      'INVOICE_APPROVED',
+      'INVOICE_REJECTED',
       'PAYMENT_APPROVED',
       'PAYMENT_COMPLETED',
       'PAYMENT_REQUESTED',
@@ -434,6 +440,7 @@ export function isApprovalCategory(category: TaskNotificationCategory): boolean 
   const approvalCategories: TaskNotificationCategory[] = [
     'PR_SUBMITTED',
     'PO_PENDING_APPROVAL',
+    'INVOICE_SUBMITTED',
     'INVOICE_APPROVAL_REQUIRED',
     'PROPOSAL_SUBMITTED',
     'DOCUMENT_INTERNAL_REVIEW',
