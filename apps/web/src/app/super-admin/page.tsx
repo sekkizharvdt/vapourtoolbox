@@ -18,6 +18,7 @@ import {
   Engineering as EngineeringIcon,
   Description as DocumentIcon,
   Hub as IntegrationIcon,
+  Feedback as FeedbackIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 
@@ -34,6 +35,13 @@ export default function SuperAdminPage() {
   const router = useRouter();
 
   const modules: ModuleCard[] = [
+    {
+      title: 'Feedback Management',
+      description: 'Review and manage user feedback, bug reports, and feature requests',
+      icon: <FeedbackIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/super-admin/feedback',
+      status: 'active',
+    },
     {
       title: 'Accounting Module',
       description: 'View and manage Accounting module integrations with other system modules',
