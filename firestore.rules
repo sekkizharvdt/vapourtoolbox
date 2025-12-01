@@ -1073,6 +1073,27 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Feedback Collection (Bug Reports, Feature Requests)
+    // ============================================
+
+    match /feedback/{feedbackId} {
+      // Read: Only admins can read feedback (for processing)
+      allow read: if isAdmin();
+
+      // Create: Any authenticated user can submit feedback
+      // This allows all users (internal and external) to report bugs
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.status == 'new';
+
+      // Update: Only admins can update feedback status
+      allow update: if isAdmin();
+
+      // Delete: Only super admins
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
     // Default: Deny all
     // ============================================
 

@@ -25,6 +25,22 @@ service firebase.storage {
       allow write: if isAuthenticated();
     }
 
+    // Feedback screenshots - users can upload to their own folder
+    // Path: feedback/{userId}/{filename}
+    match /feedback/{userId}/{allPaths=**} {
+      // Read: Only admins (for reviewing feedback) or the uploader
+      allow read: if isAuthenticated() &&
+                    (request.auth.uid == userId ||
+                     request.auth.token.permissions != null);
+
+      // Write: Only the authenticated user can write to their own folder
+      // Max file size: 5MB
+      allow write: if isAuthenticated() &&
+                     request.auth.uid == userId &&
+                     request.resource.size < 5 * 1024 * 1024 &&
+                     request.resource.contentType.matches('image/.*');
+    }
+
     // Default deny for all other paths
     match /{allPaths=**} {
       allow read, write: if false;
