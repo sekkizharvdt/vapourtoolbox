@@ -5,6 +5,10 @@ import { Box, Toolbar } from '@mui/material';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { DashboardAppBar } from '@/components/dashboard/AppBar';
 import { SessionTimeoutModal } from '@/components/auth/SessionTimeoutModal';
+import { CommandPalette, useCommandPalette } from '@/components/common/CommandPalette';
+import { KeyboardShortcutsHelp } from '@/components/common/KeyboardShortcutsHelp';
+import { KeyboardShortcutsProvider } from '@/hooks/useKeyboardShortcuts';
+import { OnboardingProvider } from '@/components/common/OnboardingTooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useSessionTimeout } from '@/hooks/useSessionTimeout';
@@ -41,6 +45,9 @@ export function AuthenticatedLayout({
 
   // Session timeout management (must be called before any conditional returns)
   const { showWarning, timeRemaining, extendSession, logout } = useSessionTimeout();
+
+  // Command palette (Cmd+K)
+  const commandPalette = useCommandPalette();
 
   // Persist sidebar collapsed state
   useEffect(() => {
@@ -119,44 +126,58 @@ export function AuthenticatedLayout({
   const sidebarWidth = sidebarCollapsed ? 64 : 240;
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      <DashboardAppBar onMenuClick={handleDrawerToggle} sidebarWidth={sidebarWidth} />
+    <OnboardingProvider>
+      <KeyboardShortcutsProvider>
+        <Box sx={{ display: 'flex' }}>
+          <DashboardAppBar
+            onMenuClick={handleDrawerToggle}
+            sidebarWidth={sidebarWidth}
+            onCommandPaletteOpen={commandPalette.toggle}
+          />
 
-      <Sidebar
-        mobileOpen={mobileOpen}
-        onMobileClose={handleDrawerToggle}
-        userPermissions={claims?.permissions || 0}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={handleSidebarToggle}
-      />
+          <Sidebar
+            mobileOpen={mobileOpen}
+            onMobileClose={handleDrawerToggle}
+            userPermissions={claims?.permissions || 0}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={handleSidebarToggle}
+          />
 
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: noPadding ? 0 : 3,
-          width: { xs: '100%', md: `calc(100% - ${sidebarWidth}px)` },
-          ml: { xs: 0, md: `${sidebarWidth}px` },
-          minHeight: '100vh',
-          bgcolor: 'background.default',
-          transition: (theme) =>
-            theme.transitions.create(['margin', 'width'], {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.enteringScreen,
-            }),
-        }}
-      >
-        <Toolbar /> {/* Spacer for AppBar */}
-        {children}
-      </Box>
+          <Box
+            component="main"
+            sx={{
+              flexGrow: 1,
+              p: noPadding ? 0 : 3,
+              width: { xs: '100%', md: `calc(100% - ${sidebarWidth}px)` },
+              ml: { xs: 0, md: `${sidebarWidth}px` },
+              minHeight: '100vh',
+              bgcolor: 'background.default',
+              transition: (theme) =>
+                theme.transitions.create(['margin', 'width'], {
+                  easing: theme.transitions.easing.sharp,
+                  duration: theme.transitions.duration.enteringScreen,
+                }),
+            }}
+          >
+            <Toolbar /> {/* Spacer for AppBar */}
+            {children}
+          </Box>
 
-      {/* Session Timeout Warning Modal */}
-      <SessionTimeoutModal
-        open={showWarning}
-        timeRemaining={timeRemaining}
-        onExtend={extendSession}
-        onLogout={logout}
-      />
-    </Box>
+          {/* Session Timeout Warning Modal */}
+          <SessionTimeoutModal
+            open={showWarning}
+            timeRemaining={timeRemaining}
+            onExtend={extendSession}
+            onLogout={logout}
+          />
+
+          {/* Command Palette (Cmd+K) */}
+          <CommandPalette open={commandPalette.open} onClose={commandPalette.close} />
+
+          {/* Keyboard Shortcuts Help (Shift+?) */}
+          <KeyboardShortcutsHelp />
+        </Box>
+      </KeyboardShortcutsProvider>
+    </OnboardingProvider>
   );
 }

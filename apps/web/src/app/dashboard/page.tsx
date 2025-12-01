@@ -5,6 +5,7 @@ import { Box, Container, Typography, CircularProgress, Alert } from '@mui/materi
 import { useAuth } from '@/contexts/AuthContext';
 import { MODULES } from '@vapour/constants';
 import { ModuleCard } from '@/components/dashboard/ModuleCard';
+import { ActivityDashboard } from '@/components/dashboard/ActivityDashboard';
 import { useAllModuleStats, getStatsForModule } from '@/lib/hooks/useModuleStats';
 
 export default function DashboardPage() {
@@ -58,10 +59,27 @@ export default function DashboardPage() {
         <Typography variant="h4" component="h1" gutterBottom>
           Welcome back, {user?.displayName || 'User'}
         </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Select a module to get started
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 0.5 }}>
+          Here&apos;s what needs your attention today
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          Press{' '}
+          <kbd
+            style={{
+              fontFamily: 'monospace',
+              padding: '2px 6px',
+              background: 'rgba(0,0,0,0.1)',
+              borderRadius: '4px',
+            }}
+          >
+            ⌘K
+          </kbd>{' '}
+          to search and navigate quickly
         </Typography>
       </Box>
+
+      {/* Activity Dashboard */}
+      <ActivityDashboard />
 
       {/* Stats Error Alert */}
       {statsError && (

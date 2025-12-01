@@ -27,3 +27,4 @@ export * from './shape';
 export * from './task';
 export * from './transaction';
 export * from './user';
+export * from './result';
