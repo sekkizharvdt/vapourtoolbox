@@ -355,17 +355,21 @@ export function AuditLogList() {
                     <Typography variant="body2" noWrap sx={{ maxWidth: 160 }}>
                       {log.actorName || log.actorEmail || 'System'}
                     </Typography>
-                    {log.actorEmail && log.actorName && (
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        noWrap
-                        component="div"
-                        sx={{ maxWidth: 160 }}
-                      >
-                        {log.actorEmail}
-                      </Typography>
-                    )}
+                    {log.actorEmail &&
+                      log.actorName &&
+                      log.actorEmail !== log.actorName &&
+                      !log.actorEmail.includes('unknown@') &&
+                      !log.actorEmail.includes('system@') && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          noWrap
+                          component="div"
+                          sx={{ maxWidth: 160 }}
+                        >
+                          {log.actorEmail}
+                        </Typography>
+                      )}
                   </TableCell>
 
                   {/* Action */}

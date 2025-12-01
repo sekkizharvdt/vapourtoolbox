@@ -142,9 +142,13 @@ export function AuditLogDetail({ log, open, onClose }: AuditLogDetailProps) {
               <Typography variant="body2">
                 <strong>Name:</strong> {log.actorName || 'N/A'}
               </Typography>
-              <Typography variant="body2">
-                <strong>Email:</strong> {log.actorEmail || 'N/A'}
-              </Typography>
+              {log.actorEmail &&
+                !log.actorEmail.includes('unknown@') &&
+                !log.actorEmail.includes('system@') && (
+                  <Typography variant="body2">
+                    <strong>Email:</strong> {log.actorEmail}
+                  </Typography>
+                )}
               <Typography variant="body2">
                 <strong>User ID:</strong>{' '}
                 <Typography component="code" variant="body2" sx={{ fontFamily: 'monospace' }}>

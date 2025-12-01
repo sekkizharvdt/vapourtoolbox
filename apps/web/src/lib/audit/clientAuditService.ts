@@ -261,6 +261,10 @@ function getFieldType(
 
 /**
  * Helper to create audit context from auth state
+ *
+ * Note: When email is not available, we don't create a fake email.
+ * The audit log will show the userName only, which is acceptable
+ * for client-side audit logging where email might not be passed.
  */
 export function createAuditContext(
   userId: string,
@@ -268,10 +272,14 @@ export function createAuditContext(
   userName: string,
   permissions?: number
 ): AuditContext {
+  // Don't use fake fallback emails - better to have empty than misleading
+  const effectiveEmail = userEmail || '';
+  const effectiveName = userName || userEmail || '';
+
   return {
     userId,
-    userEmail,
-    userName: userName || userEmail,
+    userEmail: effectiveEmail,
+    userName: effectiveName,
     permissions,
   };
 }
