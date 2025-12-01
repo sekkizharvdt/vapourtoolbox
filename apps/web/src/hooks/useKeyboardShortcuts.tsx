@@ -229,6 +229,13 @@ export function KeyboardShortcutsProvider({ children }: KeyboardShortcutsProvide
         action: () => router.push('/entities'),
       },
       {
+        id: 'go-guide',
+        keys: 'g h',
+        description: 'Go to User Guide (Help)',
+        category: 'navigation',
+        action: () => router.push('/guide'),
+      },
+      {
         id: 'escape',
         keys: 'escape',
         description: 'Close dialog/modal',

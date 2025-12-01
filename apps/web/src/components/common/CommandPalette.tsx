@@ -32,6 +32,7 @@ import FolderIcon from '@mui/icons-material/Folder';
 import AddIcon from '@mui/icons-material/Add';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import SettingsIcon from '@mui/icons-material/Settings';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { useAuth } from '@/contexts/AuthContext';
 import { MODULES, hasModuleAccess } from '@vapour/constants';
 
@@ -108,6 +109,18 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       keywords: ['home', 'dashboard', 'main'],
       action: () => router.push('/dashboard'),
       shortcut: 'G D',
+    });
+
+    // User Guide
+    cmds.push({
+      id: 'go-guide',
+      label: 'Open User Guide',
+      description: 'View documentation and help',
+      icon: <HelpOutlineIcon />,
+      category: 'navigation',
+      keywords: ['help', 'guide', 'documentation', 'docs', 'how to', 'tutorial'],
+      action: () => router.push('/guide'),
+      shortcut: 'G H',
     });
 
     // Module navigation commands

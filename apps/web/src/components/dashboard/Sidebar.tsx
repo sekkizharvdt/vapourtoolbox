@@ -40,6 +40,7 @@ import {
   Inventory as InventoryIcon,
   LocalShipping as LocalShippingIcon,
   Thermostat as ThermostatIcon,
+  HelpOutline as HelpOutlineIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 import { MODULES } from '@vapour/constants';
@@ -320,6 +321,42 @@ function SidebarComponent({
           </Box>
         ))}
       </Box>
+
+      {/* Help Link */}
+      <Divider />
+      <List disablePadding sx={{ py: 1 }}>
+        <ListItem disablePadding>
+          <Tooltip title={collapsed ? 'User Guide' : ''} placement="right">
+            <ListItemButton
+              selected={pathname === '/guide'}
+              onClick={() => handleNavigation('/guide')}
+              sx={{
+                justifyContent: collapsed ? 'center' : 'initial',
+                px: collapsed ? 0 : 2,
+                minHeight: 48,
+              }}
+            >
+              <ListItemIcon
+                sx={{
+                  minWidth: 0,
+                  mr: collapsed ? 0 : 3,
+                  justifyContent: 'center',
+                }}
+              >
+                <HelpOutlineIcon />
+              </ListItemIcon>
+              {!collapsed && (
+                <ListItemText
+                  primary="User Guide"
+                  primaryTypographyProps={{
+                    fontSize: '0.875rem',
+                  }}
+                />
+              )}
+            </ListItemButton>
+          </Tooltip>
+        </ListItem>
+      </List>
 
       {/* Toggle Button */}
       <Divider />
