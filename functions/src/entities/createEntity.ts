@@ -80,7 +80,7 @@ export const createEntity = onCall(async (request) => {
     category: data.category,
     tags: data.tags,
     notes: data.notes,
-    status: data.status || 'ACTIVE',
+    status: data.status || 'active',
     isActive: data.isActive !== undefined ? data.isActive : true,
     primaryContactId: data.primaryContactId,
     assignedToUserId: data.assignedToUserId,

@@ -368,8 +368,8 @@ export default function EntitiesPage() {
                                 color: 'info.contrastText',
                               }),
                               ...(role === 'CUSTOMER' && {
-                                bgcolor: 'secondary.main',
-                                color: 'secondary.contrastText',
+                                bgcolor: 'success.main',
+                                color: 'success.contrastText',
                               }),
                               ...(role !== 'VENDOR' &&
                                 role !== 'CUSTOMER' && {
