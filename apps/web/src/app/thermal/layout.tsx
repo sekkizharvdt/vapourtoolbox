@@ -1,11 +1,7 @@
-import type { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Thermal Desalination Design | Vapour Toolbox',
-  description:
-    'Design calculations for thermal desalination equipment including flash chambers, evaporators, and condensers.',
-};
+import { AuthenticatedLayout } from '@/components/layout/AuthenticatedLayout';
 
 export default function ThermalLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <AuthenticatedLayout>{children}</AuthenticatedLayout>;
 }

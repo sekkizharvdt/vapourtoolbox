@@ -23,7 +23,7 @@ export interface FlashChamberInput {
   /** Calculation mode */
   mode: FlashChamberInputMode;
 
-  /** Operating pressure inside flash chamber in kg/cm²(g) */
+  /** Operating pressure inside flash chamber in mbar (absolute) */
   operatingPressure: number;
 
   /** Inlet water flow rate in ton/hr (required if mode = WATER_FLOW) */
@@ -70,7 +70,7 @@ export interface HeatMassBalanceRow {
   /** Temperature in °C */
   temperature: number;
 
-  /** Pressure in kg/cm²(a) - absolute */
+  /** Pressure in mbar (absolute) */
   pressure: number;
 
   /** Specific enthalpy in kJ/kg */
@@ -244,10 +244,11 @@ export interface FlashChamberResult {
 
 /**
  * Default input values for flash chamber calculator
+ * Default pressure of 200 mbar abs corresponds to ~60°C saturation temperature
  */
 export const DEFAULT_FLASH_CHAMBER_INPUT: FlashChamberInput = {
   mode: 'WATER_FLOW',
-  operatingPressure: 1.5, // kg/cm²(g)
+  operatingPressure: 200, // mbar (absolute) - ~60°C saturation temp
   waterFlowRate: 100, // ton/hr
   inletTemperature: 70, // °C
   seawaterSalinity: 35000, // ppm
@@ -265,9 +266,10 @@ export const DEFAULT_FLASH_CHAMBER_INPUT: FlashChamberInput = {
 
 /**
  * Validation limits for flash chamber inputs
+ * Pressure range: 50-500 mbar abs covers ~33°C to ~81°C saturation temperatures
  */
 export const FLASH_CHAMBER_LIMITS = {
-  operatingPressure: { min: 0.5, max: 3.0, unit: 'kg/cm²(g)' },
+  operatingPressure: { min: 50, max: 500, unit: 'mbar abs' },
   waterFlowRate: { min: 1, max: 10000, unit: 'ton/hr' },
   vaporQuantity: { min: 0.1, max: 1000, unit: 'ton/hr' },
   inletTemperature: { min: 40, max: 120, unit: '°C' },
@@ -296,6 +298,12 @@ export const PRESSURE_CONVERSIONS = {
   ATM_KG_CM2: 1.033,
   /** Atmospheric pressure in bar */
   ATM_BAR: 1.01325,
+  /** Atmospheric pressure in millibar */
+  ATM_MBAR: 1013.25,
   /** Atmospheric pressure head in meters of water */
   ATM_M_WATER: 10.33,
+  /** mbar to bar */
+  MBAR_TO_BAR: 0.001,
+  /** bar to mbar */
+  BAR_TO_MBAR: 1000,
 } as const;

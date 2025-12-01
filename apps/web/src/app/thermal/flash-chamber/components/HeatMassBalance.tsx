@@ -78,7 +78,7 @@ export function HeatMassBalance({ balance }: HeatMassBalanceProps) {
               </TableCell>
               <TableCell align="right">
                 <Typography variant="caption" color="text.secondary">
-                  kg/cm²(a)
+                  mbar abs
                 </Typography>
               </TableCell>
               <TableCell align="right">

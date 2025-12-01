@@ -75,14 +75,14 @@ export function InputSection({ inputs, onChange }: InputSectionProps) {
           value={inputs.operatingPressure}
           onChange={(e) => handleChange('operatingPressure', parseFloat(e.target.value) || 0)}
           InputProps={{
-            endAdornment: <InputAdornment position="end">kg/cm²(g)</InputAdornment>,
+            endAdornment: <InputAdornment position="end">mbar abs</InputAdornment>,
           }}
           inputProps={{
             min: FLASH_CHAMBER_LIMITS.operatingPressure.min,
             max: FLASH_CHAMBER_LIMITS.operatingPressure.max,
-            step: 0.1,
+            step: 10,
           }}
-          helperText={`Typical: ${FLASH_CHAMBER_LIMITS.operatingPressure.min} - ${FLASH_CHAMBER_LIMITS.operatingPressure.max} kg/cm²(g)`}
+          helperText={`Vacuum range: ${FLASH_CHAMBER_LIMITS.operatingPressure.min} - ${FLASH_CHAMBER_LIMITS.operatingPressure.max} mbar abs (1013 = atmospheric)`}
           fullWidth
         />
 

@@ -336,3 +336,37 @@ export function waterHeadToBar(headM: number): number {
 export function barToWaterHead(pressureBar: number): number {
   return (pressureBar / 1.01325) * 10.33;
 }
+
+/**
+ * Convert millibar absolute to bar
+ *
+ * @param mbarAbs - Pressure in millibar absolute
+ * @returns Pressure in bar
+ */
+export function mbarAbsToBar(mbarAbs: number): number {
+  return mbarAbs / 1000;
+}
+
+/**
+ * Convert bar to millibar absolute
+ *
+ * @param pressureBar - Pressure in bar
+ * @returns Pressure in millibar absolute
+ */
+export function barToMbarAbs(pressureBar: number): number {
+  return pressureBar * 1000;
+}
+
+/**
+ * Get saturation temperature from absolute pressure in millibar
+ *
+ * @param mbarAbs - Absolute pressure in millibar
+ * @returns Saturation temperature in °C
+ */
+export function getSaturationTemperatureFromMbar(mbarAbs: number): number {
+  const pressureBar = mbarAbsToBar(mbarAbs);
+  return getSaturationTemperature(pressureBar);
+}
+
+/** Atmospheric pressure in millibar */
+export const ATM_MBAR = 1013.25;

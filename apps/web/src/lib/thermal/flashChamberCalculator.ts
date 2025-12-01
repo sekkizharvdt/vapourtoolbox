@@ -15,7 +15,7 @@ import {
   getSaturationPressure,
   getEnthalpyVapor,
   getDensityVapor,
-  kgCm2GaugeToBar,
+  mbarAbsToBar,
   barToWaterHead,
   getSeawaterDensity,
   getSeawaterEnthalpy,
@@ -82,9 +82,9 @@ export function validateFlashChamberInput(input: FlashChamberInput): ValidationR
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // Import limits from types
+  // Limits for validation (pressure in mbar abs)
   const limits = {
-    operatingPressure: { min: 0.5, max: 3.0 },
+    operatingPressure: { min: 50, max: 500 }, // mbar abs
     waterFlowRate: { min: 1, max: 10000 },
     vaporQuantity: { min: 0.1, max: 1000 },
     inletTemperature: { min: 40, max: 120 },
@@ -97,13 +97,13 @@ export function validateFlashChamberInput(input: FlashChamberInput): ValidationR
     vaporVelocity: { min: 5, max: 40 },
   };
 
-  // Check operating pressure
+  // Check operating pressure (mbar abs)
   if (
     input.operatingPressure < limits.operatingPressure.min ||
     input.operatingPressure > limits.operatingPressure.max
   ) {
     errors.push(
-      `Operating pressure must be between ${limits.operatingPressure.min} and ${limits.operatingPressure.max} kg/cm²(g)`
+      `Operating pressure must be between ${limits.operatingPressure.min} and ${limits.operatingPressure.max} mbar abs`
     );
   }
 
@@ -133,7 +133,8 @@ export function validateFlashChamberInput(input: FlashChamberInput): ValidationR
   }
 
   // Check inlet temperature vs saturation temperature
-  const opPressureBar = kgCm2GaugeToBar(input.operatingPressure);
+  // Convert mbar abs to bar for steam table lookup
+  const opPressureBar = mbarAbsToBar(input.operatingPressure);
   const satTemp = getSaturationTemperature(opPressureBar);
   const bpe = getBoilingPointElevation(input.seawaterSalinity, satTemp);
   const effectiveSatTemp = satTemp + bpe;
@@ -215,8 +216,9 @@ export function calculateFlashChamber(
   const availablePipes = pipes || SCHEDULE_40_PIPES;
 
   // Step 1: Determine operating conditions
-  const opPressureBar = kgCm2GaugeToBar(input.operatingPressure);
-  const opPressureAbs = input.operatingPressure + 1.033; // kg/cm²(a)
+  // Input is in mbar abs, convert to bar for steam table lookup
+  const opPressureBar = mbarAbsToBar(input.operatingPressure);
+  const opPressureMbar = input.operatingPressure; // Already in mbar abs
   const satTempPure = getSaturationTemperature(opPressureBar);
   const bpe = getBoilingPointElevation(input.seawaterSalinity, satTempPure);
   const satTemp = satTempPure + bpe; // Effective saturation temperature with BPE
@@ -277,7 +279,7 @@ export function calculateFlashChamber(
     input.inletTemperature,
     satTemp,
     satTempPure,
-    opPressureAbs,
+    opPressureMbar,
     input.seawaterSalinity,
     brineSalinity
   );
@@ -335,6 +337,7 @@ export function calculateFlashChamber(
 
 /**
  * Calculate heat and mass balance
+ * @param opPressureMbar - Operating pressure in mbar absolute
  */
 function calculateHeatMassBalance(
   waterFlow: number,
@@ -343,7 +346,7 @@ function calculateHeatMassBalance(
   inletTemp: number,
   satTemp: number,
   satTempPure: number,
-  opPressureAbs: number,
+  opPressureMbar: number,
   inletSalinity: number,
   brineSalinity: number
 ): HeatMassBalance {
@@ -359,12 +362,12 @@ function calculateHeatMassBalance(
   const vaporHeatDuty = (vaporFlow * 1000 * vaporEnthalpy) / 3600;
   const brineHeatDuty = (brineFlow * 1000 * brineEnthalpy) / 3600;
 
-  // Create balance rows
+  // Create balance rows (pressure in mbar abs)
   const inlet: HeatMassBalanceRow = {
     stream: 'Seawater Inlet',
     flowRate: waterFlow,
     temperature: inletTemp,
-    pressure: opPressureAbs + 0.5, // Assume some pressure drop
+    pressure: opPressureMbar + 50, // Assume ~50 mbar pressure drop at inlet
     enthalpy: inletEnthalpy,
     heatDuty: inletHeatDuty,
   };
@@ -373,7 +376,7 @@ function calculateHeatMassBalance(
     stream: 'Vapor Out',
     flowRate: vaporFlow,
     temperature: satTempPure, // Pure water saturation temp (vapor has no salt)
-    pressure: opPressureAbs,
+    pressure: opPressureMbar,
     enthalpy: vaporEnthalpy,
     heatDuty: vaporHeatDuty,
   };
@@ -382,7 +385,7 @@ function calculateHeatMassBalance(
     stream: 'Brine Out',
     flowRate: brineFlow,
     temperature: satTemp, // Includes BPE
-    pressure: opPressureAbs,
+    pressure: opPressureMbar,
     enthalpy: brineEnthalpy,
     heatDuty: brineHeatDuty,
   };
