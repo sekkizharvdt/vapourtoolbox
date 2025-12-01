@@ -125,25 +125,25 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       shortcut: 'G H',
     });
 
-    // Feedback
+    // Feedback (opens in new tab to preserve user's current page for screenshots)
     cmds.push({
       id: 'go-feedback',
       label: 'Submit Feedback',
-      description: 'Report bugs or request features',
+      description: 'Report bugs or request features (opens in new tab)',
       icon: <FeedbackIcon />,
       category: 'navigation',
       keywords: ['feedback', 'support', 'contact', 'help'],
-      action: () => router.push('/feedback'),
+      action: () => window.open('/feedback', '_blank'),
     });
 
     cmds.push({
       id: 'report-bug',
       label: 'Report a Bug',
-      description: 'Report an error or issue',
+      description: 'Report an error or issue (opens in new tab)',
       icon: <BugReportIcon />,
       category: 'action',
       keywords: ['bug', 'error', 'issue', 'problem', 'report', 'broken'],
-      action: () => router.push('/feedback?type=bug'),
+      action: () => window.open('/feedback?type=bug', '_blank'),
     });
 
     // Module navigation commands

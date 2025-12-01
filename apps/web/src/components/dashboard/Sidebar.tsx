@@ -358,10 +358,15 @@ function SidebarComponent({
           </Tooltip>
         </ListItem>
         <ListItem disablePadding>
-          <Tooltip title={collapsed ? 'Feedback & Support' : ''} placement="right">
+          <Tooltip
+            title={collapsed ? 'Feedback & Support (opens in new tab)' : ''}
+            placement="right"
+          >
             <ListItemButton
-              selected={pathname === '/feedback'}
-              onClick={() => handleNavigation('/feedback')}
+              component="a"
+              href="/feedback"
+              target="_blank"
+              rel="noopener noreferrer"
               sx={{
                 justifyContent: collapsed ? 'center' : 'initial',
                 px: collapsed ? 0 : 2,
@@ -380,8 +385,12 @@ function SidebarComponent({
               {!collapsed && (
                 <ListItemText
                   primary="Feedback"
+                  secondary="Opens in new tab"
                   primaryTypographyProps={{
                     fontSize: '0.875rem',
+                  }}
+                  secondaryTypographyProps={{
+                    fontSize: '0.7rem',
                   }}
                 />
               )}
