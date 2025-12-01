@@ -2069,6 +2069,20 @@
       ]
     },
     {
+      "collectionGroup": "documentComments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "masterDocumentId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "commentNumber",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "supplyItems",
       "queryScope": "COLLECTION",
       "fields": [

@@ -55,6 +55,7 @@ ui-debug.log
 
 # Firebase Service Account Keys (NEVER COMMIT THESE!)
 serviceAccountKey.json
+service-account-key.json
 *-firebase-adminsdk-*.json
 firebase-emulator.log
 
