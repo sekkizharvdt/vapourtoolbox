@@ -23,6 +23,7 @@ import { createLogger } from '@vapour/logger';
 import type { RFQ, RFQItem, PurchaseRequest, PurchaseRequestItem } from '@vapour/types';
 import type { CreateRFQInput, CreateRFQItemInput, UpdateRFQInput } from './types';
 import { generateRFQNumber } from './utils';
+import { logAuditEvent, createAuditContext } from '@/lib/audit';
 
 const logger = createLogger({ context: 'rfqService' });
 
@@ -170,6 +171,28 @@ export async function createRFQ(
   });
 
   await batch.commit();
+
+  // Audit log: RFQ created
+  const auditContext = createAuditContext(userId, '', userName);
+  await logAuditEvent(
+    db,
+    auditContext,
+    'RFQ_CREATED',
+    'RFQ',
+    rfqRef.id,
+    `Created RFQ ${rfqNumber}: ${input.title}`,
+    {
+      entityName: rfqNumber,
+      metadata: {
+        title: input.title,
+        itemCount: items.length,
+        vendorCount: input.vendorIds.length,
+        vendorNames: input.vendorNames,
+        purchaseRequestIds: input.purchaseRequestIds,
+        projectIds,
+      },
+    }
+  );
 
   logger.info('RFQ created', { rfqId: rfqRef.id, rfqNumber });
 
@@ -321,9 +344,13 @@ export async function getRFQItems(rfqId: string): Promise<RFQItem[]> {
 export async function updateRFQ(
   rfqId: string,
   input: UpdateRFQInput,
-  userId: string
+  userId: string,
+  userName?: string
 ): Promise<void> {
   const { db } = getFirebase();
+
+  // Get existing RFQ for audit log
+  const existingRFQ = await getRFQById(rfqId);
 
   const updateData: Record<string, unknown> = {
     updatedAt: Timestamp.now(),
@@ -342,6 +369,27 @@ export async function updateRFQ(
   if (input.validityPeriod !== undefined) updateData.validityPeriod = input.validityPeriod;
 
   await updateDoc(doc(db, COLLECTIONS.RFQS, rfqId), updateData);
+
+  // Audit log: RFQ updated
+  if (existingRFQ) {
+    const auditContext = createAuditContext(userId, '', userName || userId);
+    await logAuditEvent(
+      db,
+      auditContext,
+      'RFQ_UPDATED',
+      'RFQ',
+      rfqId,
+      `Updated RFQ ${existingRFQ.number}`,
+      {
+        entityName: existingRFQ.number,
+        metadata: {
+          updatedFields: Object.keys(input).filter(
+            (key) => input[key as keyof UpdateRFQInput] !== undefined
+          ),
+        },
+      }
+    );
+  }
 
   logger.info('RFQ updated', { rfqId });
 }

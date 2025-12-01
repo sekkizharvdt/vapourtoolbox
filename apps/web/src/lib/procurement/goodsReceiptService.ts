@@ -28,6 +28,7 @@ import type {
   ItemCondition,
 } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
+import { logAuditEvent, createAuditContext } from '@/lib/audit';
 
 const logger = createLogger({ context: 'goodsReceiptService' });
 import {
@@ -243,6 +244,28 @@ export async function createGoodsReceipt(
 
   await batch.commit();
 
+  // Audit log: GR created
+  const auditContext = createAuditContext(userId, '', userName);
+  await logAuditEvent(
+    db,
+    auditContext,
+    'GR_CREATED',
+    'GOODS_RECEIPT',
+    grRef.id,
+    `Created Goods Receipt ${grNumber} for PO ${po.number}`,
+    {
+      entityName: grNumber,
+      metadata: {
+        purchaseOrderId: po.id,
+        poNumber: po.number,
+        vendorName: po.vendorName,
+        overallCondition,
+        itemCount: input.items.length,
+        hasIssues,
+      },
+    }
+  );
+
   logger.info('Goods Receipt created', { grId: grRef.id, grNumber });
 
   return grRef.id;
@@ -285,7 +308,12 @@ export async function getGRItems(grId: string): Promise<GoodsReceiptItem[]> {
 // GR WORKFLOW
 // ============================================================================
 
-export async function completeGR(grId: string, userId: string, userEmail: string): Promise<void> {
+export async function completeGR(
+  grId: string,
+  userId: string,
+  userEmail: string,
+  userName?: string
+): Promise<void> {
   const { db } = getFirebase();
 
   const gr = await getGRById(grId);
@@ -297,6 +325,24 @@ export async function completeGR(grId: string, userId: string, userEmail: string
     status: 'COMPLETED',
     updatedAt: Timestamp.now(),
   });
+
+  // Audit log: GR completed
+  const auditContext = createAuditContext(userId, '', userName || userEmail);
+  await logAuditEvent(
+    db,
+    auditContext,
+    'GR_COMPLETED',
+    'GOODS_RECEIPT',
+    grId,
+    `Completed Goods Receipt ${gr.number}`,
+    {
+      entityName: gr.number,
+      metadata: {
+        poNumber: gr.poNumber,
+        overallCondition: gr.overallCondition,
+      },
+    }
+  );
 
   // Automatically create bill in accounting
   try {

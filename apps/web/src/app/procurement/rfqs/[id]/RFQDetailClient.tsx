@@ -122,7 +122,7 @@ export default function RFQDetailPage() {
     }
 
     try {
-      await issueRFQ(rfq.id, user.uid);
+      await issueRFQ(rfq.id, user.uid, user.displayName || user.email || 'Unknown');
       setIssueDialogOpen(false);
       await loadRFQ();
     } catch (err) {
@@ -135,7 +135,7 @@ export default function RFQDetailPage() {
     if (!rfq || !user || !cancelReason.trim()) return;
 
     try {
-      await cancelRFQ(rfq.id, cancelReason, user.uid);
+      await cancelRFQ(rfq.id, cancelReason, user.uid, user.displayName || user.email || 'Unknown');
       setCancelDialogOpen(false);
       await loadRFQ();
     } catch (err) {

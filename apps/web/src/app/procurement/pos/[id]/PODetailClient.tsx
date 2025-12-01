@@ -143,7 +143,7 @@ export default function PODetailPage() {
 
     setActionLoading(true);
     try {
-      await issuePO(poId, user.uid);
+      await issuePO(poId, user.uid, user.displayName || user.email || 'Unknown');
       dialogState.setIssueDialogOpen(false);
       await loadPO();
     } catch (err) {

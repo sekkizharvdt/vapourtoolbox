@@ -35,6 +35,7 @@ import type {
 } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import { formatCurrency } from './purchaseOrderHelpers';
+import { logAuditEvent, createAuditContext } from '@/lib/audit';
 
 const logger = createLogger({ context: 'purchaseOrderService' });
 
@@ -105,7 +106,7 @@ export async function createPOFromOffer(
     advancePercentage?: number;
   },
   userId: string,
-  _userName: string
+  userName: string
 ): Promise<string> {
   const { db } = getFirebase();
 
@@ -268,6 +269,29 @@ export async function createPOFromOffer(
 
   await batch.commit();
 
+  // Audit log: PO created
+  const auditContext = createAuditContext(userId, '', userName);
+  await logAuditEvent(
+    db,
+    auditContext,
+    'PO_CREATED',
+    'PURCHASE_ORDER',
+    poRef.id,
+    `Created Purchase Order ${poNumber} for ${offer.vendorName}`,
+    {
+      entityName: poNumber,
+      metadata: {
+        vendorId: offer.vendorId,
+        vendorName: offer.vendorName,
+        offerId: offer.id,
+        offerNumber: offer.number,
+        grandTotal: grandTotal,
+        currency: offer.currency,
+        itemCount: offerItems.length,
+      },
+    }
+  );
+
   logger.info('PO created', { poId: poRef.id, poNumber });
 
   return poRef.id;
@@ -372,6 +396,25 @@ export async function submitPOForApproval(
     updatedBy: userId,
   });
 
+  // Audit log: PO submitted
+  const auditContext = createAuditContext(userId, '', userName);
+  await logAuditEvent(
+    db,
+    auditContext,
+    'PO_UPDATED',
+    'PURCHASE_ORDER',
+    poId,
+    `Submitted Purchase Order ${po.number} for approval`,
+    {
+      entityName: po.number,
+      metadata: {
+        vendorName: po.vendorName,
+        grandTotal: po.grandTotal,
+        approverId,
+      },
+    }
+  );
+
   // Create task notification for selected approver
   if (approverId) {
     const { createTaskNotification } = await import('@/lib/tasks/taskNotificationService');
@@ -422,6 +465,25 @@ export async function approvePO(
     updatedBy: userId,
   });
 
+  // Audit log: PO approved
+  const auditContext = createAuditContext(userId, '', userName);
+  await logAuditEvent(
+    db,
+    auditContext,
+    'PO_APPROVED',
+    'PURCHASE_ORDER',
+    poId,
+    `Approved Purchase Order ${po.number}`,
+    {
+      entityName: po.number,
+      metadata: {
+        vendorName: po.vendorName,
+        grandTotal: po.grandTotal,
+        comments,
+      },
+    }
+  );
+
   logger.info('PO approved', { poId });
 
   // Create advance payment if required
@@ -464,6 +526,12 @@ export async function rejectPO(
 ): Promise<void> {
   const { db } = getFirebase();
 
+  // Get PO for audit log
+  const po = await getPOById(poId);
+  if (!po) {
+    throw new Error('Purchase Order not found');
+  }
+
   const now = Timestamp.now();
 
   await updateDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId), {
@@ -476,11 +544,36 @@ export async function rejectPO(
     updatedBy: userId,
   });
 
+  // Audit log: PO rejected
+  const auditContext = createAuditContext(userId, '', userName);
+  await logAuditEvent(
+    db,
+    auditContext,
+    'PO_REJECTED',
+    'PURCHASE_ORDER',
+    poId,
+    `Rejected Purchase Order ${po.number}: ${reason}`,
+    {
+      entityName: po.number,
+      severity: 'WARNING',
+      metadata: {
+        vendorName: po.vendorName,
+        rejectionReason: reason,
+      },
+    }
+  );
+
   logger.info('PO rejected', { poId });
 }
 
-export async function issuePO(poId: string, userId: string): Promise<void> {
+export async function issuePO(poId: string, userId: string, userName: string): Promise<void> {
   const { db } = getFirebase();
+
+  // Get PO for audit log
+  const po = await getPOById(poId);
+  if (!po) {
+    throw new Error('Purchase Order not found');
+  }
 
   const now = Timestamp.now();
 
@@ -491,6 +584,25 @@ export async function issuePO(poId: string, userId: string): Promise<void> {
     updatedAt: now,
     updatedBy: userId,
   });
+
+  // Audit log: PO issued
+  const auditContext = createAuditContext(userId, '', userName);
+  await logAuditEvent(
+    db,
+    auditContext,
+    'PO_ISSUED',
+    'PURCHASE_ORDER',
+    poId,
+    `Issued Purchase Order ${po.number} to ${po.vendorName}`,
+    {
+      entityName: po.number,
+      metadata: {
+        vendorId: po.vendorId,
+        vendorName: po.vendorName,
+        grandTotal: po.grandTotal,
+      },
+    }
+  );
 
   logger.info('PO issued', { poId });
 }

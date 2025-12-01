@@ -20,6 +20,7 @@ import {
   createDiscrepancy,
 } from './utils';
 import { getDefaultToleranceConfig } from './queries';
+import { logAuditEvent, createAuditContext } from '@/lib/audit';
 
 const logger = createLogger({ context: 'threeWayMatchService' });
 
@@ -361,6 +362,33 @@ export async function performThreeWayMatch(
     });
 
     await batch.commit();
+
+    // Audit log: Match created
+    const auditContext = createAuditContext(userId, '', userName);
+    await logAuditEvent(
+      db,
+      auditContext,
+      'MATCH_CREATED',
+      'THREE_WAY_MATCH',
+      matchRef.id,
+      `Created 3-way match for PO ${po.number}, GR ${gr.number}`,
+      {
+        entityName: matchData.matchNumber,
+        metadata: {
+          purchaseOrderId,
+          poNumber: po.number,
+          goodsReceiptId,
+          grNumber: gr.number,
+          vendorBillNumber: vendorBill.transactionNumber,
+          vendorName: po.vendorName,
+          status,
+          overallMatchPercentage,
+          discrepancyCount: discrepancies.length,
+          invoiceAmount,
+          variance,
+        },
+      }
+    );
 
     logger.info('3-way match created', {
       matchId: matchRef.id,

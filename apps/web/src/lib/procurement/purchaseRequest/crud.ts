@@ -28,6 +28,7 @@ import type {
   UpdatePurchaseRequestInput,
   ListPurchaseRequestsFilters,
 } from './types';
+import { logAuditEvent, createAuditContext } from '@/lib/audit';
 
 /**
  * Create a new Purchase Request
@@ -146,6 +147,28 @@ export async function createPurchaseRequest(
 
     // Commit batch
     await batch.commit();
+
+    // Audit log: PR created
+    const auditContext = createAuditContext(userId, '', userName);
+    await logAuditEvent(
+      db,
+      auditContext,
+      'PR_CREATED',
+      'PURCHASE_REQUEST',
+      prRef.id,
+      `Created purchase request ${prNumber}: ${input.title}`,
+      {
+        entityName: prNumber,
+        metadata: {
+          type: input.type,
+          category: input.category,
+          itemCount: input.items.length,
+          projectId: input.projectId,
+          projectName: input.projectName,
+          priority: input.priority || 'MEDIUM',
+        },
+      }
+    );
 
     return {
       prId: prRef.id,
@@ -299,12 +322,17 @@ export async function listPurchaseRequests(
 export async function updatePurchaseRequest(
   prId: string,
   updates: UpdatePurchaseRequestInput,
-  userId: string
+  userId: string,
+  userName?: string
 ): Promise<void> {
   const { db } = getFirebase();
 
   try {
     const docRef = doc(db, COLLECTIONS.PURCHASE_REQUESTS, prId);
+
+    // Get existing PR for audit log
+    const existingSnap = await getDoc(docRef);
+    const existingPR = existingSnap.exists() ? (existingSnap.data() as PurchaseRequest) : null;
 
     const updateData = {
       ...updates,
@@ -314,6 +342,25 @@ export async function updatePurchaseRequest(
     };
 
     await updateDoc(docRef, updateData);
+
+    // Audit log: PR updated
+    if (existingPR) {
+      const auditContext = createAuditContext(userId, '', userName || userId);
+      await logAuditEvent(
+        db,
+        auditContext,
+        'PR_UPDATED',
+        'PURCHASE_REQUEST',
+        prId,
+        `Updated purchase request ${existingPR.number}`,
+        {
+          entityName: existingPR.number,
+          metadata: {
+            updatedFields: Object.keys(updates),
+          },
+        }
+      );
+    }
   } catch (error) {
     console.error('[updatePurchaseRequest] Error:', error);
     throw new Error('Failed to update purchase request');

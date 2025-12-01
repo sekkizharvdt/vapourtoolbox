@@ -15,6 +15,7 @@ import {
 } from '@/lib/tasks/taskNotificationService';
 import { getPurchaseRequestItems } from './crud';
 import { validateProjectBudget } from './utils';
+import { logAuditEvent, createAuditContext } from '@/lib/audit';
 
 /**
  * Submit Purchase Request for approval
@@ -54,6 +55,26 @@ export async function submitPurchaseRequestForApproval(
       updatedAt: Timestamp.now(),
       updatedBy: userId,
     });
+
+    // Audit log: PR submitted
+    const auditContext = createAuditContext(userId, '', userName);
+    await logAuditEvent(
+      db,
+      auditContext,
+      'PR_SUBMITTED',
+      'PURCHASE_REQUEST',
+      prId,
+      `Submitted purchase request ${pr.number} for approval`,
+      {
+        entityName: pr.number,
+        metadata: {
+          title: pr.title,
+          itemCount: pr.itemCount,
+          projectId: pr.projectId,
+          approverId: pr.approverId,
+        },
+      }
+    );
 
     // Create task notification for the selected approver (if specified)
     if (pr.approverId) {
@@ -157,6 +178,27 @@ export async function approvePurchaseRequest(
       await completeActionableTask(reviewTask.id, userId, true);
     }
 
+    // Audit log: PR approved
+    const auditContext = createAuditContext(userId, '', userName);
+    await logAuditEvent(
+      db,
+      auditContext,
+      'PR_APPROVED',
+      'PURCHASE_REQUEST',
+      prId,
+      `Approved purchase request ${pr.number}`,
+      {
+        entityName: pr.number,
+        metadata: {
+          title: pr.title,
+          itemCount: items.length,
+          projectId: pr.projectId,
+          submittedBy: pr.submittedBy,
+          comments,
+        },
+      }
+    );
+
     // Create informational notification for submitter
     await createTaskNotification({
       type: 'informational',
@@ -245,6 +287,27 @@ export async function rejectPurchaseRequest(
     if (reviewTask) {
       await completeActionableTask(reviewTask.id, userId, true);
     }
+
+    // Audit log: PR rejected
+    const auditContext = createAuditContext(userId, '', userName);
+    await logAuditEvent(
+      db,
+      auditContext,
+      'PR_REJECTED',
+      'PURCHASE_REQUEST',
+      prId,
+      `Rejected purchase request ${pr.number}: ${reason}`,
+      {
+        entityName: pr.number,
+        severity: 'WARNING',
+        metadata: {
+          title: pr.title,
+          projectId: pr.projectId,
+          submittedBy: pr.submittedBy,
+          rejectionReason: reason,
+        },
+      }
+    );
 
     // Create informational notification for submitter
     await createTaskNotification({
