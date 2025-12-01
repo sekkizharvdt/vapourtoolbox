@@ -1,6 +1,6 @@
 // Module Registry - All application modules
 // Priority Order: Tasks → Documents → Procurement → Accounting → Estimation → Material DB → Shape DB → Bought Out DB → Thermal Desal → Proposals
-// Includes 10 active modules + 3 coming soon placeholders
+// Includes 11 active modules + 2 coming soon placeholders
 
 export type ModuleStatus = 'active' | 'coming_soon' | 'beta';
 
@@ -31,9 +31,9 @@ export interface ModuleDefinition {
  * 5. Estimation (permission-based)
  * 6. Material Database (active)
  * 7. Shape Database (active)
- * 8. Bought Out Database (coming Q1 2026)
- * 9. Thermal Desalination Design (coming Q2 2026)
- * 10. Proposal Management (coming Q1 2026)
+ * 8. Bought Out Database (active)
+ * 9. Thermal Desalination Design (active)
+ * 10. Proposal Management (active)
  *
  * NOTE: Import PERMISSION_FLAGS from @vapour/constants to use these values
  */
@@ -212,10 +212,9 @@ export const MODULES: Record<string, ModuleDefinition> = {
     icon: 'Thermostat',
     color: '#EF4444', // Red
     path: '/thermal',
-    status: 'coming_soon',
+    status: 'active',
     requiredPermissions: 524288, // VIEW_ESTIMATION (engineering calculations)
     category: 'application',
-    estimatedRelease: 'Q2 2026',
     priority: 9,
   },
 

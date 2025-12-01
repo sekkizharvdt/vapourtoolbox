@@ -25,6 +25,7 @@ export * from './proposal';
 export * from './service';
 export * from './shape';
 export * from './task';
+export * from './thermal';
 export * from './transaction';
 export * from './user';
 export * from './result';

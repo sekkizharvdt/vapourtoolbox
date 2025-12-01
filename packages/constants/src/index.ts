@@ -9,3 +9,4 @@ export * from './currencies';
 export * from './config';
 export * from './domains';
 export * from './permissions';
+export * from './thermal';
