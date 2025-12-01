@@ -35,8 +35,9 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import FeedbackIcon from '@mui/icons-material/Feedback';
 import BugReportIcon from '@mui/icons-material/BugReport';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import { useAuth } from '@/contexts/AuthContext';
-import { MODULES, hasModuleAccess } from '@vapour/constants';
+import { MODULES, hasModuleAccess, hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 
 /**
  * Command definition
@@ -145,6 +146,19 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       keywords: ['bug', 'error', 'issue', 'problem', 'report', 'broken'],
       action: () => window.open('/feedback?type=bug', '_blank'),
     });
+
+    // Admin: Feedback Management (only for users with MANAGE_USERS permission)
+    if (hasPermission(userPermissions, PERMISSION_FLAGS.MANAGE_USERS)) {
+      cmds.push({
+        id: 'admin-feedback',
+        label: 'Manage Feedback',
+        description: 'Review and manage user feedback submissions',
+        icon: <AdminPanelSettingsIcon />,
+        category: 'navigation',
+        keywords: ['admin', 'feedback', 'manage', 'bug reports', 'feature requests', 'review'],
+        action: () => router.push('/admin/feedback'),
+      });
+    }
 
     // Module navigation commands
     Object.values(MODULES).forEach((module) => {
