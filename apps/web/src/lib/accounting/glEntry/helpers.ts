@@ -21,6 +21,27 @@ export function calculateGSTAmount(gstDetails?: GSTDetails): number {
 }
 
 /**
+ * Sanitize a ledger entry by removing undefined values
+ * Firestore doesn't accept undefined values, so we need to filter them out
+ */
+function sanitizeEntry(entry: LedgerEntry): LedgerEntry {
+  const sanitized: LedgerEntry = {
+    accountId: entry.accountId,
+    debit: entry.debit,
+    credit: entry.credit,
+  };
+
+  // Only include optional fields if they have values
+  if (entry.accountCode !== undefined) sanitized.accountCode = entry.accountCode;
+  if (entry.accountName !== undefined) sanitized.accountName = entry.accountName;
+  if (entry.description !== undefined) sanitized.description = entry.description;
+  if (entry.costCentreId !== undefined && entry.costCentreId !== '')
+    sanitized.costCentreId = entry.costCentreId;
+
+  return sanitized;
+}
+
+/**
  * Validate GL entries and calculate totals
  * Ensures debits = credits (fundamental accounting principle)
  */
@@ -28,9 +49,12 @@ export function validateAndReturnEntries(
   entries: LedgerEntry[],
   errors: string[]
 ): GLGenerationResult {
+  // Sanitize entries to remove undefined values (Firestore doesn't accept undefined)
+  const sanitizedEntries = entries.map(sanitizeEntry);
+
   // Calculate totals
-  const totalDebit = entries.reduce((sum, entry) => sum + entry.debit, 0);
-  const totalCredit = entries.reduce((sum, entry) => sum + entry.credit, 0);
+  const totalDebit = sanitizedEntries.reduce((sum, entry) => sum + entry.debit, 0);
+  const totalCredit = sanitizedEntries.reduce((sum, entry) => sum + entry.credit, 0);
 
   // Check if balanced (allow for small rounding errors)
   const difference = Math.abs(totalDebit - totalCredit);
@@ -44,7 +68,7 @@ export function validateAndReturnEntries(
 
   return {
     success: isBalanced && errors.length === 0,
-    entries,
+    entries: sanitizedEntries,
     totalDebit,
     totalCredit,
     isBalanced,

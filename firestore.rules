@@ -181,8 +181,10 @@ service cloud.firestore {
 
     match /taskNotifications/{notificationId} {
       // Read: Users can read their own task notifications
+      //       (either as creator via userId or as assignee via assigneeId)
       allow read: if isAuthenticated() &&
-                     isOwner(resource.data.userId);
+                     (isOwner(resource.data.userId) ||
+                      isOwner(resource.data.assigneeId));
 
       // Create: Internal users can create task notifications for themselves or others
       allow create: if isInternalUser();
@@ -190,7 +192,9 @@ service cloud.firestore {
       // Update: Users can update their own notifications (mark read, complete, etc.)
       //         OR internal users can update any notification (for workflow)
       allow update: if isAuthenticated() &&
-                       (isOwner(resource.data.userId) || isInternalUser());
+                       (isOwner(resource.data.userId) ||
+                        isOwner(resource.data.assigneeId) ||
+                        isInternalUser());
 
       // Delete: Only super admins
       allow delete: if isSuperAdmin();
