@@ -115,6 +115,14 @@ export interface DefaultAccountTemplate {
 }
 
 /**
+ * Cost Centre Category
+ * - PROJECT: Linked to a specific project
+ * - ADMINISTRATION: For general administrative expenses (not linked to a project)
+ * - OVERHEAD: For overhead costs shared across projects
+ */
+export type CostCentreCategory = 'PROJECT' | 'ADMINISTRATION' | 'OVERHEAD';
+
+/**
  * Cost Centre (Project-based accounting)
  * Maps to existing Projects for cost tracking
  */
@@ -124,7 +132,10 @@ export interface CostCentre {
   name: string;
   description?: string;
 
-  // Link to project
+  // Category (PROJECT, ADMINISTRATION, OVERHEAD)
+  category: CostCentreCategory;
+
+  // Link to project (required only for PROJECT category)
   projectId?: string; // Optional: Reference to existing project (for auto-created cost centres)
 
   // Budget & Tracking

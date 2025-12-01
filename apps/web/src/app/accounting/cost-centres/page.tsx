@@ -174,20 +174,31 @@ export default function CostCentresPage() {
                             {costCentre.code}
                           </Typography>
                         </Box>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 0.5,
+                            alignItems: 'flex-end',
+                          }}
+                        >
                           <Chip
                             label={costCentre.isActive ? 'Active' : 'Inactive'}
                             color={costCentre.isActive ? 'success' : 'default'}
                             size="small"
                           />
-                          {costCentre.autoCreated && (
-                            <Chip
-                              label="Project-Linked"
-                              color="primary"
-                              size="small"
-                              variant="outlined"
-                            />
-                          )}
+                          <Chip
+                            label={costCentre.category || 'PROJECT'}
+                            color={
+                              costCentre.category === 'ADMINISTRATION'
+                                ? 'secondary'
+                                : costCentre.category === 'OVERHEAD'
+                                  ? 'warning'
+                                  : 'primary'
+                            }
+                            size="small"
+                            variant="outlined"
+                          />
                         </Box>
                       </Box>
 

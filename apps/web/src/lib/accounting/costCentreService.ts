@@ -51,6 +51,7 @@ export async function createProjectCostCentre(
       code: costCentreCode,
       name: `${projectName} - Cost Centre`,
       description: `Auto-created cost centre for project ${projectCode}`,
+      category: 'PROJECT',
       projectId,
       budgetAmount,
       budgetCurrency: 'INR',

@@ -33,6 +33,8 @@ import {
   AttachMoney as MoneyIcon,
   PendingActions as PendingIcon,
   Warning as WarningIcon,
+  CheckCircle as ApproveIcon,
+  AssignmentTurnedIn as SubmitIcon,
 } from '@mui/icons-material';
 import {
   PageHeader,
@@ -52,6 +54,8 @@ import type { CustomerInvoice } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { formatDate } from '@/lib/utils/formatters';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
+import { SubmitForApprovalDialog } from './components/SubmitForApprovalDialog';
+import { ApproveInvoiceDialog } from './components/ApproveInvoiceDialog';
 
 // Lazy load heavy dialog component
 const CreateInvoiceDialog = dynamic(
@@ -59,10 +63,14 @@ const CreateInvoiceDialog = dynamic(
   { ssr: false }
 );
 
-// Extended type for soft delete support
-interface CustomerInvoiceWithDelete extends CustomerInvoice {
+// Extended type for soft delete and approval support
+interface CustomerInvoiceWithExtras extends CustomerInvoice {
   deletedAt?: Timestamp;
   deletedBy?: string;
+  assignedApproverId?: string;
+  assignedApproverName?: string;
+  submittedByUserId?: string;
+  submittedByUserName?: string;
 }
 
 // Helper function to convert Firestore Timestamp to Date
@@ -90,7 +98,13 @@ export default function InvoicesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
+  // Approval dialog states
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<CustomerInvoiceWithExtras | null>(null);
+
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
+  const canApprove = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.APPROVE_TRANSACTIONS);
 
   // Firestore query using custom hook
   const { db } = getFirebase();
@@ -105,7 +119,7 @@ export default function InvoicesPage() {
   );
 
   const { data: rawInvoices, loading } =
-    useFirestoreQuery<CustomerInvoiceWithDelete>(invoicesQuery);
+    useFirestoreQuery<CustomerInvoiceWithExtras>(invoicesQuery);
 
   // Sort invoices: non-deleted first, then by date (already sorted by date from query)
   const invoices = useMemo(() => {
@@ -192,6 +206,28 @@ export default function InvoicesPage() {
     setCreateDialogOpen(false);
     setEditingInvoice(null);
     setViewMode(false);
+  };
+
+  // Approval workflow handlers
+  const handleSubmitForApproval = (invoice: CustomerInvoiceWithExtras) => {
+    setSelectedInvoice(invoice);
+    setSubmitDialogOpen(true);
+  };
+
+  const handleApprove = (invoice: CustomerInvoiceWithExtras) => {
+    setSelectedInvoice(invoice);
+    setApproveDialogOpen(true);
+  };
+
+  const handleApprovalDialogClose = () => {
+    setSubmitDialogOpen(false);
+    setApproveDialogOpen(false);
+    setSelectedInvoice(null);
+  };
+
+  // Check if current user is the assigned approver
+  const isAssignedApprover = (invoice: CustomerInvoiceWithExtras): boolean => {
+    return !!(user && invoice.assignedApproverId === user.uid);
   };
 
   const handleChangePage = (_event: unknown, newPage: number) => {
@@ -291,6 +327,8 @@ export default function InvoicesPage() {
           >
             <MenuItem value="ALL">All Status</MenuItem>
             <MenuItem value="DRAFT">Draft</MenuItem>
+            <MenuItem value="PENDING_APPROVAL">Pending Approval</MenuItem>
+            <MenuItem value="APPROVED">Approved</MenuItem>
             <MenuItem value="SENT">Sent</MenuItem>
             <MenuItem value="PAID">Paid</MenuItem>
             <MenuItem value="OVERDUE">Overdue</MenuItem>
@@ -385,20 +423,37 @@ export default function InvoicesPage() {
                             icon: <EditIcon />,
                             label: 'Edit Invoice',
                             onClick: () => handleEdit(invoice),
-                            show: canManage && invoice.status === 'DRAFT',
+                            show: canManage && invoice.status === 'DRAFT' && !isDeleted,
+                          },
+                          {
+                            icon: <SubmitIcon />,
+                            label: 'Submit for Approval',
+                            onClick: () => handleSubmitForApproval(invoice),
+                            show: canManage && invoice.status === 'DRAFT' && !isDeleted,
+                            color: 'primary',
+                          },
+                          {
+                            icon: <ApproveIcon />,
+                            label: 'Review & Approve',
+                            onClick: () => handleApprove(invoice),
+                            show:
+                              invoice.status === 'PENDING_APPROVAL' &&
+                              !isDeleted &&
+                              (canApprove || isAssignedApprover(invoice)),
+                            color: 'success',
                           },
                           {
                             icon: <SendIcon />,
                             label: 'Send Invoice',
                             onClick: () => {},
-                            show: canManage,
+                            show: canManage && invoice.status === 'APPROVED' && !isDeleted,
                           },
                           {
                             icon: <DeleteIcon />,
                             label: 'Delete Invoice',
                             onClick: () => handleDelete(invoice.id!),
                             color: 'error',
-                            show: canManage,
+                            show: canManage && invoice.status === 'DRAFT' && !isDeleted,
                           },
                         ]}
                       />
@@ -425,6 +480,19 @@ export default function InvoicesPage() {
         onClose={handleDialogClose}
         editingInvoice={editingInvoice}
         viewOnly={viewMode}
+      />
+
+      {/* Approval Workflow Dialogs */}
+      <SubmitForApprovalDialog
+        open={submitDialogOpen}
+        onClose={handleApprovalDialogClose}
+        invoice={selectedInvoice}
+      />
+
+      <ApproveInvoiceDialog
+        open={approveDialogOpen}
+        onClose={handleApprovalDialogClose}
+        invoice={selectedInvoice}
       />
     </Container>
   );

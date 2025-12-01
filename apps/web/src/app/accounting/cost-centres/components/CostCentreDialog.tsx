@@ -17,7 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { addDoc, updateDoc, doc, collection, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { CostCentre, CurrencyCode } from '@vapour/types';
+import type { CostCentre, CurrencyCode, CostCentreCategory } from '@vapour/types';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 
 interface CostCentreDialogProps {
@@ -30,6 +30,7 @@ interface FormData {
   code: string;
   name: string;
   description: string;
+  category: CostCentreCategory;
   projectId: string;
   budget: string;
   budgetCurrency: CurrencyCode;
@@ -40,11 +41,22 @@ const EMPTY_FORM: FormData = {
   code: '',
   name: '',
   description: '',
+  category: 'PROJECT',
   projectId: '',
   budget: '',
   budgetCurrency: 'INR',
   isActive: true,
 };
+
+const CATEGORY_OPTIONS: { value: CostCentreCategory; label: string; description: string }[] = [
+  { value: 'PROJECT', label: 'Project', description: 'Linked to a specific project' },
+  {
+    value: 'ADMINISTRATION',
+    label: 'Administration',
+    description: 'General administrative expenses',
+  },
+  { value: 'OVERHEAD', label: 'Overhead', description: 'Shared costs across projects' },
+];
 
 export default function CostCentreDialog({ open, costCentre, onClose }: CostCentreDialogProps) {
   const { user } = useAuth();
@@ -61,6 +73,7 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
           code: costCentre.code,
           name: costCentre.name,
           description: costCentre.description || '',
+          category: costCentre.category || 'PROJECT',
           projectId: costCentre.projectId || '',
           budget: costCentre.budgetAmount ? costCentre.budgetAmount.toString() : '',
           budgetCurrency: (costCentre.budgetCurrency as CurrencyCode) || 'INR',
@@ -116,8 +129,9 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
       setError('Name is required');
       return false;
     }
-    if (!formData.projectId) {
-      setError('Project is required');
+    // Project is only required for PROJECT category
+    if (formData.category === 'PROJECT' && !formData.projectId) {
+      setError('Project is required for Project category cost centres');
       return false;
     }
     if (formData.budget && parseFloat(formData.budget) < 0) {
@@ -151,7 +165,8 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
           code: formData.code,
           name: formData.name,
           description: formData.description || null,
-          projectId: formData.projectId,
+          category: formData.category,
+          projectId: formData.category === 'PROJECT' ? formData.projectId : null,
           budget: budgetValue || null,
           budgetCurrency: formData.budgetCurrency,
           isActive: formData.isActive,
@@ -164,7 +179,8 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
           code: formData.code,
           name: formData.name,
           description: formData.description || null,
-          projectId: formData.projectId,
+          category: formData.category,
+          projectId: formData.category === 'PROJECT' ? formData.projectId : null,
           budget: budgetValue || null,
           budgetCurrency: formData.budgetCurrency,
           currentSpend: 0,
@@ -233,14 +249,41 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
           </Grid>
 
           <Grid size={{ xs: 12 }}>
-            <ProjectSelector
-              value={formData.projectId}
-              onChange={handleProjectChange}
+            <TextField
+              fullWidth
+              label="Category"
+              value={formData.category}
+              onChange={handleChange('category')}
+              select
               required
-              label="Linked Project"
-              helperText="Select the project this cost centre will track"
-            />
+              helperText={
+                CATEGORY_OPTIONS.find((opt) => opt.value === formData.category)?.description
+              }
+              slotProps={{
+                select: {
+                  native: true,
+                },
+              }}
+            >
+              {CATEGORY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </TextField>
           </Grid>
+
+          {formData.category === 'PROJECT' && (
+            <Grid size={{ xs: 12 }}>
+              <ProjectSelector
+                value={formData.projectId}
+                onChange={handleProjectChange}
+                required
+                label="Linked Project"
+                helperText="Select the project this cost centre will track"
+              />
+            </Grid>
+          )}
 
           <Grid size={{ xs: 12, sm: 8 }}>
             <TextField
