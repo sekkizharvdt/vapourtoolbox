@@ -33,6 +33,8 @@ import AddIcon from '@mui/icons-material/Add';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import FeedbackIcon from '@mui/icons-material/Feedback';
+import BugReportIcon from '@mui/icons-material/BugReport';
 import { useAuth } from '@/contexts/AuthContext';
 import { MODULES, hasModuleAccess } from '@vapour/constants';
 
@@ -121,6 +123,27 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       keywords: ['help', 'guide', 'documentation', 'docs', 'how to', 'tutorial'],
       action: () => router.push('/guide'),
       shortcut: 'G H',
+    });
+
+    // Feedback
+    cmds.push({
+      id: 'go-feedback',
+      label: 'Submit Feedback',
+      description: 'Report bugs or request features',
+      icon: <FeedbackIcon />,
+      category: 'navigation',
+      keywords: ['feedback', 'support', 'contact', 'help'],
+      action: () => router.push('/feedback'),
+    });
+
+    cmds.push({
+      id: 'report-bug',
+      label: 'Report a Bug',
+      description: 'Report an error or issue',
+      icon: <BugReportIcon />,
+      category: 'action',
+      keywords: ['bug', 'error', 'issue', 'problem', 'report', 'broken'],
+      action: () => router.push('/feedback?type=bug'),
     });
 
     // Module navigation commands
