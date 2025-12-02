@@ -289,13 +289,13 @@ export const DEFAULT_FLASH_CHAMBER_INPUT: FlashChamberInput = {
 
 /**
  * Validation limits for flash chamber inputs
- * Pressure range: 50-500 mbar abs covers ~33°C to ~81°C saturation temperatures
+ * Pressure range: 10-500 mbar abs covers ~7°C to ~81°C saturation temperatures
  */
 export const FLASH_CHAMBER_LIMITS = {
-  operatingPressure: { min: 50, max: 500, unit: 'mbar abs' },
+  operatingPressure: { min: 10, max: 500, unit: 'mbar abs' },
   waterFlowRate: { min: 1, max: 10000, unit: 'ton/hr' }, // Base unit, converted from user selection
   vaporQuantity: { min: 0.1, max: 1000, unit: 'ton/hr' }, // Base unit, converted from user selection
-  inletTemperature: { min: 40, max: 120, unit: '°C' },
+  inletTemperature: { min: 10, max: 120, unit: '°C' },
   salinity: { min: 0, max: 70000, unit: 'ppm' }, // 0 for DM water, up to 70000 for brine
   retentionTime: { min: 1, max: 5, unit: 'minutes' },
   flashingZoneHeight: { min: 300, max: 1000, unit: 'mm' },
