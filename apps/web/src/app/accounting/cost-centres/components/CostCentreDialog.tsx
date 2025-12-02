@@ -281,6 +281,7 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
                 required
                 label="Linked Project"
                 helperText="Select the project this cost centre will track"
+                includeCostCentres={false}
               />
             </Grid>
           )}
