@@ -38,6 +38,7 @@ import type {
   ChamberSizing,
   NozzleSizing,
   NPSHaCalculation,
+  FlashChamberElevations,
   FlowRateUnit,
 } from '@vapour/types';
 import { FLOW_RATE_CONVERSIONS } from '@vapour/types';
@@ -55,8 +56,14 @@ const ESTIMATED_FRICTION_LOSS = 0.5; // m
 /** Minimum NPSHa margin recommended */
 const MIN_NPSH_MARGIN = 1.5; // m
 
+/** Default pump centerline offset below BTL (Bottom Tangent Line) */
+const DEFAULT_PUMP_OFFSET_BELOW_BTL = 1.0; // m
+
+/** Level gauge low tapping margin above pump centerline */
+const LG_LOW_MARGIN_ABOVE_PUMP = 1.5; // m (NPSHa margin)
+
 /** Calculator version for tracking */
-const CALCULATOR_VERSION = '1.1.0';
+const CALCULATOR_VERSION = '1.2.0';
 
 // ============================================================================
 // Flow Rate Conversion
@@ -230,6 +237,79 @@ export function validateFlashChamberInput(input: FlashChamberInput): ValidationR
 }
 
 // ============================================================================
+// Elevation Calculation
+// ============================================================================
+
+/**
+ * Calculate elevation data for engineering diagram
+ * All elevations are relative to BTL (Bottom Tangent Line) = 0.000
+ *
+ * @param chamberSizing - Chamber dimension results
+ * @param npsha - NPSHa calculation results
+ * @returns Elevation data for diagram
+ */
+function calculateElevations(
+  chamberSizing: ChamberSizing,
+  npsha: NPSHaCalculation
+): FlashChamberElevations {
+  // Reference point: BTL = 0.000 m
+  const btl = 0;
+
+  // Pump centerline is below BTL
+  const pumpCenterline = -DEFAULT_PUMP_OFFSET_BELOW_BTL;
+
+  // Level gauge low tapping: NPSHa + margin above pump centerline
+  // This ensures adequate NPSH for pump operation
+  // LG-L = pumpCenterline + NPSHa + margin
+  // Since pumpCenterline is negative and we want positive elevation from BTL:
+  // LG-L = NPSHa + margin - pump offset (relative to BTL)
+  const lgLow = Math.max(
+    npsha.npshAvailable + LG_LOW_MARGIN_ABOVE_PUMP - DEFAULT_PUMP_OFFSET_BELOW_BTL,
+    0.3
+  );
+
+  // Convert zone heights from mm to m
+  const retentionZoneHeightM = chamberSizing.retentionZoneHeight / 1000;
+  const flashingZoneHeightM = chamberSizing.flashingZoneHeight / 1000;
+  const sprayZoneHeightM = chamberSizing.sprayZoneHeight / 1000;
+
+  // Level gauge high tapping: LG-L + retention zone height
+  // The retention volume is measured between LG-L and LG-H
+  const lgHigh = lgLow + retentionZoneHeightM;
+
+  // Flashing zone starts at LG-H (top of retention zone)
+  const flashingZoneBottom = lgHigh;
+  const flashingZoneTop = flashingZoneBottom + flashingZoneHeightM;
+
+  // Top tangent line (TTL) = total height
+  const ttl = chamberSizing.totalHeight / 1000;
+
+  // Nozzle elevations
+  const nozzleElevations = {
+    // Inlet nozzle (N1): In spray zone, roughly 2/3 up from flashing zone top
+    inlet: flashingZoneTop + sprayZoneHeightM * 0.5,
+    // Vapor outlet (N2): At top of chamber
+    vaporOutlet: ttl,
+    // Brine outlet (N3): At bottom, below LG-L (at BTL level)
+    brineOutlet: btl,
+  };
+
+  return {
+    btl,
+    lgLow,
+    lgHigh,
+    flashingZoneBottom,
+    flashingZoneTop,
+    ttl,
+    nozzleElevations,
+    pumpCenterline,
+    retentionZoneHeightM,
+    flashingZoneHeightM,
+    sprayZoneHeightM,
+  };
+}
+
+// ============================================================================
 // Main Calculator
 // ============================================================================
 
@@ -364,12 +444,16 @@ export function calculateFlashChamber(
   // Step 6: Calculate NPSHa
   const npsha = calculateNPSHa(chamberSizing, opPressureBar, satTempPure);
 
+  // Step 7: Calculate elevations for engineering diagram
+  const elevations = calculateElevations(chamberSizing, npsha);
+
   return {
     inputs: input,
     heatMassBalance,
     chamberSizing,
     nozzles,
     npsha,
+    elevations,
     calculatedAt: new Date(),
     warnings,
     metadata: {

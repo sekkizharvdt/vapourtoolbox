@@ -23,6 +23,7 @@ import {
   Science as ScienceIcon,
   Opacity as OpacityIcon,
   ArrowForward as ArrowForwardIcon,
+  Calculate as CalculateIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
 
@@ -74,6 +75,40 @@ export default function ThermalLandingPage() {
           Distillation (MED) and Multi-Stage Flash (MSF) systems.
         </Typography>
       </Box>
+
+      {/* Calculators Quick Access */}
+      <Card sx={{ mb: 4, bgcolor: 'primary.main', color: 'primary.contrastText' }}>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <CalculateIcon sx={{ fontSize: 40 }} />
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h6">Thermal Calculators</Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                Quick property lookups and engineering calculations: steam tables, seawater
+                properties, pipe sizing, pressure drop, NPSHa, and heat duty.
+              </Typography>
+            </Box>
+            <Button
+              component={Link}
+              href="/thermal/calculators"
+              variant="contained"
+              color="inherit"
+              sx={{ color: 'primary.main', bgcolor: 'white', '&:hover': { bgcolor: 'grey.100' } }}
+              endIcon={<ArrowForwardIcon />}
+            >
+              Open Calculators
+            </Button>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {/* Design Tools Section */}
+      <Typography variant="h5" gutterBottom>
+        Design Tools
+      </Typography>
+      <Typography variant="body2" color="text.secondary" paragraph>
+        Complete design calculators for thermal desalination equipment.
+      </Typography>
 
       {/* Design Tools Grid */}
       <Grid container spacing={3}>

@@ -19,7 +19,7 @@ import {
   Button,
   Stack,
 } from '@mui/material';
-import { Refresh as RefreshIcon } from '@mui/icons-material';
+import { Refresh as RefreshIcon, Description as DatasheetIcon } from '@mui/icons-material';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 import {
@@ -28,6 +28,7 @@ import {
   ChamberSizing,
   NozzleSizing,
   NPSHaCalculation,
+  GenerateDatasheetDialog,
 } from './components';
 
 import { calculateFlashChamber, validateFlashChamberInput } from '@/lib/thermal';
@@ -43,6 +44,7 @@ export default function FlashChamberClient() {
   const [result, setResult] = useState<FlashChamberResult | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [datasheetDialogOpen, setDatasheetDialogOpen] = useState(false);
 
   // Initialize from URL parameters (only on mount)
   useEffect(() => {
@@ -135,6 +137,14 @@ export default function FlashChamberClient() {
           >
             Reset to Defaults
           </Button>
+          <Button
+            startIcon={<DatasheetIcon />}
+            onClick={() => setDatasheetDialogOpen(true)}
+            variant="contained"
+            disabled={!result}
+          >
+            Generate Datasheet
+          </Button>
         </Stack>
       </Box>
 
@@ -184,7 +194,11 @@ export default function FlashChamberClient() {
           {result ? (
             <>
               <HeatMassBalance balance={result.heatMassBalance} />
-              <ChamberSizing sizing={result.chamberSizing} />
+              <ChamberSizing
+                sizing={result.chamberSizing}
+                elevations={result.elevations}
+                nozzles={result.nozzles}
+              />
               <NozzleSizing nozzles={result.nozzles} />
               <NPSHaCalculation npsha={result.npsha} />
 
@@ -219,6 +233,15 @@ export default function FlashChamberClient() {
           )}
         </Grid>
       </Grid>
+
+      {/* Datasheet Dialog */}
+      {result && (
+        <GenerateDatasheetDialog
+          open={datasheetDialogOpen}
+          onClose={() => setDatasheetDialogOpen(false)}
+          result={result}
+        />
+      )}
     </Container>
   );
 }

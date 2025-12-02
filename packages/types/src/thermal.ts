@@ -221,6 +221,52 @@ export interface NPSHaCalculation {
 }
 
 /**
+ * Elevation data for flash chamber engineering diagram
+ * All elevations are in meters, with BTL (Bottom Tangent Line) as reference (0.000)
+ */
+export interface FlashChamberElevations {
+  /** Bottom Tangent Line - reference elevation (always 0.000) */
+  btl: number;
+
+  /** Level Gauge Low Tapping - minimum operating level */
+  lgLow: number;
+
+  /** Level Gauge High Tapping - maximum operating level (top of retention zone) */
+  lgHigh: number;
+
+  /** Bottom of flashing zone (same as lgHigh) */
+  flashingZoneBottom: number;
+
+  /** Top of flashing zone */
+  flashingZoneTop: number;
+
+  /** Top Tangent Line - total chamber height */
+  ttl: number;
+
+  /** Nozzle elevation positions */
+  nozzleElevations: {
+    /** Inlet nozzle (N1) - in spray zone */
+    inlet: number;
+    /** Vapor outlet nozzle (N2) - at top */
+    vaporOutlet: number;
+    /** Brine outlet nozzle (N3) - at bottom */
+    brineOutlet: number;
+  };
+
+  /** Pump centerline elevation (negative, below BTL) */
+  pumpCenterline: number;
+
+  /** Height of retention zone (between LG-L and LG-H) in meters */
+  retentionZoneHeightM: number;
+
+  /** Height of flashing zone in meters */
+  flashingZoneHeightM: number;
+
+  /** Height of spray zone in meters */
+  sprayZoneHeightM: number;
+}
+
+/**
  * Complete flash chamber calculation result
  */
 export interface FlashChamberResult {
@@ -241,6 +287,9 @@ export interface FlashChamberResult {
 
   /** NPSHa calculation for bottom pump */
   npsha: NPSHaCalculation;
+
+  /** Elevation data for engineering diagram */
+  elevations: FlashChamberElevations;
 
   /** Timestamp of calculation */
   calculatedAt: Date;
