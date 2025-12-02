@@ -3,8 +3,8 @@
 /**
  * Steam Tables Calculator
  *
- * Lookup saturation properties for water/steam by temperature or pressure.
- * Uses IAPWS-IF97 correlations from @vapour/constants.
+ * Lookup steam properties for saturation, subcooled liquid, and superheated steam.
+ * Uses IAPWS-IF97 correlations (Regions 1, 2, 4) from @vapour/constants.
  */
 
 import { useState, useMemo } from 'react';
@@ -56,8 +56,15 @@ import {
   SATURATION_TABLE,
   CRITICAL_TEMPERATURE_C,
   CRITICAL_PRESSURE_BAR,
+  // Subcooled (Region 1)
+  getSubcooledProperties,
+  // Superheated (Region 2)
+  getSuperheatedProperties,
+  // Region detection
+  getRegion,
 } from '@vapour/constants';
 
+type SteamMode = 'saturation' | 'subcooled' | 'superheated';
 type LookupMode = 'temperature' | 'pressure';
 type PressureUnit = 'bar' | 'mbar' | 'kgcm2g' | 'mH2O';
 
@@ -71,6 +78,32 @@ interface SaturationResult {
   densityVapor: number;
   specificVolumeLiquid: number;
   specificVolumeVapor: number;
+}
+
+interface SubcooledResult {
+  temperature: number;
+  pressure: number;
+  subcooling: number;
+  enthalpy: number;
+  density: number;
+  specificVolume: number;
+  specificHeat: number;
+  speedOfSound: number;
+  internalEnergy: number;
+  entropy: number;
+}
+
+interface SuperheatedResult {
+  temperature: number;
+  pressure: number;
+  superheat: number;
+  enthalpy: number;
+  density: number;
+  specificVolume: number;
+  specificHeat: number;
+  speedOfSound: number;
+  internalEnergy: number;
+  entropy: number;
 }
 
 function convertPressureToBar(value: number, unit: PressureUnit): number {
@@ -119,21 +152,23 @@ function getPressureUnitLabel(unit: PressureUnit): string {
 }
 
 export default function SteamTablesClient() {
-  const [mode, setMode] = useState<LookupMode>('temperature');
+  const [steamMode, setSteamMode] = useState<SteamMode>('saturation');
+  const [lookupMode, setLookupMode] = useState<LookupMode>('temperature');
   const [temperatureInput, setTemperatureInput] = useState<string>('100');
   const [pressureInput, setPressureInput] = useState<string>('1.0');
   const [pressureUnit, setPressureUnit] = useState<PressureUnit>('bar');
   const [error, setError] = useState<string | null>(null);
 
   // Calculate saturation properties
-  const result = useMemo<SaturationResult | null>(() => {
+  const saturationResult = useMemo<SaturationResult | null>(() => {
+    if (steamMode !== 'saturation') return null;
     setError(null);
 
     try {
       let tempC: number;
       let pressureBar: number;
 
-      if (mode === 'temperature') {
+      if (lookupMode === 'temperature') {
         tempC = parseFloat(temperatureInput);
         if (isNaN(tempC)) return null;
         if (tempC < 0.01 || tempC > CRITICAL_TEMPERATURE_C) {
@@ -169,7 +204,111 @@ export default function SteamTablesClient() {
       setError(err instanceof Error ? err.message : 'Calculation error');
       return null;
     }
-  }, [mode, temperatureInput, pressureInput, pressureUnit]);
+  }, [steamMode, lookupMode, temperatureInput, pressureInput, pressureUnit]);
+
+  // Calculate subcooled properties (Region 1)
+  const subcooledResult = useMemo<SubcooledResult | null>(() => {
+    if (steamMode !== 'subcooled') return null;
+    setError(null);
+
+    try {
+      const tempC = parseFloat(temperatureInput);
+      const pressureValue = parseFloat(pressureInput);
+      if (isNaN(tempC) || isNaN(pressureValue)) return null;
+
+      const pressureBar = convertPressureToBar(pressureValue, pressureUnit);
+
+      // Validate ranges
+      if (tempC < 0 || tempC > 350) {
+        setError('Temperature must be between 0°C and 350°C for subcooled liquid');
+        return null;
+      }
+      if (pressureBar < 0.00611 || pressureBar > 1000) {
+        setError('Pressure must be between 0.00611 bar and 1000 bar');
+        return null;
+      }
+
+      // Check if actually subcooled
+      const region = getRegion(pressureBar, tempC);
+      if (region !== 1) {
+        const tSat = getSaturationTemperature(pressureBar);
+        setError(
+          `Not subcooled: T=${tempC}°C is above T_sat=${tSat.toFixed(1)}°C at P=${pressureBar.toFixed(2)} bar. Use Saturation or Superheated mode.`
+        );
+        return null;
+      }
+
+      const props = getSubcooledProperties(pressureBar, tempC);
+
+      return {
+        temperature: tempC,
+        pressure: pressureBar,
+        subcooling: props.subcooling,
+        enthalpy: props.enthalpy,
+        density: props.density,
+        specificVolume: props.specificVolume,
+        specificHeat: props.specificHeat,
+        speedOfSound: props.speedOfSound,
+        internalEnergy: props.internalEnergy,
+        entropy: props.entropy,
+      };
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Calculation error');
+      return null;
+    }
+  }, [steamMode, temperatureInput, pressureInput, pressureUnit]);
+
+  // Calculate superheated properties (Region 2)
+  const superheatedResult = useMemo<SuperheatedResult | null>(() => {
+    if (steamMode !== 'superheated') return null;
+    setError(null);
+
+    try {
+      const tempC = parseFloat(temperatureInput);
+      const pressureValue = parseFloat(pressureInput);
+      if (isNaN(tempC) || isNaN(pressureValue)) return null;
+
+      const pressureBar = convertPressureToBar(pressureValue, pressureUnit);
+
+      // Validate ranges
+      if (tempC < 0 || tempC > 800) {
+        setError('Temperature must be between 0°C and 800°C for superheated steam');
+        return null;
+      }
+      if (pressureBar <= 0 || pressureBar > 1000) {
+        setError('Pressure must be between 0 and 1000 bar');
+        return null;
+      }
+
+      // Check if actually superheated
+      const region = getRegion(pressureBar, tempC);
+      if (region !== 2) {
+        const tSat = getSaturationTemperature(pressureBar);
+        setError(
+          `Not superheated: T=${tempC}°C is at or below T_sat=${tSat.toFixed(1)}°C at P=${pressureBar.toFixed(2)} bar. Use Saturation or Subcooled mode.`
+        );
+        return null;
+      }
+
+      const props = getSuperheatedProperties(pressureBar, tempC);
+
+      return {
+        temperature: tempC,
+        pressure: pressureBar,
+        superheat: props.superheat,
+        enthalpy: props.enthalpy,
+        density: props.density,
+        specificVolume: props.specificVolume,
+        specificHeat: props.specificHeat,
+        speedOfSound: props.speedOfSound,
+        internalEnergy: props.internalEnergy,
+        entropy: props.entropy,
+      };
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Calculation error');
+      return null;
+    }
+  }, [steamMode, temperatureInput, pressureInput, pressureUnit]);
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -182,8 +321,8 @@ export default function SteamTablesClient() {
           <Chip label="IAPWS-IF97" size="small" color="primary" variant="outlined" />
         </Stack>
         <Typography variant="body1" color="text.secondary">
-          Lookup saturation properties for water and steam. Properties are calculated using the
-          IAPWS Industrial Formulation 1997 for valid temperatures (0.01-374°C).
+          Lookup steam properties for saturation, subcooled liquid, and superheated steam. Uses
+          IAPWS-IF97 Regions 1, 2, and 4.
         </Typography>
       </Box>
 
@@ -192,43 +331,109 @@ export default function SteamTablesClient() {
         <Grid size={{ xs: 12, md: 5 }}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Lookup Input
+              Steam State
             </Typography>
 
-            {/* Mode Toggle */}
+            {/* Steam Mode Selection */}
             <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Lookup by:
-              </Typography>
               <ToggleButtonGroup
-                value={mode}
+                value={steamMode}
                 exclusive
-                onChange={(_, newMode) => newMode && setMode(newMode)}
+                onChange={(_, newMode) => newMode && setSteamMode(newMode)}
                 fullWidth
+                size="small"
               >
-                <ToggleButton value="temperature">Temperature</ToggleButton>
-                <ToggleButton value="pressure">Pressure</ToggleButton>
+                <ToggleButton value="saturation">Saturation</ToggleButton>
+                <ToggleButton value="subcooled">Subcooled</ToggleButton>
+                <ToggleButton value="superheated">Superheated</ToggleButton>
               </ToggleButtonGroup>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                {steamMode === 'saturation' && 'Two-phase equilibrium (Region 4)'}
+                {steamMode === 'subcooled' && 'Compressed liquid below saturation (Region 1)'}
+                {steamMode === 'superheated' && 'Steam above saturation (Region 2)'}
+              </Typography>
             </Box>
 
-            {/* Temperature Input */}
-            {mode === 'temperature' && (
-              <TextField
-                label="Temperature"
-                value={temperatureInput}
-                onChange={(e) => setTemperatureInput(e.target.value)}
-                type="number"
-                fullWidth
-                InputProps={{
-                  endAdornment: <InputAdornment position="end">°C</InputAdornment>,
-                }}
-                helperText={`Valid range: 0.01 to ${CRITICAL_TEMPERATURE_C.toFixed(1)} °C`}
-              />
+            <Divider sx={{ my: 2 }} />
+
+            {/* Saturation Mode: Temperature OR Pressure */}
+            {steamMode === 'saturation' && (
+              <>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Lookup by:
+                  </Typography>
+                  <ToggleButtonGroup
+                    value={lookupMode}
+                    exclusive
+                    onChange={(_, newMode) => newMode && setLookupMode(newMode)}
+                    fullWidth
+                    size="small"
+                  >
+                    <ToggleButton value="temperature">Temperature</ToggleButton>
+                    <ToggleButton value="pressure">Pressure</ToggleButton>
+                  </ToggleButtonGroup>
+                </Box>
+
+                {lookupMode === 'temperature' && (
+                  <TextField
+                    label="Temperature"
+                    value={temperatureInput}
+                    onChange={(e) => setTemperatureInput(e.target.value)}
+                    type="number"
+                    fullWidth
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">°C</InputAdornment>,
+                    }}
+                    helperText={`Valid range: 0.01 to ${CRITICAL_TEMPERATURE_C.toFixed(1)} °C`}
+                  />
+                )}
+
+                {lookupMode === 'pressure' && (
+                  <Stack spacing={2}>
+                    <TextField
+                      label="Pressure"
+                      value={pressureInput}
+                      onChange={(e) => setPressureInput(e.target.value)}
+                      type="number"
+                      fullWidth
+                    />
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Unit</InputLabel>
+                      <Select
+                        value={pressureUnit}
+                        label="Unit"
+                        onChange={(e) => setPressureUnit(e.target.value as PressureUnit)}
+                      >
+                        <MenuItem value="bar">bar (absolute)</MenuItem>
+                        <MenuItem value="mbar">mbar (absolute)</MenuItem>
+                        <MenuItem value="kgcm2g">kg/cm² (gauge)</MenuItem>
+                        <MenuItem value="mH2O">m H₂O</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Stack>
+                )}
+              </>
             )}
 
-            {/* Pressure Input */}
-            {mode === 'pressure' && (
+            {/* Subcooled/Superheated Mode: Both P and T required */}
+            {(steamMode === 'subcooled' || steamMode === 'superheated') && (
               <Stack spacing={2}>
+                <TextField
+                  label="Temperature"
+                  value={temperatureInput}
+                  onChange={(e) => setTemperatureInput(e.target.value)}
+                  type="number"
+                  fullWidth
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">°C</InputAdornment>,
+                  }}
+                  helperText={
+                    steamMode === 'subcooled'
+                      ? 'Valid range: 0 to 350°C'
+                      : 'Valid range: 0 to 800°C'
+                  }
+                />
                 <TextField
                   label="Pressure"
                   value={pressureInput}
@@ -236,11 +441,11 @@ export default function SteamTablesClient() {
                   type="number"
                   fullWidth
                 />
-                <FormControl fullWidth>
-                  <InputLabel>Unit</InputLabel>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Pressure Unit</InputLabel>
                   <Select
                     value={pressureUnit}
-                    label="Unit"
+                    label="Pressure Unit"
                     onChange={(e) => setPressureUnit(e.target.value as PressureUnit)}
                   >
                     <MenuItem value="bar">bar (absolute)</MenuItem>
@@ -263,7 +468,8 @@ export default function SteamTablesClient() {
 
         {/* Results Section */}
         <Grid size={{ xs: 12, md: 7 }}>
-          {result ? (
+          {/* Saturation Results */}
+          {steamMode === 'saturation' && saturationResult && (
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
                 Saturation Properties
@@ -286,19 +492,19 @@ export default function SteamTablesClient() {
                   <Typography variant="caption" sx={{ opacity: 0.8 }}>
                     Saturation Temperature
                   </Typography>
-                  <Typography variant="h5">{result.temperature.toFixed(2)} °C</Typography>
+                  <Typography variant="h5">{saturationResult.temperature.toFixed(2)} °C</Typography>
                 </Box>
                 <Box>
                   <Typography variant="caption" sx={{ opacity: 0.8 }}>
                     Saturation Pressure
                   </Typography>
                   <Typography variant="h5">
-                    {convertBarToPressureUnit(result.pressure, pressureUnit).toFixed(4)}{' '}
+                    {convertBarToPressureUnit(saturationResult.pressure, pressureUnit).toFixed(4)}{' '}
                     {getPressureUnitLabel(pressureUnit)}
                   </Typography>
                   {pressureUnit !== 'bar' && (
                     <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                      ({result.pressure.toFixed(4)} bar)
+                      ({saturationResult.pressure.toFixed(4)} bar)
                     </Typography>
                   )}
                 </Box>
@@ -320,52 +526,273 @@ export default function SteamTablesClient() {
                   <TableBody>
                     <TableRow>
                       <TableCell>Specific Enthalpy (h)</TableCell>
-                      <TableCell align="right">{result.enthalpyLiquid.toFixed(2)}</TableCell>
-                      <TableCell align="right">{result.enthalpyVapor.toFixed(2)}</TableCell>
+                      <TableCell align="right">
+                        {saturationResult.enthalpyLiquid.toFixed(2)}
+                      </TableCell>
+                      <TableCell align="right">
+                        {saturationResult.enthalpyVapor.toFixed(2)}
+                      </TableCell>
                       <TableCell align="right">kJ/kg</TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell>Latent Heat (h_fg)</TableCell>
                       <TableCell align="right" colSpan={2}>
-                        {result.latentHeat.toFixed(2)}
+                        {saturationResult.latentHeat.toFixed(2)}
                       </TableCell>
                       <TableCell align="right">kJ/kg</TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell>Density (ρ)</TableCell>
-                      <TableCell align="right">{result.densityLiquid.toFixed(2)}</TableCell>
-                      <TableCell align="right">{result.densityVapor.toFixed(4)}</TableCell>
+                      <TableCell align="right">
+                        {saturationResult.densityLiquid.toFixed(2)}
+                      </TableCell>
+                      <TableCell align="right">
+                        {saturationResult.densityVapor.toFixed(4)}
+                      </TableCell>
                       <TableCell align="right">kg/m³</TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell>Specific Volume (v)</TableCell>
-                      <TableCell align="right">{result.specificVolumeLiquid.toFixed(6)}</TableCell>
-                      <TableCell align="right">{result.specificVolumeVapor.toFixed(4)}</TableCell>
+                      <TableCell align="right">
+                        {saturationResult.specificVolumeLiquid.toFixed(6)}
+                      </TableCell>
+                      <TableCell align="right">
+                        {saturationResult.specificVolumeVapor.toFixed(4)}
+                      </TableCell>
                       <TableCell align="right">m³/kg</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
               </TableContainer>
             </Paper>
-          ) : (
-            !error && (
-              <Paper
+          )}
+
+          {/* Subcooled Results */}
+          {steamMode === 'subcooled' && subcooledResult && (
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Subcooled Liquid Properties
+              </Typography>
+
+              {/* Primary Values */}
+              <Box
                 sx={{
-                  p: 6,
-                  textAlign: 'center',
-                  bgcolor: 'action.hover',
-                  border: '2px dashed',
-                  borderColor: 'divider',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: 2,
+                  mb: 3,
+                  p: 2,
+                  bgcolor: 'info.main',
+                  color: 'info.contrastText',
+                  borderRadius: 1,
                 }}
               >
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  Enter a value to lookup properties
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Results will update automatically
-                </Typography>
-              </Paper>
-            )
+                <Box>
+                  <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                    Temperature
+                  </Typography>
+                  <Typography variant="h5">{subcooledResult.temperature.toFixed(2)} °C</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                    Pressure
+                  </Typography>
+                  <Typography variant="h5">
+                    {convertBarToPressureUnit(subcooledResult.pressure, pressureUnit).toFixed(4)}{' '}
+                    {getPressureUnitLabel(pressureUnit)}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                    Subcooling
+                  </Typography>
+                  <Typography variant="h5">{subcooledResult.subcooling.toFixed(2)} °C</Typography>
+                </Box>
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              {/* Properties Table */}
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Property</TableCell>
+                      <TableCell align="right">Value</TableCell>
+                      <TableCell align="right">Unit</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell>Specific Enthalpy (h)</TableCell>
+                      <TableCell align="right">{subcooledResult.enthalpy.toFixed(2)}</TableCell>
+                      <TableCell align="right">kJ/kg</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Density (ρ)</TableCell>
+                      <TableCell align="right">{subcooledResult.density.toFixed(2)}</TableCell>
+                      <TableCell align="right">kg/m³</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Specific Volume (v)</TableCell>
+                      <TableCell align="right">
+                        {subcooledResult.specificVolume.toFixed(6)}
+                      </TableCell>
+                      <TableCell align="right">m³/kg</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Specific Heat (Cp)</TableCell>
+                      <TableCell align="right">{subcooledResult.specificHeat.toFixed(4)}</TableCell>
+                      <TableCell align="right">kJ/(kg·K)</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Internal Energy (u)</TableCell>
+                      <TableCell align="right">
+                        {subcooledResult.internalEnergy.toFixed(2)}
+                      </TableCell>
+                      <TableCell align="right">kJ/kg</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Entropy (s)</TableCell>
+                      <TableCell align="right">{subcooledResult.entropy.toFixed(4)}</TableCell>
+                      <TableCell align="right">kJ/(kg·K)</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Speed of Sound (w)</TableCell>
+                      <TableCell align="right">{subcooledResult.speedOfSound.toFixed(1)}</TableCell>
+                      <TableCell align="right">m/s</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          )}
+
+          {/* Superheated Results */}
+          {steamMode === 'superheated' && superheatedResult && (
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Superheated Steam Properties
+              </Typography>
+
+              {/* Primary Values */}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: 2,
+                  mb: 3,
+                  p: 2,
+                  bgcolor: 'error.main',
+                  color: 'error.contrastText',
+                  borderRadius: 1,
+                }}
+              >
+                <Box>
+                  <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                    Temperature
+                  </Typography>
+                  <Typography variant="h5">
+                    {superheatedResult.temperature.toFixed(2)} °C
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                    Pressure
+                  </Typography>
+                  <Typography variant="h5">
+                    {convertBarToPressureUnit(superheatedResult.pressure, pressureUnit).toFixed(4)}{' '}
+                    {getPressureUnitLabel(pressureUnit)}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                    Superheat
+                  </Typography>
+                  <Typography variant="h5">{superheatedResult.superheat.toFixed(2)} °C</Typography>
+                </Box>
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              {/* Properties Table */}
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Property</TableCell>
+                      <TableCell align="right">Value</TableCell>
+                      <TableCell align="right">Unit</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell>Specific Enthalpy (h)</TableCell>
+                      <TableCell align="right">{superheatedResult.enthalpy.toFixed(2)}</TableCell>
+                      <TableCell align="right">kJ/kg</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Density (ρ)</TableCell>
+                      <TableCell align="right">{superheatedResult.density.toFixed(4)}</TableCell>
+                      <TableCell align="right">kg/m³</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Specific Volume (v)</TableCell>
+                      <TableCell align="right">
+                        {superheatedResult.specificVolume.toFixed(4)}
+                      </TableCell>
+                      <TableCell align="right">m³/kg</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Specific Heat (Cp)</TableCell>
+                      <TableCell align="right">
+                        {superheatedResult.specificHeat.toFixed(4)}
+                      </TableCell>
+                      <TableCell align="right">kJ/(kg·K)</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Internal Energy (u)</TableCell>
+                      <TableCell align="right">
+                        {superheatedResult.internalEnergy.toFixed(2)}
+                      </TableCell>
+                      <TableCell align="right">kJ/kg</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Entropy (s)</TableCell>
+                      <TableCell align="right">{superheatedResult.entropy.toFixed(4)}</TableCell>
+                      <TableCell align="right">kJ/(kg·K)</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Speed of Sound (w)</TableCell>
+                      <TableCell align="right">
+                        {superheatedResult.speedOfSound.toFixed(1)}
+                      </TableCell>
+                      <TableCell align="right">m/s</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          )}
+
+          {/* Empty State */}
+          {!saturationResult && !subcooledResult && !superheatedResult && !error && (
+            <Paper
+              sx={{
+                p: 6,
+                textAlign: 'center',
+                bgcolor: 'action.hover',
+                border: '2px dashed',
+                borderColor: 'divider',
+              }}
+            >
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Enter values to lookup properties
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Results will update automatically
+              </Typography>
+            </Paper>
           )}
         </Grid>
       </Grid>
@@ -394,7 +821,8 @@ export default function SteamTablesClient() {
                     hover
                     sx={{ cursor: 'pointer' }}
                     onClick={() => {
-                      setMode('temperature');
+                      setSteamMode('saturation');
+                      setLookupMode('temperature');
                       setTemperatureInput(row.tempC.toString());
                     }}
                   >
@@ -419,10 +847,23 @@ export default function SteamTablesClient() {
         <Typography variant="subtitle2" gutterBottom>
           Reference
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="text.secondary" paragraph>
           IAPWS-IF97: International Association for the Properties of Water and Steam - Industrial
-          Formulation 1997. Valid for saturation conditions from triple point (0.01°C) to critical
-          point (373.946°C).
+          Formulation 1997.
+        </Typography>
+        <Typography variant="body2" color="text.secondary" component="div">
+          <strong>Valid ranges:</strong>
+          <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+            <li>
+              <strong>Saturation (Region 4):</strong> 0.01°C to 373.946°C (critical point)
+            </li>
+            <li>
+              <strong>Subcooled Liquid (Region 1):</strong> 0-350°C, P &gt; P_sat, up to 1000 bar
+            </li>
+            <li>
+              <strong>Superheated Steam (Region 2):</strong> T_sat to 800°C, up to 1000 bar
+            </li>
+          </ul>
         </Typography>
       </Box>
     </Container>

@@ -370,3 +370,219 @@ export function getSaturationTemperatureFromMbar(mbarAbs: number): number {
 
 /** Atmospheric pressure in millibar */
 export const ATM_MBAR = 1013.25;
+
+// ============================================================================
+// Re-export Region 1 and Region 2 Functions
+// ============================================================================
+
+export {
+  getEnthalpySubcooled,
+  getSpecificVolumeSubcooled,
+  getDensitySubcooled,
+  getSpecificHeatSubcooled,
+  getSpeedOfSoundSubcooled,
+  getInternalEnergySubcooled,
+  getEntropySubcooled,
+  getSubcooledProperties,
+  type SubcooledProperties,
+} from './steamTablesRegion1';
+
+export {
+  getEnthalpySuperheated,
+  getSpecificVolumeSuperheated,
+  getDensitySuperheated,
+  getSpecificHeatSuperheated,
+  getSpeedOfSoundSuperheated,
+  getInternalEnergySuperheated,
+  getEntropySuperheated,
+  getSuperheatedProperties,
+  type SuperheatedProperties,
+} from './steamTablesRegion2';
+
+export {
+  getRegion,
+  isSubcooled,
+  isSuperheated,
+  getSubcooling,
+  getSuperheat,
+  R_WATER,
+} from './steamTablesCommon';
+
+// ============================================================================
+// Unified Steam Property Types
+// ============================================================================
+
+/** Steam region identifier */
+export type SteamRegion = 'saturation' | 'subcooled' | 'superheated';
+
+/** Unified steam properties interface */
+export interface SteamProperties {
+  /** Region identifier */
+  region: SteamRegion;
+  /** Temperature in °C */
+  temperature: number;
+  /** Pressure in bar */
+  pressure: number;
+  /** Specific enthalpy in kJ/kg */
+  enthalpy: number;
+  /** Specific volume in m³/kg */
+  specificVolume: number;
+  /** Density in kg/m³ */
+  density: number;
+  /** Specific heat Cp in kJ/(kg·K) */
+  specificHeat: number;
+  /** Speed of sound in m/s */
+  speedOfSound: number;
+  /** Subcooling in °C (only for subcooled) */
+  subcooling?: number;
+  /** Superheat in °C (only for superheated) */
+  superheat?: number;
+  /** Internal energy in kJ/kg */
+  internalEnergy: number;
+  /** Entropy in kJ/(kg·K) */
+  entropy: number;
+}
+
+// ============================================================================
+// Unified Entry Point Functions
+// ============================================================================
+
+import { getRegion } from './steamTablesCommon';
+import { getSubcooledProperties } from './steamTablesRegion1';
+import { getSuperheatedProperties } from './steamTablesRegion2';
+
+/**
+ * Get specific enthalpy for any single-phase state
+ *
+ * Auto-detects region and returns appropriate enthalpy.
+ * For saturated states, returns liquid enthalpy (hf).
+ *
+ * @param pressureBar - Pressure in bar
+ * @param tempC - Temperature in °C
+ * @returns Specific enthalpy in kJ/kg
+ */
+export function getEnthalpy(pressureBar: number, tempC: number): number {
+  const region = getRegion(pressureBar, tempC);
+
+  switch (region) {
+    case 1:
+      return getSubcooledProperties(pressureBar, tempC).enthalpy;
+    case 2:
+      return getSuperheatedProperties(pressureBar, tempC).enthalpy;
+    case 4:
+      // At saturation, return liquid enthalpy
+      return getEnthalpyLiquid(tempC);
+  }
+}
+
+/**
+ * Get specific volume for any single-phase state
+ *
+ * @param pressureBar - Pressure in bar
+ * @param tempC - Temperature in °C
+ * @returns Specific volume in m³/kg
+ */
+export function getSpecificVolumeAtPT(pressureBar: number, tempC: number): number {
+  const region = getRegion(pressureBar, tempC);
+
+  switch (region) {
+    case 1:
+      return getSubcooledProperties(pressureBar, tempC).specificVolume;
+    case 2:
+      return getSuperheatedProperties(pressureBar, tempC).specificVolume;
+    case 4:
+      return getSpecificVolumeLiquid(tempC);
+  }
+}
+
+/**
+ * Get density for any single-phase state
+ *
+ * @param pressureBar - Pressure in bar
+ * @param tempC - Temperature in °C
+ * @returns Density in kg/m³
+ */
+export function getDensityAtPT(pressureBar: number, tempC: number): number {
+  return 1 / getSpecificVolumeAtPT(pressureBar, tempC);
+}
+
+/**
+ * Get all properties for any single-phase state
+ *
+ * Auto-detects region and returns appropriate properties.
+ *
+ * @param pressureBar - Pressure in bar
+ * @param tempC - Temperature in °C
+ * @returns Object with all steam properties
+ */
+export function getSteamProperties(pressureBar: number, tempC: number): SteamProperties {
+  const region = getRegion(pressureBar, tempC);
+
+  if (region === 1) {
+    const props = getSubcooledProperties(pressureBar, tempC);
+    return {
+      region: 'subcooled',
+      temperature: tempC,
+      pressure: pressureBar,
+      enthalpy: props.enthalpy,
+      specificVolume: props.specificVolume,
+      density: props.density,
+      specificHeat: props.specificHeat,
+      speedOfSound: props.speedOfSound,
+      subcooling: props.subcooling,
+      internalEnergy: props.internalEnergy,
+      entropy: props.entropy,
+    };
+  }
+
+  if (region === 2) {
+    const props = getSuperheatedProperties(pressureBar, tempC);
+    return {
+      region: 'superheated',
+      temperature: tempC,
+      pressure: pressureBar,
+      enthalpy: props.enthalpy,
+      specificVolume: props.specificVolume,
+      density: props.density,
+      specificHeat: props.specificHeat,
+      speedOfSound: props.speedOfSound,
+      superheat: props.superheat,
+      internalEnergy: props.internalEnergy,
+      entropy: props.entropy,
+    };
+  }
+
+  // Region 4: Saturation
+  // For saturation, we need to calculate Cp and speed of sound
+  // Using approximations for saturated liquid
+  const hf = getEnthalpyLiquid(tempC);
+  const vf = getSpecificVolumeLiquid(tempC);
+
+  // Approximate Cp for saturated liquid (kJ/(kg·K))
+  // Water Cp is approximately 4.18 at low temps, decreasing at high temps
+  const cpLiquid = 4.18 - 0.001 * tempC + 0.00001 * tempC * tempC;
+
+  // Approximate speed of sound in saturated liquid (m/s)
+  // Roughly 1400-1500 m/s for water
+  const speedLiquid = 1403 + 4.7 * tempC - 0.04 * tempC * tempC;
+
+  // Approximate entropy for saturated liquid
+  // Using sf ≈ Cp × ln(T/273.15) approximation
+  const sf = cpLiquid * Math.log((tempC + 273.15) / 273.15);
+
+  // Internal energy: u = h - P*v
+  const uf = hf - pressureBar * 100 * vf; // Convert bar to kPa
+
+  return {
+    region: 'saturation',
+    temperature: tempC,
+    pressure: pressureBar,
+    enthalpy: hf,
+    specificVolume: vf,
+    density: 1 / vf,
+    specificHeat: cpLiquid,
+    speedOfSound: speedLiquid,
+    internalEnergy: uf,
+    entropy: sf,
+  };
+}
