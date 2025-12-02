@@ -17,26 +17,47 @@
 export type FlashChamberInputMode = 'WATER_FLOW' | 'VAPOR_QUANTITY';
 
 /**
+ * Water type for flash chamber calculation
+ * - SEAWATER: Seawater with salinity (default 35000 ppm)
+ * - DM_WATER: Demineralized/pure water (salinity = 0)
+ */
+export type FlashChamberWaterType = 'SEAWATER' | 'DM_WATER';
+
+/**
+ * Flow rate unit options
+ * - KG_SEC: kg/sec
+ * - KG_HR: kg/hr
+ * - TON_HR: ton/hr (metric tonnes per hour)
+ */
+export type FlowRateUnit = 'KG_SEC' | 'KG_HR' | 'TON_HR';
+
+/**
  * Process inputs for flash chamber design
  */
 export interface FlashChamberInput {
   /** Calculation mode */
   mode: FlashChamberInputMode;
 
+  /** Water type: seawater or DM water */
+  waterType: FlashChamberWaterType;
+
+  /** Flow rate unit for input/display */
+  flowRateUnit: FlowRateUnit;
+
   /** Operating pressure inside flash chamber in mbar (absolute) */
   operatingPressure: number;
 
-  /** Inlet water flow rate in ton/hr (required if mode = WATER_FLOW) */
+  /** Inlet water flow rate (unit specified by flowRateUnit, required if mode = WATER_FLOW) */
   waterFlowRate?: number;
 
-  /** Desired vapor output in ton/hr (required if mode = VAPOR_QUANTITY) */
+  /** Desired vapor output (unit specified by flowRateUnit, required if mode = VAPOR_QUANTITY) */
   vaporQuantity?: number;
 
-  /** Seawater inlet temperature in °C */
+  /** Water inlet temperature in °C */
   inletTemperature: number;
 
-  /** Seawater salinity in ppm (default: 35000) */
-  seawaterSalinity: number;
+  /** Water salinity in ppm (default: 35000 for seawater, 0 for DM water) */
+  salinity: number;
 
   /** Liquid retention time in minutes (typical: 2-3 min) */
   retentionTime: number;
@@ -180,11 +201,11 @@ export interface NPSHaCalculation {
   /** Static head - liquid level above pump centerline in m */
   staticHead: number;
 
-  /** Atmospheric pressure head in m (at sea level ≈ 10.33m) */
-  atmosphericPressure: number;
+  /** Chamber operating pressure converted to head in m */
+  chamberPressureHead: number;
 
   /** Vapor pressure head at operating temperature in m (negative contribution) */
-  vaporPressure: number;
+  vaporPressureHead: number;
 
   /** Estimated friction loss in suction piping in m */
   frictionLoss: number;
@@ -248,10 +269,12 @@ export interface FlashChamberResult {
  */
 export const DEFAULT_FLASH_CHAMBER_INPUT: FlashChamberInput = {
   mode: 'WATER_FLOW',
+  waterType: 'SEAWATER',
+  flowRateUnit: 'TON_HR',
   operatingPressure: 200, // mbar (absolute) - ~60°C saturation temp
-  waterFlowRate: 100, // ton/hr
+  waterFlowRate: 100, // ton/hr (default unit)
   inletTemperature: 70, // °C
-  seawaterSalinity: 35000, // ppm
+  salinity: 35000, // ppm (seawater default)
   retentionTime: 2.5, // minutes
   flashingZoneHeight: 500, // mm
   sprayAngle: 60, // degrees
@@ -270,16 +293,37 @@ export const DEFAULT_FLASH_CHAMBER_INPUT: FlashChamberInput = {
  */
 export const FLASH_CHAMBER_LIMITS = {
   operatingPressure: { min: 50, max: 500, unit: 'mbar abs' },
-  waterFlowRate: { min: 1, max: 10000, unit: 'ton/hr' },
-  vaporQuantity: { min: 0.1, max: 1000, unit: 'ton/hr' },
+  waterFlowRate: { min: 1, max: 10000, unit: 'ton/hr' }, // Base unit, converted from user selection
+  vaporQuantity: { min: 0.1, max: 1000, unit: 'ton/hr' }, // Base unit, converted from user selection
   inletTemperature: { min: 40, max: 120, unit: '°C' },
-  seawaterSalinity: { min: 1000, max: 70000, unit: 'ppm' },
+  salinity: { min: 0, max: 70000, unit: 'ppm' }, // 0 for DM water, up to 70000 for brine
   retentionTime: { min: 1, max: 5, unit: 'minutes' },
   flashingZoneHeight: { min: 300, max: 1000, unit: 'mm' },
   sprayAngle: { min: 30, max: 90, unit: 'degrees' },
   inletWaterVelocity: { min: 1.5, max: 4.0, unit: 'm/s' },
   outletWaterVelocity: { min: 0.5, max: 2.5, unit: 'm/s' },
   vaporVelocity: { min: 5, max: 40, unit: 'm/s' },
+} as const;
+
+/**
+ * Flow rate conversion factors to ton/hr (base unit for calculations)
+ */
+export const FLOW_RATE_CONVERSIONS = {
+  /** kg/sec to ton/hr */
+  KG_SEC_TO_TON_HR: 3.6,
+  /** kg/hr to ton/hr */
+  KG_HR_TO_TON_HR: 0.001,
+  /** ton/hr to ton/hr (identity) */
+  TON_HR_TO_TON_HR: 1,
+} as const;
+
+/**
+ * Get flow rate unit display label
+ */
+export const FLOW_RATE_UNIT_LABELS: Record<FlowRateUnit, string> = {
+  KG_SEC: 'kg/sec',
+  KG_HR: 'kg/hr',
+  TON_HR: 'ton/hr',
 } as const;
 
 // ============================================================================

@@ -38,7 +38,9 @@ import type {
   ChamberSizing,
   NozzleSizing,
   NPSHaCalculation,
+  FlowRateUnit,
 } from '@vapour/types';
+import { FLOW_RATE_CONVERSIONS } from '@vapour/types';
 
 // ============================================================================
 // Constants
@@ -47,9 +49,6 @@ import type {
 /** Cross-section loading factor: ton/hr per m² of cross-section */
 const CROSS_SECTION_LOADING = 2.0; // ton/hr/m²
 
-/** Atmospheric pressure head in meters of water */
-const ATM_PRESSURE_HEAD = 10.33; // m
-
 /** Standard friction loss estimate for suction piping */
 const ESTIMATED_FRICTION_LOSS = 0.5; // m
 
@@ -57,7 +56,30 @@ const ESTIMATED_FRICTION_LOSS = 0.5; // m
 const MIN_NPSH_MARGIN = 1.5; // m
 
 /** Calculator version for tracking */
-const CALCULATOR_VERSION = '1.0.0';
+const CALCULATOR_VERSION = '1.1.0';
+
+// ============================================================================
+// Flow Rate Conversion
+// ============================================================================
+
+/**
+ * Convert flow rate from user-selected unit to ton/hr (internal calculation unit)
+ *
+ * @param value - Flow rate in user-selected unit
+ * @param unit - User-selected flow rate unit
+ * @returns Flow rate in ton/hr
+ */
+function convertToTonHr(value: number, unit: FlowRateUnit): number {
+  switch (unit) {
+    case 'KG_SEC':
+      return value * FLOW_RATE_CONVERSIONS.KG_SEC_TO_TON_HR;
+    case 'KG_HR':
+      return value * FLOW_RATE_CONVERSIONS.KG_HR_TO_TON_HR;
+    case 'TON_HR':
+    default:
+      return value;
+  }
+}
 
 // ============================================================================
 // Validation
@@ -82,13 +104,13 @@ export function validateFlashChamberInput(input: FlashChamberInput): ValidationR
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // Limits for validation (pressure in mbar abs)
+  // Limits for validation (pressure in mbar abs, flow rates in ton/hr after conversion)
   const limits = {
     operatingPressure: { min: 50, max: 500 }, // mbar abs
-    waterFlowRate: { min: 1, max: 10000 },
-    vaporQuantity: { min: 0.1, max: 1000 },
+    waterFlowRate: { min: 1, max: 10000 }, // ton/hr (after conversion)
+    vaporQuantity: { min: 0.1, max: 1000 }, // ton/hr (after conversion)
     inletTemperature: { min: 40, max: 120 },
-    seawaterSalinity: { min: 1000, max: 70000 },
+    salinity: { min: 0, max: 70000 }, // 0 for DM water
     retentionTime: { min: 1, max: 5 },
     flashingZoneHeight: { min: 300, max: 1000 },
     sprayAngle: { min: 30, max: 90 },
@@ -107,36 +129,55 @@ export function validateFlashChamberInput(input: FlashChamberInput): ValidationR
     );
   }
 
+  // Convert flow rates to ton/hr for validation
+  const waterFlowTonHr = input.waterFlowRate
+    ? convertToTonHr(input.waterFlowRate, input.flowRateUnit)
+    : 0;
+  const vaporFlowTonHr = input.vaporQuantity
+    ? convertToTonHr(input.vaporQuantity, input.flowRateUnit)
+    : 0;
+
   // Check mode-specific inputs
   if (input.mode === 'WATER_FLOW') {
     if (!input.waterFlowRate || input.waterFlowRate <= 0) {
       errors.push('Water flow rate is required when mode is WATER_FLOW');
     } else if (
-      input.waterFlowRate < limits.waterFlowRate.min ||
-      input.waterFlowRate > limits.waterFlowRate.max
+      waterFlowTonHr < limits.waterFlowRate.min ||
+      waterFlowTonHr > limits.waterFlowRate.max
     ) {
       errors.push(
-        `Water flow rate must be between ${limits.waterFlowRate.min} and ${limits.waterFlowRate.max} ton/hr`
+        `Water flow rate must be between ${limits.waterFlowRate.min} and ${limits.waterFlowRate.max} ton/hr (converted value: ${waterFlowTonHr.toFixed(2)} ton/hr)`
       );
     }
   } else {
     if (!input.vaporQuantity || input.vaporQuantity <= 0) {
       errors.push('Vapor quantity is required when mode is VAPOR_QUANTITY');
     } else if (
-      input.vaporQuantity < limits.vaporQuantity.min ||
-      input.vaporQuantity > limits.vaporQuantity.max
+      vaporFlowTonHr < limits.vaporQuantity.min ||
+      vaporFlowTonHr > limits.vaporQuantity.max
     ) {
       errors.push(
-        `Vapor quantity must be between ${limits.vaporQuantity.min} and ${limits.vaporQuantity.max} ton/hr`
+        `Vapor quantity must be between ${limits.vaporQuantity.min} and ${limits.vaporQuantity.max} ton/hr (converted value: ${vaporFlowTonHr.toFixed(2)} ton/hr)`
       );
     }
   }
+
+  // Check salinity based on water type
+  if (input.waterType === 'SEAWATER' && input.salinity < 1000) {
+    warnings.push('Seawater salinity is unusually low (< 1000 ppm). Consider using DM Water type.');
+  }
+  if (input.waterType === 'DM_WATER' && input.salinity > 0) {
+    warnings.push('DM water should have zero salinity. Salinity will be treated as 0.');
+  }
+
+  // Use effective salinity (0 for DM water)
+  const effectiveSalinity = input.waterType === 'DM_WATER' ? 0 : input.salinity;
 
   // Check inlet temperature vs saturation temperature
   // Convert mbar abs to bar for steam table lookup
   const opPressureBar = mbarAbsToBar(input.operatingPressure);
   const satTemp = getSaturationTemperature(opPressureBar);
-  const bpe = getBoilingPointElevation(input.seawaterSalinity, satTemp);
+  const bpe = getBoilingPointElevation(effectiveSalinity, satTemp);
   const effectiveSatTemp = satTemp + bpe;
 
   if (input.inletTemperature <= effectiveSatTemp) {
@@ -215,29 +256,33 @@ export function calculateFlashChamber(
   // Use provided pipes or fallback to static data
   const availablePipes = pipes || SCHEDULE_40_PIPES;
 
+  // Determine effective salinity (0 for DM water)
+  const effectiveSalinity = input.waterType === 'DM_WATER' ? 0 : input.salinity;
+
   // Step 1: Determine operating conditions
   // Input is in mbar abs, convert to bar for steam table lookup
   const opPressureBar = mbarAbsToBar(input.operatingPressure);
   const opPressureMbar = input.operatingPressure; // Already in mbar abs
   const satTempPure = getSaturationTemperature(opPressureBar);
-  const bpe = getBoilingPointElevation(input.seawaterSalinity, satTempPure);
+  const bpe = getBoilingPointElevation(effectiveSalinity, satTempPure);
   const satTemp = satTempPure + bpe; // Effective saturation temperature with BPE
 
-  // Step 2: Calculate mass flows based on mode
-  let waterFlow: number;
-  let vaporFlow: number;
-  let brineFlow: number;
+  // Step 2: Calculate mass flows based on mode (convert to ton/hr for calculations)
+  let waterFlow: number; // ton/hr
+  let vaporFlow: number; // ton/hr
+  let brineFlow: number; // ton/hr
 
   if (input.mode === 'WATER_FLOW') {
-    waterFlow = input.waterFlowRate!;
+    // Convert user input to ton/hr
+    waterFlow = convertToTonHr(input.waterFlowRate!, input.flowRateUnit);
 
     // Calculate vapor from heat balance
     // Q_in = m_water * h_inlet
     // Q_out = m_vapor * h_vapor + m_brine * h_brine
     // m_water = m_vapor + m_brine
 
-    const inletEnthalpy = getSeawaterEnthalpy(input.seawaterSalinity, input.inletTemperature);
-    const brineEnthalpy = getSeawaterEnthalpy(input.seawaterSalinity, satTemp);
+    const inletEnthalpy = getSeawaterEnthalpy(effectiveSalinity, input.inletTemperature);
+    const brineEnthalpy = getSeawaterEnthalpy(effectiveSalinity, satTemp);
     const vaporEnthalpy = getEnthalpyVapor(satTempPure);
 
     // Energy balance: m_water * h_inlet = m_vapor * h_vapor + (m_water - m_vapor) * h_brine
@@ -248,10 +293,11 @@ export function calculateFlashChamber(
     brineFlow = waterFlow - vaporFlow;
   } else {
     // VAPOR_QUANTITY mode - back-calculate water flow
-    vaporFlow = input.vaporQuantity!;
+    // Convert user input to ton/hr
+    vaporFlow = convertToTonHr(input.vaporQuantity!, input.flowRateUnit);
 
-    const inletEnthalpy = getSeawaterEnthalpy(input.seawaterSalinity, input.inletTemperature);
-    const brineEnthalpy = getSeawaterEnthalpy(input.seawaterSalinity, satTemp);
+    const inletEnthalpy = getSeawaterEnthalpy(effectiveSalinity, input.inletTemperature);
+    const brineEnthalpy = getSeawaterEnthalpy(effectiveSalinity, satTemp);
     const vaporEnthalpy = getEnthalpyVapor(satTempPure);
 
     // From energy balance:
@@ -261,8 +307,9 @@ export function calculateFlashChamber(
     brineFlow = waterFlow - vaporFlow;
   }
 
-  // Calculate brine salinity
-  const brineSalinity = getBrineSalinity(input.seawaterSalinity, waterFlow, vaporFlow);
+  // Calculate brine salinity (only relevant for seawater)
+  const brineSalinity =
+    input.waterType === 'DM_WATER' ? 0 : getBrineSalinity(effectiveSalinity, waterFlow, vaporFlow);
 
   // Check for excessive concentration
   if (brineSalinity > 70000) {
@@ -280,12 +327,13 @@ export function calculateFlashChamber(
     satTemp,
     satTempPure,
     opPressureMbar,
-    input.seawaterSalinity,
-    brineSalinity
+    effectiveSalinity,
+    brineSalinity,
+    input.waterType
   );
 
   // Step 4: Size chamber
-  const chamberSizing = calculateChamberSize(waterFlow, input);
+  const chamberSizing = calculateChamberSize(waterFlow, input, effectiveSalinity);
 
   // Step 5: Size nozzles
   const nozzles = calculateNozzleSizes(
@@ -295,6 +343,7 @@ export function calculateFlashChamber(
     input,
     satTemp,
     satTempPure,
+    effectiveSalinity,
     brineSalinity,
     availablePipes
   );
@@ -313,7 +362,7 @@ export function calculateFlashChamber(
   });
 
   // Step 6: Calculate NPSHa
-  const npsha = calculateNPSHa(chamberSizing, satTempPure);
+  const npsha = calculateNPSHa(chamberSizing, opPressureBar, satTempPure);
 
   return {
     inputs: input,
@@ -338,6 +387,7 @@ export function calculateFlashChamber(
 /**
  * Calculate heat and mass balance
  * @param opPressureMbar - Operating pressure in mbar absolute
+ * @param waterType - Type of water (seawater or DM water)
  */
 function calculateHeatMassBalance(
   waterFlow: number,
@@ -348,7 +398,8 @@ function calculateHeatMassBalance(
   satTempPure: number,
   opPressureMbar: number,
   inletSalinity: number,
-  brineSalinity: number
+  brineSalinity: number,
+  waterType: 'SEAWATER' | 'DM_WATER'
 ): HeatMassBalance {
   // Get enthalpies
   const inletEnthalpy = getSeawaterEnthalpy(inletSalinity, inletTemp);
@@ -362,9 +413,13 @@ function calculateHeatMassBalance(
   const vaporHeatDuty = (vaporFlow * 1000 * vaporEnthalpy) / 3600;
   const brineHeatDuty = (brineFlow * 1000 * brineEnthalpy) / 3600;
 
+  // Use appropriate stream names based on water type
+  const inletStreamName = waterType === 'SEAWATER' ? 'Seawater Inlet' : 'DM Water Inlet';
+  const outletStreamName = waterType === 'SEAWATER' ? 'Brine Out' : 'Water Out';
+
   // Create balance rows (pressure in mbar abs)
   const inlet: HeatMassBalanceRow = {
-    stream: 'Seawater Inlet',
+    stream: inletStreamName,
     flowRate: waterFlow,
     temperature: inletTemp,
     pressure: opPressureMbar + 50, // Assume ~50 mbar pressure drop at inlet
@@ -382,9 +437,9 @@ function calculateHeatMassBalance(
   };
 
   const brine: HeatMassBalanceRow = {
-    stream: 'Brine Out',
+    stream: outletStreamName,
     flowRate: brineFlow,
-    temperature: satTemp, // Includes BPE
+    temperature: satTemp, // Includes BPE (0 for DM water)
     pressure: opPressureMbar,
     enthalpy: brineEnthalpy,
     heatDuty: brineHeatDuty,
@@ -413,8 +468,15 @@ function calculateHeatMassBalance(
 
 /**
  * Calculate chamber dimensions
+ * @param waterFlow - Water flow rate in ton/hr
+ * @param input - Flash chamber input parameters
+ * @param effectiveSalinity - Effective salinity (0 for DM water)
  */
-function calculateChamberSize(waterFlow: number, input: FlashChamberInput): ChamberSizing {
+function calculateChamberSize(
+  waterFlow: number,
+  input: FlashChamberInput,
+  effectiveSalinity: number
+): ChamberSizing {
   // Diameter: Based on cross-section loading (2 ton/hr/m²)
   const crossSectionArea = waterFlow / CROSS_SECTION_LOADING; // m²
   const diameterM = Math.sqrt((4 * crossSectionArea) / Math.PI); // m
@@ -429,7 +491,7 @@ function calculateChamberSize(waterFlow: number, input: FlashChamberInput): Cham
   // Retention zone height
   // Volume = flow rate * retention time
   // V = Q * t (where Q is in m³/min, t is in minutes)
-  const inletDensity = getSeawaterDensity(input.seawaterSalinity, input.inletTemperature);
+  const inletDensity = getSeawaterDensity(effectiveSalinity, input.inletTemperature);
   const volumetricFlowM3Min = (waterFlow * 1000) / (inletDensity * 60); // m³/min
   const retentionVolume = volumetricFlowM3Min * input.retentionTime; // m³
   const retentionHeightM = retentionVolume / actualCrossSectionArea; // m
@@ -465,6 +527,7 @@ function calculateChamberSize(waterFlow: number, input: FlashChamberInput): Cham
 
 /**
  * Calculate nozzle sizes for inlet, outlet, and vapor
+ * @param effectiveSalinity - Effective inlet salinity (0 for DM water)
  */
 function calculateNozzleSizes(
   waterFlow: number,
@@ -473,13 +536,18 @@ function calculateNozzleSizes(
   input: FlashChamberInput,
   satTemp: number,
   satTempPure: number,
+  effectiveSalinity: number,
   brineSalinity: number,
   availablePipes: PipeVariant[]
 ): NozzleSizing[] {
   const nozzles: NozzleSizing[] = [];
 
+  // Use appropriate nozzle names based on water type
+  const inletNozzleName = input.waterType === 'SEAWATER' ? 'Seawater Inlet' : 'DM Water Inlet';
+  const outletNozzleName = input.waterType === 'SEAWATER' ? 'Brine Outlet' : 'Water Outlet';
+
   // 1. Inlet Nozzle
-  const inletDensity = getSeawaterDensity(input.seawaterSalinity, input.inletTemperature);
+  const inletDensity = getSeawaterDensity(effectiveSalinity, input.inletTemperature);
   const inletVolumetricFlow = (waterFlow * 1000) / (inletDensity * 3600); // m³/s
   const inletRequiredArea = calculateRequiredArea(
     waterFlow,
@@ -496,7 +564,7 @@ function calculateNozzleSizes(
 
   nozzles.push({
     type: 'inlet',
-    name: 'Seawater Inlet',
+    name: inletNozzleName,
     requiredArea: inletRequiredArea,
     calculatedDiameter: Math.sqrt((4 * inletRequiredArea) / Math.PI),
     selectedPipeSize: inletPipe.displayName,
@@ -525,7 +593,7 @@ function calculateNozzleSizes(
 
   nozzles.push({
     type: 'outlet',
-    name: 'Brine Outlet',
+    name: outletNozzleName,
     requiredArea: brineRequiredArea,
     calculatedDiameter: Math.sqrt((4 * brineRequiredArea) / Math.PI),
     selectedPipeSize: brinePipe.displayName,
@@ -569,42 +637,61 @@ function calculateNozzleSizes(
 // ============================================================================
 
 /**
- * Calculate Net Positive Suction Head Available
+ * Calculate Net Positive Suction Head Available for vacuum flash chamber
+ *
+ * For a closed vacuum vessel, NPSHa is calculated as:
+ * NPSHa = Static Head + Chamber Pressure Head - Vapor Pressure Head - Friction Loss
+ *
+ * Note: Atmospheric pressure does NOT act on the liquid in a closed vacuum system.
+ * The driving pressure is the chamber operating pressure.
+ *
+ * @param chamberSizing - Chamber dimensions
+ * @param chamberPressureBar - Operating pressure of chamber in bar (absolute)
+ * @param satTempPure - Saturation temperature of pure water at operating pressure in °C
  */
-function calculateNPSHa(chamberSizing: ChamberSizing, satTempPure: number): NPSHaCalculation {
+function calculateNPSHa(
+  chamberSizing: ChamberSizing,
+  chamberPressureBar: number,
+  satTempPure: number
+): NPSHaCalculation {
   // Static head: Liquid level above pump
   // Assume pump is at bottom of chamber, liquid level = retention zone
   const staticHead = chamberSizing.retentionZoneHeight / 1000; // Convert mm to m
 
-  // Atmospheric pressure head (at sea level)
-  const atmosphericPressure = ATM_PRESSURE_HEAD;
+  // Chamber pressure converted to head (this is the pressure acting on liquid surface)
+  const chamberPressureHead = barToWaterHead(chamberPressureBar);
 
   // Vapor pressure at operating temperature (converted to head)
+  // At saturation, vapor pressure = chamber pressure, so this will be nearly equal
   const vaporPressureBar = getSaturationPressure(satTempPure);
-  const vaporPressure = barToWaterHead(vaporPressureBar);
+  const vaporPressureHead = barToWaterHead(vaporPressureBar);
 
-  // Estimated friction loss
+  // Estimated friction loss in suction piping
   const frictionLoss = ESTIMATED_FRICTION_LOSS;
 
-  // NPSHa = Static head + Atmospheric pressure - Vapor pressure - Friction loss
-  const npshAvailable = staticHead + atmosphericPressure - vaporPressure - frictionLoss;
+  // NPSHa = Static head + Chamber Pressure - Vapor Pressure - Friction loss
+  // Since chamber is at saturation, chamber pressure ≈ vapor pressure
+  // So NPSHa ≈ Static head - Friction loss (typically very low in vacuum systems)
+  const npshAvailable = staticHead + chamberPressureHead - vaporPressureHead - frictionLoss;
 
-  // Generate recommendation
+  // Generate recommendation for vacuum systems
   let recommendation: string;
-  if (npshAvailable >= 5) {
-    recommendation = `NPSHa of ${npshAvailable.toFixed(1)}m is excellent. Standard pumps suitable.`;
-  } else if (npshAvailable >= 3) {
-    recommendation = `NPSHa of ${npshAvailable.toFixed(1)}m is adequate. Ensure pump NPSHr < ${(npshAvailable - MIN_NPSH_MARGIN).toFixed(1)}m.`;
-  } else if (npshAvailable >= 1.5) {
-    recommendation = `NPSHa of ${npshAvailable.toFixed(1)}m is marginal. Consider low-NPSH pump or increase static head.`;
+  if (npshAvailable < 0) {
+    recommendation = `NPSHa of ${npshAvailable.toFixed(2)}m is NEGATIVE. Pump cannot operate. Submersible pump inside chamber or barometric leg required.`;
+  } else if (npshAvailable < 0.5) {
+    recommendation = `NPSHa of ${npshAvailable.toFixed(2)}m is critically low. Submersible pump strongly recommended.`;
+  } else if (npshAvailable < 1.5) {
+    recommendation = `NPSHa of ${npshAvailable.toFixed(2)}m is marginal for vacuum service. Low-NPSH pump or submersible pump recommended.`;
+  } else if (npshAvailable < 3) {
+    recommendation = `NPSHa of ${npshAvailable.toFixed(2)}m is adequate. Select pump with NPSHr < ${(npshAvailable - MIN_NPSH_MARGIN).toFixed(1)}m.`;
   } else {
-    recommendation = `NPSHa of ${npshAvailable.toFixed(1)}m is insufficient. Requires submersible pump or significant elevation increase.`;
+    recommendation = `NPSHa of ${npshAvailable.toFixed(2)}m is good for vacuum service.`;
   }
 
   return {
     staticHead,
-    atmosphericPressure,
-    vaporPressure,
+    chamberPressureHead,
+    vaporPressureHead,
     frictionLoss,
     npshAvailable,
     recommendedNpshMargin: MIN_NPSH_MARGIN,

@@ -22,12 +22,13 @@ export function NPSHaCalculation({ npsha }: NPSHaCalculationProps) {
     });
   };
 
-  // Determine severity based on NPSHa value
+  // Determine severity based on NPSHa value (adjusted for vacuum service)
   const getSeverity = (): 'success' | 'warning' | 'error' | 'info' => {
-    if (npsha.npshAvailable >= 5) return 'success';
-    if (npsha.npshAvailable >= 3) return 'info';
-    if (npsha.npshAvailable >= 1.5) return 'warning';
-    return 'error';
+    if (npsha.npshAvailable < 0) return 'error';
+    if (npsha.npshAvailable < 0.5) return 'error';
+    if (npsha.npshAvailable < 1.5) return 'warning';
+    if (npsha.npshAvailable < 3) return 'info';
+    return 'success';
   };
 
   return (
@@ -48,16 +49,16 @@ export function NPSHaCalculation({ npsha }: NPSHaCalculationProps) {
             </Box>
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body2">Atmospheric Pressure</Typography>
+              <Typography variant="body2">Chamber Pressure Head</Typography>
               <Typography variant="body2" fontWeight="medium" color="success.main">
-                + {formatNumber(npsha.atmosphericPressure)} m
+                + {formatNumber(npsha.chamberPressureHead)} m
               </Typography>
             </Box>
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body2">Vapor Pressure</Typography>
+              <Typography variant="body2">Vapor Pressure Head</Typography>
               <Typography variant="body2" fontWeight="medium" color="error.main">
-                - {formatNumber(npsha.vaporPressure)} m
+                - {formatNumber(npsha.vaporPressureHead)} m
               </Typography>
             </Box>
 

@@ -22,8 +22,13 @@ import {
   IconButton,
 } from '@mui/material';
 import { Info as InfoIcon } from '@mui/icons-material';
-import type { FlashChamberInput, FlashChamberInputMode } from '@vapour/types';
-import { FLASH_CHAMBER_LIMITS } from '@vapour/types';
+import type {
+  FlashChamberInput,
+  FlashChamberInputMode,
+  FlashChamberWaterType,
+  FlowRateUnit,
+} from '@vapour/types';
+import { FLASH_CHAMBER_LIMITS, FLOW_RATE_UNIT_LABELS } from '@vapour/types';
 
 interface InputSectionProps {
   inputs: FlashChamberInput;
@@ -48,6 +53,25 @@ export function InputSection({ inputs, onChange }: InputSectionProps) {
     });
   };
 
+  const handleWaterTypeChange = (waterType: FlashChamberWaterType) => {
+    onChange({
+      ...inputs,
+      waterType,
+      // Set appropriate default salinity based on water type
+      salinity: waterType === 'SEAWATER' ? 35000 : 0,
+    });
+  };
+
+  const handleFlowRateUnitChange = (flowRateUnit: FlowRateUnit) => {
+    onChange({
+      ...inputs,
+      flowRateUnit,
+    });
+  };
+
+  // Get the current flow rate unit label
+  const flowRateUnitLabel = FLOW_RATE_UNIT_LABELS[inputs.flowRateUnit];
+
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" gutterBottom>
@@ -55,7 +79,20 @@ export function InputSection({ inputs, onChange }: InputSectionProps) {
       </Typography>
 
       <Stack spacing={3}>
-        {/* Mode Selection */}
+        {/* Water Type Selection */}
+        <FormControl fullWidth>
+          <InputLabel>Water Type</InputLabel>
+          <Select
+            value={inputs.waterType}
+            label="Water Type"
+            onChange={(e) => handleWaterTypeChange(e.target.value as FlashChamberWaterType)}
+          >
+            <MenuItem value="SEAWATER">Seawater</MenuItem>
+            <MenuItem value="DM_WATER">DM Water (Demineralized)</MenuItem>
+          </Select>
+        </FormControl>
+
+        {/* Calculation Mode Selection */}
         <FormControl fullWidth>
           <InputLabel>Calculation Mode</InputLabel>
           <Select
@@ -65,6 +102,20 @@ export function InputSection({ inputs, onChange }: InputSectionProps) {
           >
             <MenuItem value="WATER_FLOW">Water Flow Known</MenuItem>
             <MenuItem value="VAPOR_QUANTITY">Vapor Quantity Known</MenuItem>
+          </Select>
+        </FormControl>
+
+        {/* Flow Rate Unit Selection */}
+        <FormControl fullWidth>
+          <InputLabel>Flow Rate Unit</InputLabel>
+          <Select
+            value={inputs.flowRateUnit}
+            label="Flow Rate Unit"
+            onChange={(e) => handleFlowRateUnitChange(e.target.value as FlowRateUnit)}
+          >
+            <MenuItem value="KG_SEC">kg/sec</MenuItem>
+            <MenuItem value="KG_HR">kg/hr</MenuItem>
+            <MenuItem value="TON_HR">ton/hr</MenuItem>
           </Select>
         </FormControl>
 
@@ -94,14 +145,12 @@ export function InputSection({ inputs, onChange }: InputSectionProps) {
             value={inputs.waterFlowRate || ''}
             onChange={(e) => handleChange('waterFlowRate', parseFloat(e.target.value) || 0)}
             InputProps={{
-              endAdornment: <InputAdornment position="end">ton/hr</InputAdornment>,
+              endAdornment: <InputAdornment position="end">{flowRateUnitLabel}</InputAdornment>,
             }}
             inputProps={{
-              min: FLASH_CHAMBER_LIMITS.waterFlowRate.min,
-              max: FLASH_CHAMBER_LIMITS.waterFlowRate.max,
-              step: 1,
+              step: inputs.flowRateUnit === 'KG_SEC' ? 0.1 : 1,
             }}
-            helperText="Inlet seawater flow rate"
+            helperText={`Inlet ${inputs.waterType === 'SEAWATER' ? 'seawater' : 'DM water'} flow rate`}
             fullWidth
           />
         ) : (
@@ -111,12 +160,10 @@ export function InputSection({ inputs, onChange }: InputSectionProps) {
             value={inputs.vaporQuantity || ''}
             onChange={(e) => handleChange('vaporQuantity', parseFloat(e.target.value) || 0)}
             InputProps={{
-              endAdornment: <InputAdornment position="end">ton/hr</InputAdornment>,
+              endAdornment: <InputAdornment position="end">{flowRateUnitLabel}</InputAdornment>,
             }}
             inputProps={{
-              min: FLASH_CHAMBER_LIMITS.vaporQuantity.min,
-              max: FLASH_CHAMBER_LIMITS.vaporQuantity.max,
-              step: 0.1,
+              step: inputs.flowRateUnit === 'KG_SEC' ? 0.01 : 0.1,
             }}
             helperText="Desired vapor production"
             fullWidth
@@ -126,7 +173,7 @@ export function InputSection({ inputs, onChange }: InputSectionProps) {
         <Divider />
 
         <Typography variant="subtitle2" color="text.secondary">
-          Seawater Inlet Conditions
+          {inputs.waterType === 'SEAWATER' ? 'Seawater' : 'DM Water'} Inlet Conditions
         </Typography>
 
         {/* Inlet Temperature */}
@@ -147,23 +194,37 @@ export function InputSection({ inputs, onChange }: InputSectionProps) {
           fullWidth
         />
 
-        {/* Salinity */}
-        <TextField
-          label="Seawater Salinity"
-          type="number"
-          value={inputs.seawaterSalinity}
-          onChange={(e) => handleChange('seawaterSalinity', parseFloat(e.target.value) || 0)}
-          InputProps={{
-            endAdornment: <InputAdornment position="end">ppm</InputAdornment>,
-          }}
-          inputProps={{
-            min: FLASH_CHAMBER_LIMITS.seawaterSalinity.min,
-            max: FLASH_CHAMBER_LIMITS.seawaterSalinity.max,
-            step: 1000,
-          }}
-          helperText="Typical seawater: 35,000 ppm"
-          fullWidth
-        />
+        {/* Salinity - only shown for seawater */}
+        {inputs.waterType === 'SEAWATER' ? (
+          <TextField
+            label="Seawater Salinity"
+            type="number"
+            value={inputs.salinity}
+            onChange={(e) => handleChange('salinity', parseFloat(e.target.value) || 0)}
+            InputProps={{
+              endAdornment: <InputAdornment position="end">ppm</InputAdornment>,
+            }}
+            inputProps={{
+              min: 1000,
+              max: FLASH_CHAMBER_LIMITS.salinity.max,
+              step: 1000,
+            }}
+            helperText="Typical seawater: 35,000 ppm"
+            fullWidth
+          />
+        ) : (
+          <TextField
+            label="Water Salinity"
+            type="number"
+            value={inputs.salinity}
+            disabled
+            InputProps={{
+              endAdornment: <InputAdornment position="end">ppm</InputAdornment>,
+            }}
+            helperText="DM water has negligible salinity (0 ppm)"
+            fullWidth
+          />
+        )}
 
         <Divider />
 
