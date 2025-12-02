@@ -58,7 +58,7 @@ export async function submitInvoiceForApproval(
       userId,
       userName,
       timestamp: new Date(),
-      comments,
+      ...(comments ? { comments } : {}),
     };
 
     await updateDoc(invoiceRef, {
@@ -138,7 +138,7 @@ export async function approveInvoice(
       userId,
       userName,
       timestamp: new Date(),
-      comments,
+      ...(comments ? { comments } : {}),
     };
 
     await updateDoc(invoiceRef, {
