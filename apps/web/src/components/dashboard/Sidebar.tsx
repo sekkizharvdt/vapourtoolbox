@@ -40,8 +40,6 @@ import {
   Inventory as InventoryIcon,
   LocalShipping as LocalShippingIcon,
   Thermostat as ThermostatIcon,
-  HelpOutline as HelpOutlineIcon,
-  Feedback as FeedbackIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 import { MODULES, hasPermission, hasPermission2 } from '@vapour/constants';
@@ -336,82 +334,6 @@ function SidebarComponent({
           </Box>
         ))}
       </Box>
-
-      {/* Help & Feedback Links */}
-      <Divider />
-      <List disablePadding sx={{ py: 1 }}>
-        <ListItem disablePadding>
-          <Tooltip title={collapsed ? 'User Guide' : ''} placement="right">
-            <ListItemButton
-              selected={pathname === '/guide'}
-              onClick={() => handleNavigation('/guide')}
-              sx={{
-                justifyContent: collapsed ? 'center' : 'initial',
-                px: collapsed ? 0 : 2,
-                minHeight: 48,
-              }}
-            >
-              <ListItemIcon
-                sx={{
-                  minWidth: 0,
-                  mr: collapsed ? 0 : 3,
-                  justifyContent: 'center',
-                }}
-              >
-                <HelpOutlineIcon />
-              </ListItemIcon>
-              {!collapsed && (
-                <ListItemText
-                  primary="User Guide"
-                  primaryTypographyProps={{
-                    fontSize: '0.875rem',
-                  }}
-                />
-              )}
-            </ListItemButton>
-          </Tooltip>
-        </ListItem>
-        <ListItem disablePadding>
-          <Tooltip
-            title={collapsed ? 'Feedback & Support (opens in new tab)' : ''}
-            placement="right"
-          >
-            <ListItemButton
-              component="a"
-              href="/feedback"
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{
-                justifyContent: collapsed ? 'center' : 'initial',
-                px: collapsed ? 0 : 2,
-                minHeight: 48,
-              }}
-            >
-              <ListItemIcon
-                sx={{
-                  minWidth: 0,
-                  mr: collapsed ? 0 : 3,
-                  justifyContent: 'center',
-                }}
-              >
-                <FeedbackIcon />
-              </ListItemIcon>
-              {!collapsed && (
-                <ListItemText
-                  primary="Feedback"
-                  secondary="Opens in new tab"
-                  primaryTypographyProps={{
-                    fontSize: '0.875rem',
-                  }}
-                  secondaryTypographyProps={{
-                    fontSize: '0.7rem',
-                  }}
-                />
-              )}
-            </ListItemButton>
-          </Tooltip>
-        </ListItem>
-      </List>
 
       {/* Toggle Button */}
       <Divider />

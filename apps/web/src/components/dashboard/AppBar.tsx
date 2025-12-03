@@ -10,6 +10,7 @@ import {
   Menu,
   MenuItem,
   Divider,
+  Tooltip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -17,6 +18,8 @@ import {
   AccountCircle as AccountCircleIcon,
   Home as HomeIcon,
   Search as SearchIcon,
+  HelpOutline as HelpOutlineIcon,
+  Feedback as FeedbackIcon,
 } from '@mui/icons-material';
 import { ThemeToggle } from '@vapour/ui';
 import { useState } from 'react';
@@ -149,6 +152,24 @@ export function DashboardAppBar({
           <IconButton color="inherit" onClick={handleHome} title="Home / Dashboard">
             <HomeIcon />
           </IconButton>
+
+          <Tooltip title="User Guide">
+            <IconButton color="inherit" onClick={() => router.push('/guide')}>
+              <HelpOutlineIcon />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Feedback (opens in new tab)">
+            <IconButton
+              color="inherit"
+              component="a"
+              href="/feedback"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <FeedbackIcon />
+            </IconButton>
+          </Tooltip>
 
           <ThemeToggle />
 
