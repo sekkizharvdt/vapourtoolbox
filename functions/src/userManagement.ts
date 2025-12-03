@@ -247,6 +247,7 @@ export const onUserUpdate = onDocumentWritten(
       // User is active - set up custom claims
       // Permissions are stored directly on the user document (no roles)
       const permissions = userData.permissions || 0;
+      const permissions2 = userData.permissions2 || 0;
       const domain = getUserDomain(userData.email);
 
       // Get allowed modules (empty array means all modules)
@@ -260,6 +261,7 @@ export const onUserUpdate = onDocumentWritten(
       // Set custom claims (permissions-based, no roles)
       const customClaims = {
         permissions,
+        permissions2,
         domain,
         allowedModules,
         assignedProjects, // Add assignedProjects to avoid Firestore reads in rules
@@ -270,6 +272,7 @@ export const onUserUpdate = onDocumentWritten(
 
       console.log(`Updated custom claims for user ${user.email}:`, {
         permissions,
+        permissions2,
         domain,
         allowedModules: allowedModules.length > 0 ? allowedModules : 'all',
       });
