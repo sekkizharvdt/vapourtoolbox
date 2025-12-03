@@ -14,7 +14,13 @@ interface ModuleLayoutProps {
    * @param permissions - The user's permission bitmask
    * @returns true if the user has access, false otherwise
    */
-  permissionCheck: (permissions: number) => boolean;
+  permissionCheck?: (permissions: number) => boolean;
+  /**
+   * Function to check if the user has extended permission (permissions2) to access this module
+   * @param permissions2 - The user's extended permission bitmask
+   * @returns true if the user has access, false otherwise
+   */
+  permissionCheck2?: (permissions2: number) => boolean;
   /**
    * The module name displayed in the access denied message
    */
@@ -57,6 +63,7 @@ interface ModuleLayoutProps {
 export function ModuleLayout({
   children,
   permissionCheck,
+  permissionCheck2,
   moduleName,
   moduleId,
 }: ModuleLayoutProps) {
@@ -175,8 +182,13 @@ export function ModuleLayout({
 
   // Check module-specific permissions
   const userPermissions = claims.permissions || 0;
+  const userPermissions2 = claims.permissions2 || 0;
   const allowedModules = claims.allowedModules || [];
-  const hasPermissionAccess = permissionCheck(userPermissions);
+
+  // Check permission access - must pass either permissionCheck OR permissionCheck2 (or both if both provided)
+  const hasPermissionAccess =
+    (permissionCheck ? permissionCheck(userPermissions) : true) &&
+    (permissionCheck2 ? permissionCheck2(userPermissions2) : true);
 
   // Check module visibility (if moduleId provided and allowedModules is restricted)
   const hasModuleVisibility =
@@ -213,6 +225,7 @@ export function ModuleLayout({
         mobileOpen={mobileOpen}
         onMobileClose={handleDrawerToggle}
         userPermissions={userPermissions}
+        userPermissions2={userPermissions2}
         allowedModules={allowedModules}
         collapsed={sidebarCollapsed}
         onToggleCollapse={handleSidebarToggle}

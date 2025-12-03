@@ -12,6 +12,7 @@ export interface CustomClaims {
   entityId?: string; // Business entity ID for multi-entity support
   department?: Department;
   permissions: number; // Bitwise permissions (see permissions.ts)
+  permissions2?: number; // Extended permissions (see PERMISSION_FLAGS_2 in permissions.ts)
   domain: 'internal' | 'external'; // vapourdesal.com vs external domains
   allowedModules?: string[]; // Module IDs user can access (empty = all modules)
 }
@@ -28,6 +29,7 @@ export interface User extends TimestampFields {
   // Permissions and department
   department?: Department;
   permissions: number; // Bitwise permissions (see permissions.ts)
+  permissions2?: number; // Extended permissions (see PERMISSION_FLAGS_2 in permissions.ts)
   allowedModules?: string[]; // Module IDs user can access (empty = all modules)
   jobTitle?: string;
 

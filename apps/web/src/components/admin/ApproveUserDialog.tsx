@@ -32,8 +32,11 @@ import type { User, Department } from '@vapour/types';
 import {
   getDepartmentOptions,
   PERMISSION_FLAGS,
+  PERMISSION_FLAGS_2,
   PERMISSION_PRESETS,
   MODULES,
+  hasPermission,
+  getAllPermissions2,
 } from '@vapour/constants';
 
 interface ApproveUserDialogProps {
@@ -88,6 +91,22 @@ const PERMISSION_GROUPS = {
   ],
 } as const;
 
+// Extended permission groups (permissions2 field)
+const PERMISSION_GROUPS_2 = {
+  'Engineering Tools': [
+    { flag: 'VIEW_MATERIAL_DB', label: 'View Material Database' },
+    { flag: 'MANAGE_MATERIAL_DB', label: 'Manage Material Database' },
+    { flag: 'VIEW_SHAPE_DB', label: 'View Shape Database' },
+    { flag: 'MANAGE_SHAPE_DB', label: 'Manage Shape Database' },
+    { flag: 'VIEW_BOUGHT_OUT_DB', label: 'View Bought Out Database' },
+    { flag: 'MANAGE_BOUGHT_OUT_DB', label: 'Manage Bought Out Database' },
+    { flag: 'VIEW_THERMAL_DESAL', label: 'View Thermal Desalination' },
+    { flag: 'MANAGE_THERMAL_DESAL', label: 'Manage Thermal Desalination' },
+    { flag: 'VIEW_THERMAL_CALCS', label: 'View Thermal Calculators' },
+    { flag: 'MANAGE_THERMAL_CALCS', label: 'Manage Thermal Calculators' },
+  ],
+} as const;
+
 // Get all module IDs for the module selection
 const ALL_MODULES = Object.values(MODULES)
   .filter((m) => m.status === 'active')
@@ -99,6 +118,7 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
 
   // Form state
   const [permissions, setPermissions] = useState(0);
+  const [permissions2, setPermissions2] = useState(0);
   const [department, setDepartment] = useState<Department | ''>('');
   const [jobTitle, setJobTitle] = useState('');
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
@@ -106,7 +126,33 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
 
   // Apply a permission preset
   const applyPreset = (presetName: keyof typeof PERMISSION_PRESETS) => {
-    setPermissions(PERMISSION_PRESETS[presetName]);
+    const presetValue = PERMISSION_PRESETS[presetName];
+    setPermissions(presetValue);
+
+    // For presets that include VIEW_ESTIMATION, also grant all engineering tool permissions
+    if (hasPermission(presetValue, PERMISSION_FLAGS.VIEW_ESTIMATION)) {
+      const viewPerms2 =
+        PERMISSION_FLAGS_2.VIEW_MATERIAL_DB |
+        PERMISSION_FLAGS_2.VIEW_SHAPE_DB |
+        PERMISSION_FLAGS_2.VIEW_BOUGHT_OUT_DB |
+        PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL |
+        PERMISSION_FLAGS_2.VIEW_THERMAL_CALCS;
+
+      const managePerms2 = hasPermission(presetValue, PERMISSION_FLAGS.MANAGE_ESTIMATION)
+        ? PERMISSION_FLAGS_2.MANAGE_MATERIAL_DB |
+          PERMISSION_FLAGS_2.MANAGE_SHAPE_DB |
+          PERMISSION_FLAGS_2.MANAGE_BOUGHT_OUT_DB |
+          PERMISSION_FLAGS_2.MANAGE_THERMAL_DESAL |
+          PERMISSION_FLAGS_2.MANAGE_THERMAL_CALCS
+        : 0;
+
+      setPermissions2(viewPerms2 | managePerms2);
+    } else if (presetName === 'FULL_ACCESS') {
+      // Full access gets all permissions2
+      setPermissions2(getAllPermissions2());
+    } else {
+      setPermissions2(0);
+    }
   };
 
   // Toggle a permission flag
@@ -119,10 +165,26 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
     }
   };
 
+  // Toggle a permission2 flag (extended permissions)
+  const togglePermission2 = (flag: keyof typeof PERMISSION_FLAGS_2) => {
+    const flagValue = PERMISSION_FLAGS_2[flag];
+    if ((permissions2 & flagValue) === flagValue) {
+      setPermissions2(permissions2 & ~flagValue);
+    } else {
+      setPermissions2(permissions2 | flagValue);
+    }
+  };
+
   // Check if a permission is set
-  const hasPermission = (flag: keyof typeof PERMISSION_FLAGS) => {
+  const hasPermissionFlag = (flag: keyof typeof PERMISSION_FLAGS) => {
     const flagValue = PERMISSION_FLAGS[flag];
     return (permissions & flagValue) === flagValue;
+  };
+
+  // Check if a permission2 is set
+  const hasPermission2Flag = (flag: keyof typeof PERMISSION_FLAGS_2) => {
+    const flagValue = PERMISSION_FLAGS_2[flag];
+    return (permissions2 & flagValue) === flagValue;
   };
 
   // Toggle module selection
@@ -158,6 +220,7 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
       // Update user document - set to active and assign permissions
       await updateDoc(userRef, {
         permissions,
+        permissions2,
         department,
         jobTitle: jobTitle.trim() || null,
         allowedModules: allModulesAccess ? [] : selectedModules,
@@ -174,6 +237,7 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
 
       // Reset form
       setPermissions(0);
+      setPermissions2(0);
       setDepartment('');
       setJobTitle('');
       setSelectedModules([]);
@@ -229,6 +293,7 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
     if (!loading) {
       setError('');
       setPermissions(0);
+      setPermissions2(0);
       setDepartment('');
       setJobTitle('');
       setSelectedModules([]);
@@ -316,7 +381,15 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
               <Button size="small" variant="outlined" onClick={() => applyPreset('VIEWER')}>
                 Viewer
               </Button>
-              <Button size="small" variant="text" color="inherit" onClick={() => setPermissions(0)}>
+              <Button
+                size="small"
+                variant="text"
+                color="inherit"
+                onClick={() => {
+                  setPermissions(0);
+                  setPermissions2(0);
+                }}
+              >
                 Clear All
               </Button>
             </Box>
@@ -339,8 +412,36 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
                         key={flag}
                         control={
                           <Checkbox
-                            checked={hasPermission(flag as keyof typeof PERMISSION_FLAGS)}
+                            checked={hasPermissionFlag(flag as keyof typeof PERMISSION_FLAGS)}
                             onChange={() => togglePermission(flag as keyof typeof PERMISSION_FLAGS)}
+                            size="small"
+                          />
+                        }
+                        label={<Typography variant="body2">{label}</Typography>}
+                        sx={{ minWidth: '180px' }}
+                      />
+                    ))}
+                  </FormGroup>
+                </AccordionDetails>
+              </Accordion>
+            ))}
+            {/* Extended Permissions (permissions2) */}
+            {Object.entries(PERMISSION_GROUPS_2).map(([groupName, perms]) => (
+              <Accordion key={groupName}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography variant="body2">{groupName}</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <FormGroup row>
+                    {perms.map(({ flag, label }) => (
+                      <FormControlLabel
+                        key={flag}
+                        control={
+                          <Checkbox
+                            checked={hasPermission2Flag(flag as keyof typeof PERMISSION_FLAGS_2)}
+                            onChange={() =>
+                              togglePermission2(flag as keyof typeof PERMISSION_FLAGS_2)
+                            }
                             size="small"
                           />
                         }

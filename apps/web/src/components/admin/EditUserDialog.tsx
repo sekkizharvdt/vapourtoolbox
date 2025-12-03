@@ -31,7 +31,14 @@ import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { User, Department, UserStatus } from '@vapour/types';
-import { getDepartmentOptions, PERMISSION_FLAGS, hasPermission, MODULES } from '@vapour/constants';
+import {
+  getDepartmentOptions,
+  PERMISSION_FLAGS,
+  PERMISSION_FLAGS_2,
+  hasPermission,
+  hasPermission2,
+  MODULES,
+} from '@vapour/constants';
 import { Divider, FormGroup, FormControlLabel } from '@mui/material';
 
 // Get all active modules for the module selection
@@ -59,6 +66,7 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
   const [department, setDepartment] = useState<Department | ''>('');
   const [status, setStatus] = useState<UserStatus>('active');
   const [permissions, setPermissions] = useState<number>(0);
+  const [permissions2, setPermissions2] = useState<number>(0);
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
   const [allModulesAccess, setAllModulesAccess] = useState(true);
 
@@ -72,6 +80,33 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
       setDepartment(user.department || '');
       setStatus(user.status);
       setPermissions(user.permissions || 0);
+
+      // Backward compatibility migration: if user has VIEW_ESTIMATION but no permissions2,
+      // auto-grant all new view/manage permissions based on their estimation permissions
+      let initialPermissions2 = user.permissions2 || 0;
+      if (
+        hasPermission(user.permissions || 0, PERMISSION_FLAGS.VIEW_ESTIMATION) &&
+        !user.permissions2
+      ) {
+        const viewPerms =
+          PERMISSION_FLAGS_2.VIEW_MATERIAL_DB |
+          PERMISSION_FLAGS_2.VIEW_SHAPE_DB |
+          PERMISSION_FLAGS_2.VIEW_BOUGHT_OUT_DB |
+          PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL |
+          PERMISSION_FLAGS_2.VIEW_THERMAL_CALCS;
+
+        const managePerms = hasPermission(user.permissions || 0, PERMISSION_FLAGS.MANAGE_ESTIMATION)
+          ? PERMISSION_FLAGS_2.MANAGE_MATERIAL_DB |
+            PERMISSION_FLAGS_2.MANAGE_SHAPE_DB |
+            PERMISSION_FLAGS_2.MANAGE_BOUGHT_OUT_DB |
+            PERMISSION_FLAGS_2.MANAGE_THERMAL_DESAL |
+            PERMISSION_FLAGS_2.MANAGE_THERMAL_CALCS
+          : 0;
+
+        initialPermissions2 = viewPerms | managePerms;
+      }
+      setPermissions2(initialPermissions2);
+
       // Module visibility: empty array means all modules
       const userModules = user.allowedModules || [];
       setSelectedModules(userModules);
@@ -85,6 +120,19 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
   const togglePermission = (permission: number) => {
     setPermissions((prev) => {
       if (hasPermission(prev, permission)) {
+        // Remove permission (bitwise AND with NOT)
+        return prev & ~permission;
+      } else {
+        // Add permission (bitwise OR)
+        return prev | permission;
+      }
+    });
+  };
+
+  // Permission2 toggle handler (for extended permissions)
+  const togglePermission2 = (permission: number) => {
+    setPermissions2((prev) => {
+      if (hasPermission2(prev, permission)) {
         // Remove permission (bitwise AND with NOT)
         return prev & ~permission;
       } else {
@@ -128,6 +176,7 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
         department: department || null,
         status,
         permissions,
+        permissions2,
         allowedModules: allModulesAccess ? [] : selectedModules,
         updatedAt: Timestamp.now(),
       });
@@ -493,68 +542,142 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
                     </TableCell>
                   </TableRow>
 
-                  {/* Material Database (Read-only indicator) */}
-                  <TableRow sx={{ bgcolor: 'action.hover' }}>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        Material Database
-                        <Tooltip title="Access controlled by Estimation → View permission">
-                          <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
+                  {/* Material Database */}
+                  <TableRow>
+                    <TableCell>Material Database</TableCell>
                     <TableCell align="center">
                       <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.VIEW_ESTIMATION)}
-                        disabled
+                        checked={hasPermission2(permissions2, PERMISSION_FLAGS_2.VIEW_MATERIAL_DB)}
+                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.VIEW_MATERIAL_DB)}
                         size="small"
                       />
                     </TableCell>
-                    <TableCell align="center">—</TableCell>
+                    <TableCell align="center">
+                      <Checkbox
+                        checked={hasPermission2(
+                          permissions2,
+                          PERMISSION_FLAGS_2.MANAGE_MATERIAL_DB
+                        )}
+                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.MANAGE_MATERIAL_DB)}
+                        size="small"
+                      />
+                    </TableCell>
                     <TableCell align="center">—</TableCell>
                     <TableCell align="center">—</TableCell>
                   </TableRow>
 
-                  {/* Shape Database (Read-only indicator) */}
-                  <TableRow sx={{ bgcolor: 'action.hover' }}>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        Shape Database
-                        <Tooltip title="Access controlled by Estimation → View permission">
-                          <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
+                  {/* Shape Database */}
+                  <TableRow>
+                    <TableCell>Shape Database</TableCell>
                     <TableCell align="center">
                       <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.VIEW_ESTIMATION)}
-                        disabled
+                        checked={hasPermission2(permissions2, PERMISSION_FLAGS_2.VIEW_SHAPE_DB)}
+                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.VIEW_SHAPE_DB)}
                         size="small"
                       />
                     </TableCell>
-                    <TableCell align="center">—</TableCell>
+                    <TableCell align="center">
+                      <Checkbox
+                        checked={hasPermission2(permissions2, PERMISSION_FLAGS_2.MANAGE_SHAPE_DB)}
+                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.MANAGE_SHAPE_DB)}
+                        size="small"
+                      />
+                    </TableCell>
                     <TableCell align="center">—</TableCell>
                     <TableCell align="center">—</TableCell>
                   </TableRow>
 
-                  {/* Bought Out Database (Read-only indicator) */}
-                  <TableRow sx={{ bgcolor: 'action.hover' }}>
+                  {/* Bought Out Database */}
+                  <TableRow>
+                    <TableCell>Bought Out Database</TableCell>
+                    <TableCell align="center">
+                      <Checkbox
+                        checked={hasPermission2(
+                          permissions2,
+                          PERMISSION_FLAGS_2.VIEW_BOUGHT_OUT_DB
+                        )}
+                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.VIEW_BOUGHT_OUT_DB)}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Checkbox
+                        checked={hasPermission2(
+                          permissions2,
+                          PERMISSION_FLAGS_2.MANAGE_BOUGHT_OUT_DB
+                        )}
+                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.MANAGE_BOUGHT_OUT_DB)}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell align="center">—</TableCell>
+                    <TableCell align="center">—</TableCell>
+                  </TableRow>
+
+                  {/* Thermal Desalination */}
+                  <TableRow>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        Bought Out Database
-                        <Tooltip title="Access controlled by Estimation → View permission">
+                        Thermal Desalination
+                        <Tooltip title="Includes Flash Chamber calculator and design tools">
                           <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                         </Tooltip>
                       </Box>
                     </TableCell>
                     <TableCell align="center">
                       <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.VIEW_ESTIMATION)}
-                        disabled
+                        checked={hasPermission2(
+                          permissions2,
+                          PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL
+                        )}
+                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL)}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Checkbox
+                        checked={hasPermission2(
+                          permissions2,
+                          PERMISSION_FLAGS_2.MANAGE_THERMAL_DESAL
+                        )}
+                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.MANAGE_THERMAL_DESAL)}
                         size="small"
                       />
                     </TableCell>
                     <TableCell align="center">—</TableCell>
+                    <TableCell align="center">—</TableCell>
+                  </TableRow>
+
+                  {/* Thermal Calculators */}
+                  <TableRow>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        Thermal Calculators
+                        <Tooltip title="Steam tables, seawater properties, pipe sizing, pressure drop, NPSHa, heat duty">
+                          <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Checkbox
+                        checked={hasPermission2(
+                          permissions2,
+                          PERMISSION_FLAGS_2.VIEW_THERMAL_CALCS
+                        )}
+                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.VIEW_THERMAL_CALCS)}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Checkbox
+                        checked={hasPermission2(
+                          permissions2,
+                          PERMISSION_FLAGS_2.MANAGE_THERMAL_CALCS
+                        )}
+                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.MANAGE_THERMAL_CALCS)}
+                        size="small"
+                      />
+                    </TableCell>
                     <TableCell align="center">—</TableCell>
                     <TableCell align="center">—</TableCell>
                   </TableRow>
@@ -601,20 +724,10 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
               </Table>
             </TableContainer>
 
-            <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box sx={{ mt: 1 }}>
               <Typography variant="caption" color="text.secondary">
                 <strong>Note:</strong> — indicates permission not applicable for this module
               </Typography>
-              <Alert severity="info" sx={{ py: 0.5 }}>
-                <Typography variant="caption">
-                  <strong>Engineering Databases:</strong> Material Database, Shape Database, and
-                  Bought Out Database are automatically accessible when Estimation → View is
-                  enabled.
-                  <br />
-                  <strong>Document Management:</strong> Accessible to all users regardless of
-                  permissions.
-                </Typography>
-              </Alert>
             </Box>
           </Box>
 

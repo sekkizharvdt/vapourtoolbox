@@ -44,12 +44,13 @@ import {
   Feedback as FeedbackIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
-import { MODULES } from '@vapour/constants';
+import { MODULES, hasPermission, hasPermission2 } from '@vapour/constants';
 
 interface SidebarProps {
   mobileOpen: boolean;
   onMobileClose: () => void;
   userPermissions?: number;
+  userPermissions2?: number; // Extended permissions from PERMISSION_FLAGS_2
   allowedModules?: string[]; // Module IDs user can access (empty = all modules)
   collapsed: boolean;
   onToggleCollapse: () => void;
@@ -73,6 +74,7 @@ const moduleIcons: Record<string, React.ReactNode> = {
   'shape-database': <CalculateIcon />,
   'bought-out-database': <LocalShippingIcon />,
   'thermal-desal': <ThermostatIcon />,
+  'thermal-calcs': <CalculateIcon />,
   'proposal-management': <AssignmentIcon />,
 };
 
@@ -104,6 +106,7 @@ const SIDEBAR_CATEGORIES: CategoryConfig[] = [
       'proposal-management', // Enquiry → Proposal
       'estimation', // Cost estimation for proposals
       'thermal-desal', // Specialized estimations
+      'thermal-calcs', // Thermal calculators
     ],
   },
   {
@@ -125,6 +128,7 @@ function SidebarComponent({
   mobileOpen,
   onMobileClose,
   userPermissions = 0,
+  userPermissions2 = 0,
   allowedModules,
   collapsed,
   onToggleCollapse,
@@ -146,13 +150,23 @@ function SidebarComponent({
         if (!allowedModules.includes(module.id)) return false;
       }
 
-      // If no permission required, accessible by all (visibility check already passed)
-      if (module.requiredPermissions === undefined) return true;
+      // Check requiredPermissions (from permissions field)
+      if (module.requiredPermissions !== undefined) {
+        if (!hasPermission(userPermissions, module.requiredPermissions)) {
+          return false;
+        }
+      }
 
-      // Check if user has required permissions using bitwise AND
-      return (userPermissions & module.requiredPermissions) === module.requiredPermissions;
+      // Check requiredPermissions2 (from permissions2 field)
+      if (module.requiredPermissions2 !== undefined) {
+        if (!hasPermission2(userPermissions2, module.requiredPermissions2)) {
+          return false;
+        }
+      }
+
+      return true;
     });
-  }, [userPermissions, allowedModules]);
+  }, [userPermissions, userPermissions2, allowedModules]);
 
   // Memoize modules grouped by category
   const modulesByCategory = useMemo(() => {

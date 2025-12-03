@@ -322,3 +322,121 @@ export const PERMISSION_PRESETS = {
     PERMISSION_FLAGS.VIEW_PROCUREMENT |
     PERMISSION_FLAGS.VIEW_ESTIMATION,
 } as const;
+
+/**
+ * Extended Permission Flags (permissions2 field)
+ *
+ * These permissions are stored in a separate `permissions2` field
+ * because the original `permissions` field has exhausted all 31 usable bits.
+ *
+ * Same bitwise operations apply:
+ * - Check: (userPermissions2 & requiredPerm) === requiredPerm
+ * - Add: permissions2 | newPerm
+ * - Remove: permissions2 & ~newPerm
+ */
+export const PERMISSION_FLAGS_2 = {
+  // Material Database (bits 0-1)
+  VIEW_MATERIAL_DB: 1 << 0, // 1
+  MANAGE_MATERIAL_DB: 1 << 1, // 2
+
+  // Shape Database (bits 2-3)
+  VIEW_SHAPE_DB: 1 << 2, // 4
+  MANAGE_SHAPE_DB: 1 << 3, // 8
+
+  // Bought Out Database (bits 4-5)
+  VIEW_BOUGHT_OUT_DB: 1 << 4, // 16
+  MANAGE_BOUGHT_OUT_DB: 1 << 5, // 32
+
+  // Thermal Desalination (bits 6-7) - includes Flash Chamber
+  VIEW_THERMAL_DESAL: 1 << 6, // 64
+  MANAGE_THERMAL_DESAL: 1 << 7, // 128
+
+  // Thermal Calculators (bits 8-9)
+  VIEW_THERMAL_CALCS: 1 << 8, // 256
+  MANAGE_THERMAL_CALCS: 1 << 9, // 512
+} as const;
+
+/**
+ * Permission bit positions for permissions2 (for Firestore rules)
+ */
+export const PERMISSION_BITS_2 = {
+  VIEW_MATERIAL_DB: 1,
+  MANAGE_MATERIAL_DB: 2,
+  VIEW_SHAPE_DB: 4,
+  MANAGE_SHAPE_DB: 8,
+  VIEW_BOUGHT_OUT_DB: 16,
+  MANAGE_BOUGHT_OUT_DB: 32,
+  VIEW_THERMAL_DESAL: 64,
+  MANAGE_THERMAL_DESAL: 128,
+  VIEW_THERMAL_CALCS: 256,
+  MANAGE_THERMAL_CALCS: 512,
+} as const;
+
+/**
+ * Helper function to check if a permission2 is included
+ */
+export function hasPermission2(userPermissions2: number, requiredPermission: number): boolean {
+  return (userPermissions2 & requiredPermission) === requiredPermission;
+}
+
+/**
+ * Calculate all permissions2 (for SUPER_ADMIN)
+ */
+export function getAllPermissions2(): number {
+  return Object.values(PERMISSION_FLAGS_2).reduce((acc, perm) => acc | perm, 0);
+}
+
+/**
+ * Material Database permission helpers
+ */
+export function canViewMaterialDB(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.VIEW_MATERIAL_DB);
+}
+
+export function canManageMaterialDB(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.MANAGE_MATERIAL_DB);
+}
+
+/**
+ * Shape Database permission helpers
+ */
+export function canViewShapeDB(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.VIEW_SHAPE_DB);
+}
+
+export function canManageShapeDB(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.MANAGE_SHAPE_DB);
+}
+
+/**
+ * Bought Out Database permission helpers
+ */
+export function canViewBoughtOutDB(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.VIEW_BOUGHT_OUT_DB);
+}
+
+export function canManageBoughtOutDB(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.MANAGE_BOUGHT_OUT_DB);
+}
+
+/**
+ * Thermal Desalination permission helpers (includes Flash Chamber)
+ */
+export function canViewThermalDesal(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL);
+}
+
+export function canManageThermalDesal(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.MANAGE_THERMAL_DESAL);
+}
+
+/**
+ * Thermal Calculators permission helpers
+ */
+export function canViewThermalCalcs(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.VIEW_THERMAL_CALCS);
+}
+
+export function canManageThermalCalcs(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.MANAGE_THERMAL_CALCS);
+}

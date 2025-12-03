@@ -139,6 +139,7 @@ export function AuthenticatedLayout({
             mobileOpen={mobileOpen}
             onMobileClose={handleDrawerToggle}
             userPermissions={claims?.permissions || 0}
+            userPermissions2={claims?.permissions2 || 0}
             collapsed={sidebarCollapsed}
             onToggleCollapse={handleSidebarToggle}
           />

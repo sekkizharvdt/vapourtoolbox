@@ -1,11 +1,15 @@
 'use client';
 
 import { ModuleLayout } from '@/components/layouts/ModuleLayout';
-import { canViewEstimation } from '@vapour/constants';
+import { canViewBoughtOutDB } from '@vapour/constants';
 
 export default function BoughtOutLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ModuleLayout permissionCheck={canViewEstimation} moduleName="Bought-Out Items">
+    <ModuleLayout
+      permissionCheck2={canViewBoughtOutDB}
+      moduleName="Bought Out Items"
+      moduleId="bought-out-database"
+    >
       {children}
     </ModuleLayout>
   );

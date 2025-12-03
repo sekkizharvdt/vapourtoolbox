@@ -14,6 +14,7 @@ export interface ModuleDefinition {
   path: string;
   status: ModuleStatus;
   requiredPermissions?: number; // Bitwise permission flags required for access (undefined = no permission check)
+  requiredPermissions2?: number; // Extended permissions from PERMISSION_FLAGS_2 (undefined = no permission check)
   estimatedRelease?: string;
   category: 'core' | 'application';
   priority?: number; // Lower number = higher priority (1 = highest)
@@ -171,7 +172,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#059669', // Emerald
     path: '/materials',
     status: 'active',
-    requiredPermissions: 524288, // VIEW_ESTIMATION (engineering materials)
+    requiredPermissions2: 1, // VIEW_MATERIAL_DB (PERMISSION_FLAGS_2)
     category: 'application',
     priority: 6,
   },
@@ -185,7 +186,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#8B5CF6', // Purple
     path: '/dashboard/shapes/calculator',
     status: 'active',
-    requiredPermissions: 524288, // VIEW_ESTIMATION (engineering calculations)
+    requiredPermissions2: 4, // VIEW_SHAPE_DB (PERMISSION_FLAGS_2)
     category: 'application',
     priority: 7,
   },
@@ -199,7 +200,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#0D9488', // Teal
     path: '/bought-out',
     status: 'active',
-    requiredPermissions: 524288, // VIEW_ESTIMATION (procurement/engineering items)
+    requiredPermissions2: 16, // VIEW_BOUGHT_OUT_DB (PERMISSION_FLAGS_2)
     category: 'application',
     priority: 8,
   },
@@ -213,9 +214,24 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#EF4444', // Red
     path: '/thermal',
     status: 'active',
-    requiredPermissions: 524288, // VIEW_ESTIMATION (engineering calculations)
+    requiredPermissions2: 64, // VIEW_THERMAL_DESAL (PERMISSION_FLAGS_2)
     category: 'application',
     priority: 9,
+  },
+
+  THERMAL_CALCS: {
+    id: 'thermal-calcs',
+    name: 'Thermal Calculators',
+    shortName: 'Thermal Calcs',
+    description:
+      'Engineering calculators for thermal processes (steam tables, seawater properties, pipe sizing)',
+    icon: 'Calculate',
+    color: '#F97316', // Orange
+    path: '/thermal/calculators',
+    status: 'active',
+    requiredPermissions2: 256, // VIEW_THERMAL_CALCS (PERMISSION_FLAGS_2)
+    category: 'application',
+    priority: 10,
   },
 
   PROPOSAL_MANAGEMENT: {
@@ -230,7 +246,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     requiredPermissions: 8, // MANAGE_PROJECTS (for creating proposals)
     category: 'application',
     estimatedRelease: 'Q1 2026',
-    priority: 10,
+    priority: 11,
   },
 };
 
@@ -246,12 +262,24 @@ export function getModulesByCategory(category: 'core' | 'application') {
  * Import PERMISSION_FLAGS from @vapour/constants and use hasPermission helper
  * @param userPermissions - Bitwise permission flags
  * @param allowedModules - Optional array of module IDs the user can access (empty = all modules)
+ * @param userPermissions2 - Extended permissions from PERMISSION_FLAGS_2
  */
-export function getModulesByPermissions(userPermissions: number, allowedModules?: string[]) {
+export function getModulesByPermissions(
+  userPermissions: number,
+  allowedModules?: string[],
+  userPermissions2?: number
+) {
   return Object.values(MODULES).filter((module) => {
-    // Check permission requirement
+    // Check permission requirement (permissions field)
     if (module.requiredPermissions !== undefined) {
       if ((userPermissions & module.requiredPermissions) !== module.requiredPermissions) {
+        return false;
+      }
+    }
+    // Check permission2 requirement (permissions2 field)
+    if (module.requiredPermissions2 !== undefined) {
+      const perms2 = userPermissions2 ?? 0;
+      if ((perms2 & module.requiredPermissions2) !== module.requiredPermissions2) {
         return false;
       }
     }
@@ -282,23 +310,31 @@ export function getModuleById(id: string): ModuleDefinition | undefined {
  * @param moduleId - The module ID to check
  * @param userPermissions - Bitwise permission flags
  * @param allowedModules - Optional array of module IDs the user can access (empty = all modules)
+ * @param userPermissions2 - Extended permissions from PERMISSION_FLAGS_2
  */
 export function hasModuleAccess(
   moduleId: string,
   userPermissions: number,
-  allowedModules?: string[]
+  allowedModules?: string[],
+  userPermissions2?: number
 ): boolean {
   const module = getModuleById(moduleId);
   if (!module) return false;
 
-  // Check permission requirement
+  // Check permission requirement (permissions field)
   const hasPermission =
     module.requiredPermissions === undefined ||
     (userPermissions & module.requiredPermissions) === module.requiredPermissions;
+
+  // Check permission2 requirement (permissions2 field)
+  const perms2 = userPermissions2 ?? 0;
+  const hasPermission2 =
+    module.requiredPermissions2 === undefined ||
+    (perms2 & module.requiredPermissions2) === module.requiredPermissions2;
 
   // Check module visibility (if allowedModules is set, must include this module)
   const hasVisibility =
     !allowedModules || allowedModules.length === 0 || allowedModules.includes(moduleId);
 
-  return hasPermission && hasVisibility;
+  return hasPermission && hasPermission2 && hasVisibility;
 }
