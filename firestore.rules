@@ -1081,8 +1081,8 @@ service cloud.firestore {
     // ============================================
 
     match /feedback/{feedbackId} {
-      // Read: Only admins can read feedback (for processing)
-      allow read: if isAdmin();
+      // Read: Admins can read all, users can read their own
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
 
       // Create: Any authenticated user can submit feedback
       // This allows all users (internal and external) to report bugs

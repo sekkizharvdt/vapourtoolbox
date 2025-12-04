@@ -138,20 +138,26 @@ export async function approvePurchaseRequest(
       );
     }
 
-    // Update status
-    await updateDoc(docRef, {
+    // Update status - only include comment fields if they have values
+    // Firestore doesn't accept undefined values
+    const updateData: Record<string, unknown> = {
       status: 'APPROVED',
       reviewedBy: userId,
       reviewedByName: userName,
       reviewedAt: Timestamp.now(),
-      reviewComments: comments,
       approvedBy: userId,
       approvedByName: userName,
       approvedAt: Timestamp.now(),
-      approvalComments: comments,
       updatedAt: Timestamp.now(),
       updatedBy: userId,
-    });
+    };
+
+    if (comments) {
+      updateData.reviewComments = comments;
+      updateData.approvalComments = comments;
+    }
+
+    await updateDoc(docRef, updateData);
 
     // Update all items to approved
     const items = await getPurchaseRequestItems(prId);

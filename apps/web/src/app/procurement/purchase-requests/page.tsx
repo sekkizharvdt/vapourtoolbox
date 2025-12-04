@@ -6,7 +6,7 @@
  * Shows all purchase requests with filters and search
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -33,7 +33,14 @@ import {
   Add as AddIcon,
   Visibility as VisibilityIcon,
   FilterList as FilterListIcon,
+  Assignment as AssignmentIcon,
+  Edit as EditIcon,
+  Send as SendIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  HourglassEmpty as HourglassEmptyIcon,
 } from '@mui/icons-material';
+import { StatCard } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PurchaseRequest } from '@vapour/types';
@@ -56,6 +63,43 @@ export default function PurchaseRequestsPage() {
   // Pagination state
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
+
+  // Compute stats from requests
+  const stats = useMemo(() => {
+    const counts = {
+      total: requests.length,
+      draft: 0,
+      submitted: 0,
+      underReview: 0,
+      approved: 0,
+      rejected: 0,
+      pending: 0, // SUBMITTED + UNDER_REVIEW
+    };
+
+    requests.forEach((req) => {
+      switch (req.status) {
+        case 'DRAFT':
+          counts.draft++;
+          break;
+        case 'SUBMITTED':
+          counts.submitted++;
+          counts.pending++;
+          break;
+        case 'UNDER_REVIEW':
+          counts.underReview++;
+          counts.pending++;
+          break;
+        case 'APPROVED':
+          counts.approved++;
+          break;
+        case 'REJECTED':
+          counts.rejected++;
+          break;
+      }
+    });
+
+    return counts;
+  }, [requests]);
 
   useEffect(() => {
     loadRequests();
@@ -97,7 +141,14 @@ export default function PurchaseRequestsPage() {
 
     // Status filter
     if (statusFilter !== 'ALL') {
-      filtered = filtered.filter((req) => req.status === statusFilter);
+      if (statusFilter === 'PENDING') {
+        // Special case: PENDING = SUBMITTED + UNDER_REVIEW
+        filtered = filtered.filter(
+          (req) => req.status === 'SUBMITTED' || req.status === 'UNDER_REVIEW'
+        );
+      } else {
+        filtered = filtered.filter((req) => req.status === statusFilter);
+      }
     }
 
     // Type filter
@@ -197,6 +248,70 @@ export default function PurchaseRequestsPage() {
           </Button>
         </Stack>
 
+        {/* Stats Dashboard */}
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+            gap: 2,
+          }}
+        >
+          <Box
+            onClick={() => setStatusFilter('ALL')}
+            sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
+          >
+            <StatCard
+              label="Total PRs"
+              value={stats.total}
+              icon={<AssignmentIcon />}
+              color="primary"
+            />
+          </Box>
+          <Box
+            onClick={() => setStatusFilter('DRAFT')}
+            sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
+          >
+            <StatCard label="Draft" value={stats.draft} icon={<EditIcon />} color="secondary" />
+          </Box>
+          <Box
+            onClick={() => setStatusFilter('SUBMITTED')}
+            sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
+          >
+            <StatCard label="Submitted" value={stats.submitted} icon={<SendIcon />} color="info" />
+          </Box>
+          <Box
+            onClick={() => setStatusFilter('APPROVED')}
+            sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
+          >
+            <StatCard
+              label="Approved"
+              value={stats.approved}
+              icon={<CheckCircleIcon />}
+              color="success"
+            />
+          </Box>
+          <Box
+            onClick={() => setStatusFilter('REJECTED')}
+            sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
+          >
+            <StatCard label="Rejected" value={stats.rejected} icon={<CancelIcon />} color="error" />
+          </Box>
+          <Box
+            onClick={() => {
+              // Filter to show both SUBMITTED and UNDER_REVIEW
+              setStatusFilter('PENDING');
+            }}
+            sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
+          >
+            <StatCard
+              label="Pending Approval"
+              value={stats.pending}
+              icon={<HourglassEmptyIcon />}
+              color="warning"
+            />
+          </Box>
+        </Box>
+
         {/* Filters */}
         <Paper sx={{ p: 3 }}>
           <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
@@ -219,6 +334,7 @@ export default function PurchaseRequestsPage() {
                 <MenuItem value="ALL">All Status</MenuItem>
                 <MenuItem value="DRAFT">Draft</MenuItem>
                 <MenuItem value="SUBMITTED">Submitted</MenuItem>
+                <MenuItem value="PENDING">Pending Approval</MenuItem>
                 <MenuItem value="APPROVED">Approved</MenuItem>
                 <MenuItem value="REJECTED">Rejected</MenuItem>
                 <MenuItem value="RFQ_CREATED">RFQ Created</MenuItem>
@@ -325,9 +441,7 @@ export default function PurchaseRequestsPage() {
                         color={getStatusColor(request.status)}
                       />
                     </TableCell>
-                    <TableCell>
-                      {formatDate(request.createdAt)}
-                    </TableCell>
+                    <TableCell>{formatDate(request.createdAt)}</TableCell>
                     <TableCell align="center">
                       <IconButton
                         size="small"

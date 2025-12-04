@@ -87,6 +87,7 @@ interface FeedbackItem {
   browserInfo?: string;
   status: FeedbackStatus;
   adminNotes?: string;
+  resolutionNotes?: string;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -207,6 +208,19 @@ export function FeedbackList() {
       });
     } catch (err) {
       console.error('Error updating notes:', err);
+    }
+  }, []);
+
+  const handleResolutionNotesChange = useCallback(async (feedbackId: string, notes: string) => {
+    try {
+      const { db } = getFirebase();
+      const feedbackRef = doc(db, 'feedback', feedbackId);
+      await updateDoc(feedbackRef, {
+        resolutionNotes: notes,
+        updatedAt: Timestamp.now(),
+      });
+    } catch (err) {
+      console.error('Error updating resolution notes:', err);
     }
   }, []);
 
@@ -635,10 +649,35 @@ export function FeedbackList() {
 
                 <Divider />
 
+                {/* Resolution Notes - Only shown for resolved/closed/wont_fix statuses */}
+                {['resolved', 'closed', 'wont_fix'].includes(selectedFeedback.status) && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Resolution Notes (visible to user)
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={2}
+                      placeholder="Explain how this was resolved or why it was closed..."
+                      value={selectedFeedback.resolutionNotes || ''}
+                      onChange={(e) => {
+                        setSelectedFeedback((prev) =>
+                          prev ? { ...prev, resolutionNotes: e.target.value } : null
+                        );
+                      }}
+                      onBlur={(e) =>
+                        handleResolutionNotesChange(selectedFeedback.id, e.target.value)
+                      }
+                      helperText="This note will be visible to the user who submitted this feedback"
+                    />
+                  </Box>
+                )}
+
                 {/* Admin Notes */}
                 <Box>
                   <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Admin Notes
+                    Admin Notes (internal only)
                   </Typography>
                   <TextField
                     fullWidth
