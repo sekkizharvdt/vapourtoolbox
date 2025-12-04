@@ -87,9 +87,19 @@
       "Bash(gcloud services enable:*)",
       "Bash(NODE_OPTIONS=\"--max_old_space_size=4096\" pnpm run build:*)",
       "Bash(NODE_OPTIONS=\"--max_old_space_size=4096\" pnpm --filter @vapour/web build:*)",
-      "Bash(xargs basename:*)"
+      "Bash(xargs basename:*)",
+      "Bash(npm install)",
+      "Bash(timeout 5 node:*)",
+      "Bash(timeout 10 node:*)",
+      "Bash(node -e:*)",
+      "Bash(npx tsc:*)",
+      "Bash(xargs -I {} sh -c 'git show {} --stat 2>/dev/null | grep -iq \"\"\"\"administration\\|admin.*cost\"\"\"\" && echo {}')",
+      "Bash(pnpm --filter @vapour/constants build:ts:*)",
+      "Bash(pnpm --filter @vapour/constants type-check:*)",
+      "Bash(pnpm --filter @vapour/web list:*)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enabledMcpjsonServers": ["firebase-feedback"]
 }
