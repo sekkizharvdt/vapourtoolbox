@@ -31,36 +31,36 @@ export const STANDARD_SEAWATER_SALINITY = 35000;
  * Calculate boiling point elevation for seawater
  *
  * The BPE is the increase in boiling temperature due to dissolved salts.
- * Uses the correlation from El-Dessouky and Ettouney (2002).
+ * Uses the correlation from Sharqawy et al. (2010), Eq. 36, which best fits
+ * the experimental data of Bromley et al. (1974).
+ *
+ * Reference: Sharqawy M.H., Lienhard V J.H., Zubair S.M., "Thermophysical
+ * properties of seawater: A review of existing correlations and data,"
+ * Desalination and Water Treatment, Vol. 16, pp. 354-380, 2010.
  *
  * @param salinity - Salinity in ppm
  * @param tempC - Temperature in °C
- * @returns Boiling point elevation in °C
+ * @returns Boiling point elevation in K (°C)
  */
 export function getBoilingPointElevation(salinity: number, tempC: number): number {
   // Validate inputs
   if (salinity < 0 || salinity > 120000) {
     throw new Error(`Salinity ${salinity} ppm is outside valid range (0-120000 ppm)`);
   }
-  if (tempC < 0 || tempC > 180) {
-    throw new Error(`Temperature ${tempC}°C is outside valid range (0-180°C)`);
+  if (tempC < 0 || tempC > 200) {
+    throw new Error(`Temperature ${tempC}°C is outside valid range (0-200°C)`);
   }
 
-  // Convert salinity from ppm to weight fraction (X)
-  const X = salinity / 1000000;
+  // Convert salinity from ppm to mass fraction (s)
+  // s = g/kg / 1000 = ppm / 1,000,000
+  const s = salinity / 1000000;
 
-  // El-Dessouky & Ettouney correlation for BPE
-  // BPE = A*X + B*X² + C*X³
+  // Sharqawy et al. (2010) Eq. 36: BPE = A·s² + B·s
   // where coefficients are functions of temperature
+  const A = 17.95 + 0.2823 * tempC - 4.584e-4 * tempC * tempC;
+  const B = 6.56 + 0.05267 * tempC + 1.536e-4 * tempC * tempC;
 
-  const A = 8.325e-2 + 1.883e-4 * tempC + 4.02e-6 * tempC * tempC;
-  const B = -7.625e-4 + 9.02e-5 * tempC - 5.2e-7 * tempC * tempC;
-  const C = 1.522e-4 - 3.0e-6 * tempC - 3.0e-8 * tempC * tempC;
-
-  // Convert X to percentage for correlation (X% = X * 100)
-  const Xpct = X * 100;
-
-  const BPE = A * Xpct + B * Xpct * Xpct + C * Xpct * Xpct * Xpct;
+  const BPE = A * s * s + B * s;
 
   return BPE;
 }
@@ -148,13 +148,13 @@ export function getSeawaterSpecificHeat(salinity: number, tempC: number): number
     2.654387e-6 * tempC * tempC * tempC +
     2.093236e-8 * tempC * tempC * tempC * tempC;
 
-  // Seawater specific heat correction
+  // Seawater specific heat correction (Millero et al. form with S^1.5 term)
+  // Form: Cp = Cp_w + A*S + B*S^1.5
   const A = -7.6444e-3 + 1.0727e-4 * tempC - 1.3839e-6 * tempC * tempC;
-
   const B = 1.7413e-4 - 4.1326e-6 * tempC + 8.3486e-8 * tempC * tempC;
 
   // Seawater specific heat
-  const Cp_sw = Cp_w + A * S + B * S * S;
+  const Cp_sw = Cp_w + A * S + B * Math.pow(S, 1.5);
 
   return Cp_sw;
 }
@@ -326,27 +326,30 @@ export function getConcentrationFactor(inletSalinity: number, brineSalinity: num
 
 /**
  * Seawater properties at standard salinity (35,000 ppm) for reference
+ * Values from Sharqawy et al. (2010) correlations
  */
 export const SEAWATER_35000_PPM_TABLE = [
-  { tempC: 20, density: 1024.8, cp: 3.998, viscosity: 1.072e-3 },
-  { tempC: 30, density: 1022.4, cp: 4.0, viscosity: 8.42e-4 },
-  { tempC: 40, density: 1019.5, cp: 4.003, viscosity: 6.73e-4 },
-  { tempC: 50, density: 1016.0, cp: 4.007, viscosity: 5.49e-4 },
-  { tempC: 60, density: 1012.1, cp: 4.013, viscosity: 4.56e-4 },
-  { tempC: 70, density: 1007.7, cp: 4.02, viscosity: 3.85e-4 },
-  { tempC: 80, density: 1002.9, cp: 4.029, viscosity: 3.3e-4 },
-  { tempC: 90, density: 997.6, cp: 4.04, viscosity: 2.86e-4 },
-  { tempC: 100, density: 991.9, cp: 4.053, viscosity: 2.51e-4 },
+  { tempC: 20, density: 1024.8, cp: 3.998, viscosity: 1.08e-3 },
+  { tempC: 30, density: 1022.4, cp: 4.0, viscosity: 8.61e-4 },
+  { tempC: 40, density: 1019.5, cp: 4.003, viscosity: 7.07e-4 },
+  { tempC: 50, density: 1016.0, cp: 4.007, viscosity: 5.94e-4 },
+  { tempC: 60, density: 1012.1, cp: 4.013, viscosity: 5.08e-4 },
+  { tempC: 70, density: 1007.7, cp: 4.02, viscosity: 4.41e-4 },
+  { tempC: 80, density: 1002.9, cp: 4.029, viscosity: 3.88e-4 },
+  { tempC: 90, density: 997.6, cp: 4.04, viscosity: 3.45e-4 },
+  { tempC: 100, density: 991.9, cp: 4.053, viscosity: 3.09e-4 },
 ] as const;
 
 /**
  * Boiling point elevation at different salinities (at 100°C)
+ * Values from Sharqawy et al. (2010), accuracy ±0.018 K
  */
 export const BPE_REFERENCE_TABLE = [
-  { salinity: 10000, bpe: 0.17 },
-  { salinity: 20000, bpe: 0.35 },
-  { salinity: 35000, bpe: 0.61 },
-  { salinity: 50000, bpe: 0.88 },
-  { salinity: 70000, bpe: 1.26 },
-  { salinity: 100000, bpe: 1.85 },
+  { salinity: 10000, bpe: 0.14 },
+  { salinity: 20000, bpe: 0.28 },
+  { salinity: 35000, bpe: 0.52 },
+  { salinity: 50000, bpe: 0.77 },
+  { salinity: 70000, bpe: 1.14 },
+  { salinity: 100000, bpe: 1.75 },
+  { salinity: 120000, bpe: 2.2 },
 ] as const;
