@@ -21,6 +21,11 @@ import {
   Select,
   MenuItem,
   InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -32,6 +37,7 @@ import {
   AttachMoney as MoneyIcon,
   PendingActions as PendingIcon,
   Warning as WarningIcon,
+  Numbers as NumbersIcon,
 } from '@mui/icons-material';
 import {
   PageHeader,
@@ -44,7 +50,16 @@ import {
 } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, where, orderBy, doc, deleteDoc } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  doc,
+  deleteDoc,
+  updateDoc,
+  Timestamp,
+} from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { VendorBill } from '@vapour/types';
@@ -66,6 +81,12 @@ export default function BillsPage() {
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
+
+  // Update Bill Number Dialog state
+  const [updateBillNumberDialogOpen, setUpdateBillNumberDialogOpen] = useState(false);
+  const [billToUpdate, setBillToUpdate] = useState<VendorBill | null>(null);
+  const [newBillNumber, setNewBillNumber] = useState('');
+  const [updatingBillNumber, setUpdatingBillNumber] = useState(false);
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
@@ -104,6 +125,8 @@ export default function BillsPage() {
       const matchesSearch =
         searchTerm === '' ||
         bill.transactionNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (bill.vendorInvoiceNumber &&
+          bill.vendorInvoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (bill.entityName && bill.entityName.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesStatus = filterStatus === 'ALL' || bill.status === filterStatus;
@@ -151,6 +174,38 @@ export default function BillsPage() {
   const handleClearFilters = () => {
     setSearchTerm('');
     setFilterStatus('ALL');
+  };
+
+  // Update Bill Number handlers
+  const handleOpenUpdateBillNumber = (bill: VendorBill) => {
+    setBillToUpdate(bill);
+    setNewBillNumber(bill.vendorInvoiceNumber || '');
+    setUpdateBillNumberDialogOpen(true);
+  };
+
+  const handleCloseUpdateBillNumber = () => {
+    setUpdateBillNumberDialogOpen(false);
+    setBillToUpdate(null);
+    setNewBillNumber('');
+  };
+
+  const handleSaveUpdateBillNumber = async () => {
+    if (!billToUpdate?.id || !newBillNumber.trim()) return;
+
+    setUpdatingBillNumber(true);
+    try {
+      const { db } = getFirebase();
+      await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, billToUpdate.id), {
+        vendorInvoiceNumber: newBillNumber.trim(),
+        updatedAt: Timestamp.now(),
+      });
+      handleCloseUpdateBillNumber();
+    } catch (error) {
+      console.error('[BillsPage] Error updating bill number:', error);
+      alert('Failed to update bill number');
+    } finally {
+      setUpdatingBillNumber(false);
+    }
   };
 
   // Paginate filtered bills
@@ -278,7 +333,7 @@ export default function BillsPage() {
               paginatedBills.map((bill) => (
                 <TableRow key={bill.id} hover>
                   <TableCell>{formatDate(bill.date)}</TableCell>
-                  <TableCell>{bill.transactionNumber}</TableCell>
+                  <TableCell>{bill.vendorInvoiceNumber || bill.transactionNumber}</TableCell>
                   <TableCell>{bill.entityName || '-'}</TableCell>
                   <TableCell>{bill.description || '-'}</TableCell>
                   <TableCell align="right">{formatCurrency(bill.subtotal || 0)}</TableCell>
@@ -309,6 +364,12 @@ export default function BillsPage() {
                           label: 'Edit Bill',
                           onClick: () => handleEdit(bill),
                           show: canManage && bill.status === 'DRAFT',
+                        },
+                        {
+                          icon: <NumbersIcon />,
+                          label: 'Update Bill Number',
+                          onClick: () => handleOpenUpdateBillNumber(bill),
+                          show: canManage && bill.status !== 'DRAFT',
                         },
                         {
                           icon: <PaymentIcon />,
@@ -347,6 +408,46 @@ export default function BillsPage() {
         onClose={handleDialogClose}
         editingBill={editingBill}
       />
+
+      {/* Update Bill Number Dialog */}
+      <Dialog
+        open={updateBillNumberDialogOpen}
+        onClose={handleCloseUpdateBillNumber}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Update Bill Number</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <TextField
+              fullWidth
+              label="Vendor Bill/Invoice Number"
+              value={newBillNumber}
+              onChange={(e) => setNewBillNumber(e.target.value)}
+              placeholder="Enter vendor's bill number"
+              helperText={
+                billToUpdate
+                  ? `Vendor: ${billToUpdate.entityName || 'Unknown'} | System Ref: ${billToUpdate.transactionNumber}`
+                  : ''
+              }
+              autoFocus
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseUpdateBillNumber} disabled={updatingBillNumber}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveUpdateBillNumber}
+            variant="contained"
+            disabled={updatingBillNumber || !newBillNumber.trim()}
+            startIcon={updatingBillNumber ? <CircularProgress size={16} /> : null}
+          >
+            {updatingBillNumber ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
