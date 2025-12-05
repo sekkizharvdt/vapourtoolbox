@@ -47,6 +47,7 @@ interface Vendor {
   contactPerson?: string;
   email?: string;
   phone?: string;
+  isDeleted?: boolean;
 }
 
 export default function NewRFQPage() {
@@ -97,16 +98,27 @@ export default function NewRFQPage() {
   const loadVendors = async () => {
     const { db } = getFirebase();
     try {
+      // Query entities with VENDOR role
       const q = query(
         collection(db, COLLECTIONS.ENTITIES),
-        where('type', '==', 'SUPPLIER'),
-        where('deleted', '==', false)
+        where('roles', 'array-contains', 'VENDOR')
       );
       const snapshot = await getDocs(q);
-      const vendorList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Vendor[];
+      // Filter out deleted entities client-side (consistent with entities page)
+      const vendorList: Vendor[] = snapshot.docs
+        .map((doc) => {
+          const data = doc.data();
+          const vendor: Vendor = {
+            id: doc.id,
+            name: data.name,
+            contactPerson: data.contactPerson,
+            email: data.email,
+            phone: data.phone,
+            isDeleted: data.isDeleted,
+          };
+          return vendor;
+        })
+        .filter((vendor) => vendor.isDeleted !== true);
       setVendors(vendorList);
     } catch (err) {
       console.error('[NewRFQPage] Error loading vendors:', err);
@@ -446,9 +458,7 @@ export default function NewRFQPage() {
                     <Typography variant="body2" fontWeight="medium">
                       Due Date:
                     </Typography>
-                    <Typography variant="body2">
-                      {formatDate(new Date(dueDate))}
-                    </Typography>
+                    <Typography variant="body2">{formatDate(new Date(dueDate))}</Typography>
                   </Box>
                   {paymentTerms && (
                     <Box>
