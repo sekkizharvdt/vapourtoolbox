@@ -240,6 +240,7 @@ export default function NewRFQPage() {
                       <TableCell padding="checkbox">Select</TableCell>
                       <TableCell>PR Number</TableCell>
                       <TableCell>Title</TableCell>
+                      <TableCell>Description</TableCell>
                       <TableCell>Project</TableCell>
                       <TableCell>Items</TableCell>
                       <TableCell>Created</TableCell>
@@ -258,6 +259,17 @@ export default function NewRFQPage() {
                         </TableCell>
                         <TableCell>{pr.number}</TableCell>
                         <TableCell>{pr.title}</TableCell>
+                        <TableCell
+                          sx={{
+                            maxWidth: 300,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={pr.description}
+                        >
+                          {pr.description || '-'}
+                        </TableCell>
                         <TableCell>{pr.projectName}</TableCell>
                         <TableCell>{pr.itemCount}</TableCell>
                         <TableCell>{formatDate(pr.createdAt)}</TableCell>
