@@ -10,7 +10,6 @@ import { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
-  Typography,
   Button,
   TextField,
   Stack,
@@ -21,21 +20,28 @@ import {
   TableHead,
   TableRow,
   Chip,
-  IconButton,
   MenuItem,
   Select,
   FormControl,
   InputLabel,
-  CircularProgress,
-  Tooltip,
   TablePagination,
+  Container,
+  Grid,
+  Typography,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Visibility as VisibilityIcon,
   PictureAsPdf as PdfIcon,
-  FilterList as FilterListIcon,
 } from '@mui/icons-material';
+import {
+  PageHeader,
+  LoadingState,
+  EmptyState,
+  TableActionCell,
+  StatCard,
+  FilterBar,
+} from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RFQ } from '@vapour/types';
@@ -124,137 +130,99 @@ export default function RFQsPage() {
   // Paginate RFQs in memory (client-side pagination)
   const paginatedRfqs = filteredRfqs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   return (
-    <Box sx={{ p: 3 }}>
-      <Stack spacing={3}>
-        {/* Header */}
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Box>
-            <Typography variant="h4" gutterBottom>
-              RFQs (Requests for Quotation)
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Manage quotation requests to vendors
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => router.push('/procurement/rfqs/new')}
-          >
-            Create RFQ
-          </Button>
-        </Stack>
+    <Container maxWidth="xl">
+      <Box sx={{ mb: 4 }}>
+        <PageHeader
+          title="RFQs (Requests for Quotation)"
+          subtitle="Manage quotation requests to vendors"
+          action={
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => router.push('/procurement/rfqs/new')}
+            >
+              Create RFQ
+            </Button>
+          }
+        />
 
         {/* Stats Cards */}
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-          <Paper sx={{ p: 2, flex: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Total RFQs
-            </Typography>
-            <Typography variant="h4">{stats.total}</Typography>
-          </Paper>
-          <Paper sx={{ p: 2, flex: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Draft
-            </Typography>
-            <Typography variant="h4" color="default">
-              {stats.draft}
-            </Typography>
-          </Paper>
-          <Paper sx={{ p: 2, flex: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Issued
-            </Typography>
-            <Typography variant="h4" color="info.main">
-              {stats.issued}
-            </Typography>
-          </Paper>
-          <Paper sx={{ p: 2, flex: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Under Evaluation
-            </Typography>
-            <Typography variant="h4" color="warning.main">
-              {stats.underEvaluation}
-            </Typography>
-          </Paper>
-          <Paper sx={{ p: 2, flex: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Completed
-            </Typography>
-            <Typography variant="h4" color="success.main">
-              {stats.completed}
-            </Typography>
-          </Paper>
-        </Stack>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+            <StatCard label="Total RFQs" value={stats.total} />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+            <StatCard label="Draft" value={stats.draft} />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+            <StatCard label="Issued" value={stats.issued} color="info" />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+            <StatCard label="Under Evaluation" value={stats.underEvaluation} color="warning" />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+            <StatCard label="Completed" value={stats.completed} color="success" />
+          </Grid>
+        </Grid>
 
         {/* Filters */}
-        <Paper sx={{ p: 2 }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField
-              label="Search RFQs"
-              variant="outlined"
-              size="small"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              sx={{ flex: 1 }}
-              placeholder="Search by number, title, vendor..."
-            />
+        <FilterBar>
+          <TextField
+            label="Search RFQs"
+            variant="outlined"
+            size="small"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            sx={{ flexGrow: 1, minWidth: 300 }}
+            placeholder="Search by number, title, vendor..."
+          />
 
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                label="Status"
-              >
-                <MenuItem value="ALL">All Statuses</MenuItem>
-                <MenuItem value="DRAFT">Draft</MenuItem>
-                <MenuItem value="ISSUED">Issued</MenuItem>
-                <MenuItem value="OFFERS_RECEIVED">Offers Received</MenuItem>
-                <MenuItem value="UNDER_EVALUATION">Under Evaluation</MenuItem>
-                <MenuItem value="COMPLETED">Completed</MenuItem>
-                <MenuItem value="CANCELLED">Cancelled</MenuItem>
-              </Select>
-            </FormControl>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              label="Status"
+            >
+              <MenuItem value="ALL">All Statuses</MenuItem>
+              <MenuItem value="DRAFT">Draft</MenuItem>
+              <MenuItem value="ISSUED">Issued</MenuItem>
+              <MenuItem value="OFFERS_RECEIVED">Offers Received</MenuItem>
+              <MenuItem value="UNDER_EVALUATION">Under Evaluation</MenuItem>
+              <MenuItem value="COMPLETED">Completed</MenuItem>
+              <MenuItem value="CANCELLED">Cancelled</MenuItem>
+            </Select>
+          </FormControl>
 
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Sort By</InputLabel>
-              <Select
-                value={sortBy}
-                onChange={(e) =>
-                  setSortBy(e.target.value as 'number' | 'createdAt' | 'dueDate' | 'status')
-                }
-                label="Sort By"
-              >
-                <MenuItem value="createdAt">Created Date</MenuItem>
-                <MenuItem value="dueDate">Due Date</MenuItem>
-                <MenuItem value="number">RFQ Number</MenuItem>
-                <MenuItem value="status">Status</MenuItem>
-              </Select>
-            </FormControl>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Sort By</InputLabel>
+            <Select
+              value={sortBy}
+              onChange={(e) =>
+                setSortBy(e.target.value as 'number' | 'createdAt' | 'dueDate' | 'status')
+              }
+              label="Sort By"
+            >
+              <MenuItem value="createdAt">Created Date</MenuItem>
+              <MenuItem value="dueDate">Due Date</MenuItem>
+              <MenuItem value="number">RFQ Number</MenuItem>
+              <MenuItem value="status">Status</MenuItem>
+            </Select>
+          </FormControl>
 
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>Order</InputLabel>
-              <Select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
-                label="Order"
-              >
-                <MenuItem value="desc">Descending</MenuItem>
-                <MenuItem value="asc">Ascending</MenuItem>
-              </Select>
-            </FormControl>
-          </Stack>
-        </Paper>
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Order</InputLabel>
+            <Select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+              label="Order"
+            >
+              <MenuItem value="desc">Descending</MenuItem>
+              <MenuItem value="asc">Ascending</MenuItem>
+            </Select>
+          </FormControl>
+        </FilterBar>
 
         {/* RFQ Table */}
         <TableContainer component={Paper}>
@@ -272,16 +240,29 @@ export default function RFQsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredRfqs.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      {searchQuery || statusFilter !== 'ALL'
-                        ? 'No RFQs match your filters'
-                        : 'No RFQs yet. Create one to get started.'}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
+              {loading ? (
+                <LoadingState message="Loading RFQs..." variant="table" colSpan={8} />
+              ) : filteredRfqs.length === 0 ? (
+                <EmptyState
+                  message={
+                    searchQuery || statusFilter !== 'ALL'
+                      ? 'No RFQs match your filters'
+                      : 'No RFQs yet. Create your first RFQ from approved purchase requests.'
+                  }
+                  variant="table"
+                  colSpan={8}
+                  action={
+                    rfqs.length === 0 ? (
+                      <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={() => router.push('/procurement/rfqs/new')}
+                      >
+                        Create RFQ
+                      </Button>
+                    ) : undefined
+                  }
+                />
               ) : (
                 paginatedRfqs.map((rfq) => {
                   const dueDateInfo = formatDueDate(rfq);
@@ -333,34 +314,27 @@ export default function RFQsPage() {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">
-                          {formatDate(rfq.createdAt)}
-                        </Typography>
+                        <Typography variant="body2">{formatDate(rfq.createdAt)}</Typography>
                         <Typography variant="caption" color="text.secondary">
                           {rfq.createdByName}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                          <Tooltip title="View Details">
-                            <IconButton
-                              size="small"
-                              onClick={() => router.push(`/procurement/rfqs/${rfq.id}`)}
-                            >
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          {rfq.latestPdfUrl && (
-                            <Tooltip title="Download PDF">
-                              <IconButton
-                                size="small"
-                                onClick={() => window.open(rfq.latestPdfUrl, '_blank')}
-                              >
-                                <PdfIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Stack>
+                        <TableActionCell
+                          actions={[
+                            {
+                              icon: <VisibilityIcon fontSize="small" />,
+                              label: 'View Details',
+                              onClick: () => router.push(`/procurement/rfqs/${rfq.id}`),
+                            },
+                            {
+                              icon: <PdfIcon fontSize="small" />,
+                              label: 'Download PDF',
+                              onClick: () => window.open(rfq.latestPdfUrl, '_blank'),
+                              show: !!rfq.latestPdfUrl,
+                            },
+                          ]}
+                        />
                       </TableCell>
                     </TableRow>
                   );
@@ -378,27 +352,7 @@ export default function RFQsPage() {
             onRowsPerPageChange={handleChangeRowsPerPage}
           />
         </TableContainer>
-
-        {/* Empty State for New Users */}
-        {rfqs.length === 0 && (
-          <Paper sx={{ p: 6, textAlign: 'center' }}>
-            <FilterListIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              No RFQs Yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Create your first RFQ from approved purchase requests
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => router.push('/procurement/rfqs/new')}
-            >
-              Create RFQ
-            </Button>
-          </Paper>
-        )}
-      </Stack>
-    </Box>
+      </Box>
+    </Container>
   );
 }

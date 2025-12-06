@@ -2,13 +2,9 @@
 
 import {
   Container,
-  Typography,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
-  IconButton,
   Table,
   TableBody,
   TableCell,
@@ -16,31 +12,23 @@ import {
   TableHead,
   TableRow,
   Paper,
-  CircularProgress,
   Alert,
+  Typography,
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { PageHeader, LoadingState, EmptyState, TableActionCell, getStatusColor } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { listBOMs, deleteBOM } from '@/lib/bom/bomService';
 import { createLogger } from '@vapour/logger';
-import type { BOM, BOMStatus, BOMCategory } from '@vapour/types';
+import type { BOM, BOMCategory } from '@vapour/types';
 
 const logger = createLogger({ context: 'EstimationPage' });
 
 // Fallback entity ID for users without entity assignment
 const FALLBACK_ENTITY_ID = 'default-entity';
-
-// Status color mapping
-const statusColors: Record<BOMStatus, 'default' | 'info' | 'warning' | 'success' | 'error'> = {
-  DRAFT: 'default',
-  UNDER_REVIEW: 'info',
-  APPROVED: 'success',
-  RELEASED: 'warning',
-  ARCHIVED: 'error',
-};
 
 // Category labels
 const categoryLabels: Record<BOMCategory, string> = {
@@ -143,47 +131,23 @@ export default function EstimationPage() {
 
   return (
     <Container maxWidth="xl">
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Bill of Materials (BOM)
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Create and manage equipment BOMs with cost estimates
-          </Typography>
-        </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate} size="large">
-          New BOM
-        </Button>
-      </Box>
+      <Box sx={{ mb: 4 }}>
+        <PageHeader
+          title="Bill of Materials (BOM)"
+          subtitle="Create and manage equipment BOMs with cost estimates"
+          action={
+            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate} size="large">
+              New BOM
+            </Button>
+          }
+        />
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      ) : boms.length === 0 ? (
-        <Card>
-          <CardContent>
-            <Box sx={{ textAlign: 'center', py: 8 }}>
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                No BOMs Yet
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Create your first Bill of Materials to get started
-              </Typography>
-              <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
-                Create First BOM
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
-      ) : (
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
@@ -196,73 +160,97 @@ export default function EstimationPage() {
                 <TableCell align="right">Total Cost</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Created</TableCell>
-                <TableCell align="center">Actions</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {boms.map((bom) => (
-                <TableRow
-                  key={bom.id}
-                  hover
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => handleEdit(bom.id)}
-                >
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
-                      {bom.bomCode}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{bom.name}</Typography>
-                    {bom.description && (
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        {bom.description.length > 50
-                          ? `${bom.description.substring(0, 50)}...`
-                          : bom.description}
+              {loading ? (
+                <LoadingState message="Loading BOMs..." variant="table" colSpan={9} />
+              ) : boms.length === 0 ? (
+                <EmptyState
+                  message="No BOMs yet. Click 'New BOM' to create your first Bill of Materials."
+                  variant="table"
+                  colSpan={9}
+                  action={
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
+                      Create First BOM
+                    </Button>
+                  }
+                />
+              ) : (
+                boms.map((bom) => (
+                  <TableRow
+                    key={bom.id}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => handleEdit(bom.id)}
+                  >
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="medium">
+                        {bom.bomCode}
                       </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {categoryLabels[bom.category] || bom.category}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{bom.projectName || '-'}</Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2">{bom.summary.itemCount}</Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2" fontWeight="medium">
-                      {formatCurrency(bom.summary.totalCost)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip label={bom.status} color={statusColors[bom.status]} size="small" />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{formatDate(bom.createdAt)}</Typography>
-                  </TableCell>
-                  <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                    <IconButton size="small" onClick={() => handleEdit(bom.id)} title="Edit">
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDelete(bom)}
-                      title="Delete"
-                      disabled={bom.status !== 'DRAFT'}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{bom.name}</Typography>
+                      {bom.description && (
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {bom.description.length > 50
+                            ? `${bom.description.substring(0, 50)}...`
+                            : bom.description}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {categoryLabels[bom.category] || bom.category}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{bom.projectName || '-'}</Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2">{bom.summary.itemCount}</Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" fontWeight="medium">
+                        {formatCurrency(bom.summary.totalCost)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={bom.status}
+                        color={getStatusColor(bom.status, 'bom')}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{formatDate(bom.createdAt)}</Typography>
+                    </TableCell>
+                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      <TableActionCell
+                        actions={[
+                          {
+                            icon: <EditIcon fontSize="small" />,
+                            label: 'Edit',
+                            onClick: () => handleEdit(bom.id),
+                          },
+                          {
+                            icon: <DeleteIcon fontSize="small" />,
+                            label: 'Delete',
+                            onClick: () => handleDelete(bom),
+                            color: 'error',
+                            disabled: bom.status !== 'DRAFT',
+                          },
+                        ]}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </TableContainer>
-      )}
+      </Box>
     </Container>
   );
 }

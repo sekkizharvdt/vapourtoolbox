@@ -15,23 +15,12 @@ import {
   InputLabel,
   IconButton,
   Tooltip,
-  CircularProgress,
   Alert,
   Stack,
-  Card,
-  CardContent,
+  Grid,
 } from '@mui/material';
-import {
-  Search as SearchIcon,
-  Add as AddIcon,
-  Refresh as RefreshIcon,
-  AccountTree as TreeIcon,
-  AccountBalance as AssetIcon,
-  TrendingDown as LiabilityIcon,
-  AccountBalanceWallet as EquityIcon,
-  TrendingUp as IncomeIcon,
-  MoneyOff as ExpenseIcon,
-} from '@mui/icons-material';
+import { Search as SearchIcon, Add as AddIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { PageHeader, LoadingState, EmptyState, StatCard, FilterBar } from '@vapour/ui';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -263,20 +252,12 @@ export default function ChartOfAccountsPage() {
 
   return (
     <Container maxWidth="xl">
-      {/* Header */}
       <Box sx={{ mb: 4 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Box>
-            <Typography variant="h4" component="h1" gutterBottom>
-              Chart of Accounts
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {statistics.totalCount} total • {statistics.activeCount} active •{' '}
-              {statistics.groupCount} groups • {statistics.leafCount} accounts
-            </Typography>
-          </Box>
-          <Stack direction="row" spacing={1}>
-            {canManage && (
+        <PageHeader
+          title="Chart of Accounts"
+          subtitle={`${statistics.totalCount} total • ${statistics.activeCount} active • ${statistics.groupCount} groups • ${statistics.leafCount} accounts`}
+          action={
+            canManage ? (
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
@@ -284,95 +265,40 @@ export default function ChartOfAccountsPage() {
               >
                 New Account
               </Button>
-            )}
-          </Stack>
-        </Stack>
-      </Box>
+            ) : undefined
+          }
+        />
 
-      {/* Statistics Cards */}
-      {accounts.length > 0 && (
-        <Stack direction="row" spacing={2} sx={{ mb: 3, overflow: 'auto' }}>
-          <Card sx={{ minWidth: 200, flexGrow: 1 }}>
-            <CardContent>
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <AssetIcon sx={{ fontSize: 40, color: 'success.main' }} />
-                <Box>
-                  <Typography variant="h4" component="div">
-                    {statistics.assetCount}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Assets
-                  </Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-          <Card sx={{ minWidth: 200, flexGrow: 1 }}>
-            <CardContent>
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <LiabilityIcon sx={{ fontSize: 40, color: 'error.main' }} />
-                <Box>
-                  <Typography variant="h4" component="div">
-                    {statistics.liabilityCount}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Liabilities
-                  </Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-          <Card sx={{ minWidth: 200, flexGrow: 1 }}>
-            <CardContent>
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <EquityIcon sx={{ fontSize: 40, color: 'info.main' }} />
-                <Box>
-                  <Typography variant="h4" component="div">
-                    {statistics.equityCount}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Equity
-                  </Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-          <Card sx={{ minWidth: 200, flexGrow: 1 }}>
-            <CardContent>
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <IncomeIcon sx={{ fontSize: 40, color: 'primary.main' }} />
-                <Box>
-                  <Typography variant="h4" component="div">
-                    {statistics.incomeCount}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Income
-                  </Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-          <Card sx={{ minWidth: 200, flexGrow: 1 }}>
-            <CardContent>
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <ExpenseIcon sx={{ fontSize: 40, color: 'warning.main' }} />
-                <Box>
-                  <Typography variant="h4" component="div">
-                    {statistics.expenseCount}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Expenses
-                  </Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Stack>
-      )}
+        {/* Error Alert */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+            {error}
+          </Alert>
+        )}
 
-      {/* Filters */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Stack direction="row" spacing={2} alignItems="center">
+        {/* Statistics Cards */}
+        {accounts.length > 0 && (
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+              <StatCard label="Assets" value={statistics.assetCount} color="success" />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+              <StatCard label="Liabilities" value={statistics.liabilityCount} color="error" />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+              <StatCard label="Equity" value={statistics.equityCount} color="info" />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+              <StatCard label="Income" value={statistics.incomeCount} color="primary" />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+              <StatCard label="Expenses" value={statistics.expenseCount} color="warning" />
+            </Grid>
+          </Grid>
+        )}
+
+        {/* Filters */}
+        <FilterBar>
           <TextField
             placeholder="Search accounts..."
             value={searchTerm}
@@ -384,7 +310,7 @@ export default function ChartOfAccountsPage() {
                 </InputAdornment>
               ),
             }}
-            sx={{ flexGrow: 1 }}
+            sx={{ flexGrow: 1, minWidth: 300 }}
             size="small"
           />
 
@@ -409,93 +335,79 @@ export default function ChartOfAccountsPage() {
               <RefreshIcon />
             </IconButton>
           </Tooltip>
-        </Stack>
-      </Paper>
+        </FilterBar>
 
-      {/* Error Alert */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
-
-      {/* Loading State */}
-      {(loading || initializing) && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 8 }}>
-          <CircularProgress />
-          {initializing && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-              Initializing Chart of Accounts with Indian COA template...
-            </Typography>
-          )}
-        </Box>
-      )}
-
-      {/* Empty State (should not occur after auto-init) */}
-      {!loading && !initializing && accounts.length === 0 && (
-        <Paper sx={{ p: 8, textAlign: 'center' }}>
-          <TreeIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" gutterBottom>
-            No Chart of Accounts
-          </Typography>
-          <Typography variant="body2" color="text.secondary" paragraph>
-            Initialize with the Indian Chart of Accounts template or create accounts manually.
-          </Typography>
-          {canManage && (
-            <Stack direction="row" spacing={2} justifyContent="center">
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={async () => {
-                  if (!user) return;
-                  setInitializing(true);
-                  const result = await initializeChartOfAccounts(user.uid);
-                  if (!result.success) {
-                    setError(`Failed to initialize: ${result.error}`);
-                  }
-                  setInitializing(false);
-                }}
-              >
-                Initialize Indian COA
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={() => setCreateDialogOpen(true)}
-              >
-                Create Manually
-              </Button>
-            </Stack>
-          )}
-        </Paper>
-      )}
-
-      {/* Account Tree View */}
-      {!loading && filteredAccounts.length > 0 && (
-        <Paper sx={{ p: 2 }}>
-          <AccountTreeView
-            accounts={filteredAccounts}
-            onEdit={canManage ? handleEditAccount : undefined}
+        {/* Loading State */}
+        {(loading || initializing) && (
+          <LoadingState
+            message={
+              initializing
+                ? 'Initializing Chart of Accounts with Indian COA template...'
+                : 'Loading accounts...'
+            }
+            variant="page"
           />
-        </Paper>
-      )}
+        )}
 
-      {/* No Results */}
-      {!loading && accounts.length > 0 && filteredAccounts.length === 0 && (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="body1" color="text.secondary">
-            No accounts match your search criteria.
-          </Typography>
-        </Paper>
-      )}
+        {/* Empty State (should not occur after auto-init) */}
+        {!loading && !initializing && accounts.length === 0 && (
+          <EmptyState
+            message="No Chart of Accounts. Initialize with the Indian Chart of Accounts template or create accounts manually."
+            variant="paper"
+            action={
+              canManage ? (
+                <Stack direction="row" spacing={2}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={async () => {
+                      if (!user) return;
+                      setInitializing(true);
+                      const result = await initializeChartOfAccounts(user.uid);
+                      if (!result.success) {
+                        setError(`Failed to initialize: ${result.error}`);
+                      }
+                      setInitializing(false);
+                    }}
+                  >
+                    Initialize Indian COA
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<AddIcon />}
+                    onClick={() => setCreateDialogOpen(true)}
+                  >
+                    Create Manually
+                  </Button>
+                </Stack>
+              ) : undefined
+            }
+          />
+        )}
 
-      {/* Dialogs */}
-      <CreateAccountDialog
-        open={createDialogOpen}
-        onClose={handleCloseDialog}
-        accounts={accounts}
-        editingAccount={editingAccount}
-      />
+        {/* Account Tree View */}
+        {!loading && !initializing && filteredAccounts.length > 0 && (
+          <Paper sx={{ p: 2 }}>
+            <AccountTreeView
+              accounts={filteredAccounts}
+              onEdit={canManage ? handleEditAccount : undefined}
+            />
+          </Paper>
+        )}
+
+        {/* No Results */}
+        {!loading && !initializing && accounts.length > 0 && filteredAccounts.length === 0 && (
+          <EmptyState message="No accounts match your search criteria." variant="paper" />
+        )}
+
+        {/* Dialogs */}
+        <CreateAccountDialog
+          open={createDialogOpen}
+          onClose={handleCloseDialog}
+          accounts={accounts}
+          editingAccount={editingAccount}
+        />
+      </Box>
     </Container>
   );
 }

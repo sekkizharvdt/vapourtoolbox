@@ -15,11 +15,8 @@ import dynamic from 'next/dynamic';
 import {
   Box,
   Paper,
-  Typography,
   Button,
   TextField,
-  Stack,
-  CircularProgress,
   Collapse,
   FormControl,
   InputLabel,
@@ -27,6 +24,9 @@ import {
   MenuItem,
   Tabs,
   Tab,
+  Container,
+  Stack,
+  Typography,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -36,6 +36,7 @@ import {
   Send as SendIcon,
   Upload as UploadIcon,
 } from '@mui/icons-material';
+import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
 import type { MasterDocumentEntry } from '@vapour/types';
 import { getMasterDocumentsByProject } from '@/lib/documents/masterDocumentService';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
@@ -211,43 +212,42 @@ export default function MasterDocumentsPage() {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Stack spacing={3}>
-        {/* Header */}
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Typography variant="h4" component="h1">
-            Master Document List
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              startIcon={<UploadIcon />}
-              onClick={() => setImportDialogOpen(true)}
-              disabled={!projectId}
-            >
-              Import Register
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<SendIcon />}
-              onClick={() => setTransmittalDialogOpen(true)}
-              disabled={!projectId || filteredDocuments.length === 0}
-            >
-              Create Transmittal
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateDialogOpen(true)}
-              disabled={!projectId}
-            >
-              New Document
-            </Button>
-          </Stack>
-        </Stack>
+    <Container maxWidth="xl">
+      <Box sx={{ mb: 4 }}>
+        <PageHeader
+          title="Master Document List"
+          action={
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="outlined"
+                startIcon={<UploadIcon />}
+                onClick={() => setImportDialogOpen(true)}
+                disabled={!projectId}
+              >
+                Import Register
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<SendIcon />}
+                onClick={() => setTransmittalDialogOpen(true)}
+                disabled={!projectId || filteredDocuments.length === 0}
+              >
+                Create Transmittal
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateDialogOpen(true)}
+                disabled={!projectId}
+              >
+                New Document
+              </Button>
+            </Stack>
+          }
+        />
 
         {/* Project Selector */}
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{ p: 2, mb: 3 }}>
           <ProjectSelector
             value={projectId}
             onChange={(value: string | null, projectName?: string) => {
@@ -267,7 +267,7 @@ export default function MasterDocumentsPage() {
 
         {/* Tabs */}
         {projectId && (
-          <Paper>
+          <Paper sx={{ mb: 3 }}>
             <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
               <Tab label="Documents" />
               <Tab label="Transmittals" />
@@ -276,15 +276,14 @@ export default function MasterDocumentsPage() {
         )}
 
         {!projectId ? (
-          <Paper sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              Please select a project to view its master document list
-            </Typography>
-          </Paper>
+          <EmptyState
+            message="Please select a project to view its master document list"
+            variant="paper"
+          />
         ) : activeTab === 1 ? (
           <TransmittalsList projectId={projectId} />
         ) : (
-          <>
+          <Stack spacing={3}>
             {/* Document Metrics */}
             <DocumentMetrics
               documents={documents}
@@ -394,12 +393,7 @@ export default function MasterDocumentsPage() {
 
             {/* Documents Table */}
             {loading ? (
-              <Paper sx={{ p: 4, textAlign: 'center' }}>
-                <CircularProgress />
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                  Loading documents...
-                </Typography>
-              </Paper>
+              <LoadingState message="Loading documents..." variant="page" />
             ) : (
               <>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -408,39 +402,38 @@ export default function MasterDocumentsPage() {
                 <GroupedDocumentsTable documents={filteredDocuments} />
               </>
             )}
-          </>
+          </Stack>
         )}
-      </Stack>
-
-      {/* Create Document Dialog */}
-      <CreateDocumentDialog
-        open={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
-        projectId={projectId}
-        onDocumentCreated={handleDocumentCreated}
-      />
-
-      {/* Generate Transmittal Dialog */}
-      {projectId && (
-        <GenerateTransmittalDialog
-          open={transmittalDialogOpen}
-          onClose={() => setTransmittalDialogOpen(false)}
+        {/* Create Document Dialog */}
+        <CreateDocumentDialog
+          open={createDialogOpen}
+          onClose={() => setCreateDialogOpen(false)}
           projectId={projectId}
-          projectName={projectId}
-          documents={filteredDocuments}
+          onDocumentCreated={handleDocumentCreated}
         />
-      )}
 
-      {/* Import Document Register Dialog */}
-      {projectId && (
-        <DocumentRegisterUploadDialog
-          open={importDialogOpen}
-          onClose={() => setImportDialogOpen(false)}
-          projectId={projectId}
-          projectCode={projectCode || projectId}
-          onDocumentsImported={loadDocuments}
-        />
-      )}
-    </Box>
+        {/* Generate Transmittal Dialog */}
+        {projectId && (
+          <GenerateTransmittalDialog
+            open={transmittalDialogOpen}
+            onClose={() => setTransmittalDialogOpen(false)}
+            projectId={projectId}
+            projectName={projectId}
+            documents={filteredDocuments}
+          />
+        )}
+
+        {/* Import Document Register Dialog */}
+        {projectId && (
+          <DocumentRegisterUploadDialog
+            open={importDialogOpen}
+            onClose={() => setImportDialogOpen(false)}
+            projectId={projectId}
+            projectCode={projectCode || projectId}
+            onDocumentsImported={loadDocuments}
+          />
+        )}
+      </Box>
+    </Container>
   );
 }

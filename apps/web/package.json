@@ -33,7 +33,6 @@
     "@vapour/utils": "workspace:*",
     "@vapour/validation": "workspace:*",
     "date-fns": "^4.1.0",
-    "dayjs": "^1.11.19",
     "exceljs": "^4.4.0",
     "firebase": "^11.2.0",
     "mathjs": "^15.1.0",
