@@ -40,6 +40,7 @@ import {
   Inventory as InventoryIcon,
   LocalShipping as LocalShippingIcon,
   Thermostat as ThermostatIcon,
+  Storage as StorageIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 import { MODULES, hasPermission, hasPermission2 } from '@vapour/constants';
@@ -73,6 +74,7 @@ const moduleIcons: Record<string, React.ReactNode> = {
   'bought-out-database': <LocalShippingIcon />,
   'thermal-desal': <ThermostatIcon />,
   'thermal-calcs': <CalculateIcon />,
+  'process-data': <StorageIcon />,
   'proposal-management': <AssignmentIcon />,
 };
 
@@ -105,6 +107,7 @@ const SIDEBAR_CATEGORIES: CategoryConfig[] = [
       'estimation', // Cost estimation for proposals
       'thermal-desal', // Specialized estimations
       'thermal-calcs', // Thermal calculators
+      'process-data', // Process SSOT database
     ],
   },
   {

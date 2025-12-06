@@ -29,3 +29,4 @@ export * from './thermal';
 export * from './transaction';
 export * from './user';
 export * from './result';
+export * from './ssot';

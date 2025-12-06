@@ -133,6 +133,26 @@ export const SUBCOLLECTIONS = {
   // Entity subcollections
   ENTITY_TRANSACTIONS: 'transactions',
   ENTITY_DOCUMENTS: 'documents',
+
+  // SSOT Process Data subcollections (under projects/{projectId})
+  SSOT_STREAMS: 'streams',
+  SSOT_EQUIPMENT: 'equipment',
+  SSOT_LINES: 'lines',
+  SSOT_INSTRUMENTS: 'instruments',
+  SSOT_VALVES: 'valves',
+  SSOT_PIPE_TABLE: 'pipeTable',
+} as const;
+
+/**
+ * SSOT Collection paths (for convenience)
+ */
+export const SSOT_COLLECTIONS = {
+  STREAMS: (projectId: string) => `projects/${projectId}/streams`,
+  EQUIPMENT: (projectId: string) => `projects/${projectId}/equipment`,
+  LINES: (projectId: string) => `projects/${projectId}/lines`,
+  INSTRUMENTS: (projectId: string) => `projects/${projectId}/instruments`,
+  VALVES: (projectId: string) => `projects/${projectId}/valves`,
+  PIPE_TABLE: (projectId: string) => `projects/${projectId}/pipeTable`,
 } as const;
 
 /**

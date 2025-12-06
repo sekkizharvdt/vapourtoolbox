@@ -234,6 +234,21 @@ export const MODULES: Record<string, ModuleDefinition> = {
     priority: 10,
   },
 
+  PROCESS_DATA: {
+    id: 'process-data',
+    name: 'Process Data (SSOT)',
+    shortName: 'Process Data',
+    description:
+      'Single Source of Truth for process engineering data (streams, equipment, lines, instruments, valves)',
+    icon: 'Storage',
+    color: '#14B8A6', // Teal
+    path: '/ssot',
+    status: 'active',
+    requiredPermissions2: 64, // VIEW_THERMAL_DESAL (shares permission with thermal design)
+    category: 'application',
+    priority: 11,
+  },
+
   PROPOSAL_MANAGEMENT: {
     id: 'proposal-management',
     name: 'Proposal Management',

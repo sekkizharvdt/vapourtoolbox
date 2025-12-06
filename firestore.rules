@@ -173,6 +173,82 @@ service cloud.firestore {
                        (isExternalUser() && isAssignedToProject(projectId));
         allow write: if false; // Written by Cloud Functions only
       }
+
+      // ============================================
+      // SSOT Process Data Subcollections
+      // ============================================
+
+      // Process Streams (INPUT_DATA)
+      match /streams/{streamId} {
+        allow read: if isInternalUser() && (
+                       isAssignedToProject(projectId) ||
+                       hasPermission(16) // VIEW_PROJECTS
+                     );
+        allow create, update: if isInternalUser() &&
+                                 (isAssignedToProject(projectId) ||
+                                  hasPermission(8)); // MANAGE_PROJECTS
+        allow delete: if isSuperAdmin();
+      }
+
+      // Process Equipment
+      match /equipment/{equipmentId} {
+        allow read: if isInternalUser() && (
+                       isAssignedToProject(projectId) ||
+                       hasPermission(16) // VIEW_PROJECTS
+                     );
+        allow create, update: if isInternalUser() &&
+                                 (isAssignedToProject(projectId) ||
+                                  hasPermission(8)); // MANAGE_PROJECTS
+        allow delete: if isSuperAdmin();
+      }
+
+      // Process Lines
+      match /lines/{lineId} {
+        allow read: if isInternalUser() && (
+                       isAssignedToProject(projectId) ||
+                       hasPermission(16) // VIEW_PROJECTS
+                     );
+        allow create, update: if isInternalUser() &&
+                                 (isAssignedToProject(projectId) ||
+                                  hasPermission(8)); // MANAGE_PROJECTS
+        allow delete: if isSuperAdmin();
+      }
+
+      // Process Instruments
+      match /instruments/{instrumentId} {
+        allow read: if isInternalUser() && (
+                       isAssignedToProject(projectId) ||
+                       hasPermission(16) // VIEW_PROJECTS
+                     );
+        allow create, update: if isInternalUser() &&
+                                 (isAssignedToProject(projectId) ||
+                                  hasPermission(8)); // MANAGE_PROJECTS
+        allow delete: if isSuperAdmin();
+      }
+
+      // Process Valves
+      match /valves/{valveId} {
+        allow read: if isInternalUser() && (
+                       isAssignedToProject(projectId) ||
+                       hasPermission(16) // VIEW_PROJECTS
+                     );
+        allow create, update: if isInternalUser() &&
+                                 (isAssignedToProject(projectId) ||
+                                  hasPermission(8)); // MANAGE_PROJECTS
+        allow delete: if isSuperAdmin();
+      }
+
+      // Pipe Table (lookup table for pipe sizing)
+      match /pipeTable/{pipeId} {
+        allow read: if isInternalUser() && (
+                       isAssignedToProject(projectId) ||
+                       hasPermission(16) // VIEW_PROJECTS
+                     );
+        allow create, update: if isInternalUser() &&
+                                 (isAssignedToProject(projectId) ||
+                                  hasPermission(8)); // MANAGE_PROJECTS
+        allow delete: if isSuperAdmin();
+      }
     }
 
     // ============================================
