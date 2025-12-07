@@ -38,6 +38,11 @@ export const LINE_TAG_FLUID_MAP: Record<string, FluidType> = {
 };
 
 // ============================================
+// Steam Region Type
+// ============================================
+export type SteamRegion = 'saturation' | 'subcooled' | 'superheated';
+
+// ============================================
 // INPUT_DATA - Master Stream Data (195 rows)
 // ============================================
 export interface ProcessStream {
@@ -55,6 +60,14 @@ export interface ProcessStream {
   density: number; // Col 8: kg/m³
   tds?: number; // Col 9: ppm (for seawater/brine)
   enthalpy: number; // Col 10: kJ/kg
+
+  // Extended thermodynamic properties (calculated from steam/seawater tables)
+  specificHeat?: number; // kJ/(kg·K) - Cp
+  viscosity?: number; // Pa·s - dynamic viscosity
+  thermalConductivity?: number; // W/(m·K) - for seawater
+  entropy?: number; // kJ/(kg·K) - for steam
+  boilingPointElevation?: number; // °C - for seawater/brine
+  steamRegion?: SteamRegion; // For steam: saturation, subcooled, or superheated
 
   // Derived fields
   fluidType: FluidType; // Inferred from lineTag prefix: SW=SEA WATER, D=DISTILLATE, S=STEAM, etc.
@@ -79,6 +92,13 @@ export interface ProcessStreamInput {
   fluidType: FluidType;
   density?: number; // Calculated from thermal properties
   enthalpy?: number; // Calculated from thermal properties
+  // Extended thermodynamic properties (calculated)
+  specificHeat?: number; // kJ/(kg·K) - Cp
+  viscosity?: number; // Pa·s - dynamic viscosity
+  thermalConductivity?: number; // W/(m·K) - for seawater
+  entropy?: number; // kJ/(kg·K) - for steam
+  boilingPointElevation?: number; // °C - for seawater/brine
+  steamRegion?: SteamRegion; // For steam: saturation, subcooled, or superheated
 }
 
 // ============================================
