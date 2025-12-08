@@ -152,11 +152,11 @@ export default function EntitiesPage() {
       return sortDirection === 'asc' ? comparison : -comparison;
     });
 
-  // Stats
+  // Stats (case-insensitive status comparison to handle legacy data)
   const stats = {
     total: entities.length,
-    active: entities.filter((e) => e.status === 'active').length,
-    inactive: entities.filter((e) => e.status === 'inactive').length,
+    active: entities.filter((e) => e.status?.toLowerCase() === 'active').length,
+    inactive: entities.filter((e) => e.status?.toLowerCase() === 'inactive').length,
     vendors: entities.filter((e) => e.roles.includes('VENDOR')).length,
     customers: entities.filter((e) => e.roles.includes('CUSTOMER')).length,
   };

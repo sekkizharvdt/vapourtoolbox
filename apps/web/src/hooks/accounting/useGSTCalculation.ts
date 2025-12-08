@@ -59,13 +59,7 @@ interface UseGSTCalculationReturn {
  * ```
  */
 export function useGSTCalculation(options: UseGSTCalculationOptions): UseGSTCalculationReturn {
-  const {
-    lineItems,
-    subtotal,
-    companyState,
-    entityState,
-    enabled = true,
-  } = options;
+  const { lineItems, subtotal, companyState, entityState, enabled = true } = options;
 
   // Calculate average GST rate from line items
   const averageGstRate = useMemo(() => {
@@ -76,16 +70,30 @@ export function useGSTCalculation(options: UseGSTCalculationOptions): UseGSTCalc
 
   // Calculate GST details
   const gstDetails = useMemo(() => {
-    if (!enabled || !companyState || !entityState || subtotal <= 0) {
+    if (!enabled || subtotal <= 0 || averageGstRate <= 0) {
       return undefined;
     }
 
-    return calculateGST({
+    // If both states are available, use proper CGST/SGST vs IGST determination
+    if (companyState && entityState) {
+      return calculateGST({
+        taxableAmount: subtotal,
+        gstRate: averageGstRate,
+        sourceState: companyState,
+        destinationState: entityState,
+      });
+    }
+
+    // Fallback: Calculate GST without state info (assume IGST for simplicity)
+    // This ensures GST is calculated even when entity state isn't configured
+    const totalGST = subtotal * (averageGstRate / 100);
+    return {
       taxableAmount: subtotal,
-      gstRate: averageGstRate,
-      sourceState: companyState,
-      destinationState: entityState,
-    });
+      gstType: 'IGST' as const,
+      igstRate: averageGstRate,
+      igstAmount: totalGST,
+      totalGST,
+    };
   }, [enabled, companyState, entityState, subtotal, averageGstRate]);
 
   // Calculate total GST amount

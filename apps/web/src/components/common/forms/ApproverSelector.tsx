@@ -59,6 +59,8 @@ const APPROVAL_PERMISSIONS: Record<ApprovalType, PermissionFlag | PermissionFlag
 interface ApproverSelectorProps {
   value: string | null;
   onChange: (userId: string | null) => void;
+  /** Extended callback that also receives the user's display name */
+  onChangeWithName?: (userId: string | null, displayName: string) => void;
   label?: string;
   required?: boolean;
   disabled?: boolean;
@@ -112,6 +114,7 @@ function userHasRequiredPermission(
 function ApproverSelectorComponent({
   value,
   onChange,
+  onChangeWithName,
   label = 'Approver',
   required = false,
   disabled = false,
@@ -206,8 +209,12 @@ function ApproverSelectorComponent({
   const handleChange = useCallback(
     (_: unknown, newValue: User | null) => {
       onChange(newValue?.uid || null);
+      // Also call onChangeWithName if provided
+      if (onChangeWithName) {
+        onChangeWithName(newValue?.uid || null, newValue?.displayName || '');
+      }
     },
-    [onChange]
+    [onChange, onChangeWithName]
   );
 
   // Memoize option label getter

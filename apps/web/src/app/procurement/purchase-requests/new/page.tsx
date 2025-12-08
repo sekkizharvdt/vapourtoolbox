@@ -410,6 +410,7 @@ export default function NewPurchaseRequestPage() {
                   <TableRow>
                     <TableCell width={50}>#</TableCell>
                     <TableCell>Description *</TableCell>
+                    <TableCell>Specification</TableCell>
                     <TableCell width={100}>Qty *</TableCell>
                     <TableCell width={100}>Unit *</TableCell>
                     <TableCell width={140}>Equipment Code</TableCell>
@@ -427,6 +428,19 @@ export default function NewPurchaseRequestPage() {
                             handleLineItemChange(index, 'description', e.target.value)
                           }
                           placeholder="Item description"
+                          size="small"
+                          fullWidth
+                          multiline
+                          maxRows={3}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          value={item.specification || ''}
+                          onChange={(e) =>
+                            handleLineItemChange(index, 'specification', e.target.value)
+                          }
+                          placeholder="Specification"
                           size="small"
                           fullWidth
                           multiline

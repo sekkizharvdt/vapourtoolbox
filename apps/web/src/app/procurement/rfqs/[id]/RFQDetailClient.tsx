@@ -89,7 +89,7 @@ export default function RFQDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rfqId]);
 
-  const loadRFQ = async () => {
+  const loadRFQ = async (retryCount = 0) => {
     if (!rfqId) return;
     setLoading(true);
     setError('');
@@ -97,6 +97,16 @@ export default function RFQDetailPage() {
       const [rfqData, itemsData] = await Promise.all([getRFQById(rfqId), getRFQItems(rfqId)]);
 
       if (!rfqData) {
+        // Retry up to 3 times with exponential backoff for newly created RFQs
+        // This handles Firestore eventual consistency after creation
+        if (retryCount < 3) {
+          const delay = Math.pow(2, retryCount) * 500; // 500ms, 1s, 2s
+          console.warn(
+            `[RFQDetailPage] RFQ not found, retrying in ${delay}ms (attempt ${retryCount + 1}/3)`
+          );
+          setTimeout(() => loadRFQ(retryCount + 1), delay);
+          return;
+        }
         setError('RFQ not found');
         return;
       }

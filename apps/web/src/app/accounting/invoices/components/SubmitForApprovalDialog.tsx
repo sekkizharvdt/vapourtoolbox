@@ -93,16 +93,14 @@ export function SubmitForApprovalDialog({
     }
   };
 
-  // Custom handler to capture approver name from the selector
+  // Handler to capture both approver ID and name from the selector
   const handleApproverChange = (userId: string | null) => {
     setApproverId(userId);
-    // The approver name will be retrieved when submitting if needed
-    // For now, we'll use a placeholder
-    if (userId) {
-      setApproverName('Selected Approver');
-    } else {
-      setApproverName('');
-    }
+  };
+
+  const handleApproverChangeWithName = (userId: string | null, displayName: string) => {
+    setApproverId(userId);
+    setApproverName(displayName);
   };
 
   if (!invoice) return null;
@@ -127,6 +125,7 @@ export function SubmitForApprovalDialog({
             <ApproverSelector
               value={approverId}
               onChange={handleApproverChange}
+              onChangeWithName={handleApproverChangeWithName}
               label="Select Approver"
               approvalType="transaction"
               required

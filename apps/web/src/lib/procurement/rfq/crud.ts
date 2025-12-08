@@ -290,15 +290,26 @@ export async function createRFQFromPRs(
   const rfqId = await createRFQ(rfqInput, allItems, userId, userName);
 
   // Update PRs status to CONVERTED_TO_RFQ
-  const batch = writeBatch(db);
-  for (const prId of prIds) {
-    batch.update(doc(db, COLLECTIONS.PURCHASE_REQUESTS, prId), {
-      status: 'CONVERTED_TO_RFQ',
-      updatedAt: Timestamp.now(),
-      updatedBy: userId,
+  // This is a non-critical operation - RFQ is already created successfully
+  // If this fails, log the error but don't fail the entire operation
+  try {
+    const batch = writeBatch(db);
+    for (const prId of prIds) {
+      batch.update(doc(db, COLLECTIONS.PURCHASE_REQUESTS, prId), {
+        status: 'CONVERTED_TO_RFQ',
+        updatedAt: Timestamp.now(),
+        updatedBy: userId,
+      });
+    }
+    await batch.commit();
+  } catch (err) {
+    // Log but don't throw - RFQ was created successfully
+    logger.error('Failed to update PR statuses after RFQ creation', {
+      rfqId,
+      prIds,
+      error: err,
     });
   }
-  await batch.commit();
 
   return rfqId;
 }
