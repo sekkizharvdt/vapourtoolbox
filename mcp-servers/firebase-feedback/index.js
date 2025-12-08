@@ -3,8 +3,8 @@
 /**
  * Firebase Feedback MCP Server
  *
- * Provides read-only access to the feedback collection in Firestore
- * for reviewing bug reports and feature requests.
+ * Provides access to the feedback collection in Firestore
+ * for reviewing and managing bug reports and feature requests.
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -155,6 +155,31 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['query'],
         },
       },
+      {
+        name: 'update_feedback',
+        description:
+          'Update feedback status and/or admin notes. Use this to mark items as in_progress when starting work, resolved when fixed (with resolution notes), or closed after user acknowledgment.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: 'The feedback document ID',
+            },
+            status: {
+              type: 'string',
+              enum: ['new', 'in_progress', 'resolved', 'closed', 'wont_fix'],
+              description: 'New status for the feedback item',
+            },
+            adminNotes: {
+              type: 'string',
+              description:
+                'Resolution notes or admin comments. For resolved items, include: what was fixed, commit reference, and deployment date.',
+            },
+          },
+          required: ['id'],
+        },
+      },
     ],
   };
 });
@@ -289,6 +314,75 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                   query,
                   count: items.length,
                   items,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      case 'update_feedback': {
+        const { id, status, adminNotes } = args;
+
+        // Validate at least one update field is provided
+        if (!status && adminNotes === undefined) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({
+                  error: 'At least one of status or adminNotes must be provided',
+                }),
+              },
+            ],
+          };
+        }
+
+        // Check if document exists
+        const docRef = db.collection('feedback').doc(id);
+        const doc = await docRef.get();
+
+        if (!doc.exists) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({ error: 'Feedback not found', id }),
+              },
+            ],
+          };
+        }
+
+        // Build update object
+        const updateData = {
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        if (status) {
+          updateData.status = status;
+        }
+
+        if (adminNotes !== undefined) {
+          updateData.adminNotes = adminNotes;
+        }
+
+        // Perform update
+        await docRef.update(updateData);
+
+        // Fetch updated document
+        const updatedDoc = await docRef.get();
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  success: true,
+                  message: `Feedback ${id} updated successfully`,
+                  feedback: formatFeedback(updatedDoc),
                 },
                 null,
                 2
