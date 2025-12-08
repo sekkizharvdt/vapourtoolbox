@@ -152,7 +152,11 @@ export default function FlashChamberClient() {
       <Grid container spacing={3}>
         {/* Left Sidebar - Inputs */}
         <Grid size={{ xs: 12, lg: 4 }}>
-          <InputSection inputs={inputs} onChange={setInputs} />
+          <InputSection
+            inputs={inputs}
+            onChange={setInputs}
+            calculatedDiameter={result?.chamberSizing.diameter}
+          />
         </Grid>
 
         {/* Right Panel - Results */}

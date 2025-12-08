@@ -88,6 +88,12 @@ export interface FlashChamberInput {
 
   /** Gap between LG-L (Low Level) and BTL (Bottom Tangent Line) in meters (typical: ~0.1m) */
   btlGapBelowLGL: number;
+
+  /** User-specified diameter in mm (optional - if provided, overrides auto-calculation) */
+  userDiameter?: number;
+
+  /** Whether to use auto-calculated diameter or user-specified */
+  autoCalculateDiameter?: boolean;
 }
 
 /**
@@ -372,6 +378,8 @@ export const DEFAULT_FLASH_CHAMBER_INPUT: FlashChamberInput = {
   operatingLevelAbovePump: 4.0, // 4m typical
   operatingLevelRatio: 0.5, // Operating level at midpoint of retention zone
   btlGapBelowLGL: 0.1, // 100mm gap
+  userDiameter: 1000, // Default 1000mm if user wants to specify
+  autoCalculateDiameter: true, // Auto-calculate by default
 };
 
 // ============================================================================
@@ -398,6 +406,7 @@ export const FLASH_CHAMBER_LIMITS = {
   operatingLevelAbovePump: { min: 2.0, max: 15.0, unit: 'm' },
   operatingLevelRatio: { min: 0.2, max: 0.8, unit: '' },
   btlGapBelowLGL: { min: 0.05, max: 0.5, unit: 'm' },
+  userDiameter: { min: 500, max: 5000, unit: 'mm' },
 } as const;
 
 /**

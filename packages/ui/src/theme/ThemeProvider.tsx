@@ -38,27 +38,27 @@ interface VapourThemeProviderProps {
  * Theme Provider with dark mode support
  * Persists theme preference to localStorage
  */
-export function VapourThemeProvider({
-  children,
-  defaultMode = 'light',
-}: VapourThemeProviderProps) {
-  const [mode, setMode] = useState<ThemeMode>(() => {
-    // Try to load from localStorage
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('vapour-theme-mode');
-      if (saved === 'light' || saved === 'dark') {
-        return saved;
-      }
-    }
-    return defaultMode;
-  });
+export function VapourThemeProvider({ children, defaultMode = 'light' }: VapourThemeProviderProps) {
+  // Track if we've mounted (to avoid hydration mismatch)
+  const [mounted, setMounted] = useState(false);
+  // Always start with defaultMode to avoid hydration mismatch
+  const [mode, setMode] = useState<ThemeMode>(defaultMode);
 
-  // Persist to localStorage when mode changes
+  // Load saved theme preference after mount (client-side only)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('vapour-theme-mode');
+    if (saved === 'light' || saved === 'dark') {
+      setMode(saved);
+    }
+    setMounted(true);
+  }, []);
+
+  // Persist to localStorage when mode changes (but only after initial mount)
+  useEffect(() => {
+    if (mounted) {
       localStorage.setItem('vapour-theme-mode', mode);
     }
-  }, [mode]);
+  }, [mode, mounted]);
 
   const toggleTheme = () => {
     setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));

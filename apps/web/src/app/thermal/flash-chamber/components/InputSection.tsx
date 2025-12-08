@@ -27,8 +27,11 @@ import {
   TableHead,
   TableRow,
   Box,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import { Info as InfoIcon } from '@mui/icons-material';
+import { useMemo } from 'react';
 import type {
   FlashChamberInput,
   FlashChamberInputMode,
@@ -36,19 +39,97 @@ import type {
   FlowRateUnit,
 } from '@vapour/types';
 import { FLASH_CHAMBER_LIMITS, FLOW_RATE_UNIT_LABELS } from '@vapour/types';
+import { getSaturationTemperature, mbarAbsToBar } from '@vapour/constants';
 
 interface InputSectionProps {
   inputs: FlashChamberInput;
   onChange: (inputs: FlashChamberInput) => void;
+  /** Auto-calculated diameter from results (optional, for display) */
+  calculatedDiameter?: number;
 }
 
-export function InputSection({ inputs, onChange }: InputSectionProps) {
-  const handleChange = (field: keyof FlashChamberInput, value: number | string) => {
+// Helper function to calculate spray zone height
+function calculateSprayZoneHeight(diameter: number, angle: number): number {
+  const radiusMM = diameter / 2;
+  const halfAngleRad = (angle / 2) * (Math.PI / 180);
+  return Math.round(radiusMM / Math.tan(halfAngleRad));
+}
+
+/**
+ * Calculate sonic velocity and maximum recommended vapor velocity
+ * For saturated steam, sonic velocity ≈ √(γRT) where:
+ * - γ (gamma) ≈ 1.3 for steam
+ * - R = 461.5 J/(kg·K) for steam
+ * - T = temperature in Kelvin
+ *
+ * Maximum practical velocity is ~0.3-0.5 of sonic to avoid entrainment
+ */
+function calculateMaxVaporVelocity(operatingPressureMbar: number): {
+  saturationTemp: number;
+  sonicVelocity: number;
+  maxRecommendedVelocity: number;
+} {
+  const pressureBar = mbarAbsToBar(operatingPressureMbar);
+  const satTempC = getSaturationTemperature(pressureBar);
+  const satTempK = satTempC + 273.15;
+
+  // Steam properties
+  const gamma = 1.3; // Ratio of specific heats for steam
+  const R_steam = 461.5; // J/(kg·K)
+
+  // Sonic velocity for ideal gas approximation
+  const sonicVelocity = Math.sqrt(gamma * R_steam * satTempK);
+
+  // Maximum recommended velocity (35% of sonic - conservative)
+  const maxRecommendedVelocity = sonicVelocity * 0.35;
+
+  return {
+    saturationTemp: satTempC,
+    sonicVelocity,
+    maxRecommendedVelocity,
+  };
+}
+
+export function InputSection({ inputs, onChange, calculatedDiameter }: InputSectionProps) {
+  const handleChange = (field: keyof FlashChamberInput, value: number | string | boolean) => {
     onChange({
       ...inputs,
       [field]: value,
     });
   };
+
+  // Handle diameter mode toggle
+  const handleDiameterModeChange = (autoCalculate: boolean) => {
+    onChange({
+      ...inputs,
+      autoCalculateDiameter: autoCalculate,
+      // When switching to manual, default to current calculated value if available
+      userDiameter: !autoCalculate && calculatedDiameter ? calculatedDiameter : inputs.userDiameter,
+    });
+  };
+
+  // Effective diameter to use for spray zone reference calculation
+  const effectiveDiameter = useMemo(() => {
+    if (inputs.autoCalculateDiameter !== false) {
+      return calculatedDiameter || 1000; // Use calculated or fallback
+    }
+    return inputs.userDiameter || 1000;
+  }, [inputs.autoCalculateDiameter, inputs.userDiameter, calculatedDiameter]);
+
+  // Calculate spray zone heights for reference table
+  const sprayZoneReference = useMemo(() => {
+    const angles = [70, 80, 90, 100];
+    return angles.map((angle) => ({
+      angle,
+      halfAngle: angle / 2,
+      height: calculateSprayZoneHeight(effectiveDiameter, angle),
+    }));
+  }, [effectiveDiameter]);
+
+  // Calculate maximum vapor velocity based on operating pressure
+  const vaporVelocityLimits = useMemo(() => {
+    return calculateMaxVaporVelocity(inputs.operatingPressure);
+  }, [inputs.operatingPressure]);
 
   const handleModeChange = (mode: FlashChamberInputMode) => {
     onChange({
@@ -239,6 +320,48 @@ export function InputSection({ inputs, onChange }: InputSectionProps) {
           Chamber Design Parameters
         </Typography>
 
+        {/* Vessel Diameter */}
+        <Box>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={inputs.autoCalculateDiameter !== false}
+                onChange={(e) => handleDiameterModeChange(e.target.checked)}
+                size="small"
+              />
+            }
+            label={
+              <Typography variant="body2">
+                Auto-calculate diameter
+                {inputs.autoCalculateDiameter !== false && calculatedDiameter && (
+                  <Typography component="span" variant="body2" color="primary" sx={{ ml: 1 }}>
+                    ({calculatedDiameter} mm)
+                  </Typography>
+                )}
+              </Typography>
+            }
+          />
+          {inputs.autoCalculateDiameter === false && (
+            <TextField
+              label="Vessel Diameter"
+              type="number"
+              value={inputs.userDiameter || ''}
+              onChange={(e) => handleChange('userDiameter', parseFloat(e.target.value) || 0)}
+              InputProps={{
+                endAdornment: <InputAdornment position="end">mm</InputAdornment>,
+              }}
+              inputProps={{
+                min: FLASH_CHAMBER_LIMITS.userDiameter.min,
+                max: FLASH_CHAMBER_LIMITS.userDiameter.max,
+                step: 100,
+              }}
+              helperText={`Range: ${FLASH_CHAMBER_LIMITS.userDiameter.min} - ${FLASH_CHAMBER_LIMITS.userDiameter.max} mm (in 100mm increments)`}
+              fullWidth
+              sx={{ mt: 1 }}
+            />
+          )}
+        </Box>
+
         {/* Retention Time */}
         <TextField
           label="Retention Time"
@@ -305,7 +428,7 @@ export function InputSection({ inputs, onChange }: InputSectionProps) {
         {/* Spray Angle Reference Table */}
         <Box sx={{ mt: 1 }}>
           <Typography variant="caption" color="text.secondary" gutterBottom>
-            Spray Zone Height Reference (for 1000mm diameter chamber):
+            Spray Zone Height Reference (for {effectiveDiameter}mm diameter chamber):
           </Typography>
           <TableContainer component={Paper} variant="outlined" sx={{ mt: 0.5 }}>
             <Table size="small">
@@ -317,26 +440,18 @@ export function InputSection({ inputs, onChange }: InputSectionProps) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                <TableRow>
-                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>70°</TableCell>
-                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>35°</TableCell>
-                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>714 mm</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>80°</TableCell>
-                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>40°</TableCell>
-                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>596 mm</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>90°</TableCell>
-                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>45°</TableCell>
-                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>500 mm</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>100°</TableCell>
-                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>50°</TableCell>
-                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>420 mm</TableCell>
-                </TableRow>
+                {sprayZoneReference.map((row) => (
+                  <TableRow
+                    key={row.angle}
+                    sx={{
+                      bgcolor: row.angle === inputs.sprayAngle ? 'action.selected' : undefined,
+                    }}
+                  >
+                    <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>{row.angle}°</TableCell>
+                    <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>{row.halfAngle}°</TableCell>
+                    <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>{row.height} mm</TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </TableContainer>
@@ -508,15 +623,27 @@ export function InputSection({ inputs, onChange }: InputSectionProps) {
           value={inputs.vaporVelocity}
           onChange={(e) => handleChange('vaporVelocity', parseFloat(e.target.value) || 0)}
           InputProps={{
-            endAdornment: <InputAdornment position="end">m/s</InputAdornment>,
+            endAdornment: (
+              <>
+                <InputAdornment position="end">m/s</InputAdornment>
+                <Tooltip
+                  title={`At ${vaporVelocityLimits.saturationTemp.toFixed(1)}°C saturation: Sonic velocity = ${vaporVelocityLimits.sonicVelocity.toFixed(0)} m/s, Max recommended (35% sonic) = ${vaporVelocityLimits.maxRecommendedVelocity.toFixed(0)} m/s`}
+                >
+                  <IconButton size="small">
+                    <InfoIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </>
+            ),
           }}
           inputProps={{
             min: FLASH_CHAMBER_LIMITS.vaporVelocity.min,
             max: FLASH_CHAMBER_LIMITS.vaporVelocity.max,
             step: 1,
           }}
-          helperText={`Typical: ${FLASH_CHAMBER_LIMITS.vaporVelocity.min} - ${FLASH_CHAMBER_LIMITS.vaporVelocity.max} m/s`}
+          helperText={`Max recommended: ${vaporVelocityLimits.maxRecommendedVelocity.toFixed(0)} m/s (35% of sonic at ${inputs.operatingPressure} mbar)`}
           fullWidth
+          error={inputs.vaporVelocity > vaporVelocityLimits.maxRecommendedVelocity}
         />
       </Stack>
     </Paper>

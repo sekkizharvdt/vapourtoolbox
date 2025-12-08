@@ -1,7 +1,6 @@
 'use client';
 
 import { VapourThemeProvider } from '@vapour/ui';
-import { CssBaseline } from '@mui/material';
 import { validateFirebaseEnvironment } from '@vapour/firebase';
 import { CSRFProvider } from '@/components/CSRFProvider';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -30,10 +29,7 @@ export default function RootLayout({
           <CSRFProvider>
             <AuthProvider>
               <QueryProvider>
-                <VapourThemeProvider defaultMode="light">
-                  <CssBaseline />
-                  {children}
-                </VapourThemeProvider>
+                <VapourThemeProvider defaultMode="light">{children}</VapourThemeProvider>
               </QueryProvider>
             </AuthProvider>
           </CSRFProvider>

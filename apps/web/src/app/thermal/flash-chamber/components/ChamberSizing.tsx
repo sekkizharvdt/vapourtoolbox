@@ -56,7 +56,7 @@ function ElevationDiagram({
   const chamberX = 160;
   const topY = 40;
   const bottomY = 340;
-  const chamberHeight = bottomY - topY;
+  const drawingHeight = bottomY - topY;
 
   // Calculate Y positions based on actual elevations
   // All elevations are relative to FFL = 0.000 m
@@ -72,7 +72,7 @@ function ElevationDiagram({
   const scaleY = (elevation: number) => {
     // Convert elevation to SVG Y
     const normalized = (elevation - minY) / totalRange;
-    return bottomY - normalized * chamberHeight;
+    return bottomY - normalized * drawingHeight;
   };
 
   // Zone Y positions
@@ -113,12 +113,12 @@ function ElevationDiagram({
         ELEVATION DIAGRAM
       </text>
 
-      {/* Chamber outline */}
+      {/* Chamber outline - from TTL to BTL */}
       <rect
         x={chamberX}
         y={ttlY}
         width={chamberWidth}
-        height={chamberHeight}
+        height={btlY - ttlY}
         fill="none"
         stroke={lineColor}
         strokeWidth={2}
@@ -135,10 +135,10 @@ function ElevationDiagram({
         strokeWidth={2}
       />
 
-      {/* Bottom head (semi-ellipse) */}
+      {/* Bottom head (semi-ellipse) - at BTL level */}
       <ellipse
         cx={chamberX + chamberWidth / 2}
-        cy={bottomY}
+        cy={btlY}
         rx={chamberWidth / 2}
         ry={15}
         fill="none"
@@ -458,20 +458,20 @@ function ElevationDiagram({
           </text>
         )}
 
-        {/* N3 - Brine Outlet (bottom) */}
+        {/* N3 - Brine Outlet (bottom - at BTL level) */}
         <line
           x1={chamberX + chamberWidth / 2}
-          y1={bottomY + 15}
+          y1={btlY + 15}
           x2={chamberX + chamberWidth / 2}
-          y2={bottomY + 35}
+          y2={btlY + 35}
           stroke={lineColor}
           strokeWidth={2}
         />
-        <text x={chamberX + chamberWidth / 2 + 5} y={bottomY + 45} fontSize={8} fill={textColor}>
+        <text x={chamberX + chamberWidth / 2 + 5} y={btlY + 45} fontSize={8} fill={textColor}>
           N3 Brine
         </text>
         {brineNozzle && (
-          <text x={chamberX + chamberWidth / 2 + 5} y={bottomY + 55} fontSize={7} fill={labelColor}>
+          <text x={chamberX + chamberWidth / 2 + 5} y={btlY + 55} fontSize={7} fill={labelColor}>
             {brineNozzle.nps}
           </text>
         )}

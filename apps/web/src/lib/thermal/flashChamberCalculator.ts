@@ -570,13 +570,26 @@ function calculateChamberSize(
   input: FlashChamberInput,
   effectiveSalinity: number
 ): ChamberSizing {
-  // Diameter: Based on cross-section loading (2 ton/hr/m²)
-  const crossSectionArea = waterFlow / CROSS_SECTION_LOADING; // m²
-  const diameterM = Math.sqrt((4 * crossSectionArea) / Math.PI); // m
-  const diameterMM = diameterM * 1000; // mm
+  let roundedDiameter: number;
 
-  // Round up to nearest 100mm for practical fabrication
-  const roundedDiameter = Math.ceil(diameterMM / 100) * 100;
+  if (input.autoCalculateDiameter !== false && !input.userDiameter) {
+    // Diameter: Based on cross-section loading (2 ton/hr/m²)
+    const crossSectionArea = waterFlow / CROSS_SECTION_LOADING; // m²
+    const diameterM = Math.sqrt((4 * crossSectionArea) / Math.PI); // m
+    const diameterMM = diameterM * 1000; // mm
+
+    // Round up to nearest 100mm for practical fabrication
+    roundedDiameter = Math.ceil(diameterMM / 100) * 100;
+  } else if (input.autoCalculateDiameter === false && input.userDiameter) {
+    // Use user-specified diameter
+    roundedDiameter = input.userDiameter;
+  } else {
+    // Auto-calculate as fallback
+    const crossSectionArea = waterFlow / CROSS_SECTION_LOADING; // m²
+    const diameterM = Math.sqrt((4 * crossSectionArea) / Math.PI); // m
+    const diameterMM = diameterM * 1000; // mm
+    roundedDiameter = Math.ceil(diameterMM / 100) * 100;
+  }
 
   // Recalculate cross-section with rounded diameter
   const actualCrossSectionArea = (Math.PI * Math.pow(roundedDiameter / 1000, 2)) / 4;
