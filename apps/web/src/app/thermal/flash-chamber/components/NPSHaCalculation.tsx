@@ -12,9 +12,10 @@ import type { NPSHaCalculation as NPSHaCalculationType } from '@vapour/types';
 
 interface NPSHaCalculationProps {
   npsha: NPSHaCalculationType;
+  btlAbovePumpInlet?: number;
 }
 
-export function NPSHaCalculation({ npsha }: NPSHaCalculationProps) {
+export function NPSHaCalculation({ npsha, btlAbovePumpInlet }: NPSHaCalculationProps) {
   const formatNumber = (value: number, decimals: number = 2) => {
     return value.toLocaleString('en-IN', {
       minimumFractionDigits: decimals,
@@ -41,8 +42,18 @@ export function NPSHaCalculation({ npsha }: NPSHaCalculationProps) {
         {/* Calculation breakdown */}
         <Box>
           <Stack spacing={1}>
+            {btlAbovePumpInlet !== undefined && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2" color="text.secondary">
+                  BTL above pump inlet
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {formatNumber(btlAbovePumpInlet)} m
+                </Typography>
+              </Box>
+            )}
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body2">Static Head (liquid level)</Typography>
+              <Typography variant="body2">Static Head (BTL + liquid level)</Typography>
               <Typography variant="body2" fontWeight="medium" color="success.main">
                 + {formatNumber(npsha.staticHead)} m
               </Typography>

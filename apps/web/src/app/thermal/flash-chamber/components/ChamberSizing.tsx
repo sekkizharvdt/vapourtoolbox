@@ -59,10 +59,15 @@ function ElevationDiagram({
   const chamberHeight = bottomY - topY;
 
   // Calculate Y positions based on actual elevations
+  // Account for pump centerline which can be below BTL (negative elevation)
   const ttlM = elevations.ttl;
+  const pumpCL = elevations.pumpCenterline; // Negative value (below BTL)
+  const totalRange = ttlM - pumpCL; // Total elevation range from pump to TTL
+
   const scaleY = (elevation: number) => {
-    // Convert elevation (0 at BTL, positive upward) to SVG Y (0 at top, positive downward)
-    const normalized = elevation / ttlM; // 0 to 1
+    // Convert elevation (negative for below BTL, positive upward) to SVG Y
+    // Scale from pump centerline to TTL
+    const normalized = (elevation - pumpCL) / totalRange; // 0 at pump, 1 at TTL
     return bottomY - normalized * chamberHeight;
   };
 

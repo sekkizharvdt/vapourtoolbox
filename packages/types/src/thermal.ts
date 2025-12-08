@@ -76,6 +76,9 @@ export interface FlashChamberInput {
 
   /** Vapor outlet nozzle velocity in m/s (typical: 10-30 m/s) */
   vaporVelocity: number;
+
+  /** BTL (Bottom Tangent Line) elevation above pump inlet centerline in meters */
+  btlAbovePumpInlet: number;
 }
 
 /**
@@ -326,10 +329,11 @@ export const DEFAULT_FLASH_CHAMBER_INPUT: FlashChamberInput = {
   salinity: 35000, // ppm (seawater default)
   retentionTime: 2.5, // minutes
   flashingZoneHeight: 500, // mm
-  sprayAngle: 60, // degrees
+  sprayAngle: 90, // degrees (wider angle = shorter spray zone)
   inletWaterVelocity: 2.5, // m/s
   outletWaterVelocity: 1.5, // m/s
   vaporVelocity: 20, // m/s
+  btlAbovePumpInlet: 1.0, // meters
 };
 
 // ============================================================================
@@ -348,10 +352,11 @@ export const FLASH_CHAMBER_LIMITS = {
   salinity: { min: 0, max: 70000, unit: 'ppm' }, // 0 for DM water, up to 70000 for brine
   retentionTime: { min: 1, max: 5, unit: 'minutes' },
   flashingZoneHeight: { min: 300, max: 1000, unit: 'mm' },
-  sprayAngle: { min: 30, max: 90, unit: 'degrees' },
+  sprayAngle: { min: 70, max: 100, unit: 'degrees' }, // Wider angle = shorter spray zone
   inletWaterVelocity: { min: 1.5, max: 4.0, unit: 'm/s' },
   outletWaterVelocity: { min: 0.5, max: 2.5, unit: 'm/s' },
   vaporVelocity: { min: 5, max: 40, unit: 'm/s' },
+  btlAbovePumpInlet: { min: 0.5, max: 10, unit: 'm' },
 } as const;
 
 /**

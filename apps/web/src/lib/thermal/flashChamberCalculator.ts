@@ -56,8 +56,8 @@ const ESTIMATED_FRICTION_LOSS = 0.5; // m
 /** Minimum NPSHa margin recommended */
 const MIN_NPSH_MARGIN = 1.5; // m
 
-/** Default pump centerline offset below BTL (Bottom Tangent Line) */
-const DEFAULT_PUMP_OFFSET_BELOW_BTL = 1.0; // m
+/** Default pump centerline offset below BTL (Bottom Tangent Line) - now user configurable via btlAbovePumpInlet */
+const DEFAULT_PUMP_OFFSET_BELOW_BTL = 1.0; // m (fallback if not specified)
 
 /** Level gauge low tapping margin above pump centerline */
 const LG_LOW_MARGIN_ABOVE_PUMP = 1.5; // m (NPSHa margin)
@@ -120,10 +120,11 @@ export function validateFlashChamberInput(input: FlashChamberInput): ValidationR
     salinity: { min: 0, max: 70000 }, // 0 for DM water
     retentionTime: { min: 1, max: 5 },
     flashingZoneHeight: { min: 300, max: 1000 },
-    sprayAngle: { min: 30, max: 90 },
+    sprayAngle: { min: 70, max: 100 }, // Wider angle = shorter spray zone
     inletWaterVelocity: { min: 1.5, max: 4.0 },
     outletWaterVelocity: { min: 0.5, max: 2.5 },
     vaporVelocity: { min: 5, max: 40 },
+    btlAbovePumpInlet: { min: 0.5, max: 10 },
   };
 
   // Check operating pressure (mbar abs)
@@ -246,27 +247,26 @@ export function validateFlashChamberInput(input: FlashChamberInput): ValidationR
  *
  * @param chamberSizing - Chamber dimension results
  * @param npsha - NPSHa calculation results
+ * @param btlAbovePumpInlet - BTL elevation above pump inlet centerline in meters
  * @returns Elevation data for diagram
  */
 function calculateElevations(
   chamberSizing: ChamberSizing,
-  npsha: NPSHaCalculation
+  npsha: NPSHaCalculation,
+  btlAbovePumpInlet: number
 ): FlashChamberElevations {
   // Reference point: BTL = 0.000 m
   const btl = 0;
 
-  // Pump centerline is below BTL
-  const pumpCenterline = -DEFAULT_PUMP_OFFSET_BELOW_BTL;
+  // Pump centerline is below BTL by user-specified distance
+  const pumpCenterline = -btlAbovePumpInlet;
 
   // Level gauge low tapping: NPSHa + margin above pump centerline
   // This ensures adequate NPSH for pump operation
   // LG-L = pumpCenterline + NPSHa + margin
   // Since pumpCenterline is negative and we want positive elevation from BTL:
-  // LG-L = NPSHa + margin - pump offset (relative to BTL)
-  const lgLow = Math.max(
-    npsha.npshAvailable + LG_LOW_MARGIN_ABOVE_PUMP - DEFAULT_PUMP_OFFSET_BELOW_BTL,
-    0.3
-  );
+  // LG-L = NPSHa + margin - btlAbovePumpInlet (relative to BTL)
+  const lgLow = Math.max(npsha.npshAvailable + LG_LOW_MARGIN_ABOVE_PUMP - btlAbovePumpInlet, 0.3);
 
   // Convert zone heights from mm to m
   const retentionZoneHeightM = chamberSizing.retentionZoneHeight / 1000;
@@ -441,11 +441,14 @@ export function calculateFlashChamber(
     }
   });
 
+  // Get BTL above pump inlet (use default if not specified for backwards compatibility)
+  const btlAbovePumpInlet = input.btlAbovePumpInlet ?? DEFAULT_PUMP_OFFSET_BELOW_BTL;
+
   // Step 6: Calculate NPSHa
-  const npsha = calculateNPSHa(chamberSizing, opPressureBar, satTempPure);
+  const npsha = calculateNPSHa(chamberSizing, opPressureBar, satTempPure, btlAbovePumpInlet);
 
   // Step 7: Calculate elevations for engineering diagram
-  const elevations = calculateElevations(chamberSizing, npsha);
+  const elevations = calculateElevations(chamberSizing, npsha, btlAbovePumpInlet);
 
   return {
     inputs: input,
@@ -582,10 +585,11 @@ function calculateChamberSize(
   const retentionHeightMM = retentionHeightM * 1000; // mm
 
   // Spray zone height (triangle calculation)
-  // Height = radius × tan(angle/2) for a cone spray pattern
+  // Height = radius / tan(angle/2) for a cone spray pattern
+  // A wider spray angle means the spray reaches the wall sooner (shorter vertical travel)
   const radiusMM = roundedDiameter / 2;
   const sprayAngleRad = (input.sprayAngle / 2) * (Math.PI / 180);
-  const sprayZoneHeight = radiusMM * Math.tan(sprayAngleRad);
+  const sprayZoneHeight = radiusMM / Math.tan(sprayAngleRad);
 
   // Total height
   const totalHeight = retentionHeightMM + input.flashingZoneHeight + sprayZoneHeight;
@@ -732,15 +736,18 @@ function calculateNozzleSizes(
  * @param chamberSizing - Chamber dimensions
  * @param chamberPressureBar - Operating pressure of chamber in bar (absolute)
  * @param satTempPure - Saturation temperature of pure water at operating pressure in °C
+ * @param btlAbovePumpInlet - BTL elevation above pump inlet centerline in meters
  */
 function calculateNPSHa(
   chamberSizing: ChamberSizing,
   chamberPressureBar: number,
-  satTempPure: number
+  satTempPure: number,
+  btlAbovePumpInlet: number
 ): NPSHaCalculation {
-  // Static head: Liquid level above pump
-  // Assume pump is at bottom of chamber, liquid level = retention zone
-  const staticHead = chamberSizing.retentionZoneHeight / 1000; // Convert mm to m
+  // Static head: Liquid level above pump inlet
+  // Static head = BTL above pump + retention zone height (liquid level from BTL)
+  const retentionHeightM = chamberSizing.retentionZoneHeight / 1000; // Convert mm to m
+  const staticHead = btlAbovePumpInlet + retentionHeightM;
 
   // Chamber pressure converted to head (this is the pressure acting on liquid surface)
   const chamberPressureHead = barToWaterHead(chamberPressureBar);

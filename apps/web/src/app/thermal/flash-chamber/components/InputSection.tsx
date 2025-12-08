@@ -20,6 +20,13 @@ import {
   InputAdornment,
   Tooltip,
   IconButton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Box,
 } from '@mui/material';
 import { Info as InfoIcon } from '@mui/icons-material';
 import type {
@@ -278,7 +285,7 @@ export function InputSection({ inputs, onChange }: InputSectionProps) {
             endAdornment: (
               <>
                 <InputAdornment position="end">degrees</InputAdornment>
-                <Tooltip title="Cone angle of spray nozzle. Used to calculate spray zone height (triangle geometry).">
+                <Tooltip title="Cone angle of spray nozzle. Wider angle = shorter spray zone height.">
                   <IconButton size="small">
                     <InfoIcon fontSize="small" />
                   </IconButton>
@@ -291,7 +298,77 @@ export function InputSection({ inputs, onChange }: InputSectionProps) {
             max: FLASH_CHAMBER_LIMITS.sprayAngle.max,
             step: 5,
           }}
-          helperText="Nozzle spray cone angle"
+          helperText={`Nozzle spray cone angle (${FLASH_CHAMBER_LIMITS.sprayAngle.min}° - ${FLASH_CHAMBER_LIMITS.sprayAngle.max}°). Wider angle = shorter spray zone.`}
+          fullWidth
+        />
+
+        {/* Spray Angle Reference Table */}
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="caption" color="text.secondary" gutterBottom>
+            Spray Zone Height Reference (for 1000mm diameter chamber):
+          </Typography>
+          <TableContainer component={Paper} variant="outlined" sx={{ mt: 0.5 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>Spray Angle</TableCell>
+                  <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>Half Angle</TableCell>
+                  <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>Spray Zone Height</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                <TableRow>
+                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>70°</TableCell>
+                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>35°</TableCell>
+                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>714 mm</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>80°</TableCell>
+                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>40°</TableCell>
+                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>596 mm</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>90°</TableCell>
+                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>45°</TableCell>
+                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>500 mm</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>100°</TableCell>
+                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>50°</TableCell>
+                  <TableCell sx={{ py: 0.25, fontSize: '0.75rem' }}>420 mm</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+            Formula: Height = (Diameter/2) / tan(Angle/2)
+          </Typography>
+        </Box>
+
+        {/* BTL Above Pump Inlet */}
+        <TextField
+          label="BTL Above Pump Inlet"
+          type="number"
+          value={inputs.btlAbovePumpInlet}
+          onChange={(e) => handleChange('btlAbovePumpInlet', parseFloat(e.target.value) || 0)}
+          InputProps={{
+            endAdornment: (
+              <>
+                <InputAdornment position="end">m</InputAdornment>
+                <Tooltip title="Height of Bottom Tangent Line above pump inlet centerline. Affects NPSHa calculation.">
+                  <IconButton size="small">
+                    <InfoIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </>
+            ),
+          }}
+          inputProps={{
+            min: FLASH_CHAMBER_LIMITS.btlAbovePumpInlet.min,
+            max: FLASH_CHAMBER_LIMITS.btlAbovePumpInlet.max,
+            step: 0.5,
+          }}
+          helperText={`Distance from pump inlet to BTL (${FLASH_CHAMBER_LIMITS.btlAbovePumpInlet.min} - ${FLASH_CHAMBER_LIMITS.btlAbovePumpInlet.max} m)`}
           fullWidth
         />
 
