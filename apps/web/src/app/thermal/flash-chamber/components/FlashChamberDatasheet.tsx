@@ -384,7 +384,7 @@ export const FlashChamberDatasheet = ({
 
         {/* Elevation Schedule */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>4. ELEVATION SCHEDULE</Text>
+          <Text style={styles.sectionTitle}>4. ELEVATION SCHEDULE (FFL Reference)</Text>
           <View style={styles.table}>
             <View style={styles.tableHeader}>
               <Text style={styles.col40}>Description</Text>
@@ -413,6 +413,13 @@ export const FlashChamberDatasheet = ({
               <Text style={styles.col25}>Max operating level</Text>
             </View>
             <View style={styles.tableRow}>
+              <Text style={styles.col40}>Operating Level</Text>
+              <Text style={[styles.col25, styles.colRight]}>
+                EL {formatElevation(elevations.operatingLevel)} m
+              </Text>
+              <Text style={styles.col25}>Normal operating level</Text>
+            </View>
+            <View style={styles.tableRow}>
               <Text style={styles.col40}>Level Gauge Low (LG-L)</Text>
               <Text style={[styles.col25, styles.colRight]}>
                 EL {formatElevation(elevations.lgLow)} m
@@ -421,15 +428,22 @@ export const FlashChamberDatasheet = ({
             </View>
             <View style={styles.tableRow}>
               <Text style={styles.col40}>Bottom Tangent Line (BTL)</Text>
-              <Text style={[styles.col25, styles.colRight]}>EL 0.000 m</Text>
-              <Text style={styles.col25}>Reference datum</Text>
+              <Text style={[styles.col25, styles.colRight]}>
+                EL {formatElevation(elevations.btl)} m
+              </Text>
+              <Text style={styles.col25}>-</Text>
             </View>
             <View style={styles.tableRow}>
               <Text style={styles.col40}>Pump Centerline</Text>
               <Text style={[styles.col25, styles.colRight]}>
                 EL {formatElevation(elevations.pumpCenterline)} m
               </Text>
-              <Text style={styles.col25}>Below BTL</Text>
+              <Text style={styles.col25}>-</Text>
+            </View>
+            <View style={[styles.tableRow, { backgroundColor: '#ffebee' }]}>
+              <Text style={[styles.col40, styles.bold]}>Finished Floor Level (FFL)</Text>
+              <Text style={[styles.col25, styles.colRight, styles.bold]}>EL 0.000 m</Text>
+              <Text style={styles.col25}>Reference datum</Text>
             </View>
           </View>
         </View>
@@ -470,19 +484,14 @@ export const FlashChamberDatasheet = ({
 
         {/* NPSHa Calculation */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>6. NPSHa CALCULATION</Text>
+          <Text style={styles.sectionTitle}>6. NPSHa CALCULATION (THREE LEVELS)</Text>
+
+          {/* Common parameters */}
           <View style={styles.table}>
-            <View style={styles.tableRow}>
-              <Text style={styles.col50}>Static Head (liquid above pump)</Text>
-              <Text style={[styles.col25, styles.colRight]}>
-                {formatNumber(npsha.staticHead, 2)}
-              </Text>
-              <Text style={styles.col25}>m</Text>
-            </View>
             <View style={styles.tableRow}>
               <Text style={styles.col50}>Chamber Pressure Head</Text>
               <Text style={[styles.col25, styles.colRight]}>
-                {formatNumber(npsha.chamberPressureHead, 2)}
+                + {formatNumber(npsha.chamberPressureHead, 2)}
               </Text>
               <Text style={styles.col25}>m</Text>
             </View>
@@ -500,14 +509,54 @@ export const FlashChamberDatasheet = ({
               </Text>
               <Text style={styles.col25}>m</Text>
             </View>
-            <View style={[styles.tableRow, { backgroundColor: '#e8f5e9' }]}>
-              <Text style={[styles.col50, styles.bold]}>NPSHa Available</Text>
-              <Text style={[styles.col25, styles.colRight, styles.bold]}>
-                {formatNumber(npsha.npshAvailable, 2)}
+          </View>
+
+          {/* NPSHa at levels */}
+          <View style={[styles.table, { marginTop: 8 }]}>
+            <View style={styles.tableHeader}>
+              <Text style={styles.col25}>Level</Text>
+              <Text style={[styles.col20, styles.colRight]}>Elevation</Text>
+              <Text style={[styles.col20, styles.colRight]}>Static Head</Text>
+              <Text style={[styles.col20, styles.colRight]}>NPSHa</Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={styles.col25}>LG-H (High)</Text>
+              <Text style={[styles.col20, styles.colRight]}>
+                {formatElevation(npsha.atLGH.elevation)} m
               </Text>
-              <Text style={styles.col25}>m</Text>
+              <Text style={[styles.col20, styles.colRight]}>
+                {formatNumber(npsha.atLGH.staticHead, 2)} m
+              </Text>
+              <Text style={[styles.col20, styles.colRight]}>
+                {formatNumber(npsha.atLGH.npshAvailable, 2)} m
+              </Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={styles.col25}>Operating</Text>
+              <Text style={[styles.col20, styles.colRight]}>
+                {formatElevation(npsha.atOperating.elevation)} m
+              </Text>
+              <Text style={[styles.col20, styles.colRight]}>
+                {formatNumber(npsha.atOperating.staticHead, 2)} m
+              </Text>
+              <Text style={[styles.col20, styles.colRight]}>
+                {formatNumber(npsha.atOperating.npshAvailable, 2)} m
+              </Text>
+            </View>
+            <View style={[styles.tableRow, { backgroundColor: '#fff3e0' }]}>
+              <Text style={[styles.col25, styles.bold]}>LG-L (Low)</Text>
+              <Text style={[styles.col20, styles.colRight]}>
+                {formatElevation(npsha.atLGL.elevation)} m
+              </Text>
+              <Text style={[styles.col20, styles.colRight]}>
+                {formatNumber(npsha.atLGL.staticHead, 2)} m
+              </Text>
+              <Text style={[styles.col20, styles.colRight, styles.bold]}>
+                {formatNumber(npsha.atLGL.npshAvailable, 2)} m
+              </Text>
             </View>
           </View>
+
           <Text style={{ fontSize: 8, marginTop: 6, fontStyle: 'italic' }}>
             {npsha.recommendation}
           </Text>

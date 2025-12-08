@@ -59,21 +59,27 @@ function ElevationDiagram({
   const chamberHeight = bottomY - topY;
 
   // Calculate Y positions based on actual elevations
-  // Account for pump centerline which can be below BTL (negative elevation)
+  // All elevations are relative to FFL = 0.000 m
+  // FFL is at 0, pump is above FFL, chamber is above pump
   const ttlM = elevations.ttl;
-  const pumpCL = elevations.pumpCenterline; // Negative value (below BTL)
-  const totalRange = ttlM - pumpCL; // Total elevation range from pump to TTL
+  const ffl = elevations.ffl; // Always 0
+  const pumpCL = elevations.pumpCenterline; // Positive (above FFL)
+
+  // Total range from FFL to TTL (or slightly below for margin)
+  const minY = Math.min(ffl, pumpCL) - 0.5; // Add margin below pump/FFL
+  const totalRange = ttlM - minY;
 
   const scaleY = (elevation: number) => {
-    // Convert elevation (negative for below BTL, positive upward) to SVG Y
-    // Scale from pump centerline to TTL
-    const normalized = (elevation - pumpCL) / totalRange; // 0 at pump, 1 at TTL
+    // Convert elevation to SVG Y
+    const normalized = (elevation - minY) / totalRange;
     return bottomY - normalized * chamberHeight;
   };
 
   // Zone Y positions
+  const fflY = scaleY(ffl);
   const btlY = scaleY(elevations.btl);
   const lgLowY = scaleY(elevations.lgLow);
+  const operatingY = scaleY(elevations.operatingLevel);
   const lgHighY = scaleY(elevations.lgHigh);
   const flashBottomY = scaleY(elevations.flashingZoneBottom);
   const flashTopY = scaleY(elevations.flashingZoneTop);
@@ -317,6 +323,29 @@ function ElevationDiagram({
           EL {formatElevation(elevations.lgHigh)} m
         </text>
 
+        {/* Operating Level */}
+        <line
+          x1={30}
+          y1={operatingY}
+          x2={chamberX - 5}
+          y2={operatingY}
+          stroke={theme.palette.info.main}
+          strokeWidth={1}
+          strokeDasharray="6,2"
+        />
+        <text x={25} y={operatingY + 3} textAnchor="end" fill={theme.palette.info.main}>
+          OP-LVL
+        </text>
+        <text
+          x={60}
+          y={operatingY + 3}
+          textAnchor="start"
+          fontWeight="bold"
+          fill={theme.palette.info.main}
+        >
+          EL {formatElevation(elevations.operatingLevel)} m
+        </text>
+
         {/* LG-L */}
         <line
           x1={30}
@@ -348,6 +377,35 @@ function ElevationDiagram({
           BTL
         </text>
         <text x={60} y={btlY + 3} textAnchor="start" fontWeight="bold" fill={textColor}>
+          EL {formatElevation(elevations.btl)} m
+        </text>
+
+        {/* FFL Reference */}
+        <line
+          x1={30}
+          y1={fflY}
+          x2={chamberX + chamberWidth + 50}
+          y2={fflY}
+          stroke={theme.palette.error.main}
+          strokeWidth={1.5}
+          strokeDasharray="8,4"
+        />
+        <text
+          x={25}
+          y={fflY + 3}
+          textAnchor="end"
+          fontWeight="bold"
+          fill={theme.palette.error.main}
+        >
+          FFL
+        </text>
+        <text
+          x={60}
+          y={fflY + 3}
+          textAnchor="start"
+          fontWeight="bold"
+          fill={theme.palette.error.main}
+        >
           EL 0.000 m
         </text>
       </g>
@@ -493,8 +551,8 @@ function ElevationDiagram({
 
       {/* Notes */}
       <text x={10} y={svgHeight - 10} fontSize={7} fill={labelColor}>
-        LG-L: Min level (NPSHa + 1.5m margin) | LG-H: Max level | BTL: Bottom Tangent Line | TTL:
-        Top Tangent Line
+        FFL: Finished Floor Level (reference) | OP-LVL: Operating Level | LG-L/LG-H: Level Gauge
+        Tappings | BTL: Bottom Tangent Line
       </text>
     </svg>
   );
@@ -601,21 +659,37 @@ export function ChamberSizing({ sizing, elevations, nozzles }: ChamberSizingProp
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="caption" color="info.main">
+                        Operating Level
+                      </Typography>
+                      <Typography variant="caption" fontWeight="medium" color="info.main">
+                        EL {formatElevation(elevations.operatingLevel)} m
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography variant="caption">LG-L (Low Level)</Typography>
                       <Typography variant="caption" fontWeight="medium">
                         EL {formatElevation(elevations.lgLow)} m
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="caption">BTL (Reference)</Typography>
+                      <Typography variant="caption">BTL</Typography>
                       <Typography variant="caption" fontWeight="medium">
-                        EL 0.000 m
+                        EL {formatElevation(elevations.btl)} m
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography variant="caption">Pump Centerline</Typography>
                       <Typography variant="caption" fontWeight="medium">
                         EL {formatElevation(elevations.pumpCenterline)} m
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="caption" fontWeight="bold" color="error.main">
+                        FFL (Reference)
+                      </Typography>
+                      <Typography variant="caption" fontWeight="bold" color="error.main">
+                        EL 0.000 m
                       </Typography>
                     </Box>
                   </Stack>

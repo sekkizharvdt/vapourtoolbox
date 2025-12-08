@@ -38,6 +38,7 @@ import type {
   ChamberSizing,
   NozzleSizing,
   NPSHaCalculation,
+  NPSHaAtLevel,
   FlashChamberElevations,
   FlowRateUnit,
 } from '@vapour/types';
@@ -56,14 +57,8 @@ const ESTIMATED_FRICTION_LOSS = 0.5; // m
 /** Minimum NPSHa margin recommended */
 const MIN_NPSH_MARGIN = 1.5; // m
 
-/** Default pump centerline offset below BTL (Bottom Tangent Line) - now user configurable via btlAbovePumpInlet */
-const DEFAULT_PUMP_OFFSET_BELOW_BTL = 1.0; // m (fallback if not specified)
-
-/** Level gauge low tapping margin above pump centerline */
-const LG_LOW_MARGIN_ABOVE_PUMP = 1.5; // m (NPSHa margin)
-
 /** Calculator version for tracking */
-const CALCULATOR_VERSION = '1.2.0';
+const CALCULATOR_VERSION = '2.0.0';
 
 // ============================================================================
 // Flow Rate Conversion
@@ -122,9 +117,12 @@ export function validateFlashChamberInput(input: FlashChamberInput): ValidationR
     flashingZoneHeight: { min: 300, max: 1000 },
     sprayAngle: { min: 70, max: 100 }, // Wider angle = shorter spray zone
     inletWaterVelocity: { min: 1.5, max: 4.0 },
-    outletWaterVelocity: { min: 0.5, max: 2.5 },
+    outletWaterVelocity: { min: 0.01, max: 0.1 }, // Very low to minimize vortexing
     vaporVelocity: { min: 5, max: 40 },
-    btlAbovePumpInlet: { min: 0.5, max: 10 },
+    pumpCenterlineAboveFFL: { min: 0.3, max: 2.0 },
+    operatingLevelAbovePump: { min: 2.0, max: 15.0 },
+    operatingLevelRatio: { min: 0.2, max: 0.8 },
+    btlGapBelowLGL: { min: 0.05, max: 0.5 },
   };
 
   // Check operating pressure (mbar abs)
@@ -243,66 +241,77 @@ export function validateFlashChamberInput(input: FlashChamberInput): ValidationR
 
 /**
  * Calculate elevation data for engineering diagram
- * All elevations are relative to BTL (Bottom Tangent Line) = 0.000
+ * All elevations are relative to FFL (Finished Floor Level) = 0.000
+ *
+ * New calculation logic:
+ * 1. FFL = 0.000 m (reference datum)
+ * 2. Pump Centerline = pumpCenterlineAboveFFL (above FFL)
+ * 3. Operating Level = Pump + operatingLevelAbovePump
+ * 4. Retention zone is centered around Operating Level based on ratio
+ * 5. BTL = LG-L - btlGapBelowLGL
  *
  * @param chamberSizing - Chamber dimension results
- * @param npsha - NPSHa calculation results
- * @param btlAbovePumpInlet - BTL elevation above pump inlet centerline in meters
+ * @param input - Flash chamber input parameters
  * @returns Elevation data for diagram
  */
 function calculateElevations(
   chamberSizing: ChamberSizing,
-  npsha: NPSHaCalculation,
-  btlAbovePumpInlet: number
+  input: FlashChamberInput
 ): FlashChamberElevations {
-  // Reference point: BTL = 0.000 m
-  const btl = 0;
+  // Reference point: FFL = 0.000 m
+  const ffl = 0;
 
-  // Pump centerline is below BTL by user-specified distance
-  const pumpCenterline = -btlAbovePumpInlet;
+  // Pump centerline is above FFL
+  const pumpCenterline = input.pumpCenterlineAboveFFL;
 
-  // Level gauge low tapping: NPSHa + margin above pump centerline
-  // This ensures adequate NPSH for pump operation
-  // LG-L = pumpCenterline + NPSHa + margin
-  // Since pumpCenterline is negative and we want positive elevation from BTL:
-  // LG-L = NPSHa + margin - btlAbovePumpInlet (relative to BTL)
-  const lgLow = Math.max(npsha.npshAvailable + LG_LOW_MARGIN_ABOVE_PUMP - btlAbovePumpInlet, 0.3);
+  // Operating level is above pump
+  const operatingLevel = pumpCenterline + input.operatingLevelAbovePump;
 
   // Convert zone heights from mm to m
   const retentionZoneHeightM = chamberSizing.retentionZoneHeight / 1000;
   const flashingZoneHeightM = chamberSizing.flashingZoneHeight / 1000;
   const sprayZoneHeightM = chamberSizing.sprayZoneHeight / 1000;
 
-  // Level gauge high tapping: LG-L + retention zone height
-  // The retention volume is measured between LG-L and LG-H
-  const lgHigh = lgLow + retentionZoneHeightM;
+  // Calculate LG-L and LG-H based on operating level ratio
+  // ratio = (Operating - LG-L) / (LG-H - LG-L)
+  // Therefore:
+  // LG-L = Operating - (retentionHeight * ratio)
+  // LG-H = Operating + (retentionHeight * (1 - ratio))
+  const ratio = input.operatingLevelRatio;
+  const lgLow = operatingLevel - retentionZoneHeightM * ratio;
+  const lgHigh = operatingLevel + retentionZoneHeightM * (1 - ratio);
+
+  // BTL is below LG-L by the specified gap
+  const btl = lgLow - input.btlGapBelowLGL;
 
   // Flashing zone starts at LG-H (top of retention zone)
   const flashingZoneBottom = lgHigh;
   const flashingZoneTop = flashingZoneBottom + flashingZoneHeightM;
 
-  // Top tangent line (TTL) = total height
-  const ttl = chamberSizing.totalHeight / 1000;
+  // TTL = Flashing zone top + spray zone
+  const ttl = flashingZoneTop + sprayZoneHeightM;
 
   // Nozzle elevations
   const nozzleElevations = {
-    // Inlet nozzle (N1): In spray zone, roughly 2/3 up from flashing zone top
+    // Inlet nozzle (N1): In spray zone, roughly 50% up
     inlet: flashingZoneTop + sprayZoneHeightM * 0.5,
     // Vapor outlet (N2): At top of chamber
     vaporOutlet: ttl,
-    // Brine outlet (N3): At bottom, below LG-L (at BTL level)
+    // Brine outlet (N3): At BTL level
     brineOutlet: btl,
   };
 
   return {
+    ffl,
+    pumpCenterline,
     btl,
     lgLow,
+    operatingLevel,
     lgHigh,
     flashingZoneBottom,
     flashingZoneTop,
     ttl,
     nozzleElevations,
-    pumpCenterline,
     retentionZoneHeightM,
     flashingZoneHeightM,
     sprayZoneHeightM,
@@ -441,14 +450,11 @@ export function calculateFlashChamber(
     }
   });
 
-  // Get BTL above pump inlet (use default if not specified for backwards compatibility)
-  const btlAbovePumpInlet = input.btlAbovePumpInlet ?? DEFAULT_PUMP_OFFSET_BELOW_BTL;
+  // Step 6: Calculate elevations for engineering diagram (needs to be before NPSHa)
+  const elevations = calculateElevations(chamberSizing, input);
 
-  // Step 6: Calculate NPSHa
-  const npsha = calculateNPSHa(chamberSizing, opPressureBar, satTempPure, btlAbovePumpInlet);
-
-  // Step 7: Calculate elevations for engineering diagram
-  const elevations = calculateElevations(chamberSizing, npsha, btlAbovePumpInlet);
+  // Step 7: Calculate NPSHa at three levels
+  const npsha = calculateNPSHa(elevations, opPressureBar, satTempPure);
 
   return {
     inputs: input,
@@ -675,7 +681,7 @@ function calculateNozzleSizes(
   const brinePipe = selectPipeByVelocity(
     brineVolumetricFlow,
     input.outletWaterVelocity,
-    { min: 0.5, max: 2.5 },
+    { min: 0.01, max: 0.1 }, // Very low to minimize vortexing
     availablePipes
   );
 
@@ -689,7 +695,7 @@ function calculateNozzleSizes(
     actualID: brinePipe.id_mm,
     actualVelocity: brinePipe.actualVelocity,
     velocityStatus: brinePipe.velocityStatus,
-    velocityLimits: { min: 0.5, max: 2.5 },
+    velocityLimits: { min: 0.01, max: 0.1 }, // Very low to minimize vortexing
   });
 
   // 3. Vapor Outlet Nozzle
@@ -725,7 +731,7 @@ function calculateNozzleSizes(
 // ============================================================================
 
 /**
- * Calculate Net Positive Suction Head Available for vacuum flash chamber
+ * Calculate Net Positive Suction Head Available at three levels for vacuum flash chamber
  *
  * For a closed vacuum vessel, NPSHa is calculated as:
  * NPSHa = Static Head + Chamber Pressure Head - Vapor Pressure Head - Friction Loss
@@ -733,22 +739,15 @@ function calculateNozzleSizes(
  * Note: Atmospheric pressure does NOT act on the liquid in a closed vacuum system.
  * The driving pressure is the chamber operating pressure.
  *
- * @param chamberSizing - Chamber dimensions
+ * @param elevations - Calculated elevation data
  * @param chamberPressureBar - Operating pressure of chamber in bar (absolute)
  * @param satTempPure - Saturation temperature of pure water at operating pressure in °C
- * @param btlAbovePumpInlet - BTL elevation above pump inlet centerline in meters
  */
 function calculateNPSHa(
-  chamberSizing: ChamberSizing,
+  elevations: FlashChamberElevations,
   chamberPressureBar: number,
-  satTempPure: number,
-  btlAbovePumpInlet: number
+  satTempPure: number
 ): NPSHaCalculation {
-  // Static head: Liquid level above pump inlet
-  // Static head = BTL above pump + retention zone height (liquid level from BTL)
-  const retentionHeightM = chamberSizing.retentionZoneHeight / 1000; // Convert mm to m
-  const staticHead = btlAbovePumpInlet + retentionHeightM;
-
   // Chamber pressure converted to head (this is the pressure acting on liquid surface)
   const chamberPressureHead = barToWaterHead(chamberPressureBar);
 
@@ -760,31 +759,49 @@ function calculateNPSHa(
   // Estimated friction loss in suction piping
   const frictionLoss = ESTIMATED_FRICTION_LOSS;
 
-  // NPSHa = Static head + Chamber Pressure - Vapor Pressure - Friction loss
-  // Since chamber is at saturation, chamber pressure ≈ vapor pressure
-  // So NPSHa ≈ Static head - Friction loss (typically very low in vacuum systems)
-  const npshAvailable = staticHead + chamberPressureHead - vaporPressureHead - frictionLoss;
+  // Helper function to calculate NPSHa at a given level
+  const calculateAtLevel = (levelName: string, levelElevation: number): NPSHaAtLevel => {
+    // Static head = level elevation - pump centerline
+    const staticHead = levelElevation - elevations.pumpCenterline;
+    // NPSHa = Static head + Chamber Pressure - Vapor Pressure - Friction loss
+    const npshAvailable = staticHead + chamberPressureHead - vaporPressureHead - frictionLoss;
 
-  // Generate recommendation for vacuum systems
+    return {
+      levelName,
+      elevation: levelElevation,
+      staticHead,
+      npshAvailable,
+    };
+  };
+
+  // Calculate at three levels
+  const atLGL = calculateAtLevel('LG-L (Low Level)', elevations.lgLow);
+  const atOperating = calculateAtLevel('Operating Level', elevations.operatingLevel);
+  const atLGH = calculateAtLevel('LG-H (High Level)', elevations.lgHigh);
+
+  // Generate recommendation based on worst case (LG-L)
+  const worstCaseNPSHa = atLGL.npshAvailable;
+
   let recommendation: string;
-  if (npshAvailable < 0) {
-    recommendation = `NPSHa of ${npshAvailable.toFixed(2)}m is NEGATIVE. Pump cannot operate. Submersible pump inside chamber or barometric leg required.`;
-  } else if (npshAvailable < 0.5) {
-    recommendation = `NPSHa of ${npshAvailable.toFixed(2)}m is critically low. Submersible pump strongly recommended.`;
-  } else if (npshAvailable < 1.5) {
-    recommendation = `NPSHa of ${npshAvailable.toFixed(2)}m is marginal for vacuum service. Low-NPSH pump or submersible pump recommended.`;
-  } else if (npshAvailable < 3) {
-    recommendation = `NPSHa of ${npshAvailable.toFixed(2)}m is adequate. Select pump with NPSHr < ${(npshAvailable - MIN_NPSH_MARGIN).toFixed(1)}m.`;
+  if (worstCaseNPSHa < 0) {
+    recommendation = `NPSHa at LG-L (${worstCaseNPSHa.toFixed(2)}m) is NEGATIVE. Pump cannot operate at minimum level. Submersible pump or barometric leg required.`;
+  } else if (worstCaseNPSHa < 0.5) {
+    recommendation = `NPSHa at LG-L (${worstCaseNPSHa.toFixed(2)}m) is critically low. Submersible pump strongly recommended.`;
+  } else if (worstCaseNPSHa < 1.5) {
+    recommendation = `NPSHa at LG-L (${worstCaseNPSHa.toFixed(2)}m) is marginal for vacuum service. Low-NPSH pump recommended.`;
+  } else if (worstCaseNPSHa < 3) {
+    recommendation = `NPSHa at LG-L (${worstCaseNPSHa.toFixed(2)}m) is adequate. Select pump with NPSHr < ${(worstCaseNPSHa - MIN_NPSH_MARGIN).toFixed(1)}m. Operating level provides ${atOperating.npshAvailable.toFixed(2)}m.`;
   } else {
-    recommendation = `NPSHa of ${npshAvailable.toFixed(2)}m is good for vacuum service.`;
+    recommendation = `NPSHa at LG-L (${worstCaseNPSHa.toFixed(2)}m) is good for vacuum service. Operating level provides ${atOperating.npshAvailable.toFixed(2)}m.`;
   }
 
   return {
-    staticHead,
+    atLGL,
+    atOperating,
+    atLGH,
     chamberPressureHead,
     vaporPressureHead,
     frictionLoss,
-    npshAvailable,
     recommendedNpshMargin: MIN_NPSH_MARGIN,
     recommendation,
   };

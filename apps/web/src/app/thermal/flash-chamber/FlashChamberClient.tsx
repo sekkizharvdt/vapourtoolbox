@@ -200,7 +200,7 @@ export default function FlashChamberClient() {
                 nozzles={result.nozzles}
               />
               <NozzleSizing nozzles={result.nozzles} />
-              <NPSHaCalculation npsha={result.npsha} btlAbovePumpInlet={inputs.btlAbovePumpInlet} />
+              <NPSHaCalculation npsha={result.npsha} />
 
               {/* Metadata */}
               <Paper sx={{ p: 2, bgcolor: 'action.hover' }}>

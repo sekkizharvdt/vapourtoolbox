@@ -71,14 +71,23 @@ export interface FlashChamberInput {
   /** Inlet water nozzle velocity in m/s (typical: 2-3 m/s) */
   inletWaterVelocity: number;
 
-  /** Outlet brine nozzle velocity in m/s (typical: 1-2 m/s) */
+  /** Outlet brine nozzle velocity in m/s (max 0.1 m/s to minimize vortexing) */
   outletWaterVelocity: number;
 
   /** Vapor outlet nozzle velocity in m/s (typical: 10-30 m/s) */
   vaporVelocity: number;
 
-  /** BTL (Bottom Tangent Line) elevation above pump inlet centerline in meters */
-  btlAbovePumpInlet: number;
+  /** Pump centerline elevation above FFL (Finished Floor Level) in meters (typical: 0.5-0.75m) */
+  pumpCenterlineAboveFFL: number;
+
+  /** Operating level elevation above pump centerline in meters (typical: 4m or higher) */
+  operatingLevelAbovePump: number;
+
+  /** Ratio determining where operating level sits within retention zone (0-1, e.g., 0.5 = midpoint) */
+  operatingLevelRatio: number;
+
+  /** Gap between LG-L (Low Level) and BTL (Bottom Tangent Line) in meters (typical: ~0.1m) */
+  btlGapBelowLGL: number;
 }
 
 /**
@@ -198,11 +207,34 @@ export interface NozzleSizing {
 }
 
 /**
- * NPSHa (Net Positive Suction Head Available) calculation
+ * NPSHa calculation at a specific level
+ */
+export interface NPSHaAtLevel {
+  /** Level name (e.g., "LG-L (Low Level)", "Operating Level", "LG-H (High Level)") */
+  levelName: string;
+
+  /** Level elevation above FFL in meters */
+  elevation: number;
+
+  /** Static head - level elevation minus pump centerline in m */
+  staticHead: number;
+
+  /** Calculated NPSHa in m */
+  npshAvailable: number;
+}
+
+/**
+ * NPSHa (Net Positive Suction Head Available) calculation at three levels
  */
 export interface NPSHaCalculation {
-  /** Static head - liquid level above pump centerline in m */
-  staticHead: number;
+  /** NPSHa at LG-L (lowest level - worst case) */
+  atLGL: NPSHaAtLevel;
+
+  /** NPSHa at Operating Level (normal operation) */
+  atOperating: NPSHaAtLevel;
+
+  /** NPSHa at LG-H (highest level - best case) */
+  atLGH: NPSHaAtLevel;
 
   /** Chamber operating pressure converted to head in m */
   chamberPressureHead: number;
@@ -213,9 +245,6 @@ export interface NPSHaCalculation {
   /** Estimated friction loss in suction piping in m */
   frictionLoss: number;
 
-  /** Calculated NPSHa in m */
-  npshAvailable: number;
-
   /** Recommended minimum NPSH margin in m (typically 1-2m above NPSHr) */
   recommendedNpshMargin: number;
 
@@ -225,14 +254,23 @@ export interface NPSHaCalculation {
 
 /**
  * Elevation data for flash chamber engineering diagram
- * All elevations are in meters, with BTL (Bottom Tangent Line) as reference (0.000)
+ * All elevations are in meters, with FFL (Finished Floor Level) as reference (0.000)
  */
 export interface FlashChamberElevations {
-  /** Bottom Tangent Line - reference elevation (always 0.000) */
+  /** Finished Floor Level - reference elevation (always 0.000) */
+  ffl: number;
+
+  /** Pump centerline elevation above FFL */
+  pumpCenterline: number;
+
+  /** Bottom Tangent Line - calculated from LG-L minus gap */
   btl: number;
 
   /** Level Gauge Low Tapping - minimum operating level */
   lgLow: number;
+
+  /** Operating Level - normal liquid level (user-specified position within retention zone) */
+  operatingLevel: number;
 
   /** Level Gauge High Tapping - maximum operating level (top of retention zone) */
   lgHigh: number;
@@ -243,7 +281,7 @@ export interface FlashChamberElevations {
   /** Top of flashing zone */
   flashingZoneTop: number;
 
-  /** Top Tangent Line - total chamber height */
+  /** Top Tangent Line - total chamber height above FFL */
   ttl: number;
 
   /** Nozzle elevation positions */
@@ -252,12 +290,9 @@ export interface FlashChamberElevations {
     inlet: number;
     /** Vapor outlet nozzle (N2) - at top */
     vaporOutlet: number;
-    /** Brine outlet nozzle (N3) - at bottom */
+    /** Brine outlet nozzle (N3) - at bottom (BTL level) */
     brineOutlet: number;
   };
-
-  /** Pump centerline elevation (negative, below BTL) */
-  pumpCenterline: number;
 
   /** Height of retention zone (between LG-L and LG-H) in meters */
   retentionZoneHeightM: number;
@@ -331,9 +366,12 @@ export const DEFAULT_FLASH_CHAMBER_INPUT: FlashChamberInput = {
   flashingZoneHeight: 500, // mm
   sprayAngle: 90, // degrees (wider angle = shorter spray zone)
   inletWaterVelocity: 2.5, // m/s
-  outletWaterVelocity: 1.5, // m/s
+  outletWaterVelocity: 0.05, // m/s (max 0.1 to minimize vortexing)
   vaporVelocity: 20, // m/s
-  btlAbovePumpInlet: 1.0, // meters
+  pumpCenterlineAboveFFL: 0.6, // 600mm typical
+  operatingLevelAbovePump: 4.0, // 4m typical
+  operatingLevelRatio: 0.5, // Operating level at midpoint of retention zone
+  btlGapBelowLGL: 0.1, // 100mm gap
 };
 
 // ============================================================================
@@ -354,9 +392,12 @@ export const FLASH_CHAMBER_LIMITS = {
   flashingZoneHeight: { min: 300, max: 1000, unit: 'mm' },
   sprayAngle: { min: 70, max: 100, unit: 'degrees' }, // Wider angle = shorter spray zone
   inletWaterVelocity: { min: 1.5, max: 4.0, unit: 'm/s' },
-  outletWaterVelocity: { min: 0.5, max: 2.5, unit: 'm/s' },
+  outletWaterVelocity: { min: 0.01, max: 0.1, unit: 'm/s' }, // Very low to minimize vortexing
   vaporVelocity: { min: 5, max: 40, unit: 'm/s' },
-  btlAbovePumpInlet: { min: 0.5, max: 10, unit: 'm' },
+  pumpCenterlineAboveFFL: { min: 0.3, max: 2.0, unit: 'm' },
+  operatingLevelAbovePump: { min: 2.0, max: 15.0, unit: 'm' },
+  operatingLevelRatio: { min: 0.2, max: 0.8, unit: '' },
+  btlGapBelowLGL: { min: 0.05, max: 0.5, unit: 'm' },
 } as const;
 
 /**
