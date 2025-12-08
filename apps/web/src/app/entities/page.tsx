@@ -331,6 +331,7 @@ export default function EntitiesPage() {
                       Contact Person
                     </TableSortLabel>
                   </TableCell>
+                  <TableCell>State</TableCell>
                   <TableCell>
                     <TableSortLabel
                       active={sortField === 'status'}
@@ -383,6 +384,14 @@ export default function EntitiesPage() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">{entity.contactPerson}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography
+                        variant="body2"
+                        color={entity.billingAddress?.state ? 'text.primary' : 'error'}
+                      >
+                        {entity.billingAddress?.state || 'Not set'}
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       <Chip
