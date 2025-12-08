@@ -14,15 +14,19 @@ import {
   Card,
   CardContent,
   IconButton,
+  Alert,
 } from '@mui/material';
 import {
   Close as CloseIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon,
+  Archive as ArchiveIcon,
   Business as BusinessIcon,
   Store as StoreIcon,
   Handshake as PartnerIcon,
   AccountBalance as BankIcon,
+  Person as PersonIcon,
+  Star as StarIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import type { BusinessEntity, EntityRole } from '@vapour/types';
 
@@ -31,9 +35,9 @@ interface ViewEntityDialogProps {
   entity: BusinessEntity | null;
   onClose: () => void;
   onEdit: () => void;
-  onDelete: () => void;
+  onArchive: () => void;
   canEdit: boolean; // Can edit entity
-  canDelete: boolean; // Can delete entity
+  canArchive: boolean; // Can archive entity
 }
 
 export function ViewEntityDialog({
@@ -41,11 +45,22 @@ export function ViewEntityDialog({
   entity,
   onClose,
   onEdit,
-  onDelete,
+  onArchive,
   canEdit,
-  canDelete,
+  canArchive,
 }: ViewEntityDialogProps) {
   if (!entity) return null;
+
+  // Format date for display
+  const formatDate = (date: Date | undefined | null) => {
+    if (!date) return 'Unknown';
+    const d = date instanceof Date ? date : new Date(date);
+    return d.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
 
   // Get role icon
   const getRoleIcon = (roles: EntityRole[]) => {
@@ -84,18 +99,18 @@ export function ViewEntityDialog({
           </Box>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <Chip
-              label={entity.isActive ? 'Active' : 'Inactive'}
-              color={entity.isActive ? 'success' : 'default'}
+              label={entity.isArchived ? 'Archived' : 'Active'}
+              color={entity.isArchived ? 'warning' : 'success'}
               size="small"
             />
-            {canEdit && (
+            {canEdit && !entity.isArchived && (
               <IconButton size="small" onClick={onEdit} title="Edit Entity">
                 <EditIcon />
               </IconButton>
             )}
-            {canDelete && (
-              <IconButton size="small" color="error" onClick={onDelete} title="Delete Entity">
-                <DeleteIcon />
+            {canArchive && !entity.isArchived && (
+              <IconButton size="small" color="warning" onClick={onArchive} title="Archive Entity">
+                <ArchiveIcon />
               </IconButton>
             )}
             <IconButton onClick={onClose}>
@@ -105,6 +120,23 @@ export function ViewEntityDialog({
         </Box>
       </DialogTitle>
       <DialogContent>
+        {/* Archive Warning */}
+        {entity.isArchived && (
+          <Alert severity="warning" icon={<WarningIcon />} sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              This entity is archived
+            </Typography>
+            {entity.archiveReason && (
+              <Typography variant="body2">
+                <strong>Reason:</strong> {entity.archiveReason}
+              </Typography>
+            )}
+            <Typography variant="body2" color="text.secondary">
+              Archived by {entity.archivedByName || 'Unknown'} on {formatDate(entity.archivedAt)}
+            </Typography>
+          </Alert>
+        )}
+
         {/* Roles */}
         <Box sx={{ mb: 3 }}>
           {entity.roles.map((role) => (
@@ -133,7 +165,7 @@ export function ViewEntityDialog({
                       Status
                     </Typography>
                     <Typography variant="body2">
-                      {entity.status.charAt(0).toUpperCase() + entity.status.slice(1)}
+                      {entity.isActive !== false ? 'Active' : 'Inactive'}
                     </Typography>
                   </Box>
                 </Box>
@@ -146,37 +178,98 @@ export function ViewEntityDialog({
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="subtitle2" color="primary" gutterBottom>
-                  Contact Details
+                  Contacts{' '}
+                  {entity.contacts && entity.contacts.length > 0
+                    ? `(${entity.contacts.length})`
+                    : ''}
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Contact Person
-                    </Typography>
-                    <Typography variant="body2">{entity.contactPerson}</Typography>
+
+                {/* Show multiple contacts if available */}
+                {entity.contacts && entity.contacts.length > 0 ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {entity.contacts.map((contact, index) => (
+                      <Box
+                        key={contact.id || index}
+                        sx={{
+                          p: 1.5,
+                          bgcolor: contact.isPrimary ? 'primary.50' : 'action.hover',
+                          borderRadius: 1,
+                          border: contact.isPrimary ? '1px solid' : 'none',
+                          borderColor: 'primary.main',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <PersonIcon
+                            fontSize="small"
+                            color={contact.isPrimary ? 'primary' : 'action'}
+                          />
+                          <Typography variant="subtitle2">{contact.name}</Typography>
+                          {contact.isPrimary && (
+                            <Chip
+                              icon={<StarIcon sx={{ fontSize: 14 }} />}
+                              label="Primary"
+                              size="small"
+                              color="primary"
+                              sx={{ height: 20, '& .MuiChip-label': { px: 0.5 } }}
+                            />
+                          )}
+                        </Box>
+                        {contact.designation && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {contact.designation}
+                          </Typography>
+                        )}
+                        <Typography variant="body2">{contact.email}</Typography>
+                        <Typography variant="body2">{contact.phone}</Typography>
+                        {contact.mobile && (
+                          <Typography variant="body2" color="text.secondary">
+                            Mobile: {contact.mobile}
+                          </Typography>
+                        )}
+                        {contact.notes && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ mt: 0.5, display: 'block', fontStyle: 'italic' }}
+                          >
+                            {contact.notes}
+                          </Typography>
+                        )}
+                      </Box>
+                    ))}
                   </Box>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Email
-                    </Typography>
-                    <Typography variant="body2">{entity.email}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Phone
-                    </Typography>
-                    <Typography variant="body2">{entity.phone}</Typography>
-                  </Box>
-                  {entity.mobile && (
+                ) : (
+                  /* Fallback to legacy single contact fields */
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        Mobile
+                        Contact Person
                       </Typography>
-                      <Typography variant="body2">{entity.mobile}</Typography>
+                      <Typography variant="body2">{entity.contactPerson || '-'}</Typography>
                     </Box>
-                  )}
-                </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Email
+                      </Typography>
+                      <Typography variant="body2">{entity.email || '-'}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Phone
+                      </Typography>
+                      <Typography variant="body2">{entity.phone || '-'}</Typography>
+                    </Box>
+                    {entity.mobile && (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Mobile
+                        </Typography>
+                        <Typography variant="body2">{entity.mobile}</Typography>
+                      </Box>
+                    )}
+                  </Box>
+                )}
               </CardContent>
             </Card>
           </Grid>
@@ -388,6 +481,23 @@ export function ViewEntityDialog({
                 </Card>
               </Grid>
             )}
+
+          {/* Notes */}
+          {entity.notes && (
+            <Grid size={{ xs: 12 }}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="subtitle2" color="primary" gutterBottom>
+                    Notes
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {entity.notes}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
         </Grid>
       </DialogContent>
       <DialogActions>

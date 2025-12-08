@@ -23,7 +23,7 @@ import {
 } from '@mui/material';
 import { Refresh as RefreshIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewFinancialReports, canCreateTransactions } from '@vapour/constants';
+import { canViewAccounting, canManageAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
 import ExchangeRateTrendChart from '@/components/accounting/currency/ExchangeRateTrendChart';
 import BankSettlementAnalysis from '@/components/accounting/currency/BankSettlementAnalysis';
@@ -93,8 +93,8 @@ export default function CurrencyForexPage() {
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
 
-  const hasViewAccess = claims?.permissions ? canViewFinancialReports(claims.permissions) : false;
-  const hasCreateAccess = claims?.permissions ? canCreateTransactions(claims.permissions) : false;
+  const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
+  const hasCreateAccess = claims?.permissions ? canManageAccounting(claims.permissions) : false;
 
   // Function to fetch rates from API via Cloud Function
   const fetchExchangeRates = async () => {

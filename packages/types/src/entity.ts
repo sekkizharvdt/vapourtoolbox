@@ -1,7 +1,7 @@
 // Entity Management Types (Vendors, Customers, Partners)
 
 import { EntityRole } from './core';
-import { TimestampFields, SoftDeleteFields, Address, Status } from './common';
+import { TimestampFields, SoftDeleteFields, Address } from './common';
 
 /**
  * Tax identifiers (extensible for different countries)
@@ -56,7 +56,6 @@ export interface BusinessEntity extends TimestampFields, SoftDeleteFields {
   name: string;
   nameNormalized: string; // Lowercase for case-insensitive duplicate checking
   legalName?: string;
-  displayName?: string;
 
   // Role(s)
   roles: EntityRole[];
@@ -66,7 +65,6 @@ export interface BusinessEntity extends TimestampFields, SoftDeleteFields {
   email: string;
   phone: string;
   mobile?: string;
-  website?: string;
 
   // Contacts array (new multiple contacts support)
   contacts?: Array<{
@@ -90,26 +88,23 @@ export interface BusinessEntity extends TimestampFields, SoftDeleteFields {
 
   // Terms
   creditTerms?: CreditTerms;
-  paymentTerms?: string;
 
-  // Metadata
-  industry?: string;
-  category?: string;
-  tags?: string[];
+  // Notes
   notes?: string;
 
   // Status
-  status: Status;
   isActive: boolean;
+
+  // Archive info (entities are never deleted, only archived)
+  isArchived?: boolean;
+  archivedAt?: Date;
+  archivedBy?: string;
+  archivedByName?: string;
+  archiveReason?: string;
 
   // Relationships
   primaryContactId?: string;
   assignedToUserId?: string;
-
-  // Stats (optional, can be computed)
-  totalProjects?: number;
-  totalTransactions?: number;
-  outstandingAmount?: number;
 }
 
 /**

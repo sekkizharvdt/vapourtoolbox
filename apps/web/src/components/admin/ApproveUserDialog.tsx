@@ -1,6 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+/**
+ * Approve User Dialog
+ *
+ * Dialog for approving new users and setting their initial permissions.
+ * Uses RESTRICTED_MODULES config for a clean 6-row permission table.
+ * Matches the structure of EditUserDialog.
+ */
+
+import { useState, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -16,15 +24,20 @@ import {
   Alert,
   CircularProgress,
   TextField,
-  FormGroup,
-  FormControlLabel,
   Checkbox,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Tooltip,
+  FormControlLabel,
   Divider,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
+  Stack,
 } from '@mui/material';
-import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
+import { Info as InfoIcon } from '@mui/icons-material';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -32,10 +45,12 @@ import type { User, Department } from '@vapour/types';
 import {
   getDepartmentOptions,
   PERMISSION_FLAGS,
-  PERMISSION_FLAGS_2,
   PERMISSION_PRESETS,
-  MODULES,
   hasPermission,
+  hasPermission2,
+  RESTRICTED_MODULES,
+  OPEN_MODULES,
+  getAllPermissions,
   getAllPermissions2,
 } from '@vapour/constants';
 
@@ -46,72 +61,6 @@ interface ApproveUserDialogProps {
   onSuccess: () => void;
 }
 
-// Group permissions by category for the UI
-const PERMISSION_GROUPS = {
-  'User & System': [
-    { flag: 'MANAGE_USERS', label: 'Manage Users' },
-    { flag: 'VIEW_USERS', label: 'View Users' },
-    { flag: 'MANAGE_ROLES', label: 'Manage Roles' },
-    { flag: 'MANAGE_COMPANY_SETTINGS', label: 'Manage Company Settings' },
-  ],
-  Projects: [
-    { flag: 'MANAGE_PROJECTS', label: 'Manage Projects' },
-    { flag: 'VIEW_PROJECTS', label: 'View Projects' },
-  ],
-  Entities: [
-    { flag: 'VIEW_ENTITIES', label: 'View Entities' },
-    { flag: 'CREATE_ENTITIES', label: 'Create Entities' },
-    { flag: 'EDIT_ENTITIES', label: 'Edit Entities' },
-    { flag: 'DELETE_ENTITIES', label: 'Delete Entities' },
-  ],
-  Procurement: [
-    { flag: 'MANAGE_PROCUREMENT', label: 'Manage Procurement' },
-    { flag: 'VIEW_PROCUREMENT', label: 'View Procurement' },
-  ],
-  Accounting: [
-    { flag: 'MANAGE_ACCOUNTING', label: 'Manage Accounting' },
-    { flag: 'VIEW_ACCOUNTING', label: 'View Accounting' },
-    { flag: 'MANAGE_CHART_OF_ACCOUNTS', label: 'Manage Chart of Accounts' },
-    { flag: 'CREATE_TRANSACTIONS', label: 'Create Transactions' },
-    { flag: 'APPROVE_TRANSACTIONS', label: 'Approve Transactions' },
-    { flag: 'VIEW_FINANCIAL_REPORTS', label: 'View Financial Reports' },
-    { flag: 'MANAGE_COST_CENTRES', label: 'Manage Cost Centres' },
-    { flag: 'MANAGE_FOREX', label: 'Manage Forex' },
-    { flag: 'RECONCILE_ACCOUNTS', label: 'Reconcile Accounts' },
-  ],
-  Estimation: [
-    { flag: 'MANAGE_ESTIMATION', label: 'Manage Estimation' },
-    { flag: 'VIEW_ESTIMATION', label: 'View Estimation' },
-  ],
-  'Time & Analytics': [
-    { flag: 'MANAGE_TIME_TRACKING', label: 'Manage Time Tracking' },
-    { flag: 'VIEW_TIME_TRACKING', label: 'View Time Tracking' },
-    { flag: 'VIEW_ANALYTICS', label: 'View Analytics' },
-    { flag: 'EXPORT_DATA', label: 'Export Data' },
-  ],
-} as const;
-
-// Extended permission groups (permissions2 field)
-const PERMISSION_GROUPS_2 = {
-  'Engineering Tools': [
-    { flag: 'VIEW_MATERIAL_DB', label: 'View Material Database' },
-    { flag: 'MANAGE_MATERIAL_DB', label: 'Manage Material Database' },
-    { flag: 'VIEW_SHAPE_DB', label: 'View Shape Database' },
-    { flag: 'MANAGE_SHAPE_DB', label: 'Manage Shape Database' },
-    { flag: 'VIEW_BOUGHT_OUT_DB', label: 'View Bought Out Database' },
-    { flag: 'MANAGE_BOUGHT_OUT_DB', label: 'Manage Bought Out Database' },
-    { flag: 'VIEW_THERMAL_DESAL', label: 'View Thermal Desalination' },
-    { flag: 'MANAGE_THERMAL_DESAL', label: 'Manage Thermal Desalination' },
-    { flag: 'VIEW_THERMAL_CALCS', label: 'View Thermal Calculators' },
-    { flag: 'MANAGE_THERMAL_CALCS', label: 'Manage Thermal Calculators' },
-  ],
-} as const;
-
-// Get all module IDs for the module selection
-const ALL_MODULES = Object.values(MODULES)
-  .filter((m) => m.status === 'active')
-  .map((m) => ({ id: m.id, name: m.name }));
-
 export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUserDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -121,80 +70,152 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
   const [permissions2, setPermissions2] = useState(0);
   const [department, setDepartment] = useState<Department | ''>('');
   const [jobTitle, setJobTitle] = useState('');
-  const [selectedModules, setSelectedModules] = useState<string[]>([]);
-  const [allModulesAccess, setAllModulesAccess] = useState(true);
+
+  // Check if permission is set
+  const hasViewPermission = useCallback(
+    (module: (typeof RESTRICTED_MODULES)[number]): boolean => {
+      if (module.field === 'permissions2') {
+        return hasPermission2(permissions2, module.viewFlag);
+      }
+      return hasPermission(permissions, module.viewFlag);
+    },
+    [permissions, permissions2]
+  );
+
+  const hasManagePermission = useCallback(
+    (module: (typeof RESTRICTED_MODULES)[number]): boolean => {
+      if (module.field === 'permissions2') {
+        return hasPermission2(permissions2, module.manageFlag);
+      }
+      return hasPermission(permissions, module.manageFlag);
+    },
+    [permissions, permissions2]
+  );
+
+  // Toggle permission
+  const togglePermission = useCallback(
+    (flag: number, field: 'permissions' | 'permissions2' = 'permissions') => {
+      if (field === 'permissions2') {
+        setPermissions2((prev) => (prev & flag ? prev & ~flag : prev | flag));
+      } else {
+        setPermissions((prev) => (prev & flag ? prev & ~flag : prev | flag));
+      }
+    },
+    []
+  );
+
+  // Toggle view permission (also clears manage if unchecking view)
+  const toggleView = useCallback(
+    (module: (typeof RESTRICTED_MODULES)[number]) => {
+      const field = module.field || 'permissions';
+      const perms = field === 'permissions2' ? permissions2 : permissions;
+      const hasView =
+        field === 'permissions2'
+          ? hasPermission2(perms, module.viewFlag)
+          : hasPermission(perms, module.viewFlag);
+
+      if (hasView) {
+        // Unchecking view - also remove manage
+        if (field === 'permissions2') {
+          setPermissions2((prev) => prev & ~module.viewFlag & ~module.manageFlag);
+        } else {
+          setPermissions((prev) => prev & ~module.viewFlag & ~module.manageFlag);
+        }
+      } else {
+        // Adding view
+        togglePermission(module.viewFlag, field);
+      }
+    },
+    [permissions, permissions2, togglePermission]
+  );
+
+  // Toggle manage permission (automatically adds view)
+  const toggleManage = useCallback(
+    (module: (typeof RESTRICTED_MODULES)[number]) => {
+      const field = module.field || 'permissions';
+      const perms = field === 'permissions2' ? permissions2 : permissions;
+      const hasManage =
+        field === 'permissions2'
+          ? hasPermission2(perms, module.manageFlag)
+          : hasPermission(perms, module.manageFlag);
+
+      if (hasManage) {
+        // Just remove manage, keep view
+        togglePermission(module.manageFlag, field);
+      } else {
+        // Add manage + view
+        if (field === 'permissions2') {
+          setPermissions2((prev) => prev | module.viewFlag | module.manageFlag);
+        } else {
+          setPermissions((prev) => prev | module.viewFlag | module.manageFlag);
+        }
+      }
+    },
+    [permissions, permissions2, togglePermission]
+  );
+
+  // Check if user has admin permission
+  const isAdmin = hasPermission(permissions, PERMISSION_FLAGS.MANAGE_USERS);
+
+  // Toggle admin permission
+  const toggleAdmin = useCallback(() => {
+    setPermissions((prev) =>
+      prev & PERMISSION_FLAGS.MANAGE_USERS
+        ? prev & ~PERMISSION_FLAGS.MANAGE_USERS
+        : prev | PERMISSION_FLAGS.MANAGE_USERS
+    );
+  }, []);
 
   // Apply a permission preset
-  const applyPreset = (presetName: keyof typeof PERMISSION_PRESETS) => {
+  const applyPreset = useCallback((presetName: keyof typeof PERMISSION_PRESETS) => {
     const presetValue = PERMISSION_PRESETS[presetName];
     setPermissions(presetValue);
-
-    // For presets that include VIEW_ESTIMATION, also grant all engineering tool permissions
-    if (hasPermission(presetValue, PERMISSION_FLAGS.VIEW_ESTIMATION)) {
-      const viewPerms2 =
-        PERMISSION_FLAGS_2.VIEW_MATERIAL_DB |
-        PERMISSION_FLAGS_2.VIEW_SHAPE_DB |
-        PERMISSION_FLAGS_2.VIEW_BOUGHT_OUT_DB |
-        PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL |
-        PERMISSION_FLAGS_2.VIEW_THERMAL_CALCS;
-
-      const managePerms2 = hasPermission(presetValue, PERMISSION_FLAGS.MANAGE_ESTIMATION)
-        ? PERMISSION_FLAGS_2.MANAGE_MATERIAL_DB |
-          PERMISSION_FLAGS_2.MANAGE_SHAPE_DB |
-          PERMISSION_FLAGS_2.MANAGE_BOUGHT_OUT_DB |
-          PERMISSION_FLAGS_2.MANAGE_THERMAL_DESAL |
-          PERMISSION_FLAGS_2.MANAGE_THERMAL_CALCS
-        : 0;
-
-      setPermissions2(viewPerms2 | managePerms2);
-    } else if (presetName === 'FULL_ACCESS') {
-      // Full access gets all permissions2
+    // Full access gets all permissions2
+    if (presetName === 'FULL_ACCESS') {
       setPermissions2(getAllPermissions2());
     } else {
       setPermissions2(0);
     }
-  };
+  }, []);
 
-  // Toggle a permission flag
-  const togglePermission = (flag: keyof typeof PERMISSION_FLAGS) => {
-    const flagValue = PERMISSION_FLAGS[flag];
-    if ((permissions & flagValue) === flagValue) {
-      setPermissions(permissions & ~flagValue);
-    } else {
-      setPermissions(permissions | flagValue);
-    }
-  };
+  // Quick actions
+  const grantAllView = useCallback(() => {
+    let newPerms = permissions;
+    let newPerms2 = permissions2;
+    RESTRICTED_MODULES.forEach((module) => {
+      if (module.field === 'permissions2') {
+        newPerms2 |= module.viewFlag;
+      } else {
+        newPerms |= module.viewFlag;
+      }
+    });
+    setPermissions(newPerms);
+    setPermissions2(newPerms2);
+  }, [permissions, permissions2]);
 
-  // Toggle a permission2 flag (extended permissions)
-  const togglePermission2 = (flag: keyof typeof PERMISSION_FLAGS_2) => {
-    const flagValue = PERMISSION_FLAGS_2[flag];
-    if ((permissions2 & flagValue) === flagValue) {
-      setPermissions2(permissions2 & ~flagValue);
-    } else {
-      setPermissions2(permissions2 | flagValue);
-    }
-  };
+  const grantAllManage = useCallback(() => {
+    let newPerms = permissions;
+    let newPerms2 = permissions2;
+    RESTRICTED_MODULES.forEach((module) => {
+      if (module.field === 'permissions2') {
+        newPerms2 |= module.viewFlag | module.manageFlag;
+      } else {
+        newPerms |= module.viewFlag | module.manageFlag;
+      }
+    });
+    setPermissions(newPerms);
+    setPermissions2(newPerms2);
+  }, [permissions, permissions2]);
 
-  // Check if a permission is set
-  const hasPermissionFlag = (flag: keyof typeof PERMISSION_FLAGS) => {
-    const flagValue = PERMISSION_FLAGS[flag];
-    return (permissions & flagValue) === flagValue;
-  };
+  const clearAllPermissions = useCallback(() => {
+    setPermissions(0);
+    setPermissions2(0);
+  }, []);
 
-  // Check if a permission2 is set
-  const hasPermission2Flag = (flag: keyof typeof PERMISSION_FLAGS_2) => {
-    const flagValue = PERMISSION_FLAGS_2[flag];
-    return (permissions2 & flagValue) === flagValue;
-  };
-
-  // Toggle module selection
-  const toggleModule = (moduleId: string) => {
-    if (selectedModules.includes(moduleId)) {
-      setSelectedModules(selectedModules.filter((m) => m !== moduleId));
-    } else {
-      setSelectedModules([...selectedModules, moduleId]);
-    }
-  };
+  const grantFullAccess = useCallback(() => {
+    setPermissions(getAllPermissions());
+    setPermissions2(getAllPermissions2());
+  }, []);
 
   const handleApprove = async () => {
     if (!user) return;
@@ -223,15 +244,12 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
         permissions2,
         department,
         jobTitle: jobTitle.trim() || null,
-        allowedModules: allModulesAccess ? [] : selectedModules,
         status: 'active',
         isActive: true,
         updatedAt: Timestamp.now(),
       });
 
       // Note: Custom claims will be set by Cloud Function trigger
-      // The Cloud Function will detect the status change and set claims
-
       onSuccess();
       onClose();
 
@@ -240,8 +258,6 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
       setPermissions2(0);
       setDepartment('');
       setJobTitle('');
-      setSelectedModules([]);
-      setAllModulesAccess(true);
     } catch (err: unknown) {
       console.error('Error approving user:', err);
       const errorMessage =
@@ -296,8 +312,6 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
       setPermissions2(0);
       setDepartment('');
       setJobTitle('');
-      setSelectedModules([]);
-      setAllModulesAccess(true);
       onClose();
     }
   };
@@ -305,7 +319,7 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
   if (!user) return null;
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>Approve New User</DialogTitle>
       <DialogContent>
         {error && (
@@ -314,55 +328,57 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
           </Alert>
         )}
 
+        {/* User Info */}
         <Box sx={{ mb: 3, mt: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
           <Typography variant="subtitle2" color="text.secondary" gutterBottom>
             User Information
           </Typography>
-          <Typography variant="body1" gutterBottom>
+          <Typography variant="body2">
             <strong>Name:</strong> {user.displayName}
           </Typography>
-          <Typography variant="body1" gutterBottom>
+          <Typography variant="body2">
             <strong>Email:</strong> {user.email}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="caption" color="text.secondary">
             Signed up: {user.createdAt?.toDate().toLocaleString()}
           </Typography>
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {/* Job Title */}
-          <TextField
-            label="Job Title"
-            value={jobTitle}
-            onChange={(e) => setJobTitle(e.target.value)}
-            fullWidth
-            placeholder="e.g., Senior Engineer"
-          />
-
-          {/* Department */}
-          <FormControl fullWidth required>
-            <InputLabel>Department</InputLabel>
-            <Select
-              value={department}
-              label="Department"
-              onChange={(e) => setDepartment(e.target.value as Department | '')}
-            >
-              {getDepartmentOptions().map((dept) => (
-                <MenuItem key={dept.value} value={dept.value}>
-                  {dept.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          {/* Job Title & Department */}
+          <Stack direction="row" spacing={2}>
+            <TextField
+              label="Job Title"
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value)}
+              fullWidth
+              size="small"
+              placeholder="e.g., Senior Engineer"
+            />
+            <FormControl fullWidth required size="small">
+              <InputLabel>Department</InputLabel>
+              <Select
+                value={department}
+                label="Department"
+                onChange={(e) => setDepartment(e.target.value as Department | '')}
+              >
+                {getDepartmentOptions().map((dept) => (
+                  <MenuItem key={dept.value} value={dept.value}>
+                    {dept.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Stack>
 
           <Divider sx={{ my: 1 }} />
 
-          {/* Permission Presets */}
+          {/* Quick Presets */}
           <Box>
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Quick Permission Presets
+              Quick Presets
             </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               <Button size="small" variant="outlined" onClick={() => applyPreset('FULL_ACCESS')}>
                 Full Access
               </Button>
@@ -381,125 +397,111 @@ export function ApproveUserDialog({ open, user, onClose, onSuccess }: ApproveUse
               <Button size="small" variant="outlined" onClick={() => applyPreset('VIEWER')}>
                 Viewer
               </Button>
-              <Button
-                size="small"
-                variant="text"
-                color="inherit"
-                onClick={() => {
-                  setPermissions(0);
-                  setPermissions2(0);
-                }}
-              >
-                Clear All
-              </Button>
-            </Box>
-          </Box>
-
-          {/* Detailed Permissions */}
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Detailed Permissions
-            </Typography>
-            {Object.entries(PERMISSION_GROUPS).map(([groupName, perms]) => (
-              <Accordion key={groupName} defaultExpanded={groupName === 'User & System'}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="body2">{groupName}</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <FormGroup row>
-                    {perms.map(({ flag, label }) => (
-                      <FormControlLabel
-                        key={flag}
-                        control={
-                          <Checkbox
-                            checked={hasPermissionFlag(flag as keyof typeof PERMISSION_FLAGS)}
-                            onChange={() => togglePermission(flag as keyof typeof PERMISSION_FLAGS)}
-                            size="small"
-                          />
-                        }
-                        label={<Typography variant="body2">{label}</Typography>}
-                        sx={{ minWidth: '180px' }}
-                      />
-                    ))}
-                  </FormGroup>
-                </AccordionDetails>
-              </Accordion>
-            ))}
-            {/* Extended Permissions (permissions2) */}
-            {Object.entries(PERMISSION_GROUPS_2).map(([groupName, perms]) => (
-              <Accordion key={groupName}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="body2">{groupName}</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <FormGroup row>
-                    {perms.map(({ flag, label }) => (
-                      <FormControlLabel
-                        key={flag}
-                        control={
-                          <Checkbox
-                            checked={hasPermission2Flag(flag as keyof typeof PERMISSION_FLAGS_2)}
-                            onChange={() =>
-                              togglePermission2(flag as keyof typeof PERMISSION_FLAGS_2)
-                            }
-                            size="small"
-                          />
-                        }
-                        label={<Typography variant="body2">{label}</Typography>}
-                        sx={{ minWidth: '180px' }}
-                      />
-                    ))}
-                  </FormGroup>
-                </AccordionDetails>
-              </Accordion>
-            ))}
+            </Stack>
           </Box>
 
           <Divider sx={{ my: 1 }} />
 
-          {/* Module Access */}
+          {/* Module Access Section */}
           <Box>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Module Access
-            </Typography>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={allModulesAccess}
-                  onChange={(e) => setAllModulesAccess(e.target.checked)}
-                />
-              }
-              label="Access to all modules (based on permissions)"
-            />
-            {!allModulesAccess && (
-              <Box sx={{ mt: 1, pl: 2 }}>
-                <Typography variant="caption" color="text.secondary" gutterBottom display="block">
-                  Select specific modules this user can access:
-                </Typography>
-                <FormGroup row>
-                  {ALL_MODULES.map((module) => (
-                    <FormControlLabel
-                      key={module.id}
-                      control={
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}
+            >
+              <Typography variant="subtitle2" color="text.secondary">
+                Module Access
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <Button size="small" variant="text" onClick={grantAllView}>
+                  All View
+                </Button>
+                <Button size="small" variant="text" onClick={grantAllManage}>
+                  All Manage
+                </Button>
+                <Button size="small" variant="text" color="inherit" onClick={clearAllPermissions}>
+                  Clear
+                </Button>
+                <Button size="small" variant="outlined" onClick={grantFullAccess}>
+                  Full Access
+                </Button>
+              </Stack>
+            </Box>
+
+            {/* Open modules info */}
+            <Alert severity="info" sx={{ mb: 2, py: 0.5 }}>
+              <Typography variant="caption">
+                <strong>Open to all:</strong> {OPEN_MODULES.join(', ')}
+              </Typography>
+            </Alert>
+
+            {/* Restricted Modules Table */}
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>
+                      <strong>Module</strong>
+                    </TableCell>
+                    <TableCell align="center" sx={{ width: 80 }}>
+                      <strong>View</strong>
+                    </TableCell>
+                    <TableCell align="center" sx={{ width: 80 }}>
+                      <strong>Manage</strong>
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {RESTRICTED_MODULES.map((module) => (
+                    <TableRow key={module.id}>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          {module.name}
+                          {module.note && (
+                            <Tooltip title={module.note}>
+                              <InfoIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                            </Tooltip>
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell align="center">
                         <Checkbox
-                          checked={selectedModules.includes(module.id)}
-                          onChange={() => toggleModule(module.id)}
+                          checked={hasViewPermission(module)}
+                          onChange={() => toggleView(module)}
                           size="small"
                         />
-                      }
-                      label={<Typography variant="body2">{module.name}</Typography>}
-                      sx={{ minWidth: '180px' }}
-                    />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Checkbox
+                          checked={hasManagePermission(module)}
+                          onChange={() => toggleManage(module)}
+                          size="small"
+                        />
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </FormGroup>
-              </Box>
-            )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+
+          <Divider sx={{ my: 1 }} />
+
+          {/* Admin Access */}
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Admin Access
+            </Typography>
+            <FormControlLabel
+              control={<Checkbox checked={isAdmin} onChange={toggleAdmin} />}
+              label="Can manage users (Administrator)"
+            />
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4 }}>
+              Grants access to Administration section: User Management, Company Settings, Feedback
+            </Typography>
           </Box>
 
           {/* Info */}
-          <Alert severity="info">
-            Once approved, the user will receive an in-app notification and their custom claims will
-            be automatically configured. They will need to refresh the page to see the changes.
+          <Alert severity="info" sx={{ mt: 1 }}>
+            Once approved, the user will be able to sign in with their assigned permissions.
           </Alert>
         </Box>
       </DialogContent>

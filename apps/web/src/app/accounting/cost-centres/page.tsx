@@ -23,7 +23,7 @@ import {
   TrendingDown as DownIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewFinancialReports, canCreateTransactions } from '@vapour/constants';
+import { canViewAccounting, canManageAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, onSnapshot, orderBy, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -37,8 +37,8 @@ export default function CostCentresPage() {
   const [selectedCostCentre, setSelectedCostCentre] = useState<CostCentre | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const hasViewAccess = claims?.permissions ? canViewFinancialReports(claims.permissions) : false;
-  const hasCreateAccess = claims?.permissions ? canCreateTransactions(claims.permissions) : false;
+  const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
+  const hasCreateAccess = claims?.permissions ? canManageAccounting(claims.permissions) : false;
 
   // Load cost centres
   useEffect(() => {

@@ -26,8 +26,8 @@ interface ModuleLayoutProps {
    */
   moduleName: string;
   /**
-   * Optional module ID for visibility check (from MODULES constant)
-   * If provided, user's allowedModules will be checked
+   * Optional module ID for identification (from MODULES constant)
+   * @deprecated No longer used for visibility checks
    */
   moduleId?: string;
 }
@@ -65,7 +65,7 @@ export function ModuleLayout({
   permissionCheck,
   permissionCheck2,
   moduleName,
-  moduleId,
+  // moduleId is deprecated and no longer used
 }: ModuleLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -183,21 +183,13 @@ export function ModuleLayout({
   // Check module-specific permissions
   const userPermissions = claims.permissions || 0;
   const userPermissions2 = claims.permissions2 || 0;
-  const allowedModules = claims.allowedModules || [];
 
   // Check permission access - must pass either permissionCheck OR permissionCheck2 (or both if both provided)
   const hasPermissionAccess =
     (permissionCheck ? permissionCheck(userPermissions) : true) &&
     (permissionCheck2 ? permissionCheck2(userPermissions2) : true);
 
-  // Check module visibility (if moduleId provided and allowedModules is restricted)
-  const hasModuleVisibility =
-    !moduleId || // No moduleId means no visibility check
-    !allowedModules || // No allowedModules means all modules visible
-    allowedModules.length === 0 || // Empty array means all modules visible
-    allowedModules.includes(moduleId); // Check if this module is allowed
-
-  const hasAccess = hasPermissionAccess && hasModuleVisibility;
+  const hasAccess = hasPermissionAccess;
 
   // If no permission, show access denied
   if (!hasAccess) {
@@ -226,7 +218,6 @@ export function ModuleLayout({
         onMobileClose={handleDrawerToggle}
         userPermissions={userPermissions}
         userPermissions2={userPermissions2}
-        allowedModules={allowedModules}
         collapsed={sidebarCollapsed}
         onToggleCollapse={handleSidebarToggle}
       />

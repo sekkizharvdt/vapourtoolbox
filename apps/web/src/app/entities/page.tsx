@@ -31,6 +31,8 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Visibility as ViewIcon,
+  Archive as ArchiveIcon,
+  Unarchive as UnarchiveIcon,
 } from '@mui/icons-material';
 import { collection, query, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -41,10 +43,9 @@ import {
   LoadingState,
   EmptyState,
   TableActionCell,
-  getStatusColor,
 } from '@vapour/ui';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { BusinessEntity, Status } from '@vapour/types';
+import type { BusinessEntity } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewEntities, canCreateEntities } from '@vapour/constants';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
@@ -62,8 +63,13 @@ const ViewEntityDialog = dynamic(
   () => import('@/components/entities/ViewEntityDialog').then((mod) => mod.ViewEntityDialog),
   { ssr: false }
 );
-const DeleteEntityDialog = dynamic(
-  () => import('@/components/entities/DeleteEntityDialog').then((mod) => mod.DeleteEntityDialog),
+const ArchiveEntityDialog = dynamic(
+  () => import('@/components/entities/ArchiveEntityDialog').then((mod) => mod.ArchiveEntityDialog),
+  { ssr: false }
+);
+const UnarchiveEntityDialog = dynamic(
+  () =>
+    import('@/components/entities/UnarchiveEntityDialog').then((mod) => mod.UnarchiveEntityDialog),
   { ssr: false }
 );
 
@@ -72,7 +78,7 @@ export default function EntitiesPage() {
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<Status | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<'active' | 'archived' | 'all'>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
 
   // Sorting
@@ -84,7 +90,8 @@ export default function EntitiesPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [unarchiveDialogOpen, setUnarchiveDialogOpen] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState<BusinessEntity | null>(null);
 
   // Pagination state
@@ -119,8 +126,11 @@ export default function EntitiesPage() {
           (entity.email || '').toLowerCase().includes(searchTerm.toLowerCase())
         : true;
 
-      // Status filter
-      const matchesStatus = statusFilter === 'all' || entity.status === statusFilter;
+      // Status filter (uses isArchived boolean)
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && entity.isArchived !== true) ||
+        (statusFilter === 'archived' && entity.isArchived === true);
 
       // Role filter
       const matchesRole =
@@ -140,7 +150,8 @@ export default function EntitiesPage() {
           comparison = (a.contactPerson || '').localeCompare(b.contactPerson || '');
           break;
         case 'status':
-          comparison = (a.status || '').localeCompare(b.status || '');
+          // Sort by isActive: active first (true > false)
+          comparison = (a.isActive === false ? 1 : 0) - (b.isActive === false ? 1 : 0);
           break;
         case 'createdAt':
           comparison = (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
@@ -152,11 +163,11 @@ export default function EntitiesPage() {
       return sortDirection === 'asc' ? comparison : -comparison;
     });
 
-  // Stats (case-insensitive status comparison to handle legacy data)
+  // Stats (uses isArchived boolean)
   const stats = {
     total: entities.length,
-    active: entities.filter((e) => e.status?.toLowerCase() === 'active').length,
-    inactive: entities.filter((e) => e.status?.toLowerCase() === 'inactive').length,
+    active: entities.filter((e) => e.isArchived !== true).length,
+    archived: entities.filter((e) => e.isArchived === true).length,
     vendors: entities.filter((e) => e.roles.includes('VENDOR')).length,
     customers: entities.filter((e) => e.roles.includes('CUSTOMER')).length,
   };
@@ -243,7 +254,7 @@ export default function EntitiesPage() {
             <StatCard label="Active" value={stats.active} color="success" />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
-            <StatCard label="Inactive" value={stats.inactive} color="warning" />
+            <StatCard label="Archived" value={stats.archived} color="warning" />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
             <StatCard label="Vendors" value={stats.vendors} color="info" />
@@ -273,12 +284,10 @@ export default function EntitiesPage() {
             <Select
               value={statusFilter}
               label="Status"
-              onChange={(e) => setStatusFilter(e.target.value as Status | 'all')}
+              onChange={(e) => setStatusFilter(e.target.value as 'active' | 'archived' | 'all')}
             >
               <MenuItem value="all">All Status</MenuItem>
               <MenuItem value="active">Active</MenuItem>
-              <MenuItem value="inactive">Inactive</MenuItem>
-              <MenuItem value="draft">Draft</MenuItem>
               <MenuItem value="archived">Archived</MenuItem>
             </Select>
           </FormControl>
@@ -395,9 +404,9 @@ export default function EntitiesPage() {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={entity.status}
+                        label={entity.isArchived === true ? 'Archived' : 'Active'}
                         size="small"
-                        color={getStatusColor(entity.status, 'entity')}
+                        color={entity.isArchived === true ? 'warning' : 'success'}
                       />
                     </TableCell>
                     <TableCell align="right">
@@ -418,7 +427,25 @@ export default function EntitiesPage() {
                               setSelectedEntity(entity);
                               setEditDialogOpen(true);
                             },
-                            show: hasCreatePermission,
+                            show: hasCreatePermission && entity.isArchived !== true,
+                          },
+                          {
+                            icon: <ArchiveIcon />,
+                            label: 'Archive Entity',
+                            onClick: () => {
+                              setSelectedEntity(entity);
+                              setArchiveDialogOpen(true);
+                            },
+                            show: hasCreatePermission && entity.isArchived !== true,
+                          },
+                          {
+                            icon: <UnarchiveIcon />,
+                            label: 'Unarchive Entity',
+                            onClick: () => {
+                              setSelectedEntity(entity);
+                              setUnarchiveDialogOpen(true);
+                            },
+                            show: hasCreatePermission && entity.isArchived === true,
                           },
                         ]}
                       />
@@ -460,12 +487,12 @@ export default function EntitiesPage() {
             setViewDialogOpen(false);
             setEditDialogOpen(true);
           }}
-          onDelete={() => {
+          onArchive={() => {
             setViewDialogOpen(false);
-            setDeleteDialogOpen(true);
+            setArchiveDialogOpen(true);
           }}
           canEdit={hasCreatePermission}
-          canDelete={hasCreatePermission}
+          canArchive={hasCreatePermission}
         />
 
         {/* Edit Entity Dialog */}
@@ -482,16 +509,30 @@ export default function EntitiesPage() {
           }}
         />
 
-        {/* Delete Entity Dialog */}
-        <DeleteEntityDialog
-          open={deleteDialogOpen}
+        {/* Archive Entity Dialog */}
+        <ArchiveEntityDialog
+          open={archiveDialogOpen}
           entity={selectedEntity}
           onClose={() => {
-            setDeleteDialogOpen(false);
+            setArchiveDialogOpen(false);
             setSelectedEntity(null);
           }}
           onSuccess={() => {
-            setDeleteDialogOpen(false);
+            setArchiveDialogOpen(false);
+            setSelectedEntity(null);
+          }}
+        />
+
+        {/* Unarchive Entity Dialog */}
+        <UnarchiveEntityDialog
+          open={unarchiveDialogOpen}
+          entity={selectedEntity}
+          onClose={() => {
+            setUnarchiveDialogOpen(false);
+            setSelectedEntity(null);
+          }}
+          onSuccess={() => {
+            setUnarchiveDialogOpen(false);
             setSelectedEntity(null);
           }}
         />

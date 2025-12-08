@@ -104,7 +104,7 @@ export default function InvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<CustomerInvoiceWithExtras | null>(null);
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
-  const canApprove = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.APPROVE_TRANSACTIONS);
+  const canApprove = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
   // Firestore query using custom hook
   const { db } = getFirebase();

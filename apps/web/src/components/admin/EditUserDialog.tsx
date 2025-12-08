@@ -1,6 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+/**
+ * Edit User Dialog
+ *
+ * Simplified dialog for editing user information and permissions.
+ * Uses RESTRICTED_MODULES config for a clean 6-row permission table.
+ */
+
+import { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -25,6 +32,9 @@ import {
   TableRow,
   Paper,
   Tooltip,
+  FormControlLabel,
+  Divider,
+  Stack,
 } from '@mui/material';
 import { Info as InfoIcon } from '@mui/icons-material';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
@@ -34,17 +44,13 @@ import type { User, Department, UserStatus } from '@vapour/types';
 import {
   getDepartmentOptions,
   PERMISSION_FLAGS,
-  PERMISSION_FLAGS_2,
   hasPermission,
   hasPermission2,
-  MODULES,
+  RESTRICTED_MODULES,
+  OPEN_MODULES,
+  getAllPermissions,
+  getAllPermissions2,
 } from '@vapour/constants';
-import { Divider, FormGroup, FormControlLabel } from '@mui/material';
-
-// Get all active modules for the module selection
-const ALL_MODULES = Object.values(MODULES)
-  .filter((m) => m.status === 'active')
-  .map((m) => ({ id: m.id, name: m.name }));
 
 interface EditUserDialogProps {
   open: boolean;
@@ -67,8 +73,6 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
   const [status, setStatus] = useState<UserStatus>('active');
   const [permissions, setPermissions] = useState<number>(0);
   const [permissions2, setPermissions2] = useState<number>(0);
-  const [selectedModules, setSelectedModules] = useState<string[]>([]);
-  const [allModulesAccess, setAllModulesAccess] = useState(true);
 
   // Initialize form when user changes
   useEffect(() => {
@@ -80,76 +84,157 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
       setDepartment(user.department || '');
       setStatus(user.status);
       setPermissions(user.permissions || 0);
-
-      // Backward compatibility migration: if user has VIEW_ESTIMATION but no permissions2,
-      // auto-grant all new view/manage permissions based on their estimation permissions
-      let initialPermissions2 = user.permissions2 || 0;
-      if (
-        hasPermission(user.permissions || 0, PERMISSION_FLAGS.VIEW_ESTIMATION) &&
-        !user.permissions2
-      ) {
-        const viewPerms =
-          PERMISSION_FLAGS_2.VIEW_MATERIAL_DB |
-          PERMISSION_FLAGS_2.VIEW_SHAPE_DB |
-          PERMISSION_FLAGS_2.VIEW_BOUGHT_OUT_DB |
-          PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL |
-          PERMISSION_FLAGS_2.VIEW_THERMAL_CALCS;
-
-        const managePerms = hasPermission(user.permissions || 0, PERMISSION_FLAGS.MANAGE_ESTIMATION)
-          ? PERMISSION_FLAGS_2.MANAGE_MATERIAL_DB |
-            PERMISSION_FLAGS_2.MANAGE_SHAPE_DB |
-            PERMISSION_FLAGS_2.MANAGE_BOUGHT_OUT_DB |
-            PERMISSION_FLAGS_2.MANAGE_THERMAL_DESAL |
-            PERMISSION_FLAGS_2.MANAGE_THERMAL_CALCS
-          : 0;
-
-        initialPermissions2 = viewPerms | managePerms;
-      }
-      setPermissions2(initialPermissions2);
-
-      // Module visibility: empty array means all modules
-      const userModules = user.allowedModules || [];
-      setSelectedModules(userModules);
-      setAllModulesAccess(userModules.length === 0);
+      setPermissions2(user.permissions2 || 0);
       setSaveSuccess(false);
       setError('');
     }
   }, [user, open]);
 
-  // Permission toggle handler
-  const togglePermission = (permission: number) => {
-    setPermissions((prev) => {
-      if (hasPermission(prev, permission)) {
-        // Remove permission (bitwise AND with NOT)
-        return prev & ~permission;
+  // Check if permission is set
+  const hasViewPermission = useCallback(
+    (module: (typeof RESTRICTED_MODULES)[number]): boolean => {
+      if (module.field === 'permissions2') {
+        return hasPermission2(permissions2, module.viewFlag);
+      }
+      return hasPermission(permissions, module.viewFlag);
+    },
+    [permissions, permissions2]
+  );
+
+  const hasManagePermission = useCallback(
+    (module: (typeof RESTRICTED_MODULES)[number]): boolean => {
+      if (module.field === 'permissions2') {
+        return hasPermission2(permissions2, module.manageFlag);
+      }
+      return hasPermission(permissions, module.manageFlag);
+    },
+    [permissions, permissions2]
+  );
+
+  // Toggle permission
+  const togglePermission = useCallback(
+    (flag: number, field: 'permissions' | 'permissions2' = 'permissions') => {
+      if (field === 'permissions2') {
+        setPermissions2((prev) => (prev & flag ? prev & ~flag : prev | flag));
       } else {
-        // Add permission (bitwise OR)
-        return prev | permission;
+        setPermissions((prev) => (prev & flag ? prev & ~flag : prev | flag));
+      }
+    },
+    []
+  );
+
+  // Toggle view permission (also clears manage if unchecking view)
+  const toggleView = useCallback(
+    (module: (typeof RESTRICTED_MODULES)[number]) => {
+      const field = module.field || 'permissions';
+      const perms = field === 'permissions2' ? permissions2 : permissions;
+      const hasView =
+        field === 'permissions2'
+          ? hasPermission2(perms, module.viewFlag)
+          : hasPermission(perms, module.viewFlag);
+
+      if (hasView) {
+        // Unchecking view - also remove manage
+        if (field === 'permissions2') {
+          setPermissions2((prev) => prev & ~module.viewFlag & ~module.manageFlag);
+        } else {
+          setPermissions((prev) => prev & ~module.viewFlag & ~module.manageFlag);
+        }
+      } else {
+        // Adding view
+        togglePermission(module.viewFlag, field);
+      }
+    },
+    [permissions, permissions2, togglePermission]
+  );
+
+  // Toggle manage permission (automatically adds view)
+  const toggleManage = useCallback(
+    (module: (typeof RESTRICTED_MODULES)[number]) => {
+      const field = module.field || 'permissions';
+      const perms = field === 'permissions2' ? permissions2 : permissions;
+      const hasManage =
+        field === 'permissions2'
+          ? hasPermission2(perms, module.manageFlag)
+          : hasPermission(perms, module.manageFlag);
+
+      if (hasManage) {
+        // Just remove manage, keep view
+        togglePermission(module.manageFlag, field);
+      } else {
+        // Add manage + view
+        if (field === 'permissions2') {
+          setPermissions2((prev) => prev | module.viewFlag | module.manageFlag);
+        } else {
+          setPermissions((prev) => prev | module.viewFlag | module.manageFlag);
+        }
+      }
+    },
+    [permissions, permissions2, togglePermission]
+  );
+
+  // Check if user has admin permission
+  const isAdmin = hasPermission(permissions, PERMISSION_FLAGS.MANAGE_USERS);
+
+  // Toggle admin permission
+  const toggleAdmin = useCallback(() => {
+    setPermissions((prev) =>
+      prev & PERMISSION_FLAGS.MANAGE_USERS
+        ? prev & ~PERMISSION_FLAGS.MANAGE_USERS
+        : prev | PERMISSION_FLAGS.MANAGE_USERS
+    );
+  }, []);
+
+  // Quick actions
+  const grantAllView = useCallback(() => {
+    let newPerms = permissions;
+    let newPerms2 = permissions2;
+    RESTRICTED_MODULES.forEach((module) => {
+      if (module.field === 'permissions2') {
+        newPerms2 |= module.viewFlag;
+      } else {
+        newPerms |= module.viewFlag;
       }
     });
-  };
+    setPermissions(newPerms);
+    setPermissions2(newPerms2);
+  }, [permissions, permissions2]);
 
-  // Permission2 toggle handler (for extended permissions)
-  const togglePermission2 = (permission: number) => {
-    setPermissions2((prev) => {
-      if (hasPermission2(prev, permission)) {
-        // Remove permission (bitwise AND with NOT)
-        return prev & ~permission;
+  const grantAllManage = useCallback(() => {
+    let newPerms = permissions;
+    let newPerms2 = permissions2;
+    RESTRICTED_MODULES.forEach((module) => {
+      if (module.field === 'permissions2') {
+        newPerms2 |= module.viewFlag | module.manageFlag;
       } else {
-        // Add permission (bitwise OR)
-        return prev | permission;
+        newPerms |= module.viewFlag | module.manageFlag;
       }
     });
-  };
+    setPermissions(newPerms);
+    setPermissions2(newPerms2);
+  }, [permissions, permissions2]);
 
-  // Toggle module selection
-  const toggleModule = (moduleId: string) => {
-    if (selectedModules.includes(moduleId)) {
-      setSelectedModules(selectedModules.filter((m) => m !== moduleId));
-    } else {
-      setSelectedModules([...selectedModules, moduleId]);
-    }
-  };
+  const clearAllPermissions = useCallback(() => {
+    // Clear module permissions but keep other flags
+    let newPerms = permissions;
+    let newPerms2 = permissions2;
+    RESTRICTED_MODULES.forEach((module) => {
+      if (module.field === 'permissions2') {
+        newPerms2 &= ~module.viewFlag & ~module.manageFlag;
+      } else {
+        newPerms &= ~module.viewFlag & ~module.manageFlag;
+      }
+    });
+    // Also clear admin
+    newPerms &= ~PERMISSION_FLAGS.MANAGE_USERS;
+    setPermissions(newPerms);
+    setPermissions2(newPerms2);
+  }, [permissions, permissions2]);
+
+  const grantFullAccess = useCallback(() => {
+    setPermissions(getAllPermissions());
+    setPermissions2(getAllPermissions2());
+  }, []);
 
   const handleSave = async () => {
     if (!user) return;
@@ -177,12 +262,8 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
         status,
         permissions,
         permissions2,
-        allowedModules: allModulesAccess ? [] : selectedModules,
         updatedAt: Timestamp.now(),
       });
-
-      // Note: Custom claims will be updated by Cloud Function trigger
-      // The Cloud Function will detect the permissions change and update claims
 
       // Show success message
       setSaveSuccess(true);
@@ -191,7 +272,7 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
       setTimeout(() => {
         onSuccess();
         onClose();
-      }, 4000); // Give user 4 seconds to read the token refresh message
+      }, 3000);
     } catch (err: unknown) {
       console.error('Error updating user:', err);
       const errorMessage =
@@ -226,20 +307,23 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
           <Alert severity="success" sx={{ mb: 2 }}>
             <strong>User updated successfully!</strong>
             <br />
-            <br />
-            <strong>Important:</strong> The affected user must sign out and sign back in for
-            permission changes to take effect. Firebase Authentication tokens are cached and will
-            not reflect new permissions until refreshed.
+            The user may need to sign out and back in for permission changes to take effect.
           </Alert>
         )}
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+          {/* Basic Info Section */}
+          <Typography variant="subtitle2" color="text.secondary">
+            Basic Information
+          </Typography>
+
           {/* Email (Read-only) */}
           <TextField
             label="Email"
             value={user.email}
             disabled
             fullWidth
+            size="small"
             helperText="Email cannot be changed"
           />
 
@@ -250,53 +334,57 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
             onChange={(e) => setDisplayName(e.target.value)}
             required
             fullWidth
+            size="small"
           />
 
-          {/* Phone */}
-          <TextField
-            label="Phone"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            fullWidth
-          />
+          {/* Row: Phone, Mobile */}
+          <Stack direction="row" spacing={2}>
+            <TextField
+              label="Phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Mobile"
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value)}
+              fullWidth
+              size="small"
+            />
+          </Stack>
 
-          {/* Mobile */}
-          <TextField
-            label="Mobile"
-            value={mobile}
-            onChange={(e) => setMobile(e.target.value)}
-            fullWidth
-          />
-
-          {/* Job Title */}
-          <TextField
-            label="Job Title"
-            value={jobTitle}
-            onChange={(e) => setJobTitle(e.target.value)}
-            fullWidth
-          />
-
-          {/* Department */}
-          <FormControl fullWidth>
-            <InputLabel>Department</InputLabel>
-            <Select
-              value={department}
-              label="Department"
-              onChange={(e) => setDepartment(e.target.value as Department | '')}
-            >
-              <MenuItem value="">
-                <em>None</em>
-              </MenuItem>
-              {getDepartmentOptions().map((dept) => (
-                <MenuItem key={dept.value} value={dept.value}>
-                  {dept.label}
+          {/* Row: Job Title, Department */}
+          <Stack direction="row" spacing={2}>
+            <TextField
+              label="Job Title"
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value)}
+              fullWidth
+              size="small"
+            />
+            <FormControl fullWidth size="small">
+              <InputLabel>Department</InputLabel>
+              <Select
+                value={department}
+                label="Department"
+                onChange={(e) => setDepartment(e.target.value as Department | '')}
+              >
+                <MenuItem value="">
+                  <em>None</em>
                 </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+                {getDepartmentOptions().map((dept) => (
+                  <MenuItem key={dept.value} value={dept.value}>
+                    {dept.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Stack>
 
           {/* Status */}
-          <FormControl fullWidth required>
+          <FormControl fullWidth required size="small">
             <InputLabel>Status</InputLabel>
             <Select
               value={status}
@@ -309,12 +397,40 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
             </Select>
           </FormControl>
 
-          {/* Permissions Matrix */}
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle2" gutterBottom sx={{ mb: 2 }}>
-              Permissions Matrix
-            </Typography>
+          <Divider sx={{ my: 1 }} />
 
+          {/* Module Access Section */}
+          <Box>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}
+            >
+              <Typography variant="subtitle2" color="text.secondary">
+                Module Access
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <Button size="small" variant="text" onClick={grantAllView}>
+                  All View
+                </Button>
+                <Button size="small" variant="text" onClick={grantAllManage}>
+                  All Manage
+                </Button>
+                <Button size="small" variant="text" color="inherit" onClick={clearAllPermissions}>
+                  Clear
+                </Button>
+                <Button size="small" variant="outlined" onClick={grantFullAccess}>
+                  Full Access
+                </Button>
+              </Stack>
+            </Box>
+
+            {/* Open modules info */}
+            <Alert severity="info" sx={{ mb: 2, py: 0.5 }}>
+              <Typography variant="caption">
+                <strong>Open to all:</strong> {OPEN_MODULES.join(', ')}
+              </Typography>
+            </Alert>
+
+            {/* Restricted Modules Table */}
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
                 <TableHead>
@@ -322,466 +438,63 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
                     <TableCell>
                       <strong>Module</strong>
                     </TableCell>
-                    <TableCell align="center">
+                    <TableCell align="center" sx={{ width: 80 }}>
                       <strong>View</strong>
                     </TableCell>
-                    <TableCell align="center">
+                    <TableCell align="center" sx={{ width: 80 }}>
                       <strong>Manage</strong>
-                    </TableCell>
-                    <TableCell align="center">
-                      <strong>Edit</strong>
-                    </TableCell>
-                    <TableCell align="center">
-                      <strong>Delete</strong>
                     </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {/* Users */}
-                  <TableRow>
-                    <TableCell>Users</TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.VIEW_USERS)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.VIEW_USERS)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.MANAGE_USERS)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.MANAGE_USERS)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.MANAGE_ROLES)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.MANAGE_ROLES)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">—</TableCell>
-                  </TableRow>
-
-                  {/* Projects */}
-                  <TableRow>
-                    <TableCell>Projects</TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.VIEW_PROJECTS)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.VIEW_PROJECTS)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.MANAGE_PROJECTS)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.MANAGE_PROJECTS)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">—</TableCell>
-                    <TableCell align="center">—</TableCell>
-                  </TableRow>
-
-                  {/* Entities */}
-                  <TableRow>
-                    <TableCell>Entities</TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.VIEW_ENTITIES)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.VIEW_ENTITIES)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.CREATE_ENTITIES)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.CREATE_ENTITIES)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.EDIT_ENTITIES)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.EDIT_ENTITIES)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.DELETE_ENTITIES)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.DELETE_ENTITIES)}
-                        size="small"
-                      />
-                    </TableCell>
-                  </TableRow>
-
-                  {/* Time Tracking */}
-                  <TableRow>
-                    <TableCell>Time Tracking</TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.VIEW_TIME_TRACKING)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.VIEW_TIME_TRACKING)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.MANAGE_TIME_TRACKING)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.MANAGE_TIME_TRACKING)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">—</TableCell>
-                    <TableCell align="center">—</TableCell>
-                  </TableRow>
-
-                  {/* Accounting */}
-                  <TableRow>
-                    <TableCell>Accounting</TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.VIEW_ACCOUNTING)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.VIEW_ACCOUNTING)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.MANAGE_ACCOUNTING)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.MANAGE_ACCOUNTING)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">—</TableCell>
-                    <TableCell align="center">—</TableCell>
-                  </TableRow>
-
-                  {/* Procurement */}
-                  <TableRow>
-                    <TableCell>Procurement</TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.VIEW_PROCUREMENT)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.VIEW_PROCUREMENT)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.MANAGE_PROCUREMENT)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.MANAGE_PROCUREMENT)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">—</TableCell>
-                    <TableCell align="center">—</TableCell>
-                  </TableRow>
-
-                  {/* Estimation */}
-                  <TableRow>
-                    <TableCell>Estimation</TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.VIEW_ESTIMATION)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.VIEW_ESTIMATION)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.MANAGE_ESTIMATION)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.MANAGE_ESTIMATION)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">—</TableCell>
-                    <TableCell align="center">—</TableCell>
-                  </TableRow>
-
-                  {/* Document Management */}
-                  <TableRow>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        Documents
-                        <Tooltip title="Manage: Create/edit master document list, bulk imports. Submit: Submit documents for review. Approve: Approve submissions">
-                          <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Submit documents for review">
+                  {RESTRICTED_MODULES.map((module) => (
+                    <TableRow key={module.id}>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          {module.name}
+                          {module.note && (
+                            <Tooltip title={module.note}>
+                              <InfoIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                            </Tooltip>
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell align="center">
                         <Checkbox
-                          checked={hasPermission(permissions, PERMISSION_FLAGS.SUBMIT_DOCUMENTS)}
-                          onChange={() => togglePermission(PERMISSION_FLAGS.SUBMIT_DOCUMENTS)}
+                          checked={hasViewPermission(module)}
+                          onChange={() => toggleView(module)}
                           size="small"
                         />
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Manage master document list">
+                      </TableCell>
+                      <TableCell align="center">
                         <Checkbox
-                          checked={hasPermission(permissions, PERMISSION_FLAGS.MANAGE_DOCUMENTS)}
-                          onChange={() => togglePermission(PERMISSION_FLAGS.MANAGE_DOCUMENTS)}
+                          checked={hasManagePermission(module)}
+                          onChange={() => toggleManage(module)}
                           size="small"
                         />
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell align="center">—</TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Approve document submissions">
-                        <Checkbox
-                          checked={hasPermission(permissions, PERMISSION_FLAGS.APPROVE_DOCUMENTS)}
-                          onChange={() => togglePermission(PERMISSION_FLAGS.APPROVE_DOCUMENTS)}
-                          size="small"
-                        />
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-
-                  {/* Material Database */}
-                  <TableRow>
-                    <TableCell>Material Database</TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission2(permissions2, PERMISSION_FLAGS_2.VIEW_MATERIAL_DB)}
-                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.VIEW_MATERIAL_DB)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission2(
-                          permissions2,
-                          PERMISSION_FLAGS_2.MANAGE_MATERIAL_DB
-                        )}
-                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.MANAGE_MATERIAL_DB)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">—</TableCell>
-                    <TableCell align="center">—</TableCell>
-                  </TableRow>
-
-                  {/* Shape Database */}
-                  <TableRow>
-                    <TableCell>Shape Database</TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission2(permissions2, PERMISSION_FLAGS_2.VIEW_SHAPE_DB)}
-                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.VIEW_SHAPE_DB)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission2(permissions2, PERMISSION_FLAGS_2.MANAGE_SHAPE_DB)}
-                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.MANAGE_SHAPE_DB)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">—</TableCell>
-                    <TableCell align="center">—</TableCell>
-                  </TableRow>
-
-                  {/* Bought Out Database */}
-                  <TableRow>
-                    <TableCell>Bought Out Database</TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission2(
-                          permissions2,
-                          PERMISSION_FLAGS_2.VIEW_BOUGHT_OUT_DB
-                        )}
-                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.VIEW_BOUGHT_OUT_DB)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission2(
-                          permissions2,
-                          PERMISSION_FLAGS_2.MANAGE_BOUGHT_OUT_DB
-                        )}
-                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.MANAGE_BOUGHT_OUT_DB)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">—</TableCell>
-                    <TableCell align="center">—</TableCell>
-                  </TableRow>
-
-                  {/* Thermal Desalination */}
-                  <TableRow>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        Thermal Desalination
-                        <Tooltip title="Includes Flash Chamber calculator and design tools">
-                          <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission2(
-                          permissions2,
-                          PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL
-                        )}
-                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission2(
-                          permissions2,
-                          PERMISSION_FLAGS_2.MANAGE_THERMAL_DESAL
-                        )}
-                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.MANAGE_THERMAL_DESAL)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">—</TableCell>
-                    <TableCell align="center">—</TableCell>
-                  </TableRow>
-
-                  {/* Thermal Calculators */}
-                  <TableRow>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        Thermal Calculators
-                        <Tooltip title="Steam tables, seawater properties, pipe sizing, pressure drop, NPSHa, heat duty">
-                          <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission2(
-                          permissions2,
-                          PERMISSION_FLAGS_2.VIEW_THERMAL_CALCS
-                        )}
-                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.VIEW_THERMAL_CALCS)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission2(
-                          permissions2,
-                          PERMISSION_FLAGS_2.MANAGE_THERMAL_CALCS
-                        )}
-                        onChange={() => togglePermission2(PERMISSION_FLAGS_2.MANAGE_THERMAL_CALCS)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">—</TableCell>
-                    <TableCell align="center">—</TableCell>
-                  </TableRow>
-
-                  {/* Analytics */}
-                  <TableRow>
-                    <TableCell>Analytics</TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.VIEW_ANALYTICS)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.VIEW_ANALYTICS)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(permissions, PERMISSION_FLAGS.EXPORT_DATA)}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.EXPORT_DATA)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">—</TableCell>
-                    <TableCell align="center">—</TableCell>
-                  </TableRow>
-
-                  {/* Company Settings */}
-                  <TableRow>
-                    <TableCell>Company Settings</TableCell>
-                    <TableCell align="center">—</TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={hasPermission(
-                          permissions,
-                          PERMISSION_FLAGS.MANAGE_COMPANY_SETTINGS
-                        )}
-                        onChange={() => togglePermission(PERMISSION_FLAGS.MANAGE_COMPANY_SETTINGS)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">—</TableCell>
-                    <TableCell align="center">—</TableCell>
-                  </TableRow>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </TableContainer>
-
-            <Box sx={{ mt: 1 }}>
-              <Typography variant="caption" color="text.secondary">
-                <strong>Note:</strong> — indicates permission not applicable for this module
-              </Typography>
-            </Box>
           </Box>
 
-          <Divider sx={{ my: 2 }} />
+          <Divider sx={{ my: 1 }} />
 
-          {/* Module Visibility */}
+          {/* Admin Access */}
           <Box>
-            <Typography variant="subtitle2" gutterBottom>
-              Module Visibility
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-              Control which modules appear in the sidebar for this user. Even with access to all
-              modules, permissions still apply.
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Admin Access
             </Typography>
             <FormControlLabel
-              control={
-                <Checkbox
-                  checked={allModulesAccess}
-                  onChange={(e) => setAllModulesAccess(e.target.checked)}
-                />
-              }
-              label="Access to all modules (based on permissions)"
+              control={<Checkbox checked={isAdmin} onChange={toggleAdmin} />}
+              label="Can manage users (Administrator)"
             />
-            {!allModulesAccess && (
-              <Box sx={{ mt: 1, pl: 2 }}>
-                <Typography variant="caption" color="text.secondary" gutterBottom display="block">
-                  Select specific modules this user can see:
-                </Typography>
-                <FormGroup row>
-                  {ALL_MODULES.map((module) => (
-                    <FormControlLabel
-                      key={module.id}
-                      control={
-                        <Checkbox
-                          checked={selectedModules.includes(module.id)}
-                          onChange={() => toggleModule(module.id)}
-                          size="small"
-                        />
-                      }
-                      label={<Typography variant="body2">{module.name}</Typography>}
-                      sx={{ minWidth: '180px' }}
-                    />
-                  ))}
-                </FormGroup>
-              </Box>
-            )}
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4 }}>
+              Grants access to Administration section: User Management, Company Settings, Feedback
+            </Typography>
           </Box>
-
-          {/* Info about custom claims */}
-          <Alert severity="info">
-            When you save changes to department, permissions, or module visibility, custom claims
-            will be automatically updated by the system. Users may need to sign out and sign back in
-            to see permission changes.
-          </Alert>
         </Box>
       </DialogContent>
 

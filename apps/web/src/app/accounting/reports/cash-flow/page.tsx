@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import { Print as PrintIcon, FileDownload as DownloadIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewFinancialReports } from '@vapour/constants';
+import { canViewAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
 import {
   generateCashFlowStatement,
@@ -42,7 +42,7 @@ export default function CashFlowStatementPage() {
   const [error, setError] = useState('');
   const [statement, setStatement] = useState<CashFlowStatement | null>(null);
 
-  const hasViewAccess = claims?.permissions ? canViewFinancialReports(claims.permissions) : false;
+  const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
 
   const handleGenerate = async () => {
     if (!startDate || !endDate) {

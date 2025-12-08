@@ -96,7 +96,16 @@
       "Bash(xargs -I {} sh -c 'git show {} --stat 2>/dev/null | grep -iq \"\"\"\"administration\\|admin.*cost\"\"\"\" && echo {}')",
       "Bash(pnpm --filter @vapour/constants build:ts:*)",
       "Bash(pnpm --filter @vapour/constants type-check:*)",
-      "Bash(pnpm --filter @vapour/web list:*)"
+      "Bash(pnpm --filter @vapour/web list:*)",
+      "Bash(grep:*)",
+      "Bash(pnpm --filter @vapour/web remove:*)",
+      "Bash(wc:*)",
+      "Bash(pip install:*)",
+      "Bash(npx xlsx --help:*)",
+      "Bash(pip3 install:*)",
+      "Bash(pnpm --filter @vapour/web add:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []

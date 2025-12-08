@@ -41,13 +41,15 @@ export interface ModuleDefinition {
 export const MODULES: Record<string, ModuleDefinition> = {
   // ===== CORE MODULES (Sidebar only, no dashboard cards) =====
 
-  USER_MANAGEMENT: {
-    id: 'user-management',
-    name: 'User Management',
-    description: 'Manage users, roles, and permissions',
-    icon: 'People',
-    color: '#3B82F6', // Blue
-    path: '/users',
+  // Admin module - links to /admin section (contains Users, Company, Feedback)
+  ADMIN: {
+    id: 'admin',
+    name: 'Administration',
+    shortName: 'Admin',
+    description: 'User management, company settings, and system administration',
+    icon: 'AdminPanelSettings',
+    color: '#6366F1', // Indigo
+    path: '/admin',
     status: 'active',
     requiredPermissions: 1, // MANAGE_USERS
     category: 'core',
@@ -74,18 +76,6 @@ export const MODULES: Record<string, ModuleDefinition> = {
     path: '/projects',
     status: 'active',
     requiredPermissions: 16, // VIEW_PROJECTS
-    category: 'core',
-  },
-
-  COMPANY_SETTINGS: {
-    id: 'company-settings',
-    name: 'Company Settings',
-    description: 'One-time setup: company info, tax IDs, banking, fiscal year',
-    icon: 'BusinessCenter',
-    color: '#6B7280', // Gray
-    path: '/company',
-    status: 'active',
-    requiredPermissions: 512, // MANAGE_COMPANY_SETTINGS
     category: 'core',
   },
 
@@ -156,7 +146,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#6366F1', // Indigo
     path: '/estimation',
     status: 'active',
-    requiredPermissions: 524288, // VIEW_ESTIMATION
+    // No requiredPermissions - open to all users
     category: 'application',
     priority: 5,
   },
@@ -172,7 +162,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#059669', // Emerald
     path: '/materials',
     status: 'active',
-    requiredPermissions2: 1, // VIEW_MATERIAL_DB (PERMISSION_FLAGS_2)
+    // No requiredPermissions - open to all users
     category: 'application',
     priority: 6,
   },
@@ -186,7 +176,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#8B5CF6', // Purple
     path: '/dashboard/shapes/calculator',
     status: 'active',
-    requiredPermissions2: 4, // VIEW_SHAPE_DB (PERMISSION_FLAGS_2)
+    // No requiredPermissions - open to all users
     category: 'application',
     priority: 7,
   },
@@ -200,7 +190,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#0D9488', // Teal
     path: '/bought-out',
     status: 'active',
-    requiredPermissions2: 16, // VIEW_BOUGHT_OUT_DB (PERMISSION_FLAGS_2)
+    // No requiredPermissions - open to all users
     category: 'application',
     priority: 8,
   },
@@ -258,9 +248,8 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#10B981', // Green
     path: '/proposals',
     status: 'active',
-    requiredPermissions: 8, // MANAGE_PROJECTS (for creating proposals)
+    requiredPermissions: 1048576, // VIEW_PROPOSALS
     category: 'application',
-    estimatedRelease: 'Q1 2026',
     priority: 11,
   },
 };

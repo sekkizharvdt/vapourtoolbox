@@ -1,21 +1,21 @@
 'use client';
 
 /**
- * Legacy Users Page - Redirect to Admin Section
+ * Admin Company Settings Page
  *
- * This page has been moved to /admin/users.
- * Kept for backward compatibility - automatically redirects.
+ * Redirects to the main company settings page.
+ * Permission check is handled by the parent admin layout.
  */
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Box, CircularProgress, Typography } from '@mui/material';
 
-export default function LegacyUsersPage() {
+export default function AdminCompanyPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace('/admin/users');
+    router.replace('/company');
   }, [router]);
 
   return (
@@ -25,14 +25,12 @@ export default function LegacyUsersPage() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: '100vh',
+        minHeight: '200px',
         gap: 2,
       }}
     >
       <CircularProgress />
-      <Typography color="text.secondary">
-        User Management has moved. Redirecting to /admin/users...
-      </Typography>
+      <Typography color="text.secondary">Redirecting to Company Settings...</Typography>
     </Box>
   );
 }

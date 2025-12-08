@@ -29,7 +29,7 @@ import {
   ReceiptLong as ChallanIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewFinancialReports } from '@vapour/constants';
+import { canViewAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
 import { Timestamp } from 'firebase/firestore';
 import { GSTR1Report } from './components/GSTR1Report';
@@ -59,7 +59,7 @@ type TDSTabValue = 'form16a' | 'form26q' | 'challans';
 
 export default function TaxCompliancePage() {
   const { claims } = useAuth();
-  const hasViewAccess = claims?.permissions ? canViewFinancialReports(claims.permissions) : false;
+  const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
 
   // Compliance type selector
   const [complianceType, setComplianceType] = useState<ComplianceType>('GST');

@@ -15,7 +15,18 @@ const SCHEMA_REGISTRY = {
   // ==================== CORE COLLECTIONS ====================
 
   users: {
-    required: ['uid', 'email', 'displayName', 'roles', 'permissions', 'domain', 'status', 'isActive', 'createdAt', 'updatedAt'],
+    required: [
+      'uid',
+      'email',
+      'displayName',
+      'roles',
+      'permissions',
+      'domain',
+      'status',
+      'isActive',
+      'createdAt',
+      'updatedAt',
+    ],
     recommended: ['department', 'phoneNumber', 'photoURL'],
     optional: ['bio', 'preferences', 'lastLogin', 'emailVerified'],
     deprecated: [],
@@ -36,30 +47,82 @@ const SCHEMA_REGISTRY = {
   },
 
   entities: {
-    required: ['id', 'code', 'name', 'roles', 'status', 'createdAt', 'updatedAt'],
-    recommended: ['isDeleted', 'isActive', 'legalName'],
-    optional: [
-      'displayName', 'contacts', 'primaryContactId',
-      'billingAddress', 'shippingAddress',
-      'taxIdentifiers', 'bankDetails',
-      'creditTerms', 'paymentTerms',
-      'industry', 'category', 'tags', 'notes',
-      'assignedToUserId',
-      'totalProjects', 'totalTransactions', 'outstandingAmount'
+    required: [
+      'id',
+      'code',
+      'name',
+      'nameNormalized',
+      'roles',
+      'isActive',
+      'createdAt',
+      'updatedAt',
     ],
-    deprecated: ['contactPerson', 'email', 'phone', 'mobile'], // Replaced by contacts array
+    recommended: ['isDeleted', 'legalName', 'notes'],
+    optional: [
+      'contacts',
+      'primaryContactId',
+      'billingAddress',
+      'shippingAddress',
+      'taxIdentifiers',
+      'bankDetails',
+      'creditTerms',
+      'assignedToUserId',
+      // Archive fields
+      'isArchived',
+      'archivedAt',
+      'archivedBy',
+      'archivedByName',
+      'archiveReason',
+    ],
+    deprecated: [
+      'contactPerson',
+      'email',
+      'phone',
+      'mobile', // Replaced by contacts array
+      'displayName',
+      'website',
+      'paymentTerms', // Never used
+      'industry',
+      'category',
+      'tags', // Never used
+      'totalProjects',
+      'totalTransactions',
+      'outstandingAmount', // Use Entity Ledger instead
+      'status', // Replaced by isActive boolean
+    ],
   },
 
   projects: {
-    required: ['id', 'code', 'name', 'status', 'priority', 'client', 'projectManager', 'createdAt', 'updatedAt'],
+    required: [
+      'id',
+      'code',
+      'name',
+      'status',
+      'priority',
+      'client',
+      'projectManager',
+      'createdAt',
+      'updatedAt',
+    ],
     recommended: [
-      'description', 'startDate', 'endDate', 'expectedEndDate',
-      'team', 'tags', 'isDeleted', 'isActive'
+      'description',
+      'startDate',
+      'endDate',
+      'expectedEndDate',
+      'team',
+      'tags',
+      'isDeleted',
+      'isActive',
     ],
     optional: [
-      'budget', 'actualCost', 'progress',
-      'location', 'contractValue',
-      'milestones', 'risks', 'notes'
+      'budget',
+      'actualCost',
+      'progress',
+      'location',
+      'contractValue',
+      'milestones',
+      'risks',
+      'notes',
     ],
     deprecated: [],
   },
@@ -79,7 +142,16 @@ const SCHEMA_REGISTRY = {
   },
 
   auditLogs: {
-    required: ['id', 'action', 'actorId', 'actorEmail', 'entityType', 'entityId', 'timestamp', 'changes'],
+    required: [
+      'id',
+      'action',
+      'actorId',
+      'actorEmail',
+      'entityType',
+      'entityId',
+      'timestamp',
+      'changes',
+    ],
     recommended: ['severity', 'ipAddress', 'userAgent'],
     optional: ['metadata', 'previousValues', 'newValues'],
     deprecated: [],
@@ -148,28 +220,66 @@ const SCHEMA_REGISTRY = {
   // ==================== PROCUREMENT ====================
 
   purchase_requisitions: {
-    required: ['id', 'code', 'projectId', 'requestedBy', 'status', 'priority', 'items', 'createdAt', 'updatedAt'],
+    required: [
+      'id',
+      'code',
+      'projectId',
+      'requestedBy',
+      'status',
+      'priority',
+      'items',
+      'createdAt',
+      'updatedAt',
+    ],
     recommended: ['description', 'requiredDate', 'approvals'],
     optional: ['budgetCode', 'notes', 'attachments'],
     deprecated: [],
   },
 
   rfqs: {
-    required: ['id', 'code', 'projectId', 'requisitionId', 'vendors', 'status', 'dueDate', 'createdAt'],
+    required: [
+      'id',
+      'code',
+      'projectId',
+      'requisitionId',
+      'vendors',
+      'status',
+      'dueDate',
+      'createdAt',
+    ],
     recommended: ['description', 'terms', 'items'],
     optional: ['quotationsReceived', 'selectedQuotationId', 'notes'],
     deprecated: [],
   },
 
   quotations: {
-    required: ['id', 'rfqId', 'vendorId', 'items', 'totalAmount', 'currency', 'validUntil', 'createdAt'],
+    required: [
+      'id',
+      'rfqId',
+      'vendorId',
+      'items',
+      'totalAmount',
+      'currency',
+      'validUntil',
+      'createdAt',
+    ],
     recommended: ['status', 'terms', 'deliveryTime'],
     optional: ['notes', 'attachments', 'selectedForPO'],
     deprecated: [],
   },
 
   purchase_orders: {
-    required: ['id', 'code', 'projectId', 'vendorId', 'items', 'totalAmount', 'currency', 'status', 'createdAt'],
+    required: [
+      'id',
+      'code',
+      'projectId',
+      'vendorId',
+      'items',
+      'totalAmount',
+      'currency',
+      'status',
+      'createdAt',
+    ],
     recommended: ['deliveryDate', 'deliveryAddress', 'terms', 'approvals'],
     optional: ['quotationId', 'notes', 'attachments', 'receivedDate'],
     deprecated: [],
@@ -185,7 +295,16 @@ const SCHEMA_REGISTRY = {
   // ==================== ESTIMATION ====================
 
   estimates: {
-    required: ['id', 'code', 'projectId', 'version', 'status', 'totalCost', 'createdAt', 'createdBy'],
+    required: [
+      'id',
+      'code',
+      'projectId',
+      'version',
+      'status',
+      'totalCost',
+      'createdAt',
+      'createdBy',
+    ],
     recommended: ['description', 'items', 'validUntil', 'approvedBy', 'approvedAt'],
     optional: ['notes', 'assumptions', 'contingency', 'markup'],
     deprecated: [],
@@ -225,7 +344,16 @@ function getAllCollections() {
  */
 function getCollectionsByCategory() {
   return {
-    core: ['users', 'companies', 'departments', 'entities', 'projects', 'invitations', 'notifications', 'auditLogs'],
+    core: [
+      'users',
+      'companies',
+      'departments',
+      'entities',
+      'projects',
+      'invitations',
+      'notifications',
+      'auditLogs',
+    ],
     timeTracking: ['tasks', 'time_entries', 'leaves', 'on_duty'],
     accounting: ['accounts', 'transactions', 'journal_entries', 'ledger_entries'],
     procurement: ['purchase_requisitions', 'rfqs', 'quotations', 'purchase_orders', 'pr_items'],

@@ -249,7 +249,6 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
                 currency: 'INR',
               }
             : undefined,
-        status: 'active' as const,
         isActive: true,
       };
 

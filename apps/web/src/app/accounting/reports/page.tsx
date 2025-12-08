@@ -18,10 +18,11 @@ import {
   Receipt as LedgerIcon,
   Assessment as ReportIcon,
   BusinessCenter as ProjectIcon,
+  Business as EntityIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewFinancialReports } from '@vapour/constants';
+import { canViewAccounting } from '@vapour/constants';
 
 interface FinancialReport {
   title: string;
@@ -36,7 +37,7 @@ export default function FinancialReportsPage() {
   const { claims } = useAuth();
 
   // Check permissions
-  const hasViewAccess = claims?.permissions ? canViewFinancialReports(claims.permissions) : false;
+  const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
 
   const reports: FinancialReport[] = [
     {
@@ -68,6 +69,13 @@ export default function FinancialReportsPage() {
       description: 'Detailed transaction history for any specific account',
       icon: <LedgerIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/reports/account-ledger',
+    },
+    {
+      title: 'Entity Ledger',
+      description:
+        'Financial history for vendors and customers - invoices, bills, payments, and balances',
+      icon: <EntityIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/reports/entity-ledger',
     },
     {
       title: 'Project Financial Reports',

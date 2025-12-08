@@ -47,14 +47,18 @@ export const PERMISSION_FLAGS = {
   MANAGE_ESTIMATION: 1 << 18, // 262144
   VIEW_ESTIMATION: 1 << 19, // 524288
 
-  // Granular Accounting Permissions (bits 20-26)
-  MANAGE_CHART_OF_ACCOUNTS: 1 << 20, // 1048576 - Create/edit accounts
-  CREATE_TRANSACTIONS: 1 << 21, // 2097152 - Create transactions
-  APPROVE_TRANSACTIONS: 1 << 22, // 4194304 - Approve transactions
-  VIEW_FINANCIAL_REPORTS: 1 << 23, // 8388608 - View P&L, Balance Sheet, etc.
-  MANAGE_COST_CENTRES: 1 << 24, // 16777216 - Manage project cost centres
-  MANAGE_FOREX: 1 << 25, // 33554432 - Manage currency and forex settings
-  RECONCILE_ACCOUNTS: 1 << 26, // 67108864 - Bank reconciliation
+  // Proposal Management (bits 20-21)
+  VIEW_PROPOSALS: 1 << 20, // 1048576 - View proposals and enquiries
+  MANAGE_PROPOSALS: 1 << 21, // 2097152 - Create/edit proposals and enquiries
+
+  // DEPRECATED: Granular Accounting Permissions (bits 22-26) - No longer used
+  // These flags existed in old code but are now superseded by VIEW_ACCOUNTING/MANAGE_ACCOUNTING
+  // Keeping the bit assignments documented for backward compatibility during migration
+  // _DEPRECATED_APPROVE_TRANSACTIONS: 1 << 22, // 4194304
+  // _DEPRECATED_VIEW_FINANCIAL_REPORTS: 1 << 23, // 8388608
+  // _DEPRECATED_MANAGE_COST_CENTRES: 1 << 24, // 16777216
+  // _DEPRECATED_MANAGE_FOREX: 1 << 25, // 33554432
+  // _DEPRECATED_RECONCILE_ACCOUNTS: 1 << 26, // 67108864
 
   // Document Management (bits 27-30)
   MANAGE_DOCUMENTS: 1 << 27, // 134217728 - Create/edit master document list, bulk imports
@@ -90,13 +94,8 @@ export const PERMISSION_BITS = {
   VIEW_PROCUREMENT: 131072,
   MANAGE_ESTIMATION: 262144,
   VIEW_ESTIMATION: 524288,
-  MANAGE_CHART_OF_ACCOUNTS: 1048576,
-  CREATE_TRANSACTIONS: 2097152,
-  APPROVE_TRANSACTIONS: 4194304,
-  VIEW_FINANCIAL_REPORTS: 8388608,
-  MANAGE_COST_CENTRES: 16777216,
-  MANAGE_FOREX: 33554432,
-  RECONCILE_ACCOUNTS: 67108864,
+  VIEW_PROPOSALS: 1048576,
+  MANAGE_PROPOSALS: 2097152,
   // Document Management
   MANAGE_DOCUMENTS: 134217728,
   SUBMIT_DOCUMENTS: 268435456,
@@ -152,7 +151,6 @@ export function canDeleteEntities(permissions: number): boolean {
 
 /**
  * Accounting permission helpers
- * Granular accounting permissions for Chart of Accounts, transactions, reports, etc.
  */
 export function canViewAccounting(permissions: number): boolean {
   return hasPermission(permissions, PERMISSION_FLAGS.VIEW_ACCOUNTING);
@@ -162,32 +160,15 @@ export function canManageAccounting(permissions: number): boolean {
   return hasPermission(permissions, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 }
 
-export function canManageChartOfAccounts(permissions: number): boolean {
-  return hasPermission(permissions, PERMISSION_FLAGS.MANAGE_CHART_OF_ACCOUNTS);
+/**
+ * Proposal permission helpers
+ */
+export function canViewProposals(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.VIEW_PROPOSALS);
 }
 
-export function canCreateTransactions(permissions: number): boolean {
-  return hasPermission(permissions, PERMISSION_FLAGS.CREATE_TRANSACTIONS);
-}
-
-export function canApproveTransactions(permissions: number): boolean {
-  return hasPermission(permissions, PERMISSION_FLAGS.APPROVE_TRANSACTIONS);
-}
-
-export function canViewFinancialReports(permissions: number): boolean {
-  return hasPermission(permissions, PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS);
-}
-
-export function canManageCostCentres(permissions: number): boolean {
-  return hasPermission(permissions, PERMISSION_FLAGS.MANAGE_COST_CENTRES);
-}
-
-export function canManageForex(permissions: number): boolean {
-  return hasPermission(permissions, PERMISSION_FLAGS.MANAGE_FOREX);
-}
-
-export function canReconcileAccounts(permissions: number): boolean {
-  return hasPermission(permissions, PERMISSION_FLAGS.RECONCILE_ACCOUNTS);
+export function canManageProposals(permissions: number): boolean {
+  return hasPermission(permissions, PERMISSION_FLAGS.MANAGE_PROPOSALS);
 }
 
 /**
@@ -272,14 +253,7 @@ export const PERMISSION_PRESETS = {
     PERMISSION_FLAGS.EXPORT_DATA |
     PERMISSION_FLAGS.VIEW_TIME_TRACKING |
     PERMISSION_FLAGS.MANAGE_ACCOUNTING |
-    PERMISSION_FLAGS.VIEW_ACCOUNTING |
-    PERMISSION_FLAGS.MANAGE_CHART_OF_ACCOUNTS |
-    PERMISSION_FLAGS.CREATE_TRANSACTIONS |
-    PERMISSION_FLAGS.APPROVE_TRANSACTIONS |
-    PERMISSION_FLAGS.VIEW_FINANCIAL_REPORTS |
-    PERMISSION_FLAGS.MANAGE_COST_CENTRES |
-    PERMISSION_FLAGS.MANAGE_FOREX |
-    PERMISSION_FLAGS.RECONCILE_ACCOUNTS,
+    PERMISSION_FLAGS.VIEW_ACCOUNTING,
 
   // Engineering access
   ENGINEERING:
@@ -440,3 +414,75 @@ export function canViewThermalCalcs(permissions2: number): boolean {
 export function canManageThermalCalcs(permissions2: number): boolean {
   return hasPermission2(permissions2, PERMISSION_FLAGS_2.MANAGE_THERMAL_CALCS);
 }
+
+/**
+ * Restricted Modules Configuration
+ *
+ * Defines which modules require View/Manage permissions.
+ * Used by EditUserDialog and user permission displays.
+ */
+export interface RestrictedModule {
+  id: string;
+  name: string;
+  viewFlag: number;
+  manageFlag: number;
+  /** Which permission field to check: 'permissions' (default) or 'permissions2' */
+  field?: 'permissions' | 'permissions2';
+  /** Optional note shown in UI */
+  note?: string;
+}
+
+export const RESTRICTED_MODULES: RestrictedModule[] = [
+  {
+    id: 'projects',
+    name: 'Projects',
+    viewFlag: PERMISSION_FLAGS.VIEW_PROJECTS,
+    manageFlag: PERMISSION_FLAGS.MANAGE_PROJECTS,
+  },
+  {
+    id: 'procurement',
+    name: 'Procurement',
+    viewFlag: PERMISSION_FLAGS.VIEW_PROCUREMENT,
+    manageFlag: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+  },
+  {
+    id: 'accounting',
+    name: 'Accounting',
+    viewFlag: PERMISSION_FLAGS.VIEW_ACCOUNTING,
+    manageFlag: PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+  },
+  {
+    id: 'thermal-desal',
+    name: 'Thermal Design + Process Data',
+    viewFlag: PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL,
+    manageFlag: PERMISSION_FLAGS_2.MANAGE_THERMAL_DESAL,
+    field: 'permissions2',
+    note: 'Includes Process Data (SSOT)',
+  },
+  {
+    id: 'proposals',
+    name: 'Proposals',
+    viewFlag: PERMISSION_FLAGS.VIEW_PROPOSALS,
+    manageFlag: PERMISSION_FLAGS.MANAGE_PROPOSALS,
+  },
+  {
+    id: 'entities',
+    name: 'Entities',
+    viewFlag: PERMISSION_FLAGS.VIEW_ENTITIES,
+    manageFlag: PERMISSION_FLAGS.CREATE_ENTITIES,
+  },
+];
+
+/**
+ * Open Modules (no permission required)
+ * These modules are accessible to all authenticated users.
+ */
+export const OPEN_MODULES = [
+  'Flow (Time Tracking)',
+  'Documents',
+  'Estimation',
+  'Thermal Calculators',
+  'Material Database',
+  'Shape Database',
+  'Bought Out Items',
+] as const;

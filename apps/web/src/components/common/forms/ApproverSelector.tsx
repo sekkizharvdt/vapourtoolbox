@@ -22,7 +22,8 @@ import {
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
-import { PermissionFlag, hasPermission } from '@vapour/types';
+import { PermissionFlag, hasPermission as hasTypePermission } from '@vapour/types';
+import { PERMISSION_FLAGS, hasPermission as hasConstPermission } from '@vapour/constants';
 import type { User } from '@vapour/types';
 
 /**
@@ -39,18 +40,18 @@ export type ApprovalType =
 
 /**
  * Map approval types to permission flags
+ * Note: 'transaction' now uses MANAGE_ACCOUNTING from constants (simplified permission model)
  */
-const APPROVAL_PERMISSIONS: Record<ApprovalType, PermissionFlag | PermissionFlag[]> = {
+const APPROVAL_PERMISSIONS: Record<ApprovalType, PermissionFlag | PermissionFlag[] | number> = {
   pr: PermissionFlag.APPROVE_PR,
   po: PermissionFlag.APPROVE_PO,
-  transaction: PermissionFlag.APPROVE_TRANSACTIONS,
+  transaction: PERMISSION_FLAGS.MANAGE_ACCOUNTING, // Use simplified accounting permission
   estimate: PermissionFlag.APPROVE_ESTIMATES,
   document: PermissionFlag.APPROVE_DOCUMENTS,
   leave: PermissionFlag.APPROVE_LEAVES,
   any: [
     PermissionFlag.APPROVE_PR,
     PermissionFlag.APPROVE_PO,
-    PermissionFlag.APPROVE_TRANSACTIONS,
     PermissionFlag.APPROVE_ESTIMATES,
     PermissionFlag.APPROVE_DOCUMENTS,
   ],
@@ -92,15 +93,18 @@ function getInitials(name: string): string {
 
 /**
  * Check if user has one or more of the required permissions
+ * Supports both PermissionFlag (types package) and PERMISSION_FLAGS (constants package)
  */
 function userHasRequiredPermission(
   userPermissions: number,
-  requiredPermissions: PermissionFlag | PermissionFlag[]
+  requiredPermissions: PermissionFlag | PermissionFlag[] | number
 ): boolean {
   if (Array.isArray(requiredPermissions)) {
-    return requiredPermissions.some((perm) => hasPermission(userPermissions, perm));
+    return requiredPermissions.some((perm) => hasTypePermission(userPermissions, perm));
   }
-  return hasPermission(userPermissions, requiredPermissions);
+  // For number permissions (from constants package), use constants hasPermission
+  // For PermissionFlag enum, use types hasPermission
+  return hasConstPermission(userPermissions, requiredPermissions);
 }
 
 /**

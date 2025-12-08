@@ -28,7 +28,7 @@ import {
   ShowChart as ProfitIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewFinancialReports } from '@vapour/constants';
+import { canViewAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -56,7 +56,7 @@ export default function ProjectFinancialReportPage() {
   const [financials, setFinancials] = useState<ProjectFinancials | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const hasViewAccess = claims?.permissions ? canViewFinancialReports(claims.permissions) : false;
+  const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
 
   // Set default date range (current month)
   useEffect(() => {

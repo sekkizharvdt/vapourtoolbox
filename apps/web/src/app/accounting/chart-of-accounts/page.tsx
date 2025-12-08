@@ -26,7 +26,7 @@ import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { Account, AccountType } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewAccounting, canManageChartOfAccounts } from '@vapour/constants';
+import { canViewAccounting, canManageAccounting } from '@vapour/constants';
 import { AccountTreeView } from '@/components/accounting/AccountTreeView';
 import { CreateAccountDialog } from '@/components/accounting/CreateAccountDialog';
 import { initializeChartOfAccounts } from '@/lib/initializeChartOfAccounts';
@@ -51,7 +51,7 @@ export default function ChartOfAccountsPage() {
 
   // Permissions
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
-  const canManage = claims?.permissions ? canManageChartOfAccounts(claims.permissions) : false;
+  const canManage = claims?.permissions ? canManageAccounting(claims.permissions) : false;
 
   // Calculate statistics from accounts
   const statistics = useMemo(() => {
