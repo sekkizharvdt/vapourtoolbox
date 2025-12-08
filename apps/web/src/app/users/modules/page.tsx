@@ -140,12 +140,13 @@ const MODULE_PERMISSIONS: ModulePermissionConfig[] = [
     field: 'permissions2',
   },
   {
-    id: 'thermal-calcs',
-    name: 'Thermal Calculators',
-    viewFlag: PERMISSION_FLAGS_2.VIEW_THERMAL_CALCS,
-    manageFlag: PERMISSION_FLAGS_2.MANAGE_THERMAL_CALCS,
+    id: 'process-data',
+    name: 'Process Data (SSOT)',
+    viewFlag: PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL, // Shares permission with Thermal Desal
+    manageFlag: PERMISSION_FLAGS_2.MANAGE_THERMAL_DESAL,
     field: 'permissions2',
   },
+  // Note: Thermal Calculators is open to all users - no permission management needed
 ];
 
 export default function ModuleAccessPage() {

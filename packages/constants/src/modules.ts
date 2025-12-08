@@ -229,7 +229,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#F97316', // Orange
     path: '/thermal/calculators',
     status: 'active',
-    requiredPermissions2: 256, // VIEW_THERMAL_CALCS (PERMISSION_FLAGS_2)
+    // No permission required - open to all users
     category: 'application',
     priority: 10,
   },

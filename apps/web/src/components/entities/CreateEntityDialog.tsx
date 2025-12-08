@@ -29,6 +29,7 @@ import { getFirebase } from '@/lib/firebase';
 import type { EntityRole } from '@vapour/types';
 import { ContactsManager, EntityContactData } from './ContactsManager';
 import { BankDetailsManager, BankDetailsData } from './BankDetailsManager';
+import { StateSelector } from '@/components/common/forms/StateSelector';
 import {
   validatePAN,
   validateGSTIN,
@@ -411,12 +412,11 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
+                  <StateSelector
                     label="State"
                     value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    fullWidth
-                    placeholder="Optional"
+                    onChange={setState}
+                    disabled={loading}
                   />
                 </Grid>
               </Grid>
@@ -527,12 +527,10 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
+                      <StateSelector
                         label="State"
                         value={shippingState}
-                        onChange={(e) => setShippingState(e.target.value)}
-                        fullWidth
-                        placeholder="Optional"
+                        onChange={setShippingState}
                         disabled={loading}
                       />
                     </Grid>
