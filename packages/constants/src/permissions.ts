@@ -328,6 +328,10 @@ export const PERMISSION_FLAGS_2 = {
   // Thermal Calculators (bits 8-9)
   VIEW_THERMAL_CALCS: 1 << 8, // 256
   MANAGE_THERMAL_CALCS: 1 << 9, // 512
+
+  // SSOT / Process Data (bits 10-11)
+  VIEW_SSOT: 1 << 10, // 1024
+  MANAGE_SSOT: 1 << 11, // 2048
 } as const;
 
 /**
@@ -344,6 +348,8 @@ export const PERMISSION_BITS_2 = {
   MANAGE_THERMAL_DESAL: 128,
   VIEW_THERMAL_CALCS: 256,
   MANAGE_THERMAL_CALCS: 512,
+  VIEW_SSOT: 1024,
+  MANAGE_SSOT: 2048,
 } as const;
 
 /**
@@ -416,6 +422,17 @@ export function canManageThermalCalcs(permissions2: number): boolean {
 }
 
 /**
+ * SSOT / Process Data permission helpers
+ */
+export function canViewSSOT(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.VIEW_SSOT);
+}
+
+export function canManageSSOT(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.MANAGE_SSOT);
+}
+
+/**
  * Restricted Modules Configuration
  *
  * Defines which modules require View/Manage permissions.
@@ -452,10 +469,17 @@ export const RESTRICTED_MODULES: RestrictedModule[] = [
     manageFlag: PERMISSION_FLAGS.MANAGE_ACCOUNTING,
   },
   {
-    id: 'process-data',
-    name: 'Process Data (SSOT)',
+    id: 'thermal-desal',
+    name: 'Thermal Desalination',
     viewFlag: PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL,
     manageFlag: PERMISSION_FLAGS_2.MANAGE_THERMAL_DESAL,
+    field: 'permissions2',
+  },
+  {
+    id: 'process-data',
+    name: 'Process Data (SSOT)',
+    viewFlag: PERMISSION_FLAGS_2.VIEW_SSOT,
+    manageFlag: PERMISSION_FLAGS_2.MANAGE_SSOT,
     field: 'permissions2',
   },
   {
@@ -480,7 +504,7 @@ export const OPEN_MODULES = [
   'Flow (Time Tracking)',
   'Documents',
   'Estimation',
-  'Thermal Desalination',
+  'Thermal Calculators',
   'Material Database',
   'Shape Database',
   'Bought Out Items',
