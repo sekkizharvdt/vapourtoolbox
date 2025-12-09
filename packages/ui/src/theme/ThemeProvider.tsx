@@ -5,7 +5,7 @@
 import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { vapourTheme } from './index';
+import { vapourTheme } from './lightTheme';
 import { vapourDarkTheme } from './darkTheme';
 
 type ThemeMode = 'light' | 'dark';
