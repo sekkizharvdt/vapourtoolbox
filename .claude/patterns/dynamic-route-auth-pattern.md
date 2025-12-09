@@ -224,6 +224,39 @@ if (authLoading) return <Loading />;
 if (!hasAccess) return <Error />; // Now claims is definitely loaded
 ```
 
+### Mistake 4: Wrapping Loading State in AuthenticatedLayout
+
+When a page uses `AuthenticatedLayout` directly (not via a layout.tsx), don't wrap the loading state in it:
+
+```typescript
+// BAD - AuthenticatedLayout has its own loading check that will block rendering
+if (authLoading || loading) {
+  return (
+    <AuthenticatedLayout>
+      <CircularProgress />  {/* Never renders! */}
+    </AuthenticatedLayout>
+  );
+}
+
+// GOOD - show a simple loading UI without the layout wrapper
+if (authLoading || loading) {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', minHeight: '100vh' }}>
+      <CircularProgress />
+    </Box>
+  );
+}
+
+// Then wrap only the actual content
+return (
+  <AuthenticatedLayout>
+    <ContentComponent data={data} />
+  </AuthenticatedLayout>
+);
+```
+
+**Why?** `AuthenticatedLayout` checks `loading` from `useAuth()` internally (line 88). If `authLoading` is true, it returns its own "Loading..." UI and never renders your `CircularProgress` children. This creates a situation where your component thinks it's showing loading, but the layout is blocking it.
+
 ## Files Following This Pattern
 
 Good examples in the codebase:

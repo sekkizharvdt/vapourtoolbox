@@ -213,15 +213,20 @@ export default function FeedbackDetailClient() {
   const canTakeAction = isOwner && feedback?.status === 'resolved';
 
   // Show loading while auth OR data is loading
+  // NOTE: Don't wrap in AuthenticatedLayout here - it has its own loading check
+  // that would block rendering when auth is still loading
   if (authLoading || loading) {
     return (
-      <AuthenticatedLayout>
-        <Container maxWidth="md" sx={{ py: 4 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
-          </Box>
-        </Container>
-      </AuthenticatedLayout>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+        }}
+      >
+        <CircularProgress />
+      </Box>
     );
   }
 
