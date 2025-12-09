@@ -14,11 +14,7 @@
     "@vapour/types": "workspace:*",
     "@vapour/constants": "workspace:*",
     "@mui/material": "^7.3.4",
-    "@mui/icons-material": "^7.3.4",
-    "@emotion/react": "^11.13.5",
-    "@emotion/styled": "^11.13.5",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "@mui/icons-material": "^7.3.4"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
@@ -34,6 +30,8 @@
     "ts-node": "^10.9.2"
   },
   "peerDependencies": {
+    "@emotion/react": "^11.13.0",
+    "@emotion/styled": "^11.13.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   }

@@ -45,10 +45,16 @@ interface VapourThemeProviderProps {
 export function VapourThemeProvider({ children, defaultMode = 'light' }: VapourThemeProviderProps) {
   const [mode, setMode] = useState<ThemeMode>(defaultMode);
 
+  // DEBUG: Log theme imports
+  console.log('[ThemeProvider] vapourTheme:', vapourTheme ? 'loaded' : 'UNDEFINED');
+  console.log('[ThemeProvider] vapourDarkTheme:', vapourDarkTheme ? 'loaded' : 'UNDEFINED');
+  console.log('[ThemeProvider] Current mode:', mode);
+
   // Initialize from localStorage on mount (client-side only)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('vapour-theme-mode') as ThemeMode;
+      console.log('[ThemeProvider] localStorage saved mode:', saved);
       if (saved === 'light' || saved === 'dark') {
         setMode(saved);
       }
@@ -59,10 +65,12 @@ export function VapourThemeProvider({ children, defaultMode = 'light' }: VapourT
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('vapour-theme-mode', mode);
+      console.log('[ThemeProvider] Mode changed to:', mode);
     }
   }, [mode]);
 
   const toggleTheme = () => {
+    console.log('[ThemeProvider] toggleTheme called, switching from', mode);
     setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
   };
 
@@ -71,7 +79,9 @@ export function VapourThemeProvider({ children, defaultMode = 'light' }: VapourT
   };
 
   const theme = useMemo(() => {
-    return mode === 'dark' ? vapourDarkTheme : vapourTheme;
+    const selectedTheme = mode === 'dark' ? vapourDarkTheme : vapourTheme;
+    console.log('[ThemeProvider] Selected theme palette mode:', selectedTheme?.palette?.mode);
+    return selectedTheme;
   }, [mode]);
 
   const contextValue = useMemo(
