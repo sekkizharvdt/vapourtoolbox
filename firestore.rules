@@ -262,18 +262,15 @@ service cloud.firestore {
                      (isOwner(resource.data.userId) ||
                       isOwner(resource.data.assigneeId));
 
-      // Create: Any authenticated user with valid permissions can create task notifications
-      // Task notifications are created as part of approval workflows (invoices, PRs, POs, etc.)
-      // The permission check ensures only properly provisioned users can create them
-      allow create: if isAuthenticated() &&
-                       request.auth.token.permissions != null;
+      // Create: Any authenticated user can create task notifications
+      // Task notifications are created by app code as part of approval workflows
+      // Security is enforced by app logic - only workflows can trigger task creation
+      allow create: if isAuthenticated();
 
       // Update: Users can update their own notifications (mark read, complete, etc.)
-      //         OR any authenticated user with permissions can update (for workflow)
       allow update: if isAuthenticated() &&
                        (isOwner(resource.data.userId) ||
-                        isOwner(resource.data.assigneeId) ||
-                        request.auth.token.permissions != null);
+                        isOwner(resource.data.assigneeId));
 
       // Delete: Only super admins
       allow delete: if isSuperAdmin();

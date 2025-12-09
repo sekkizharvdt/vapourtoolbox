@@ -113,6 +113,15 @@ export function getPreSalesChannels(): TaskChannel[] {
   return preSalesChannelIds.map((id) => TASK_CHANNEL_DEFINITIONS[id]);
 }
 
+/**
+ * Get default channels for Admin workspace (non-project tasks)
+ * Includes accounting and feedback tasks that don't belong to specific projects
+ */
+export function getAdminChannels(): TaskChannel[] {
+  const adminChannelIds: DefaultTaskChannelId[] = ['accounting', 'feedback', 'approvals'];
+  return adminChannelIds.map((id) => TASK_CHANNEL_DEFINITIONS[id]);
+}
+
 // ============================================================================
 // CUSTOM CHANNELS (for future use)
 // ============================================================================
