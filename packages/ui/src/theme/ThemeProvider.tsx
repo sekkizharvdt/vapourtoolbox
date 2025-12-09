@@ -43,17 +43,17 @@ interface VapourThemeProviderProps {
  * Do NOT defer localStorage read to useEffect - that breaks dark mode.
  */
 export function VapourThemeProvider({ children, defaultMode = 'light' }: VapourThemeProviderProps) {
-  const [mode, setMode] = useState<ThemeMode>(() => {
-    // Read localStorage DURING initial render
-    // This ensures CssBaseline injects the correct theme on first render
+  const [mode, setMode] = useState<ThemeMode>(defaultMode);
+
+  // Initialize from localStorage on mount (client-side only)
+  useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('vapour-theme-mode');
+      const saved = localStorage.getItem('vapour-theme-mode') as ThemeMode;
       if (saved === 'light' || saved === 'dark') {
-        return saved;
+        setMode(saved);
       }
     }
-    return defaultMode;
-  });
+  }, []);
 
   // Persist to localStorage when mode changes
   useEffect(() => {
@@ -85,7 +85,7 @@ export function VapourThemeProvider({ children, defaultMode = 'light' }: VapourT
 
   return (
     <ThemeContext.Provider value={contextValue}>
-      <MuiThemeProvider theme={theme} key={mode}>
+      <MuiThemeProvider theme={theme}>
         <CssBaseline />
         {children}
       </MuiThemeProvider>
