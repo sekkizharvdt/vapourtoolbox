@@ -101,8 +101,11 @@ const statusConfig: Record<
 export default function FeedbackDetailClient() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
-  const feedbackId = params?.id as string;
+  const { user, loading: authLoading } = useAuth();
+  const rawFeedbackId = params?.id as string;
+
+  // Handle placeholder ID from static export - wait for real ID
+  const feedbackId = rawFeedbackId && rawFeedbackId !== 'placeholder' ? rawFeedbackId : null;
 
   const [feedback, setFeedback] = useState<FeedbackDocument | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,8 +119,13 @@ export default function FeedbackDetailClient() {
   // Close confirmation dialog state
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
 
-  // Subscribe to feedback document
+  // Subscribe to feedback document - wait for auth to complete first
   useEffect(() => {
+    // Wait for auth to complete before attempting data fetch
+    if (authLoading) {
+      return;
+    }
+
     if (!feedbackId) {
       setError('Invalid feedback ID');
       setLoading(false);
@@ -145,11 +153,11 @@ export default function FeedbackDetailClient() {
     );
 
     return () => unsubscribe();
-  }, [feedbackId]);
+  }, [feedbackId, authLoading]);
 
   // Handle closing feedback
   const handleCloseFeedback = async () => {
-    if (!feedback || !user) return;
+    if (!feedback || !user || !feedbackId) return;
 
     setSubmitting(true);
     try {
@@ -181,7 +189,7 @@ export default function FeedbackDetailClient() {
 
   // Handle follow-up submission
   const handleSubmitFollowUp = async () => {
-    if (!feedback || !user || !followUpComment.trim()) return;
+    if (!feedback || !user || !followUpComment.trim() || !feedbackId) return;
 
     setSubmitting(true);
     try {

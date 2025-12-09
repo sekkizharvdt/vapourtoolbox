@@ -69,7 +69,7 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 export default function CostCentreDetailClient() {
   const pathname = usePathname();
   const router = useRouter();
-  const { claims } = useAuth();
+  const { claims, loading: authLoading } = useAuth();
 
   const [costCentre, setCostCentre] = useState<CostCentre | null>(null);
   const [invoices, setInvoices] = useState<CustomerInvoice[]>([]);
@@ -80,15 +80,22 @@ export default function CostCentreDetailClient() {
   const [tabValue, setTabValue] = useState(0);
   const [openEditDialog, setOpenEditDialog] = useState(false);
 
+  // Wait for auth to complete before checking permissions
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
   const hasEditAccess = claims?.permissions ? canManageAccounting(claims.permissions) : false;
 
-  // Extract ID from pathname
-  const costCentreId = pathname?.split('/').pop() || '';
+  // Extract ID from pathname - handle placeholder from static export
+  const rawCostCentreId = pathname?.split('/').pop() || '';
+  const costCentreId = rawCostCentreId && rawCostCentreId !== 'placeholder' ? rawCostCentreId : '';
 
-  // Load cost centre details
+  // Load cost centre details - wait for auth to complete first
   useEffect(() => {
-    if (!hasViewAccess || !costCentreId || costCentreId === 'placeholder') {
+    // Wait for auth to complete before attempting data fetch
+    if (authLoading) {
+      return;
+    }
+
+    if (!hasViewAccess || !costCentreId) {
       setLoading(false);
       return;
     }
@@ -119,11 +126,12 @@ export default function CostCentreDetailClient() {
     };
 
     loadCostCentre();
-  }, [hasViewAccess, costCentreId]);
+  }, [hasViewAccess, costCentreId, authLoading]);
 
   // Load transactions linked to this cost centre
   useEffect(() => {
-    if (!hasViewAccess || !costCentreId || costCentreId === 'placeholder') return;
+    // Wait for auth to complete
+    if (authLoading || !hasViewAccess || !costCentreId) return;
 
     const { db } = getFirebase();
 
@@ -213,7 +221,7 @@ export default function CostCentreDetailClient() {
       unsubPayments();
       unsubBills();
     };
-  }, [hasViewAccess, costCentreId]);
+  }, [hasViewAccess, costCentreId, authLoading]);
 
   const handleBack = () => {
     router.push('/accounting/cost-centres');
@@ -260,17 +268,8 @@ export default function CostCentreDetailClient() {
   const totalReceived = payments.reduce((sum, pay) => sum + (pay.amount || 0), 0);
   const totalBilled = bills.reduce((sum, bill) => sum + (bill.amount || 0), 0);
 
-  if (!hasViewAccess) {
-    return (
-      <Container maxWidth="xl">
-        <Box sx={{ mb: 4 }}>
-          <Alert severity="error">You do not have permission to view cost centre details.</Alert>
-        </Box>
-      </Container>
-    );
-  }
-
-  if (loading) {
+  // Show loading while auth is in progress or data is loading
+  if (authLoading || loading) {
     return (
       <Container maxWidth="xl">
         <Box sx={{ mt: 4 }}>
@@ -278,6 +277,17 @@ export default function CostCentreDetailClient() {
             Loading cost centre details...
           </Typography>
           <LinearProgress />
+        </Box>
+      </Container>
+    );
+  }
+
+  // Permission check after auth is complete
+  if (!hasViewAccess) {
+    return (
+      <Container maxWidth="xl">
+        <Box sx={{ mb: 4 }}>
+          <Alert severity="error">You do not have permission to view cost centre details.</Alert>
         </Box>
       </Container>
     );
