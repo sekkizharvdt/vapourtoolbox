@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Container,
   Typography,
@@ -34,6 +35,7 @@ import type { CostCentre } from '@vapour/types';
 import CostCentreDialog from './components/CostCentreDialog';
 
 export default function CostCentresPage() {
+  const router = useRouter();
   const { claims } = useAuth();
   const [costCentres, setCostCentres] = useState<CostCentre[]>([]);
   const [openDialog, setOpenDialog] = useState(false);
@@ -84,6 +86,11 @@ export default function CostCentresPage() {
   };
 
   const handleRowClick = (costCentre: CostCentre) => {
+    // Navigate to detail page
+    router.push(`/accounting/cost-centres/${costCentre.id}`);
+  };
+
+  const handleEdit = (costCentre: CostCentre) => {
     setSelectedCostCentre(costCentre);
     setOpenDialog(true);
   };
@@ -300,7 +307,7 @@ export default function CostCentresPage() {
                               size="small"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleRowClick(costCentre);
+                                handleEdit(costCentre);
                               }}
                             >
                               <EditIcon fontSize="small" />
