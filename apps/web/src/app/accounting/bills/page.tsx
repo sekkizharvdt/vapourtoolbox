@@ -38,6 +38,8 @@ import {
   PendingActions as PendingIcon,
   Warning as WarningIcon,
   Numbers as NumbersIcon,
+  Send as SendIcon,
+  Check as CheckIcon,
 } from '@mui/icons-material';
 import {
   PageHeader,
@@ -66,15 +68,27 @@ import type { VendorBill } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { formatDate } from '@/lib/utils/formatters';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
+import { getBillAvailableActions } from '@/lib/accounting/billApprovalService';
 
-// Lazy load heavy dialog component
+// Lazy load heavy dialog components
 const CreateBillDialog = dynamic(
   () => import('./components/CreateBillDialog').then((mod) => mod.CreateBillDialog),
   { ssr: false }
 );
+const SubmitBillForApprovalDialog = dynamic(
+  () =>
+    import('./components/SubmitBillForApprovalDialog').then(
+      (mod) => mod.SubmitBillForApprovalDialog
+    ),
+  { ssr: false }
+);
+const ApproveBillDialog = dynamic(
+  () => import('./components/ApproveBillDialog').then((mod) => mod.ApproveBillDialog),
+  { ssr: false }
+);
 
 export default function BillsPage() {
-  const { claims } = useAuth();
+  const { claims, user } = useAuth();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<VendorBill | null>(null);
   const [page, setPage] = useState(0);
@@ -87,6 +101,11 @@ export default function BillsPage() {
   const [billToUpdate, setBillToUpdate] = useState<VendorBill | null>(null);
   const [newBillNumber, setNewBillNumber] = useState('');
   const [updatingBillNumber, setUpdatingBillNumber] = useState(false);
+
+  // Approval dialogs state
+  const [submitForApprovalDialogOpen, setSubmitForApprovalDialogOpen] = useState(false);
+  const [approveBillDialogOpen, setApproveBillDialogOpen] = useState(false);
+  const [selectedBillForApproval, setSelectedBillForApproval] = useState<VendorBill | null>(null);
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
@@ -208,6 +227,23 @@ export default function BillsPage() {
     }
   };
 
+  // Approval handlers
+  const handleSubmitForApproval = (bill: VendorBill) => {
+    setSelectedBillForApproval(bill);
+    setSubmitForApprovalDialogOpen(true);
+  };
+
+  const handleApproveBill = (bill: VendorBill) => {
+    setSelectedBillForApproval(bill);
+    setApproveBillDialogOpen(true);
+  };
+
+  const handleCloseApprovalDialogs = () => {
+    setSubmitForApprovalDialogOpen(false);
+    setApproveBillDialogOpen(false);
+    setSelectedBillForApproval(null);
+  };
+
   // Paginate filtered bills
   const paginatedBills = filteredBills.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
@@ -288,6 +324,7 @@ export default function BillsPage() {
           >
             <MenuItem value="ALL">All Status</MenuItem>
             <MenuItem value="DRAFT">Draft</MenuItem>
+            <MenuItem value="PENDING_APPROVAL">Pending Approval</MenuItem>
             <MenuItem value="APPROVED">Approved</MenuItem>
             <MenuItem value="PAID">Paid</MenuItem>
             <MenuItem value="OVERDUE">Overdue</MenuItem>
@@ -346,46 +383,78 @@ export default function BillsPage() {
                   <TableCell align="right">{formatCurrency(bill.totalAmount || 0)}</TableCell>
                   <TableCell>
                     <Chip
-                      label={bill.status}
+                      label={
+                        bill.status === 'PENDING_APPROVAL'
+                          ? 'Pending Approval'
+                          : bill.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+                      }
                       size="small"
                       color={getStatusColor(bill.status, 'bill')}
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <TableActionCell
-                      actions={[
-                        {
-                          icon: <ViewIcon />,
-                          label: 'View Bill',
-                          onClick: () => handleEdit(bill),
-                        },
-                        {
-                          icon: <EditIcon />,
-                          label: 'Edit Bill',
-                          onClick: () => handleEdit(bill),
-                          show: canManage && bill.status === 'DRAFT',
-                        },
-                        {
-                          icon: <NumbersIcon />,
-                          label: 'Update Bill Number',
-                          onClick: () => handleOpenUpdateBillNumber(bill),
-                          show: canManage && bill.status !== 'DRAFT',
-                        },
-                        {
-                          icon: <PaymentIcon />,
-                          label: 'Record Payment',
-                          onClick: () => {},
-                          show: canManage,
-                        },
-                        {
-                          icon: <DeleteIcon />,
-                          label: 'Delete Bill',
-                          onClick: () => handleDelete(bill.id!),
-                          color: 'error',
-                          show: canManage,
-                        },
-                      ]}
-                    />
+                    {(() => {
+                      const assignedApproverId = (
+                        bill as unknown as { assignedApproverId?: string }
+                      ).assignedApproverId;
+                      const actions = getBillAvailableActions(
+                        bill.status,
+                        canManage,
+                        assignedApproverId === user?.uid,
+                        user?.uid || '',
+                        assignedApproverId
+                      );
+
+                      return (
+                        <TableActionCell
+                          actions={[
+                            {
+                              icon: <ViewIcon />,
+                              label: 'View Bill',
+                              onClick: () => handleEdit(bill),
+                            },
+                            {
+                              icon: <EditIcon />,
+                              label: 'Edit Bill',
+                              onClick: () => handleEdit(bill),
+                              show: actions.canEdit,
+                            },
+                            {
+                              icon: <SendIcon />,
+                              label: 'Submit for Approval',
+                              onClick: () => handleSubmitForApproval(bill),
+                              show: actions.canSubmitForApproval,
+                            },
+                            {
+                              icon: <CheckIcon />,
+                              label: 'Review & Approve',
+                              onClick: () => handleApproveBill(bill),
+                              color: 'success',
+                              show: actions.canApprove,
+                            },
+                            {
+                              icon: <NumbersIcon />,
+                              label: 'Update Bill Number',
+                              onClick: () => handleOpenUpdateBillNumber(bill),
+                              show: canManage && bill.status !== 'DRAFT',
+                            },
+                            {
+                              icon: <PaymentIcon />,
+                              label: 'Record Payment',
+                              onClick: () => {},
+                              show: actions.canRecordPayment,
+                            },
+                            {
+                              icon: <DeleteIcon />,
+                              label: 'Delete Bill',
+                              onClick: () => handleDelete(bill.id!),
+                              color: 'error',
+                              show: actions.canDelete,
+                            },
+                          ]}
+                        />
+                      );
+                    })()}
                   </TableCell>
                 </TableRow>
               ))
@@ -448,6 +517,18 @@ export default function BillsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Approval Dialogs */}
+      <SubmitBillForApprovalDialog
+        open={submitForApprovalDialogOpen}
+        onClose={handleCloseApprovalDialogs}
+        bill={selectedBillForApproval}
+      />
+      <ApproveBillDialog
+        open={approveBillDialogOpen}
+        onClose={handleCloseApprovalDialogs}
+        bill={selectedBillForApproval}
+      />
     </Container>
   );
 }
