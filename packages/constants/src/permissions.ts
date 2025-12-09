@@ -452,12 +452,11 @@ export const RESTRICTED_MODULES: RestrictedModule[] = [
     manageFlag: PERMISSION_FLAGS.MANAGE_ACCOUNTING,
   },
   {
-    id: 'thermal-desal',
-    name: 'Thermal Design + Process Data',
+    id: 'process-data',
+    name: 'Process Data (SSOT)',
     viewFlag: PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL,
     manageFlag: PERMISSION_FLAGS_2.MANAGE_THERMAL_DESAL,
     field: 'permissions2',
-    note: 'Includes Process Data (SSOT)',
   },
   {
     id: 'proposals',
@@ -481,7 +480,7 @@ export const OPEN_MODULES = [
   'Flow (Time Tracking)',
   'Documents',
   'Estimation',
-  'Thermal Calculators',
+  'Thermal Desalination',
   'Material Database',
   'Shape Database',
   'Bought Out Items',

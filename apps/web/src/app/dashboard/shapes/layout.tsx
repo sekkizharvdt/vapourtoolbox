@@ -1,15 +1,11 @@
 'use client';
 
 import { ModuleLayout } from '@/components/layouts/ModuleLayout';
-import { canViewShapeDB } from '@vapour/constants';
 
 export default function ShapesLayout({ children }: { children: React.ReactNode }) {
+  // Shape Database is open to all users - no permission check required
   return (
-    <ModuleLayout
-      permissionCheck2={canViewShapeDB}
-      moduleName="Shape Database"
-      moduleId="shape-database"
-    >
+    <ModuleLayout moduleName="Shape Database" moduleId="shape-database">
       {children}
     </ModuleLayout>
   );
