@@ -69,6 +69,17 @@ function calculateMaxVaporVelocity(operatingPressureMbar: number): {
   sonicVelocity: number;
   maxRecommendedVelocity: number;
 } {
+  // Guard against invalid pressure values during user typing
+  // Steam tables have minimum pressure of ~6.1 mbar (triple point)
+  // Values below 10 mbar are likely incomplete user input
+  if (operatingPressureMbar < 10) {
+    return {
+      saturationTemp: 0,
+      sonicVelocity: 0,
+      maxRecommendedVelocity: 0,
+    };
+  }
+
   const pressureBar = mbarAbsToBar(operatingPressureMbar);
   const satTempC = getSaturationTemperature(pressureBar);
   const satTempK = satTempC + 273.15;

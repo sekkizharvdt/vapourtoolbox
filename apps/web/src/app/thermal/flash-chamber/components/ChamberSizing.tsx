@@ -147,30 +147,31 @@ function ElevationDiagram({
       />
 
       {/* Zone fills (with transparency) */}
-      {/* Spray Zone */}
+      {/* Spray Zone - from TTL (top of dome, ttlY - 15) to flash zone top */}
+      {/* In SVG: Y increases downward, so higher elevation = lower Y value */}
+      <rect
+        x={chamberX + 1}
+        y={ttlY - 15}
+        width={chamberWidth - 2}
+        height={flashTopY - (ttlY - 15)}
+        fill={sprayColor}
+        fillOpacity={0.3}
+      />
+      {/* Flashing Zone - from flash zone top to flash zone bottom */}
       <rect
         x={chamberX + 1}
         y={flashTopY}
         width={chamberWidth - 2}
-        height={ttlY - flashTopY + 15}
-        fill={sprayColor}
-        fillOpacity={0.3}
-      />
-      {/* Flashing Zone */}
-      <rect
-        x={chamberX + 1}
-        y={flashBottomY}
-        width={chamberWidth - 2}
-        height={flashTopY - flashBottomY}
+        height={flashBottomY - flashTopY}
         fill={flashColor}
         fillOpacity={0.3}
       />
-      {/* Retention Zone */}
+      {/* Retention Zone - from LG-H to LG-L (lower elevation = higher Y) */}
       <rect
         x={chamberX + 1}
-        y={lgLowY}
+        y={lgHighY}
         width={chamberWidth - 2}
-        height={lgHighY - lgLowY}
+        height={lgLowY - lgHighY}
         fill={retentionColor}
         fillOpacity={0.3}
       />
