@@ -106,7 +106,7 @@ export async function getActionItems(userId: string): Promise<ActionItem[]> {
     const mentionsQuery = query(
       collection(db, 'taskMentions'),
       where('mentionedUserId', '==', userId),
-      where('isRead', '==', false),
+      where('read', '==', false),
       orderBy('createdAt', 'desc'),
       limit(3)
     );
@@ -278,7 +278,7 @@ export async function getDashboardSummary(userId: string): Promise<DashboardSumm
       const unreadMentionsQuery = query(
         collection(db, 'taskMentions'),
         where('mentionedUserId', '==', userId),
-        where('isRead', '==', false)
+        where('read', '==', false)
       );
       const unreadMentionsSnapshot = await getCountFromServer(unreadMentionsQuery);
       summary.unreadMentions = unreadMentionsSnapshot.data().count;
@@ -315,10 +315,10 @@ export async function getRecentActivity(userId: string, limitCount = 10): Promis
   const activities: ActivityItem[] = [];
 
   try {
-    // Get recent audit logs for this user
+    // Get recent audit logs for this user (actorId is the user who performed the action)
     const auditQuery = query(
       collection(db, 'auditLogs'),
-      where('userId', '==', userId),
+      where('actorId', '==', userId),
       orderBy('timestamp', 'desc'),
       limit(limitCount)
     );
