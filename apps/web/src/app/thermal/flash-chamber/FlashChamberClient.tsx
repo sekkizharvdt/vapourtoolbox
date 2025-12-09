@@ -156,6 +156,9 @@ export default function FlashChamberClient() {
             inputs={inputs}
             onChange={setInputs}
             calculatedDiameter={result?.chamberSizing.diameter}
+            vaporVelocity={result?.chamberSizing.vaporVelocity}
+            vaporVelocityStatus={result?.chamberSizing.vaporVelocityStatus}
+            vaporLoading={result?.chamberSizing.vaporLoading}
           />
         </Grid>
 

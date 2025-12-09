@@ -46,6 +46,12 @@ interface InputSectionProps {
   onChange: (inputs: FlashChamberInput) => void;
   /** Auto-calculated diameter from results (optional, for display) */
   calculatedDiameter?: number;
+  /** Vapor velocity through chamber cross-section in m/s */
+  vaporVelocity?: number;
+  /** Vapor velocity status indicator */
+  vaporVelocityStatus?: 'OK' | 'HIGH' | 'VERY_HIGH';
+  /** Vapor loading - vapor flow rate per unit cross-section area in ton/hr/m² */
+  vaporLoading?: number;
 }
 
 // Helper function to calculate spray zone height
@@ -101,7 +107,14 @@ function calculateMaxVaporVelocity(operatingPressureMbar: number): {
   };
 }
 
-export function InputSection({ inputs, onChange, calculatedDiameter }: InputSectionProps) {
+export function InputSection({
+  inputs,
+  onChange,
+  calculatedDiameter,
+  vaporVelocity,
+  vaporVelocityStatus,
+  vaporLoading,
+}: InputSectionProps) {
   const handleChange = (field: keyof FlashChamberInput, value: number | string | boolean) => {
     onChange({
       ...inputs,
@@ -353,23 +366,101 @@ export function InputSection({ inputs, onChange, calculatedDiameter }: InputSect
             }
           />
           {inputs.autoCalculateDiameter === false && (
-            <TextField
-              label="Vessel Diameter"
-              type="number"
-              value={inputs.userDiameter || ''}
-              onChange={(e) => handleChange('userDiameter', parseFloat(e.target.value) || 0)}
-              InputProps={{
-                endAdornment: <InputAdornment position="end">mm</InputAdornment>,
-              }}
-              inputProps={{
-                min: FLASH_CHAMBER_LIMITS.userDiameter.min,
-                max: FLASH_CHAMBER_LIMITS.userDiameter.max,
-                step: 100,
-              }}
-              helperText={`Range: ${FLASH_CHAMBER_LIMITS.userDiameter.min} - ${FLASH_CHAMBER_LIMITS.userDiameter.max} mm (in 100mm increments)`}
-              fullWidth
-              sx={{ mt: 1 }}
-            />
+            <>
+              <TextField
+                label="Vessel Diameter"
+                type="number"
+                value={inputs.userDiameter || ''}
+                onChange={(e) => handleChange('userDiameter', parseFloat(e.target.value) || 0)}
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">mm</InputAdornment>,
+                }}
+                inputProps={{
+                  min: FLASH_CHAMBER_LIMITS.userDiameter.min,
+                  max: FLASH_CHAMBER_LIMITS.userDiameter.max,
+                  step: 100,
+                }}
+                helperText={`Range: ${FLASH_CHAMBER_LIMITS.userDiameter.min} - ${FLASH_CHAMBER_LIMITS.userDiameter.max} mm (in 100mm increments)`}
+                fullWidth
+                sx={{ mt: 1 }}
+              />
+              {/* Vapor Velocity Display - helps user decide on diameter */}
+              {vaporVelocity !== undefined && (
+                <Box
+                  sx={{
+                    mt: 1.5,
+                    p: 1.5,
+                    borderRadius: 1,
+                    bgcolor:
+                      vaporVelocityStatus === 'OK'
+                        ? 'success.50'
+                        : vaporVelocityStatus === 'HIGH'
+                          ? 'warning.50'
+                          : 'error.50',
+                    border: 1,
+                    borderColor:
+                      vaporVelocityStatus === 'OK'
+                        ? 'success.main'
+                        : vaporVelocityStatus === 'HIGH'
+                          ? 'warning.main'
+                          : 'error.main',
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    fontWeight="medium"
+                    color={
+                      vaporVelocityStatus === 'OK'
+                        ? 'success.dark'
+                        : vaporVelocityStatus === 'HIGH'
+                          ? 'warning.dark'
+                          : 'error.dark'
+                    }
+                  >
+                    Vapor Velocity: {vaporVelocity.toFixed(3)} m/s
+                  </Typography>
+                  {vaporLoading !== undefined && (
+                    <Typography
+                      variant="body2"
+                      fontWeight="medium"
+                      color={
+                        vaporVelocityStatus === 'OK'
+                          ? 'success.dark'
+                          : vaporVelocityStatus === 'HIGH'
+                            ? 'warning.dark'
+                            : 'error.dark'
+                      }
+                    >
+                      Vapor Loading: {vaporLoading.toFixed(3)} ton/hr/m²
+                    </Typography>
+                  )}
+                  <Typography
+                    variant="caption"
+                    color={
+                      vaporVelocityStatus === 'OK'
+                        ? 'success.dark'
+                        : vaporVelocityStatus === 'HIGH'
+                          ? 'warning.dark'
+                          : 'error.dark'
+                    }
+                    sx={{ display: 'block', mt: 0.5 }}
+                  >
+                    {vaporVelocityStatus === 'OK' && 'Good - minimal liquid entrainment risk'}
+                    {vaporVelocityStatus === 'HIGH' &&
+                      'Elevated - consider larger diameter or mist eliminator'}
+                    {vaporVelocityStatus === 'VERY_HIGH' &&
+                      'Too high - increase diameter to avoid entrainment'}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block', mt: 0.5 }}
+                  >
+                    Recommended velocity: &lt; 0.5 m/s
+                  </Typography>
+                </Box>
+              )}
+            </>
           )}
         </Box>
 

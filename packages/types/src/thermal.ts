@@ -172,6 +172,15 @@ export interface ChamberSizing {
 
   /** Liquid holdup volume in m³ */
   liquidHoldupVolume: number;
+
+  /** Vapor velocity through chamber cross-section in m/s */
+  vaporVelocity: number;
+
+  /** Vapor velocity status indicator */
+  vaporVelocityStatus: 'OK' | 'HIGH' | 'VERY_HIGH';
+
+  /** Vapor loading - vapor flow rate per unit cross-section area in ton/hr/m² */
+  vaporLoading: number;
 }
 
 /**

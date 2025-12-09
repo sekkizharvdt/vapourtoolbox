@@ -636,6 +636,28 @@ export function ChamberSizing({ sizing, elevations, nozzles }: ChamberSizingProp
                   {sizing.liquidHoldupVolume.toFixed(2)} m³
                 </Typography>
               </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="body2">Vapor Velocity</Typography>
+                <Typography
+                  variant="body2"
+                  fontWeight="medium"
+                  color={
+                    sizing.vaporVelocityStatus === 'OK'
+                      ? 'success.main'
+                      : sizing.vaporVelocityStatus === 'HIGH'
+                        ? 'warning.main'
+                        : 'error.main'
+                  }
+                >
+                  {sizing.vaporVelocity.toFixed(3)} m/s
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="body2">Vapor Loading</Typography>
+                <Typography variant="body2" fontWeight="medium">
+                  {sizing.vaporLoading.toFixed(3)} ton/hr/m²
+                </Typography>
+              </Box>
             </Stack>
 
             {/* Elevation Schedule */}

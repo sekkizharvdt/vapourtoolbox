@@ -422,7 +422,24 @@ export function calculateFlashChamber(
   );
 
   // Step 4: Size chamber
-  const chamberSizing = calculateChamberSize(waterFlow, input, effectiveSalinity);
+  const chamberSizing = calculateChamberSize(
+    waterFlow,
+    vaporFlow,
+    satTempPure,
+    input,
+    effectiveSalinity
+  );
+
+  // Add warning if vapor velocity is high
+  if (chamberSizing.vaporVelocityStatus === 'HIGH') {
+    warnings.push(
+      `Vapor velocity (${chamberSizing.vaporVelocity.toFixed(2)} m/s) is elevated. Consider a larger diameter or mist eliminator.`
+    );
+  } else if (chamberSizing.vaporVelocityStatus === 'VERY_HIGH') {
+    warnings.push(
+      `Vapor velocity (${chamberSizing.vaporVelocity.toFixed(2)} m/s) is too high - risk of liquid entrainment. Increase chamber diameter.`
+    );
+  }
 
   // Step 5: Size nozzles
   const nozzles = calculateNozzleSizes(
@@ -562,11 +579,15 @@ function calculateHeatMassBalance(
 /**
  * Calculate chamber dimensions
  * @param waterFlow - Water flow rate in ton/hr
+ * @param vaporFlow - Vapor flow rate in ton/hr
+ * @param satTempPure - Saturation temperature of pure water at operating pressure in °C
  * @param input - Flash chamber input parameters
  * @param effectiveSalinity - Effective salinity (0 for DM water)
  */
 function calculateChamberSize(
   waterFlow: number,
+  vaporFlow: number,
+  satTempPure: number,
   input: FlashChamberInput,
   effectiveSalinity: number
 ): ChamberSizing {
@@ -616,6 +637,32 @@ function calculateChamberSize(
   // Total volume
   const totalVolume = actualCrossSectionArea * (totalHeight / 1000);
 
+  // Calculate vapor velocity through chamber cross-section
+  // This is critical for proper liquid-vapor separation
+  // Velocity = volumetric flow / cross-section area
+  const vaporDensity = getDensityVapor(satTempPure); // kg/m³
+  const vaporVolumetricFlow = (vaporFlow * 1000) / (vaporDensity * 3600); // m³/s
+  const vaporVelocity = vaporVolumetricFlow / actualCrossSectionArea; // m/s
+
+  // Determine vapor velocity status
+  // Industry guidelines for flash chambers:
+  // < 0.5 m/s: Good - minimal liquid entrainment
+  // 0.5 - 1.0 m/s: High - may cause some entrainment, consider mist eliminator
+  // > 1.0 m/s: Very high - significant entrainment risk
+  let vaporVelocityStatus: 'OK' | 'HIGH' | 'VERY_HIGH';
+  if (vaporVelocity <= 0.5) {
+    vaporVelocityStatus = 'OK';
+  } else if (vaporVelocity <= 1.0) {
+    vaporVelocityStatus = 'HIGH';
+  } else {
+    vaporVelocityStatus = 'VERY_HIGH';
+  }
+
+  // Calculate vapor loading (ton/hr/m²)
+  // This is the vapor flow rate per unit cross-section area
+  // Comparable to CROSS_SECTION_LOADING (2.0) used for water flow
+  const vaporLoading = vaporFlow / actualCrossSectionArea; // ton/hr/m²
+
   return {
     diameter: roundedDiameter,
     crossSectionArea: actualCrossSectionArea,
@@ -625,6 +672,9 @@ function calculateChamberSize(
     totalHeight: Math.round(totalHeight),
     totalVolume,
     liquidHoldupVolume: retentionVolume,
+    vaporVelocity,
+    vaporVelocityStatus,
+    vaporLoading,
   };
 }
 
