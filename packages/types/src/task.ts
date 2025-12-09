@@ -68,7 +68,10 @@ export type TaskNotificationCategory =
   | 'PROPOSAL_APPROVED' // Informational: Your proposal was approved
   | 'PROPOSAL_REJECTED' // Informational: Your proposal was rejected
   | 'PROPOSAL_CHANGES_REQUESTED' // Informational: Changes needed on proposal
-  | 'ENQUIRY_ASSIGNED'; // Actionable: Work on assigned enquiry
+  | 'ENQUIRY_ASSIGNED' // Actionable: Work on assigned enquiry
+  // Feedback
+  | 'FEEDBACK_RESOLUTION_CHECK' // Actionable: Verify fix with reporter, close or follow up
+  | 'FEEDBACK_REOPENED'; // Informational: Reporter requested follow-up on resolved feedback
 
 /**
  * Task Notification Status
@@ -306,7 +309,8 @@ export type DefaultTaskChannelId =
   | 'accounting'
   | 'approvals'
   | 'enquiries'
-  | 'proposals';
+  | 'proposals'
+  | 'feedback';
 
 /**
  * Task Channel
@@ -422,6 +426,14 @@ export const TASK_CHANNEL_DEFINITIONS: Record<DefaultTaskChannelId, TaskChannel>
       'PROPOSAL_REJECTED',
       'PROPOSAL_CHANGES_REQUESTED',
     ],
+    isDefault: true,
+  },
+  feedback: {
+    id: 'feedback',
+    name: 'Feedback',
+    icon: 'MessageSquare',
+    description: 'Bug reports and feature request follow-ups',
+    categories: ['FEEDBACK_RESOLUTION_CHECK', 'FEEDBACK_REOPENED'],
     isDefault: true,
   },
 };

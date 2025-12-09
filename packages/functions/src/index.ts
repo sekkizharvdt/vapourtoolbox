@@ -27,6 +27,9 @@ export { createJournalEntry, validateTransactionAmount } from './accounting';
 // Export transmittal functions
 export { generateTransmittal, getTransmittalDownloadUrl } from './transmittals';
 
+// Export feedback functions
+export { onFeedbackResolved } from './feedback';
+
 /**
  * Create Firestore Document for New Users
  *

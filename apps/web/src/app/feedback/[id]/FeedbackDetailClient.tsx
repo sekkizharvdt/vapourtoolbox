@@ -1,0 +1,482 @@
+'use client';
+
+/**
+ * Feedback Detail Page
+ *
+ * Shows detailed feedback information with actions for:
+ * - Closing resolved feedback (marking as satisfied)
+ * - Adding follow-up comments if not satisfied
+ */
+
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import {
+  Container,
+  Box,
+  Typography,
+  Paper,
+  Chip,
+  Stack,
+  Button,
+  TextField,
+  Alert,
+  CircularProgress,
+  Divider,
+  Card,
+  CardContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from '@mui/material';
+import {
+  BugReport as BugReportIcon,
+  Lightbulb as LightbulbIcon,
+  ChatBubble as ChatBubbleIcon,
+  CheckCircle as CheckCircleIcon,
+  Replay as ReplayIcon,
+  ArrowBack as ArrowBackIcon,
+} from '@mui/icons-material';
+import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
+import { getFirebase } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
+import { AuthenticatedLayout } from '@/components/layout/AuthenticatedLayout';
+import { PageHeader } from '@vapour/ui';
+import { formatDistanceToNow, format } from 'date-fns';
+import { closeFeedbackFromTask, addFollowUpToFeedback } from '@/lib/feedback/feedbackTaskService';
+import {
+  completeActionableTask,
+  findTaskNotificationByEntity,
+} from '@/lib/tasks/taskNotificationService';
+
+type FeedbackType = 'bug' | 'feature' | 'general';
+type FeedbackStatus = 'new' | 'in_progress' | 'resolved' | 'closed' | 'wont_fix';
+
+interface FollowUpComment {
+  userId: string;
+  userName: string;
+  comment: string;
+  createdAt: Timestamp;
+}
+
+interface FeedbackDocument {
+  id: string;
+  type: FeedbackType;
+  title: string;
+  description: string;
+  status: FeedbackStatus;
+  userName: string;
+  userEmail: string;
+  userId?: string;
+  adminNotes?: string;
+  followUpComments?: FollowUpComment[];
+  screenshotUrls?: string[];
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+  closedAt?: Timestamp;
+  closedBy?: string;
+  closedByName?: string;
+}
+
+const typeConfig: Record<
+  FeedbackType,
+  { label: string; icon: React.ReactNode; color: 'error' | 'info' | 'default' }
+> = {
+  bug: { label: 'Bug Report', icon: <BugReportIcon />, color: 'error' },
+  feature: { label: 'Feature Request', icon: <LightbulbIcon />, color: 'info' },
+  general: { label: 'General Feedback', icon: <ChatBubbleIcon />, color: 'default' },
+};
+
+const statusConfig: Record<
+  FeedbackStatus,
+  { label: string; color: 'default' | 'primary' | 'success' | 'error' | 'warning' }
+> = {
+  new: { label: 'New', color: 'primary' },
+  in_progress: { label: 'In Progress', color: 'warning' },
+  resolved: { label: 'Resolved', color: 'success' },
+  closed: { label: 'Closed', color: 'default' },
+  wont_fix: { label: "Won't Fix", color: 'error' },
+};
+
+export default function FeedbackDetailClient() {
+  const params = useParams();
+  const router = useRouter();
+  const { user } = useAuth();
+  const feedbackId = params?.id as string;
+
+  const [feedback, setFeedback] = useState<FeedbackDocument | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Follow-up dialog state
+  const [followUpDialogOpen, setFollowUpDialogOpen] = useState(false);
+  const [followUpComment, setFollowUpComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // Close confirmation dialog state
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+
+  // Subscribe to feedback document
+  useEffect(() => {
+    if (!feedbackId) {
+      setError('Invalid feedback ID');
+      setLoading(false);
+      return;
+    }
+
+    const { db } = getFirebase();
+    const feedbackRef = doc(db, 'feedback', feedbackId);
+
+    const unsubscribe = onSnapshot(
+      feedbackRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setFeedback({ id: docSnap.id, ...docSnap.data() } as FeedbackDocument);
+        } else {
+          setError('Feedback not found');
+        }
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Error fetching feedback:', err);
+        setError('Failed to load feedback');
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [feedbackId]);
+
+  // Handle closing feedback
+  const handleCloseFeedback = async () => {
+    if (!feedback || !user) return;
+
+    setSubmitting(true);
+    try {
+      const { db } = getFirebase();
+      const userName = user.displayName || user.email || 'User';
+
+      await closeFeedbackFromTask(db, feedbackId, user.uid, userName);
+
+      // Complete the associated task if exists
+      const task = await findTaskNotificationByEntity(
+        'FEEDBACK',
+        feedbackId,
+        'FEEDBACK_RESOLUTION_CHECK',
+        'pending'
+      );
+      if (task) {
+        await completeActionableTask(task.id, user.uid, false);
+      }
+
+      setCloseDialogOpen(false);
+      // Optionally navigate back or show success message
+    } catch (err) {
+      console.error('Error closing feedback:', err);
+      setError('Failed to close feedback');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Handle follow-up submission
+  const handleSubmitFollowUp = async () => {
+    if (!feedback || !user || !followUpComment.trim()) return;
+
+    setSubmitting(true);
+    try {
+      const { db } = getFirebase();
+      const userName = user.displayName || user.email || 'User';
+
+      await addFollowUpToFeedback(db, feedbackId, followUpComment.trim(), user.uid, userName);
+
+      setFollowUpDialogOpen(false);
+      setFollowUpComment('');
+    } catch (err) {
+      console.error('Error adding follow-up:', err);
+      setError('Failed to submit follow-up');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Check if user owns this feedback
+  const isOwner = feedback?.userId === user?.uid;
+  const canTakeAction = isOwner && feedback?.status === 'resolved';
+
+  if (loading) {
+    return (
+      <AuthenticatedLayout>
+        <Container maxWidth="md" sx={{ py: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        </Container>
+      </AuthenticatedLayout>
+    );
+  }
+
+  if (error || !feedback) {
+    return (
+      <AuthenticatedLayout>
+        <Container maxWidth="md" sx={{ py: 4 }}>
+          <Alert severity="error">{error || 'Feedback not found'}</Alert>
+          <Button
+            startIcon={<ArrowBackIcon />}
+            onClick={() => router.push('/feedback')}
+            sx={{ mt: 2 }}
+          >
+            Back to Feedback
+          </Button>
+        </Container>
+      </AuthenticatedLayout>
+    );
+  }
+
+  return (
+    <AuthenticatedLayout>
+      <Container maxWidth="md" sx={{ py: 2 }}>
+        <PageHeader title={feedback.title} />
+
+        {/* Status and Type */}
+        <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+          <Chip
+            label={statusConfig[feedback.status].label}
+            color={statusConfig[feedback.status].color}
+          />
+          <Chip
+            label={typeConfig[feedback.type].label}
+            icon={typeConfig[feedback.type].icon as React.ReactElement}
+            variant="outlined"
+          />
+        </Stack>
+
+        {/* Action Banner for Resolved Feedback */}
+        {canTakeAction && (
+          <Alert
+            severity="info"
+            sx={{ mb: 3 }}
+            action={
+              <Stack direction="row" spacing={1}>
+                <Button
+                  color="success"
+                  variant="contained"
+                  size="small"
+                  startIcon={<CheckCircleIcon />}
+                  onClick={() => setCloseDialogOpen(true)}
+                >
+                  Close - Resolved
+                </Button>
+                <Button
+                  color="warning"
+                  variant="outlined"
+                  size="small"
+                  startIcon={<ReplayIcon />}
+                  onClick={() => setFollowUpDialogOpen(true)}
+                >
+                  Follow Up
+                </Button>
+              </Stack>
+            }
+          >
+            This issue has been marked as resolved. Please verify and close or provide follow-up.
+          </Alert>
+        )}
+
+        {/* Main Content */}
+        <Paper sx={{ p: 3, mb: 3 }}>
+          {/* Description */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Description
+            </Typography>
+            <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+              {feedback.description}
+            </Typography>
+          </Box>
+
+          {/* Screenshots */}
+          {feedback.screenshotUrls && feedback.screenshotUrls.length > 0 && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Screenshots
+              </Typography>
+              <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
+                {feedback.screenshotUrls.map((url, index) => (
+                  <Box
+                    key={index}
+                    component="a"
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{
+                      display: 'block',
+                      width: 200,
+                      height: 150,
+                      borderRadius: 1,
+                      overflow: 'hidden',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <Box
+                      component="img"
+                      src={url}
+                      alt={`Screenshot ${index + 1}`}
+                      sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  </Box>
+                ))}
+              </Stack>
+            </Box>
+          )}
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* Metadata */}
+          <Stack direction="row" spacing={4}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Submitted by
+              </Typography>
+              <Typography variant="body2">{feedback.userName}</Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Submitted
+              </Typography>
+              <Typography variant="body2">{format(feedback.createdAt.toDate(), 'PPp')}</Typography>
+            </Box>
+            {feedback.updatedAt && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Last Updated
+                </Typography>
+                <Typography variant="body2">
+                  {formatDistanceToNow(feedback.updatedAt.toDate(), { addSuffix: true })}
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        </Paper>
+
+        {/* Resolution Notes */}
+        {feedback.adminNotes && (
+          <Card sx={{ mb: 3, bgcolor: 'success.50' }}>
+            <CardContent>
+              <Typography variant="subtitle2" color="success.dark" gutterBottom>
+                Resolution Notes
+              </Typography>
+              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                {feedback.adminNotes}
+              </Typography>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Follow-up Comments */}
+        {feedback.followUpComments && feedback.followUpComments.length > 0 && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Follow-up Comments
+            </Typography>
+            <Stack spacing={2}>
+              {feedback.followUpComments.map((comment, index) => (
+                <Card key={index} variant="outlined">
+                  <CardContent>
+                    <Stack direction="row" justifyContent="space-between" sx={{ mb: 1 }}>
+                      <Typography variant="subtitle2">{comment.userName}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true })}
+                      </Typography>
+                    </Stack>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                      {comment.comment}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          </Box>
+        )}
+
+        {/* Closed Info */}
+        {feedback.status === 'closed' && feedback.closedAt && (
+          <Alert severity="success" sx={{ mb: 3 }}>
+            This feedback was closed by {feedback.closedByName || 'the reporter'}{' '}
+            {formatDistanceToNow(feedback.closedAt.toDate(), { addSuffix: true })}.
+          </Alert>
+        )}
+
+        {/* Back Button */}
+        <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/feedback')}>
+          Back to Feedback
+        </Button>
+
+        {/* Close Confirmation Dialog */}
+        <Dialog open={closeDialogOpen} onClose={() => setCloseDialogOpen(false)}>
+          <DialogTitle>Close Feedback</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you satisfied with the resolution? Closing this feedback will mark it as resolved
+              to your satisfaction.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCloseDialogOpen(false)} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCloseFeedback}
+              variant="contained"
+              color="success"
+              disabled={submitting}
+              startIcon={submitting ? <CircularProgress size={20} /> : <CheckCircleIcon />}
+            >
+              {submitting ? 'Closing...' : 'Yes, Close Feedback'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Follow-up Dialog */}
+        <Dialog
+          open={followUpDialogOpen}
+          onClose={() => setFollowUpDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Add Follow-up Comment</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              If the issue is not fully resolved, please provide additional details. The support
+              team will be notified and will follow up.
+            </Typography>
+            <TextField
+              fullWidth
+              multiline
+              rows={4}
+              value={followUpComment}
+              onChange={(e) => setFollowUpComment(e.target.value)}
+              placeholder="Describe what is still not working or needs more attention..."
+              disabled={submitting}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setFollowUpDialogOpen(false)} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitFollowUp}
+              variant="contained"
+              color="warning"
+              disabled={submitting || !followUpComment.trim()}
+              startIcon={submitting ? <CircularProgress size={20} /> : <ReplayIcon />}
+            >
+              {submitting ? 'Submitting...' : 'Submit Follow-up'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Container>
+    </AuthenticatedLayout>
+  );
+}

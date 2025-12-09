@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Box,
   Typography,
@@ -20,6 +21,7 @@ import {
   IconButton,
   Divider,
   Paper,
+  Button,
 } from '@mui/material';
 import {
   BugReport as BugReportIcon,
@@ -31,6 +33,7 @@ import {
   HourglassEmpty as HourglassIcon,
   FiberNew as NewIcon,
   Assignment as TotalIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -47,7 +50,7 @@ interface FeedbackItem {
   title: string;
   description: string;
   status: FeedbackStatus;
-  resolutionNotes?: string;
+  adminNotes?: string;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -73,6 +76,7 @@ const statusConfig: Record<
 };
 
 export function UserFeedbackList() {
+  const router = useRouter();
   const { user } = useAuth();
   const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -293,26 +297,41 @@ export function UserFeedbackList() {
                   </Box>
 
                   {/* Resolution Notes (only shown when resolved/closed/wont_fix) */}
-                  {item.resolutionNotes &&
-                    ['resolved', 'closed', 'wont_fix'].includes(item.status) && (
-                      <Paper
-                        variant="outlined"
-                        sx={{ p: 2, bgcolor: 'success.light', color: 'success.dark' }}
-                      >
-                        <Typography variant="caption" display="block" gutterBottom fontWeight={600}>
-                          Resolution
-                        </Typography>
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                          {item.resolutionNotes}
-                        </Typography>
-                      </Paper>
-                    )}
+                  {item.adminNotes && ['resolved', 'closed', 'wont_fix'].includes(item.status) && (
+                    <Paper
+                      variant="outlined"
+                      sx={{ p: 2, bgcolor: 'success.light', color: 'success.dark' }}
+                    >
+                      <Typography variant="caption" display="block" gutterBottom fontWeight={600}>
+                        Resolution
+                      </Typography>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                        {item.adminNotes}
+                      </Typography>
+                    </Paper>
+                  )}
 
                   {item.updatedAt && (
                     <Typography variant="caption" color="text.secondary">
                       Last updated:{' '}
                       {formatDistanceToNow(item.updatedAt.toDate(), { addSuffix: true })}
                     </Typography>
+                  )}
+
+                  {/* Action button for resolved items */}
+                  {item.status === 'resolved' && (
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<OpenInNewIcon />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/feedback/${item.id}`);
+                      }}
+                      sx={{ mt: 1 }}
+                    >
+                      Review & Close or Follow Up
+                    </Button>
                   )}
                 </Stack>
               </Collapse>
