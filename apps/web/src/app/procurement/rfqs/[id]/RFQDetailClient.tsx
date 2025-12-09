@@ -91,8 +91,11 @@ export default function RFQDetailPage() {
 
   const loadRFQ = async (retryCount = 0) => {
     if (!rfqId) return;
-    setLoading(true);
-    setError('');
+    // Only set loading true on first attempt
+    if (retryCount === 0) {
+      setLoading(true);
+      setError('');
+    }
     try {
       const [rfqData, itemsData] = await Promise.all([getRFQById(rfqId), getRFQItems(rfqId)]);
 
@@ -105,18 +108,19 @@ export default function RFQDetailPage() {
             `[RFQDetailPage] RFQ not found, retrying in ${delay}ms (attempt ${retryCount + 1}/3)`
           );
           setTimeout(() => loadRFQ(retryCount + 1), delay);
-          return;
+          return; // Don't set loading false - we're still retrying
         }
         setError('RFQ not found');
+        setLoading(false);
         return;
       }
 
       setRfq(rfqData);
       setItems(itemsData);
+      setLoading(false);
     } catch (err) {
       console.error('[RFQDetailPage] Error loading RFQ:', err);
       setError('Failed to load RFQ');
-    } finally {
       setLoading(false);
     }
   };
