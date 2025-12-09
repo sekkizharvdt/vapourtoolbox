@@ -212,7 +212,8 @@ export default function FeedbackDetailClient() {
   const isOwner = feedback?.userId === user?.uid;
   const canTakeAction = isOwner && feedback?.status === 'resolved';
 
-  if (loading) {
+  // Show loading while auth OR data is loading
+  if (authLoading || loading) {
     return (
       <AuthenticatedLayout>
         <Container maxWidth="md" sx={{ py: 4 }}>

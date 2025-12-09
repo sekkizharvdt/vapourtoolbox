@@ -231,6 +231,8 @@ Good examples in the codebase:
 - `apps/web/src/app/documents/[id]/DocumentDetailClient.tsx`
 - `apps/web/src/app/proposals/[id]/ProposalDetailClient.tsx`
 - `apps/web/src/app/procurement/pos/[id]/PODetailClient.tsx`
+- `apps/web/src/app/feedback/[id]/FeedbackDetailClient.tsx`
+- `apps/web/src/app/accounting/cost-centres/[id]/CostCentreDetailClient.tsx`
 
 ## Related Issues
 
