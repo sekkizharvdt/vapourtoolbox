@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Box, Toolbar } from '@mui/material';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { DashboardAppBar } from '@/components/dashboard/AppBar';
+import { MobileBottomNav } from '@/components/layout/BottomNavigation';
 import { SessionTimeoutModal } from '@/components/auth/SessionTimeoutModal';
 import { CommandPalette, useCommandPalette } from '@/components/common/CommandPalette';
 import { KeyboardShortcutsHelp } from '@/components/common/KeyboardShortcutsHelp';
@@ -149,6 +150,7 @@ export function AuthenticatedLayout({
             sx={{
               flexGrow: 1,
               p: noPadding ? 0 : 3,
+              pb: { xs: noPadding ? 7 : 10, md: noPadding ? 0 : 3 }, // Extra padding on mobile for bottom nav
               width: { xs: '100%', md: `calc(100% - ${sidebarWidth}px)` },
               ml: { xs: 0, md: `${sidebarWidth}px` },
               minHeight: '100vh',
@@ -163,6 +165,9 @@ export function AuthenticatedLayout({
             <Toolbar /> {/* Spacer for AppBar */}
             {children}
           </Box>
+
+          {/* Mobile Bottom Navigation */}
+          <MobileBottomNav onMoreClick={handleDrawerToggle} />
 
           {/* Session Timeout Warning Modal */}
           <SessionTimeoutModal

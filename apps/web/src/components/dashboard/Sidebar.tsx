@@ -67,7 +67,7 @@ interface SidebarProps {
 }
 
 const SIDEBAR_WIDTH = 240;
-const SIDEBAR_WIDTH_COLLAPSED = 64;
+const SIDEBAR_WIDTH_COLLAPSED = 80; // Widened from 64 to accommodate labels
 
 // Map module IDs to icons
 const moduleIcons: Record<string, React.ReactNode> = {
@@ -338,26 +338,57 @@ function SidebarComponent({
                         sx={{
                           justifyContent: collapsed ? 'center' : 'initial',
                           px: collapsed ? 0 : 2,
-                          minHeight: 48,
+                          py: collapsed ? 0.5 : 0,
+                          minHeight: collapsed ? 56 : 48, // Taller when collapsed to fit label
                         }}
                       >
-                        <ListItemIcon
+                        <Box
                           sx={{
-                            minWidth: 0,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            minWidth: collapsed ? 'auto' : 0,
                             mr: collapsed ? 0 : 3,
-                            justifyContent: 'center',
-                            opacity: module.status === 'coming_soon' ? 0.5 : 1,
-                            color: category.isAdmin ? 'primary.main' : undefined,
                           }}
                         >
-                          {collapsed && feedbackCount > 0 && module.id === 'admin' ? (
-                            <Badge badgeContent={feedbackCount} color="error" max={99}>
-                              {moduleIcons[module.id]}
-                            </Badge>
-                          ) : (
-                            moduleIcons[module.id]
+                          <ListItemIcon
+                            sx={{
+                              minWidth: 0,
+                              justifyContent: 'center',
+                              opacity: module.status === 'coming_soon' ? 0.5 : 1,
+                              color: category.isAdmin ? 'primary.main' : undefined,
+                            }}
+                          >
+                            {collapsed && feedbackCount > 0 && module.id === 'admin' ? (
+                              <Badge badgeContent={feedbackCount} color="error" max={99}>
+                                {moduleIcons[module.id]}
+                              </Badge>
+                            ) : (
+                              moduleIcons[module.id]
+                            )}
+                          </ListItemIcon>
+                          {/* Show small label below icon when collapsed */}
+                          {collapsed && (
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                fontSize: '0.6rem',
+                                textAlign: 'center',
+                                lineHeight: 1.1,
+                                mt: 0.25,
+                                maxWidth: 70,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                opacity: module.status === 'coming_soon' ? 0.5 : 0.85,
+                                color: category.isAdmin ? 'primary.main' : 'text.secondary',
+                              }}
+                            >
+                              {/* Use first word or short name */}
+                              {module.name.split(' ')[0]}
+                            </Typography>
                           )}
-                        </ListItemIcon>
+                        </Box>
                         {!collapsed && (
                           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                             <ListItemText

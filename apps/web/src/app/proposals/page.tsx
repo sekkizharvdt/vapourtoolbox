@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Box,
   Button,
+  Container,
   Paper,
   Table,
   TableBody,
@@ -140,20 +141,22 @@ export default function ProposalListPage() {
   }
 
   return (
-    <Box>
-      <PageHeader
-        title="Proposals"
-        subtitle="Manage your proposals and quotes"
-        action={
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => router.push('/proposals/new')}
-          >
-            New Proposal
-          </Button>
-        }
-      />
+    <Container maxWidth="xl">
+      <Box sx={{ mb: 4 }}>
+        <PageHeader
+          title="Proposals"
+          subtitle="Manage your proposals and quotes"
+          action={
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => router.push('/proposals/new')}
+            >
+              New Proposal
+            </Button>
+          }
+        />
+      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -215,7 +218,7 @@ export default function ProposalListPage() {
         />
       ) : (
         <TableContainer component={Paper}>
-          <Table>
+          <Table sx={{ minWidth: 650 }}>
             <TableHead>
               <TableRow>
                 <TableCell>Proposal #</TableCell>
@@ -286,6 +289,6 @@ export default function ProposalListPage() {
           </Table>
         </TableContainer>
       )}
-    </Box>
+    </Container>
   );
 }
