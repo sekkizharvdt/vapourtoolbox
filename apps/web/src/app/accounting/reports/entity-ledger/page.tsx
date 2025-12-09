@@ -125,6 +125,24 @@ export default function EntityLedgerPage() {
     return () => unsubscribe();
   }, [selectedEntity]);
 
+  // Determine the entity's primary currency from their transactions
+  // Use the currency from invoices/bills linked to this entity
+  const entityCurrency = useMemo(() => {
+    // Find first invoice or bill to get the currency
+    const invoiceOrBill = transactions.find(
+      (txn) => txn.type === 'CUSTOMER_INVOICE' || txn.type === 'VENDOR_BILL'
+    );
+    if (invoiceOrBill?.currency) {
+      return invoiceOrBill.currency;
+    }
+    // Fallback to any transaction's currency
+    const firstTransaction = transactions[0];
+    if (firstTransaction?.currency) {
+      return firstTransaction.currency;
+    }
+    return 'INR';
+  }, [transactions]);
+
   // Calculate financial summary
   const financialSummary = useMemo(() => {
     if (!selectedEntity || transactions.length === 0) {
@@ -393,7 +411,7 @@ export default function EntityLedgerPage() {
                         </Typography>
                       </Box>
                       <Typography variant="h5" fontWeight="bold">
-                        {formatCurrency(financialSummary.totalInvoiced)}
+                        {formatCurrency(financialSummary.totalInvoiced, entityCurrency)}
                       </Typography>
                     </CardContent>
                   </Card>
@@ -408,7 +426,7 @@ export default function EntityLedgerPage() {
                         </Typography>
                       </Box>
                       <Typography variant="h5" fontWeight="bold" color="success.main">
-                        {formatCurrency(financialSummary.totalReceived)}
+                        {formatCurrency(financialSummary.totalReceived, entityCurrency)}
                       </Typography>
                     </CardContent>
                   </Card>
@@ -423,7 +441,7 @@ export default function EntityLedgerPage() {
                         </Typography>
                       </Box>
                       <Typography variant="h5" fontWeight="bold" color="warning.main">
-                        {formatCurrency(financialSummary.outstandingReceivable)}
+                        {formatCurrency(financialSummary.outstandingReceivable, entityCurrency)}
                       </Typography>
                     </CardContent>
                   </Card>
@@ -442,7 +460,7 @@ export default function EntityLedgerPage() {
                         </Typography>
                       </Box>
                       <Typography variant="h5" fontWeight="bold" color="error.main">
-                        {formatCurrency(financialSummary.overdueReceivable)}
+                        {formatCurrency(financialSummary.overdueReceivable, entityCurrency)}
                       </Typography>
                     </CardContent>
                   </Card>
@@ -462,7 +480,7 @@ export default function EntityLedgerPage() {
                         </Typography>
                       </Box>
                       <Typography variant="h5" fontWeight="bold">
-                        {formatCurrency(financialSummary.totalBilled)}
+                        {formatCurrency(financialSummary.totalBilled, entityCurrency)}
                       </Typography>
                     </CardContent>
                   </Card>
@@ -477,7 +495,7 @@ export default function EntityLedgerPage() {
                         </Typography>
                       </Box>
                       <Typography variant="h5" fontWeight="bold" color="info.main">
-                        {formatCurrency(financialSummary.totalPaid)}
+                        {formatCurrency(financialSummary.totalPaid, entityCurrency)}
                       </Typography>
                     </CardContent>
                   </Card>
@@ -492,7 +510,7 @@ export default function EntityLedgerPage() {
                         </Typography>
                       </Box>
                       <Typography variant="h5" fontWeight="bold" color="warning.main">
-                        {formatCurrency(financialSummary.outstandingPayable)}
+                        {formatCurrency(financialSummary.outstandingPayable, entityCurrency)}
                       </Typography>
                     </CardContent>
                   </Card>
@@ -509,7 +527,7 @@ export default function EntityLedgerPage() {
                         </Typography>
                       </Box>
                       <Typography variant="h5" fontWeight="bold" color="error.main">
-                        {formatCurrency(financialSummary.overduePayable)}
+                        {formatCurrency(financialSummary.overduePayable, entityCurrency)}
                       </Typography>
                     </CardContent>
                   </Card>
@@ -531,7 +549,7 @@ export default function EntityLedgerPage() {
                       Current (0-30 days)
                     </Typography>
                     <Typography variant="h6" color="success.main">
-                      {formatCurrency(financialSummary.aging.current)}
+                      {formatCurrency(financialSummary.aging.current, entityCurrency)}
                     </Typography>
                   </Box>
                 </Grid>
@@ -541,7 +559,7 @@ export default function EntityLedgerPage() {
                       31-60 days
                     </Typography>
                     <Typography variant="h6" color="warning.main">
-                      {formatCurrency(financialSummary.aging.days31to60)}
+                      {formatCurrency(financialSummary.aging.days31to60, entityCurrency)}
                     </Typography>
                   </Box>
                 </Grid>
@@ -551,7 +569,7 @@ export default function EntityLedgerPage() {
                       61-90 days
                     </Typography>
                     <Typography variant="h6" color="warning.dark">
-                      {formatCurrency(financialSummary.aging.days61to90)}
+                      {formatCurrency(financialSummary.aging.days61to90, entityCurrency)}
                     </Typography>
                   </Box>
                 </Grid>
@@ -561,7 +579,7 @@ export default function EntityLedgerPage() {
                       Over 90 days
                     </Typography>
                     <Typography variant="h6" color="error.main">
-                      {formatCurrency(financialSummary.aging.over90days)}
+                      {formatCurrency(financialSummary.aging.over90days, entityCurrency)}
                     </Typography>
                   </Box>
                 </Grid>
@@ -644,13 +662,13 @@ export default function EntityLedgerPage() {
                         </TableCell>
                         <TableCell align="right">
                           <Typography variant="body2" fontWeight="medium">
-                            {formatCurrency(txn.totalAmount || txn.amount)}
+                            {formatCurrency(txn.totalAmount || txn.amount, txn.currency)}
                           </Typography>
                         </TableCell>
                         <TableCell align="right">
                           {txn.outstandingAmount !== undefined && txn.outstandingAmount > 0 ? (
                             <Typography variant="body2" color="warning.main" fontWeight="medium">
-                              {formatCurrency(txn.outstandingAmount)}
+                              {formatCurrency(txn.outstandingAmount, txn.currency)}
                             </Typography>
                           ) : (
                             <Typography variant="body2" color="text.secondary">
