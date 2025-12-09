@@ -7,14 +7,17 @@ import {
   Box,
   Button,
   Alert,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
   Chip,
   LinearProgress,
   IconButton,
   Tooltip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -80,7 +83,7 @@ export default function CostCentresPage() {
     setOpenDialog(true);
   };
 
-  const handleEdit = (costCentre: CostCentre) => {
+  const handleRowClick = (costCentre: CostCentre) => {
     setSelectedCostCentre(costCentre);
     setOpenDialog(true);
   };
@@ -128,7 +131,7 @@ export default function CostCentresPage() {
   return (
     <Container maxWidth="xl">
       <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>
             <Typography variant="h4" component="h1" gutterBottom>
               Cost Centres
@@ -157,137 +160,160 @@ export default function CostCentresPage() {
             costs.
           </Alert>
         ) : (
-          <Grid container spacing={3} sx={{ mt: 1 }}>
-            {costCentres.map((costCentre) => {
-              const budgetUtilization = calculateBudgetUtilization(costCentre);
-              const budgetStatus = getBudgetStatus(budgetUtilization);
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Code</TableCell>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Budget</TableCell>
+                  <TableCell align="right">Spent</TableCell>
+                  <TableCell align="center" sx={{ minWidth: 150 }}>
+                    Utilization
+                  </TableCell>
+                  <TableCell align="right">Variance</TableCell>
+                  <TableCell align="center">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {costCentres.map((costCentre) => {
+                  const budgetUtilization = calculateBudgetUtilization(costCentre);
+                  const budgetStatus = getBudgetStatus(budgetUtilization);
+                  const variance = costCentre.variance ?? 0;
 
-              return (
-                <Grid size={{ xs: 12, md: 6, lg: 4 }} key={costCentre.id}>
-                  <Card>
-                    <CardContent>
-                      {/* Header */}
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                        <Box>
-                          <Typography variant="h6" gutterBottom>
-                            {costCentre.name}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {costCentre.code}
-                          </Typography>
-                        </Box>
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 0.5,
-                            alignItems: 'flex-end',
-                          }}
-                        >
-                          <Chip
-                            label={costCentre.isActive ? 'Active' : 'Inactive'}
-                            color={costCentre.isActive ? 'success' : 'default'}
-                            size="small"
-                          />
-                          <Chip
-                            label={costCentre.category || 'PROJECT'}
-                            color={
-                              costCentre.category === 'ADMINISTRATION'
-                                ? 'secondary'
-                                : costCentre.category === 'OVERHEAD'
-                                  ? 'warning'
-                                  : 'primary'
-                            }
-                            size="small"
-                            variant="outlined"
-                          />
-                        </Box>
-                      </Box>
-
-                      {costCentre.description && (
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                          {costCentre.description}
+                  return (
+                    <TableRow
+                      key={costCentre.id}
+                      hover
+                      sx={{ cursor: 'pointer' }}
+                      onClick={() => handleRowClick(costCentre)}
+                    >
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="medium">
+                          {costCentre.code}
                         </Typography>
-                      )}
-
-                      {/* Budget Information */}
-                      {costCentre.budgetAmount && costCentre.budgetAmount > 0 && (
-                        <Box sx={{ mb: 2 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Budget Utilization
-                            </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{costCentre.name}</Typography>
+                        {costCentre.description && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {costCentre.description.length > 50
+                              ? `${costCentre.description.substring(0, 50)}...`
+                              : costCentre.description}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={costCentre.category || 'PROJECT'}
+                          color={
+                            costCentre.category === 'ADMINISTRATION'
+                              ? 'secondary'
+                              : costCentre.category === 'OVERHEAD'
+                                ? 'warning'
+                                : 'primary'
+                          }
+                          size="small"
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={costCentre.isActive ? 'Active' : 'Inactive'}
+                          color={costCentre.isActive ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2">
+                          {costCentre.budgetAmount
+                            ? formatCurrency(costCentre.budgetAmount, costCentre.budgetCurrency)
+                            : '-'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" color="error.main">
+                          {formatCurrency(costCentre.actualSpent, costCentre.budgetCurrency)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {costCentre.budgetAmount && costCentre.budgetAmount > 0 ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ flexGrow: 1 }}>
+                              <LinearProgress
+                                variant="determinate"
+                                value={Math.min(budgetUtilization, 100)}
+                                color={budgetStatus}
+                                sx={{ height: 8, borderRadius: 1 }}
+                              />
+                            </Box>
                             <Typography
-                              variant="body2"
+                              variant="caption"
                               fontWeight="medium"
                               color={`${budgetStatus}.main`}
+                              sx={{ minWidth: 45 }}
                             >
                               {budgetUtilization.toFixed(1)}%
                             </Typography>
                           </Box>
-                          <LinearProgress
-                            variant="determinate"
-                            value={Math.min(budgetUtilization, 100)}
-                            color={budgetStatus}
-                          />
-                          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                            {formatCurrency(costCentre.actualSpent, costCentre.budgetCurrency)} of{' '}
-                            {formatCurrency(costCentre.budgetAmount, costCentre.budgetCurrency)}
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            -
                           </Typography>
-                        </Box>
-                      )}
-
-                      {/* Financial Summary */}
-                      <Grid container spacing={2} sx={{ mt: 1 }}>
-                        <Grid size={{ xs: 12 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            Total Expenses
-                          </Typography>
-                          <Typography variant="body2" fontWeight="medium" color="error.main">
-                            {formatCurrency(costCentre.actualSpent, costCentre.budgetCurrency)}
-                          </Typography>
-                        </Grid>
-                        {costCentre.variance !== null && (
-                          <Grid size={{ xs: 12 }}>
-                            <Typography variant="caption" color="text.secondary">
-                              Budget Variance
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              {costCentre.variance >= 0 ? (
-                                <UpIcon color="success" fontSize="small" />
-                              ) : (
-                                <DownIcon color="error" fontSize="small" />
-                              )}
-                              <Typography
-                                variant="body2"
-                                fontWeight="medium"
-                                color={costCentre.variance >= 0 ? 'success.main' : 'error.main'}
-                              >
-                                {formatCurrency(
-                                  Math.abs(costCentre.variance),
-                                  costCentre.budgetCurrency
-                                )}
-                              </Typography>
-                            </Box>
-                          </Grid>
                         )}
-                      </Grid>
-                    </CardContent>
-
-                    <CardActions sx={{ justifyContent: 'flex-end', px: 2, pb: 2 }}>
-                      {hasCreateAccess && (
-                        <Tooltip title="Edit Cost Centre">
-                          <IconButton size="small" onClick={() => handleEdit(costCentre)}>
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </CardActions>
-                  </Card>
-                </Grid>
-              );
-            })}
-          </Grid>
+                      </TableCell>
+                      <TableCell align="right">
+                        {costCentre.budgetAmount && costCentre.budgetAmount > 0 ? (
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                              gap: 0.5,
+                            }}
+                          >
+                            {variance >= 0 ? (
+                              <UpIcon color="success" fontSize="small" />
+                            ) : (
+                              <DownIcon color="error" fontSize="small" />
+                            )}
+                            <Typography
+                              variant="body2"
+                              fontWeight="medium"
+                              color={variance >= 0 ? 'success.main' : 'error.main'}
+                            >
+                              {formatCurrency(Math.abs(variance), costCentre.budgetCurrency)}
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            -
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell align="center">
+                        {hasCreateAccess && (
+                          <Tooltip title="Edit Cost Centre">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRowClick(costCentre);
+                              }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
       </Box>
 

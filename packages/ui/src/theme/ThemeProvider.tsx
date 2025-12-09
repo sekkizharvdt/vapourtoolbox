@@ -85,7 +85,7 @@ export function VapourThemeProvider({ children, defaultMode = 'light' }: VapourT
 
   return (
     <ThemeContext.Provider value={contextValue}>
-      <MuiThemeProvider theme={theme}>
+      <MuiThemeProvider theme={theme} key={mode}>
         <CssBaseline />
         {children}
       </MuiThemeProvider>
