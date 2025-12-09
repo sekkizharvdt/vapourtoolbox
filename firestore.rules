@@ -283,7 +283,7 @@ service cloud.firestore {
     // Time Entries Collection
     // ============================================
 
-    match /timeEntries/{entryId} {
+    match /time_entries/{entryId} {
       // Read: Internal users - own entries OR have MANAGE_TIME_TRACKING permission
       allow read: if isInternalUser() && (
                      isOwner(resource.data.userId) ||

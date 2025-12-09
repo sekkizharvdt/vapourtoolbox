@@ -90,8 +90,9 @@ export default function CostCentresPage() {
     setSelectedCostCentre(null);
   };
 
-  const formatCurrency = (amount: number, currency = 'INR') => {
-    return `${amount.toLocaleString('en-IN', {
+  const formatCurrency = (amount: number | undefined | null, currency = 'INR') => {
+    const safeAmount = amount ?? 0;
+    return `${safeAmount.toLocaleString('en-IN', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })} ${currency}`;
@@ -99,7 +100,8 @@ export default function CostCentresPage() {
 
   const calculateBudgetUtilization = (costCentre: CostCentre) => {
     if (!costCentre.budgetAmount || costCentre.budgetAmount <= 0) return 0;
-    return (costCentre.actualSpent / costCentre.budgetAmount) * 100;
+    const actualSpent = costCentre.actualSpent ?? 0;
+    return (actualSpent / costCentre.budgetAmount) * 100;
   };
 
   const getBudgetStatus = (utilization: number): 'success' | 'warning' | 'error' => {
