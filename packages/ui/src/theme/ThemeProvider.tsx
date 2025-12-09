@@ -37,28 +37,30 @@ interface VapourThemeProviderProps {
 /**
  * Theme Provider with dark mode support
  * Persists theme preference to localStorage
+ *
+ * IMPORTANT: We read localStorage during initial render (useState callback)
+ * so that CssBaseline injects the correct theme styles on first render.
+ * Do NOT defer localStorage read to useEffect - that breaks dark mode.
  */
 export function VapourThemeProvider({ children, defaultMode = 'light' }: VapourThemeProviderProps) {
-  // Track if we've mounted (to avoid hydration mismatch)
-  const [mounted, setMounted] = useState(false);
-  // Always start with defaultMode to avoid hydration mismatch
-  const [mode, setMode] = useState<ThemeMode>(defaultMode);
-
-  // Load saved theme preference after mount (client-side only)
-  useEffect(() => {
-    const saved = localStorage.getItem('vapour-theme-mode');
-    if (saved === 'light' || saved === 'dark') {
-      setMode(saved);
+  const [mode, setMode] = useState<ThemeMode>(() => {
+    // Read localStorage DURING initial render
+    // This ensures CssBaseline injects the correct theme on first render
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('vapour-theme-mode');
+      if (saved === 'light' || saved === 'dark') {
+        return saved;
+      }
     }
-    setMounted(true);
-  }, []);
+    return defaultMode;
+  });
 
-  // Persist to localStorage when mode changes (but only after initial mount)
+  // Persist to localStorage when mode changes
   useEffect(() => {
-    if (mounted) {
+    if (typeof window !== 'undefined') {
       localStorage.setItem('vapour-theme-mode', mode);
     }
-  }, [mode, mounted]);
+  }, [mode]);
 
   const toggleTheme = () => {
     setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
@@ -84,7 +86,7 @@ export function VapourThemeProvider({ children, defaultMode = 'light' }: VapourT
   return (
     <ThemeContext.Provider value={contextValue}>
       <MuiThemeProvider theme={theme}>
-        <CssBaseline key={mode} />
+        <CssBaseline />
         {children}
       </MuiThemeProvider>
     </ThemeContext.Provider>
