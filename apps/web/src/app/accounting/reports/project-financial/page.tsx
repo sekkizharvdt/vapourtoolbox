@@ -33,6 +33,7 @@ import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
+import { docToTypedWithDates } from '@/lib/firebase/typeHelpers';
 import type { BaseTransaction, CostCentre } from '@vapour/types';
 
 interface ProjectFinancials {
@@ -112,14 +113,7 @@ export default function ProjectFinancialReportPage() {
 
       transactionsSnapshot.forEach((doc) => {
         const data = doc.data();
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-        const transaction: BaseTransaction = {
-          id: doc.id,
-          ...data,
-          date: data.date instanceof Timestamp ? data.date.toDate() : new Date(),
-          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
-          updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
-        } as BaseTransaction;
+        const transaction = docToTypedWithDates<BaseTransaction>(doc.id, data);
 
         transactions.push(transaction);
 
@@ -139,16 +133,9 @@ export default function ProjectFinancialReportPage() {
       );
 
       const costCentresSnapshot = await getDocs(costCentresQuery);
-      const costCentres: CostCentre[] = costCentresSnapshot.docs.map((doc) => {
-        const data = doc.data();
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-        return {
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
-          updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
-        } as CostCentre;
-      });
+      const costCentres: CostCentre[] = costCentresSnapshot.docs.map((doc) =>
+        docToTypedWithDates<CostCentre>(doc.id, doc.data())
+      );
 
       // Get project budget from cost centres
       const totalBudget = costCentres.reduce((sum, cc) => sum + (cc.budgetAmount || 0), 0);

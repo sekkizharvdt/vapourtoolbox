@@ -29,8 +29,9 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting, canManageAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, onSnapshot, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { docToTypedWithDates } from '@/lib/firebase/typeHelpers';
 import type { CostCentre } from '@vapour/types';
 import CostCentreDialog from './components/CostCentreDialog';
 
@@ -58,16 +59,9 @@ export default function CostCentresPage() {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const centres = snapshot.docs.map((doc): CostCentre => {
-          const data = doc.data();
-          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-          return {
-            id: doc.id,
-            ...data,
-            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
-            updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
-          } as CostCentre;
-        });
+        const centres = snapshot.docs.map((doc) =>
+          docToTypedWithDates<CostCentre>(doc.id, doc.data())
+        );
         setCostCentres(centres);
         setLoading(false);
       },

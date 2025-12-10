@@ -23,6 +23,7 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
+import { docToTyped } from '../firebase/typeHelpers';
 import type {
   Material,
   MaterialCategory,
@@ -233,12 +234,7 @@ export async function getMaterialById(db: Firestore, materialId: string): Promis
       return null;
     }
 
-    const data = materialSnap.data();
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-    return {
-      id: materialSnap.id,
-      ...data,
-    } as Material;
+    return docToTyped<Material>(materialSnap.id, materialSnap.data());
   } catch (error) {
     logger.error('Failed to get material', { materialId, error });
     throw new Error(
@@ -355,15 +351,9 @@ export async function queryMaterials(
     logger.debug('Materials query executed', { resultsCount: snapshot.size });
 
     // Extract materials
-    const materials: Material[] = snapshot.docs.slice(0, limitResults).map((doc) => {
-      const data = doc.data();
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      const material: Material = {
-        id: doc.id,
-        ...data,
-      } as Material;
-      return material;
-    });
+    const materials: Material[] = snapshot.docs
+      .slice(0, limitResults)
+      .map((doc) => docToTyped<Material>(doc.id, doc.data()));
 
     // Check if there are more results
     const hasMore = snapshot.size > limitResults;
@@ -416,12 +406,7 @@ export async function searchMaterials(
     const materials: Material[] = [];
 
     snapshot.docs.forEach((doc) => {
-      const data = doc.data();
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      const material: Material = {
-        id: doc.id,
-        ...data,
-      } as Material;
+      const material = docToTyped<Material>(doc.id, doc.data());
 
       const matchesSearch =
         material.name.toLowerCase().includes(searchLower) ||

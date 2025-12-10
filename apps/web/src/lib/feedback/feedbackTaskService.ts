@@ -9,6 +9,7 @@
 import { doc, updateDoc, getDoc, Timestamp, arrayUnion, type Firestore } from 'firebase/firestore';
 import { createLogger } from '@vapour/logger';
 import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 
 const logger = createLogger({ context: 'feedbackTaskService' });
 
@@ -192,11 +193,7 @@ export async function getFeedbackById(
       return null;
     }
 
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-    return {
-      id: feedbackSnap.id,
-      ...feedbackSnap.data(),
-    } as FeedbackDocument;
+    return docToTyped<FeedbackDocument>(feedbackSnap.id, feedbackSnap.data());
   } catch (error) {
     logger.error('Error getting feedback', { feedbackId, error });
     throw error;

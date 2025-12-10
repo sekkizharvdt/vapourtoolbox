@@ -52,7 +52,10 @@ export function fromFirestoreTimestamp(timestamp: Timestamp | Date): string {
  */
 export function createFirestoreDoc<T extends Record<string, unknown>>(
   data: T
-): T & { createdAt: ReturnType<typeof serverTimestamp>; updatedAt: ReturnType<typeof serverTimestamp> } {
+): T & {
+  createdAt: ReturnType<typeof serverTimestamp>;
+  updatedAt: ReturnType<typeof serverTimestamp>;
+} {
   return {
     ...data,
     createdAt: serverTimestamp(),
@@ -131,9 +134,7 @@ export function createTransactionDoc<T extends TransactionDocBase>(
  *   })
  * };
  */
-export function conditionalProps<T extends Record<string, unknown>>(
-  props: T
-): Partial<T> {
+export function conditionalProps<T extends Record<string, unknown>>(props: T): Partial<T> {
   return Object.fromEntries(
     Object.entries(props).filter(([_, value]) => value !== undefined && value !== null)
   ) as Partial<T>;
@@ -168,4 +169,62 @@ export function safeToTimestamp(value: unknown): Timestamp | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Type-safe conversion of Firestore document snapshot to typed object.
+ * This is the preferred pattern over `as Type` assertions for document conversion.
+ *
+ * @param id - Document ID
+ * @param data - Document data from doc.data()
+ * @returns Typed document object with id
+ *
+ * @example
+ * // Instead of:
+ * // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+ * const material = { id: doc.id, ...doc.data() } as Material;
+ *
+ * // Use:
+ * const material = docToTyped<Material>(doc.id, doc.data());
+ */
+export function docToTyped<T extends { id: string }>(
+  id: string,
+  data: Record<string, unknown> | undefined
+): T {
+  const result: { id: string } & Record<string, unknown> = { id, ...data };
+  return result as T;
+}
+
+/**
+ * Type-safe conversion of Firestore document with timestamp fields converted to Date.
+ * Use this for documents that have date, createdAt, updatedAt as Timestamp fields
+ * but the TypeScript type expects Date objects.
+ *
+ * @param id - Document ID
+ * @param data - Document data from doc.data()
+ * @returns Typed document object with timestamps converted to Date
+ *
+ * @example
+ * const transaction = docToTypedWithDates<BaseTransaction>(doc.id, doc.data());
+ */
+export function docToTypedWithDates<T extends { id: string }>(
+  id: string,
+  data: Record<string, unknown> | undefined
+): T {
+  if (!data) {
+    const result: { id: string } = { id };
+    return result as T;
+  }
+
+  const result: Record<string, unknown> = { id };
+
+  for (const [key, value] of Object.entries(data)) {
+    if (value instanceof Timestamp) {
+      result[key] = value.toDate();
+    } else {
+      result[key] = value;
+    }
+  }
+
+  return result as T;
 }

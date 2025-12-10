@@ -24,6 +24,7 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type {
   BOM,
   BOMItem,
@@ -71,7 +72,9 @@ export async function generateBOMCode(db: Firestore): Promise<string> {
     // Fallback: generate based on timestamp if counter fails
     logger.warn('Counter document failed, using timestamp fallback', { error });
     const timestamp = Date.now().toString().slice(-4);
-    const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+    const random = Math.floor(Math.random() * 100)
+      .toString()
+      .padStart(2, '0');
     return `EST-${yearStr}-${timestamp}${random}`;
   }
 }
@@ -211,12 +214,7 @@ export async function getBOMById(db: Firestore, bomId: string): Promise<BOM | nu
       return null;
     }
 
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-    const bom: BOM = {
-      id: bomDoc.id,
-      ...bomDoc.data(),
-    } as BOM;
-    return bom;
+    return docToTyped<BOM>(bomDoc.id, bomDoc.data());
   } catch (error) {
     logger.error('Error getting BOM', { bomId, error });
     throw error;

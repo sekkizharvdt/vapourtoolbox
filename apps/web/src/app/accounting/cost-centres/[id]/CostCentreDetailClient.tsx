@@ -49,6 +49,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { docToTypedWithDates } from '@/lib/firebase/typeHelpers';
 import type { CostCentre, BaseTransaction, CustomerInvoice } from '@vapour/types';
 import CostCentreDialog from '../components/CostCentreDialog';
 
@@ -146,17 +147,7 @@ export default function CostCentreDetailClient() {
     const unsubInvoices = onSnapshot(
       invoicesQuery,
       (snapshot) => {
-        const docs = snapshot.docs.map((d) => {
-          const data = d.data();
-          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-          return {
-            id: d.id,
-            ...data,
-            date: data.date instanceof Timestamp ? data.date.toDate() : new Date(),
-            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
-            updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
-          } as CustomerInvoice;
-        });
+        const docs = snapshot.docs.map((d) => docToTypedWithDates<CustomerInvoice>(d.id, d.data()));
         setInvoices(docs);
       },
       (err) => console.error('[CostCentreDetail] Error loading invoices:', err)
@@ -173,17 +164,7 @@ export default function CostCentreDetailClient() {
     const unsubPayments = onSnapshot(
       paymentsQuery,
       (snapshot) => {
-        const docs = snapshot.docs.map((d) => {
-          const data = d.data();
-          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-          return {
-            id: d.id,
-            ...data,
-            date: data.date instanceof Timestamp ? data.date.toDate() : new Date(),
-            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
-            updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
-          } as BaseTransaction;
-        });
+        const docs = snapshot.docs.map((d) => docToTypedWithDates<BaseTransaction>(d.id, d.data()));
         setPayments(docs);
       },
       (err) => console.error('[CostCentreDetail] Error loading payments:', err)
@@ -200,17 +181,7 @@ export default function CostCentreDetailClient() {
     const unsubBills = onSnapshot(
       billsQuery,
       (snapshot) => {
-        const docs = snapshot.docs.map((d) => {
-          const data = d.data();
-          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-          return {
-            id: d.id,
-            ...data,
-            date: data.date instanceof Timestamp ? data.date.toDate() : new Date(),
-            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
-            updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
-          } as BaseTransaction;
-        });
+        const docs = snapshot.docs.map((d) => docToTypedWithDates<BaseTransaction>(d.id, d.data()));
         setBills(docs);
       },
       (err) => console.error('[CostCentreDetail] Error loading bills:', err)

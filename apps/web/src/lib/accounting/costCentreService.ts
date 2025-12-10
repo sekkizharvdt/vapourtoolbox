@@ -10,6 +10,7 @@ import {
 import { COLLECTIONS } from '@vapour/firebase';
 import type { CostCentre } from '@vapour/types';
 import { logger } from '@vapour/logger';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 
 /**
  * Create a cost centre for a project when charter is approved
@@ -108,12 +109,7 @@ export async function getProjectCostCentre(
     if (!docSnapshot) {
       return null;
     }
-    const data = docSnapshot.data();
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-    return {
-      id: docSnapshot.id,
-      ...data,
-    } as CostCentre;
+    return docToTyped<CostCentre>(docSnapshot.id, docSnapshot.data());
   } catch (error) {
     logger.error('Failed to get cost centre for project', { error, projectId });
     throw error;

@@ -24,6 +24,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type {
   PurchaseOrder,
   PurchaseOrderItem,
@@ -103,8 +104,7 @@ export async function createBillFromGoodsReceipt(
       });
     }
 
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-    const purchaseOrder = { id: poDoc.id, ...poDoc.data() } as PurchaseOrder;
+    const purchaseOrder = docToTyped<PurchaseOrder>(poDoc.id, poDoc.data());
 
     // Fetch goods receipt items to calculate actual amounts
     const grItemsQuery = query(
@@ -112,12 +112,9 @@ export async function createBillFromGoodsReceipt(
       where('goodsReceiptId', '==', goodsReceipt.id)
     );
     const grItemsSnapshot = await getDocs(grItemsQuery);
-    const goodsReceiptItems = grItemsSnapshot.docs.map((doc) => {
-      return {
-        id: doc.id,
-        ...doc.data(),
-      } as unknown as GoodsReceiptItem;
-    });
+    const goodsReceiptItems = grItemsSnapshot.docs.map((doc) =>
+      docToTyped<GoodsReceiptItem>(doc.id, doc.data())
+    );
 
     // Fetch purchase order items for financial data
     const poItemsQuery = query(
@@ -125,13 +122,9 @@ export async function createBillFromGoodsReceipt(
       where('purchaseOrderId', '==', purchaseOrder.id)
     );
     const poItemsSnapshot = await getDocs(poItemsQuery);
-    const purchaseOrderItems = poItemsSnapshot.docs.map((doc): PurchaseOrderItem => {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      return {
-        id: doc.id,
-        ...doc.data(),
-      } as PurchaseOrderItem;
-    });
+    const purchaseOrderItems = poItemsSnapshot.docs.map((doc) =>
+      docToTyped<PurchaseOrderItem>(doc.id, doc.data())
+    );
 
     // Calculate bill amounts based on accepted quantities in goods receipt
     let subtotal = 0;

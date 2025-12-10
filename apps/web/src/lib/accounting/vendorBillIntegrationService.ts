@@ -12,6 +12,7 @@ import {
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill, InvoiceLineItem } from '@vapour/types';
 import { logger } from '@vapour/logger';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 
 /**
  * Create a vendor bill from an approved 3-way match
@@ -164,12 +165,7 @@ export async function getVendorBillForMatch(
     if (!docSnapshot) {
       return null;
     }
-    const data = docSnapshot.data();
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-    return {
-      id: docSnapshot.id,
-      ...data,
-    } as VendorBill;
+    return docToTyped<VendorBill>(docSnapshot.id, docSnapshot.data());
   } catch (error) {
     logger.error('Failed to get vendor bill for match', { error, threeWayMatchId });
     throw error;

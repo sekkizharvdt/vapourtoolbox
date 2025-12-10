@@ -12,6 +12,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { calculateShape } from '@/lib/shapes/shapeCalculator';
 import { calculateAllServiceCosts } from '@/lib/services/serviceCalculations';
 import { createLogger } from '@vapour/logger';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type {
   BOMItem,
   BOMItemCostCalculation,
@@ -60,8 +61,7 @@ export async function calculateBoughtOutItemCost(
       return null;
     }
 
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-    const material: Material = { id: materialDoc.id, ...materialDoc.data() } as Material;
+    const material = docToTyped<Material>(materialDoc.id, materialDoc.data());
 
     // Get material price
     const materialPrice = material.currentPrice?.pricePerUnit.amount || 0;
@@ -173,10 +173,8 @@ export async function calculateItemCost(
       return null;
     }
 
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-    const shape: Shape = { id: shapeDoc.id, ...shapeDoc.data() } as Shape;
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-    const material: Material = { id: materialDoc.id, ...materialDoc.data() } as Material;
+    const shape = docToTyped<Shape>(shapeDoc.id, shapeDoc.data());
+    const material = docToTyped<Material>(materialDoc.id, materialDoc.data());
 
     // Calculate shape properties
     const shapeResult = calculateShape({
