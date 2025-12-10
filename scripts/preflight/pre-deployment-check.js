@@ -218,10 +218,26 @@ async function checkEnvironment() {
 }
 
 /**
- * Check 5: Code Quality
+ * Check 5: Firebase Hosting Rewrites
+ */
+async function checkFirebaseRewrites() {
+  printHeader('CHECK 5: Firebase Hosting Rewrites');
+
+  try {
+    execSync('node scripts/validate-firebase-rewrites.js', { stdio: 'pipe' });
+    printCheck('Firebase rewrites', true, 'All dynamic routes have rewrites configured');
+  } catch (error) {
+    printCheck('Firebase rewrites', false, 'Missing rewrites for some dynamic routes');
+    criticalIssues.push('Firebase hosting rewrites missing - pages will show wrong content');
+    console.log('\n   Run: node scripts/validate-firebase-rewrites.js for details\n');
+  }
+}
+
+/**
+ * Check 6: Code Quality
  */
 async function checkCodeQuality() {
-  printHeader('CHECK 5: Code Quality');
+  printHeader('CHECK 6: Code Quality');
 
   try {
     // Check for common anti-patterns in recent code
@@ -257,10 +273,10 @@ async function checkCodeQuality() {
 }
 
 /**
- * Check 6: Recent Query Changes
+ * Check 7: Recent Query Changes
  */
 async function checkQueryChanges() {
-  printHeader('CHECK 6: Recent Query Changes');
+  printHeader('CHECK 7: Recent Query Changes');
 
   try {
     // Check git diff for query changes
@@ -323,6 +339,7 @@ async function runPreDeploymentChecks() {
     await checkBuild();
     await checkSchemaConsistency();
     await checkFirestoreIndexes();
+    await checkFirebaseRewrites();
     await checkCodeQuality();
     await checkQueryChanges();
 

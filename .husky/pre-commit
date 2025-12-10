@@ -20,6 +20,15 @@ if grep -r "as any" apps/web/src --include="*.ts" --include="*.tsx" 2>/dev/null 
 fi
 echo "✅ No prohibited type casts found"
 
+# Validate Firebase hosting rewrites match dynamic routes
+echo "🔍 Validating Firebase hosting rewrites..."
+node scripts/validate-firebase-rewrites.js
+if [ $? -ne 0 ]; then
+  echo "❌ Firebase hosting rewrites validation failed!"
+  echo "   Add missing rewrites to firebase.json before the catch-all rule."
+  exit 1
+fi
+
 # Run pre-deployment checks (skip build and schema for speed)
 node scripts/preflight/pre-deployment-check.js --skip-build --skip-schema
 
