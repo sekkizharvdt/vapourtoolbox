@@ -142,11 +142,28 @@ function ThreadMessageComponent({ message, userMap, currentUserId, isOwn }: Thre
 }
 
 /**
+ * Escape HTML special characters to prevent XSS attacks
+ */
+function escapeHtml(text: string): string {
+  const htmlEscapes: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return text.replace(/[&<>"']/g, (char) => htmlEscapes[char] || char);
+}
+
+/**
  * Highlight @mentions in the message content with styled spans
+ * Sanitizes HTML to prevent XSS attacks
  */
 function highlightMentions(content: string): string {
-  // Match @username patterns and wrap in styled span
-  return content.replace(/@(\w+)/g, '<span class="mention">@$1</span>');
+  // First escape any HTML in the content to prevent XSS
+  const escaped = escapeHtml(content);
+  // Then apply mention highlighting
+  return escaped.replace(/@(\w+)/g, '<span class="mention">@$1</span>');
 }
 
 const ThreadMessage = memo(ThreadMessageComponent);
