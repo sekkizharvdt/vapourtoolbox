@@ -231,8 +231,8 @@ export function getFastestDeliveryVariant(
   return variants
     .filter((v) => v.isAvailable && v.leadTimeDays !== undefined)
     .sort((a, b) => {
-      const leadA = a.leadTimeDays || Infinity;
-      const leadB = b.leadTimeDays || Infinity;
+      const leadA = a.leadTimeDays ?? Infinity;
+      const leadB = b.leadTimeDays ?? Infinity;
       return leadA - leadB;
     })[0];
 }
