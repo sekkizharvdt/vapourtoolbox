@@ -115,10 +115,14 @@ Error boundaries automatically report to Sentry with module-specific context:
 
 ### Module-Specific Error Boundaries
 
-- **Dashboard**: `src/app/dashboard/error.tsx` (tag: `module: dashboard`)
-- **Accounting**: `src/app/accounting/error.tsx` (tag: `module: accounting`)
-- **Projects**: `src/app/projects/error.tsx` (tag: `module: projects`)
-- **Procurement**: `src/app/procurement/error.tsx` (tag: `module: procurement`)
+All 22 route groups have error boundaries with Sentry integration:
+
+- **Core**: `dashboard`, `admin`, `super-admin`, `users`
+- **Business**: `accounting`, `procurement`, `projects`, `proposals`, `estimation`
+- **Documents**: `documents`, `materials`, `bought-out`, `entities`
+- **Workflows**: `flow`, `feedback`, `ssot`
+- **Tools**: `thermal`, `guide`, `company`
+- **Auth**: `login`, `pending-approval`, `unauthorized`
 
 Each module error boundary includes:
 
