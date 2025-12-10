@@ -203,7 +203,8 @@ export default function CostCentreDetailClient() {
   };
 
   const formatCurrency = (amount: number | undefined | null, currency = 'INR') => {
-    const safeAmount = amount ?? 0;
+    // Ensure we have a valid number (not undefined, null, Date, or NaN)
+    const safeAmount = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
     return `${safeAmount.toLocaleString('en-IN', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
