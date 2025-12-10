@@ -95,9 +95,14 @@ test.describe('Critical Path', () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
 
-      // Filter out expected errors (like Firebase auth in test mode)
+      // Filter out expected errors (like Firebase auth in test mode, Sentry warnings)
       const unexpectedErrors = errors.filter(
-        (e) => !e.includes('Firebase') && !e.includes('auth') && !e.includes('network')
+        (e) =>
+          !e.includes('Firebase') &&
+          !e.includes('auth') &&
+          !e.includes('network') &&
+          !e.includes('Sentry') &&
+          !e.includes('Session Replay')
       );
 
       expect(unexpectedErrors).toHaveLength(0);
