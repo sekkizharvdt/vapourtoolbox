@@ -54,6 +54,7 @@ import {
   RequestQuote as RequestQuoteIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
+import Image from 'next/image';
 import { MODULES, PERMISSION_FLAGS, hasPermission, hasPermission2 } from '@vapour/constants';
 
 interface SidebarProps {
@@ -246,8 +247,7 @@ function SidebarComponent({
               justifyContent: 'center',
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="/logo.png"
               alt="VDT Logo"
               width={32}
@@ -265,8 +265,7 @@ function SidebarComponent({
               alignItems: 'center',
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="/logo.png"
               alt="Vapour Toolbox Logo"
               width={150}
