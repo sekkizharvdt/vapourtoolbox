@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Grid,
   Card,
@@ -32,12 +32,7 @@ export default function MaterialSelector({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadMaterials();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowedCategories]);
-
-  const loadMaterials = async () => {
+  const loadMaterials = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -64,7 +59,11 @@ export default function MaterialSelector({
     } finally {
       setLoading(false);
     }
-  };
+  }, [allowedCategories]);
+
+  useEffect(() => {
+    loadMaterials();
+  }, [loadMaterials]);
 
   if (loading) {
     return (

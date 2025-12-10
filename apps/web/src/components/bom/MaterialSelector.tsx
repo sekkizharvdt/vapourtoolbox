@@ -1,7 +1,7 @@
 'use client';
 
 import { Autocomplete, TextField, Box, Typography, Chip, CircularProgress } from '@mui/material';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getFirebase } from '@/lib/firebase';
 import {
   collection,
@@ -41,12 +41,7 @@ export default function MaterialSelector({
   const [loading, setLoading] = useState(false);
   const [inputValue, setInputValue] = useState('');
 
-  useEffect(() => {
-    loadMaterials();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categories, materialType, entityId]);
-
-  const loadMaterials = async () => {
+  const loadMaterials = useCallback(async () => {
     if (!db || !entityId) return;
 
     try {
@@ -85,7 +80,11 @@ export default function MaterialSelector({
     } finally {
       setLoading(false);
     }
-  };
+  }, [db, categories, materialType, entityId]);
+
+  useEffect(() => {
+    loadMaterials();
+  }, [loadMaterials]);
 
   const selectedMaterial = materials.find((m) => m.id === value) || null;
 
