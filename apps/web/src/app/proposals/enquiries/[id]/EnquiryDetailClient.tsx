@@ -42,7 +42,6 @@ import {
   ENQUIRY_PROJECT_TYPE_LABELS,
 } from '@vapour/types';
 import { EnquiryDocumentUpload } from '../components/EnquiryDocumentUpload';
-import { logger } from '@vapour/logger';
 import { formatDate } from '@/lib/utils/formatters';
 
 export default function EnquiryDetailClient() {
@@ -164,8 +163,7 @@ export default function EnquiryDetailClient() {
               startIcon={<ProposalIcon />}
               disabled={enquiry.status === 'CANCELLED' || enquiry.status === 'LOST'}
               onClick={() => {
-                // TODO: Navigate to Proposal Builder
-                logger.info('Create Proposal clicked');
+                router.push(`/proposals/new?enquiryId=${enquiry.id}`);
               }}
             >
               Create Proposal

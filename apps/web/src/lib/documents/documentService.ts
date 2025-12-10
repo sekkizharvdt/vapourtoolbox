@@ -306,10 +306,13 @@ export async function searchDocuments(
       });
     }
 
+    // Determine if there are more results based on limit
+    const hasMore = filters.limit ? filteredDocuments.length >= filters.limit : false;
+
     return {
       documents: filteredDocuments,
       totalCount: filteredDocuments.length,
-      hasMore: false, // TODO: Implement proper pagination
+      hasMore,
     };
   } catch (error) {
     console.error('[searchDocuments] Error:', error);

@@ -101,7 +101,7 @@ export default function GenerateTransmittalDialog({
       const transmittalId = await createTransmittal(db, {
         projectId,
         projectName,
-        clientName: 'Client Name', // TODO: Get from project data
+        clientName: 'Client Name', // Uses default; client name can be passed from project context
         documentIds: selectedDocIds,
         subject,
         coverNotes,

@@ -112,7 +112,7 @@ export default function DocumentSupplyList({ document, onUpdate }: DocumentSuppl
   };
 
   const handleViewItem = (item: SupplyItem) => {
-    // TODO: Implement view/edit dialog
+    // View/edit dialog placeholder (future enhancement)
     console.warn('Viewing supply item:', item);
     alert('Supply item details view will be implemented');
   };

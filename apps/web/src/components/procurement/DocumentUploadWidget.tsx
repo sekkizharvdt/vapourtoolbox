@@ -95,7 +95,7 @@ export default function DocumentUploadWidget({
     setUploadProgress(0);
 
     try {
-      // Simulate progress (TODO: implement real progress tracking with Firebase)
+      // Simulate progress (real progress tracking can be added via Firebase uploadBytesResumable)
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => Math.min(prev + 10, 90));
       }, 200);

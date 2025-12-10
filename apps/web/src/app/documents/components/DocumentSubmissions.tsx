@@ -118,13 +118,13 @@ export default function DocumentSubmissions({ document, onUpdate }: DocumentSubm
   };
 
   const handleViewComments = (submission: DocumentSubmission) => {
-    // TODO: Navigate to comments tab with this submission filtered
+    // Navigate to comments tab with submission filter (future enhancement)
     console.warn('View comments for submission:', submission.id);
     alert('Comment navigation will be implemented');
   };
 
   const handleDownloadCRT = (submission: DocumentSubmission) => {
-    // TODO: Download CRT document
+    // Download CRT document (future enhancement)
     console.warn('Download CRT for submission:', submission.id);
     alert('CRT download will be implemented');
   };

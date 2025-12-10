@@ -33,6 +33,7 @@ import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { listProposals } from '@/lib/proposal/proposalService';
 import type { Proposal, ProposalStatus } from '@vapour/types';
+import { Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { PermissionFlag, hasPermission } from '@vapour/types';
 
@@ -107,8 +108,8 @@ export default function ProposalListPage() {
         entityId: claims?.entityId, // Optional for Superadmin
         status: statusFilter.length > 0 ? (statusFilter as ProposalStatus[]) : undefined,
         searchTerm: searchTerm || undefined,
-        dateFrom: dateRange.start ? undefined : undefined, // TODO: Convert Date to Timestamp
-        dateTo: dateRange.end ? undefined : undefined, // TODO: Convert Date to Timestamp
+        dateFrom: dateRange.start ? Timestamp.fromDate(dateRange.start) : undefined,
+        dateTo: dateRange.end ? Timestamp.fromDate(dateRange.end) : undefined,
       });
 
       setProposals(data);

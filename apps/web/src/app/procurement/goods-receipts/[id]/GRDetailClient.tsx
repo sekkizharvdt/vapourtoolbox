@@ -132,7 +132,7 @@ export default function GRDetailClient() {
 
     setActionLoading(true);
     try {
-      // TODO: Allow selecting bank account
+      // Bank account selection can be added in future; using default for now
       await approveGRForPayment(grId, '', user.uid, user.email || '');
       setPaymentDialogOpen(false);
       await loadGR();

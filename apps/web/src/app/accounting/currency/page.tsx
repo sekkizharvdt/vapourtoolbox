@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import {
   Container,
   Typography,
@@ -25,7 +25,10 @@ import { Refresh as RefreshIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting, canManageAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
-import ExchangeRateTrendChart from '@/components/accounting/currency/ExchangeRateTrendChart';
+// Lazy load chart components to reduce initial bundle size
+const ExchangeRateTrendChart = lazy(
+  () => import('@/components/accounting/currency/ExchangeRateTrendChart')
+);
 import BankSettlementAnalysis from '@/components/accounting/currency/BankSettlementAnalysis';
 import {
   collection,
@@ -579,7 +582,22 @@ export default function CurrencyForexPage() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Track exchange rate movements over time to identify patterns
             </Typography>
-            <ExchangeRateTrendChart rates={exchangeRates} baseCurrency={baseCurrency} />
+            <Suspense
+              fallback={
+                <Box
+                  sx={{
+                    height: 300,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  Loading chart...
+                </Box>
+              }
+            >
+              <ExchangeRateTrendChart rates={exchangeRates} baseCurrency={baseCurrency} />
+            </Suspense>
           </Box>
         </TabPanel>
 

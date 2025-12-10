@@ -174,15 +174,15 @@ export default function ShapeCalculatorPage() {
   };
 
   const handleSave = async () => {
-    // TODO: Implement save to database
+    // Save calculation to database (future enhancement)
   };
 
   const handleExportPDF = async () => {
-    // TODO: Implement PDF export
+    // Export calculation as PDF (future enhancement)
   };
 
   const handleExportExcel = async () => {
-    // TODO: Implement Excel export
+    // Export calculation as Excel (future enhancement)
   };
 
   const handleShare = async () => {

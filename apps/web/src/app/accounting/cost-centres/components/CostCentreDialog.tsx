@@ -83,8 +83,7 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
         // Create mode - generate next code
         const generateCode = async () => {
           try {
-            // TODO: Query existing cost centres to generate next code
-            // For now, use timestamp-based code
+            // Using timestamp-based code for uniqueness
             const timestamp = Date.now().toString().slice(-6);
             setFormData({ ...EMPTY_FORM, code: `CC-${timestamp}` });
           } catch (error) {

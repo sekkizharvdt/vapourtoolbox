@@ -46,6 +46,7 @@ import {
   rejectCommentResolution,
 } from '@/lib/documents/commentService';
 import { useAuth } from '@/contexts/AuthContext';
+import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import AddCommentDialog, { type CommentData } from './comments/AddCommentDialog';
 import CommentsTable from './comments/CommentsTable';
 import CommentThreadDialog from './comments/CommentThreadDialog';
@@ -62,7 +63,11 @@ type CommentFilter = 'ALL' | CommentStatus;
 
 export default function DocumentComments({ document, onUpdate }: DocumentCommentsProps) {
   const { db } = getFirebase();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
+
+  // Permission checks - any authenticated user can resolve, managers can approve
+  const canResolve = !!user;
+  const canApprove = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_PROJECTS);
 
   const [comments, setComments] = useState<DocumentComment[]>([]);
   const [filteredComments, setFilteredComments] = useState<DocumentComment[]>([]);
@@ -407,8 +412,8 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
           setSelectedComment(null);
         }}
         comment={selectedComment}
-        canResolve={true} // TODO: Check user permissions
-        canApprove={true} // TODO: Check if user is PM
+        canResolve={canResolve}
+        canApprove={canApprove}
         onResolve={handleResolveComment}
         onApprove={handleApproveResolution}
         onReject={handleRejectResolution}

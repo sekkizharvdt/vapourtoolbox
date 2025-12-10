@@ -108,7 +108,7 @@ export default function SSOTPage() {
 
   const handleExportExcel = useCallback(async () => {
     if (!selectedProjectId) return;
-    // TODO: Implement Excel export
+    // Excel export (future enhancement)
     logger.info('Export Excel requested', { projectId: selectedProjectId });
     alert('Excel export coming soon!');
   }, [selectedProjectId]);

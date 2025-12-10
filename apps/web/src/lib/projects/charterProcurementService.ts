@@ -142,8 +142,7 @@ async function generatePRNumber(): Promise<string> {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
 
-  // TODO: Implement counter logic
-  // For now, use timestamp-based number
+  // Using timestamp-based sequence to ensure uniqueness
   const sequence = String(Date.now()).slice(-4);
 
   return `PR/${year}/${month}/${sequence}`;

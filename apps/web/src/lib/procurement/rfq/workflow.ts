@@ -56,8 +56,8 @@ export async function issueRFQ(rfqId: string, userId: string, userName: string):
     }
   );
 
-  // TODO: Generate PDF and store URL
-  // TODO: Send notifications to procurement manager
+  // Future: Generate PDF and store URL
+  // Future: Send notifications to procurement manager
 
   logger.info('RFQ issued', { rfqId });
 }

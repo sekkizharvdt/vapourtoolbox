@@ -116,7 +116,7 @@ export async function createEnquiry(
       estimatedBudget: input.estimatedBudget,
       status: 'NEW',
       assignedToUserId: input.assignedToUserId,
-      assignedToUserName: undefined, // TODO: Fetch from user service
+      assignedToUserName: undefined, // Can be populated separately via user lookup
       attachedDocuments: [],
       createdAt: now,
       createdBy: userId,

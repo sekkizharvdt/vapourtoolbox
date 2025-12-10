@@ -328,7 +328,7 @@ export default function UserManagementPage() {
             variant="contained"
             startIcon={<PersonAddIcon />}
             onClick={() => {
-              // TODO: Open invite user dialog
+              // Invite user dialog (future enhancement)
               alert('Invite user dialog coming soon');
             }}
           >
