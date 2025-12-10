@@ -20,8 +20,48 @@
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
       {
-        "source": "/estimation/**",
+        "source": "/accounting/cost-centres/*",
+        "destination": "/accounting/cost-centres/placeholder.html"
+      },
+      {
+        "source": "/bought-out/*",
+        "destination": "/bought-out/placeholder.html"
+      },
+      {
+        "source": "/documents/*",
+        "destination": "/documents/placeholder.html"
+      },
+      {
+        "source": "/estimation/*",
         "destination": "/estimation/placeholder.html"
+      },
+      {
+        "source": "/feedback/*",
+        "destination": "/feedback/placeholder.html"
+      },
+      {
+        "source": "/materials/*/edit",
+        "destination": "/materials/placeholder/edit.html"
+      },
+      {
+        "source": "/materials/*",
+        "destination": "/materials/placeholder.html"
+      },
+      {
+        "source": "/procurement/amendments/*",
+        "destination": "/procurement/amendments/placeholder.html"
+      },
+      {
+        "source": "/procurement/goods-receipts/*",
+        "destination": "/procurement/goods-receipts/placeholder.html"
+      },
+      {
+        "source": "/procurement/packing-lists/*",
+        "destination": "/procurement/packing-lists/placeholder.html"
+      },
+      {
+        "source": "/procurement/pos/*",
+        "destination": "/procurement/pos/placeholder.html"
       },
       {
         "source": "/procurement/purchase-requests/*/edit",
@@ -32,8 +72,40 @@
         "destination": "/procurement/purchase-requests/placeholder.html"
       },
       {
-        "source": "/documents/*",
-        "destination": "/documents/placeholder.html"
+        "source": "/procurement/rfqs/*/offers",
+        "destination": "/procurement/rfqs/placeholder/offers.html"
+      },
+      {
+        "source": "/procurement/rfqs/*",
+        "destination": "/procurement/rfqs/placeholder.html"
+      },
+      {
+        "source": "/procurement/three-way-match/*",
+        "destination": "/procurement/three-way-match/placeholder.html"
+      },
+      {
+        "source": "/procurement/work-completion/*",
+        "destination": "/procurement/work-completion/placeholder.html"
+      },
+      {
+        "source": "/projects/*/charter",
+        "destination": "/projects/placeholder/charter.html"
+      },
+      {
+        "source": "/proposals/enquiries/*/edit",
+        "destination": "/proposals/enquiries/placeholder/edit.html"
+      },
+      {
+        "source": "/proposals/enquiries/*",
+        "destination": "/proposals/enquiries/placeholder.html"
+      },
+      {
+        "source": "/proposals/*/edit",
+        "destination": "/proposals/placeholder/edit.html"
+      },
+      {
+        "source": "/proposals/*",
+        "destination": "/proposals/placeholder.html"
       },
       {
         "source": "**",

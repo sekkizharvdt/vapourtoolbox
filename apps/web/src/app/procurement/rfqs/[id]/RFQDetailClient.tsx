@@ -73,13 +73,9 @@ export default function RFQDetailPage() {
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('[RFQDetailPage] pathname effect', { pathname });
     if (pathname) {
       const match = pathname.match(/\/procurement\/rfqs\/([^/]+)(?:\/|$)/);
       const extractedId = match?.[1];
-      // eslint-disable-next-line no-console
-      console.log('[RFQDetailPage] extracted ID', { extractedId, match });
       if (extractedId && extractedId !== 'placeholder') {
         setRfqId(extractedId);
       }
@@ -87,8 +83,6 @@ export default function RFQDetailPage() {
   }, [pathname]);
 
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('[RFQDetailPage] rfqId effect', { rfqId });
     if (rfqId) {
       loadRFQ();
     }
@@ -96,8 +90,6 @@ export default function RFQDetailPage() {
   }, [rfqId]);
 
   const loadRFQ = async (retryCount = 0) => {
-    // eslint-disable-next-line no-console
-    console.log('[RFQDetailPage] loadRFQ called', { rfqId, retryCount });
     if (!rfqId) return;
     // Only set loading true on first attempt
     if (retryCount === 0) {
@@ -105,14 +97,7 @@ export default function RFQDetailPage() {
       setError('');
     }
     try {
-      // eslint-disable-next-line no-console
-      console.log('[RFQDetailPage] Fetching RFQ data...');
       const [rfqData, itemsData] = await Promise.all([getRFQById(rfqId), getRFQItems(rfqId)]);
-      // eslint-disable-next-line no-console
-      console.log('[RFQDetailPage] RFQ data received', {
-        hasRfq: !!rfqData,
-        itemCount: itemsData?.length,
-      });
 
       if (!rfqData) {
         // Retry up to 3 times with exponential backoff for newly created RFQs

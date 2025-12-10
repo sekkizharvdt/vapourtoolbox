@@ -82,22 +82,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loading]);
 
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('[AuthContext] Starting auth setup...');
     const { auth } = getFirebase();
-    // eslint-disable-next-line no-console
-    console.log('[AuthContext] Firebase auth obtained');
     let isMounted = true; // Track if component is mounted
 
     logger.debug('Setting up auth listener');
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // eslint-disable-next-line no-console
-      console.log('[AuthContext] onAuthStateChanged fired', {
-        hasUser: !!firebaseUser,
-        uid: firebaseUser?.uid,
-        isMounted,
-      });
       logger.debug('Auth state changed', {
         hasUser: !!firebaseUser,
         uid: firebaseUser?.uid,
@@ -106,13 +96,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         if (firebaseUser) {
           try {
-            // eslint-disable-next-line no-console
-            console.log('[AuthContext] Getting ID token...');
             // Get token (use cached version for fast initial load)
             // Only force refresh if token is older than 5 minutes
             const idTokenResult = await firebaseUser.getIdTokenResult(false);
-            // eslint-disable-next-line no-console
-            console.log('[AuthContext] ID token obtained');
 
             // Check if component was unmounted during async operation
             if (!isMounted) {
@@ -131,23 +117,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             // Validate claims structure
-            // eslint-disable-next-line no-console
-            console.log('[AuthContext] Validating claims...', idTokenResult.claims);
             const result = validateClaims(idTokenResult.claims);
-            // eslint-disable-next-line no-console
-            console.log('[AuthContext] Claims validation result:', result.status);
 
             // Check again before state update
             if (!isMounted) {
-              // eslint-disable-next-line no-console
-              console.log('[AuthContext] Component unmounted, aborting');
               return;
             }
 
             if (result.status === 'pending') {
               // User authenticated but no claims yet - awaiting admin approval
-              // eslint-disable-next-line no-console
-              console.log('[AuthContext] Claims pending, setting loading=false');
               // Batch state updates to prevent intermediate renders
               setUser(firebaseUser);
               setClaims(null); // No claims yet
@@ -158,8 +136,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (result.status === 'invalid') {
               // Claims exist but are malformed - security issue
-              // eslint-disable-next-line no-console
-              console.log('[AuthContext] Invalid claims, signing out');
               logger.error('User has invalid custom claims. Signing out.');
               await firebaseSignOut(auth);
 
@@ -176,14 +152,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             // Valid claims - batch state updates to prevent race conditions
-            // eslint-disable-next-line no-console
-            console.log('[AuthContext] Valid claims, setting loading=false');
             setUser(firebaseUser);
             setClaims(result.claims);
             setLoading(false);
           } catch (error) {
-            // eslint-disable-next-line no-console
-            console.error('[AuthContext] Error validating claims:', error);
             logger.error('Error validating user claims', { error });
 
             // Check if component is still mounted before async signOut
@@ -209,8 +181,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setLoading(false);
           }
         } else {
-          // eslint-disable-next-line no-console
-          console.log('[AuthContext] No user, setting loading=false');
           // Check before state update
           if (!isMounted) {
             return;
@@ -223,8 +193,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         // Catch any unexpected errors in the outer try block
-        // eslint-disable-next-line no-console
-        console.error('[AuthContext] Unexpected error:', error);
         logger.error('Unexpected error in auth state change handler', { error });
 
         // Check before state update
