@@ -116,18 +116,18 @@ Infrastructure:     7/10
 
 Files over 700 lines indicate poor separation of concerns:
 
-| File                            | Lines        | Issue                         |
-| ------------------------------- | ------------ | ----------------------------- |
-| `flashChamberCalculator.ts`     | 871          | Monolithic calculator         |
-| `SteamTablesClient.tsx`         | 871          | UI + logic mixed              |
-| `nozzleAssemblies.ts`           | 868          | Data file - acceptable        |
-| ~~`materialService.ts`~~        | ~~815~~ → 16 | ✅ Split into 5 submodules    |
-| `UserGuide.tsx`                 | 784          | Should be split               |
-| `FeedbackForm.tsx`              | 777          | Form too complex              |
-| `PipeSizingClient.tsx`          | 764          | UI + calculations mixed       |
-| `HeatDutyClient.tsx`            | 762          | UI + calculations mixed       |
-| `InputSection.tsx`              | 753          | Single form section too large |
-| `ThreeWayMatchDetailClient.tsx` | 742          | Complex page                  |
+| File                            | Lines         | Issue                         |
+| ------------------------------- | ------------- | ----------------------------- |
+| `flashChamberCalculator.ts`     | 871           | Complex engineering calc - OK |
+| `SteamTablesClient.tsx`         | 871           | UI + logic mixed              |
+| `nozzleAssemblies.ts`           | 868           | Data file - acceptable        |
+| ~~`materialService.ts`~~        | ~~815~~ → 16  | ✅ Split into 5 submodules    |
+| ~~`UserGuide.tsx`~~             | ~~784~~ → 145 | ✅ Split into 12 files        |
+| ~~`FeedbackForm.tsx`~~          | ~~777~~ → 302 | ✅ Split into 7 files         |
+| `PipeSizingClient.tsx`          | 764           | UI + calculations mixed       |
+| `HeatDutyClient.tsx`            | 762           | UI + calculations mixed       |
+| `InputSection.tsx`              | 753           | Single form section too large |
+| `ThreeWayMatchDetailClient.tsx` | 742           | Complex page                  |
 
 **Recommendation:** Any file over 400 lines should be split.
 
@@ -446,18 +446,43 @@ Most MUI components provide built-in accessibility, but custom components lack:
 
 ## 10. Metrics to Track
 
-| Metric              | Dec 9, 2025 | Dec 10 (AM) | Dec 10 (PM) | Dec 10 (Session 3) | Target (3mo) | Target (6mo) |
-| ------------------- | ----------- | ----------- | ----------- | ------------------ | ------------ | ------------ |
-| Total tests         | ~15         | 1,621       | 1,621       | **1,682** ✅       | 2,500        | 4,000        |
-| Test coverage       | ~2%         | ~15-20%     | ~15-20%     | ~20%               | 40%          | 60%          |
-| Files > 500 lines   | 29          | 29          | 29          | **28** ✅          | 15           | 5            |
-| ESLint suppressions | 82          | 82          | **57** ✅   | 57                 | 50           | 20           |
-| Error boundaries    | 4           | 4           | 4           | 4                  | 22           | 22           |
-| Loading states      | 0           | 0           | **8** ✅    | **29** ✅          | 10           | 22           |
-| Dynamic imports     | 1           | 1           | **24** ✅   | 24                 | 30           | 40           |
-| Module index.ts     | 3           | 3           | 3           | **18** ✅          | 15           | 25           |
-| TODO comments       | 24          | 24          | 24          | 24                 | 12           | 0            |
-| UI component tests  | 0           | 111         | 111         | 111                | 150          | 200          |
+| Metric              | Dec 9, 2025 | Dec 10 (AM) | Dec 10 (PM) | Dec 10 (S3) | Dec 10 (S4) | Target (3mo) | Target (6mo) |
+| ------------------- | ----------- | ----------- | ----------- | ----------- | ----------- | ------------ | ------------ |
+| Total tests         | ~15         | 1,621       | 1,621       | 1,682       | 1,682       | 2,500        | 4,000        |
+| Test coverage       | ~2%         | ~15-20%     | ~15-20%     | ~20%        | ~20%        | 40%          | 60%          |
+| Files > 500 lines   | 29          | 29          | 29          | 28          | **26** ✅   | 15           | 5            |
+| ESLint suppressions | 82          | 82          | **57** ✅   | 57          | 57          | 50           | 20           |
+| Error boundaries    | 4           | 4           | 4           | 4           | 4           | 22           | 22           |
+| Loading states      | 0           | 0           | **8** ✅    | **29** ✅   | 29          | 10           | 22           |
+| Dynamic imports     | 1           | 1           | **24** ✅   | 24          | 24          | 30           | 40           |
+| Module index.ts     | 3           | 3           | 3           | **18** ✅   | 18          | 15           | 25           |
+| TODO comments       | 24          | 24          | 24          | 24          | 24          | 12           | 0            |
+| UI component tests  | 0           | 111         | 111         | 111         | 111         | 150          | 200          |
+
+### Progress Notes (Dec 10, 2025 - Session 4)
+
+**Large File Splits:**
+
+- **Split `FeedbackForm.tsx` (777 lines) into component directory:**
+  - `index.tsx` (302 lines) - Main form component
+  - `types.ts` - FeedbackType, FeedbackFormData interfaces
+  - `FeedbackTypeSelector.tsx` - Toggle button group
+  - `BugDetailsSection.tsx` - Bug-specific form fields
+  - `FeatureRequestSection.tsx` - Feature request fields
+  - `ScreenshotUpload.tsx` - File upload with drag/drop/paste
+  - `ConsoleErrorInstructions.tsx` - Expandable instructions
+
+- **Split `UserGuide.tsx` (784 lines) into component directory:**
+  - `index.tsx` (145 lines) - Main accordion component
+  - `types.ts` - GuideSection interface
+  - `helpers.tsx` - KeyboardShortcut, FeatureCard, StepGuide components
+  - 9 section components (GettingStarted, Proposals, Procurement, etc.)
+
+- **Evaluated thermal calculator files for splitting:**
+  - `flashChamberCalculator.ts` (871 lines) - Complex engineering calculations with tightly coupled functions; splitting would harm maintainability
+  - `pipeService.ts` (569 lines) - Contains large static data array; acceptable size
+
+- Files > 500 lines reduced: 28 → 26
 
 ### Progress Notes (Dec 10, 2025 - Session 3)
 
