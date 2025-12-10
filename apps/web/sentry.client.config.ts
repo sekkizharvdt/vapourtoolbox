@@ -1,5 +1,10 @@
+// NOTE: This file is NOT auto-loaded for Next.js static export (output: 'export').
+// The actual Sentry client config is in src/instrumentation-client.ts.
+// This file is kept for reference and in case we switch to SSR in the future.
+
 import * as Sentry from '@sentry/nextjs';
 
+// This init() is never called in static export mode - see instrumentation-client.ts instead
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
