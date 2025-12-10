@@ -103,7 +103,7 @@ describe('ThemeToggle', () => {
     });
 
     it('should not render tooltip wrapper when showTooltip is false', () => {
-      const { container } = renderWithTheme(<ThemeToggle showTooltip={false} />, 'light');
+      renderWithTheme(<ThemeToggle showTooltip={false} />, 'light');
 
       // Button should still exist
       expect(screen.getByRole('button')).toBeInTheDocument();
@@ -203,15 +203,18 @@ describe('ThemeToggle', () => {
       const buttons = screen.getAllByRole('button');
       expect(buttons).toHaveLength(2);
 
+      const firstButton = buttons[0]!;
+      const secondButton = buttons[1]!;
+
       // Both should be in sync
-      expect(buttons[0]).toHaveAttribute('aria-label', 'Switch to dark mode');
-      expect(buttons[1]).toHaveAttribute('aria-label', 'Switch to dark mode');
+      expect(firstButton).toHaveAttribute('aria-label', 'Switch to dark mode');
+      expect(secondButton).toHaveAttribute('aria-label', 'Switch to dark mode');
 
       // Click one, both should update
-      fireEvent.click(buttons[0]);
+      fireEvent.click(firstButton);
 
-      expect(buttons[0]).toHaveAttribute('aria-label', 'Switch to light mode');
-      expect(buttons[1]).toHaveAttribute('aria-label', 'Switch to light mode');
+      expect(firstButton).toHaveAttribute('aria-label', 'Switch to light mode');
+      expect(secondButton).toHaveAttribute('aria-label', 'Switch to light mode');
     });
   });
 });
