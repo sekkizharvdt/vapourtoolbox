@@ -2,17 +2,29 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Box, Toolbar } from '@mui/material';
+import dynamic from 'next/dynamic';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { DashboardAppBar } from '@/components/dashboard/AppBar';
 import { MobileBottomNav } from '@/components/layout/BottomNavigation';
 import { SessionTimeoutModal } from '@/components/auth/SessionTimeoutModal';
-import { CommandPalette, useCommandPalette } from '@/components/common/CommandPalette';
-import { KeyboardShortcutsHelp } from '@/components/common/KeyboardShortcutsHelp';
+import { useCommandPalette } from '@/components/common/useCommandPalette';
 import { KeyboardShortcutsProvider } from '@/hooks/useKeyboardShortcuts';
 import { OnboardingProvider } from '@/components/common/OnboardingTooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useSessionTimeout } from '@/hooks/useSessionTimeout';
+
+// Lazy load modal components - only loaded when user triggers them
+const CommandPalette = dynamic(
+  () => import('@/components/common/CommandPalette').then((mod) => mod.CommandPalette),
+  { ssr: false }
+);
+
+const KeyboardShortcutsHelp = dynamic(
+  () =>
+    import('@/components/common/KeyboardShortcutsHelp').then((mod) => mod.KeyboardShortcutsHelp),
+  { ssr: false }
+);
 
 interface AuthenticatedLayoutProps {
   children: React.ReactNode;

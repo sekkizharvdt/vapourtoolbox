@@ -7,8 +7,22 @@
  * Permission check is handled by the parent admin layout.
  */
 
-import { Box, Typography, Stack } from '@mui/material';
-import { FeedbackList } from '@/components/admin/FeedbackList';
+import { Box, Typography, Stack, Skeleton } from '@mui/material';
+import dynamic from 'next/dynamic';
+
+// Lazy load FeedbackList - admin-only component (700+ lines)
+const FeedbackList = dynamic(
+  () => import('@/components/admin/FeedbackList').then((mod) => mod.FeedbackList),
+  {
+    ssr: false,
+    loading: () => (
+      <Box>
+        <Skeleton variant="rectangular" height={56} sx={{ mb: 2, borderRadius: 1 }} />
+        <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 1 }} />
+      </Box>
+    ),
+  }
+);
 
 export default function FeedbackManagementPage() {
   return (
