@@ -116,18 +116,18 @@ Infrastructure:     7/10
 
 Files over 700 lines indicate poor separation of concerns:
 
-| File                            | Lines | Issue                         |
-| ------------------------------- | ----- | ----------------------------- |
-| `flashChamberCalculator.ts`     | 871   | Monolithic calculator         |
-| `SteamTablesClient.tsx`         | 871   | UI + logic mixed              |
-| `nozzleAssemblies.ts`           | 868   | Data file - acceptable        |
-| `materialService.ts`            | 815   | Too many responsibilities     |
-| `UserGuide.tsx`                 | 784   | Should be split               |
-| `FeedbackForm.tsx`              | 777   | Form too complex              |
-| `PipeSizingClient.tsx`          | 764   | UI + calculations mixed       |
-| `HeatDutyClient.tsx`            | 762   | UI + calculations mixed       |
-| `InputSection.tsx`              | 753   | Single form section too large |
-| `ThreeWayMatchDetailClient.tsx` | 742   | Complex page                  |
+| File                            | Lines        | Issue                         |
+| ------------------------------- | ------------ | ----------------------------- |
+| `flashChamberCalculator.ts`     | 871          | Monolithic calculator         |
+| `SteamTablesClient.tsx`         | 871          | UI + logic mixed              |
+| `nozzleAssemblies.ts`           | 868          | Data file - acceptable        |
+| ~~`materialService.ts`~~        | ~~815~~ → 16 | ✅ Split into 5 submodules    |
+| `UserGuide.tsx`                 | 784          | Should be split               |
+| `FeedbackForm.tsx`              | 777          | Form too complex              |
+| `PipeSizingClient.tsx`          | 764          | UI + calculations mixed       |
+| `HeatDutyClient.tsx`            | 762          | UI + calculations mixed       |
+| `InputSection.tsx`              | 753          | Single form section too large |
+| `ThreeWayMatchDetailClient.tsx` | 742          | Complex page                  |
 
 **Recommendation:** Any file over 400 lines should be split.
 
@@ -448,9 +448,9 @@ Most MUI components provide built-in accessibility, but custom components lack:
 
 | Metric              | Dec 9, 2025 | Dec 10 (AM) | Dec 10 (PM) | Dec 10 (Session 3) | Target (3mo) | Target (6mo) |
 | ------------------- | ----------- | ----------- | ----------- | ------------------ | ------------ | ------------ |
-| Total tests         | ~15         | 1,621       | 1,621       | **1,435+** ✅      | 2,500        | 4,000        |
+| Total tests         | ~15         | 1,621       | 1,621       | **1,682** ✅       | 2,500        | 4,000        |
 | Test coverage       | ~2%         | ~15-20%     | ~15-20%     | ~20%               | 40%          | 60%          |
-| Files > 500 lines   | 29          | 29          | 29          | 29                 | 15           | 5            |
+| Files > 500 lines   | 29          | 29          | 29          | **28** ✅          | 15           | 5            |
 | ESLint suppressions | 82          | 82          | **57** ✅   | 57                 | 50           | 20           |
 | Error boundaries    | 4           | 4           | 4           | 4                  | 22           | 22           |
 | Loading states      | 0           | 0           | **8** ✅    | **29** ✅          | 10           | 22           |
@@ -469,6 +469,12 @@ Most MUI components provide built-in accessibility, but custom components lack:
   - `lib/materials/index.ts` - Material service exports
   - `lib/documents/index.ts` - Document management exports
   - `lib/tasks/index.ts` - Task thread/notification exports
+- **Split `materialService.ts` (800 lines) into focused submodules:**
+  - `crud.ts` - Create, update, get, delete operations
+  - `queries.ts` - queryMaterials, searchMaterials, getMaterialsByVendor
+  - `pricing.ts` - addMaterialPrice, getMaterialPriceHistory, getCurrentPrice
+  - `vendors.ts` - addPreferredVendor, removePreferredVendor
+  - `stock.ts` - updateMaterialStock, getStockMovementHistory
 - Architecture grade improved: B → B+
 - Module index.ts count: 3 → 18
 
@@ -480,6 +486,11 @@ Most MUI components provide built-in accessibility, but custom components lack:
   - `formatDuration()` - Time formatting (8 tests)
   - `calculateElapsedTime()` - Active entry calculations (5 tests)
   - `extractUserIdFromMention()` - Mention extraction (6 tests)
+- Added `hooks/hooks.test.ts` with 29 tests for:
+  - `formatShortcutKeys()` - Windows/Linux and macOS formatting
+  - Key parsing edge cases and special characters
+  - Hook export verification (useFirestoreQuery, useSessionTimeout, useKeyboardShortcuts)
+- Total new tests: 61 (32 task tests + 29 hook tests)
 - Testing grade improved: C+ → B-
 
 **Loading States:**
