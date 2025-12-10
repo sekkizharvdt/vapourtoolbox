@@ -131,15 +131,20 @@ export default function CostCentreDetailClient() {
 
   // Load transactions linked to this cost centre
   useEffect(() => {
-    // Wait for auth to complete
-    if (authLoading || !hasViewAccess || !costCentreId) return;
+    // Wait for auth and cost centre to load
+    if (authLoading || !hasViewAccess || !costCentreId || !costCentre) return;
 
     const { db } = getFirebase();
+
+    // For project-linked cost centres, query by projectId
+    // For other cost centres, query by costCentreId
+    const linkField = costCentre.projectId ? 'projectId' : 'costCentreId';
+    const linkValue = costCentre.projectId || costCentreId;
 
     // Query invoices (CUSTOMER_INVOICE)
     const invoicesQuery = query(
       collection(db, COLLECTIONS.TRANSACTIONS),
-      where('costCentreId', '==', costCentreId),
+      where(linkField, '==', linkValue),
       where('type', '==', 'CUSTOMER_INVOICE'),
       orderBy('date', 'desc')
     );
@@ -156,7 +161,7 @@ export default function CostCentreDetailClient() {
     // Query payments received (CUSTOMER_PAYMENT)
     const paymentsQuery = query(
       collection(db, COLLECTIONS.TRANSACTIONS),
-      where('costCentreId', '==', costCentreId),
+      where(linkField, '==', linkValue),
       where('type', '==', 'CUSTOMER_PAYMENT'),
       orderBy('date', 'desc')
     );
@@ -173,7 +178,7 @@ export default function CostCentreDetailClient() {
     // Query bills (VENDOR_BILL)
     const billsQuery = query(
       collection(db, COLLECTIONS.TRANSACTIONS),
-      where('costCentreId', '==', costCentreId),
+      where(linkField, '==', linkValue),
       where('type', '==', 'VENDOR_BILL'),
       orderBy('date', 'desc')
     );
@@ -192,7 +197,7 @@ export default function CostCentreDetailClient() {
       unsubPayments();
       unsubBills();
     };
-  }, [hasViewAccess, costCentreId, authLoading]);
+  }, [hasViewAccess, costCentreId, authLoading, costCentre]);
 
   const handleBack = () => {
     router.push('/accounting/cost-centres');
