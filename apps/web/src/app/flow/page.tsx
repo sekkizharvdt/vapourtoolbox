@@ -13,19 +13,11 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 import { useAuth } from '@/contexts/AuthContext';
 import { useTasksLayout } from './context';
 import { ChannelView } from './components/ChannelView';
-import { TimerWidget } from '@/components/tasks';
 import { TaskThreadPanel, MentionsView } from '@/components/tasks/thread';
 import { startActionableTask, completeActionableTask } from '@/lib/tasks/taskNotificationService';
-import {
-  startTimeEntry,
-  stopTimeEntry,
-  pauseTimeEntry,
-  resumeTimeEntry,
-  getActiveTimeEntry,
-} from '@/lib/tasks/timeEntryService';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { TimeEntry, TaskNotification, User, TaskMention } from '@vapour/types';
+import type { TaskNotification, User, TaskMention } from '@vapour/types';
 
 export default function TasksPage() {
   const { user } = useAuth();
@@ -47,9 +39,8 @@ export default function TasksPage() {
   // Loading state to prevent race conditions (double-clicks)
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
-  // Active timer state
-  const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
-  const [activeTask, setActiveTask] = useState<TaskNotification | null>(null);
+  // Track active task (task being worked on)
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
   // Thread panel state (Phase C)
   const [selectedTaskForThread, setSelectedTaskForThread] = useState<TaskNotification | null>(null);
@@ -58,24 +49,8 @@ export default function TasksPage() {
   // Users for @mention autocomplete (Phase C)
   const [users, setUsers] = useState<User[]>([]);
 
-  // Load active timer on mount - use stable userId reference
+  // Stable userId reference for useCallback dependencies
   const userId = user?.uid;
-  useEffect(() => {
-    async function loadActiveEntry() {
-      if (!userId) return;
-      try {
-        const entry = await getActiveTimeEntry(userId);
-        setActiveEntry(entry);
-        if (entry) {
-          const task = tasks.find((t) => t.id === entry.taskNotificationId);
-          setActiveTask(task || null);
-        }
-      } catch {
-        // Silently handle - timer widget just won't show
-      }
-    }
-    loadActiveEntry();
-  }, [userId, tasks]);
 
   // Load users for @mention autocomplete (Phase C)
   useEffect(() => {
@@ -143,21 +118,16 @@ export default function TasksPage() {
 
       setActionInProgress(taskId);
       try {
-        // Start the task
+        // Start the task (marks as in_progress)
         await startActionableTask(taskId, userId);
-        // Start time entry and get active entry
-        await startTimeEntry(userId, taskId);
-        const entry = await getActiveTimeEntry(userId);
-        const task = tasks.find((t) => t.id === taskId);
-        setActiveEntry(entry);
-        setActiveTask(task || null);
+        setActiveTaskId(taskId);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to start task');
       } finally {
         setActionInProgress(null);
       }
     },
-    [userId, tasks, actionInProgress]
+    [userId, actionInProgress]
   );
 
   const handleCompleteTask = useCallback(
@@ -166,21 +136,18 @@ export default function TasksPage() {
 
       setActionInProgress(taskId);
       try {
-        // Stop any active time entry for this task
-        if (activeEntry && activeEntry.taskNotificationId === taskId) {
-          await stopTimeEntry(activeEntry.id);
-          setActiveEntry(null);
-          setActiveTask(null);
-        }
         // Complete the task
         await completeActionableTask(taskId, userId, false);
+        if (activeTaskId === taskId) {
+          setActiveTaskId(null);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to complete task');
       } finally {
         setActionInProgress(null);
       }
     },
-    [userId, activeEntry, actionInProgress]
+    [userId, activeTaskId, actionInProgress]
   );
 
   const handleViewThread = useCallback(
@@ -213,37 +180,6 @@ export default function TasksPage() {
     [tasks]
   );
 
-  // Timer handlers
-  const handlePauseTimer = useCallback(async (entryId: string) => {
-    try {
-      await pauseTimeEntry(entryId);
-      const entry = await getActiveTimeEntry(entryId);
-      setActiveEntry(entry);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to pause timer');
-    }
-  }, []);
-
-  const handleResumeTimer = useCallback(async (entryId: string) => {
-    try {
-      await resumeTimeEntry(entryId);
-      const entry = await getActiveTimeEntry(entryId);
-      setActiveEntry(entry);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to resume timer');
-    }
-  }, []);
-
-  const handleStopTimer = useCallback(async (entryId: string) => {
-    try {
-      await stopTimeEntry(entryId);
-      setActiveEntry(null);
-      setActiveTask(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to stop timer');
-    }
-  }, []);
-
   // Clear error
   const handleCloseError = useCallback(() => {
     setError(null);
@@ -274,7 +210,7 @@ export default function TasksPage() {
           onStartTask={handleStartTask}
           onCompleteTask={handleCompleteTask}
           onViewThread={handleViewThread}
-          activeTaskId={activeTask?.id}
+          activeTaskId={activeTaskId || undefined}
           onToggleSidebar={onToggleSidebar}
           showSidebarToggle={showSidebarToggle}
         />
@@ -287,17 +223,6 @@ export default function TasksPage() {
         onClose={handleCloseThreadPanel}
         users={users}
       />
-
-      {/* Floating Timer Widget */}
-      {activeEntry && activeTask && (
-        <TimerWidget
-          activeEntry={activeEntry}
-          activeTask={activeTask}
-          onPause={handlePauseTimer}
-          onResume={handleResumeTimer}
-          onStop={handleStopTimer}
-        />
-      )}
 
       {/* Error Snackbar */}
       <Snackbar

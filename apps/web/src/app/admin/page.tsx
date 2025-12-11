@@ -28,6 +28,7 @@ import {
   Feedback as FeedbackIcon,
   History as AuditIcon,
   ArrowForward as ArrowIcon,
+  Assessment as AnalyticsIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -167,6 +168,13 @@ export default function AdminDashboardPage() {
       description: 'View system activity and user action history',
       icon: <AuditIcon sx={{ fontSize: 48, color: 'text.secondary' }} />,
       path: '/admin/audit-logs',
+    },
+    {
+      id: 'task-analytics',
+      title: 'Task Analytics',
+      description: 'Track task assignments, completion rates, and user performance',
+      icon: <AnalyticsIcon sx={{ fontSize: 48, color: 'success.main' }} />,
+      path: '/admin/task-analytics',
     },
   ];
 

@@ -60,3 +60,6 @@ export {
   onRFQStatusSyncToProject,
   onGoodsReceiptSyncToProject,
 } from './procurementProjectSync';
+
+// Import feedback functions
+export { onFeedbackResolved } from './feedback';

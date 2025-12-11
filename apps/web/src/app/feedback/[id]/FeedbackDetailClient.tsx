@@ -117,6 +117,10 @@ export default function FeedbackDetailClient() {
       const extractedId = match?.[1];
       if (extractedId && extractedId !== 'placeholder') {
         setFeedbackId(extractedId);
+      } else if (pathname.includes('/feedback/')) {
+        // Pathname is ready but no valid ID found
+        setError('Invalid feedback ID');
+        setLoading(false);
       }
     }
   }, [pathname]);
@@ -129,16 +133,16 @@ export default function FeedbackDetailClient() {
   // Close confirmation dialog state
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
 
-  // Subscribe to feedback document - wait for auth to complete first
+  // Subscribe to feedback document - wait for auth and feedbackId to be ready
   useEffect(() => {
     // Wait for auth to complete before attempting data fetch
     if (authLoading) {
       return;
     }
 
+    // Wait for feedbackId to be extracted from pathname
+    // Don't set error here - the ID extraction useEffect may still be pending
     if (!feedbackId) {
-      setError('Invalid feedback ID');
-      setLoading(false);
       return;
     }
 
