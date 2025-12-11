@@ -166,6 +166,14 @@ export function TransactionFormFields({
           onChange={(e) => onStatusChange(e.target.value as TransactionStatus)}
           required
           disabled={disabled}
+          slotProps={{
+            select: {
+              MenuProps: {
+                disablePortal: false,
+                style: { zIndex: 1500 },
+              },
+            },
+          }}
         >
           <MenuItem value="DRAFT">Draft</MenuItem>
           <MenuItem value="PENDING_APPROVAL">Pending Approval</MenuItem>

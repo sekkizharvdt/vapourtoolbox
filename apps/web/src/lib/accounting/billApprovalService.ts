@@ -155,21 +155,30 @@ export async function approveBill(
     // Notify the submitter that their bill was approved
     const submittedBy = (bill as unknown as { submittedByUserId?: string }).submittedByUserId;
     if (submittedBy) {
-      await createTaskNotification({
-        type: 'informational',
-        category: 'BILL_APPROVED',
-        userId: submittedBy,
-        assignedBy: userId,
-        assignedByName: userName,
-        title: `Bill ${bill.vendorInvoiceNumber || bill.transactionNumber} Approved`,
-        message: comments
-          ? `Your bill was approved by ${userName}: ${comments}`
-          : `Your bill from ${bill.entityName || 'vendor'} was approved by ${userName}`,
-        entityType: 'BILL',
-        entityId: billId,
-        linkUrl: `/accounting/bills`,
-        priority: 'MEDIUM',
-      });
+      try {
+        await createTaskNotification({
+          type: 'informational',
+          category: 'BILL_APPROVED',
+          userId: submittedBy,
+          assignedBy: userId,
+          assignedByName: userName,
+          title: `Bill ${bill.vendorInvoiceNumber || bill.transactionNumber} Approved`,
+          message: comments
+            ? `Your bill was approved by ${userName}: ${comments}`
+            : `Your bill from ${bill.entityName || 'vendor'} was approved by ${userName}`,
+          entityType: 'BILL',
+          entityId: billId,
+          linkUrl: `/accounting/bills`,
+          priority: 'MEDIUM',
+        });
+      } catch (notificationError) {
+        // Log but don't fail the approval if notification fails
+        logger.warn('Failed to send approval notification', {
+          billId,
+          submittedBy,
+          notificationError,
+        });
+      }
     }
 
     logger.info('Bill approved', {
@@ -231,19 +240,28 @@ export async function rejectBill(
     // Notify the submitter that their bill was rejected
     const submittedBy = (bill as unknown as { submittedByUserId?: string }).submittedByUserId;
     if (submittedBy) {
-      await createTaskNotification({
-        type: 'informational',
-        category: 'BILL_REJECTED',
-        userId: submittedBy,
-        assignedBy: userId,
-        assignedByName: userName,
-        title: `Bill ${bill.vendorInvoiceNumber || bill.transactionNumber} Rejected`,
-        message: `Your bill was rejected by ${userName}: ${comments}`,
-        entityType: 'BILL',
-        entityId: billId,
-        linkUrl: `/accounting/bills`,
-        priority: 'HIGH',
-      });
+      try {
+        await createTaskNotification({
+          type: 'informational',
+          category: 'BILL_REJECTED',
+          userId: submittedBy,
+          assignedBy: userId,
+          assignedByName: userName,
+          title: `Bill ${bill.vendorInvoiceNumber || bill.transactionNumber} Rejected`,
+          message: `Your bill was rejected by ${userName}: ${comments}`,
+          entityType: 'BILL',
+          entityId: billId,
+          linkUrl: `/accounting/bills`,
+          priority: 'HIGH',
+        });
+      } catch (notificationError) {
+        // Log but don't fail the rejection if notification fails
+        logger.warn('Failed to send rejection notification', {
+          billId,
+          submittedBy,
+          notificationError,
+        });
+      }
     }
 
     logger.info('Bill rejected', {
