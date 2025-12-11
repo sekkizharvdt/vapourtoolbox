@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Container,
   Box,
@@ -99,17 +99,27 @@ const statusConfig: Record<
 };
 
 export default function FeedbackDetailClient() {
-  const params = useParams();
+  const pathname = usePathname();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const rawFeedbackId = params?.id as string;
 
-  // Handle placeholder ID from static export - wait for real ID
-  const feedbackId = rawFeedbackId && rawFeedbackId !== 'placeholder' ? rawFeedbackId : null;
+  // Extract feedback ID from pathname for static export compatibility
+  const [feedbackId, setFeedbackId] = useState<string | null>(null);
 
   const [feedback, setFeedback] = useState<FeedbackDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Handle static export - extract actual ID from pathname on client side
+  useEffect(() => {
+    if (pathname) {
+      const match = pathname.match(/\/feedback\/([^/]+)(?:\/|$)/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setFeedbackId(extractedId);
+      }
+    }
+  }, [pathname]);
 
   // Follow-up dialog state
   const [followUpDialogOpen, setFollowUpDialogOpen] = useState(false);
