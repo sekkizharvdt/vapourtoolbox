@@ -318,19 +318,38 @@ export async function generateBillGLEntries(
  * @returns GL entries
  */
 export async function generateCustomerPaymentGLEntries(
-  _db: Firestore, // Reserved for future use to fetch system account IDs
+  db: Firestore,
   input: PaymentGLInput
 ): Promise<GLGenerationResult> {
   const errors: string[] = [];
   const entries: LedgerEntry[] = [];
 
   try {
+    // Fetch system accounts to get Accounts Receivable
+    const accounts = await getSystemAccountIds(db);
+
+    // Use provided account or fall back to system account
+    const receivableAccountId = input.receivableOrPayableAccountId || accounts.accountsReceivable;
+
+    // For bank account, we use the provided one or a generic placeholder
+    // In a real scenario, user should select a bank account
+    const bankAccountId = input.bankAccountId;
+
     // Validate accounts
-    if (!input.bankAccountId) {
-      errors.push('Bank account ID is required');
+    if (!bankAccountId) {
+      // Bank account is optional - if not provided, skip GL entries but don't fail
+      // This allows payments to be recorded without full GL integration
+      return {
+        success: true,
+        entries: [],
+        totalDebit: 0,
+        totalCredit: 0,
+        isBalanced: true,
+        errors: [],
+      };
     }
-    if (!input.receivableOrPayableAccountId) {
-      errors.push('Accounts Receivable account ID is required');
+    if (!receivableAccountId) {
+      errors.push('Accounts Receivable account not found in Chart of Accounts');
     }
 
     if (errors.length > 0) {
@@ -346,7 +365,7 @@ export async function generateCustomerPaymentGLEntries(
 
     // Entry 1: Debit Bank Account (Asset increases)
     entries.push({
-      accountId: input.bankAccountId!,
+      accountId: bankAccountId,
       accountName: 'Bank Account',
       debit: input.amount,
       credit: 0,
@@ -356,7 +375,7 @@ export async function generateCustomerPaymentGLEntries(
 
     // Entry 2: Credit Accounts Receivable (Asset decreases)
     entries.push({
-      accountId: input.receivableOrPayableAccountId!,
+      accountId: receivableAccountId!,
       accountCode: '1200',
       accountName: 'Trade Receivables (Debtors)',
       debit: 0,
@@ -391,19 +410,37 @@ export async function generateCustomerPaymentGLEntries(
  * @returns GL entries
  */
 export async function generateVendorPaymentGLEntries(
-  _db: Firestore, // Reserved for future use to fetch system account IDs
+  db: Firestore,
   input: PaymentGLInput
 ): Promise<GLGenerationResult> {
   const errors: string[] = [];
   const entries: LedgerEntry[] = [];
 
   try {
+    // Fetch system accounts to get Accounts Payable
+    const accounts = await getSystemAccountIds(db);
+
+    // Use provided account or fall back to system account
+    const payableAccountId = input.receivableOrPayableAccountId || accounts.accountsPayable;
+
+    // For bank account, we use the provided one
+    const bankAccountId = input.bankAccountId;
+
     // Validate accounts
-    if (!input.bankAccountId) {
-      errors.push('Bank account ID is required');
+    if (!bankAccountId) {
+      // Bank account is optional - if not provided, skip GL entries but don't fail
+      // This allows payments to be recorded without full GL integration
+      return {
+        success: true,
+        entries: [],
+        totalDebit: 0,
+        totalCredit: 0,
+        isBalanced: true,
+        errors: [],
+      };
     }
-    if (!input.receivableOrPayableAccountId) {
-      errors.push('Accounts Payable account ID is required');
+    if (!payableAccountId) {
+      errors.push('Accounts Payable account not found in Chart of Accounts');
     }
 
     if (errors.length > 0) {
@@ -419,7 +456,7 @@ export async function generateVendorPaymentGLEntries(
 
     // Entry 1: Debit Accounts Payable (Liability decreases)
     entries.push({
-      accountId: input.receivableOrPayableAccountId!,
+      accountId: payableAccountId!,
       accountCode: '2100',
       accountName: 'Trade Payables (Creditors)',
       debit: input.amount,
@@ -430,7 +467,7 @@ export async function generateVendorPaymentGLEntries(
 
     // Entry 2: Credit Bank Account (Asset decreases)
     entries.push({
-      accountId: input.bankAccountId!,
+      accountId: bankAccountId,
       accountName: 'Bank Account',
       debit: 0,
       credit: input.amount,

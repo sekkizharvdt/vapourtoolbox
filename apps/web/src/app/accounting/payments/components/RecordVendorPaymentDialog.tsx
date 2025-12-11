@@ -570,10 +570,17 @@ export function RecordVendorPaymentDialog({
                     <TableBody>
                       {outstandingBills.map((bill, index) => {
                         const allocation = allocations[index];
+                        // Handle Firestore Timestamp or Date for bill date
+                        const billDate = bill.date
+                          ? typeof (bill.date as unknown as { toDate?: () => Date }).toDate ===
+                            'function'
+                            ? (bill.date as unknown as { toDate: () => Date }).toDate()
+                            : new Date(bill.date as unknown as string | number)
+                          : null;
                         return (
                           <TableRow key={bill.id}>
                             <TableCell>{bill.transactionNumber}</TableCell>
-                            <TableCell>{new Date(bill.date).toLocaleDateString()}</TableCell>
+                            <TableCell>{billDate ? billDate.toLocaleDateString() : '-'}</TableCell>
                             <TableCell align="right">
                               {formatCurrency(allocation?.originalAmount || 0)}
                             </TableCell>

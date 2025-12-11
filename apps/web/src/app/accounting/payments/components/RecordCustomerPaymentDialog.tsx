@@ -603,10 +603,19 @@ export function RecordCustomerPaymentDialog({
                     <TableBody>
                       {outstandingInvoices.map((invoice, index) => {
                         const allocation = allocations[index];
+                        // Handle Firestore Timestamp or Date for invoice date
+                        const invoiceDate = invoice.date
+                          ? typeof (invoice.date as unknown as { toDate?: () => Date }).toDate ===
+                            'function'
+                            ? (invoice.date as unknown as { toDate: () => Date }).toDate()
+                            : new Date(invoice.date as unknown as string | number)
+                          : null;
                         return (
                           <TableRow key={invoice.id}>
                             <TableCell>{invoice.transactionNumber}</TableCell>
-                            <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
+                            <TableCell>
+                              {invoiceDate ? invoiceDate.toLocaleDateString() : '-'}
+                            </TableCell>
                             <TableCell align="right">
                               {formatCurrency(allocation?.originalAmount || 0)}
                             </TableCell>
