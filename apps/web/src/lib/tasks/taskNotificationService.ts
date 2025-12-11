@@ -231,12 +231,13 @@ export async function getTaskNotificationById(
 /**
  * Find task notification by entity
  * Useful for auto-completion logic (e.g., find "Review PR-001" task when PR is approved)
+ * Status can be a single value or an array of values to match
  */
 export async function findTaskNotificationByEntity(
   entityType: string,
   entityId: string,
   category?: string,
-  status?: TaskNotificationStatus
+  status?: TaskNotificationStatus | TaskNotificationStatus[]
 ): Promise<TaskNotification | null> {
   const { db } = getFirebase();
 
@@ -251,7 +252,11 @@ export async function findTaskNotificationByEntity(
     }
 
     if (status) {
-      constraints.push(where('status', '==', status));
+      if (Array.isArray(status)) {
+        constraints.push(where('status', 'in', status));
+      } else {
+        constraints.push(where('status', '==', status));
+      }
     }
 
     constraints.push(firestoreLimit(1));

@@ -180,12 +180,12 @@ export default function FeedbackDetailClient() {
 
       await closeFeedbackFromTask(db, feedbackId, user.uid, userName);
 
-      // Complete the associated task if exists
+      // Complete the associated task if exists (could be pending or in_progress)
       const task = await findTaskNotificationByEntity(
         'FEEDBACK',
         feedbackId,
         'FEEDBACK_RESOLUTION_CHECK',
-        'pending'
+        ['pending', 'in_progress']
       );
       if (task) {
         await completeActionableTask(task.id, user.uid, false);
