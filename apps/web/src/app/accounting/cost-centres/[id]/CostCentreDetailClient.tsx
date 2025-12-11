@@ -237,13 +237,43 @@ export default function CostCentreDetailClient() {
     return 'error';
   };
 
-  // Calculate totals
-  const totalInvoiced = invoices.reduce(
-    (sum, inv) => sum + (inv.totalAmount || inv.amount || 0),
-    0
+  // Calculate totals grouped by currency
+  const invoiceTotals = invoices.reduce(
+    (acc, inv) => {
+      const currency = inv.currency || 'INR';
+      const amount = inv.totalAmount || inv.amount || 0;
+      acc[currency] = (acc[currency] || 0) + amount;
+      return acc;
+    },
+    {} as Record<string, number>
   );
-  const totalReceived = payments.reduce((sum, pay) => sum + (pay.amount || 0), 0);
-  const totalBilled = bills.reduce((sum, bill) => sum + (bill.amount || 0), 0);
+
+  const paymentTotals = payments.reduce(
+    (acc, pay) => {
+      const currency = pay.currency || 'INR';
+      const amount = pay.amount || 0;
+      acc[currency] = (acc[currency] || 0) + amount;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  const billTotals = bills.reduce(
+    (acc, bill) => {
+      const currency = bill.currency || 'INR';
+      const amount = bill.amount || 0;
+      acc[currency] = (acc[currency] || 0) + amount;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  // Format currency totals for display
+  const formatCurrencyTotals = (totals: Record<string, number>) => {
+    const entries = Object.entries(totals);
+    if (entries.length === 0) return formatCurrency(0, costCentre?.budgetCurrency || 'INR');
+    return entries.map(([currency, amount]) => formatCurrency(amount, currency)).join(' + ');
+  };
 
   // Show loading while auth is in progress or data is loading
   if (authLoading || loading) {
@@ -365,7 +395,9 @@ export default function CostCentreDetailClient() {
                 Spent / Bills
               </Typography>
               <Typography variant="h5" color="error.main">
-                {formatCurrency(costCentre.actualSpent || totalBilled, costCentre.budgetCurrency)}
+                {costCentre.actualSpent
+                  ? formatCurrency(costCentre.actualSpent, costCentre.budgetCurrency)
+                  : formatCurrencyTotals(billTotals)}
               </Typography>
               {costCentre.budgetAmount && costCentre.budgetAmount > 0 && (
                 <Box sx={{ mt: 1 }}>
@@ -391,7 +423,7 @@ export default function CostCentreDetailClient() {
                 Invoiced
               </Typography>
               <Typography variant="h5" color="primary.main">
-                {formatCurrency(totalInvoiced, costCentre.budgetCurrency)}
+                {formatCurrencyTotals(invoiceTotals)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {invoices.length} invoice(s)
@@ -407,7 +439,7 @@ export default function CostCentreDetailClient() {
                 Received
               </Typography>
               <Typography variant="h5" color="success.main">
-                {formatCurrency(totalReceived, costCentre.budgetCurrency)}
+                {formatCurrencyTotals(paymentTotals)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {payments.length} payment(s)
