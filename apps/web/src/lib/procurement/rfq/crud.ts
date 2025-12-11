@@ -72,9 +72,7 @@ export async function createRFQ(
     if (!item.description?.trim()) {
       throw new Error(`Item ${index + 1}: Description is required`);
     }
-    if (!item.projectId?.trim()) {
-      throw new Error(`Item ${index + 1}: Project ID is required`);
-    }
+    // projectId is optional - not all PRs are linked to projects (e.g., BUDGETARY, INTERNAL types)
     if (item.quantity <= 0) {
       throw new Error(`Item ${index + 1}: Quantity must be greater than 0`);
     }

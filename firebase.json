@@ -72,6 +72,10 @@
         "destination": "/procurement/purchase-requests/placeholder.html"
       },
       {
+        "source": "/procurement/rfqs/*/edit",
+        "destination": "/procurement/rfqs/placeholder/edit.html"
+      },
+      {
         "source": "/procurement/rfqs/*/offers",
         "destination": "/procurement/rfqs/placeholder/offers.html"
       },

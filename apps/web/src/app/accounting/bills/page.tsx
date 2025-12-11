@@ -87,6 +87,21 @@ const ApproveBillDialog = dynamic(
   { ssr: false }
 );
 
+// Generate month options for the filter (current month and 11 previous months)
+function getMonthOptions() {
+  const options: Array<{ value: string; label: string }> = [];
+  const now = new Date();
+
+  for (let i = 0; i < 12; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const label = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+    options.push({ value, label });
+  }
+
+  return options;
+}
+
 export default function BillsPage() {
   const { claims, user } = useAuth();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -95,6 +110,9 @@ export default function BillsPage() {
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [filterMonth, setFilterMonth] = useState<string>('ALL');
+
+  const monthOptions = useMemo(() => getMonthOptions(), []);
 
   // Update Bill Number Dialog state
   const [updateBillNumberDialogOpen, setUpdateBillNumberDialogOpen] = useState(false);
@@ -150,9 +168,21 @@ export default function BillsPage() {
 
       const matchesStatus = filterStatus === 'ALL' || bill.status === filterStatus;
 
-      return matchesSearch && matchesStatus;
+      // Month filter - compare year-month of bill date
+      let matchesMonth = true;
+      if (filterMonth !== 'ALL' && bill.date) {
+        // Handle both Firestore Timestamp and Date objects
+        const billDate =
+          typeof (bill.date as unknown as { toDate?: () => Date }).toDate === 'function'
+            ? (bill.date as unknown as { toDate: () => Date }).toDate()
+            : new Date(bill.date as unknown as string | number);
+        const billYearMonth = `${billDate.getFullYear()}-${String(billDate.getMonth() + 1).padStart(2, '0')}`;
+        matchesMonth = billYearMonth === filterMonth;
+      }
+
+      return matchesSearch && matchesStatus && matchesMonth;
     });
-  }, [bills, searchTerm, filterStatus]);
+  }, [bills, searchTerm, filterStatus, filterMonth]);
 
   const handleCreate = () => {
     setEditingBill(null);
@@ -193,6 +223,7 @@ export default function BillsPage() {
   const handleClearFilters = () => {
     setSearchTerm('');
     setFilterStatus('ALL');
+    setFilterMonth('ALL');
   };
 
   // Update Bill Number handlers
@@ -330,6 +361,21 @@ export default function BillsPage() {
             <MenuItem value="OVERDUE">Overdue</MenuItem>
           </Select>
         </FormControl>
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>Month</InputLabel>
+          <Select
+            value={filterMonth}
+            onChange={(e) => setFilterMonth(e.target.value)}
+            label="Month"
+          >
+            <MenuItem value="ALL">All Months</MenuItem>
+            {monthOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </FilterBar>
 
       <TableContainer component={Paper}>
@@ -352,14 +398,14 @@ export default function BillsPage() {
             {paginatedBills.length === 0 ? (
               <EmptyState
                 message={
-                  searchTerm || filterStatus !== 'ALL'
+                  searchTerm || filterStatus !== 'ALL' || filterMonth !== 'ALL'
                     ? 'No bills match the selected filters.'
                     : 'No bills found. Record your first vendor bill to get started.'
                 }
                 variant="table"
                 colSpan={10}
                 action={
-                  canManage && !searchTerm && filterStatus === 'ALL' ? (
+                  canManage && !searchTerm && filterStatus === 'ALL' && filterMonth === 'ALL' ? (
                     <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
                       Record First Bill
                     </Button>

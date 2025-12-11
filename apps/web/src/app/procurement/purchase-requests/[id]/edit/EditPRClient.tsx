@@ -277,7 +277,8 @@ export default function EditPRPage() {
         updatedBy: user.uid,
       });
 
-      // Process line items
+      // Process line items - track line number separately for non-deleted items
+      let lineNumber = 0;
       for (const item of lineItems) {
         if (item.isDeleted && item.id) {
           // Delete existing item
@@ -285,10 +286,11 @@ export default function EditPRPage() {
           batch.delete(itemRef);
         } else if (item.isNew && !item.isDeleted) {
           // Add new item
+          lineNumber++;
           const newItemRef = doc(collection(db, COLLECTIONS.PURCHASE_REQUEST_ITEMS));
           batch.set(newItemRef, {
             purchaseRequestId: pr.id,
-            lineNumber: lineItems.filter((i) => !i.isDeleted).indexOf(item) + 1,
+            lineNumber,
             description: item.description,
             ...(item.specification && { specification: item.specification }),
             quantity: item.quantity,
@@ -305,9 +307,10 @@ export default function EditPRPage() {
           });
         } else if (item.id && !item.isDeleted) {
           // Update existing item
+          lineNumber++;
           const itemRef = doc(db, COLLECTIONS.PURCHASE_REQUEST_ITEMS, item.id);
           batch.update(itemRef, {
-            lineNumber: lineItems.filter((i) => !i.isDeleted).indexOf(item) + 1,
+            lineNumber,
             description: item.description,
             specification: item.specification || null,
             quantity: item.quantity,
