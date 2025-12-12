@@ -54,7 +54,9 @@ import {
   RequestQuote as RequestQuoteIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
-import Image from 'next/image';
+// NOTE: Using <img> instead of next/image because app uses output: 'export'
+// for static Firebase Hosting. next/image requires /_next/image endpoint
+// which is not available in static exports. DO NOT change to Image component.
 import { MODULES, PERMISSION_FLAGS, hasPermission, hasPermission2 } from '@vapour/constants';
 
 interface SidebarProps {
@@ -247,7 +249,8 @@ function SidebarComponent({
               justifyContent: 'center',
             }}
           >
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src="/logo.png"
               alt="VDT Logo"
               width={32}
@@ -265,7 +268,8 @@ function SidebarComponent({
               alignItems: 'center',
             }}
           >
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src="/logo.png"
               alt="Vapour Toolbox Logo"
               width={150}

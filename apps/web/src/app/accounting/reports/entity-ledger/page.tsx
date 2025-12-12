@@ -4,64 +4,31 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Container,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Box,
   Typography,
-  Chip,
   TextField,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  TablePagination,
   InputAdornment,
   Autocomplete,
-  Grid,
-  Card,
-  CardContent,
 } from '@mui/material';
-import {
-  Search as SearchIcon,
-  Business as BusinessIcon,
-  Receipt as ReceiptIcon,
-  Payment as PaymentIcon,
-  AccountBalance as AccountBalanceIcon,
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
-} from '@mui/icons-material';
+import { Search as SearchIcon, Business as BusinessIcon } from '@mui/icons-material';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, where } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity } from '@vapour/types';
-import type { BaseTransaction, TransactionType } from '@vapour/types';
-import { formatCurrency } from '@/lib/accounting/transactionHelpers';
-import { formatDate } from '@/lib/utils/formatters';
-
-interface EntityTransaction extends BaseTransaction {
-  entityId: string;
-  entityName: string;
-  totalAmount?: number;
-  paidAmount?: number;
-  outstandingAmount?: number;
-  paymentStatus?: string;
-  invoiceDate?: Date;
-  billDate?: Date;
-  dueDate?: Date;
-}
-
-interface AgingBucket {
-  current: number; // 0-30 days
-  days31to60: number;
-  days61to90: number;
-  over90days: number;
-}
+import {
+  EntityTransaction,
+  FinancialSummary,
+  FinancialSummaryCards,
+  AgingAnalysis,
+  TransactionsTable,
+  EntityInfoCard,
+} from './components';
 
 export default function EntityLedgerPage() {
   useAuth();
@@ -126,16 +93,13 @@ export default function EntityLedgerPage() {
   }, [selectedEntity]);
 
   // Determine the entity's primary currency from their transactions
-  // Use the currency from invoices/bills linked to this entity
   const entityCurrency = useMemo(() => {
-    // Find first invoice or bill to get the currency
     const invoiceOrBill = transactions.find(
       (txn) => txn.type === 'CUSTOMER_INVOICE' || txn.type === 'VENDOR_BILL'
     );
     if (invoiceOrBill?.currency) {
       return invoiceOrBill.currency;
     }
-    // Fallback to any transaction's currency
     const firstTransaction = transactions[0];
     if (firstTransaction?.currency) {
       return firstTransaction.currency;
@@ -144,7 +108,7 @@ export default function EntityLedgerPage() {
   }, [transactions]);
 
   // Calculate financial summary
-  const financialSummary = useMemo(() => {
+  const financialSummary = useMemo((): FinancialSummary => {
     if (!selectedEntity || transactions.length === 0) {
       return {
         totalInvoiced: 0,
@@ -168,7 +132,7 @@ export default function EntityLedgerPage() {
     let outstandingPayable = 0;
     let overdueReceivable = 0;
     let overduePayable = 0;
-    const aging: AgingBucket = { current: 0, days31to60: 0, days61to90: 0, over90days: 0 };
+    const aging = { current: 0, days31to60: 0, days61to90: 0, over90days: 0 };
 
     transactions.forEach((txn) => {
       const amount = txn.totalAmount || txn.amount || 0;
@@ -184,7 +148,6 @@ export default function EntityLedgerPage() {
           outstandingReceivable += outstanding;
           if (txn.paymentStatus === 'OVERDUE' || (dueDate && dueDate < now && outstanding > 0)) {
             overdueReceivable += outstanding;
-            // Aging buckets for receivables
             if (daysPastDue <= 30) aging.current += outstanding;
             else if (daysPastDue <= 60) aging.days31to60 += outstanding;
             else if (daysPastDue <= 90) aging.days61to90 += outstanding;
@@ -236,12 +199,6 @@ export default function EntityLedgerPage() {
     return transactions;
   }, [transactions, filterType]);
 
-  // Paginate transactions
-  const paginatedTransactions = filteredTransactions.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
-
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
@@ -249,50 +206,6 @@ export default function EntityLedgerPage() {
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
-  };
-
-  const getTransactionTypeLabel = (type: TransactionType): string => {
-    const labels: Record<TransactionType, string> = {
-      CUSTOMER_INVOICE: 'Invoice',
-      CUSTOMER_PAYMENT: 'Receipt',
-      VENDOR_BILL: 'Bill',
-      VENDOR_PAYMENT: 'Payment',
-      JOURNAL_ENTRY: 'Journal',
-      BANK_TRANSFER: 'Transfer',
-      EXPENSE_CLAIM: 'Expense',
-    };
-    return labels[type] || type;
-  };
-
-  const getTransactionTypeColor = (
-    type: TransactionType
-  ): 'primary' | 'success' | 'warning' | 'info' | 'default' => {
-    switch (type) {
-      case 'CUSTOMER_INVOICE':
-        return 'primary';
-      case 'CUSTOMER_PAYMENT':
-        return 'success';
-      case 'VENDOR_BILL':
-        return 'warning';
-      case 'VENDOR_PAYMENT':
-        return 'info';
-      default:
-        return 'default';
-    }
-  };
-
-  const getPaymentStatusColor = (status?: string): 'success' | 'warning' | 'error' | 'default' => {
-    switch (status) {
-      case 'PAID':
-        return 'success';
-      case 'PARTIALLY_PAID':
-        return 'warning';
-      case 'OVERDUE':
-        return 'error';
-      case 'UNPAID':
-      default:
-        return 'default';
-    }
   };
 
   // Determine entity roles for display
@@ -363,228 +276,17 @@ export default function EntityLedgerPage() {
 
       {selectedEntity && (
         <>
-          {/* Entity Info Card */}
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-              <BusinessIcon fontSize="large" color="primary" />
-              <Box>
-                <Typography variant="h6">{selectedEntity.name}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {selectedEntity.code} • {selectedEntity.contactPerson} • {selectedEntity.email}
-                </Typography>
-              </Box>
-              <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
-                {selectedEntity.roles.map((role) => (
-                  <Chip
-                    key={role}
-                    label={role}
-                    size="small"
-                    color={role === 'CUSTOMER' ? 'success' : role === 'VENDOR' ? 'info' : 'default'}
-                  />
-                ))}
-              </Box>
-            </Box>
-            {selectedEntity.billingAddress && (
-              <Typography variant="body2" color="text.secondary">
-                {[
-                  selectedEntity.billingAddress.line1,
-                  selectedEntity.billingAddress.city,
-                  selectedEntity.billingAddress.state,
-                ]
-                  .filter(Boolean)
-                  .join(', ')}
-              </Typography>
-            )}
-          </Paper>
+          <EntityInfoCard entity={selectedEntity} />
 
-          {/* Financial Summary Cards */}
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            {isCustomer && (
-              <>
-                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                  <Card>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <ReceiptIcon color="primary" />
-                        <Typography variant="body2" color="text.secondary">
-                          Total Invoiced
-                        </Typography>
-                      </Box>
-                      <Typography variant="h5" fontWeight="bold">
-                        {formatCurrency(financialSummary.totalInvoiced, entityCurrency)}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                  <Card>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <PaymentIcon color="success" />
-                        <Typography variant="body2" color="text.secondary">
-                          Total Received
-                        </Typography>
-                      </Box>
-                      <Typography variant="h5" fontWeight="bold" color="success.main">
-                        {formatCurrency(financialSummary.totalReceived, entityCurrency)}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                  <Card>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <TrendingUpIcon color="warning" />
-                        <Typography variant="body2" color="text.secondary">
-                          Outstanding Receivable
-                        </Typography>
-                      </Box>
-                      <Typography variant="h5" fontWeight="bold" color="warning.main">
-                        {formatCurrency(financialSummary.outstandingReceivable, entityCurrency)}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                  <Card
-                    sx={{
-                      bgcolor: financialSummary.overdueReceivable > 0 ? 'error.50' : undefined,
-                    }}
-                  >
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <AccountBalanceIcon color="error" />
-                        <Typography variant="body2" color="text.secondary">
-                          Overdue
-                        </Typography>
-                      </Box>
-                      <Typography variant="h5" fontWeight="bold" color="error.main">
-                        {formatCurrency(financialSummary.overdueReceivable, entityCurrency)}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </>
-            )}
+          <FinancialSummaryCards
+            summary={financialSummary}
+            isCustomer={!!isCustomer}
+            isVendor={!!isVendor}
+            currency={entityCurrency}
+          />
 
-            {isVendor && (
-              <>
-                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                  <Card>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <ReceiptIcon color="warning" />
-                        <Typography variant="body2" color="text.secondary">
-                          Total Billed
-                        </Typography>
-                      </Box>
-                      <Typography variant="h5" fontWeight="bold">
-                        {formatCurrency(financialSummary.totalBilled, entityCurrency)}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                  <Card>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <PaymentIcon color="info" />
-                        <Typography variant="body2" color="text.secondary">
-                          Total Paid
-                        </Typography>
-                      </Box>
-                      <Typography variant="h5" fontWeight="bold" color="info.main">
-                        {formatCurrency(financialSummary.totalPaid, entityCurrency)}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                  <Card>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <TrendingDownIcon color="warning" />
-                        <Typography variant="body2" color="text.secondary">
-                          Outstanding Payable
-                        </Typography>
-                      </Box>
-                      <Typography variant="h5" fontWeight="bold" color="warning.main">
-                        {formatCurrency(financialSummary.outstandingPayable, entityCurrency)}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                  <Card
-                    sx={{ bgcolor: financialSummary.overduePayable > 0 ? 'error.50' : undefined }}
-                  >
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <AccountBalanceIcon color="error" />
-                        <Typography variant="body2" color="text.secondary">
-                          Overdue
-                        </Typography>
-                      </Box>
-                      <Typography variant="h5" fontWeight="bold" color="error.main">
-                        {formatCurrency(financialSummary.overduePayable, entityCurrency)}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </>
-            )}
-          </Grid>
-
-          {/* Aging Analysis (for customers with outstanding) */}
           {isCustomer && financialSummary.outstandingReceivable > 0 && (
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Receivables Aging Analysis
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 6, sm: 3 }}>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'success.50', borderRadius: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Current (0-30 days)
-                    </Typography>
-                    <Typography variant="h6" color="success.main">
-                      {formatCurrency(financialSummary.aging.current, entityCurrency)}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3 }}>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'warning.50', borderRadius: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      31-60 days
-                    </Typography>
-                    <Typography variant="h6" color="warning.main">
-                      {formatCurrency(financialSummary.aging.days31to60, entityCurrency)}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3 }}>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'orange.50', borderRadius: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      61-90 days
-                    </Typography>
-                    <Typography variant="h6" color="warning.dark">
-                      {formatCurrency(financialSummary.aging.days61to90, entityCurrency)}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3 }}>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'error.50', borderRadius: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Over 90 days
-                    </Typography>
-                    <Typography variant="h6" color="error.main">
-                      {formatCurrency(financialSummary.aging.over90days, entityCurrency)}
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-            </Paper>
+            <AgingAnalysis aging={financialSummary.aging} currency={entityCurrency} />
           )}
 
           {/* Transaction Type Filter */}
@@ -618,88 +320,13 @@ export default function EntityLedgerPage() {
               colSpan={7}
             />
           ) : (
-            <Paper>
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Date</TableCell>
-                      <TableCell>Type</TableCell>
-                      <TableCell>Transaction #</TableCell>
-                      <TableCell>Description</TableCell>
-                      <TableCell align="right">Amount</TableCell>
-                      <TableCell align="right">Outstanding</TableCell>
-                      <TableCell>Status</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {paginatedTransactions.map((txn) => (
-                      <TableRow key={txn.id} hover>
-                        <TableCell>
-                          {formatDate(txn.invoiceDate || txn.billDate || txn.date)}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={getTransactionTypeLabel(txn.type)}
-                            size="small"
-                            color={getTransactionTypeColor(txn.type)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight="medium">
-                            {txn.transactionNumber}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" noWrap sx={{ maxWidth: 250 }}>
-                            {txn.description || '-'}
-                          </Typography>
-                          {txn.dueDate && (
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              Due: {formatDate(txn.dueDate)}
-                            </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography variant="body2" fontWeight="medium">
-                            {formatCurrency(txn.totalAmount || txn.amount, txn.currency)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          {txn.outstandingAmount !== undefined && txn.outstandingAmount > 0 ? (
-                            <Typography variant="body2" color="warning.main" fontWeight="medium">
-                              {formatCurrency(txn.outstandingAmount, txn.currency)}
-                            </Typography>
-                          ) : (
-                            <Typography variant="body2" color="text.secondary">
-                              -
-                            </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {txn.paymentStatus && (
-                            <Chip
-                              label={txn.paymentStatus.replace('_', ' ')}
-                              size="small"
-                              color={getPaymentStatusColor(txn.paymentStatus)}
-                            />
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-              <TablePagination
-                rowsPerPageOptions={[10, 25, 50, 100]}
-                component="div"
-                count={filteredTransactions.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-              />
-            </Paper>
+            <TransactionsTable
+              transactions={filteredTransactions}
+              page={page}
+              rowsPerPage={rowsPerPage}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
           )}
         </>
       )}

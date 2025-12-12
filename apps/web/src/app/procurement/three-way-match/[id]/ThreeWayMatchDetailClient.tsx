@@ -8,38 +8,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import {
-  Box,
-  Stack,
-  CircularProgress,
-  Alert,
-  Button,
-  Paper,
-  Typography,
-  Chip,
-  Grid,
-  Divider,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-} from '@mui/material';
+import { Box, Stack, CircularProgress, Alert, Button, Typography, Chip, Grid } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
-  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { ThreeWayMatch, MatchLineItem, MatchDiscrepancy } from '@vapour/types';
@@ -51,15 +24,18 @@ import {
   approveMatch,
   rejectMatch,
 } from '@/lib/procurement/threeWayMatch';
-import {
-  getMatchStatusText,
-  getMatchStatusColor,
-  formatCurrency,
-  formatPercentage,
-} from '@/lib/procurement/threeWayMatchHelpers';
-import { formatDate } from '@/lib/utils/formatters';
+import { getMatchStatusText, getMatchStatusColor } from '@/lib/procurement/threeWayMatchHelpers';
 import { doc, getDoc } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import {
+  ApproveDialog,
+  RejectDialog,
+  ResolveDiscrepancyDialog,
+  MatchSidebar,
+  LineItemsTable,
+  DiscrepanciesTable,
+  FinancialSummary,
+} from './components';
 
 export default function ThreeWayMatchDetailClient() {
   const router = useRouter();
@@ -270,7 +246,6 @@ export default function ThreeWayMatchDetailClient() {
 
   const canApprove = match.status === 'PENDING_REVIEW' || match.status === 'PARTIALLY_MATCHED';
   const canReject = match.status === 'PENDING_REVIEW' || match.status === 'NOT_MATCHED';
-  const unresolvedDiscrepancies = discrepancies.filter((d) => !d.resolved);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -332,411 +307,57 @@ export default function ThreeWayMatchDetailClient() {
         <Grid container spacing={3}>
           {/* Left Column - Line Items */}
           <Grid size={{ xs: 12, md: 8 }}>
-            {/* Financial Summary */}
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Financial Summary
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 6, sm: 3 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    PO Amount
-                  </Typography>
-                  <Typography variant="h6">{formatCurrency(match.poAmount)}</Typography>
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    GR Amount
-                  </Typography>
-                  <Typography variant="h6">{formatCurrency(match.grAmount)}</Typography>
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Invoice Amount
-                  </Typography>
-                  <Typography variant="h6">{formatCurrency(match.invoiceAmount)}</Typography>
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Variance
-                  </Typography>
-                  <Typography
-                    variant="h6"
-                    color={Math.abs(match.variance) < 0.01 ? 'success.main' : 'error.main'}
-                  >
-                    {formatCurrency(match.variance)}
-                  </Typography>
-                </Grid>
-              </Grid>
-            </Paper>
-
-            {/* Line Items Table */}
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Line Items ({lineItems.length})
-              </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>#</TableCell>
-                      <TableCell>Description</TableCell>
-                      <TableCell align="right">PO Qty</TableCell>
-                      <TableCell align="right">GR Qty</TableCell>
-                      <TableCell align="right">Bill Qty</TableCell>
-                      <TableCell align="right">Variance</TableCell>
-                      <TableCell>Status</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {lineItems.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.lineNumber}</TableCell>
-                        <TableCell>{item.description}</TableCell>
-                        <TableCell align="right">{item.orderedQuantity}</TableCell>
-                        <TableCell align="right">{item.receivedQuantity}</TableCell>
-                        <TableCell align="right">{item.invoicedQuantity}</TableCell>
-                        <TableCell align="right">
-                          <Typography
-                            color={
-                              Math.abs(item.quantityVariance) < 0.01 ? 'success.main' : 'error.main'
-                            }
-                          >
-                            {item.quantityVariance}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          {item.quantityMatched ? (
-                            <Chip label="Matched" color="success" size="small" />
-                          ) : (
-                            <Chip label="Variance" color="warning" size="small" />
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Paper>
-
-            {/* Discrepancies */}
-            {discrepancies.length > 0 && (
-              <Paper sx={{ p: 3 }}>
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
-                  sx={{ mb: 2 }}
-                >
-                  <Typography variant="h6">Discrepancies ({discrepancies.length})</Typography>
-                  {unresolvedDiscrepancies.length > 0 && (
-                    <Chip
-                      icon={<WarningIcon />}
-                      label={`${unresolvedDiscrepancies.length} Unresolved`}
-                      color="warning"
-                      size="small"
-                    />
-                  )}
-                </Stack>
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Type</TableCell>
-                        <TableCell>Description</TableCell>
-                        <TableCell align="right">Expected</TableCell>
-                        <TableCell align="right">Actual</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Actions</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {discrepancies.map((discrepancy) => (
-                        <TableRow key={discrepancy.id}>
-                          <TableCell>
-                            <Chip label={discrepancy.discrepancyType} size="small" />
-                          </TableCell>
-                          <TableCell>{discrepancy.description}</TableCell>
-                          <TableCell align="right">{String(discrepancy.expectedValue)}</TableCell>
-                          <TableCell align="right">{String(discrepancy.actualValue)}</TableCell>
-                          <TableCell>
-                            {discrepancy.resolved ? (
-                              <Chip label="Resolved" color="success" size="small" />
-                            ) : (
-                              <Chip label="Pending" color="warning" size="small" />
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {!discrepancy.resolved && (
-                              <Button
-                                size="small"
-                                onClick={() => {
-                                  setSelectedDiscrepancy(discrepancy);
-                                  setResolveDialogOpen(true);
-                                }}
-                              >
-                                Resolve
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Paper>
-            )}
+            <FinancialSummary match={match} />
+            <LineItemsTable lineItems={lineItems} />
+            <DiscrepanciesTable
+              discrepancies={discrepancies}
+              onResolve={(discrepancy) => {
+                setSelectedDiscrepancy(discrepancy);
+                setResolveDialogOpen(true);
+              }}
+            />
           </Grid>
 
           {/* Right Column - Details */}
           <Grid size={{ xs: 12, md: 4 }}>
-            {/* Match Status */}
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Match Status
-              </Typography>
-              <Stack spacing={2}>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Overall Match %
-                  </Typography>
-                  <Chip
-                    label={formatPercentage(match.overallMatchPercentage)}
-                    color={
-                      match.overallMatchPercentage >= 95
-                        ? 'success'
-                        : match.overallMatchPercentage >= 80
-                          ? 'warning'
-                          : 'error'
-                    }
-                  />
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Matched Lines
-                  </Typography>
-                  <Typography variant="body1">
-                    {match.matchedLines} / {match.totalLines}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Variance %
-                  </Typography>
-                  <Typography
-                    variant="body1"
-                    color={Math.abs(match.variancePercentage) < 1 ? 'success.main' : 'error.main'}
-                  >
-                    {formatPercentage(match.variancePercentage)}
-                  </Typography>
-                </Box>
-              </Stack>
-            </Paper>
-
-            {/* Reference Documents */}
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Reference Documents
-              </Typography>
-              <Stack spacing={2}>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Purchase Order
-                  </Typography>
-                  <Button
-                    size="small"
-                    onClick={() => router.push(`/procurement/pos/${match.purchaseOrderId}`)}
-                  >
-                    {match.poNumber}
-                  </Button>
-                </Box>
-                <Divider />
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Goods Receipt
-                  </Typography>
-                  <Button
-                    size="small"
-                    onClick={() =>
-                      router.push(`/procurement/goods-receipts/${match.goodsReceiptId}`)
-                    }
-                  >
-                    {match.grNumber}
-                  </Button>
-                </Box>
-                <Divider />
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Vendor Bill
-                  </Typography>
-                  <Typography variant="body1">{match.vendorBillNumber}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Invoice: {match.vendorInvoiceNumber}
-                  </Typography>
-                </Box>
-              </Stack>
-            </Paper>
-
-            {/* Timeline */}
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Timeline
-              </Typography>
-              <Stack spacing={2}>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Matched At
-                  </Typography>
-                  <Typography variant="body1">{formatDate(match.matchedAt)}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Vendor
-                  </Typography>
-                  <Typography variant="body1">{match.vendorName}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Project
-                  </Typography>
-                  <Typography variant="body1">{match.projectName}</Typography>
-                </Box>
-              </Stack>
-            </Paper>
+            <MatchSidebar match={match} />
           </Grid>
         </Grid>
       </Stack>
 
-      {/* Approve Dialog */}
-      <Dialog
+      {/* Dialogs */}
+      <ApproveDialog
         open={approveDialogOpen}
         onClose={() => setApproveDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Approve Three-Way Match</DialogTitle>
-        <DialogContent>
-          <Typography>Are you sure you want to approve this three-way match?</Typography>
-          {match.variance !== 0 && (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              This match has a variance of {formatCurrency(match.variance)}. Approving will mark it
-              as &quot;Approved with Variance&quot;.
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setApproveDialogOpen(false)} disabled={actionLoading}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleApprove}
-            variant="contained"
-            color="success"
-            disabled={actionLoading}
-            startIcon={actionLoading ? <CircularProgress size={20} /> : <CheckCircleIcon />}
-          >
-            Approve
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onApprove={handleApprove}
+        loading={actionLoading}
+        variance={match.variance}
+      />
 
-      {/* Reject Dialog */}
-      <Dialog
+      <RejectDialog
         open={rejectDialogOpen}
         onClose={() => setRejectDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Reject Three-Way Match</DialogTitle>
-        <DialogContent>
-          <Typography sx={{ mb: 2 }}>Please provide a reason for rejecting this match:</Typography>
-          <TextField
-            label="Rejection Reason"
-            value={resolutionNotes}
-            onChange={(e) => setResolutionNotes(e.target.value)}
-            fullWidth
-            multiline
-            rows={3}
-            required
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setRejectDialogOpen(false)} disabled={actionLoading}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleReject}
-            variant="contained"
-            color="error"
-            disabled={actionLoading || !resolutionNotes.trim()}
-            startIcon={actionLoading ? <CircularProgress size={20} /> : <CancelIcon />}
-          >
-            Reject
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onReject={handleReject}
+        loading={actionLoading}
+        notes={resolutionNotes}
+        onNotesChange={setResolutionNotes}
+      />
 
-      {/* Resolve Discrepancy Dialog */}
-      <Dialog
+      <ResolveDiscrepancyDialog
         open={resolveDialogOpen}
-        onClose={() => setResolveDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Resolve Discrepancy</DialogTitle>
-        <DialogContent>
-          {selectedDiscrepancy && (
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              <Alert severity="info">
-                <strong>{selectedDiscrepancy.discrepancyType}</strong>:{' '}
-                {selectedDiscrepancy.description}
-              </Alert>
-              <FormControl fullWidth>
-                <InputLabel>Resolution Type</InputLabel>
-                <Select
-                  value={resolutionType}
-                  label="Resolution Type"
-                  onChange={(e) => setResolutionType(e.target.value as typeof resolutionType)}
-                >
-                  <MenuItem value="ACCEPTED">Accept Variance</MenuItem>
-                  <MenuItem value="CORRECTED_BY_VENDOR">Corrected by Vendor</MenuItem>
-                  <MenuItem value="PRICE_ADJUSTMENT">Price Adjustment</MenuItem>
-                  <MenuItem value="QUANTITY_ADJUSTMENT">Quantity Adjustment</MenuItem>
-                  <MenuItem value="WAIVED">Waived</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField
-                label="Resolution Notes"
-                value={resolutionNotes}
-                onChange={(e) => setResolutionNotes(e.target.value)}
-                fullWidth
-                multiline
-                rows={3}
-              />
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setResolveDialogOpen(false);
-              setSelectedDiscrepancy(null);
-              setResolutionNotes('');
-            }}
-            disabled={actionLoading}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleResolveDiscrepancy}
-            variant="contained"
-            disabled={actionLoading}
-            startIcon={actionLoading ? <CircularProgress size={20} /> : <CheckCircleIcon />}
-          >
-            Resolve
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onClose={() => {
+          setResolveDialogOpen(false);
+          setSelectedDiscrepancy(null);
+          setResolutionNotes('');
+        }}
+        onResolve={handleResolveDiscrepancy}
+        loading={actionLoading}
+        discrepancy={selectedDiscrepancy}
+        resolutionType={resolutionType}
+        onResolutionTypeChange={setResolutionType}
+        notes={resolutionNotes}
+        onNotesChange={setResolutionNotes}
+      />
     </Box>
   );
 }

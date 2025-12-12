@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -32,8 +33,7 @@ interface TeamTabProps {
   project: Project;
 }
 
-export function TeamTab({ project }: TeamTabProps) {
-
+export const TeamTab = memo(function TeamTab({ project }: TeamTabProps) {
   const getInitials = (name: string): string => {
     const parts = name.split(' ');
     if (parts.length >= 2 && parts[0] && parts[1]) {
@@ -60,23 +60,31 @@ export function TeamTab({ project }: TeamTabProps) {
     return colors[Math.abs(hash) % colors.length] || '#1976d2';
   };
 
-  const activeMembers = project.team?.filter((m) => m.isActive) || [];
-  const inactiveMembers = project.team?.filter((m) => !m.isActive) || [];
-  const totalMembers = project.team?.length || 0;
+  // Memoize computed team data for performance
+  const { activeMembers, inactiveMembers, totalMembers, roleCount, membersByRole } = useMemo(() => {
+    const active = project.team?.filter((m) => m.isActive) || [];
+    const inactive = project.team?.filter((m) => !m.isActive) || [];
+    const total = project.team?.length || 0;
+    const roles = new Set(project.team?.map((m) => m.role) || []);
 
-  // Count unique roles
-  const roles = new Set(project.team?.map((m) => m.role) || []);
-  const roleCount = roles.size;
+    // Group members by role
+    const byRole: Record<string, ProjectMember[]> = {};
+    (project.team || []).forEach((member) => {
+      const role = member.role;
+      if (!byRole[role]) {
+        byRole[role] = [];
+      }
+      byRole[role].push(member);
+    });
 
-  // Group members by role
-  const membersByRole: Record<string, ProjectMember[]> = {};
-  (project.team || []).forEach((member) => {
-    const role = member.role;
-    if (!membersByRole[role]) {
-      membersByRole[role] = [];
-    }
-    membersByRole[role].push(member);
-  });
+    return {
+      activeMembers: active,
+      inactiveMembers: inactive,
+      totalMembers: total,
+      roleCount: roles.size,
+      membersByRole: byRole,
+    };
+  }, [project.team]);
 
   return (
     <Box>
@@ -275,4 +283,4 @@ export function TeamTab({ project }: TeamTabProps) {
       </Alert>
     </Box>
   );
-}
+});

@@ -10,18 +10,13 @@ import {
   getModuleStats,
   type ModuleStats,
 } from '@/lib/dashboard/moduleStatsService';
+import { moduleStatsKeys } from '@/lib/queryKeys';
 import { createLogger } from '@vapour/utils';
 
 const logger = createLogger('useModuleStats');
 
-/**
- * Query key factory for module stats
- */
-export const moduleStatsKeys = {
-  all: ['moduleStats'] as const,
-  allByIds: (moduleIds: string[]) => [...moduleStatsKeys.all, 'list', moduleIds] as const,
-  single: (moduleId: string) => [...moduleStatsKeys.all, 'detail', moduleId] as const,
-};
+// Re-export for backwards compatibility
+export { moduleStatsKeys };
 
 /**
  * Hook to fetch stats for all accessible modules
@@ -43,7 +38,7 @@ export function useAllModuleStats(
   }
 ) {
   return useQuery({
-    queryKey: moduleStatsKeys.allByIds(accessibleModuleIds),
+    queryKey: moduleStatsKeys.list(accessibleModuleIds),
     queryFn: async () => {
       logger.debug('Fetching module stats', { moduleIds: accessibleModuleIds });
       const stats = await getAllModuleStats(accessibleModuleIds);
@@ -69,7 +64,7 @@ export function useModuleStats(
   }
 ) {
   return useQuery({
-    queryKey: moduleId ? moduleStatsKeys.single(moduleId) : ['moduleStats', 'null'],
+    queryKey: moduleId ? moduleStatsKeys.detail(moduleId) : ['moduleStats', 'null'],
     queryFn: async () => {
       if (!moduleId) return null;
       logger.debug('Fetching single module stats', { moduleId });

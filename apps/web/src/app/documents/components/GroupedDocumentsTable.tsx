@@ -9,7 +9,7 @@
  * - Color-coded status indicators
  */
 
-import { useState } from 'react';
+import { useState, memo, useMemo, useCallback } from 'react';
 import {
   Paper,
   Table,
@@ -44,39 +44,47 @@ interface DocumentGroup {
   documents: MasterDocumentEntry[];
 }
 
-export function GroupedDocumentsTable({ documents }: GroupedDocumentsTableProps) {
+export const GroupedDocumentsTable = memo(function GroupedDocumentsTable({
+  documents,
+}: GroupedDocumentsTableProps) {
   const router = useRouter();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
-  // Group documents by discipline
-  const groups: DocumentGroup[] = Object.entries(
-    documents.reduce(
-      (acc, doc) => {
-        const discipline = doc.disciplineCode || 'UNCATEGORIZED';
-        if (!acc[discipline]) {
-          acc[discipline] = [];
-        }
-        acc[discipline].push(doc);
-        return acc;
-      },
-      {} as Record<string, MasterDocumentEntry[]>
-    )
-  )
-    .map(([discipline, docs]) => ({
-      discipline,
-      documents: docs,
-    }))
-    .sort((a, b) => a.discipline.localeCompare(b.discipline));
+  // Group documents by discipline - memoized for performance
+  const groups: DocumentGroup[] = useMemo(
+    () =>
+      Object.entries(
+        documents.reduce(
+          (acc, doc) => {
+            const discipline = doc.disciplineCode || 'UNCATEGORIZED';
+            if (!acc[discipline]) {
+              acc[discipline] = [];
+            }
+            acc[discipline].push(doc);
+            return acc;
+          },
+          {} as Record<string, MasterDocumentEntry[]>
+        )
+      )
+        .map(([discipline, docs]) => ({
+          discipline,
+          documents: docs,
+        }))
+        .sort((a, b) => a.discipline.localeCompare(b.discipline)),
+    [documents]
+  );
 
-  const toggleGroup = (discipline: string) => {
-    const newExpanded = new Set(expandedGroups);
-    if (newExpanded.has(discipline)) {
-      newExpanded.delete(discipline);
-    } else {
-      newExpanded.add(discipline);
-    }
-    setExpandedGroups(newExpanded);
-  };
+  const toggleGroup = useCallback((discipline: string) => {
+    setExpandedGroups((prev) => {
+      const newExpanded = new Set(prev);
+      if (newExpanded.has(discipline)) {
+        newExpanded.delete(discipline);
+      } else {
+        newExpanded.add(discipline);
+      }
+      return newExpanded;
+    });
+  }, []);
 
   const getStatusColor = (
     status: string
@@ -302,4 +310,4 @@ export function GroupedDocumentsTable({ documents }: GroupedDocumentsTableProps)
       </TableContainer>
     </Paper>
   );
-}
+});

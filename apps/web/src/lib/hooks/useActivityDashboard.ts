@@ -14,16 +14,10 @@ import {
   type DashboardSummary,
   type ActivityItem,
 } from '@/lib/dashboard/activityService';
+import { activityKeys } from '@/lib/queryKeys';
 
-/**
- * Query keys for activity dashboard
- */
-export const activityKeys = {
-  all: ['activity'] as const,
-  actionItems: (userId: string) => [...activityKeys.all, 'actionItems', userId] as const,
-  summary: (userId: string) => [...activityKeys.all, 'summary', userId] as const,
-  recentActivity: (userId: string) => [...activityKeys.all, 'recent', userId] as const,
-};
+// Re-export for backwards compatibility
+export { activityKeys };
 
 /**
  * Hook to fetch action items for "Today's Focus"
