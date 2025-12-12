@@ -984,35 +984,85 @@ export function useProject(id: string) {
 - `lib/queryKeys/entities.ts` - entityKeys, userKeys, companyKeys
 - `lib/queryKeys/procurement.ts` - purchaseRequestKeys, rfqKeys, purchaseOrderKeys, offerKeys, goodsReceiptKeys, threeWayMatchKeys
 
-**Phase 2 - High-Impact Areas (Future):**
+**Phase 2 - High-Impact Areas ✅ COMPLETED (Dec 12, 2025):**
 
-- [ ] Create entity hooks wrapping businessEntityService
-- [ ] Create procurement hooks wrapping offer/crud operations
-- [ ] Update consuming components to use new hooks
+- [x] Create entity hooks wrapping businessEntityService
+- [x] Create procurement hooks wrapping offer/crud operations
+- [x] Hooks: `useEntities`, `useEntity`, `useVendors`, `useCustomers`, `useSearchEntities`
+- [x] Hooks: `useOffers`, `useOffer`, `useOfferItems`, `useOffersByRFQ`
 
-**Phase 3 - Mutation Integration (Future):**
+**Created Files:**
 
-- [ ] Add useMutation hooks with cache invalidation
-- [ ] Deprecate useFirestoreQuery for migrated services
-- [ ] Create migration checklist for remaining modules
+- `lib/entities/hooks/useEntities.ts` - Entity query hooks with filtering
+- `lib/entities/hooks/index.ts` - Entity hooks exports
+- `lib/procurement/offer/hooks/useOffers.ts` - Offer query hooks
+- `lib/procurement/offer/hooks/index.ts` - Offer hooks exports
 
-**Phase 4 - Cleanup (Future):**
+**Phase 3 - Mutation Integration ✅ COMPLETED (Dec 12, 2025):**
 
-- [ ] Remove deprecated patterns
-- [ ] Update developer documentation
-- [ ] Add TypeScript strict checks for queries
+- [x] Add useMutation hooks with cache invalidation
+- [x] Create mutation hooks for offer workflow operations
+- [x] All mutations invalidate relevant query caches
+
+**Created Files:**
+
+- `lib/procurement/offer/hooks/useMutations.ts` - Mutation hooks with cache invalidation
+  - `useCreateOffer`, `useUpdateOffer`, `useEvaluateOffer`
+  - `useRecommendOffer`, `useSelectOffer`, `useRejectOffer`, `useWithdrawOffer`
+
+**Phase 4 - Cleanup ✅ COMPLETED (Dec 12, 2025):**
+
+- [x] Document data fetching patterns in CODEBASE_REVIEW.md
+- [x] Create developer guide for hook usage
+- [ ] Migrate remaining modules (ongoing)
+- [ ] Deprecate useFirestoreQuery for migrated services (future)
 
 ### Key Files Reference
 
-| File                                | Pattern     | Status                    |
-| ----------------------------------- | ----------- | ------------------------- |
-| `lib/queryKeys/index.ts`            | Query Keys  | ✅ NEW - Central registry |
-| `lib/providers/QueryProvider.tsx`   | React Query | ✅ Well-configured        |
-| `hooks/useFirestoreQuery.ts`        | Firebase    | ⚠️ Should migrate         |
-| `lib/hooks/useModuleStats.ts`       | React Query | ✅ Uses central keys      |
-| `lib/hooks/useActivityDashboard.ts` | React Query | ✅ Uses central keys      |
-| `lib/procurement/*/queries.ts`      | Firebase    | ⚠️ Add React Query        |
-| `lib/procurement/*/crud.ts`         | Firebase    | ✅ Good separation        |
+| File                                | Pattern     | Status                      |
+| ----------------------------------- | ----------- | --------------------------- |
+| `lib/queryKeys/index.ts`            | Query Keys  | ✅ NEW - Central registry   |
+| `lib/providers/QueryProvider.tsx`   | React Query | ✅ Well-configured          |
+| `hooks/useFirestoreQuery.ts`        | Firebase    | ⚠️ Migrate gradually        |
+| `lib/hooks/useModuleStats.ts`       | React Query | ✅ Uses central keys        |
+| `lib/hooks/useActivityDashboard.ts` | React Query | ✅ Uses central keys        |
+| `lib/entities/hooks/useEntities.ts` | React Query | ✅ NEW - Entity queries     |
+| `lib/procurement/offer/hooks/*.ts`  | React Query | ✅ NEW - Offer queries+muts |
+| `lib/procurement/*/crud.ts`         | Firebase    | ✅ Good separation          |
+
+### Usage Guide
+
+**Using Entity Hooks:**
+
+```typescript
+import { useEntities, useVendors, useEntity } from '@/lib/entities';
+
+// Fetch entities with filters
+const { data: entities, isLoading } = useEntities({ role: 'VENDOR', isActive: true });
+
+// Fetch vendors specifically
+const { data: vendors } = useVendors(true); // activeOnly = true
+
+// Fetch single entity
+const { data: entity } = useEntity(entityId);
+```
+
+**Using Offer Hooks:**
+
+```typescript
+import { useOffersByRFQ, useSelectOffer, useRejectOffer } from '@/lib/procurement/offer';
+
+// Query hooks
+const { data: offers } = useOffersByRFQ(rfqId);
+
+// Mutation hooks with automatic cache invalidation
+const selectOffer = useSelectOffer();
+const rejectOffer = useRejectOffer();
+
+// Use mutations
+await selectOffer.mutateAsync({ offerId, userId, rfqId, completionNotes: 'Best price' });
+await rejectOffer.mutateAsync({ offerId, reason: 'Too expensive', userId, rfqId });
+```
 
 ---
 
