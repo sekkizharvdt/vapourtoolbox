@@ -22,11 +22,15 @@ export type TaskNotificationCategory =
   | 'PR_REJECTED' // Informational: Your PR was rejected
   | 'PR_COMMENTED' // Informational: Someone commented on your PR
   | 'RFQ_CREATED' // Informational: New RFQ created
+  | 'RFQ_OFFER_RECEIVED' // Informational: Vendor offer received for RFQ
+  | 'RFQ_READY_FOR_EVALUATION' // Actionable: All offers received, evaluate and select vendor
   | 'OFFER_UPLOADED' // Informational: Vendor offer received
   | 'PO_PENDING_APPROVAL' // Actionable: Approve/reject PO
   | 'PO_APPROVED' // Informational: Your PO was approved
   | 'PO_REJECTED' // Informational: Your PO was rejected
   | 'GOODS_RECEIVED' // Informational: Goods received for PO
+  | 'GR_READY_FOR_PAYMENT' // Actionable: Review GR and approve payment
+  | 'GR_PAYMENT_APPROVED' // Informational: Payment approved for GR
   | 'PAYMENT_REQUESTED' // Actionable: Process payment
   | 'WCC_ISSUED' // Informational: Work completion certificate issued
   // General Tasks

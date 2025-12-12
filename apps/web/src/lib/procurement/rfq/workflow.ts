@@ -10,6 +10,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import { getRFQById } from './crud';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
+import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
 
 const logger = createLogger({ context: 'rfqService' });
 
@@ -64,8 +65,10 @@ export async function issueRFQ(rfqId: string, userId: string, userName: string):
 
 /**
  * Update RFQ status when offer is received
+ * Sends task notification to RFQ creator when first offer arrives
+ * and when all expected offers are received
  */
-export async function incrementOffersReceived(rfqId: string): Promise<void> {
+export async function incrementOffersReceived(rfqId: string, vendorName?: string): Promise<void> {
   const { db } = getFirebase();
 
   const rfq = await getRFQById(rfqId);
@@ -74,12 +77,58 @@ export async function incrementOffersReceived(rfqId: string): Promise<void> {
   }
 
   const newCount = rfq.offersReceived + 1;
+  const totalVendors = rfq.vendorIds.length;
+  const isFirstOffer = rfq.offersReceived === 0;
+  const allOffersReceived = newCount === totalVendors;
 
   await updateDoc(doc(db, COLLECTIONS.RFQS, rfqId), {
     offersReceived: newCount,
     status: 'OFFERS_RECEIVED',
     updatedAt: Timestamp.now(),
   });
+
+  // Create task notification for RFQ creator
+  try {
+    if (isFirstOffer) {
+      // First offer received - informational notification
+      await createTaskNotification({
+        type: 'informational',
+        category: 'RFQ_OFFER_RECEIVED',
+        userId: rfq.createdBy,
+        assignedBy: 'system',
+        assignedByName: vendorName || 'Vendor',
+        title: `Offer Received for RFQ ${rfq.number}`,
+        message: `${vendorName || 'A vendor'} submitted an offer for "${rfq.title}". ${newCount}/${totalVendors} offers received.`,
+        entityType: 'RFQ',
+        entityId: rfqId,
+        linkUrl: `/procurement/rfqs/${rfqId}/offers`,
+        priority: 'MEDIUM',
+        projectId: rfq.projectIds[0],
+      });
+    }
+
+    if (allOffersReceived) {
+      // All offers received - actionable task to evaluate
+      await createTaskNotification({
+        type: 'actionable',
+        category: 'RFQ_READY_FOR_EVALUATION',
+        userId: rfq.createdBy,
+        assignedBy: 'system',
+        assignedByName: 'System',
+        title: `Evaluate Offers for RFQ ${rfq.number}`,
+        message: `All ${totalVendors} offers received for "${rfq.title}". Ready for evaluation and vendor selection.`,
+        entityType: 'RFQ',
+        entityId: rfqId,
+        linkUrl: `/procurement/rfqs/${rfqId}/offers`,
+        priority: 'HIGH',
+        autoCompletable: true,
+        projectId: rfq.projectIds[0],
+      });
+    }
+  } catch (error) {
+    logger.error('Failed to create offer received task notification', { error, rfqId });
+    // Don't fail the main operation
+  }
 
   logger.info('Offer received count updated', { rfqId, newCount });
 }

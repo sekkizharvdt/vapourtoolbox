@@ -29,6 +29,7 @@ import type {
 } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
+import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
 
 const logger = createLogger({ context: 'goodsReceiptService' });
 import {
@@ -321,6 +322,10 @@ export async function completeGR(
     throw new Error('Goods Receipt not found');
   }
 
+  // Get PO to find creator for task notification
+  const poDoc = await getDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, gr.purchaseOrderId));
+  const po = poDoc.exists() ? (poDoc.data() as PurchaseOrder) : null;
+
   await updateDoc(doc(db, COLLECTIONS.GOODS_RECEIPTS, grId), {
     status: 'COMPLETED',
     updatedAt: Timestamp.now(),
@@ -344,6 +349,30 @@ export async function completeGR(
     }
   );
 
+  // Create task notification for PO creator to approve payment
+  if (po?.createdBy) {
+    try {
+      await createTaskNotification({
+        type: 'actionable',
+        category: 'GR_READY_FOR_PAYMENT',
+        userId: po.createdBy,
+        assignedBy: userId,
+        assignedByName: userName || userEmail,
+        title: `Approve Payment for GR ${gr.number}`,
+        message: `Goods Receipt ${gr.number} for PO ${gr.poNumber} (${po.vendorName || 'vendor'}) is complete. Please review and approve for payment.`,
+        entityType: 'GOODS_RECEIPT',
+        entityId: grId,
+        linkUrl: `/procurement/goods-receipts/${grId}`,
+        priority: gr.overallCondition === 'ACCEPTED' ? 'MEDIUM' : 'HIGH',
+        autoCompletable: true,
+        projectId: gr.projectId,
+      });
+    } catch (err) {
+      logger.error('Failed to create GR payment approval task', { error: err, grId });
+      // Don't fail main operation
+    }
+  }
+
   // Automatically create bill in accounting
   try {
     await createBillFromGoodsReceipt(db, gr, userId, userEmail);
@@ -359,7 +388,8 @@ export async function approveGRForPayment(
   grId: string,
   bankAccountId: string,
   userId: string,
-  userEmail: string
+  userEmail: string,
+  userName?: string
 ): Promise<void> {
   const { db } = getFirebase();
 
@@ -376,6 +406,46 @@ export async function approveGRForPayment(
     paymentApprovedAt: now,
     updatedAt: now,
   });
+
+  // Complete the GR_READY_FOR_PAYMENT task
+  try {
+    const { findTaskNotificationByEntity, completeActionableTask } = await import(
+      '@/lib/tasks/taskNotificationService'
+    );
+    const task = await findTaskNotificationByEntity('GOODS_RECEIPT', grId, 'GR_READY_FOR_PAYMENT', [
+      'pending',
+      'in_progress',
+    ]);
+    if (task) {
+      await completeActionableTask(task.id, userId, true);
+    }
+  } catch (err) {
+    logger.error('Failed to complete GR payment task', { error: err, grId });
+    // Don't fail main operation
+  }
+
+  // Create informational notification for the inspector
+  if (gr.inspectedBy && gr.inspectedBy !== userId) {
+    try {
+      await createTaskNotification({
+        type: 'informational',
+        category: 'GR_PAYMENT_APPROVED',
+        userId: gr.inspectedBy,
+        assignedBy: userId,
+        assignedByName: userName || userEmail,
+        title: `Payment Approved for GR ${gr.number}`,
+        message: `Payment has been approved for Goods Receipt ${gr.number} (PO ${gr.poNumber}). Vendor payment will be processed.`,
+        entityType: 'GOODS_RECEIPT',
+        entityId: grId,
+        linkUrl: `/procurement/goods-receipts/${grId}`,
+        priority: 'LOW',
+        projectId: gr.projectId,
+      });
+    } catch (err) {
+      logger.error('Failed to create GR payment approved notification', { error: err, grId });
+      // Don't fail main operation
+    }
+  }
 
   // Automatically create payment in accounting
   try {

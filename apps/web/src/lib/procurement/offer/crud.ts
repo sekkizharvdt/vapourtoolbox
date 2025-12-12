@@ -138,9 +138,9 @@ export async function createOffer(
 
   await batch.commit();
 
-  // Update RFQ offers received count
+  // Update RFQ offers received count and send task notification
   try {
-    await incrementOffersReceived(input.rfqId);
+    await incrementOffersReceived(input.rfqId, input.vendorName);
   } catch (err) {
     console.error('[offerService] Failed to increment RFQ offers count:', err);
     // Don't fail offer creation if counter update fails

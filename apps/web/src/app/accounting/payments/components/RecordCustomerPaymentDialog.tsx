@@ -127,22 +127,28 @@ export function RecordCustomerPaymentDialog({
       const invoices: CustomerInvoice[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data() as CustomerInvoice;
-        // Only include invoices with outstanding amounts
-        if ((data.totalAmount || 0) > 0) {
+        // Only include invoices with outstanding amounts (use outstandingAmount which tracks INR)
+        const outstanding = data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
+        if (outstanding > 0) {
           invoices.push({ ...data, id: doc.id });
         }
       });
 
       setOutstandingInvoices(invoices);
 
-      // Initialize allocations
-      const initialAllocations: PaymentAllocation[] = invoices.map((invoice) => ({
-        invoiceId: invoice.id!,
-        invoiceNumber: invoice.transactionNumber || '',
-        originalAmount: invoice.totalAmount || 0,
-        allocatedAmount: 0,
-        remainingAmount: invoice.totalAmount || 0,
-      }));
+      // Initialize allocations using INR amounts (baseAmount or outstandingAmount)
+      const initialAllocations: PaymentAllocation[] = invoices.map((invoice) => {
+        // Use outstandingAmount (INR) for allocation, fallback to baseAmount or totalAmount
+        const outstandingInINR =
+          invoice.outstandingAmount ?? invoice.baseAmount ?? invoice.totalAmount ?? 0;
+        return {
+          invoiceId: invoice.id!,
+          invoiceNumber: invoice.transactionNumber || '',
+          originalAmount: outstandingInINR,
+          allocatedAmount: 0,
+          remainingAmount: outstandingInINR,
+        };
+      });
       setAllocations(initialAllocations);
     }
 
@@ -596,6 +602,7 @@ export function RecordCustomerPaymentDialog({
                         <TableCell>Invoice Number</TableCell>
                         <TableCell>Date</TableCell>
                         <TableCell align="right">Invoice Amount</TableCell>
+                        <TableCell align="right">Outstanding (INR)</TableCell>
                         <TableCell align="right">Allocate Amount</TableCell>
                         <TableCell align="right">Remaining</TableCell>
                       </TableRow>
@@ -610,11 +617,27 @@ export function RecordCustomerPaymentDialog({
                             ? (invoice.date as unknown as { toDate: () => Date }).toDate()
                             : new Date(invoice.date as unknown as string | number)
                           : null;
+                        // Show original currency amount if different from INR
+                        const invoiceCurrency = invoice.currency || 'INR';
+                        const originalAmount = invoice.totalAmount || 0;
+                        const isForexInvoice = invoiceCurrency !== 'INR';
                         return (
                           <TableRow key={invoice.id}>
                             <TableCell>{invoice.transactionNumber}</TableCell>
                             <TableCell>
                               {invoiceDate ? invoiceDate.toLocaleDateString() : '-'}
+                            </TableCell>
+                            <TableCell align="right">
+                              {isForexInvoice ? (
+                                <Typography variant="body2">
+                                  {invoiceCurrency}{' '}
+                                  {originalAmount.toLocaleString('en-IN', {
+                                    minimumFractionDigits: 2,
+                                  })}
+                                </Typography>
+                              ) : (
+                                formatCurrency(originalAmount)
+                              )}
                             </TableCell>
                             <TableCell align="right">
                               {formatCurrency(allocation?.originalAmount || 0)}

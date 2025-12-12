@@ -63,3 +63,6 @@ export {
 
 // Import feedback functions
 export { onFeedbackResolved } from './feedback';
+
+// Import transmittal functions
+export { generateTransmittal, getTransmittalDownloadUrl } from './transmittals';
