@@ -36,3 +36,6 @@ export { evaluateOffer, markOfferAsRecommended, getOfferComparison } from './eva
 
 // Export workflow operations
 export { selectOffer, rejectOffer, withdrawOffer } from './workflow';
+
+// Export React Query hooks
+export { useOffers, useOffer, useOfferItems, useOffersByRFQ } from './hooks';

@@ -59,10 +59,15 @@ export const purchaseOrderKeys = {
 export const offerKeys = {
   all: ['offers'] as const,
   lists: () => [...offerKeys.all, 'list'] as const,
-  list: (filters?: { rfqId?: string; vendorId?: string }) =>
-    [...offerKeys.lists(), filters ?? {}] as const,
+  list: (filters?: {
+    rfqId?: string;
+    vendorId?: string;
+    status?: string;
+    isRecommended?: boolean;
+  }) => [...offerKeys.lists(), filters ?? {}] as const,
   details: () => [...offerKeys.all, 'detail'] as const,
   detail: (id: string) => [...offerKeys.details(), id] as const,
+  items: (offerId: string) => [...offerKeys.all, 'items', offerId] as const,
   byRfq: (rfqId: string) => [...offerKeys.all, 'byRfq', rfqId] as const,
   byVendor: (vendorId: string) => [...offerKeys.all, 'byVendor', vendorId] as const,
 };

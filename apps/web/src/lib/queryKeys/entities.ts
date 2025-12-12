@@ -7,9 +7,13 @@
  * @see https://tanstack.com/query/latest/docs/react/guides/query-keys
  */
 
+import type { Status, EntityRole } from '@vapour/types';
+
 export interface EntityFilters {
   type?: string;
-  status?: string;
+  status?: Status | Status[];
+  role?: EntityRole | EntityRole[];
+  isActive?: boolean;
   search?: string;
 }
 
@@ -26,6 +30,12 @@ export const entityKeys = {
   detail: (id: string) => [...entityKeys.details(), id] as const,
   ledger: (id: string) => [...entityKeys.all, 'ledger', id] as const,
   transactions: (id: string) => [...entityKeys.all, 'transactions', id] as const,
+  // Role-specific keys
+  byRole: (role: EntityRole) => [...entityKeys.all, 'byRole', role] as const,
+  vendors: (activeOnly?: boolean) => [...entityKeys.all, 'vendors', { activeOnly }] as const,
+  customers: (activeOnly?: boolean) => [...entityKeys.all, 'customers', { activeOnly }] as const,
+  // Search keys
+  search: (term: string) => [...entityKeys.all, 'search', term] as const,
 };
 
 /**
