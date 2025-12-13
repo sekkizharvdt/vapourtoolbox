@@ -125,7 +125,7 @@ export async function logAuditEvent(
       actorId: context.userId,
       actorEmail: context.userEmail,
       actorName: context.userName,
-      actorPermissions: context.permissions,
+      actorPermissions: context.permissions ?? 0, // Default to 0 to avoid Firestore undefined error
 
       // Action details
       action,
