@@ -80,8 +80,11 @@ service cloud.firestore {
     // ============================================
 
     match /users/{userId} {
-      // Read: Users can read their own profile, or have MANAGE_USERS permission
+      // Read: Users can read their own profile, internal users can read other users (for selectors),
+      //       or have MANAGE_USERS permission for full admin access
+      // Internal users need to read other users for: ApproverSelector, user mentions, team views, etc.
       allow read: if isOwner(userId) ||
+                     isInternalUser() ||
                      hasPermission(1); // MANAGE_USERS
 
       // Create: Users can create their own pending profile during first sign-in
@@ -380,8 +383,9 @@ service cloud.firestore {
 
     match /costCentres/{costCentreId} {
       // Cost Centres - Project-based cost tracking for accounting
-      // Read: Users with VIEW_ACCOUNTING permission
-      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+      // Read: All internal users (needed for ProjectSelector, expense allocation, etc.)
+      // Cost centres are organizational units, not sensitive financial data
+      allow read: if isInternalUser();
 
       // Create: Users with MANAGE_ACCOUNTING permission or system (Cloud Functions)
       // Cloud Functions auto-create cost centres when projects are created
@@ -417,7 +421,10 @@ service cloud.firestore {
 
       // Write: Users with MANAGE_PROCUREMENT permission
       allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
-      allow delete: if isSuperAdmin();
+
+      // Delete: Users with MANAGE_PROCUREMENT can delete items (e.g., during PR edit)
+      // This is needed for the Edit PR page when removing line items
+      allow delete: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
     }
 
     match /rfqs/{rfqId} {
