@@ -67,3 +67,6 @@ export { onFeedbackResolved } from './feedback';
 
 // Import transmittal functions
 export { generateTransmittal, getTransmittalDownloadUrl } from './transmittals';
+
+// Import document parsing functions
+export { parseDocumentForPR } from './documentParsing';

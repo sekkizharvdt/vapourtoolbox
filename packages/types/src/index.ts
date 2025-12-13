@@ -31,3 +31,4 @@ export * from './user';
 export * from './result';
 export * from './rfqPdf';
 export * from './ssot';
+export * from './documentParsing';

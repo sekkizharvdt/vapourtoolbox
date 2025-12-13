@@ -34,6 +34,7 @@ import {
   Upload as UploadIcon,
   Save as SaveIcon,
   Send as SendIcon,
+  Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,6 +45,7 @@ import {
   type CreatePurchaseRequestItemInput,
 } from '@/lib/procurement/purchaseRequestService';
 import ExcelUploadDialog from '@/components/procurement/ExcelUploadDialog';
+import DocumentParseDialog from '@/components/procurement/DocumentParseDialog';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 
 interface FormData {
@@ -63,6 +65,7 @@ export default function NewPurchaseRequestPage() {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [excelDialogOpen, setExcelDialogOpen] = useState(false);
+  const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
@@ -115,6 +118,11 @@ export default function NewPurchaseRequestPage() {
   const handleExcelImport = (importedItems: CreatePurchaseRequestItemInput[]) => {
     setLineItems(importedItems);
     setExcelDialogOpen(false);
+  };
+
+  const handleDocumentImport = (importedItems: CreatePurchaseRequestItemInput[]) => {
+    setLineItems(importedItems);
+    setDocumentDialogOpen(false);
   };
 
   const validateForm = (): boolean => {
@@ -376,6 +384,14 @@ export default function NewPurchaseRequestPage() {
             <Stack direction="row" spacing={1}>
               <Button
                 variant="outlined"
+                startIcon={<DescriptionIcon />}
+                onClick={() => setDocumentDialogOpen(true)}
+                size="small"
+              >
+                Import PDF/DOC
+              </Button>
+              <Button
+                variant="outlined"
                 startIcon={<UploadIcon />}
                 onClick={() => setExcelDialogOpen(true)}
                 size="small"
@@ -549,6 +565,14 @@ export default function NewPurchaseRequestPage() {
         open={excelDialogOpen}
         onClose={() => setExcelDialogOpen(false)}
         onItemsImported={handleExcelImport}
+      />
+
+      {/* Document Parse Dialog (PDF/DOC) */}
+      <DocumentParseDialog
+        open={documentDialogOpen}
+        onClose={() => setDocumentDialogOpen(false)}
+        onItemsImported={handleDocumentImport}
+        projectName={formData.projectName || undefined}
       />
     </Box>
   );
