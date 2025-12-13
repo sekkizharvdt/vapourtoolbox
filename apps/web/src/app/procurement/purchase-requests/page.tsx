@@ -28,6 +28,8 @@ import {
   InputLabel,
   CircularProgress,
   TablePagination,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -39,6 +41,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   HourglassEmpty as HourglassEmptyIcon,
+  Archive as ArchiveIcon,
 } from '@mui/icons-material';
 import { StatCard } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
@@ -54,6 +57,9 @@ export default function PurchaseRequestsPage() {
   const [requests, setRequests] = useState<PurchaseRequest[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<PurchaseRequest[]>([]);
 
+  // Tab state: 'active' or 'archived'
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -68,32 +74,42 @@ export default function PurchaseRequestsPage() {
   const stats = useMemo(() => {
     const counts = {
       total: requests.length,
+      active: 0,
       draft: 0,
       submitted: 0,
       underReview: 0,
       approved: 0,
       rejected: 0,
       pending: 0, // SUBMITTED + UNDER_REVIEW
+      archived: 0, // CONVERTED_TO_RFQ
     };
 
     requests.forEach((req) => {
       switch (req.status) {
         case 'DRAFT':
           counts.draft++;
+          counts.active++;
           break;
         case 'SUBMITTED':
           counts.submitted++;
           counts.pending++;
+          counts.active++;
           break;
         case 'UNDER_REVIEW':
           counts.underReview++;
           counts.pending++;
+          counts.active++;
           break;
         case 'APPROVED':
           counts.approved++;
+          counts.active++;
           break;
         case 'REJECTED':
           counts.rejected++;
+          counts.active++;
+          break;
+        case 'CONVERTED_TO_RFQ':
+          counts.archived++;
           break;
       }
     });
@@ -109,7 +125,7 @@ export default function PurchaseRequestsPage() {
   useEffect(() => {
     applyFilters();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requests, searchQuery, statusFilter, typeFilter, categoryFilter]);
+  }, [requests, searchQuery, statusFilter, typeFilter, categoryFilter, activeTab]);
 
   const loadRequests = async () => {
     if (!user) return;
@@ -128,6 +144,15 @@ export default function PurchaseRequestsPage() {
   const applyFilters = () => {
     let filtered = [...requests];
 
+    // First, filter by active/archived tab
+    if (activeTab === 'active') {
+      // Active tab: show all except CONVERTED_TO_RFQ
+      filtered = filtered.filter((req) => req.status !== 'CONVERTED_TO_RFQ');
+    } else {
+      // Archived tab: show only CONVERTED_TO_RFQ
+      filtered = filtered.filter((req) => req.status === 'CONVERTED_TO_RFQ');
+    }
+
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -139,8 +164,8 @@ export default function PurchaseRequestsPage() {
       );
     }
 
-    // Status filter
-    if (statusFilter !== 'ALL') {
+    // Status filter (only applicable in active tab)
+    if (activeTab === 'active' && statusFilter !== 'ALL') {
       if (statusFilter === 'PENDING') {
         // Special case: PENDING = SUBMITTED + UNDER_REVIEW
         filtered = filtered.filter(
@@ -172,11 +197,13 @@ export default function PurchaseRequestsPage() {
         return 'default';
       case 'SUBMITTED':
         return 'info';
+      case 'UNDER_REVIEW':
+        return 'warning';
       case 'APPROVED':
         return 'success';
       case 'REJECTED':
         return 'error';
-      case 'RFQ_CREATED':
+      case 'CONVERTED_TO_RFQ':
         return 'primary';
       case 'COMPLETED':
         return 'success';
@@ -210,6 +237,12 @@ export default function PurchaseRequestsPage() {
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
+  };
+
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: 'active' | 'archived') => {
+    setActiveTab(newValue);
+    setPage(0);
+    setStatusFilter('ALL'); // Reset status filter when switching tabs
   };
 
   // Paginate requests in memory (client-side pagination)
@@ -312,6 +345,24 @@ export default function PurchaseRequestsPage() {
           </Box>
         </Box>
 
+        {/* Tabs for Active vs Archived */}
+        <Paper sx={{ px: 2 }}>
+          <Tabs value={activeTab} onChange={handleTabChange}>
+            <Tab
+              value="active"
+              label={`Active (${stats.active})`}
+              icon={<AssignmentIcon />}
+              iconPosition="start"
+            />
+            <Tab
+              value="archived"
+              label={`Converted to RFQ (${stats.archived})`}
+              icon={<ArchiveIcon />}
+              iconPosition="start"
+            />
+          </Tabs>
+        </Paper>
+
         {/* Filters */}
         <Paper sx={{ p: 3 }}>
           <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
@@ -324,23 +375,24 @@ export default function PurchaseRequestsPage() {
               sx={{ minWidth: 300 }}
             />
 
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <MenuItem value="ALL">All Status</MenuItem>
-                <MenuItem value="DRAFT">Draft</MenuItem>
-                <MenuItem value="SUBMITTED">Submitted</MenuItem>
-                <MenuItem value="PENDING">Pending Approval</MenuItem>
-                <MenuItem value="APPROVED">Approved</MenuItem>
-                <MenuItem value="REJECTED">Rejected</MenuItem>
-                <MenuItem value="RFQ_CREATED">RFQ Created</MenuItem>
-                <MenuItem value="COMPLETED">Completed</MenuItem>
-              </Select>
-            </FormControl>
+            {/* Status filter only shown on Active tab */}
+            {activeTab === 'active' && (
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={statusFilter}
+                  label="Status"
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <MenuItem value="ALL">All Status</MenuItem>
+                  <MenuItem value="DRAFT">Draft</MenuItem>
+                  <MenuItem value="SUBMITTED">Submitted</MenuItem>
+                  <MenuItem value="PENDING">Pending Approval</MenuItem>
+                  <MenuItem value="APPROVED">Approved</MenuItem>
+                  <MenuItem value="REJECTED">Rejected</MenuItem>
+                </Select>
+              </FormControl>
+            )}
 
             <FormControl size="small" sx={{ minWidth: 150 }}>
               <InputLabel>Type</InputLabel>
