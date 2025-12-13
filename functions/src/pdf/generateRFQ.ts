@@ -7,6 +7,8 @@
  * - Combined PDF for all vendors
  * - Both modes together
  * - Customizable terms and conditions
+ * - Integration with Document Management module
+ * - Revision tracking with version history
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
@@ -56,9 +58,11 @@ interface RFQPDFGenerationResult {
     vendorName: string;
     pdfUrl: string;
     pdfPath: string;
+    documentId: string; // Document management system ID
   }>;
   combinedPdfUrl?: string;
   combinedPdfPath?: string;
+  combinedDocumentId?: string; // Document management system ID
   expiresAt?: admin.firestore.Timestamp;
   error?: string;
   errors?: Array<{
@@ -68,6 +72,7 @@ interface RFQPDFGenerationResult {
   generatedAt: admin.firestore.Timestamp;
   generatedBy: string;
   totalFiles: number;
+  pdfVersion: number;
 }
 
 interface RFQData {
@@ -120,6 +125,159 @@ interface VendorData {
     state?: string;
     postalCode?: string;
     country?: string;
+  };
+}
+
+interface DocumentRecordData {
+  fileName: string;
+  fileUrl: string;
+  storageRef: string;
+  fileSize: number;
+  mimeType: string;
+  fileExtension: string;
+  module: string;
+  documentType: string;
+  projectId?: string;
+  projectName?: string;
+  entityType: string;
+  entityId: string;
+  entityNumber: string;
+  version: number;
+  isLatest: boolean;
+  previousVersionId?: string;
+  revisionNotes?: string;
+  title: string;
+  description?: string;
+  tags: string[];
+  status: string;
+  visibility: string;
+  downloadCount: number;
+  uploadedBy: string;
+  uploadedByName: string;
+  uploadedAt: admin.firestore.Timestamp;
+  createdAt: admin.firestore.Timestamp;
+  updatedAt: admin.firestore.Timestamp;
+}
+
+/**
+ * Create a document record in the documents collection
+ * Returns the document ID
+ */
+async function createDocumentRecord(
+  db: admin.firestore.Firestore,
+  data: {
+    fileName: string;
+    storagePath: string;
+    fileSize: number;
+    rfq: RFQData;
+    vendorId?: string;
+    vendorName?: string;
+    userId: string;
+    userName: string;
+    version: number;
+    previousDocumentId?: string;
+    revisionNotes?: string;
+  }
+): Promise<{ documentId: string; downloadUrl: string }> {
+  const now = admin.firestore.Timestamp.now();
+
+  // Get download URL (permanent, not signed)
+  const bucket = admin.storage().bucket();
+  const file = bucket.file(data.storagePath);
+  await file.makePublic(); // Make file publicly accessible
+  const downloadUrl = `https://storage.googleapis.com/${bucket.name}/${data.storagePath}`;
+
+  // Mark previous version as superseded if exists
+  if (data.previousDocumentId) {
+    await db.collection('documents').doc(data.previousDocumentId).update({
+      isLatest: false,
+      status: 'SUPERSEDED',
+      supersededBy: data.userId,
+      supersededAt: now,
+      updatedAt: now,
+    });
+  }
+
+  const documentRecord: DocumentRecordData = {
+    fileName: data.fileName,
+    fileUrl: downloadUrl,
+    storageRef: data.storagePath,
+    fileSize: data.fileSize,
+    mimeType: 'application/pdf',
+    fileExtension: 'pdf',
+    module: 'PROCUREMENT',
+    documentType: 'RFQ_PDF',
+    projectId: data.rfq.projectIds?.[0],
+    projectName: data.rfq.projectNames?.[0],
+    entityType: 'RFQ',
+    entityId: data.rfq.id,
+    entityNumber: data.rfq.number,
+    version: data.version,
+    isLatest: true,
+    previousVersionId: data.previousDocumentId,
+    revisionNotes:
+      data.revisionNotes || (data.version > 1 ? `Revision ${data.version}` : undefined),
+    title: data.vendorName
+      ? `${data.rfq.number} - ${data.vendorName}`
+      : `${data.rfq.number} - Combined`,
+    description: data.vendorName
+      ? `RFQ PDF for vendor: ${data.vendorName}`
+      : `Combined RFQ PDF for all vendors`,
+    tags: data.vendorId ? ['vendor-specific', data.vendorId] : ['combined'],
+    status: 'ACTIVE',
+    visibility: 'PROJECT_TEAM',
+    downloadCount: 0,
+    uploadedBy: data.userId,
+    uploadedByName: data.userName,
+    uploadedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const docRef = await db.collection('documents').add(documentRecord);
+
+  // Update previous version with next version ID
+  if (data.previousDocumentId) {
+    await db.collection('documents').doc(data.previousDocumentId).update({
+      nextVersionId: docRef.id,
+    });
+  }
+
+  return { documentId: docRef.id, downloadUrl };
+}
+
+/**
+ * Find the latest document for an RFQ (optionally for a specific vendor)
+ */
+async function findLatestRFQDocument(
+  db: admin.firestore.Firestore,
+  rfqId: string,
+  vendorId?: string
+): Promise<{ documentId: string; version: number } | null> {
+  let query = db
+    .collection('documents')
+    .where('entityType', '==', 'RFQ')
+    .where('entityId', '==', rfqId)
+    .where('documentType', '==', 'RFQ_PDF')
+    .where('isLatest', '==', true);
+
+  if (vendorId) {
+    query = query.where('tags', 'array-contains', vendorId);
+  } else {
+    query = query.where('tags', 'array-contains', 'combined');
+  }
+
+  const snapshot = await query.limit(1).get();
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const doc = snapshot.docs[0];
+  const data = doc.data();
+  return {
+    documentId: doc.id,
+    version: data.version || 1,
   };
 }
 
@@ -210,16 +368,22 @@ export const generateRFQPDF = onCall<RFQPDFGenerationRequest, Promise<RFQPDFGene
 
       const storage = admin.storage();
       const bucket = storage.bucket();
-      const expiresAt = admin.firestore.Timestamp.fromDate(
-        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-      );
+
+      // Fetch user name for document records
+      const userDoc = await db.collection('users').doc(userId).get();
+      const userName = userDoc.exists
+        ? userDoc.data()?.displayName || 'Unknown User'
+        : 'Unknown User';
+
+      // Calculate new version number
+      const newPdfVersion = (rfq.pdfVersion || 0) + 1;
 
       const result: RFQPDFGenerationResult = {
         success: true,
         generatedAt: admin.firestore.Timestamp.now(),
         generatedBy: userId,
         totalFiles: 0,
-        expiresAt,
+        pdfVersion: newPdfVersion,
       };
 
       // Generate Individual PDFs
@@ -228,7 +392,18 @@ export const generateRFQPDF = onCall<RFQPDFGenerationRequest, Promise<RFQPDFGene
 
         for (const vendor of vendors) {
           try {
-            const pdfData = preparePDFData(rfq, items, prNumbers, options, vendor, true);
+            const revisionNotes = newPdfVersion > 1 ? `PDF Version ${newPdfVersion}` : undefined;
+            const pdfData = preparePDFData(
+              rfq,
+              items,
+              prNumbers,
+              options,
+              vendor,
+              true,
+              undefined,
+              newPdfVersion,
+              revisionNotes
+            );
             const pdfBuffer = await renderPDF(pdfData);
 
             const sanitizedVendorName = vendor.name.replace(/[^a-zA-Z0-9]/g, '_');
@@ -243,20 +418,35 @@ export const generateRFQPDF = onCall<RFQPDFGenerationRequest, Promise<RFQPDFGene
                   vendorId: vendor.id,
                   generatedBy: userId,
                   generatedAt: new Date().toISOString(),
+                  version: newPdfVersion.toString(),
                 },
               },
             });
 
-            const [signedUrl] = await file.getSignedUrl({
-              action: 'read',
-              expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+            // Find previous document version for this vendor
+            const previousDoc = await findLatestRFQDocument(db, rfqId, vendor.id);
+
+            // Create document record in the document management system
+            const { documentId, downloadUrl } = await createDocumentRecord(db, {
+              fileName: `${rfq.number}-${sanitizedVendorName}.pdf`,
+              storagePath: fileName,
+              fileSize: pdfBuffer.length,
+              rfq,
+              vendorId: vendor.id,
+              vendorName: vendor.name,
+              userId,
+              userName,
+              version: previousDoc ? previousDoc.version + 1 : 1,
+              previousDocumentId: previousDoc?.documentId,
+              revisionNotes: newPdfVersion > 1 ? `PDF Version ${newPdfVersion}` : undefined,
             });
 
             result.vendorPdfs.push({
               vendorId: vendor.id,
               vendorName: vendor.name,
-              pdfUrl: signedUrl,
+              pdfUrl: downloadUrl,
               pdfPath: fileName,
+              documentId,
             });
 
             totalFiles++;
@@ -273,7 +463,18 @@ export const generateRFQPDF = onCall<RFQPDFGenerationRequest, Promise<RFQPDFGene
       // Generate Combined PDF
       if (options.mode === 'COMBINED' || options.mode === 'BOTH') {
         try {
-          const pdfData = preparePDFData(rfq, items, prNumbers, options, undefined, false, vendors);
+          const revisionNotes = newPdfVersion > 1 ? `PDF Version ${newPdfVersion}` : undefined;
+          const pdfData = preparePDFData(
+            rfq,
+            items,
+            prNumbers,
+            options,
+            undefined,
+            false,
+            vendors,
+            newPdfVersion,
+            revisionNotes
+          );
           const pdfBuffer = await renderPDF(pdfData);
 
           const fileName = `rfq-pdfs/${rfqId}/${Date.now()}-combined.pdf`;
@@ -288,17 +489,30 @@ export const generateRFQPDF = onCall<RFQPDFGenerationRequest, Promise<RFQPDFGene
                 vendorCount: vendors.length.toString(),
                 generatedBy: userId,
                 generatedAt: new Date().toISOString(),
+                version: newPdfVersion.toString(),
               },
             },
           });
 
-          const [signedUrl] = await file.getSignedUrl({
-            action: 'read',
-            expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+          // Find previous combined document version
+          const previousDoc = await findLatestRFQDocument(db, rfqId);
+
+          // Create document record in the document management system
+          const { documentId, downloadUrl } = await createDocumentRecord(db, {
+            fileName: `${rfq.number}-combined.pdf`,
+            storagePath: fileName,
+            fileSize: pdfBuffer.length,
+            rfq,
+            userId,
+            userName,
+            version: previousDoc ? previousDoc.version + 1 : 1,
+            previousDocumentId: previousDoc?.documentId,
+            revisionNotes: newPdfVersion > 1 ? `PDF Version ${newPdfVersion}` : undefined,
           });
 
-          result.combinedPdfUrl = signedUrl;
+          result.combinedPdfUrl = downloadUrl;
           result.combinedPdfPath = fileName;
+          result.combinedDocumentId = documentId;
           totalFiles++;
         } catch (error) {
           logger.error('Error generating combined PDF', { error });
@@ -308,19 +522,19 @@ export const generateRFQPDF = onCall<RFQPDFGenerationRequest, Promise<RFQPDFGene
         }
       }
 
-      // Update RFQ with latest PDF info
-      const newPdfVersion = (rfq.pdfVersion || 0) + 1;
+      // Update RFQ with latest PDF info and document IDs
       await db
         .collection('rfqs')
         .doc(rfqId)
         .update({
           pdfVersion: newPdfVersion,
           latestPdfUrl: result.combinedPdfUrl || result.vendorPdfs?.[0]?.pdfUrl,
+          latestPdfDocumentId: result.combinedDocumentId || result.vendorPdfs?.[0]?.documentId,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedBy: userId,
         });
 
-      // Save PDF record for audit trail
+      // Save PDF record for audit trail (legacy support)
       await db.collection('rfqPdfRecords').add({
         rfqId,
         rfqNumber: rfq.number,
@@ -329,7 +543,7 @@ export const generateRFQPDF = onCall<RFQPDFGenerationRequest, Promise<RFQPDFGene
         vendorPdfs: result.vendorPdfs || [],
         combinedPdfUrl: result.combinedPdfUrl,
         combinedPdfPath: result.combinedPdfPath,
-        expiresAt,
+        combinedDocumentId: result.combinedDocumentId,
         termsSnapshot: {
           general: options.generalTerms,
           payment: options.paymentTerms,
@@ -364,6 +578,7 @@ export const generateRFQPDF = onCall<RFQPDFGenerationRequest, Promise<RFQPDFGene
         generatedAt: admin.firestore.Timestamp.now(),
         generatedBy: request.auth?.uid || 'unknown',
         totalFiles,
+        pdfVersion: 0,
       };
     }
   }
@@ -379,7 +594,9 @@ function preparePDFData(
   options: RFQPDFGenerationRequest['options'],
   vendor?: VendorData,
   isIndividual = true,
-  allVendors?: VendorData[]
+  allVendors?: VendorData[],
+  pdfVersion = 1,
+  revisionNotes?: string
 ): Record<string, unknown> {
   const formatDate = (timestamp: admin.firestore.Timestamp | undefined): string => {
     if (!timestamp) return 'N/A';
@@ -498,6 +715,11 @@ function preparePDFData(
     // Additional
     customNotes: options.customNotes,
     watermark: options.watermark,
+
+    // Revision information
+    pdfVersion,
+    isRevision: pdfVersion > 1,
+    revisionNotes,
   };
 }
 

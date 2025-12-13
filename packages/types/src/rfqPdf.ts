@@ -282,14 +282,13 @@ export interface RFQPDFGenerationResult {
     vendorName: string;
     pdfUrl: string;
     pdfPath: string;
+    documentId: string; // Document management system ID
   }>;
 
   // For COMBINED mode - single PDF
   combinedPdfUrl?: string;
   combinedPdfPath?: string;
-
-  // Expiration
-  expiresAt?: Timestamp;
+  combinedDocumentId?: string; // Document management system ID
 
   // Error handling
   error?: string;
@@ -302,6 +301,7 @@ export interface RFQPDFGenerationResult {
   generatedAt: Timestamp;
   generatedBy: string;
   totalFiles: number;
+  pdfVersion: number; // Version number of the generated PDF
 }
 
 /**

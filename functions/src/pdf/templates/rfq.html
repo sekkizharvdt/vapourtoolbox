@@ -38,6 +38,39 @@
         }
         {{/if}}
 
+        /* Revision Banner */
+        .revision-banner {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px solid #f59e0b;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .revision-icon {
+            font-size: 20pt;
+            color: #d97706;
+        }
+
+        .revision-content {
+            flex: 1;
+        }
+
+        .revision-title {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #92400e;
+            margin-bottom: 2px;
+        }
+
+        .revision-details {
+            font-size: 9pt;
+            color: #b45309;
+        }
+
         /* Header */
         .header {
             border-bottom: 3px solid #059669;
@@ -408,6 +441,21 @@
                 {{/if}}
             </div>
         </div>
+
+        <!-- Revision Banner (shown for revisions) -->
+        {{#if isRevision}}
+        <div class="revision-banner">
+            <div class="revision-icon">&#9888;</div>
+            <div class="revision-content">
+                <div class="revision-title">REVISED RFQ - Version {{pdfVersion}}</div>
+                <div class="revision-details">
+                    This is a revised version of RFQ #{{rfqNumber}}.
+                    {{#if revisionNotes}}{{revisionNotes}}{{/if}}
+                    Please ensure you are referencing the latest version.
+                </div>
+            </div>
+        </div>
+        {{/if}}
 
         <!-- Vendor Section (Individual) -->
         {{#if isIndividualVendor}}
