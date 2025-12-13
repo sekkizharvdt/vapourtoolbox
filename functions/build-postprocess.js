@@ -49,6 +49,30 @@ if (fs.existsSync(seedDataSrc)) {
   console.log('⚠️  Seed data directory not found - skipping');
 }
 
+// Copy PDF templates (HTML files) to lib directory
+const templatesSrc = path.join(__dirname, 'src', 'pdf', 'templates');
+const templatesDest = path.join(libDir, 'pdf', 'templates');
+
+if (fs.existsSync(templatesSrc)) {
+  console.log('📦 Copying PDF templates...');
+
+  if (!fs.existsSync(templatesDest)) {
+    fs.mkdirSync(templatesDest, { recursive: true });
+  }
+
+  const templateFiles = fs.readdirSync(templatesSrc).filter(f => f.endsWith('.html'));
+  for (const file of templateFiles) {
+    fs.copyFileSync(
+      path.join(templatesSrc, file),
+      path.join(templatesDest, file)
+    );
+  }
+
+  console.log(`✅ Copied ${templateFiles.length} PDF template files`);
+} else {
+  console.log('⚠️  PDF templates directory not found - skipping');
+}
+
 /**
  * Recursively copy directory contents
  */
