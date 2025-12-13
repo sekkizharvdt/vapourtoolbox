@@ -92,8 +92,48 @@
         "destination": "/procurement/work-completion/placeholder.html"
       },
       {
+        "source": "/projects/*/budget",
+        "destination": "/projects/placeholder/budget.html"
+      },
+      {
         "source": "/projects/*/charter",
         "destination": "/projects/placeholder/charter.html"
+      },
+      {
+        "source": "/projects/*/documents",
+        "destination": "/projects/placeholder/documents.html"
+      },
+      {
+        "source": "/projects/*/objectives",
+        "destination": "/projects/placeholder/objectives.html"
+      },
+      {
+        "source": "/projects/*/procurement",
+        "destination": "/projects/placeholder/procurement.html"
+      },
+      {
+        "source": "/projects/*/reports",
+        "destination": "/projects/placeholder/reports.html"
+      },
+      {
+        "source": "/projects/*/scope",
+        "destination": "/projects/placeholder/scope.html"
+      },
+      {
+        "source": "/projects/*/team",
+        "destination": "/projects/placeholder/team.html"
+      },
+      {
+        "source": "/projects/*/technical",
+        "destination": "/projects/placeholder/technical.html"
+      },
+      {
+        "source": "/projects/*/timeline",
+        "destination": "/projects/placeholder/timeline.html"
+      },
+      {
+        "source": "/projects/*/vendors",
+        "destination": "/projects/placeholder/vendors.html"
       },
       {
         "source": "/projects/*",
