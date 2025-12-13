@@ -54,6 +54,7 @@ import {
   validateRFQForIssuance,
 } from '@/lib/procurement/rfqHelpers';
 import { formatDate } from '@/lib/utils/formatters';
+import GenerateRFQPDFDialog from '@/components/procurement/GenerateRFQPDFDialog';
 
 export default function RFQDetailPage() {
   const pathname = usePathname();
@@ -70,6 +71,7 @@ export default function RFQDetailPage() {
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -248,13 +250,21 @@ export default function RFQDetailPage() {
                 Cancel
               </Button>
             )}
+            <Button
+              variant="outlined"
+              startIcon={<PdfIcon />}
+              onClick={() => setPdfDialogOpen(true)}
+              color="success"
+            >
+              Generate PDF
+            </Button>
             {rfq.latestPdfUrl && (
               <Button
                 variant="outlined"
                 startIcon={<PdfIcon />}
                 onClick={() => window.open(rfq.latestPdfUrl, '_blank')}
               >
-                Download PDF
+                Download Latest PDF
               </Button>
             )}
           </Stack>
@@ -529,6 +539,14 @@ export default function RFQDetailPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Generate PDF Dialog */}
+      <GenerateRFQPDFDialog
+        open={pdfDialogOpen}
+        onClose={() => setPdfDialogOpen(false)}
+        rfq={rfq}
+        onSuccess={() => loadRFQ()}
+      />
     </Box>
   );
 }

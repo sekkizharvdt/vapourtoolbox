@@ -30,6 +30,7 @@ export { seedAccountingIntegrations } from './moduleIntegrations';
 
 // Import PDF generation functions
 export { generateBOMQuotePDF } from './pdf/generateBOMQuote';
+export { generateRFQPDF } from './pdf/generateRFQ';
 
 // Import seed functions for materials
 // Import seed functions for materials

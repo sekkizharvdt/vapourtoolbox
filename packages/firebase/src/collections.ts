@@ -59,6 +59,8 @@ export const COLLECTIONS = {
   PURCHASE_REQUEST_ITEMS: 'purchaseRequestItems',
   RFQS: 'rfqs',
   RFQ_ITEMS: 'rfqItems',
+  RFQ_TERMS_TEMPLATES: 'rfqTermsTemplates', // Reusable terms & conditions
+  RFQ_PDF_RECORDS: 'rfqPdfRecords', // Generated PDF tracking
   OFFERS: 'offers',
   OFFER_ITEMS: 'offerItems',
   OFFER_COMPARISONS: 'offerComparisons',
