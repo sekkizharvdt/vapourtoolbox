@@ -17,6 +17,8 @@ import type { BusinessEntity, EntityRole } from '@vapour/types';
 interface EntitySelectorProps {
   value: string | null;
   onChange: (entityId: string | null) => void;
+  /** Optional callback that receives the full entity object when selected */
+  onEntitySelect?: (entity: BusinessEntity | null) => void;
   label?: string;
   required?: boolean;
   disabled?: boolean;
@@ -36,6 +38,7 @@ interface EntitySelectorProps {
 function EntitySelectorComponent({
   value,
   onChange,
+  onEntitySelect,
   label = 'Entity',
   required = false,
   disabled = false,
@@ -137,8 +140,10 @@ function EntitySelectorComponent({
   const handleChange = useCallback(
     (_: unknown, newValue: BusinessEntity | null) => {
       onChange(newValue?.id || null);
+      // Also call onEntitySelect if provided
+      onEntitySelect?.(newValue);
     },
-    [onChange]
+    [onChange, onEntitySelect]
   );
 
   // Memoize option label getter

@@ -127,17 +127,42 @@ export function RecordCustomerPaymentDialog({
       const invoices: CustomerInvoice[] = [];
 
       // Helper to calculate outstanding in INR
+      // Handles both new invoices (outstandingAmount in INR) and old invoices (outstandingAmount in foreign currency)
       const calculateOutstandingINR = (data: CustomerInvoice): number => {
-        // Priority: outstandingAmount (already in INR) > baseAmount (INR) > totalAmount * exchangeRate
+        const invoiceCurrency = data.currency || 'INR';
+        const invoiceExchangeRate = data.exchangeRate ?? 1;
+        const totalAmount = data.totalAmount ?? 0;
+
+        // INR invoices - straightforward
+        if (invoiceCurrency === 'INR') {
+          return data.outstandingAmount ?? data.baseAmount ?? totalAmount;
+        }
+
+        // Forex invoice - need to determine if outstandingAmount is in INR or foreign currency
+        // New invoices (after fix): outstandingAmount is in INR (equals baseAmount initially)
+        // Old invoices (before fix): outstandingAmount is in foreign currency (equals totalAmount initially)
+
+        // If baseAmount exists, it's the correct INR total
+        const baseAmountINR = data.baseAmount ?? totalAmount * invoiceExchangeRate;
+
+        // Check if outstandingAmount appears to be in foreign currency
         if (data.outstandingAmount !== undefined && data.outstandingAmount !== null) {
-          return data.outstandingAmount;
+          // Heuristic: if outstanding equals totalAmount (unpaid invoice), it was likely stored in foreign currency
+          if (data.outstandingAmount === totalAmount && totalAmount > 0) {
+            // Stored in foreign currency - convert to INR
+            return totalAmount * invoiceExchangeRate;
+          }
+
+          // If outstanding is different from total, invoice is partially paid
+          // Calculate proportion of baseAmount that's still outstanding
+          if (totalAmount > 0) {
+            const paidRatio = 1 - data.outstandingAmount / totalAmount;
+            return baseAmountINR * (1 - paidRatio);
+          }
         }
-        if (data.baseAmount !== undefined && data.baseAmount !== null) {
-          return data.baseAmount;
-        }
-        // For older invoices without baseAmount, convert totalAmount using exchangeRate
-        const rate = data.exchangeRate ?? 1;
-        return (data.totalAmount ?? 0) * rate;
+
+        // Fallback to baseAmount
+        return baseAmountINR;
       };
 
       snapshot.forEach((doc) => {
@@ -444,6 +469,7 @@ export function RecordCustomerPaymentDialog({
             <EntitySelector
               value={entityId}
               onChange={setEntityId}
+              onEntitySelect={(entity) => setEntityName(entity?.name || '')}
               filterByRole="CUSTOMER"
               label="Customer"
               required

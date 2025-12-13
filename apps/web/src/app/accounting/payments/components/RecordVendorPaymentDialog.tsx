@@ -434,6 +434,7 @@ export function RecordVendorPaymentDialog({
             <EntitySelector
               value={entityId}
               onChange={setEntityId}
+              onEntitySelect={(entity) => setEntityName(entity?.name || '')}
               filterByRole="VENDOR"
               label="Vendor"
               required
