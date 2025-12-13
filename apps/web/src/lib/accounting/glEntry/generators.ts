@@ -440,7 +440,10 @@ export async function generateVendorPaymentGLEntries(
       };
     }
     if (!payableAccountId) {
-      errors.push('Accounts Payable account not found in Chart of Accounts');
+      errors.push(
+        'Accounts Payable account not found in Chart of Accounts. ' +
+          'Please ensure account with code "2100" exists and has isSystemAccount=true.'
+      );
     }
 
     if (errors.length > 0) {

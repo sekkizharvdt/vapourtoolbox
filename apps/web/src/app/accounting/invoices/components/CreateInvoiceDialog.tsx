@@ -236,7 +236,7 @@ export function CreateInvoiceDialog({
         invoiceDate: invoiceDate ? Timestamp.fromDate(invoiceDate) : Timestamp.now(),
         paymentTerms: 'Net 30',
         paidAmount: 0,
-        outstandingAmount: grandTotal,
+        outstandingAmount: baseAmount, // Always track outstanding in INR for consistent payment allocation
         paymentStatus: 'UNPAID',
         taxAmount: totalGstAmount,
       };
