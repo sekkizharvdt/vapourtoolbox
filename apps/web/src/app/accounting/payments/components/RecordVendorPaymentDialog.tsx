@@ -17,6 +17,10 @@ import {
   Stack,
   Checkbox,
   FormControlLabel,
+  Button,
+  Alert,
+  Chip,
+  CircularProgress,
 } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
@@ -89,6 +93,8 @@ export function RecordVendorPaymentDialog({
   // Bill allocation
   const [outstandingBills, setOutstandingBills] = useState<VendorBill[]>([]);
   const [allocations, setAllocations] = useState<PaymentAllocation[]>([]);
+  const [loadingBills, setLoadingBills] = useState(false);
+  const [totalOutstanding, setTotalOutstanding] = useState(0);
 
   // Fetch outstanding bills when vendor changes
   useEffect(() => {
@@ -96,39 +102,68 @@ export function RecordVendorPaymentDialog({
       if (!entityId) {
         setOutstandingBills([]);
         setAllocations([]);
+        setTotalOutstanding(0);
         return;
       }
 
-      const { db } = getFirebase();
-      const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-      const q = query(
-        transactionsRef,
-        where('type', '==', 'VENDOR_BILL'),
-        where('entityId', '==', entityId),
-        where('status', 'in', ['POSTED', 'APPROVED'])
-      );
+      setLoadingBills(true);
+      try {
+        const { db } = getFirebase();
+        const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
+        const q = query(
+          transactionsRef,
+          where('type', '==', 'VENDOR_BILL'),
+          where('entityId', '==', entityId),
+          where('status', 'in', ['POSTED', 'APPROVED'])
+        );
 
-      const snapshot = await getDocs(q);
-      const bills: VendorBill[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data() as VendorBill;
-        // Only include bills with outstanding amounts
-        if ((data.totalAmount || 0) > 0) {
-          bills.push({ ...data, id: doc.id });
-        }
-      });
+        const snapshot = await getDocs(q);
+        const bills: VendorBill[] = [];
+        let totalOutstandingAmount = 0;
 
-      setOutstandingBills(bills);
+        snapshot.forEach((doc) => {
+          const data = doc.data() as VendorBill;
+          // Use outstandingAmount for partially paid bills, fallback to totalAmount
+          const outstanding = data.outstandingAmount ?? data.totalAmount ?? 0;
+          // Only include bills with outstanding amounts > 0
+          if (outstanding > 0) {
+            bills.push({ ...data, id: doc.id, outstandingAmount: outstanding });
+            totalOutstandingAmount += outstanding;
+          }
+        });
 
-      // Initialize allocations
-      const initialAllocations: PaymentAllocation[] = bills.map((bill) => ({
-        invoiceId: bill.id!, // Using invoiceId field for bills as well (generic)
-        invoiceNumber: bill.transactionNumber || '',
-        originalAmount: bill.totalAmount || 0,
-        allocatedAmount: 0,
-        remainingAmount: bill.totalAmount || 0,
-      }));
-      setAllocations(initialAllocations);
+        // Sort bills by date (oldest first for FIFO payment)
+        bills.sort((a, b) => {
+          const getTime = (date: unknown): number => {
+            if (!date) return 0;
+            if (typeof (date as { toMillis?: () => number }).toMillis === 'function') {
+              return (date as { toMillis: () => number }).toMillis();
+            }
+            return new Date(date as string | number).getTime();
+          };
+          return getTime(a.date) - getTime(b.date);
+        });
+
+        setOutstandingBills(bills);
+        setTotalOutstanding(totalOutstandingAmount);
+
+        // Initialize allocations using outstanding amount (not total amount)
+        const initialAllocations: PaymentAllocation[] = bills.map((bill) => {
+          const outstanding = bill.outstandingAmount ?? bill.totalAmount ?? 0;
+          return {
+            invoiceId: bill.id!,
+            invoiceNumber: bill.transactionNumber || '',
+            originalAmount: outstanding,
+            allocatedAmount: 0,
+            remainingAmount: outstanding,
+          };
+        });
+        setAllocations(initialAllocations);
+      } catch (err) {
+        console.error('[RecordVendorPaymentDialog] Error fetching bills:', err);
+      } finally {
+        setLoadingBills(false);
+      }
     }
 
     fetchOutstandingBills();
@@ -209,12 +244,12 @@ export function RecordVendorPaymentDialog({
     );
   };
 
-  // Auto-distribute payment across bills
+  // Auto-distribute payment across bills (FIFO - oldest bills first)
   const handleAutoAllocate = () => {
     let remaining = amount;
     const newAllocations = allocations.map((allocation) => {
       if (remaining <= 0) {
-        return { ...allocation, allocatedAmount: 0 };
+        return { ...allocation, allocatedAmount: 0, remainingAmount: allocation.originalAmount };
       }
 
       const toAllocate = Math.min(remaining, allocation.originalAmount);
@@ -227,6 +262,18 @@ export function RecordVendorPaymentDialog({
       };
     });
 
+    setAllocations(newAllocations);
+  };
+
+  // Pay full outstanding amount - sets amount and allocates to all bills
+  const handlePayFullOutstanding = () => {
+    setAmount(totalOutstanding);
+    // Allocate full amount to each bill
+    const newAllocations = allocations.map((allocation) => ({
+      ...allocation,
+      allocatedAmount: allocation.originalAmount,
+      remainingAmount: 0,
+    }));
     setAllocations(newAllocations);
   };
 
@@ -277,7 +324,8 @@ export function RecordVendorPaymentDialog({
       // Only include allocations with non-zero amounts
       const validAllocations = allocations.filter((a) => a.allocatedAmount > 0);
 
-      const paymentData = {
+      // Build payment data - only include fields with values (Firestore rejects undefined)
+      const paymentData: Record<string, unknown> = {
         type: 'VENDOR_PAYMENT',
         transactionNumber: transactionNumber || '',
         transactionDate: Timestamp.fromDate(new Date(paymentDate)),
@@ -285,18 +333,11 @@ export function RecordVendorPaymentDialog({
         entityName,
         paymentDate: Timestamp.fromDate(new Date(paymentDate)),
         paymentMethod,
-        chequeNumber: paymentMethod === 'CHEQUE' ? chequeNumber : undefined,
-        upiTransactionId: paymentMethod === 'UPI' ? upiTransactionId : undefined,
-        bankAccountId: bankAccountId || undefined,
         billAllocations: validAllocations,
         tdsDeducted,
-        tdsAmount: tdsDeducted ? tdsAmount : undefined,
-        tdsSection: tdsDeducted ? tdsSection : undefined,
         totalAmount: amount,
         description: description || `Payment to ${entityName}`,
-        reference,
-        projectId: projectId || undefined,
-        costCentreId: projectId || undefined,
+        reference: reference || '',
         status: 'POSTED',
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -308,6 +349,25 @@ export function RecordVendorPaymentDialog({
         attachments: [],
         createdBy: user?.uid || 'unknown',
       };
+
+      // Conditionally add optional fields (avoid undefined values in Firestore)
+      if (paymentMethod === 'CHEQUE' && chequeNumber) {
+        paymentData.chequeNumber = chequeNumber;
+      }
+      if (paymentMethod === 'UPI' && upiTransactionId) {
+        paymentData.upiTransactionId = upiTransactionId;
+      }
+      if (bankAccountId) {
+        paymentData.bankAccountId = bankAccountId;
+      }
+      if (tdsDeducted) {
+        paymentData.tdsAmount = tdsAmount;
+        paymentData.tdsSection = tdsSection;
+      }
+      if (projectId) {
+        paymentData.projectId = projectId;
+        paymentData.costCentreId = projectId;
+      }
 
       if (editingPayment?.id) {
         // Update existing payment with GL validation
@@ -334,7 +394,6 @@ export function RecordVendorPaymentDialog({
   };
 
   const totalAllocated = allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
-  const unallocated = amount - totalAllocated;
   const netPayment = amount - (tdsDeducted ? tdsAmount : 0);
 
   return (
@@ -380,6 +439,152 @@ export function RecordVendorPaymentDialog({
               required
             />
           </Grid>
+
+          {/* Outstanding Bills Summary - shown immediately after vendor selection */}
+          {entityId && (
+            <Grid size={{ xs: 12 }}>
+              {loadingBills ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 2 }}>
+                  <CircularProgress size={20} />
+                  <Typography variant="body2" color="text.secondary">
+                    Loading outstanding bills...
+                  </Typography>
+                </Box>
+              ) : outstandingBills.length > 0 ? (
+                <Alert
+                  severity="info"
+                  sx={{ mb: 1 }}
+                  action={
+                    <Button color="inherit" size="small" onClick={handlePayFullOutstanding}>
+                      Pay Full Amount
+                    </Button>
+                  }
+                >
+                  <Typography variant="body2">
+                    <strong>{outstandingBills.length} outstanding bill(s)</strong> totalling{' '}
+                    <strong>{formatCurrency(totalOutstanding)}</strong>
+                  </Typography>
+                </Alert>
+              ) : (
+                <Alert severity="success" sx={{ mb: 1 }}>
+                  No outstanding bills for this vendor.
+                </Alert>
+              )}
+            </Grid>
+          )}
+
+          {/* Outstanding Bills Table - shown right after vendor selection */}
+          {entityId && outstandingBills.length > 0 && !loadingBills && (
+            <Grid size={{ xs: 12 }}>
+              <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: 'action.hover' }}>
+                      <TableCell>
+                        <strong>Bill Number</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Date</strong>
+                      </TableCell>
+                      <TableCell>
+                        <strong>Description</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>Outstanding</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <strong>Allocate</strong>
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {outstandingBills.map((bill, index) => {
+                      const allocation = allocations[index];
+                      const billDate = bill.date
+                        ? typeof (bill.date as unknown as { toDate?: () => Date }).toDate ===
+                          'function'
+                          ? (bill.date as unknown as { toDate: () => Date }).toDate()
+                          : new Date(bill.date as unknown as string | number)
+                        : null;
+                      return (
+                        <TableRow key={bill.id} hover>
+                          <TableCell>
+                            <Chip
+                              label={bill.transactionNumber}
+                              size="small"
+                              variant="outlined"
+                              color="primary"
+                            />
+                          </TableCell>
+                          <TableCell>{billDate ? billDate.toLocaleDateString() : '-'}</TableCell>
+                          <TableCell
+                            sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                          >
+                            {bill.description || '-'}
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" fontWeight="medium">
+                              {formatCurrency(allocation?.originalAmount || 0)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <TextField
+                              type="number"
+                              size="small"
+                              value={allocation?.allocatedAmount || 0}
+                              onChange={(e) =>
+                                handleAllocationChange(bill.id!, parseFloat(e.target.value) || 0)
+                              }
+                              slotProps={{
+                                htmlInput: {
+                                  min: 0,
+                                  max: allocation?.originalAmount || 0,
+                                  step: 0.01,
+                                },
+                              }}
+                              sx={{ width: 120 }}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {/* Summary row */}
+                    <TableRow sx={{ bgcolor: 'action.selected' }}>
+                      <TableCell colSpan={3}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="body2" fontWeight="bold">
+                            Total
+                          </Typography>
+                          <Button
+                            size="small"
+                            variant="text"
+                            onClick={handleAutoAllocate}
+                            disabled={amount <= 0}
+                          >
+                            Auto Allocate
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight="bold">
+                          {formatCurrency(totalOutstanding)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography
+                          variant="body2"
+                          fontWeight="bold"
+                          color={totalAllocated > 0 ? 'success.main' : 'text.secondary'}
+                        >
+                          {formatCurrency(totalAllocated)}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Grid>
+          )}
 
           <Grid size={{ xs: 12, md: 6 }}>
             <ProjectSelector
@@ -533,84 +738,6 @@ export function RecordVendorPaymentDialog({
                     (Payment Amount: {formatCurrency(amount)} - TDS: {formatCurrency(tdsAmount)})
                   </Typography>
                 </Paper>
-              </Grid>
-            </>
-          )}
-
-          {/* Bill Allocation */}
-          {outstandingBills.length > 0 && (
-            <>
-              <Grid size={{ xs: 12 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="h6">Allocate to Bills</Typography>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Allocated: {formatCurrency(totalAllocated)} | Unallocated:{' '}
-                      {formatCurrency(unallocated)}
-                    </Typography>
-                    <button type="button" onClick={handleAutoAllocate} style={{ marginLeft: 8 }}>
-                      Auto Allocate
-                    </button>
-                  </Box>
-                </Stack>
-              </Grid>
-
-              <Grid size={{ xs: 12 }}>
-                <TableContainer component={Paper} variant="outlined">
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Bill Number</TableCell>
-                        <TableCell>Date</TableCell>
-                        <TableCell align="right">Bill Amount</TableCell>
-                        <TableCell align="right">Allocate Amount</TableCell>
-                        <TableCell align="right">Remaining</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {outstandingBills.map((bill, index) => {
-                        const allocation = allocations[index];
-                        // Handle Firestore Timestamp or Date for bill date
-                        const billDate = bill.date
-                          ? typeof (bill.date as unknown as { toDate?: () => Date }).toDate ===
-                            'function'
-                            ? (bill.date as unknown as { toDate: () => Date }).toDate()
-                            : new Date(bill.date as unknown as string | number)
-                          : null;
-                        return (
-                          <TableRow key={bill.id}>
-                            <TableCell>{bill.transactionNumber}</TableCell>
-                            <TableCell>{billDate ? billDate.toLocaleDateString() : '-'}</TableCell>
-                            <TableCell align="right">
-                              {formatCurrency(allocation?.originalAmount || 0)}
-                            </TableCell>
-                            <TableCell align="right">
-                              <TextField
-                                type="number"
-                                size="small"
-                                value={allocation?.allocatedAmount || 0}
-                                onChange={(e) =>
-                                  handleAllocationChange(bill.id!, parseFloat(e.target.value) || 0)
-                                }
-                                slotProps={{
-                                  htmlInput: {
-                                    min: 0,
-                                    max: allocation?.originalAmount || 0,
-                                    step: 0.01,
-                                  },
-                                }}
-                                sx={{ width: 120 }}
-                              />
-                            </TableCell>
-                            <TableCell align="right">
-                              {formatCurrency(allocation?.remainingAmount || 0)}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
               </Grid>
             </>
           )}

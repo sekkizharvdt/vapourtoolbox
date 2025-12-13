@@ -125,22 +125,35 @@ export function RecordCustomerPaymentDialog({
 
       const snapshot = await getDocs(q);
       const invoices: CustomerInvoice[] = [];
+
+      // Helper to calculate outstanding in INR
+      const calculateOutstandingINR = (data: CustomerInvoice): number => {
+        // Priority: outstandingAmount (already in INR) > baseAmount (INR) > totalAmount * exchangeRate
+        if (data.outstandingAmount !== undefined && data.outstandingAmount !== null) {
+          return data.outstandingAmount;
+        }
+        if (data.baseAmount !== undefined && data.baseAmount !== null) {
+          return data.baseAmount;
+        }
+        // For older invoices without baseAmount, convert totalAmount using exchangeRate
+        const rate = data.exchangeRate ?? 1;
+        return (data.totalAmount ?? 0) * rate;
+      };
+
       snapshot.forEach((doc) => {
         const data = doc.data() as CustomerInvoice;
-        // Only include invoices with outstanding amounts (use outstandingAmount which tracks INR)
-        const outstanding = data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
-        if (outstanding > 0) {
+        const outstandingINR = calculateOutstandingINR(data);
+        // Only include invoices with outstanding amounts > 0
+        if (outstandingINR > 0) {
           invoices.push({ ...data, id: doc.id });
         }
       });
 
       setOutstandingInvoices(invoices);
 
-      // Initialize allocations using INR amounts (baseAmount or outstandingAmount)
+      // Initialize allocations using INR amounts
       const initialAllocations: PaymentAllocation[] = invoices.map((invoice) => {
-        // Use outstandingAmount (INR) for allocation, fallback to baseAmount or totalAmount
-        const outstandingInINR =
-          invoice.outstandingAmount ?? invoice.baseAmount ?? invoice.totalAmount ?? 0;
+        const outstandingInINR = calculateOutstandingINR(invoice);
         return {
           invoiceId: invoice.id!,
           invoiceNumber: invoice.transactionNumber || '',
