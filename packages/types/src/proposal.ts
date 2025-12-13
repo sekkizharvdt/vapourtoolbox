@@ -56,6 +56,32 @@ export type SourceType = 'MANUFACTURED' | 'PROCURED' | 'SUBCONTRACTED';
 export type ApprovalAction = 'APPROVED' | 'REJECTED' | 'REQUESTED_CHANGES';
 
 /**
+ * Proposal Workflow Stage
+ * Tracks which step of the proposal creation process a proposal is in
+ */
+export type ProposalWorkflowStage =
+  | 'ENQUIRY' // Initial stage - linked to enquiry
+  | 'SCOPE_DEFINITION' // Defining scope of work and supply
+  | 'ESTIMATION' // Cost estimation in progress
+  | 'PRICING' // Final pricing with taxes/terms
+  | 'REVIEW' // Internal review before submission
+  | 'GENERATION' // Generating proposal document
+  | 'SUBMITTED'; // Proposal submitted to client
+
+/**
+ * Proposal Workflow Stage Labels
+ */
+export const PROPOSAL_WORKFLOW_STAGE_LABELS: Record<ProposalWorkflowStage, string> = {
+  ENQUIRY: 'Enquiry Received',
+  SCOPE_DEFINITION: 'Scope Definition',
+  ESTIMATION: 'Cost Estimation',
+  PRICING: 'Final Pricing',
+  REVIEW: 'Internal Review',
+  GENERATION: 'Document Generation',
+  SUBMITTED: 'Submitted to Client',
+};
+
+/**
  * Proposal Status Labels
  */
 export const PROPOSAL_STATUS_LABELS: Record<ProposalStatus, string> = {
@@ -282,6 +308,10 @@ export interface Proposal extends TimestampFields {
 
   // Status & Workflow
   status: ProposalStatus;
+  workflowStage?: ProposalWorkflowStage; // Optional for backward compatibility
+  scopeCompletedAt?: Timestamp;
+  estimationCompletedAt?: Timestamp;
+  pricingCompletedAt?: Timestamp;
   submittedAt?: Timestamp;
   submittedByUserId?: string;
   submittedByUserName?: string;

@@ -105,6 +105,12 @@ export interface Project extends TimestampFields, SoftDeleteFields {
   // Progress Report Configuration
   progressReportConfig?: ProgressReportConfig;
 
+  // Source Tracking (links to proposal/enquiry)
+  proposalId?: string; // Link back to source proposal
+  proposalNumber?: string; // Denormalized for display
+  enquiryId?: string; // Link back to source enquiry (via proposal)
+  enquiryNumber?: string; // Denormalized for display
+
   // Metadata
   tags?: string[];
   category?: string;
