@@ -15,6 +15,7 @@ export type DocumentModule =
   | 'PROCUREMENT'
   | 'ACCOUNTING'
   | 'PROJECTS'
+  | 'PROPOSALS'
   | 'ESTIMATION'
   | 'TIME_TRACKING'
   | 'GENERAL';

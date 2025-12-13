@@ -1,295 +1,193 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+/**
+ * Proposals Module - Hub Dashboard
+ *
+ * Card-based navigation to proposal sub-modules
+ */
+
 import {
-  Box,
-  Button,
   Container,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
   Typography,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  OutlinedInput,
-  Checkbox,
-  ListItemText,
-  Alert,
+  Box,
+  Card,
+  CardContent,
+  CardActions,
+  Button,
+  Grid,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import ViewIcon from '@mui/icons-material/Visibility';
-import { PageHeader, FilterBar, LoadingState, EmptyState, TableActionCell } from '@vapour/ui';
-import { useFirestore } from '@/lib/firebase/hooks';
+import {
+  Inbox as InboxIcon,
+  GridView as GridViewIcon,
+  Calculate as CalculateIcon,
+  PriceChange as PriceChangeIcon,
+  PictureAsPdf as PdfIcon,
+  List as ListIcon,
+  Folder as FolderIcon,
+  Add as AddIcon,
+} from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { listProposals } from '@/lib/proposal/proposalService';
-import type { Proposal, ProposalStatus } from '@vapour/types';
-import { Timestamp } from 'firebase/firestore';
-import { format } from 'date-fns';
-import { PermissionFlag, hasPermission } from '@vapour/types';
+import { canViewProposals } from '@vapour/constants';
 
-const STATUS_OPTIONS = [
-  { value: 'DRAFT', label: 'Draft' },
-  { value: 'PENDING_APPROVAL', label: 'Pending Approval' },
-  { value: 'APPROVED', label: 'Approved' },
-  { value: 'SUBMITTED', label: 'Submitted' },
-  { value: 'UNDER_NEGOTIATION', label: 'Negotiating' },
-  { value: 'ACCEPTED', label: 'Accepted' },
-  { value: 'REJECTED', label: 'Rejected' },
-  { value: 'EXPIRED', label: 'Expired' },
-];
+interface ProposalModule {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  path: string;
+  comingSoon?: boolean;
+}
 
-const getStatusColor = (status: ProposalStatus) => {
-  switch (status) {
-    case 'DRAFT':
-      return 'default';
-    case 'PENDING_APPROVAL':
-      return 'warning';
-    case 'APPROVED':
-      return 'info';
-    case 'SUBMITTED':
-      return 'primary';
-    case 'UNDER_NEGOTIATION':
-      return 'secondary';
-    case 'ACCEPTED':
-      return 'success';
-    case 'REJECTED':
-    case 'EXPIRED':
-      return 'error';
-    default:
-      return 'default';
-  }
-};
-
-export default function ProposalListPage() {
+export default function ProposalsPage() {
   const router = useRouter();
-  const db = useFirestore();
   const { claims } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [error, setError] = useState<string | null>(null);
 
-  // Filters
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [dateRange] = useState<{ start: Date | null; end: Date | null }>({
-    start: null,
-    end: null,
-  });
+  // Check permissions - user needs proposal view access
+  const hasViewAccess = claims?.permissions ? canViewProposals(claims.permissions) : false;
 
-  const fetchProposals = useCallback(async () => {
-    if (!db) return;
+  const modules: ProposalModule[] = [
+    {
+      title: 'Enquiries',
+      description: 'Manage incoming client enquiries and RFQs',
+      icon: <InboxIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/proposals/enquiries',
+    },
+    {
+      title: 'Scope Matrix',
+      description: 'Define scope of work and supply for proposals',
+      icon: <GridViewIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/proposals/scope-matrix',
+      comingSoon: true,
+    },
+    {
+      title: 'Estimation',
+      description: 'Cost estimation with overhead and contingency',
+      icon: <CalculateIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/proposals/estimation',
+      comingSoon: true,
+    },
+    {
+      title: 'Pricing',
+      description: 'Final pricing with taxes and payment terms',
+      icon: <PriceChangeIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/proposals/pricing',
+      comingSoon: true,
+    },
+    {
+      title: 'Proposal Generation',
+      description: 'Generate and manage proposal documents',
+      icon: <PdfIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/proposals/generation',
+      comingSoon: true,
+    },
+    {
+      title: 'All Proposals',
+      description: 'View all proposals across all stages',
+      icon: <ListIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/proposals/list',
+    },
+    {
+      title: 'Files',
+      description: 'Browse proposal-related documents',
+      icon: <FolderIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/proposals/files',
+    },
+  ];
 
-    // Check if user has permission to manage entities (Superadmin/Director)
-    const canManageEntities = claims?.permissions
-      ? hasPermission(claims.permissions, PermissionFlag.MANAGE_ENTITIES)
-      : false;
-
-    // If user has no entity ID and cannot manage entities, stop loading
-    if (!claims?.entityId && !canManageEntities) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const data = await listProposals(db, {
-        entityId: claims?.entityId, // Optional for Superadmin
-        status: statusFilter.length > 0 ? (statusFilter as ProposalStatus[]) : undefined,
-        searchTerm: searchTerm || undefined,
-        dateFrom: dateRange.start ? Timestamp.fromDate(dateRange.start) : undefined,
-        dateTo: dateRange.end ? Timestamp.fromDate(dateRange.end) : undefined,
-      });
-
-      setProposals(data);
-    } catch (err) {
-      console.error('Error fetching proposals:', err);
-      setError('Failed to load proposals. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [db, claims, statusFilter, searchTerm, dateRange]);
-
-  useEffect(() => {
-    fetchProposals();
-  }, [fetchProposals]);
-
-  const handleCreateProposal = () => {
-    router.push('/proposals/new'); // Will be implemented in Phase 3.2
-  };
-
-  const handleViewProposal = (id: string) => {
-    router.push(`/proposals/${id}`);
-  };
-
-  const handleEditProposal = (id: string) => {
-    router.push(`/proposals/${id}/edit`);
-  };
-
-  if (loading && proposals.length === 0) {
-    return <LoadingState message="Loading proposals..." />;
+  if (!hasViewAccess) {
+    return (
+      <Container maxWidth="xl">
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Proposals
+          </Typography>
+          <Typography variant="body1" color="error">
+            You do not have permission to access the Proposals module.
+          </Typography>
+        </Box>
+      </Container>
+    );
   }
 
   return (
     <Container maxWidth="xl">
-      <Box sx={{ mb: 4 }}>
-        <PageHeader
-          title="Proposals"
-          subtitle="Manage your proposals and quotes"
-          action={
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => router.push('/proposals/new')}
-            >
-              New Proposal
-            </Button>
-          }
-        />
+      <Box
+        sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
+      >
+        <Box>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Proposals
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Manage proposals from enquiry to final document generation
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => router.push('/proposals/new')}
+        >
+          New Proposal
+        </Button>
       </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
+      <Grid container spacing={3}>
+        {modules.map((module) => (
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={module.path}>
+            <Card
+              sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                ...(module.comingSoon && {
+                  opacity: 0.7,
+                  backgroundColor: 'action.hover',
+                }),
+              }}
+            >
+              {module.comingSoon && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    bgcolor: 'warning.main',
+                    color: 'warning.contrastText',
+                    px: 1,
+                    py: 0.5,
+                    borderRadius: 1,
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  Coming Soon
+                </Box>
+              )}
 
-      <FilterBar
-        onClear={() => {
-          setSearchTerm('');
-          setStatusFilter([]);
-        }}
-      >
-        <TextField
-          placeholder="Search proposals..."
-          size="small"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ width: 300 }}
-        />
+              <CardContent sx={{ flexGrow: 1, textAlign: 'center', pt: 4 }}>
+                <Box sx={{ mb: 2 }}>{module.icon}</Box>
+                <Typography variant="h6" component="h2" gutterBottom>
+                  {module.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {module.description}
+                </Typography>
+              </CardContent>
 
-        <FormControl size="small" sx={{ width: 200 }}>
-          <InputLabel>Status</InputLabel>
-          <Select
-            multiple
-            value={statusFilter}
-            onChange={(e) => {
-              const value = e.target.value;
-              setStatusFilter(typeof value === 'string' ? value.split(',') : value);
-            }}
-            input={<OutlinedInput label="Status" />}
-            renderValue={(selected) => selected.join(', ')}
-          >
-            {STATUS_OPTIONS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                <Checkbox checked={statusFilter.indexOf(option.value) > -1} />
-                <ListItemText primary={option.label} />
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </FilterBar>
-
-      {proposals.length === 0 ? (
-        <EmptyState
-          title="No proposals found"
-          message={
-            searchTerm || statusFilter.length > 0
-              ? 'Try adjusting your filters'
-              : 'Get started by creating your first proposal'
-          }
-          action={
-            !searchTerm && statusFilter.length === 0 ? (
-              <Button variant="contained" onClick={handleCreateProposal}>
-                Create Proposal
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : (
-        <TableContainer component={Paper}>
-          <Table sx={{ minWidth: 650 }}>
-            <TableHead>
-              <TableRow>
-                <TableCell>Proposal #</TableCell>
-                <TableCell>Title</TableCell>
-                <TableCell>Client</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Amount</TableCell>
-                <TableCell>Created</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {proposals.map((proposal) => (
-                <TableRow key={proposal.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
-                      {proposal.proposalNumber}
-                    </Typography>
-                    {proposal.revision > 1 && (
-                      <Typography variant="caption" color="text.secondary">
-                        Rev {proposal.revision}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>{proposal.title}</TableCell>
-                  <TableCell>{proposal.clientName}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={
-                        STATUS_OPTIONS.find((o) => o.value === proposal.status)?.label ||
-                        proposal.status
-                      }
-                      color={getStatusColor(proposal.status)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {proposal.pricing?.totalAmount
-                      ? new Intl.NumberFormat('en-IN', {
-                          style: 'currency',
-                          currency: proposal.pricing.totalAmount.currency,
-                        }).format(proposal.pricing.totalAmount.amount)
-                      : '-'}
-                  </TableCell>
-                  <TableCell>
-                    {proposal.createdAt?.toDate
-                      ? format(proposal.createdAt.toDate(), 'MMM d, yyyy')
-                      : '-'}
-                  </TableCell>
-                  <TableActionCell
-                    actions={[
-                      {
-                        label: 'View',
-                        icon: <ViewIcon fontSize="small" />,
-                        onClick: () => handleViewProposal(proposal.id),
-                      },
-                      {
-                        label: 'Edit',
-                        icon: <EditIcon fontSize="small" />,
-                        onClick: () => handleEditProposal(proposal.id),
-                        show: proposal.status === 'DRAFT' || proposal.status === 'PENDING_APPROVAL',
-                      },
-                    ]}
-                  />
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+              <CardActions sx={{ justifyContent: 'center', pb: 2 }}>
+                <Button
+                  variant="contained"
+                  onClick={() => router.push(module.path)}
+                  disabled={module.comingSoon}
+                >
+                  {module.comingSoon ? 'Coming Soon' : 'Open Module'}
+                </Button>
+              </CardActions>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
     </Container>
   );
 }

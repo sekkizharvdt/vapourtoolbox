@@ -89,6 +89,7 @@ export const MODULE_ENTITY_TYPES: Record<DocumentModule, DocumentEntityType[]> =
   ],
   ACCOUNTING: ['INVOICE', 'BILL', 'PAYMENT', 'JOURNAL_ENTRY'],
   PROJECTS: ['PROJECT', 'EQUIPMENT', 'MILESTONE'],
+  PROPOSALS: ['VENDOR', 'CUSTOMER', 'OTHER'], // Uses general entity types for proposal documents
   ESTIMATION: ['ESTIMATE', 'BOQ'],
   TIME_TRACKING: [],
   GENERAL: ['VENDOR', 'CUSTOMER', 'OTHER'],

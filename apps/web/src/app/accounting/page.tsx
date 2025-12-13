@@ -22,6 +22,7 @@ import {
   List as TransactionsIcon,
   Payment as PaymentIcon,
   AccountBalanceWallet as ReconciliationIcon,
+  Folder as FolderIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -108,6 +109,12 @@ export default function AccountingPage() {
       description: 'GST returns (GSTR-1, GSTR-2, GSTR-3B), TDS reports, and tax compliance',
       icon: <TrendingUpIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/tax-compliance',
+    },
+    {
+      title: 'Files',
+      description: 'Browse and manage accounting-related documents',
+      icon: <FolderIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/files',
     },
   ];
 

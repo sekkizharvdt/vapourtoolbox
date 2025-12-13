@@ -26,6 +26,7 @@ import {
   Receipt as ReceiptIcon,
   CompareArrows as CompareArrowsIcon,
   Edit as EditIcon,
+  Folder as FolderIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -100,6 +101,12 @@ export default function ProcurementPage() {
       description: 'Create and manage amendments to approved purchase orders',
       icon: <EditIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/procurement/amendments',
+    },
+    {
+      title: 'Files',
+      description: 'Browse and manage procurement-related documents',
+      icon: <FolderIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/procurement/files',
     },
   ];
 
