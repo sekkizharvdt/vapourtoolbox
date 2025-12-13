@@ -86,6 +86,7 @@ export const COLLECTIONS = {
   // Document Management
   DOCUMENTS: 'documents',
   DOCUMENT_ACTIVITIES: 'documentActivities',
+  DOCUMENT_FOLDERS: 'documentFolders', // User-created subfolders for document browser
 
   // Estimation
   ESTIMATES: 'estimates',

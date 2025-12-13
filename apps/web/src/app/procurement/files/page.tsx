@@ -1,0 +1,83 @@
+'use client';
+
+/**
+ * Procurement Files Page
+ *
+ * Document browser for the Procurement module
+ * Shows all procurement-related documents with folder navigation
+ */
+
+import { useCallback } from 'react';
+import { Container, Box, Typography } from '@mui/material';
+import { PageHeader } from '@vapour/ui';
+import { useAuth } from '@/contexts/AuthContext';
+import { canViewProcurement } from '@vapour/constants';
+import { DocumentBrowser } from '@/components/documents/browser';
+import type { DocumentRecord } from '@vapour/types';
+
+export default function ProcurementFilesPage() {
+  const { claims } = useAuth();
+
+  // Check permissions
+  const hasViewAccess = claims?.permissions ? canViewProcurement(claims.permissions) : false;
+
+  // Handle document view
+  const handleViewDocument = useCallback((document: DocumentRecord) => {
+    if (document.fileUrl) {
+      window.open(document.fileUrl, '_blank');
+    }
+  }, []);
+
+  // Handle document download
+  const handleDownloadDocument = useCallback((document: DocumentRecord) => {
+    if (document.fileUrl) {
+      const link = window.document.createElement('a');
+      link.href = document.fileUrl;
+      link.download = document.fileName;
+      link.click();
+    }
+  }, []);
+
+  // Handle upload click
+  const handleUploadClick = useCallback(() => {
+    // TODO: Open upload dialog - integrate with existing upload component
+  }, []);
+
+  if (!hasViewAccess) {
+    return (
+      <Container maxWidth="xl">
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Procurement Files
+          </Typography>
+          <Typography variant="body1" color="error">
+            You do not have permission to access the Procurement module.
+          </Typography>
+        </Box>
+      </Container>
+    );
+  }
+
+  return (
+    <Container maxWidth="xl" sx={{ height: 'calc(100vh - 120px)' }}>
+      <Box sx={{ mb: 2 }}>
+        <PageHeader
+          title="Procurement Files"
+          subtitle="Browse and manage procurement-related documents"
+        />
+      </Box>
+
+      <Box sx={{ height: 'calc(100% - 80px)' }}>
+        <DocumentBrowser
+          module="PROCUREMENT"
+          showViewToggle={true}
+          allowFolderCreation={true}
+          allowUpload={true}
+          onViewDocument={handleViewDocument}
+          onDownloadDocument={handleDownloadDocument}
+          onUploadClick={handleUploadClick}
+        />
+      </Box>
+    </Container>
+  );
+}
