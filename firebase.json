@@ -96,6 +96,10 @@
         "destination": "/projects/placeholder/charter.html"
       },
       {
+        "source": "/projects/*",
+        "destination": "/projects/placeholder.html"
+      },
+      {
         "source": "/proposals/enquiries/*/edit",
         "destination": "/proposals/enquiries/placeholder/edit.html"
       },

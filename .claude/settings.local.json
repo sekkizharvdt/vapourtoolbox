@@ -177,7 +177,9 @@
       "Bash(while read f)",
       "Bash(do wc -l:*)",
       "Bash(for dir in /home/sekki/projects/VDT-Unified/apps/web/src/app/bought-out/[id] /home/sekki/projects/VDT-Unified/apps/web/src/app/estimation/[id] /home/sekki/projects/VDT-Unified/apps/web/src/app/proposals/[id] /home/sekki/projects/VDT-Unified/apps/web/src/app/materials/[id])",
-      "Bash(if [ ! -f \"$dir/loading.tsx\" ])"
+      "Bash(if [ ! -f \"$dir/loading.tsx\" ])",
+      "Bash(head:*)",
+      "Bash(node scripts/migrate-forex-outstanding.js:*)"
     ],
     "deny": [],
     "ask": []
