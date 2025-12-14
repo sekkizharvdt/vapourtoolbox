@@ -13,6 +13,7 @@ export * from './costConfig';
 export * from './documents';
 export * from './enquiry';
 export * from './entity';
+export * from './hr';
 export * from './exchangeRate';
 export * from './invitation';
 export * from './material';

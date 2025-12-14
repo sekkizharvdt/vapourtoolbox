@@ -37,3 +37,13 @@ export {
   threeWayMatchKeys,
   type ProcurementFilters,
 } from './procurement';
+
+// HR-related query keys
+export {
+  leaveTypeKeys,
+  leaveBalanceKeys,
+  leaveRequestKeys,
+  hrStatsKeys,
+  type LeaveRequestFilters,
+  type LeaveBalanceFilters,
+} from './hr';

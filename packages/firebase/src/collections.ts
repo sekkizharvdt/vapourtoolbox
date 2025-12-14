@@ -22,8 +22,13 @@ export const COLLECTIONS = {
   TASK_NOTIFICATIONS: 'taskNotifications', // Unified notification-task system
   TIME_ENTRIES: 'time_entries',
   TASKS: 'tasks', // Legacy - will be migrated to TASK_NOTIFICATIONS
-  LEAVES: 'leaves',
+  LEAVES: 'leaves', // Legacy - use HR_LEAVE_REQUESTS instead
   ON_DUTY: 'on_duty',
+
+  // HR Module
+  HR_LEAVE_TYPES: 'hrLeaveTypes', // Leave type configuration (Sick, Casual, etc.)
+  HR_LEAVE_BALANCES: 'hrLeaveBalances', // Employee leave balance per fiscal year
+  HR_LEAVE_REQUESTS: 'hrLeaveRequests', // Leave requests with approval workflow
 
   // Slack-like Task Channels (Phase A-C)
   PROJECT_CHANNELS: 'projectChannels', // Custom channels per project

@@ -75,7 +75,11 @@ export type TaskNotificationCategory =
   | 'ENQUIRY_ASSIGNED' // Actionable: Work on assigned enquiry
   // Feedback
   | 'FEEDBACK_RESOLUTION_CHECK' // Actionable: Verify fix with reporter, close or follow up
-  | 'FEEDBACK_REOPENED'; // Informational: Reporter requested follow-up on resolved feedback
+  | 'FEEDBACK_REOPENED' // Informational: Reporter requested follow-up on resolved feedback
+  // HR / Leave Management
+  | 'LEAVE_SUBMITTED' // Actionable: Review and approve/reject leave request
+  | 'LEAVE_APPROVED' // Informational: Your leave request was approved
+  | 'LEAVE_REJECTED'; // Informational: Your leave request was rejected
 
 /**
  * Task Notification Status
@@ -314,7 +318,8 @@ export type DefaultTaskChannelId =
   | 'approvals'
   | 'enquiries'
   | 'proposals'
-  | 'feedback';
+  | 'feedback'
+  | 'hr';
 
 /**
  * Task Channel
@@ -440,6 +445,14 @@ export const TASK_CHANNEL_DEFINITIONS: Record<DefaultTaskChannelId, TaskChannel>
     categories: ['FEEDBACK_RESOLUTION_CHECK', 'FEEDBACK_REOPENED'],
     isDefault: true,
   },
+  hr: {
+    id: 'hr',
+    name: 'HR',
+    icon: 'Users',
+    description: 'Leave requests, approvals, and HR notifications',
+    categories: ['LEAVE_SUBMITTED', 'LEAVE_APPROVED', 'LEAVE_REJECTED'],
+    isDefault: true,
+  },
 };
 
 /**
@@ -468,6 +481,7 @@ export function isApprovalCategory(category: TaskNotificationCategory): boolean 
     'PROPOSAL_SUBMITTED',
     'DOCUMENT_INTERNAL_REVIEW',
     'DOCUMENT_COMMENTS_RESOLVED',
+    'LEAVE_SUBMITTED',
   ];
   return approvalCategories.includes(category);
 }

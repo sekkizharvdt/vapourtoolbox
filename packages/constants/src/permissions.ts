@@ -332,6 +332,12 @@ export const PERMISSION_FLAGS_2 = {
   // SSOT / Process Data (bits 10-11)
   VIEW_SSOT: 1 << 10, // 1024
   MANAGE_SSOT: 1 << 11, // 2048
+
+  // HR Module (bits 12-15)
+  VIEW_HR: 1 << 12, // 4096 - View HR module (leaves, balances)
+  MANAGE_HR_SETTINGS: 1 << 13, // 8192 - Configure leave types, policies
+  APPROVE_LEAVES: 1 << 14, // 16384 - Approve/reject leave requests
+  MANAGE_HR_PROFILES: 1 << 15, // 32768 - Edit employee HR profiles
 } as const;
 
 /**
@@ -350,6 +356,11 @@ export const PERMISSION_BITS_2 = {
   MANAGE_THERMAL_CALCS: 512,
   VIEW_SSOT: 1024,
   MANAGE_SSOT: 2048,
+  // HR Module
+  VIEW_HR: 4096,
+  MANAGE_HR_SETTINGS: 8192,
+  APPROVE_LEAVES: 16384,
+  MANAGE_HR_PROFILES: 32768,
 } as const;
 
 /**
@@ -433,6 +444,25 @@ export function canManageSSOT(permissions2: number): boolean {
 }
 
 /**
+ * HR Module permission helpers
+ */
+export function canViewHR(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.VIEW_HR);
+}
+
+export function canManageHRSettings(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.MANAGE_HR_SETTINGS);
+}
+
+export function canApproveLeaves(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.APPROVE_LEAVES);
+}
+
+export function canManageHRProfiles(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.MANAGE_HR_PROFILES);
+}
+
+/**
  * Restricted Modules Configuration
  *
  * Defines which modules require View/Manage permissions.
@@ -493,6 +523,13 @@ export const RESTRICTED_MODULES: RestrictedModule[] = [
     name: 'Entities',
     viewFlag: PERMISSION_FLAGS.VIEW_ENTITIES,
     manageFlag: PERMISSION_FLAGS.CREATE_ENTITIES,
+  },
+  {
+    id: 'hr',
+    name: 'HR & Leave Management',
+    viewFlag: PERMISSION_FLAGS_2.VIEW_HR,
+    manageFlag: PERMISSION_FLAGS_2.MANAGE_HR_SETTINGS,
+    field: 'permissions2',
   },
 ];
 

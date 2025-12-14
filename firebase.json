@@ -156,6 +156,26 @@
         "destination": "/proposals/placeholder.html"
       },
       {
+        "source": "/hr/leaves/new",
+        "destination": "/hr/leaves/new.html"
+      },
+      {
+        "source": "/hr/leaves/my-leaves",
+        "destination": "/hr/leaves/my-leaves.html"
+      },
+      {
+        "source": "/hr/leaves/calendar",
+        "destination": "/hr/leaves/calendar.html"
+      },
+      {
+        "source": "/hr/leaves/*",
+        "destination": "/hr/leaves/placeholder.html"
+      },
+      {
+        "source": "/hr/settings/leave-types",
+        "destination": "/hr/settings/leave-types.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

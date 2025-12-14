@@ -56,6 +56,25 @@ export interface User extends TimestampFields {
 
   // Last login tracking
   lastLoginAt?: Timestamp;
+
+  // HR Profile (extended employee information)
+  hrProfile?: {
+    employeeId?: string; // Employee ID (e.g., VDT-001)
+    dateOfJoining?: Timestamp;
+    reportingManagerId?: string; // Manager's UID for hierarchy
+    probationEndDate?: Timestamp;
+    emergencyContact?: {
+      name: string;
+      relationship: string;
+      phone: string;
+    };
+    bankDetails?: {
+      accountNumber: string;
+      bankName: string;
+      ifscCode: string;
+      accountHolderName: string;
+    };
+  };
 }
 
 /**

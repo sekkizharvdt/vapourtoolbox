@@ -75,6 +75,17 @@ service cloud.firestore {
              request.auth.token.assignedProjects.hasAny([projectId]);
     }
 
+    /**
+     * Check if user has permission from permissions2 field (extended permissions)
+     * Used for HR, SSOT, Thermal, and other modules added after original permissions exhausted
+     * Permission bits are defined in packages/constants/src/permissions.ts PERMISSION_FLAGS_2
+     */
+    function hasPermission2(permissionBit) {
+      return isAuthenticated() &&
+             request.auth.token.permissions2 != null &&
+             math.floor(request.auth.token.permissions2 / permissionBit) % 2 == 1;
+    }
+
     // ============================================
     // Users Collection
     // ============================================
@@ -1187,6 +1198,77 @@ service cloud.firestore {
       allow update: if isAdmin();
 
       // Delete: Only super admins
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
+    // HR Module Collections
+    // ============================================
+
+    /**
+     * HR Leave Types - Configuration for leave categories
+     * Permission bits (from @vapour/constants PERMISSION_FLAGS_2):
+     *   VIEW_HR = 4096 (bit 12)
+     *   MANAGE_HR_SETTINGS = 8192 (bit 13)
+     *   APPROVE_LEAVES = 16384 (bit 14)
+     *   MANAGE_HR_PROFILES = 32768 (bit 15)
+     */
+    match /hrLeaveTypes/{typeId} {
+      // Read: All internal users (needed for leave request forms)
+      allow read: if isInternalUser();
+
+      // Create/Update: Only users with MANAGE_HR_SETTINGS permission
+      allow create, update: if isInternalUser() && hasPermission2(8192); // MANAGE_HR_SETTINGS
+
+      // Delete: Super admins only (prefer soft delete via isActive = false)
+      allow delete: if isSuperAdmin();
+    }
+
+    /**
+     * HR Leave Balances - Per-user leave balance tracking
+     */
+    match /hrLeaveBalances/{balanceId} {
+      // Read: Own balances OR users with APPROVE_LEAVES (to see team balances)
+      allow read: if isInternalUser() && (
+                     isOwner(resource.data.userId) ||
+                     hasPermission2(16384) || // APPROVE_LEAVES
+                     hasPermission2(8192)     // MANAGE_HR_SETTINGS
+                   );
+
+      // Create/Update: Only users with MANAGE_HR_SETTINGS
+      // Balances are typically created by system when fiscal year starts
+      allow create, update: if isInternalUser() && hasPermission2(8192); // MANAGE_HR_SETTINGS
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
+    /**
+     * HR Leave Requests - Leave applications with approval workflow
+     */
+    match /hrLeaveRequests/{requestId} {
+      // Read: Own requests OR users with APPROVE_LEAVES permission
+      allow read: if isInternalUser() && (
+                     isOwner(resource.data.userId) ||
+                     hasPermission2(16384) || // APPROVE_LEAVES
+                     hasPermission2(8192)     // MANAGE_HR_SETTINGS
+                   );
+
+      // Create: Users can create their own leave requests
+      allow create: if isInternalUser() &&
+                       isOwner(request.resource.data.userId);
+
+      // Update: Own requests (if DRAFT or PENDING_APPROVAL) OR users with APPROVE_LEAVES
+      // Users can edit their own draft requests or cancel pending ones
+      // Approvers can approve/reject pending requests
+      allow update: if isInternalUser() && (
+                       (isOwner(resource.data.userId) &&
+                        resource.data.status in ['DRAFT', 'PENDING_APPROVAL']) ||
+                       hasPermission2(16384) || // APPROVE_LEAVES
+                       hasPermission2(8192)     // MANAGE_HR_SETTINGS
+                     );
+
+      // Delete: Super admins only (use status change to CANCELLED instead)
       allow delete: if isSuperAdmin();
     }
 
