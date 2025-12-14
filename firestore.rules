@@ -1273,6 +1273,20 @@ service cloud.firestore {
     }
 
     // ============================================
+    // System Status (Admin Dashboard)
+    // ============================================
+
+    match /systemStatus/{docId} {
+      // Read: Only users with MANAGE_USERS permission (admins)
+      // This shows package versions, vulnerabilities, and updates
+      allow read: if isAdmin();
+
+      // Write: Disabled - written by script using Firebase Admin SDK
+      // The script (scripts/update-system-status.js) bypasses security rules
+      allow write: if false;
+    }
+
+    // ============================================
     // Default: Deny all
     // ============================================
 
