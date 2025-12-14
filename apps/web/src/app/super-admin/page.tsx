@@ -18,6 +18,7 @@ import {
   Engineering as EngineeringIcon,
   Description as DocumentIcon,
   Hub as IntegrationIcon,
+  Security as SecurityIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 
@@ -76,6 +77,13 @@ export default function SuperAdminPage() {
       icon: <IntegrationIcon sx={{ fontSize: 48, color: 'text.secondary' }} />,
       path: '#',
       status: 'coming-soon',
+    },
+    {
+      title: 'System Status',
+      description: 'Package versions, security vulnerabilities, and update recommendations',
+      icon: <SecurityIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/super-admin/system-status',
+      status: 'active',
     },
   ];
 

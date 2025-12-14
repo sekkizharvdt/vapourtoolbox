@@ -29,6 +29,7 @@ import {
   History as AuditIcon,
   ArrowForward as ArrowIcon,
   Assessment as AnalyticsIcon,
+  Security as SecurityIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -176,6 +177,13 @@ export default function AdminDashboardPage() {
       icon: <AnalyticsIcon sx={{ fontSize: 48, color: 'success.main' }} />,
       path: '/admin/task-analytics',
     },
+    {
+      id: 'system-status',
+      title: 'System Status',
+      description: 'Package versions, security vulnerabilities, and updates',
+      icon: <SecurityIcon sx={{ fontSize: 48, color: 'warning.main' }} />,
+      path: '/super-admin/system-status',
+    },
   ];
 
   return (
@@ -246,7 +254,9 @@ export default function AdminDashboardPage() {
                     ? 'Manage Users'
                     : card.id === 'company'
                       ? 'Configure'
-                      : 'View'}
+                      : card.id === 'system-status'
+                        ? 'View Status'
+                        : 'View'}
                 </Button>
               </CardActions>
             </Card>

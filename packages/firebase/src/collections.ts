@@ -126,6 +126,9 @@ export const COLLECTIONS = {
 
   // System Counters (for sequence generation)
   COUNTERS: 'counters',
+
+  // System Admin
+  SYSTEM_STATUS: 'systemStatus', // Package versions, security status (super-admin only)
 } as const;
 
 /**
