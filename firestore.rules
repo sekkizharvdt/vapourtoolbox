@@ -1287,6 +1287,21 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Company Documents (SOPs, Policies, Templates)
+    // ============================================
+
+    match /companyDocuments/{docId} {
+      // Read: All authenticated users can access company documents
+      allow read: if isAuthenticated();
+
+      // Create/Update: Only admins can upload and modify company documents
+      allow create, update: if isAdmin();
+
+      // Delete: Only admins (soft delete pattern - use isDeleted flag)
+      allow delete: if isAdmin();
+    }
+
+    // ============================================
     // Default: Deny all
     // ============================================
 

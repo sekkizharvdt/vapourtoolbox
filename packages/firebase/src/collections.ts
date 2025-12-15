@@ -92,6 +92,7 @@ export const COLLECTIONS = {
   DOCUMENTS: 'documents',
   DOCUMENT_ACTIVITIES: 'documentActivities',
   DOCUMENT_FOLDERS: 'documentFolders', // User-created subfolders for document browser
+  COMPANY_DOCUMENTS: 'companyDocuments', // Company-wide documents: SOPs, policies, templates
 
   // Estimation
   ESTIMATES: 'estimates',

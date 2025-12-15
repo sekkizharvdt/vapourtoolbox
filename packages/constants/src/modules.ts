@@ -97,16 +97,16 @@ export const MODULES: Record<string, ModuleDefinition> = {
 
   DOCUMENT_MANAGEMENT: {
     id: 'document-management',
-    name: 'Document Management',
-    shortName: 'Documents',
-    description: 'Centralized document storage with version control and sharing',
+    name: 'Documents',
+    shortName: 'Docs',
+    description: 'Company-wide documents: SOPs, policies, and templates',
     icon: 'Description',
     color: '#7C3AED', // Purple
     path: '/documents',
     status: 'active',
     // No requiredPermissions - accessible by all users
     category: 'application',
-    priority: 2,
+    priority: 10, // Lower priority (shown later in category)
   },
 
   PROCUREMENT: {

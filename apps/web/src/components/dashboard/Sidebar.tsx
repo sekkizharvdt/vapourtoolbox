@@ -113,7 +113,6 @@ const SIDEBAR_CATEGORIES: CategoryConfig[] = [
     label: 'DAILY OPERATIONS',
     moduleIds: [
       'time-tracking', // Flow - open to all
-      'document-management', // Documents - open to all
       'project-management', // Projects - requires VIEW_PROJECTS
     ],
   },
@@ -150,6 +149,7 @@ const SIDEBAR_CATEGORIES: CategoryConfig[] = [
     label: 'SETUP',
     moduleIds: [
       'entity-management', // Entities - requires VIEW_ENTITIES
+      'document-management', // Company Documents - SOPs, policies, templates
     ],
   },
   {

@@ -1,439 +1,925 @@
 'use client';
 
 /**
- * Master Document List Page
+ * Company Documents Page
  *
- * Main page for managing project documents
- * - View all master documents
- * - Filter by project, discipline, status
- * - Create new documents
- * - Access document details
+ * Company-wide document storage for:
+ * - SOPs (Standard Operating Procedures)
+ * - Company policies
+ * - Templates (RFQ, Offer, PO, etc.)
+ * - Standards and manuals
  */
 
-import { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Paper,
   Button,
   TextField,
-  Collapse,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Tabs,
   Tab,
   Container,
   Stack,
   Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  IconButton,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  Alert,
+  Tooltip,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  FilterList as FilterListIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  Send as SendIcon,
-  Upload as UploadIcon,
+  Search as SearchIcon,
+  Download as DownloadIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  MoreVert as MoreIcon,
+  CloudUpload as UploadIcon,
+  History as VersionIcon,
+  Description as DocIcon,
+  Assignment as SOPIcon,
+  Policy as PolicyIcon,
+  FileCopy as TemplateIcon,
+  Verified as StandardIcon,
+  MenuBook as ManualIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
-import type { MasterDocumentEntry } from '@vapour/types';
-import { getMasterDocumentsByProject } from '@/lib/documents/masterDocumentService';
-import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
-import { DocumentMetrics } from './components/DocumentMetrics';
-import { QuickFilters } from './components/QuickFilters';
-import { GroupedDocumentsTable } from './components/GroupedDocumentsTable';
-import TransmittalsList from './components/transmittals/TransmittalsList';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
+import {
+  getCompanyDocuments,
+  uploadCompanyDocument,
+  updateCompanyDocument,
+  deleteCompanyDocument,
+  createNewVersion,
+  getDocumentVersionHistory,
+  getDocumentCountsByCategory,
+} from '@/lib/companyDocuments';
+import type {
+  CompanyDocument,
+  CompanyDocumentCategory,
+  CompanyDocumentInput,
+  TemplateType,
+} from '@vapour/types';
+import { COMPANY_DOCUMENT_CATEGORIES, TEMPLATE_TYPES } from '@vapour/types';
 
-// Lazy load heavy dialog components
-const CreateDocumentDialog = dynamic(() => import('./components/CreateDocumentDialog'), {
-  ssr: false,
-});
-const GenerateTransmittalDialog = dynamic(
-  () => import('./components/transmittals/GenerateTransmittalDialog'),
-  { ssr: false }
-);
-const DocumentRegisterUploadDialog = dynamic(
-  () => import('./components/DocumentRegisterUploadDialog'),
-  { ssr: false }
-);
+const CATEGORY_ICONS: Record<CompanyDocumentCategory, React.ReactElement> = {
+  SOP: <SOPIcon />,
+  POLICY: <PolicyIcon />,
+  TEMPLATE: <TemplateIcon />,
+  STANDARD: <StandardIcon />,
+  MANUAL: <ManualIcon />,
+  OTHER: <DocIcon />,
+};
 
-export default function MasterDocumentsPage() {
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function formatDate(timestamp: { seconds: number } | null): string {
+  if (!timestamp) return '-';
+  return new Date(timestamp.seconds * 1000).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+export default function CompanyDocumentsPage() {
   const { db } = getFirebase();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
+  const isAdmin = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_USERS);
 
-  const [loading, setLoading] = useState(false);
-  const [documents, setDocuments] = useState<MasterDocumentEntry[]>([]);
-  const [filteredDocuments, setFilteredDocuments] = useState<MasterDocumentEntry[]>([]);
-
-  // Selected project
-  const [projectId, setProjectId] = useState<string>('');
-  const [projectCode, setProjectCode] = useState<string>('');
+  // State
+  const [loading, setLoading] = useState(true);
+  const [documents, setDocuments] = useState<CompanyDocument[]>([]);
+  const [filteredDocuments, setFilteredDocuments] = useState<CompanyDocument[]>([]);
+  const [categoryCounts, setCategoryCounts] = useState<Record<CompanyDocumentCategory, number>>({
+    SOP: 0,
+    POLICY: 0,
+    TEMPLATE: 0,
+    STANDARD: 0,
+    MANUAL: 0,
+    OTHER: 0,
+  });
 
   // Filters
+  const [activeCategory, setActiveCategory] = useState<CompanyDocumentCategory | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [quickFilter, setQuickFilter] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [disciplineFilter, setDisciplineFilter] = useState<string>('ALL');
-  const [visibilityFilter, setVisibilityFilter] = useState<string>('ALL');
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // Dialog state
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [transmittalDialogOpen, setTransmittalDialogOpen] = useState(false);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  // Dialogs
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [versionDialogOpen, setVersionDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<CompanyDocument | null>(null);
+  const [versionHistory, setVersionHistory] = useState<CompanyDocument[]>([]);
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState(0);
+  // Menu
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const [menuDocument, setMenuDocument] = useState<CompanyDocument | null>(null);
 
-  useEffect(() => {
-    if (projectId) {
-      loadDocuments();
-    } else {
-      setDocuments([]);
-      setFilteredDocuments([]);
-      setLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
-
-  useEffect(() => {
-    applyFilters();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [documents, searchQuery, quickFilter, statusFilter, disciplineFilter, visibilityFilter]);
-
-  const loadDocuments = async () => {
-    if (!db) {
-      console.error('[MasterDocumentsPage] Firebase db not initialized');
-      setLoading(false);
-      return;
-    }
-
-    if (!projectId) {
-      console.warn('[MasterDocumentsPage] loadDocuments called without projectId');
-      return;
-    }
-
-    console.warn('[MasterDocumentsPage] Starting to load documents for project:', projectId);
+  // Load documents
+  const loadDocuments = useCallback(async () => {
+    if (!db) return;
     setLoading(true);
-
-    // Add timeout to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      console.error('[MasterDocumentsPage] Query timeout after 10 seconds');
-      setLoading(false);
-      alert('Loading documents timed out. Please check console for errors.');
-    }, 10000);
-
     try {
-      console.warn('[MasterDocumentsPage] Calling getMasterDocumentsByProject...');
-      const data = await getMasterDocumentsByProject(db, projectId);
-      console.warn('[MasterDocumentsPage] Successfully loaded documents:', data.length);
-      setDocuments(data);
-      clearTimeout(timeoutId);
+      const docs = await getCompanyDocuments(db);
+      setDocuments(docs);
+      const counts = await getDocumentCountsByCategory(db);
+      setCategoryCounts(counts);
     } catch (error) {
-      console.error('[MasterDocumentsPage] Error loading documents:', error);
-      console.error('[MasterDocumentsPage] Error details:', JSON.stringify(error, null, 2));
-      clearTimeout(timeoutId);
-      alert(`Error loading documents: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Failed to load documents:', error);
     } finally {
       setLoading(false);
-      console.warn('[MasterDocumentsPage] Loading complete');
     }
-  };
+  }, [db]);
 
-  const applyFilters = () => {
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
+
+  // Filter documents
+  useEffect(() => {
     let filtered = [...documents];
 
-    // Quick filters
-    if (quickFilter) {
-      switch (quickFilter) {
-        case 'my-docs':
-          if (user?.uid) {
-            filtered = filtered.filter((doc) => doc.assignedTo.includes(user.uid));
-          }
-          break;
-        case 'overdue':
-          filtered = filtered.filter((doc) => {
-            if (!doc.dueDate || doc.status === 'ACCEPTED') return false;
-            const dueDate = new Date(doc.dueDate.seconds * 1000);
-            return dueDate < new Date();
-          });
-          break;
-        case 'pending-review':
-          filtered = filtered.filter(
-            (doc) => doc.status === 'SUBMITTED' || doc.status === 'UNDER_REVIEW'
-          );
-          break;
-        case 'client-visible':
-          filtered = filtered.filter((doc) => doc.visibility === 'CLIENT_VISIBLE');
-          break;
-      }
+    if (activeCategory !== 'ALL') {
+      filtered = filtered.filter((doc) => doc.category === activeCategory);
     }
 
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (doc) =>
-          doc.documentNumber.toLowerCase().includes(query) ||
-          doc.documentTitle.toLowerCase().includes(query) ||
-          doc.description.toLowerCase().includes(query)
+          doc.title.toLowerCase().includes(query) ||
+          doc.description.toLowerCase().includes(query) ||
+          doc.tags.some((tag) => tag.toLowerCase().includes(query))
       );
     }
 
-    // Status filter
-    if (statusFilter !== 'ALL') {
-      filtered = filtered.filter((doc) => doc.status === statusFilter);
-    }
-
-    // Discipline filter
-    if (disciplineFilter !== 'ALL') {
-      filtered = filtered.filter((doc) => doc.disciplineCode === disciplineFilter);
-    }
-
-    // Visibility filter
-    if (visibilityFilter !== 'ALL') {
-      filtered = filtered.filter((doc) => doc.visibility === visibilityFilter);
-    }
-
     setFilteredDocuments(filtered);
+  }, [documents, activeCategory, searchQuery]);
+
+  // Handlers
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, doc: CompanyDocument) => {
+    setMenuAnchor(event.currentTarget);
+    setMenuDocument(doc);
   };
 
-  const getUniqueDisciplines = () => {
-    const disciplines = new Set(documents.map((doc) => doc.disciplineCode));
-    return Array.from(disciplines).sort();
+  const handleMenuClose = () => {
+    setMenuAnchor(null);
+    setMenuDocument(null);
   };
 
-  const handleDocumentCreated = () => {
-    loadDocuments();
-    setCreateDialogOpen(false);
+  const handleDownload = (doc: CompanyDocument) => {
+    window.open(doc.fileUrl, '_blank');
+    handleMenuClose();
   };
+
+  const handleEdit = (doc: CompanyDocument) => {
+    setSelectedDocument(doc);
+    setEditDialogOpen(true);
+    handleMenuClose();
+  };
+
+  const handleNewVersion = (doc: CompanyDocument) => {
+    setSelectedDocument(doc);
+    setVersionDialogOpen(true);
+    handleMenuClose();
+  };
+
+  const handleDelete = (doc: CompanyDocument) => {
+    setSelectedDocument(doc);
+    setDeleteDialogOpen(true);
+    handleMenuClose();
+  };
+
+  const handleViewHistory = async (doc: CompanyDocument) => {
+    if (!db) return;
+    setSelectedDocument(doc);
+    const history = await getDocumentVersionHistory(db, doc.id);
+    setVersionHistory(history);
+    setVersionHistoryOpen(true);
+    handleMenuClose();
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!db || !selectedDocument || !user) return;
+    try {
+      await deleteCompanyDocument(db, selectedDocument.id, user.uid);
+      await loadDocuments();
+      setDeleteDialogOpen(false);
+      setSelectedDocument(null);
+    } catch (error) {
+      console.error('Failed to delete document:', error);
+    }
+  };
+
+  const totalDocuments = Object.values(categoryCounts).reduce((a, b) => a + b, 0);
+
+  if (loading) {
+    return <LoadingState message="Loading company documents..." variant="page" />;
+  }
 
   return (
     <Container maxWidth="xl">
       <Box sx={{ mb: 4 }}>
         <PageHeader
-          title="Master Document List"
+          title="Company Documents"
+          subtitle="SOPs, policies, templates, and company-wide resources"
           action={
-            <Stack direction="row" spacing={1}>
-              <Button
-                variant="outlined"
-                startIcon={<UploadIcon />}
-                onClick={() => setImportDialogOpen(true)}
-                disabled={!projectId}
-              >
-                Import Register
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<SendIcon />}
-                onClick={() => setTransmittalDialogOpen(true)}
-                disabled={!projectId || filteredDocuments.length === 0}
-              >
-                Create Transmittal
-              </Button>
+            isAdmin && (
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
-                onClick={() => setCreateDialogOpen(true)}
-                disabled={!projectId}
+                onClick={() => setUploadDialogOpen(true)}
               >
-                New Document
+                Upload Document
               </Button>
-            </Stack>
+            )
           }
         />
 
-        {/* Project Selector */}
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <ProjectSelector
-            value={projectId}
-            onChange={(value: string | null, projectName?: string) => {
-              setProjectId(value || '');
-              // Extract project code from project name (format: "CODE - Name")
-              if (projectName) {
-                const code = projectName.split(' - ')[0] || value || '';
-                setProjectCode(code);
-              } else {
-                setProjectCode('');
+        {/* Category Tabs */}
+        <Paper sx={{ mb: 3 }}>
+          <Tabs
+            value={activeCategory}
+            onChange={(_, value) => setActiveCategory(value)}
+            variant="scrollable"
+            scrollButtons="auto"
+          >
+            <Tab
+              value="ALL"
+              label={
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <span>All</span>
+                  <Chip label={totalDocuments} size="small" />
+                </Stack>
               }
+            />
+            {(Object.keys(COMPANY_DOCUMENT_CATEGORIES) as CompanyDocumentCategory[]).map(
+              (category) => (
+                <Tab
+                  key={category}
+                  value={category}
+                  icon={CATEGORY_ICONS[category]}
+                  iconPosition="start"
+                  label={
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <span>{COMPANY_DOCUMENT_CATEGORIES[category].label}</span>
+                      {categoryCounts[category] > 0 && (
+                        <Chip label={categoryCounts[category]} size="small" />
+                      )}
+                    </Stack>
+                  }
+                />
+              )
+            )}
+          </Tabs>
+        </Paper>
+
+        {/* Search */}
+        <Paper sx={{ p: 2, mb: 3 }}>
+          <TextField
+            fullWidth
+            placeholder="Search documents by title, description, or tags..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
             }}
-            required
-            label="Select Project"
+            size="small"
           />
         </Paper>
 
-        {/* Tabs */}
-        {projectId && (
-          <Paper sx={{ mb: 3 }}>
-            <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
-              <Tab label="Documents" />
-              <Tab label="Transmittals" />
-            </Tabs>
-          </Paper>
-        )}
-
-        {!projectId ? (
+        {/* Documents Table */}
+        {filteredDocuments.length === 0 ? (
           <EmptyState
-            message="Please select a project to view its master document list"
+            message={
+              searchQuery
+                ? 'No documents match your search'
+                : activeCategory !== 'ALL'
+                  ? `No ${COMPANY_DOCUMENT_CATEGORIES[activeCategory].label.toLowerCase()} found`
+                  : 'No company documents uploaded yet'
+            }
             variant="paper"
+            action={
+              isAdmin && (
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => setUploadDialogOpen(true)}
+                >
+                  Upload First Document
+                </Button>
+              )
+            }
           />
-        ) : activeTab === 1 ? (
-          <TransmittalsList projectId={projectId} />
         ) : (
-          <Stack spacing={3}>
-            {/* Document Metrics */}
-            <DocumentMetrics
-              documents={documents}
-              onMetricClick={(filter) => {
-                if (filter === 'overdue') setQuickFilter('overdue');
-                else if (filter === 'review') setQuickFilter('pending-review');
-                else if (filter === 'completed') setStatusFilter('ACCEPTED');
-              }}
-            />
-
-            {/* Quick Filters */}
-            <QuickFilters
-              activeFilter={quickFilter}
-              onFilterChange={setQuickFilter}
-              currentUserId={user?.uid}
-            />
-
-            {/* Search and Advanced Filters */}
-            <Paper sx={{ p: 2 }}>
-              <Stack spacing={2}>
-                <Stack direction="row" spacing={2} alignItems="center">
-                  <TextField
-                    label="Search documents"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Document number, title, description..."
-                    fullWidth
-                    size="small"
-                  />
-                  <Button
-                    variant="outlined"
-                    startIcon={<FilterListIcon />}
-                    endIcon={showAdvancedFilters ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                  >
-                    Filters
-                  </Button>
-                </Stack>
-
-                {/* Advanced Filters (Collapsible) */}
-                <Collapse in={showAdvancedFilters}>
-                  <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ pt: 1 }}>
-                    <FormControl sx={{ minWidth: 150 }} size="small">
-                      <InputLabel>Status</InputLabel>
-                      <Select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        label="Status"
-                      >
-                        <MenuItem value="ALL">All Statuses</MenuItem>
-                        <MenuItem value="DRAFT">Draft</MenuItem>
-                        <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                        <MenuItem value="SUBMITTED">Submitted</MenuItem>
-                        <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
-                        <MenuItem value="APPROVED">Approved</MenuItem>
-                        <MenuItem value="ACCEPTED">Accepted</MenuItem>
-                        <MenuItem value="ON_HOLD">On Hold</MenuItem>
-                        <MenuItem value="CANCELLED">Cancelled</MenuItem>
-                      </Select>
-                    </FormControl>
-
-                    <FormControl sx={{ minWidth: 150 }} size="small">
-                      <InputLabel>Discipline</InputLabel>
-                      <Select
-                        value={disciplineFilter}
-                        onChange={(e) => setDisciplineFilter(e.target.value)}
-                        label="Discipline"
-                      >
-                        <MenuItem value="ALL">All Disciplines</MenuItem>
-                        {getUniqueDisciplines().map((disc) => (
-                          <MenuItem key={disc} value={disc}>
-                            {disc}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-
-                    <FormControl sx={{ minWidth: 150 }} size="small">
-                      <InputLabel>Visibility</InputLabel>
-                      <Select
-                        value={visibilityFilter}
-                        onChange={(e) => setVisibilityFilter(e.target.value)}
-                        label="Visibility"
-                      >
-                        <MenuItem value="ALL">All</MenuItem>
-                        <MenuItem value="CLIENT_VISIBLE">Client Visible</MenuItem>
-                        <MenuItem value="INTERNAL_ONLY">Internal Only</MenuItem>
-                      </Select>
-                    </FormControl>
-
-                    <Button
-                      size="small"
-                      onClick={() => {
-                        setSearchQuery('');
-                        setQuickFilter(null);
-                        setStatusFilter('ALL');
-                        setDisciplineFilter('ALL');
-                        setVisibilityFilter('ALL');
-                      }}
-                    >
-                      Clear All
-                    </Button>
-                  </Stack>
-                </Collapse>
-              </Stack>
-            </Paper>
-
-            {/* Documents Table */}
-            {loading ? (
-              <LoadingState message="Loading documents..." variant="page" />
-            ) : (
-              <>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  Showing {filteredDocuments.length} of {documents.length} documents
-                </Typography>
-                <GroupedDocumentsTable documents={filteredDocuments} />
-              </>
-            )}
-          </Stack>
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Document</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell>Version</TableCell>
+                  <TableCell>Size</TableCell>
+                  <TableCell>Uploaded</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredDocuments.map((doc) => (
+                  <TableRow key={doc.id} hover>
+                    <TableCell>
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <Box sx={{ color: 'primary.main' }}>{CATEGORY_ICONS[doc.category]}</Box>
+                        <Box>
+                          <Typography variant="body2" fontWeight="medium">
+                            {doc.title}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {doc.fileName}
+                          </Typography>
+                          {doc.isTemplate && doc.templateType && (
+                            <Chip
+                              label={TEMPLATE_TYPES[doc.templateType].label}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                              sx={{ ml: 1 }}
+                            />
+                          )}
+                        </Box>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={COMPANY_DOCUMENT_CATEGORIES[doc.category].label}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Tooltip title="View version history">
+                        <Chip
+                          label={`v${doc.version}`}
+                          size="small"
+                          onClick={() => handleViewHistory(doc)}
+                          sx={{ cursor: 'pointer' }}
+                        />
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>{formatFileSize(doc.fileSize)}</TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {formatDate(doc.uploadedAt as { seconds: number })}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        by {doc.uploadedByName}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <IconButton size="small" onClick={() => handleDownload(doc)}>
+                        <DownloadIcon />
+                      </IconButton>
+                      {isAdmin && (
+                        <IconButton size="small" onClick={(e) => handleMenuOpen(e, doc)}>
+                          <MoreIcon />
+                        </IconButton>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
-        {/* Create Document Dialog */}
-        <CreateDocumentDialog
-          open={createDialogOpen}
-          onClose={() => setCreateDialogOpen(false)}
-          projectId={projectId}
-          onDocumentCreated={handleDocumentCreated}
+
+        {/* Action Menu */}
+        <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={handleMenuClose}>
+          <MenuItem onClick={() => menuDocument && handleDownload(menuDocument)}>
+            <ListItemIcon>
+              <DownloadIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Download</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={() => menuDocument && handleEdit(menuDocument)}>
+            <ListItemIcon>
+              <EditIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Edit Details</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={() => menuDocument && handleNewVersion(menuDocument)}>
+            <ListItemIcon>
+              <UploadIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Upload New Version</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={() => menuDocument && handleViewHistory(menuDocument)}>
+            <ListItemIcon>
+              <VersionIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Version History</ListItemText>
+          </MenuItem>
+          <MenuItem
+            onClick={() => menuDocument && handleDelete(menuDocument)}
+            sx={{ color: 'error.main' }}
+          >
+            <ListItemIcon>
+              <DeleteIcon fontSize="small" color="error" />
+            </ListItemIcon>
+            <ListItemText>Delete</ListItemText>
+          </MenuItem>
+        </Menu>
+
+        {/* Upload Dialog */}
+        <UploadDocumentDialog
+          open={uploadDialogOpen}
+          onClose={() => setUploadDialogOpen(false)}
+          onSuccess={() => {
+            setUploadDialogOpen(false);
+            loadDocuments();
+          }}
         />
 
-        {/* Generate Transmittal Dialog */}
-        {projectId && (
-          <GenerateTransmittalDialog
-            open={transmittalDialogOpen}
-            onClose={() => setTransmittalDialogOpen(false)}
-            projectId={projectId}
-            projectName={projectId}
-            documents={filteredDocuments}
+        {/* Edit Dialog */}
+        {selectedDocument && (
+          <EditDocumentDialog
+            open={editDialogOpen}
+            document={selectedDocument}
+            onClose={() => {
+              setEditDialogOpen(false);
+              setSelectedDocument(null);
+            }}
+            onSuccess={() => {
+              setEditDialogOpen(false);
+              setSelectedDocument(null);
+              loadDocuments();
+            }}
           />
         )}
 
-        {/* Import Document Register Dialog */}
-        {projectId && (
-          <DocumentRegisterUploadDialog
-            open={importDialogOpen}
-            onClose={() => setImportDialogOpen(false)}
-            projectId={projectId}
-            projectCode={projectCode || projectId}
-            onDocumentsImported={loadDocuments}
+        {/* New Version Dialog */}
+        {selectedDocument && (
+          <NewVersionDialog
+            open={versionDialogOpen}
+            document={selectedDocument}
+            onClose={() => {
+              setVersionDialogOpen(false);
+              setSelectedDocument(null);
+            }}
+            onSuccess={() => {
+              setVersionDialogOpen(false);
+              setSelectedDocument(null);
+              loadDocuments();
+            }}
           />
         )}
+
+        {/* Version History Dialog */}
+        <Dialog
+          open={versionHistoryOpen}
+          onClose={() => setVersionHistoryOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            Version History: {selectedDocument?.title}
+            <IconButton
+              onClick={() => setVersionHistoryOpen(false)}
+              sx={{ position: 'absolute', right: 8, top: 8 }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Version</TableCell>
+                    <TableCell>File</TableCell>
+                    <TableCell>Uploaded By</TableCell>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Notes</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {versionHistory.map((ver) => (
+                    <TableRow key={ver.id}>
+                      <TableCell>
+                        <Chip
+                          label={`v${ver.version}`}
+                          size="small"
+                          color={ver.isLatest ? 'primary' : 'default'}
+                        />
+                      </TableCell>
+                      <TableCell>{ver.fileName}</TableCell>
+                      <TableCell>{ver.uploadedByName}</TableCell>
+                      <TableCell>{formatDate(ver.uploadedAt as { seconds: number })}</TableCell>
+                      <TableCell>{ver.revisionNotes || '-'}</TableCell>
+                      <TableCell>
+                        <IconButton size="small" onClick={() => window.open(ver.fileUrl, '_blank')}>
+                          <DownloadIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+          <DialogTitle>Delete Document</DialogTitle>
+          <DialogContent>
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Are you sure you want to delete &quot;{selectedDocument?.title}&quot;? This action
+              cannot be undone.
+            </Alert>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleDeleteConfirm} color="error" variant="contained">
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Container>
+  );
+}
+
+// Upload Document Dialog Component
+function UploadDocumentDialog({
+  open,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { db, storage } = getFirebase();
+  const { user } = useAuth();
+
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState<CompanyDocumentCategory>('SOP');
+  const [isTemplate, setIsTemplate] = useState(false);
+  const [templateType, setTemplateType] = useState<TemplateType>('OTHER');
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      if (!title) {
+        // Auto-fill title from filename
+        setTitle(selectedFile.name.replace(/\.[^/.]+$/, ''));
+      }
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!db || !storage || !user || !file) return;
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      const input: CompanyDocumentInput = {
+        title,
+        description,
+        category,
+        isTemplate: category === 'TEMPLATE' ? true : isTemplate,
+        templateType: category === 'TEMPLATE' || isTemplate ? templateType : undefined,
+      };
+
+      await uploadCompanyDocument(
+        db,
+        storage,
+        file,
+        input,
+        user.uid,
+        user.displayName || 'Unknown',
+        setUploadProgress
+      );
+
+      onSuccess();
+      // Reset form
+      setTitle('');
+      setDescription('');
+      setCategory('SOP');
+      setIsTemplate(false);
+      setFile(null);
+      setUploadProgress(0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Upload Company Document</DialogTitle>
+      <DialogContent>
+        <Stack spacing={3} sx={{ mt: 1 }}>
+          {error && <Alert severity="error">{error}</Alert>}
+
+          <Button variant="outlined" component="label" startIcon={<UploadIcon />} fullWidth>
+            {file ? file.name : 'Select File'}
+            <input type="file" hidden onChange={handleFileChange} />
+          </Button>
+
+          <TextField
+            label="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            fullWidth
+          />
+
+          <TextField
+            label="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            multiline
+            rows={2}
+            fullWidth
+          />
+
+          <FormControl fullWidth>
+            <InputLabel>Category</InputLabel>
+            <Select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as CompanyDocumentCategory)}
+              label="Category"
+            >
+              {(Object.keys(COMPANY_DOCUMENT_CATEGORIES) as CompanyDocumentCategory[]).map(
+                (cat) => (
+                  <MenuItem key={cat} value={cat}>
+                    {COMPANY_DOCUMENT_CATEGORIES[cat].label}
+                  </MenuItem>
+                )
+              )}
+            </Select>
+          </FormControl>
+
+          {(category === 'TEMPLATE' || isTemplate) && (
+            <FormControl fullWidth>
+              <InputLabel>Template Type</InputLabel>
+              <Select
+                value={templateType}
+                onChange={(e) => setTemplateType(e.target.value as TemplateType)}
+                label="Template Type"
+              >
+                {(Object.keys(TEMPLATE_TYPES) as TemplateType[]).map((type) => (
+                  <MenuItem key={type} value={type}>
+                    {TEMPLATE_TYPES[type].label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          {uploading && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <CircularProgress variant="determinate" value={uploadProgress} size={24} />
+              <Typography variant="body2">{Math.round(uploadProgress)}%</Typography>
+            </Box>
+          )}
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={uploading}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} variant="contained" disabled={!file || !title || uploading}>
+          {uploading ? 'Uploading...' : 'Upload'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// Edit Document Dialog Component
+function EditDocumentDialog({
+  open,
+  document,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean;
+  document: CompanyDocument;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { db } = getFirebase();
+  const { user } = useAuth();
+
+  const [title, setTitle] = useState(document.title);
+  const [description, setDescription] = useState(document.description);
+  const [category, setCategory] = useState<CompanyDocumentCategory>(document.category);
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!db || !user) return;
+
+    setSaving(true);
+    try {
+      await updateCompanyDocument(
+        db,
+        document.id,
+        { title, description, category },
+        user.uid,
+        user.displayName || 'Unknown'
+      );
+      onSuccess();
+    } catch (error) {
+      console.error('Failed to update document:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Edit Document Details</DialogTitle>
+      <DialogContent>
+        <Stack spacing={3} sx={{ mt: 1 }}>
+          <TextField
+            label="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            fullWidth
+          />
+
+          <TextField
+            label="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            multiline
+            rows={2}
+            fullWidth
+          />
+
+          <FormControl fullWidth>
+            <InputLabel>Category</InputLabel>
+            <Select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as CompanyDocumentCategory)}
+              label="Category"
+            >
+              {(Object.keys(COMPANY_DOCUMENT_CATEGORIES) as CompanyDocumentCategory[]).map(
+                (cat) => (
+                  <MenuItem key={cat} value={cat}>
+                    {COMPANY_DOCUMENT_CATEGORIES[cat].label}
+                  </MenuItem>
+                )
+              )}
+            </Select>
+          </FormControl>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={saving}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} variant="contained" disabled={!title || saving}>
+          {saving ? 'Saving...' : 'Save'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// New Version Dialog Component
+function NewVersionDialog({
+  open,
+  document,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean;
+  document: CompanyDocument;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { db, storage } = getFirebase();
+  const { user } = useAuth();
+
+  const [file, setFile] = useState<File | null>(null);
+  const [revisionNotes, setRevisionNotes] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!db || !storage || !user || !file) return;
+
+    setUploading(true);
+    try {
+      await createNewVersion(
+        db,
+        storage,
+        document.id,
+        file,
+        revisionNotes,
+        user.uid,
+        user.displayName || 'Unknown',
+        setUploadProgress
+      );
+      onSuccess();
+      setFile(null);
+      setRevisionNotes('');
+      setUploadProgress(0);
+    } catch (error) {
+      console.error('Failed to upload new version:', error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Upload New Version: {document.title}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={3} sx={{ mt: 1 }}>
+          <Alert severity="info">
+            Current version: v{document.version}. New version will be v{document.version + 1}.
+          </Alert>
+
+          <Button variant="outlined" component="label" startIcon={<UploadIcon />} fullWidth>
+            {file ? file.name : 'Select New File'}
+            <input type="file" hidden onChange={handleFileChange} />
+          </Button>
+
+          <TextField
+            label="Revision Notes"
+            value={revisionNotes}
+            onChange={(e) => setRevisionNotes(e.target.value)}
+            multiline
+            rows={2}
+            fullWidth
+            placeholder="What changed in this version?"
+          />
+
+          {uploading && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <CircularProgress variant="determinate" value={uploadProgress} size={24} />
+              <Typography variant="body2">{Math.round(uploadProgress)}%</Typography>
+            </Box>
+          )}
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={uploading}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} variant="contained" disabled={!file || uploading}>
+          {uploading ? 'Uploading...' : 'Upload Version'}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }

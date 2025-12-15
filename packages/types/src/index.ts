@@ -34,3 +34,4 @@ export * from './rfqPdf';
 export * from './ssot';
 export * from './documentParsing';
 export * from './admin';
+export * from './companyDocuments';
