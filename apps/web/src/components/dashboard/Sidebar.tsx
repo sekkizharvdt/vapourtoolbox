@@ -88,6 +88,7 @@ const moduleIcons: Record<string, React.ReactNode> = {
   'shape-database': <CalculateIcon />,
   'bought-out-database': <LocalShippingIcon />,
   'entity-management': <BusinessIcon />,
+  'hr-management': <PeopleIcon />,
   // Admin section
   admin: <AdminIcon />,
   'admin-users': <PeopleIcon />,
@@ -149,6 +150,7 @@ const SIDEBAR_CATEGORIES: CategoryConfig[] = [
     label: 'SETUP',
     moduleIds: [
       'entity-management', // Entities - requires VIEW_ENTITIES
+      'hr-management', // HR & Leave - requires VIEW_HR (permissions2)
       'document-management', // Company Documents - SOPs, policies, templates
     ],
   },
