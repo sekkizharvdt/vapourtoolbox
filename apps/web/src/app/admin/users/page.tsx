@@ -109,6 +109,7 @@ function hasFullAccess(permissions: number): boolean {
 
 /**
  * Module Access Chips Component
+ * Displays user permissions as readable chips with icons
  */
 function ModuleAccessChips({
   permissions,
@@ -119,6 +120,18 @@ function ModuleAccessChips({
 }) {
   const moduleAccess = getModuleAccess(permissions, permissions2);
   const isFullAccess = hasFullAccess(permissions);
+
+  // Short labels for modules (more readable than 4-char truncation)
+  const moduleLabels: Record<string, string> = {
+    projects: 'Projects',
+    procurement: 'Procure',
+    accounting: 'Accounts',
+    'thermal-desal': 'Thermal',
+    'process-data': 'SSOT',
+    proposals: 'Proposals',
+    entities: 'Entities',
+    hr: 'HR',
+  };
 
   if (isFullAccess) {
     return (
@@ -148,7 +161,7 @@ function ModuleAccessChips({
       {accessibleModules.map((module) => (
         <Tooltip
           key={module.id}
-          title={`${module.name}: ${module.access === 'manage' ? 'Can manage' : 'View only'}`}
+          title={`${module.name}: ${module.access === 'manage' ? 'Full access (view + manage)' : 'View only'}`}
         >
           <Chip
             icon={
@@ -158,11 +171,11 @@ function ModuleAccessChips({
                 <ViewOnlyIcon sx={{ fontSize: 12 }} />
               )
             }
-            label={module.name.slice(0, 4)}
+            label={moduleLabels[module.id] || module.name.slice(0, 6)}
             size="small"
             color={module.access === 'manage' ? 'success' : 'default'}
             variant={module.access === 'manage' ? 'filled' : 'outlined'}
-            sx={{ height: 22, '& .MuiChip-label': { px: 0.5, fontSize: '0.7rem' } }}
+            sx={{ height: 24, '& .MuiChip-label': { px: 0.75, fontSize: '0.75rem' } }}
           />
         </Tooltip>
       ))}
