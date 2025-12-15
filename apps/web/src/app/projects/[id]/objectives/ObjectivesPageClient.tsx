@@ -393,7 +393,7 @@ function ObjectivesContent({ project }: { project: Project }) {
       } else {
         // Add new
         const newObjective: ProjectObjective = {
-          id: `obj-${Date.now()}`,
+          id: `obj-${crypto.randomUUID().slice(0, 8)}`,
           description: objectiveData.description,
           successCriteria: objectiveData.successCriteria,
           status: objectiveData.status,
@@ -463,7 +463,7 @@ function ObjectivesContent({ project }: { project: Project }) {
       } else {
         // Add new
         const newDeliverable: ProjectDeliverable = {
-          id: `del-${Date.now()}`,
+          id: `del-${crypto.randomUUID().slice(0, 8)}`,
           name: deliverableData.name,
           description: deliverableData.description,
           type: deliverableData.type,

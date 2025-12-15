@@ -21,6 +21,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, type FirebaseStorage } from 'firebase/storage';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type {
   DocumentRecord,
   DocumentSubmission,
@@ -503,7 +504,7 @@ export async function getDocumentSubmissions(
   const submissions: DocumentSubmission[] = [];
 
   snapshot.forEach((doc) => {
-    submissions.push({ id: doc.id, ...doc.data() } as DocumentSubmission);
+    submissions.push(docToTyped<DocumentSubmission>(doc.id, doc.data()));
   });
 
   return submissions;

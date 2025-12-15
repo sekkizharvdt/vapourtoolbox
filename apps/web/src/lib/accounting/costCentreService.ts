@@ -4,7 +4,7 @@ import {
   query,
   where,
   getDocs,
-  Timestamp,
+  serverTimestamp,
   Firestore,
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -60,9 +60,9 @@ export async function createProjectCostCentre(
       variance: budgetAmount !== null ? budgetAmount : null,
       isActive: true,
       autoCreated: true,
-      createdAt: Timestamp.now() as unknown as Date,
+      createdAt: serverTimestamp() as unknown as Date,
       createdBy: userId,
-      updatedAt: Timestamp.now() as unknown as Date,
+      updatedAt: serverTimestamp() as unknown as Date,
       updatedBy: userId,
     };
 

@@ -23,6 +23,8 @@ import {
 import { ref, uploadBytes, getDownloadURL, type UploadResult } from 'firebase/storage';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type {
   DocumentRecord,
   DocumentUploadRequest,
@@ -31,6 +33,8 @@ import type {
   DocumentVersionHistory,
   EquipmentDocumentSummary,
 } from '@vapour/types';
+
+const logger = createLogger({ context: 'documentService' });
 
 // ============================================================================
 // UPLOAD DOCUMENT
@@ -160,7 +164,7 @@ export async function uploadDocument(
       ...documentRecord,
     };
   } catch (error) {
-    console.error('[uploadDocument] Error uploading document:', error);
+    logger.error('Failed to upload document', { error });
     throw new Error('Failed to upload document');
   }
 }
@@ -180,13 +184,9 @@ export async function getDocumentById(documentId: string): Promise<DocumentRecor
       return null;
     }
 
-    const record: DocumentRecord = {
-      id: docSnap.id,
-      ...docSnap.data(),
-    } as unknown as DocumentRecord;
-    return record;
+    return docToTyped<DocumentRecord>(docSnap.id, docSnap.data());
   } catch (error) {
-    console.error('[getDocumentById] Error:', error);
+    logger.error('Failed to get document', { documentId, error });
     throw new Error('Failed to get document');
   }
 }
@@ -315,7 +315,7 @@ export async function searchDocuments(
       hasMore,
     };
   } catch (error) {
-    console.error('[searchDocuments] Error:', error);
+    logger.error('Failed to search documents', { filters, error });
     throw new Error('Failed to search documents');
   }
 }
@@ -404,7 +404,7 @@ export async function getDocumentVersionHistory(
       totalVersions: allVersions.length,
     };
   } catch (error) {
-    console.error('[getDocumentVersionHistory] Error:', error);
+    logger.error('Failed to get document version history', { documentId, error });
     throw new Error('Failed to get document version history');
   }
 }
@@ -458,7 +458,7 @@ export async function getEquipmentDocumentSummary(
       lastDocumentDate: lastDoc?.uploadedAt,
     };
   } catch (error) {
-    console.error('[getEquipmentDocumentSummary] Error:', error);
+    logger.error('Failed to get equipment document summary', { equipmentId, error });
     throw new Error('Failed to get equipment document summary');
   }
 }
@@ -487,7 +487,7 @@ export async function trackDocumentDownload(documentId: string, userId: string):
       updatedAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error('[trackDocumentDownload] Error:', error);
+    logger.error('Failed to track document download', { documentId, error });
     // Don't throw - download tracking is not critical
   }
 }
@@ -514,7 +514,7 @@ export async function deleteDocument(
       updatedAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error('[deleteDocument] Error:', error);
+    logger.error('Failed to delete document', { documentId, error });
     throw new Error('Failed to delete document');
   }
 }

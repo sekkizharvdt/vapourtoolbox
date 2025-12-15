@@ -20,6 +20,7 @@ import {
   runTransaction,
 } from 'firebase/firestore';
 import { createLogger } from '@vapour/logger';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type {
   Proposal,
   CreateProposalInput,
@@ -291,10 +292,7 @@ export async function listProposals(
     }
 
     const snapshot = await getDocs(q);
-    const proposals: Proposal[] = snapshot.docs.map((doc) => {
-      const data = { id: doc.id, ...doc.data() } as Proposal;
-      return data;
-    });
+    const proposals: Proposal[] = snapshot.docs.map((d) => docToTyped<Proposal>(d.id, d.data()));
 
     // Client-side search filter
     if (options.searchTerm) {
@@ -446,10 +444,7 @@ export async function getProposalRevisions(
     );
 
     const snapshot = await getDocs(q);
-    const proposals: Proposal[] = snapshot.docs.map((doc) => {
-      const data = { id: doc.id, ...doc.data() } as Proposal;
-      return data;
-    });
+    const proposals: Proposal[] = snapshot.docs.map((d) => docToTyped<Proposal>(d.id, d.data()));
     return proposals;
   } catch (error) {
     logger.error('Error fetching proposal revisions', { proposalNumber, error });

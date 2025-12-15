@@ -72,7 +72,7 @@ export function DeliveryTimelineStep() {
           variant="outlined"
           onClick={() =>
             append({
-              id: Date.now().toString(),
+              id: crypto.randomUUID(),
               milestoneNumber: fields.length + 1,
               description: '',
               deliverable: '',

@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type { BusinessEntity, Status, EntityRole } from '@vapour/types';
 
 const logger = createLogger({ context: 'businessEntityService' });
@@ -104,10 +105,7 @@ export async function queryEntities(
 
     const snapshot = await getDocs(entityQuery);
 
-    let entities = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as BusinessEntity[];
+    let entities = snapshot.docs.map((d) => docToTyped<BusinessEntity>(d.id, d.data()));
 
     // Filter out soft-deleted entities
     entities = entities.filter((entity) => entity.isDeleted !== true);
@@ -146,10 +144,7 @@ export async function getEntityById(
       return null;
     }
 
-    const entity = {
-      id: entityDoc.id,
-      ...entityDoc.data(),
-    } as unknown as BusinessEntity;
+    const entity = docToTyped<BusinessEntity>(entityDoc.id, entityDoc.data());
 
     // Check if soft-deleted
     if (entity.isDeleted === true) {

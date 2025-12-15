@@ -89,7 +89,7 @@ export function BankDetailsManager({
     }
 
     const newBankDetails: BankDetailsData = {
-      id: `bank-${Date.now()}`,
+      id: `bank-${crypto.randomUUID().slice(0, 8)}`,
       bankName: formBankName.trim(),
       accountNumber: formAccountNumber.trim(),
       accountName: formAccountName.trim(),

@@ -222,7 +222,7 @@ export function VendorsTab({ project }: VendorsTabProps) {
         );
       } else {
         // Add new vendor
-        const vendorId = `VND-${Date.now()}`;
+        const vendorId = `VND-${crypto.randomUUID().slice(0, 8)}`;
         updatedVendors = [...vendors, { ...vendorData, id: vendorId }];
       }
 

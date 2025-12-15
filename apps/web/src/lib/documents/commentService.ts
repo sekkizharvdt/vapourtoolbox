@@ -23,6 +23,7 @@ import {
   type Firestore,
   increment,
 } from 'firebase/firestore';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type {
   DocumentComment,
   CommentSeverity,
@@ -323,7 +324,7 @@ export async function getDocumentComments(
   const comments: DocumentComment[] = [];
 
   snapshot.forEach((doc) => {
-    comments.push({ id: doc.id, ...doc.data() } as DocumentComment);
+    comments.push(docToTyped<DocumentComment>(doc.id, doc.data()));
   });
 
   return comments;
@@ -348,7 +349,7 @@ export async function getSubmissionComments(
   const comments: DocumentComment[] = [];
 
   snapshot.forEach((doc) => {
-    comments.push({ id: doc.id, ...doc.data() } as DocumentComment);
+    comments.push(docToTyped<DocumentComment>(doc.id, doc.data()));
   });
 
   return comments;

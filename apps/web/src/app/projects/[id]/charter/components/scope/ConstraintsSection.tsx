@@ -110,7 +110,7 @@ export function ConstraintsSection({
     } else {
       // Add new
       const newConstraint: ProjectConstraint = {
-        id: `constraint-${Date.now()}`,
+        id: `constraint-${crypto.randomUUID().slice(0, 8)}`,
         description: form.description.trim(),
         category: form.category,
         severity: form.severity,

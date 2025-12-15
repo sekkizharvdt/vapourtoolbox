@@ -31,7 +31,7 @@ export async function addDocumentRequirement(
     const currentRequirements = project.documentRequirements || [];
 
     // Generate ID for new requirement
-    const requirementId = `DOC-${Date.now()}`;
+    const requirementId = `DOC-${crypto.randomUUID().slice(0, 8)}`;
 
     // Create new requirement with defaults
     const newRequirement: DocumentRequirement = {

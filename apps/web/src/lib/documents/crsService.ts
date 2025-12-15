@@ -6,7 +6,7 @@
  * is manually entered as comments (or parsed by AI in the future).
  */
 
-import type { Firestore, Timestamp } from 'firebase/firestore';
+import type { Firestore } from 'firebase/firestore';
 import {
   collection,
   addDoc,
@@ -17,6 +17,7 @@ import {
   where,
   orderBy,
   updateDoc,
+  Timestamp,
 } from 'firebase/firestore';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import type {
@@ -94,7 +95,7 @@ export async function uploadCommentResolutionSheet(
   });
 
   // 2. Create CRS record in Firestore
-  const now = { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 } as unknown as Timestamp;
+  const now = Timestamp.now();
 
   const crsData: Omit<CommentResolutionSheet, 'id'> = {
     projectId,
@@ -224,7 +225,7 @@ export async function updateCRSStatus(
   commentsExtracted?: number
 ): Promise<void> {
   const crsRef = doc(db, 'projects', projectId, 'commentResolutionSheets', crsId);
-  const now = { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 } as unknown as Timestamp;
+  const now = Timestamp.now();
 
   const updateData: Partial<CommentResolutionSheet> = {
     status,
@@ -250,7 +251,7 @@ export async function completeCRS(
   processingNotes?: string
 ): Promise<void> {
   const crsRef = doc(db, 'projects', projectId, 'commentResolutionSheets', crsId);
-  const now = { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 } as unknown as Timestamp;
+  const now = Timestamp.now();
 
   await updateDoc(crsRef, {
     status: 'COMPLETED',

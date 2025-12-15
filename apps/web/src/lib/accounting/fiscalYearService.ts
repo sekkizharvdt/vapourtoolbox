@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type {
   FiscalYear,
   AccountingPeriod,
@@ -50,10 +51,7 @@ export async function getCurrentFiscalYear(db: Firestore): Promise<FiscalYear | 
       return null;
     }
 
-    return {
-      id: firstDoc.id,
-      ...firstDoc.data(),
-    } as unknown as FiscalYear;
+    return docToTyped<FiscalYear>(firstDoc.id, firstDoc.data());
   } catch (error) {
     logger.error('Failed to get current fiscal year', { error });
     throw new Error('Failed to get current fiscal year');
@@ -74,10 +72,7 @@ export async function getFiscalYear(
       return null;
     }
 
-    return {
-      id: fiscalYearDoc.id,
-      ...fiscalYearDoc.data(),
-    } as unknown as FiscalYear;
+    return docToTyped<FiscalYear>(fiscalYearDoc.id, fiscalYearDoc.data());
   } catch (error) {
     logger.error('Failed to get fiscal year', { error, fiscalYearId });
     throw new Error('Failed to get fiscal year');
@@ -96,10 +91,7 @@ export async function getAccountingPeriods(
     const q = query(periodsRef, where('fiscalYearId', '==', fiscalYearId));
     const snapshot = await getDocs(q);
 
-    const periods = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as unknown as AccountingPeriod[];
+    const periods = snapshot.docs.map((d) => docToTyped<AccountingPeriod>(d.id, d.data()));
 
     // Sort by period number
     return periods.sort((a, b) => a.periodNumber - b.periodNumber);
@@ -449,10 +441,7 @@ export async function getPeriodLockAudit(
     const q = query(auditRef, where('periodId', '==', periodId));
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as unknown as PeriodLockAudit[];
+    return snapshot.docs.map((d) => docToTyped<PeriodLockAudit>(d.id, d.data()));
   } catch (error) {
     logger.error('Failed to get period lock audit', { error, periodId });
     throw new Error('Failed to get period lock audit');

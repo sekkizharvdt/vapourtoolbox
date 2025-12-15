@@ -31,7 +31,7 @@ export async function addProcurementItem(
     const currentItems = project.procurementItems || [];
 
     // Generate ID for new item
-    const itemId = `PROC-${Date.now()}`;
+    const itemId = `PROC-${crypto.randomUUID().slice(0, 8)}`;
 
     // Create new item with defaults
     const newItem: ProcurementItem = {

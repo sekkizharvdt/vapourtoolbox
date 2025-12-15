@@ -21,6 +21,7 @@ import {
   Timestamp,
   type Firestore,
 } from 'firebase/firestore';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type { WorkItem, WorkActivityType, WorkItemStatus } from '@vapour/types';
 
 /**
@@ -184,7 +185,7 @@ export async function getDocumentWorkItems(
   const items: WorkItem[] = [];
 
   snapshot.forEach((doc) => {
-    items.push({ id: doc.id, ...doc.data() } as WorkItem);
+    items.push(docToTyped<WorkItem>(doc.id, doc.data()));
   });
 
   return items;
@@ -205,7 +206,7 @@ export async function getWorkItemsByStatus(
   const items: WorkItem[] = [];
 
   snapshot.forEach((doc) => {
-    items.push({ id: doc.id, ...doc.data() } as WorkItem);
+    items.push(docToTyped<WorkItem>(doc.id, doc.data()));
   });
 
   return items;

@@ -21,9 +21,12 @@ import {
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { LeaveRequest, LeaveRequestStatus, LeaveTypeCode } from '@vapour/types';
 import { getUserLeaveBalanceByType } from './leaveBalanceService';
 import { getLeaveTypeByCode } from './leaveTypeService';
+
+const logger = createLogger({ context: 'leaveRequestService' });
 
 /**
  * Input for creating a leave request
@@ -215,7 +218,7 @@ export async function createLeaveRequest(
       requestNumber,
     };
   } catch (error) {
-    console.error('[createLeaveRequest] Error:', error);
+    logger.error('Failed to create leave request', { userId, error });
     if (error instanceof Error) {
       throw error;
     }
@@ -243,7 +246,7 @@ export async function getLeaveRequestById(requestId: string): Promise<LeaveReque
     };
     return data;
   } catch (error) {
-    console.error('[getLeaveRequestById] Error:', error);
+    logger.error('Failed to get leave request', { requestId, error });
     throw new Error('Failed to get leave request');
   }
 }
@@ -304,7 +307,7 @@ export async function listLeaveRequests(
 
     return results;
   } catch (error) {
-    console.error('[listLeaveRequests] Error:', error);
+    logger.error('Failed to list leave requests', { filters, error });
     throw new Error('Failed to list leave requests');
   }
 }
@@ -385,7 +388,7 @@ export async function updateLeaveRequest(
     const docRef = doc(db, COLLECTIONS.HR_LEAVE_REQUESTS, requestId);
     await updateDoc(docRef, updateData);
   } catch (error) {
-    console.error('[updateLeaveRequest] Error:', error);
+    logger.error('Failed to update leave request', { requestId, error });
     if (error instanceof Error) {
       throw error;
     }
@@ -423,7 +426,7 @@ export async function deleteLeaveRequest(requestId: string, userId: string): Pro
       updatedBy: userId,
     });
   } catch (error) {
-    console.error('[deleteLeaveRequest] Error:', error);
+    logger.error('Failed to delete leave request', { requestId, error });
     if (error instanceof Error) {
       throw error;
     }
@@ -464,7 +467,7 @@ export async function getTeamCalendar(startDate: Date, endDate: Date): Promise<L
 
     return requests;
   } catch (error) {
-    console.error('[getTeamCalendar] Error:', error);
+    logger.error('Failed to get team calendar', { startDate, endDate, error });
     throw new Error('Failed to get team calendar');
   }
 }

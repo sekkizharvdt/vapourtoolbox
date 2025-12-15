@@ -8,6 +8,7 @@
 import { collection, getDocs, query, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type { BOMItem, BOMSummary, CostConfiguration, Money, CurrencyCode } from '@vapour/types';
 
 const logger = createLogger({ context: 'bomSummary' });
@@ -33,8 +34,8 @@ export async function calculateBOMSummary(
     const itemsSnapshot = await getDocs(itemsQuery);
 
     const items: BOMItem[] = [];
-    itemsSnapshot.forEach((doc) => {
-      items.push({ id: doc.id, ...doc.data() } as BOMItem);
+    itemsSnapshot.forEach((d) => {
+      items.push(docToTyped<BOMItem>(d.id, d.data()));
     });
 
     // Aggregate direct costs from all items

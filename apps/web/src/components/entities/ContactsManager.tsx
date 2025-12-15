@@ -76,7 +76,7 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
     }
 
     const newContact: EntityContactData = {
-      id: `temp-${Date.now()}`,
+      id: `temp-${crypto.randomUUID().slice(0, 8)}`,
       name: formName.trim(),
       designation: formDesignation.trim() || undefined,
       email: formEmail.trim().toLowerCase(),
@@ -96,7 +96,7 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
       return;
     }
 
-    const updatedContacts = contacts.map(contact => {
+    const updatedContacts = contacts.map((contact) => {
       if (contact.id === contactId) {
         return {
           ...contact,
@@ -117,8 +117,8 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
   };
 
   const handleDelete = (contactId: string) => {
-    const contactToDelete = contacts.find(c => c.id === contactId);
-    const updatedContacts = contacts.filter(c => c.id !== contactId);
+    const contactToDelete = contacts.find((c) => c.id === contactId);
+    const updatedContacts = contacts.filter((c) => c.id !== contactId);
 
     // If deleting primary contact, make the first remaining contact primary
     if (contactToDelete?.isPrimary && updatedContacts.length > 0 && updatedContacts[0]) {
@@ -129,7 +129,7 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
   };
 
   const handleSetPrimary = (contactId: string) => {
-    const updatedContacts = contacts.map(contact => ({
+    const updatedContacts = contacts.map((contact) => ({
       ...contact,
       isPrimary: contact.id === contactId,
     }));
@@ -161,12 +161,7 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
           Contact Persons ({contacts.length})
         </Typography>
         {!adding && !editingId && (
-          <Button
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={startAdd}
-            disabled={disabled}
-          >
+          <Button size="small" startIcon={<AddIcon />} onClick={startAdd} disabled={disabled}>
             Add Contact
           </Button>
         )}
@@ -277,15 +272,20 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
             ) : (
               // Contact Display
               <Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    mb: 1,
+                  }}
+                >
                   <Box sx={{ flexGrow: 1 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                       <Typography variant="subtitle1" fontWeight="medium">
                         {contact.name}
                       </Typography>
-                      {contact.isPrimary && (
-                        <Chip label="Primary" size="small" color="primary" />
-                      )}
+                      {contact.isPrimary && <Chip label="Primary" size="small" color="primary" />}
                     </Box>
                     {contact.designation && (
                       <Typography variant="body2" color="text.secondary">
@@ -339,26 +339,20 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
                     <Typography variant="caption" color="text.secondary">
                       Email:
                     </Typography>
-                    <Typography variant="body2">
-                      {contact.email}
-                    </Typography>
+                    <Typography variant="body2">{contact.email}</Typography>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
                     <Typography variant="caption" color="text.secondary">
                       Phone:
                     </Typography>
-                    <Typography variant="body2">
-                      {contact.phone}
-                    </Typography>
+                    <Typography variant="body2">{contact.phone}</Typography>
                   </Grid>
                   {contact.mobile && (
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <Typography variant="caption" color="text.secondary">
                         Mobile:
                       </Typography>
-                      <Typography variant="body2">
-                        {contact.mobile}
-                      </Typography>
+                      <Typography variant="body2">{contact.mobile}</Typography>
                     </Grid>
                   )}
                   {contact.notes && (
@@ -366,9 +360,7 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
                       <Typography variant="caption" color="text.secondary">
                         Notes:
                       </Typography>
-                      <Typography variant="body2">
-                        {contact.notes}
-                      </Typography>
+                      <Typography variant="body2">{contact.notes}</Typography>
                     </Grid>
                   )}
                 </Grid>

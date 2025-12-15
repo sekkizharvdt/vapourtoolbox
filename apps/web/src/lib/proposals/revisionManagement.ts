@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type { Proposal } from '@vapour/types';
 
 const logger = createLogger({ context: 'proposalRevision' });
@@ -105,7 +106,7 @@ export async function getProposalRevisions(
     const revisions: Proposal[] = [];
 
     snapshot.forEach((doc) => {
-      revisions.push({ id: doc.id, ...doc.data() } as Proposal);
+      revisions.push(docToTyped<Proposal>(doc.id, doc.data()));
     });
 
     logger.info('Fetched proposal revisions', {

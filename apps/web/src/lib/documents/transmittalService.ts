@@ -21,6 +21,7 @@ import {
   Timestamp,
   type Firestore,
 } from 'firebase/firestore';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type { DocumentTransmittal, TransmittalStatus } from '@vapour/types';
 
 /**
@@ -121,7 +122,7 @@ export async function getProjectTransmittals(
   const transmittals: DocumentTransmittal[] = [];
 
   snapshot.forEach((doc) => {
-    transmittals.push({ id: doc.id, ...doc.data() } as DocumentTransmittal);
+    transmittals.push(docToTyped<DocumentTransmittal>(doc.id, doc.data()));
   });
 
   return transmittals;
@@ -246,7 +247,7 @@ export async function getTransmittalsByStatus(
   const transmittals: DocumentTransmittal[] = [];
 
   snapshot.forEach((doc) => {
-    transmittals.push({ id: doc.id, ...doc.data() } as DocumentTransmittal);
+    transmittals.push(docToTyped<DocumentTransmittal>(doc.id, doc.data()));
   });
 
   return transmittals;

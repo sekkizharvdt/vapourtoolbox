@@ -21,6 +21,7 @@ import {
   Timestamp,
   type Firestore,
 } from 'firebase/firestore';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type { SupplyItem, SupplyItemType, SupplyProcurementStatus } from '@vapour/types';
 
 /**
@@ -186,7 +187,7 @@ export async function getDocumentSupplyItems(
   const items: SupplyItem[] = [];
 
   snapshot.forEach((doc) => {
-    items.push({ id: doc.id, ...doc.data() } as SupplyItem);
+    items.push(docToTyped<SupplyItem>(doc.id, doc.data()));
   });
 
   return items;
@@ -211,7 +212,7 @@ export async function getSupplyItemsByStatus(
   const items: SupplyItem[] = [];
 
   snapshot.forEach((doc) => {
-    items.push({ id: doc.id, ...doc.data() } as SupplyItem);
+    items.push(docToTyped<SupplyItem>(doc.id, doc.data()));
   });
 
   return items;

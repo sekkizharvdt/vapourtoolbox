@@ -19,6 +19,7 @@ import {
   startAfter as firestoreStartAfter,
 } from 'firebase/firestore';
 import { createLogger } from '@vapour/logger';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type {
   Enquiry,
   CreateEnquiryInput,
@@ -242,10 +243,7 @@ export async function listEnquiries(
     }
 
     const snapshot = await getDocs(q);
-    const enquiries: Enquiry[] = snapshot.docs.map((doc) => {
-      const data = { id: doc.id, ...doc.data() } as Enquiry;
-      return data;
-    });
+    const enquiries: Enquiry[] = snapshot.docs.map((d) => docToTyped<Enquiry>(d.id, d.data()));
 
     // Client-side search filter (for search term)
     if (options.searchTerm) {

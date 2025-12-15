@@ -21,7 +21,9 @@ import {
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { PurchaseRequest, PurchaseRequestItem } from '@vapour/types';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import { generatePRNumber } from './utils';
 import type {
   CreatePurchaseRequestInput,
@@ -29,6 +31,8 @@ import type {
   ListPurchaseRequestsFilters,
 } from './types';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
+
+const logger = createLogger({ context: 'purchaseRequest/crud' });
 
 /**
  * Create a new Purchase Request
@@ -175,7 +179,7 @@ export async function createPurchaseRequest(
       prNumber,
     };
   } catch (error) {
-    console.error('[createPurchaseRequest] Error:', error);
+    logger.error('Failed to create purchase request', { error });
 
     // Provide more specific error messages
     if (error instanceof Error) {
@@ -213,13 +217,9 @@ export async function getPurchaseRequestById(prId: string): Promise<PurchaseRequ
       return null;
     }
 
-    const request: PurchaseRequest = {
-      id: docSnap.id,
-      ...docSnap.data(),
-    } as unknown as PurchaseRequest;
-    return request;
+    return docToTyped<PurchaseRequest>(docSnap.id, docSnap.data());
   } catch (error) {
-    console.error('[getPurchaseRequestById] Error:', error);
+    logger.error('Failed to get purchase request', { prId, error });
     throw new Error('Failed to get purchase request');
   }
 }
@@ -249,7 +249,7 @@ export async function getPurchaseRequestItems(prId: string): Promise<PurchaseReq
 
     return items;
   } catch (error) {
-    console.error('[getPurchaseRequestItems] Error:', error);
+    logger.error('Failed to get purchase request items', { prId, error });
     throw new Error('Failed to get purchase request items');
   }
 }
@@ -311,7 +311,7 @@ export async function listPurchaseRequests(
 
     return prs;
   } catch (error) {
-    console.error('[listPurchaseRequests] Error:', error);
+    logger.error('Failed to list purchase requests', { filters, error });
     throw new Error('Failed to list purchase requests');
   }
 }
@@ -362,7 +362,7 @@ export async function updatePurchaseRequest(
       );
     }
   } catch (error) {
-    console.error('[updatePurchaseRequest] Error:', error);
+    logger.error('Failed to update purchase request', { prId, error });
     throw new Error('Failed to update purchase request');
   }
 }
@@ -383,7 +383,7 @@ export async function incrementAttachmentCount(itemId: string): Promise<void> {
       updatedAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error('[incrementAttachmentCount] Error:', error);
+    logger.error('Failed to increment attachment count', { itemId, error });
     // Don't throw - attachment count is not critical
   }
 }

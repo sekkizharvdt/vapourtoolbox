@@ -114,7 +114,7 @@ export default function MaterialVariantManager({
     const timestamp = Timestamp.fromMillis(Date.now());
 
     const newVariant: MaterialVariant = {
-      id: editingVariant?.id || `var_${Date.now()}`,
+      id: editingVariant?.id || `var_${crypto.randomUUID().slice(0, 8)}`,
       variantCode: formData.variantCode,
       displayName: formData.displayName,
       dimensions: {
@@ -167,7 +167,7 @@ export default function MaterialVariantManager({
 
     const duplicatedVariant: MaterialVariant = {
       ...variant,
-      id: `var_${Date.now()}`,
+      id: `var_${crypto.randomUUID().slice(0, 8)}`,
       variantCode: `${variant.variantCode}_COPY`,
       displayName: `${variant.displayName} (Copy)`,
       createdAt: timestamp,
