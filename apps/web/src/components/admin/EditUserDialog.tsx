@@ -38,7 +38,6 @@ import {
   FormControlLabel,
   Divider,
   Stack,
-  Chip,
   Tabs,
   Tab,
   Accordion,
@@ -48,7 +47,6 @@ import {
 import {
   Info as InfoIcon,
   ExpandMore as ExpandMoreIcon,
-  Person as PersonIcon,
   Engineering as EngineeringIcon,
   AccountBalance as FinanceIcon,
   ShoppingCart as ProcurementIcon,
@@ -94,8 +92,8 @@ const ROLE_PRESETS = [
     permissions2:
       PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL |
       PERMISSION_FLAGS_2.VIEW_SSOT |
-      PERMISSION_FLAGS_2.EDIT_MATERIALS |
-      PERMISSION_FLAGS_2.EDIT_SHAPES,
+      PERMISSION_FLAGS_2.VIEW_MATERIAL_DB |
+      PERMISSION_FLAGS_2.VIEW_SHAPE_DB,
   },
   {
     id: 'procurement',
@@ -209,7 +207,8 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
       setSelectedPreset(null);
       // Check if current permissions match any preset
       const matchingPreset = ROLE_PRESETS.find(
-        (p) => p.permissions === (user.permissions || 0) && p.permissions2 === (user.permissions2 || 0)
+        (p) =>
+          p.permissions === (user.permissions || 0) && p.permissions2 === (user.permissions2 || 0)
       );
       if (matchingPreset) {
         setSelectedPreset(matchingPreset.id);
@@ -246,19 +245,6 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
       return hasPermission(permissions, module.manageFlag);
     },
     [permissions, permissions2]
-  );
-
-  // Toggle permission (clears preset selection)
-  const togglePermission = useCallback(
-    (flag: number, field: 'permissions' | 'permissions2' = 'permissions') => {
-      setSelectedPreset(null); // Clear preset when making custom changes
-      if (field === 'permissions2') {
-        setPermissions2((prev) => (prev & flag ? prev & ~flag : prev | flag));
-      } else {
-        setPermissions((prev) => (prev & flag ? prev & ~flag : prev | flag));
-      }
-    },
-    []
   );
 
   // Toggle view permission (also clears manage if unchecking view)
@@ -368,10 +354,8 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
   const clearAllPermissions = useCallback(() => {
     setSelectedPreset(null);
     // Clear all module permissions
-    let newPerms = 0;
-    let newPerms2 = 0;
-    setPermissions(newPerms);
-    setPermissions2(newPerms2);
+    setPermissions(0);
+    setPermissions2(0);
   }, []);
 
   // Get modules for a category
@@ -561,7 +545,11 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
             {/* Tab Panel: Role Presets */}
             {permissionTab === 0 && (
               <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mb: 2, display: 'block' }}
+                >
                   Select a role to quickly assign common permission sets
                 </Typography>
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1.5 }}>
@@ -594,7 +582,10 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
                             }}
                           />
                           <Box>
-                            <Typography variant="subtitle2" sx={{ fontWeight: isSelected ? 600 : 500 }}>
+                            <Typography
+                              variant="subtitle2"
+                              sx={{ fontWeight: isSelected ? 600 : 500 }}
+                            >
                               {preset.name}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
@@ -630,7 +621,12 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
                   <Button size="small" variant="outlined" onClick={grantAllManage}>
                     Grant All Manage
                   </Button>
-                  <Button size="small" variant="outlined" color="inherit" onClick={clearAllPermissions}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="inherit"
+                    onClick={clearAllPermissions}
+                  >
                     Clear All
                   </Button>
                 </Stack>
@@ -680,10 +676,16 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
                             <TableHead>
                               <TableRow>
                                 <TableCell sx={{ py: 0.5, fontWeight: 600 }}>Module</TableCell>
-                                <TableCell align="center" sx={{ py: 0.5, width: 70, fontWeight: 600 }}>
+                                <TableCell
+                                  align="center"
+                                  sx={{ py: 0.5, width: 70, fontWeight: 600 }}
+                                >
                                   View
                                 </TableCell>
-                                <TableCell align="center" sx={{ py: 0.5, width: 70, fontWeight: 600 }}>
+                                <TableCell
+                                  align="center"
+                                  sx={{ py: 0.5, width: 70, fontWeight: 600 }}
+                                >
                                   Manage
                                 </TableCell>
                               </TableRow>
@@ -696,7 +698,9 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
                                       {module.name}
                                       {module.note && (
                                         <Tooltip title={module.note}>
-                                          <InfoIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                                          <InfoIcon
+                                            sx={{ fontSize: 14, color: 'text.secondary' }}
+                                          />
                                         </Tooltip>
                                       )}
                                     </Box>

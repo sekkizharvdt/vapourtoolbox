@@ -23,7 +23,12 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { PermissionFlag, hasPermission as hasTypePermission } from '@vapour/types';
-import { PERMISSION_FLAGS, hasPermission as hasConstPermission } from '@vapour/constants';
+import {
+  PERMISSION_FLAGS,
+  PERMISSION_FLAGS_2,
+  hasPermission as hasConstPermission,
+  hasPermission2,
+} from '@vapour/constants';
 import type { User } from '@vapour/types';
 
 /**
@@ -39,22 +44,33 @@ export type ApprovalType =
   | 'any'; // Any approval permission
 
 /**
+ * Permission requirement with optional field specification
+ */
+interface PermissionRequirement {
+  flag: PermissionFlag | PermissionFlag[] | number;
+  field?: 'permissions' | 'permissions2';
+}
+
+/**
  * Map approval types to permission flags
  * Note: 'transaction' now uses MANAGE_ACCOUNTING from constants (simplified permission model)
+ * Note: 'leave' uses APPROVE_LEAVES from permissions2 field
  */
-const APPROVAL_PERMISSIONS: Record<ApprovalType, PermissionFlag | PermissionFlag[] | number> = {
-  pr: PermissionFlag.APPROVE_PR,
-  po: PermissionFlag.APPROVE_PO,
-  transaction: PERMISSION_FLAGS.MANAGE_ACCOUNTING, // Use simplified accounting permission
-  estimate: PermissionFlag.APPROVE_ESTIMATES,
-  document: PermissionFlag.APPROVE_DOCUMENTS,
-  leave: PermissionFlag.APPROVE_LEAVES,
-  any: [
-    PermissionFlag.APPROVE_PR,
-    PermissionFlag.APPROVE_PO,
-    PermissionFlag.APPROVE_ESTIMATES,
-    PermissionFlag.APPROVE_DOCUMENTS,
-  ],
+const APPROVAL_PERMISSIONS: Record<ApprovalType, PermissionRequirement> = {
+  pr: { flag: PermissionFlag.APPROVE_PR },
+  po: { flag: PermissionFlag.APPROVE_PO },
+  transaction: { flag: PERMISSION_FLAGS.MANAGE_ACCOUNTING },
+  estimate: { flag: PermissionFlag.APPROVE_ESTIMATES },
+  document: { flag: PermissionFlag.APPROVE_DOCUMENTS },
+  leave: { flag: PERMISSION_FLAGS_2.APPROVE_LEAVES, field: 'permissions2' },
+  any: {
+    flag: [
+      PermissionFlag.APPROVE_PR,
+      PermissionFlag.APPROVE_PO,
+      PermissionFlag.APPROVE_ESTIMATES,
+      PermissionFlag.APPROVE_DOCUMENTS,
+    ],
+  },
 };
 
 interface ApproverSelectorProps {
@@ -94,17 +110,21 @@ function getInitials(name: string): string {
 /**
  * Check if user has one or more of the required permissions
  * Supports both PermissionFlag (types package) and PERMISSION_FLAGS (constants package)
+ * Also supports permissions2 field for extended permissions
  */
 function userHasRequiredPermission(
   userPermissions: number,
-  requiredPermissions: PermissionFlag | PermissionFlag[] | number
+  userPermissions2: number,
+  requirement: PermissionRequirement
 ): boolean {
-  if (Array.isArray(requiredPermissions)) {
-    return requiredPermissions.some((perm) => hasTypePermission(userPermissions, perm));
+  const { flag, field } = requirement;
+  const perms = field === 'permissions2' ? userPermissions2 : userPermissions;
+  const checkFn = field === 'permissions2' ? hasPermission2 : hasConstPermission;
+
+  if (Array.isArray(flag)) {
+    return flag.some((perm) => hasTypePermission(userPermissions, perm));
   }
-  // For number permissions (from constants package), use constants hasPermission
-  // For PermissionFlag enum, use types hasPermission
-  return hasConstPermission(userPermissions, requiredPermissions);
+  return checkFn(perms, flag);
 }
 
 /**
@@ -135,8 +155,10 @@ function ApproverSelectorComponent({
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   // Determine which permissions to filter by
-  const requiredPermissions = useMemo(() => {
-    if (customPermissions) return customPermissions;
+  const permissionRequirement = useMemo((): PermissionRequirement => {
+    if (customPermissions) {
+      return { flag: customPermissions };
+    }
     return APPROVAL_PERMISSIONS[approvalType];
   }, [customPermissions, approvalType]);
 
@@ -165,6 +187,7 @@ function ApproverSelectorComponent({
             photoURL: data.photoURL,
             department: data.department,
             permissions: data.permissions || 0,
+            permissions2: data.permissions2 || 0,
             allowedModules: data.allowedModules,
             jobTitle: data.jobTitle,
             phone: data.phone,
@@ -179,7 +202,13 @@ function ApproverSelectorComponent({
           };
 
           // Filter by required permissions (client-side)
-          if (userHasRequiredPermission(user.permissions, requiredPermissions)) {
+          if (
+            userHasRequiredPermission(
+              user.permissions,
+              user.permissions2 || 0,
+              permissionRequirement
+            )
+          ) {
             // Exclude specific users if needed
             if (!excludedSet.has(user.uid)) {
               usersData.push(user);
@@ -197,7 +226,7 @@ function ApproverSelectorComponent({
     );
 
     return () => unsubscribe();
-  }, [requiredPermissions, excludedSet]);
+  }, [permissionRequirement, excludedSet]);
 
   // Update selected user when value changes
   useEffect(() => {
