@@ -160,7 +160,7 @@ export default function HeatDutyClient() {
   void (sensibleResult?.heatDuty || latentResult?.heatDuty);
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>

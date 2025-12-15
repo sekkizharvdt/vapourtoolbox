@@ -50,8 +50,9 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { docToTypedWithDates } from '@/lib/firebase/typeHelpers';
-import type { CostCentre, BaseTransaction, CustomerInvoice } from '@vapour/types';
+import type { CostCentre, BaseTransaction, CustomerInvoice, PurchaseOrder } from '@vapour/types';
 import CostCentreDialog from '../components/CostCentreDialog';
+import { ShoppingCart as POIcon } from '@mui/icons-material';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -76,6 +77,7 @@ export default function CostCentreDetailClient() {
   const [invoices, setInvoices] = useState<CustomerInvoice[]>([]);
   const [payments, setPayments] = useState<BaseTransaction[]>([]);
   const [bills, setBills] = useState<BaseTransaction[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
@@ -192,10 +194,39 @@ export default function CostCentreDetailClient() {
       (err) => console.error('[CostCentreDetail] Error loading bills:', err)
     );
 
+    // Query purchase orders (for committed amounts)
+    // POs use projectIds array, so we need array-contains for project-linked cost centres
+    let unsubPOs: (() => void) | undefined;
+    if (costCentre.projectId) {
+      const posQuery = query(
+        collection(db, COLLECTIONS.PURCHASE_ORDERS),
+        where('projectIds', 'array-contains', costCentre.projectId),
+        where('status', 'in', [
+          'APPROVED',
+          'ISSUED',
+          'ACKNOWLEDGED',
+          'IN_PROGRESS',
+          'DELIVERED',
+          'COMPLETED',
+        ]),
+        orderBy('createdAt', 'desc')
+      );
+
+      unsubPOs = onSnapshot(
+        posQuery,
+        (snapshot) => {
+          const docs = snapshot.docs.map((d) => docToTypedWithDates<PurchaseOrder>(d.id, d.data()));
+          setPurchaseOrders(docs);
+        },
+        (err) => console.error('[CostCentreDetail] Error loading POs:', err)
+      );
+    }
+
     return () => {
       unsubInvoices();
       unsubPayments();
       unsubBills();
+      unsubPOs?.();
     };
   }, [hasViewAccess, costCentreId, authLoading, costCentre]);
 
@@ -263,6 +294,29 @@ export default function CostCentreDetailClient() {
       const currency = bill.currency || 'INR';
       const amount = bill.amount || 0;
       acc[currency] = (acc[currency] || 0) + amount;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  // Calculate PO totals (committed amounts)
+  const poTotals = purchaseOrders.reduce(
+    (acc, po) => {
+      const currency = po.currency || 'INR';
+      const amount = po.grandTotal || 0;
+      acc[currency] = (acc[currency] || 0) + amount;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  // Calculate vendor payments made
+  const vendorPaymentTotals = bills.reduce(
+    (acc, bill) => {
+      // Check if bill has a paidAmount field
+      const currency = bill.currency || 'INR';
+      const paidAmount = (bill as unknown as { paidAmount?: number }).paidAmount || 0;
+      acc[currency] = (acc[currency] || 0) + paidAmount;
       return acc;
     },
     {} as Record<string, number>
@@ -384,21 +438,6 @@ export default function CostCentreDetailClient() {
                   ? formatCurrency(costCentre.budgetAmount, costCentre.budgetCurrency)
                   : 'Not Set'}
               </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Spent / Bills
-              </Typography>
-              <Typography variant="h5" color="error.main">
-                {costCentre.actualSpent
-                  ? formatCurrency(costCentre.actualSpent, costCentre.budgetCurrency)
-                  : formatCurrencyTotals(billTotals)}
-              </Typography>
               {costCentre.budgetAmount && costCentre.budgetAmount > 0 && (
                 <Box sx={{ mt: 1 }}>
                   <LinearProgress
@@ -420,13 +459,92 @@ export default function CostCentreDetailClient() {
           <Card>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Invoiced
+                Committed (POs)
+              </Typography>
+              <Typography variant="h5" color="warning.main">
+                {formatCurrencyTotals(poTotals)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {purchaseOrders.length} purchase order(s)
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card
+            sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+            onClick={() => setTabValue(2)}
+          >
+            <CardContent>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Billed (Vendor Bills)
+              </Typography>
+              <Typography variant="h5" color="error.main">
+                {formatCurrencyTotals(billTotals)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {bills.length} bill(s) • Click to view
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card
+            sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+            onClick={() => setTabValue(0)}
+          >
+            <CardContent>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Invoiced (Revenue)
               </Typography>
               <Typography variant="h5" color="primary.main">
                 {formatCurrencyTotals(invoiceTotals)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {invoices.length} invoice(s)
+                {invoices.length} invoice(s) • Click to view
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Second Row - Additional Metrics */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card
+            sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+            onClick={() => setTabValue(1)}
+          >
+            <CardContent>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Payments Received
+              </Typography>
+              <Typography variant="h5" color="success.main">
+                {formatCurrencyTotals(paymentTotals)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {payments.length} payment(s) • Click to view
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card
+            sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+            onClick={() => setTabValue(3)}
+          >
+            <CardContent>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                PO Details
+              </Typography>
+              <Typography variant="h5" color="warning.main">
+                {purchaseOrders.length}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Active purchase order(s) • Click to view
               </Typography>
             </CardContent>
           </Card>
@@ -436,13 +554,43 @@ export default function CostCentreDetailClient() {
           <Card>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Received
+                Outstanding Payable
               </Typography>
-              <Typography variant="h5" color="success.main">
-                {formatCurrencyTotals(paymentTotals)}
+              <Typography variant="h5" color="error.main">
+                {formatCurrencyTotals(
+                  Object.fromEntries(
+                    Object.entries(billTotals).map(([currency, total]) => [
+                      currency,
+                      total - (vendorPaymentTotals[currency] || 0),
+                    ])
+                  )
+                )}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {payments.length} payment(s)
+                Unpaid vendor bills
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Outstanding Receivable
+              </Typography>
+              <Typography variant="h5" color="info.main">
+                {formatCurrencyTotals(
+                  Object.fromEntries(
+                    Object.entries(invoiceTotals).map(([currency, total]) => {
+                      const received = paymentTotals[currency] || 0;
+                      return [currency, Math.max(0, total - received)];
+                    })
+                  )
+                )}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Unpaid customer invoices
               </Typography>
             </CardContent>
           </Card>
@@ -488,6 +636,7 @@ export default function CostCentreDetailClient() {
             label={`Payments (${payments.length})`}
           />
           <Tab icon={<AccountIcon />} iconPosition="start" label={`Bills (${bills.length})`} />
+          <Tab icon={<POIcon />} iconPosition="start" label={`POs (${purchaseOrders.length})`} />
         </Tabs>
 
         {/* Invoices Tab */}
@@ -650,6 +799,71 @@ export default function CostCentreDetailClient() {
                           }
                           size="small"
                         />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </TabPanel>
+
+        {/* Purchase Orders Tab */}
+        <TabPanel value={tabValue} index={3}>
+          {purchaseOrders.length === 0 ? (
+            <Box sx={{ p: 3 }}>
+              <Alert severity="info">No purchase orders found for this cost centre.</Alert>
+            </Box>
+          ) : (
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>PO #</TableCell>
+                    <TableCell>Title</TableCell>
+                    <TableCell>Vendor</TableCell>
+                    <TableCell align="right">Amount</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="center">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {purchaseOrders.map((po) => (
+                    <TableRow key={po.id} hover>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="medium">
+                          {po.number}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{po.title || '-'}</TableCell>
+                      <TableCell>{po.vendorName || '-'}</TableCell>
+                      <TableCell align="right">
+                        {formatCurrency(po.grandTotal, po.currency)}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={po.status}
+                          color={
+                            po.status === 'COMPLETED'
+                              ? 'success'
+                              : po.status === 'DELIVERED'
+                                ? 'info'
+                                : po.status === 'CANCELLED'
+                                  ? 'error'
+                                  : 'warning'
+                          }
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Tooltip title="View PO">
+                          <IconButton
+                            size="small"
+                            onClick={() => router.push(`/procurement/pos/${po.id}`)}
+                          >
+                            <OpenIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                       </TableCell>
                     </TableRow>
                   ))}

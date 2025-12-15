@@ -451,10 +451,16 @@ export const generateRFQPDF = onCall<RFQPDFGenerationRequest, Promise<RFQPDFGene
 
             totalFiles++;
           } catch (error) {
-            logger.error('Error generating PDF for vendor', { vendorId: vendor.id, error });
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            const errorStack = error instanceof Error ? error.stack : undefined;
+            logger.error('Error generating PDF for vendor', {
+              vendorId: vendor.id,
+              errorMessage,
+              errorStack,
+            });
             errors.push({
               vendorId: vendor.id,
-              error: error instanceof Error ? error.message : 'Unknown error',
+              error: errorMessage,
             });
           }
         }
@@ -515,9 +521,14 @@ export const generateRFQPDF = onCall<RFQPDFGenerationRequest, Promise<RFQPDFGene
           result.combinedDocumentId = documentId;
           totalFiles++;
         } catch (error) {
-          logger.error('Error generating combined PDF', { error });
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          logger.error('Error generating combined PDF', {
+            errorMessage,
+            errorStack,
+          });
           errors.push({
-            error: error instanceof Error ? error.message : 'Unknown error generating combined PDF',
+            error: errorMessage || 'Unknown error generating combined PDF',
           });
         }
       }
@@ -734,34 +745,63 @@ async function renderPDF(data: Record<string, unknown>): Promise<Buffer> {
 
   // Read template
   const templatePath = path.join(__dirname, 'templates', 'rfq.html');
+  logger.info('Loading template from:', { templatePath });
+
+  if (!fs.existsSync(templatePath)) {
+    throw new Error(`Template file not found at: ${templatePath}`);
+  }
+
   const templateSource = fs.readFileSync(templatePath, 'utf8');
 
   // Compile template
   const template = Handlebars.compile(templateSource);
   const html = template(data);
 
-  // Launch Puppeteer
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+  logger.info('Template compiled, launching browser...');
 
-  const page = await browser.newPage();
-  await page.setContent(html, { waitUntil: 'networkidle0' });
+  // Launch Puppeteer with Cloud Functions-compatible settings
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-extensions',
+      ],
+    });
 
-  // Generate PDF
-  const pdf = await page.pdf({
-    format: 'A4',
-    printBackground: true,
-    margin: {
-      top: '20mm',
-      right: '15mm',
-      bottom: '20mm',
-      left: '15mm',
-    },
-  });
+    logger.info('Browser launched, creating page...');
 
-  await browser.close();
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
 
-  return Buffer.from(pdf);
+    logger.info('Page content set, generating PDF...');
+
+    // Generate PDF
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: '20mm',
+        right: '15mm',
+        bottom: '20mm',
+        left: '15mm',
+      },
+    });
+
+    logger.info('PDF generated successfully', { size: pdf.length });
+
+    return Buffer.from(pdf);
+  } finally {
+    if (browser) {
+      await browser.close();
+      logger.info('Browser closed');
+    }
+  }
 }
