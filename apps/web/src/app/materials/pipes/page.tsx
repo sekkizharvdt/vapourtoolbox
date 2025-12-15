@@ -37,6 +37,7 @@ import { PageHeader, LoadingState, EmptyState, FilterBar } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
+import { parseNPS, parseSchedule, compareNPS } from '@/lib/materials/variantUtils';
 
 // Pipe variant interface
 interface PipeVariant {
@@ -162,36 +163,7 @@ export default function PipesPage() {
     );
   }, [materials]);
 
-  // Helper function to parse NPS values
-  const parseNPS = (nps: string): number => {
-    const cleaned = nps.replace('"', '').trim();
-    if (cleaned.includes('/')) {
-      const parts = cleaned.split('/');
-      const num = parseFloat(parts[0] || '0');
-      const denom = parseFloat(parts[1] || '1');
-      return num / denom;
-    }
-    return parseFloat(cleaned) || 0;
-  };
-
-  // Helper function to parse schedule for sorting
-  const parseSchedule = (schedule: string): number => {
-    // Extract numeric part from schedules like "Sch 40", "10S", "XXS"
-    const numMatch = schedule.match(/\d+/);
-    if (numMatch) return parseInt(numMatch[0], 10);
-
-    // Handle special schedules
-    const specialSchedules: Record<string, number> = {
-      STD: 40,
-      XS: 80,
-      XXS: 160,
-      '5S': 5,
-      '10S': 10,
-      '40S': 40,
-      '80S': 80,
-    };
-    return specialSchedules[schedule.toUpperCase()] || 999;
-  };
+  // parseNPS and parseSchedule are now imported from @/lib/materials/variantUtils
 
   // Filter variants
   const filteredVariants = useMemo(() => {
@@ -276,20 +248,7 @@ export default function PipesPage() {
     allVariants.forEach((v) => {
       if (v.nps) npsSet.add(v.nps);
     });
-    return Array.from(npsSet).sort((a, b) => {
-      // Parse NPS values (handles fractions like "1/2" and numbers like "2")
-      const parseNPS = (nps: string): number => {
-        const cleaned = nps.replace('"', '').trim();
-        if (cleaned.includes('/')) {
-          const parts = cleaned.split('/');
-          const num = parseFloat(parts[0] || '0');
-          const denom = parseFloat(parts[1] || '1');
-          return num / denom;
-        }
-        return parseFloat(cleaned) || 0;
-      };
-      return parseNPS(a) - parseNPS(b);
-    });
+    return Array.from(npsSet).sort(compareNPS);
   }, [allVariants]);
 
   const odSizes = useMemo(() => {

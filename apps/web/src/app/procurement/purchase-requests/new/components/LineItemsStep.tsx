@@ -24,7 +24,7 @@ import {
   IconButton,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, Upload as UploadIcon } from '@mui/icons-material';
-import type { CreatePurchaseRequestItemInput } from '@/lib/procurement/purchaseRequestService';
+import type { CreatePurchaseRequestItemInput } from '@/lib/procurement/purchaseRequest';
 
 interface LineItemsStepProps {
   lineItems: CreatePurchaseRequestItemInput[];

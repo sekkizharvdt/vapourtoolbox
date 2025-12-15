@@ -23,7 +23,7 @@ import type { RFQ, RFQItem, OfferComparisonData } from '@vapour/types';
 import type { EvaluateOfferInput } from './types';
 import { getOfferById, getOfferItems } from './crud';
 import { getOffersByRFQ } from './queries';
-import { incrementOffersEvaluated } from '../rfqService';
+import { incrementOffersEvaluated } from '../rfq';
 
 const logger = createLogger({ context: 'offerService' });
 

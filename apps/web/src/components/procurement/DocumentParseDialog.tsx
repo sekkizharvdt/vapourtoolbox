@@ -44,7 +44,7 @@ import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes } from 'firebase/storage';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import type { CreatePurchaseRequestItemInput } from '@/lib/procurement/purchaseRequestService';
+import type { CreatePurchaseRequestItemInput } from '@/lib/procurement/purchaseRequest';
 
 interface DocumentParseDialogProps {
   open: boolean;

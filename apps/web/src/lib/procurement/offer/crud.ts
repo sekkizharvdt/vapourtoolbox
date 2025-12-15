@@ -23,7 +23,7 @@ import { createLogger } from '@vapour/logger';
 import type { Offer, OfferItem } from '@vapour/types';
 import type { CreateOfferInput, CreateOfferItemInput, UpdateOfferInput } from './types';
 import { generateOfferNumber } from './utils';
-import { incrementOffersReceived } from '../rfqService';
+import { incrementOffersReceived } from '../rfq';
 
 const logger = createLogger({ context: 'offerService' });
 

@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import type { CreatePurchaseRequestItemInput } from '@/lib/procurement/purchaseRequestService';
+import type { CreatePurchaseRequestItemInput } from '@/lib/procurement/purchaseRequest';
 
 export interface FormData {
   type: 'PROJECT' | 'BUDGETARY' | 'INTERNAL';

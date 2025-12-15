@@ -47,7 +47,7 @@ import { StatCard } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PurchaseRequest } from '@vapour/types';
-import { listPurchaseRequests } from '@/lib/procurement/purchaseRequestService';
+import { listPurchaseRequests } from '@/lib/procurement/purchaseRequest';
 import { formatDate } from '@/lib/utils/formatters';
 
 export default function PurchaseRequestsPage() {

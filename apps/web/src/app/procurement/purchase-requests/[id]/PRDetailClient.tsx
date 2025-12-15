@@ -27,10 +27,7 @@ import {
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon, Edit as EditIcon } from '@mui/icons-material';
 import type { PurchaseRequest, PurchaseRequestItem } from '@vapour/types';
-import {
-  getPurchaseRequestById,
-  getPurchaseRequestItems,
-} from '@/lib/procurement/purchaseRequestService';
+import { getPurchaseRequestById, getPurchaseRequestItems } from '@/lib/procurement/purchaseRequest';
 import { formatDate } from '@/lib/utils/formatters';
 
 export default function PRDetailPage() {

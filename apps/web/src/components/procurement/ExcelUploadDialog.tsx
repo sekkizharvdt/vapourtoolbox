@@ -34,7 +34,7 @@ import {
   Close as CloseIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import type { CreatePurchaseRequestItemInput } from '@/lib/procurement/purchaseRequestService';
+import type { CreatePurchaseRequestItemInput } from '@/lib/procurement/purchaseRequest';
 
 interface ExcelUploadDialogProps {
   open: boolean;

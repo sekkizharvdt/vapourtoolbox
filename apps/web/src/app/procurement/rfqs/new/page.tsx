@@ -32,8 +32,8 @@ import {
 import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PurchaseRequest } from '@vapour/types';
-import { listPurchaseRequests } from '@/lib/procurement/purchaseRequestService';
-import { createRFQFromPRs } from '@/lib/procurement/rfqService';
+import { listPurchaseRequests } from '@/lib/procurement/purchaseRequest';
+import { createRFQFromPRs } from '@/lib/procurement/rfq';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';

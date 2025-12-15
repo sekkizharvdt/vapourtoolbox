@@ -40,7 +40,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RFQ, RFQItem } from '@vapour/types';
-import { getRFQById, getRFQItems, issueRFQ, cancelRFQ } from '@/lib/procurement/rfqService';
+import { getRFQById, getRFQItems, issueRFQ, cancelRFQ } from '@/lib/procurement/rfq';
 import {
   getRFQStatusText,
   getRFQStatusColor,

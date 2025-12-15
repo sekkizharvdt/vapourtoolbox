@@ -43,7 +43,7 @@ import {
   submitPurchaseRequestForApproval,
   type CreatePurchaseRequestInput,
   type CreatePurchaseRequestItemInput,
-} from '@/lib/procurement/purchaseRequestService';
+} from '@/lib/procurement/purchaseRequest';
 import ExcelUploadDialog from '@/components/procurement/ExcelUploadDialog';
 import DocumentParseDialog from '@/components/procurement/DocumentParseDialog';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';

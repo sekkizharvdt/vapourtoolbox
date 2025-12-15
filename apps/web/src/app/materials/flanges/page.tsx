@@ -37,6 +37,7 @@ import { PageHeader, LoadingState, EmptyState, FilterBar } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
+import { parseNPS, parsePressureClass, compareNPS } from '@/lib/materials/variantUtils';
 
 // Flange variant interface
 interface FlangeVariant {
@@ -157,24 +158,7 @@ export default function FlangesPage() {
     );
   }, [materials]);
 
-  // Helper function to parse NPS values
-  const parseNPS = (nps: string): number => {
-    const cleaned = nps.replace('"', '').trim();
-    if (cleaned.includes('/')) {
-      const parts = cleaned.split('/');
-      const num = parseFloat(parts[0] || '0');
-      const denom = parseFloat(parts[1] || '1');
-      return num / denom;
-    }
-    return parseFloat(cleaned) || 0;
-  };
-
-  // Helper function to parse pressure class for sorting
-  const parsePressureClass = (pressureClass: string): number => {
-    // Extract numeric part from pressure classes like "150", "300", "600", etc.
-    const numMatch = pressureClass.match(/\d+/);
-    return numMatch ? parseInt(numMatch[0], 10) : 999;
-  };
+  // parseNPS and parsePressureClass are now imported from @/lib/materials/variantUtils
 
   // Filter variants
   const filteredVariants = useMemo(() => {
@@ -241,20 +225,7 @@ export default function FlangesPage() {
     allVariants.forEach((v) => {
       if (v.nps) npsSet.add(v.nps);
     });
-    return Array.from(npsSet).sort((a, b) => {
-      // Parse NPS values (handles fractions like "1/2" and numbers like "2")
-      const parseNPS = (nps: string): number => {
-        const cleaned = nps.replace('"', '').trim();
-        if (cleaned.includes('/')) {
-          const parts = cleaned.split('/');
-          const num = parseFloat(parts[0] || '0');
-          const denom = parseFloat(parts[1] || '1');
-          return num / denom;
-        }
-        return parseFloat(cleaned) || 0;
-      };
-      return parseNPS(a) - parseNPS(b);
-    });
+    return Array.from(npsSet).sort(compareNPS);
   }, [allVariants]);
 
   // Statistics

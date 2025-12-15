@@ -21,7 +21,7 @@ import {
   TableRow,
 } from '@mui/material';
 import type { FormData } from './usePurchaseRequestForm';
-import type { CreatePurchaseRequestItemInput } from '@/lib/procurement/purchaseRequestService';
+import type { CreatePurchaseRequestItemInput } from '@/lib/procurement/purchaseRequest';
 import { formatDate } from '@/lib/utils/formatters';
 
 interface ReviewStepProps {

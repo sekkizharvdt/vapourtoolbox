@@ -31,7 +31,7 @@ import {
 import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RFQ, RFQItem } from '@vapour/types';
-import { getRFQById, getRFQItems, updateRFQ } from '@/lib/procurement/rfqService';
+import { getRFQById, getRFQItems, updateRFQ } from '@/lib/procurement/rfq';
 import { canEditRFQ } from '@/lib/procurement/rfqHelpers';
 import { formatDate } from '@/lib/utils/formatters';
 import { collection, query, where, getDocs } from 'firebase/firestore';

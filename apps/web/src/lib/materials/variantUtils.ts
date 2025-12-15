@@ -236,3 +236,83 @@ export function getFastestDeliveryVariant(
       return leadA - leadB;
     })[0];
 }
+
+/**
+ * Parse NPS (Nominal Pipe Size) value to numeric for sorting
+ *
+ * Handles various formats:
+ * - Fractions: "1/2", "3/4"
+ * - Integers: "2", "4"
+ * - With quotes: '2"', '4"'
+ * - Fittings with multiple sizes: "2 x 1" (returns first/larger size)
+ *
+ * @param nps - NPS string value
+ * @returns Numeric value for sorting
+ */
+export function parseNPS(nps: string): number {
+  // For fittings like "2 x 1", get the first (larger) size
+  const firstSize = nps.split(' x ')[0] || nps;
+  const cleaned = firstSize.replace('"', '').trim();
+
+  if (cleaned.includes('/')) {
+    const parts = cleaned.split('/');
+    const num = parseFloat(parts[0] || '0');
+    const denom = parseFloat(parts[1] || '1');
+    return num / denom;
+  }
+  return parseFloat(cleaned) || 0;
+}
+
+/**
+ * Compare function for sorting NPS values
+ * Use with Array.sort(): npsSizes.sort(compareNPS)
+ *
+ * @param a - First NPS string
+ * @param b - Second NPS string
+ * @returns Comparison result for sorting
+ */
+export function compareNPS(a: string, b: string): number {
+  return parseNPS(a) - parseNPS(b);
+}
+
+/**
+ * Parse pipe schedule value to numeric for sorting
+ *
+ * Handles various formats:
+ * - "Sch 40", "Sch 80"
+ * - "10S", "40S", "80S"
+ * - "STD", "XS", "XXS"
+ *
+ * @param schedule - Schedule string value
+ * @returns Numeric value for sorting
+ */
+export function parseSchedule(schedule: string): number {
+  // Extract numeric part from schedules like "Sch 40", "10S", "XXS"
+  const numMatch = schedule.match(/\d+/);
+  if (numMatch) return parseInt(numMatch[0], 10);
+
+  // Handle special schedules
+  const specialSchedules: Record<string, number> = {
+    STD: 40,
+    XS: 80,
+    XXS: 160,
+    '5S': 5,
+    '10S': 10,
+    '40S': 40,
+    '80S': 80,
+  };
+  return specialSchedules[schedule.toUpperCase()] || 999;
+}
+
+/**
+ * Parse pressure class value to numeric for sorting
+ *
+ * Handles formats like "150", "300", "600", "900", "1500", "2500"
+ *
+ * @param pressureClass - Pressure class string value
+ * @returns Numeric value for sorting
+ */
+export function parsePressureClass(pressureClass: string): number {
+  const numMatch = pressureClass.match(/\d+/);
+  return numMatch ? parseInt(numMatch[0], 10) : 999;
+}

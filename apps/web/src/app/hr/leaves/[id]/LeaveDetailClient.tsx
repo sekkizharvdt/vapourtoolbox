@@ -44,45 +44,18 @@ import {
   approveLeaveRequest,
   rejectLeaveRequest,
   cancelLeaveRequest,
+  LEAVE_STATUS_COLORS,
+  LEAVE_STATUS_LABELS,
+  formatLeaveDate,
+  formatLeaveDateTime,
 } from '@/lib/hr';
-import type { LeaveRequest, LeaveRequestStatus } from '@vapour/types';
+import type { LeaveRequest } from '@vapour/types';
 
-const STATUS_COLORS: Record<
-  LeaveRequestStatus,
-  'default' | 'warning' | 'success' | 'error' | 'info'
-> = {
-  DRAFT: 'default',
-  PENDING_APPROVAL: 'warning',
-  APPROVED: 'success',
-  REJECTED: 'error',
-  CANCELLED: 'info',
-};
-
-const STATUS_LABELS: Record<LeaveRequestStatus, string> = {
-  DRAFT: 'Draft',
-  PENDING_APPROVAL: 'Pending Approval',
-  APPROVED: 'Approved',
-  REJECTED: 'Rejected',
-  CANCELLED: 'Cancelled',
-};
-
-function formatDate(date: Date): string {
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
-function formatDateTime(date: Date): string {
-  return date.toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+// Use shared display helpers from @/lib/hr
+const STATUS_COLORS = LEAVE_STATUS_COLORS;
+const STATUS_LABELS = LEAVE_STATUS_LABELS;
+const formatDate = formatLeaveDate;
+const formatDateTime = formatLeaveDateTime;
 
 export default function LeaveDetailClient() {
   const params = useParams();

@@ -24,35 +24,18 @@ import { Refresh as RefreshIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { canApproveLeaves } from '@vapour/constants';
-import { listLeaveRequests } from '@/lib/hr';
+import {
+  listLeaveRequests,
+  LEAVE_STATUS_COLORS,
+  LEAVE_STATUS_LABELS,
+  formatLeaveDate,
+} from '@/lib/hr';
 import type { LeaveRequest, LeaveRequestStatus } from '@vapour/types';
 
-const STATUS_COLORS: Record<
-  LeaveRequestStatus,
-  'default' | 'warning' | 'success' | 'error' | 'info'
-> = {
-  DRAFT: 'default',
-  PENDING_APPROVAL: 'warning',
-  APPROVED: 'success',
-  REJECTED: 'error',
-  CANCELLED: 'info',
-};
-
-const STATUS_LABELS: Record<LeaveRequestStatus, string> = {
-  DRAFT: 'Draft',
-  PENDING_APPROVAL: 'Pending Approval',
-  APPROVED: 'Approved',
-  REJECTED: 'Rejected',
-  CANCELLED: 'Cancelled',
-};
-
-function formatDate(date: Date): string {
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-}
+// Use shared display helpers from @/lib/hr
+const STATUS_COLORS = LEAVE_STATUS_COLORS;
+const STATUS_LABELS = LEAVE_STATUS_LABELS;
+const formatDate = formatLeaveDate;
 
 type TabValue = 'pending' | 'approved' | 'rejected' | 'all';
 

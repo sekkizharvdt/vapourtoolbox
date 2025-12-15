@@ -42,7 +42,7 @@ import {
   listPurchaseRequests,
   approvePurchaseRequest,
   rejectPurchaseRequest,
-} from '@/lib/procurement/purchaseRequestService';
+} from '@/lib/procurement/purchaseRequest';
 import { formatDate } from '@/lib/utils/formatters';
 
 export default function EngineeringApprovalPage() {
@@ -279,9 +279,7 @@ export default function EngineeringApprovalPage() {
                       <Chip label={request.type} size="small" variant="outlined" />
                     </TableCell>
                     <TableCell>{request.itemCount || 0}</TableCell>
-                    <TableCell>
-                      {formatDate(request.submittedAt)}
-                    </TableCell>
+                    <TableCell>{formatDate(request.submittedAt)}</TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={0.5} justifyContent="center">
                         <IconButton

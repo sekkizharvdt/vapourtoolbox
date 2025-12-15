@@ -41,7 +41,7 @@ import {
   getPurchaseRequestById,
   getPurchaseRequestItems,
   submitPurchaseRequestForApproval,
-} from '@/lib/procurement/purchaseRequestService';
+} from '@/lib/procurement/purchaseRequest';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { doc, collection, Timestamp, writeBatch } from 'firebase/firestore';

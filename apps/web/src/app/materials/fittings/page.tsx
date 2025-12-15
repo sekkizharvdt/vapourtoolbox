@@ -37,6 +37,7 @@ import { PageHeader, LoadingState, EmptyState, FilterBar } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
+import { parseNPS, compareNPS } from '@/lib/materials/variantUtils';
 
 // Fitting variant interface
 interface FittingVariant {
@@ -158,19 +159,7 @@ export default function FittingsPage() {
     );
   }, [materials]);
 
-  // Helper function to parse NPS values
-  const parseNPS = (nps: string): number => {
-    // For fittings like "2 x 1", get the first (larger) size
-    const firstSize = nps.split(' x ')[0] || nps;
-    const cleaned = firstSize.replace('"', '').trim();
-    if (cleaned.includes('/')) {
-      const parts = cleaned.split('/');
-      const num = parseFloat(parts[0] || '0');
-      const denom = parseFloat(parts[1] || '1');
-      return num / denom;
-    }
-    return parseFloat(cleaned) || 0;
-  };
+  // parseNPS is now imported from @/lib/materials/variantUtils
 
   // Filter variants
   const filteredVariants = useMemo(() => {
@@ -243,20 +232,7 @@ export default function FittingsPage() {
         npsSet.add(nps);
       }
     });
-    return Array.from(npsSet).sort((a, b) => {
-      // Parse NPS values (handles fractions like "1/2" and numbers like "2")
-      const parseNPS = (nps: string): number => {
-        const cleaned = nps.replace('"', '').trim();
-        if (cleaned.includes('/')) {
-          const parts = cleaned.split('/');
-          const num = parseFloat(parts[0] || '0');
-          const denom = parseFloat(parts[1] || '1');
-          return num / denom;
-        }
-        return parseFloat(cleaned) || 0;
-      };
-      return parseNPS(a) - parseNPS(b);
-    });
+    return Array.from(npsSet).sort(compareNPS);
   }, [allVariants]);
 
   // Statistics
