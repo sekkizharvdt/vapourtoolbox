@@ -94,73 +94,40 @@ export async function getMasterDocumentsByProject(
     onlyDeleted?: boolean;
   }
 ): Promise<MasterDocumentEntry[]> {
-  console.warn('[getMasterDocumentsByProject] Called with projectId:', projectId);
-  console.warn('[getMasterDocumentsByProject] Filters:', filters);
+  const constraints: QueryConstraint[] = [];
 
-  try {
-    console.warn('[getMasterDocumentsByProject] Database instance received');
-
-    const constraints: QueryConstraint[] = [];
-
-    // Apply filters
-    if (filters?.status) {
-      constraints.push(where('status', '==', filters.status));
-    }
-    if (filters?.assignedTo) {
-      constraints.push(where('assignedTo', 'array-contains', filters.assignedTo));
-    }
-    if (filters?.disciplineCode) {
-      constraints.push(where('disciplineCode', '==', filters.disciplineCode));
-    }
-    if (filters?.visibility) {
-      constraints.push(where('visibility', '==', filters.visibility));
-    }
-    if (filters?.onlyDeleted !== undefined) {
-      constraints.push(where('isDeleted', '==', filters.onlyDeleted));
-    } else {
-      // By default, exclude deleted documents
-      constraints.push(where('isDeleted', '==', false));
-    }
-
-    console.warn(
-      '[getMasterDocumentsByProject] Building query with constraints:',
-      constraints.length
-    );
-
-    // Note: Removed orderBy from query to avoid complex index requirements
-    // Sorting is done in memory instead
-    const collectionPath = `projects/${projectId}/masterDocuments`;
-    console.warn('[getMasterDocumentsByProject] Collection path:', collectionPath);
-
-    const q = query(collection(db, 'projects', projectId, 'masterDocuments'), ...constraints);
-    console.warn('[getMasterDocumentsByProject] Query built, executing getDocs...');
-
-    const querySnapshot = await getDocs(q);
-    console.warn(
-      '[getMasterDocumentsByProject] Query completed, documents found:',
-      querySnapshot.size
-    );
-
-    const documents = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as MasterDocumentEntry[];
-
-    console.warn('[getMasterDocumentsByProject] Mapped documents:', documents.length);
-
-    // Sort by document number in memory
-    const sorted = documents.sort((a, b) => a.documentNumber.localeCompare(b.documentNumber));
-    console.warn('[getMasterDocumentsByProject] Documents sorted, returning');
-
-    return sorted;
-  } catch (error) {
-    console.error('[getMasterDocumentsByProject] Error occurred:', error);
-    console.error(
-      '[getMasterDocumentsByProject] Error stack:',
-      error instanceof Error ? error.stack : 'No stack'
-    );
-    throw error;
+  // Apply filters
+  if (filters?.status) {
+    constraints.push(where('status', '==', filters.status));
   }
+  if (filters?.assignedTo) {
+    constraints.push(where('assignedTo', 'array-contains', filters.assignedTo));
+  }
+  if (filters?.disciplineCode) {
+    constraints.push(where('disciplineCode', '==', filters.disciplineCode));
+  }
+  if (filters?.visibility) {
+    constraints.push(where('visibility', '==', filters.visibility));
+  }
+  if (filters?.onlyDeleted !== undefined) {
+    constraints.push(where('isDeleted', '==', filters.onlyDeleted));
+  } else {
+    // By default, exclude deleted documents
+    constraints.push(where('isDeleted', '==', false));
+  }
+
+  // Note: Removed orderBy from query to avoid complex index requirements
+  // Sorting is done in memory instead
+  const q = query(collection(db, 'projects', projectId, 'masterDocuments'), ...constraints);
+  const querySnapshot = await getDocs(q);
+
+  const documents = querySnapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as MasterDocumentEntry[];
+
+  // Sort by document number in memory
+  return documents.sort((a, b) => a.documentNumber.localeCompare(b.documentNumber));
 }
 
 /**

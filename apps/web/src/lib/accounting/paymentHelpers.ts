@@ -23,7 +23,7 @@ import {
   generateCustomerPaymentGLEntries,
   generateVendorPaymentGLEntries,
   type PaymentGLInput,
-} from './glEntryGenerator';
+} from './glEntry';
 
 /**
  * Update invoice/bill status based on payment allocations

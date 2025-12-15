@@ -14,7 +14,7 @@ import {
   type EnhancedMatchSuggestion,
   type MultiTransactionMatch,
   DEFAULT_MATCHING_CONFIG,
-} from '../autoMatchingEngine';
+} from '../autoMatching';
 import { getUnmatchedAccountingTransactions, getUnmatchedBankTransactions } from './crud';
 import { matchTransactions } from './matching';
 

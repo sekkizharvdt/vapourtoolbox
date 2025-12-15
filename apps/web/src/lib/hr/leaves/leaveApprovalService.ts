@@ -5,7 +5,16 @@
  * Supports parallel approval (any one approver can approve/reject).
  */
 
-import { doc, updateDoc, Timestamp, getDocs, query, collection, where } from 'firebase/firestore';
+import {
+  doc,
+  updateDoc,
+  Timestamp,
+  getDocs,
+  getDoc,
+  query,
+  collection,
+  where,
+} from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { LeaveApprovalRecord } from '@vapour/types';
@@ -15,8 +24,48 @@ import { addPendingLeave, confirmPendingLeave, removePendingLeave } from './leav
 // TODO: Integrate task notifications once the flow module is ready
 // import { createTaskNotification, completeTaskNotifications } from '@/lib/flow/taskNotificationService';
 
-// Designated approvers' emails (parallel approval - either can approve)
-const LEAVE_APPROVERS = ['revathi@vapourdesal.com', 'sekkizhar@vapourdesal.com'];
+// Fallback approvers if Firestore config is not set up
+// To configure: create document hrConfig/leaveSettings with { leaveApprovers: ['email1', 'email2'] }
+const DEFAULT_LEAVE_APPROVERS = ['revathi@vapourdesal.com', 'sekkizhar@vapourdesal.com'];
+
+/**
+ * HR Config document structure
+ */
+interface HRConfig {
+  leaveApprovers?: string[]; // Array of approver email addresses
+  updatedAt?: Timestamp;
+  updatedBy?: string;
+}
+
+/**
+ * Get leave approver emails from HR config
+ * Falls back to default approvers if config is not set up
+ */
+async function getLeaveApproverEmails(): Promise<string[]> {
+  const { db } = getFirebase();
+
+  try {
+    const configRef = doc(db, COLLECTIONS.HR_CONFIG, 'leaveSettings');
+    const configSnap = await getDoc(configRef);
+
+    if (configSnap.exists()) {
+      const config = configSnap.data() as HRConfig;
+      if (config.leaveApprovers && config.leaveApprovers.length > 0) {
+        return config.leaveApprovers;
+      }
+    }
+
+    // Fallback to defaults if config not found
+    console.warn(
+      '[getLeaveApproverEmails] HR config not found, using default approvers. ' +
+        'Please configure hrConfig/leaveSettings in Firestore.'
+    );
+    return DEFAULT_LEAVE_APPROVERS;
+  } catch (error) {
+    console.error('[getLeaveApproverEmails] Error fetching config:', error);
+    return DEFAULT_LEAVE_APPROVERS;
+  }
+}
 
 /**
  * Get approver user IDs from emails
@@ -25,10 +74,10 @@ async function getApproverUserIds(): Promise<string[]> {
   const { db } = getFirebase();
 
   try {
-    // Query users by email
+    const approverEmails = await getLeaveApproverEmails();
     const userIds: string[] = [];
 
-    for (const email of LEAVE_APPROVERS) {
+    for (const email of approverEmails) {
       const q = query(
         collection(db, COLLECTIONS.USERS),
         where('email', '==', email),

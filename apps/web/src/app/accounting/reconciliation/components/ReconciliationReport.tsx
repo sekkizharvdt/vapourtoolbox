@@ -31,7 +31,7 @@ import { getFirebase } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import type { BankStatement, BankTransaction } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
-import { getReconciliationStats } from '@/lib/accounting/bankReconciliationService';
+import { getReconciliationStats } from '@/lib/accounting/bankReconciliation';
 
 interface ReconciliationReportProps {
   open: boolean;

@@ -22,7 +22,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { CustomerInvoice, CurrencyCode } from '@vapour/types';
 import { CURRENCIES, DEFAULT_CURRENCY } from '@vapour/constants';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
-import { generateInvoiceGLEntries, type InvoiceGLInput } from '@/lib/accounting/glEntryGenerator';
+import { generateInvoiceGLEntries, type InvoiceGLInput } from '@/lib/accounting/glEntry';
 import { useTransactionForm } from '@/hooks/accounting/useTransactionForm';
 import { useLineItemManagement } from '@/hooks/accounting/useLineItemManagement';
 import { useEntityStateFetch } from '@/hooks/accounting/useEntityStateFetch';

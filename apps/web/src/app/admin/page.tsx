@@ -65,7 +65,10 @@ export default function AdminDashboardPage() {
       (snapshot) => {
         setUserStats((prev) => ({ ...prev, active: snapshot.size, loading: false }));
       },
-      () => setUserStats((prev) => ({ ...prev, loading: false }))
+      (error) => {
+        console.error('[AdminDashboard] Error fetching active users:', error.message);
+        setUserStats((prev) => ({ ...prev, loading: false }));
+      }
     );
 
     const unsubscribePending = onSnapshot(
@@ -73,7 +76,9 @@ export default function AdminDashboardPage() {
       (snapshot) => {
         setUserStats((prev) => ({ ...prev, pending: snapshot.size }));
       },
-      () => {}
+      (error) => {
+        console.error('[AdminDashboard] Error fetching pending users:', error.message);
+      }
     );
 
     return () => {
@@ -85,7 +90,7 @@ export default function AdminDashboardPage() {
   // Load feedback stats
   useEffect(() => {
     const { db } = getFirebase();
-    const feedbackRef = collection(db, 'feedback');
+    const feedbackRef = collection(db, COLLECTIONS.FEEDBACK);
 
     const newQuery = query(feedbackRef, where('status', '==', 'new'));
     const inProgressQuery = query(feedbackRef, where('status', '==', 'in_progress'));
@@ -95,7 +100,10 @@ export default function AdminDashboardPage() {
       (snapshot) => {
         setFeedbackStats((prev) => ({ ...prev, new: snapshot.size, loading: false }));
       },
-      () => setFeedbackStats((prev) => ({ ...prev, loading: false }))
+      (error) => {
+        console.error('[AdminDashboard] Error fetching new feedback:', error.message);
+        setFeedbackStats((prev) => ({ ...prev, loading: false }));
+      }
     );
 
     const unsubscribeInProgress = onSnapshot(
@@ -103,7 +111,9 @@ export default function AdminDashboardPage() {
       (snapshot) => {
         setFeedbackStats((prev) => ({ ...prev, inProgress: snapshot.size }));
       },
-      () => {}
+      (error) => {
+        console.error('[AdminDashboard] Error fetching in-progress feedback:', error.message);
+      }
     );
 
     return () => {

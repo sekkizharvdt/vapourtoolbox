@@ -17,6 +17,11 @@ import {
   ListItemIcon,
   ListItemText,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
@@ -72,6 +77,15 @@ export default function ProposalDetailClient() {
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [proposalId, setProposalId] = useState<string | null>(null);
+
+  // Comment dialog state for approval actions
+  const [commentDialog, setCommentDialog] = useState<{
+    open: boolean;
+    title: string;
+    action: 'approve' | 'reject' | 'changes' | null;
+    required: boolean;
+  }>({ open: false, title: '', action: null, required: false });
+  const [commentText, setCommentText] = useState('');
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -167,61 +181,85 @@ export default function ProposalDetailClient() {
     }
   };
 
-  const handleApprove = async () => {
-    if (!db || !proposal || !user) return;
-    const comments = prompt('Add approval comments (optional):');
-    if (comments === null) return; // User cancelled
-
-    try {
-      setActionLoading(true);
-      await approveProposal(db, proposal.id, user.uid, user.displayName || 'Unknown', comments);
-      await reloadProposal();
-      handleMenuClose();
-    } catch (err) {
-      logger.error('Error approving proposal', { error: err });
-      setError('Failed to approve proposal');
-    } finally {
-      setActionLoading(false);
-    }
+  const handleApprove = () => {
+    setCommentDialog({
+      open: true,
+      title: 'Approve Proposal',
+      action: 'approve',
+      required: false,
+    });
+    setCommentText('');
   };
 
-  const handleReject = async () => {
-    if (!db || !proposal || !user) return;
-    const comments = prompt('Reason for rejection:');
-    if (!comments) return;
-
-    try {
-      setActionLoading(true);
-      await rejectProposal(db, proposal.id, user.uid, user.displayName || 'Unknown', comments);
-      await reloadProposal();
-      handleMenuClose();
-    } catch (err) {
-      logger.error('Error rejecting proposal', { error: err });
-      setError('Failed to reject proposal');
-    } finally {
-      setActionLoading(false);
-    }
+  const handleReject = () => {
+    setCommentDialog({
+      open: true,
+      title: 'Reject Proposal',
+      action: 'reject',
+      required: true,
+    });
+    setCommentText('');
+    handleMenuClose();
   };
 
-  const handleRequestChanges = async () => {
+  const handleRequestChanges = () => {
+    setCommentDialog({
+      open: true,
+      title: 'Request Changes',
+      action: 'changes',
+      required: true,
+    });
+    setCommentText('');
+    handleMenuClose();
+  };
+
+  const handleCommentDialogClose = () => {
+    setCommentDialog({ open: false, title: '', action: null, required: false });
+    setCommentText('');
+  };
+
+  const handleCommentSubmit = async () => {
     if (!db || !proposal || !user) return;
-    const comments = prompt('What changes are needed?');
-    if (!comments) return;
+    if (commentDialog.required && !commentText.trim()) return;
 
     try {
       setActionLoading(true);
-      await requestProposalChanges(
-        db,
-        proposal.id,
-        user.uid,
-        user.displayName || 'Unknown',
-        comments
-      );
+      handleCommentDialogClose();
+
+      switch (commentDialog.action) {
+        case 'approve':
+          await approveProposal(
+            db,
+            proposal.id,
+            user.uid,
+            user.displayName || 'Unknown',
+            commentText
+          );
+          break;
+        case 'reject':
+          await rejectProposal(
+            db,
+            proposal.id,
+            user.uid,
+            user.displayName || 'Unknown',
+            commentText
+          );
+          break;
+        case 'changes':
+          await requestProposalChanges(
+            db,
+            proposal.id,
+            user.uid,
+            user.displayName || 'Unknown',
+            commentText
+          );
+          break;
+      }
+
       await reloadProposal();
-      handleMenuClose();
     } catch (err) {
-      logger.error('Error requesting changes', { error: err });
-      setError('Failed to request changes');
+      logger.error(`Error ${commentDialog.action} proposal`, { error: err });
+      setError(`Failed to ${commentDialog.action} proposal`);
     } finally {
       setActionLoading(false);
     }
@@ -600,6 +638,52 @@ export default function ProposalDetailClient() {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Comment Dialog for Approval Actions */}
+      <Dialog open={commentDialog.open} onClose={handleCommentDialogClose} maxWidth="sm" fullWidth>
+        <DialogTitle>{commentDialog.title}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label={
+              commentDialog.action === 'approve'
+                ? 'Comments (optional)'
+                : commentDialog.action === 'reject'
+                  ? 'Reason for rejection'
+                  : 'What changes are needed?'
+            }
+            fullWidth
+            multiline
+            rows={3}
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            required={commentDialog.required}
+            placeholder={
+              commentDialog.action === 'approve'
+                ? 'Add any comments about this approval...'
+                : commentDialog.action === 'reject'
+                  ? 'Please explain why this proposal is being rejected...'
+                  : 'Describe the changes that need to be made...'
+            }
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCommentDialogClose}>Cancel</Button>
+          <Button
+            onClick={handleCommentSubmit}
+            variant="contained"
+            color={commentDialog.action === 'reject' ? 'error' : 'primary'}
+            disabled={commentDialog.required && !commentText.trim()}
+          >
+            {commentDialog.action === 'approve'
+              ? 'Approve'
+              : commentDialog.action === 'reject'
+                ? 'Reject'
+                : 'Request Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Convert to Project Dialog */}
       {proposal && (

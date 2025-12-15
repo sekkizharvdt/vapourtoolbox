@@ -12,7 +12,7 @@ import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestor
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
-import { generateBillGLEntries, type BillGLInput } from '@/lib/accounting/glEntryGenerator';
+import { generateBillGLEntries, type BillGLInput } from '@/lib/accounting/glEntry';
 import { useTransactionForm } from '@/hooks/accounting/useTransactionForm';
 import { useLineItemManagement } from '@/hooks/accounting/useLineItemManagement';
 import { useEntityStateFetch } from '@/hooks/accounting/useEntityStateFetch';

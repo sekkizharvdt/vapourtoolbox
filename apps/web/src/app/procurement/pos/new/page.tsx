@@ -24,7 +24,7 @@ import {
 import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Offer } from '@vapour/types';
-import { getOfferById } from '@/lib/procurement/offerService';
+import { getOfferById } from '@/lib/procurement/offer';
 import { createPOFromOffer } from '@/lib/procurement/purchaseOrderService';
 import { formatCurrency } from '@/lib/procurement/purchaseOrderHelpers';
 

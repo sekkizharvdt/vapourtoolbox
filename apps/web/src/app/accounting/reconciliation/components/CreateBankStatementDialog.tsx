@@ -8,7 +8,7 @@ import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import { createBankStatement } from '@/lib/accounting/bankReconciliationService';
+import { createBankStatement } from '@/lib/accounting/bankReconciliation';
 import type { Account } from '@vapour/types';
 
 interface CreateBankStatementDialogProps {

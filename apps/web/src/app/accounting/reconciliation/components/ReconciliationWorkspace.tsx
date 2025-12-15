@@ -10,7 +10,7 @@ import {
   matchTransactions,
   unmatchTransaction,
   markStatementAsReconciled,
-} from '@/lib/accounting/bankReconciliationService';
+} from '@/lib/accounting/bankReconciliation';
 import { ReconciliationReport } from './ReconciliationReport';
 import { useReconciliationData } from './workspace/useReconciliationData';
 import { ReconciliationHeader } from './workspace/ReconciliationHeader';

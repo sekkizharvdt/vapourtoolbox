@@ -42,7 +42,7 @@ import {
   evaluateOffer,
   markOfferAsRecommended,
   selectOffer,
-} from '@/lib/procurement/offerService';
+} from '@/lib/procurement/offer';
 import { formatCurrency, calculatePriceScore } from '@/lib/procurement/offerHelpers';
 import type {
   OfferComparisonData,

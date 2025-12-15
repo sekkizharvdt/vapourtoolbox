@@ -26,6 +26,7 @@ export const COLLECTIONS = {
   ON_DUTY: 'on_duty',
 
   // HR Module
+  HR_CONFIG: 'hrConfig', // HR module configuration (approvers, policies, etc.)
   HR_LEAVE_TYPES: 'hrLeaveTypes', // Leave type configuration (Sick, Casual, etc.)
   HR_LEAVE_BALANCES: 'hrLeaveBalances', // Employee leave balance per fiscal year
   HR_LEAVE_REQUESTS: 'hrLeaveRequests', // Leave requests with approval workflow
@@ -130,6 +131,7 @@ export const COLLECTIONS = {
 
   // System Admin
   SYSTEM_STATUS: 'systemStatus', // Package versions, security status (super-admin only)
+  FEEDBACK: 'feedback', // User feedback, bug reports, feature requests
 } as const;
 
 /**

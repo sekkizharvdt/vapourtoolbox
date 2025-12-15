@@ -20,4 +20,4 @@ export type {
   MatchingConfig,
   EnhancedMatchSuggestion,
   MultiTransactionMatch,
-} from '../autoMatchingEngine';
+} from '../autoMatching';

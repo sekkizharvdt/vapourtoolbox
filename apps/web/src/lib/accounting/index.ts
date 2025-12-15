@@ -22,11 +22,9 @@ export * from './gstCalculator';
 
 // Bank operations
 export * from './bankStatementParser';
-export * from './bankReconciliationService';
 export * from './seedExchangeRates';
 
 // Generators
-export * from './glEntryGenerator';
 export * from './gstReportGenerator';
 
 // Approval workflows
@@ -37,11 +35,8 @@ export * from './invoiceApprovalService';
 export * from './costCentreService';
 export * from './vendorBillIntegrationService';
 
-// Matching engine
-export * from './autoMatchingEngine';
-
 // Submodule exports (these have their own index.ts files)
-export * from './autoMatching';
+// Note: autoMatching re-exports types that overlap with bankReconciliation, import directly to avoid conflicts
 export * from './bankReconciliation';
 export * from './glEntry';
 export * from './gstReports';

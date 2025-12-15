@@ -36,7 +36,7 @@ import type {
 import { createLogger } from '@vapour/logger';
 
 const logger = createLogger({ context: 'accountingIntegration' });
-import { generateBillGLEntries, type BillGLInput } from '../accounting/glEntryGenerator';
+import { generateBillGLEntries, type BillGLInput } from '../accounting/glEntry';
 import { createPaymentWithAllocationsAtomic } from '../accounting/paymentHelpers';
 
 /**

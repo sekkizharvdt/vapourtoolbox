@@ -46,10 +46,7 @@ import {
   type ImportConfig,
   type ParseResult,
 } from '@/lib/accounting/bankStatementParser';
-import {
-  createBankStatement,
-  addBankTransactions,
-} from '@/lib/accounting/bankReconciliationService';
+import { createBankStatement, addBankTransactions } from '@/lib/accounting/bankReconciliation';
 import { Timestamp } from 'firebase/firestore';
 
 interface ImportBankStatementDialogProps {

@@ -12,7 +12,7 @@ import {
   getUnmatchedAccountingTransactions,
   getSuggestedMatches,
   getReconciliationStats,
-} from '@/lib/accounting/bankReconciliationService';
+} from '@/lib/accounting/bankReconciliation';
 
 export interface ReconciliationStats {
   reconciledCount: number;

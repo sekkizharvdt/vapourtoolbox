@@ -35,7 +35,7 @@ jest.mock('firebase/firestore', () => ({
 }));
 
 // Mock GL entry generator
-jest.mock('./glEntryGenerator', () => ({
+jest.mock('./glEntry', () => ({
   generateVendorPaymentGLEntries: jest.fn(),
   generateCustomerPaymentGLEntries: jest.fn(),
 }));
@@ -51,7 +51,7 @@ jest.mock('@vapour/logger', () => ({
 }));
 
 import { createPaymentWithAllocationsAtomic } from './paymentHelpers';
-import { generateVendorPaymentGLEntries } from './glEntryGenerator';
+import { generateVendorPaymentGLEntries } from './glEntry';
 import { Timestamp, type Firestore } from 'firebase/firestore';
 
 describe('paymentHelpers', () => {
