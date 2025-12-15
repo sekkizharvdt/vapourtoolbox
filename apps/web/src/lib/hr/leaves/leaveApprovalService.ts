@@ -2,12 +2,13 @@
  * Leave Approval Service
  *
  * Handles the leave request approval workflow.
- * Supports parallel approval (any one approver can approve/reject).
+ * Supports parallel approval (any user with APPROVE_LEAVES permission can approve/reject).
  */
 
 import { doc, updateDoc, Timestamp, getDocs, query, collection, where } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { PERMISSION_FLAGS_2 } from '@vapour/constants';
 import type { LeaveApprovalRecord } from '@vapour/types';
 import { getLeaveRequestById } from './leaveRequestService';
 import { addPendingLeave, confirmPendingLeave, removePendingLeave } from './leaveBalanceService';
@@ -15,33 +16,42 @@ import { addPendingLeave, confirmPendingLeave, removePendingLeave } from './leav
 // TODO: Integrate task notifications once the flow module is ready
 // import { createTaskNotification, completeTaskNotifications } from '@/lib/flow/taskNotificationService';
 
-// Designated approvers' emails (parallel approval - either can approve)
-const LEAVE_APPROVERS = ['revathi@vapourdesal.com', 'sekkizhar@vapourdesal.com'];
-
 /**
- * Get approver user IDs from emails
+ * Get approver user IDs based on APPROVE_LEAVES permission
+ * Users with APPROVE_LEAVES or MANAGE_HR_SETTINGS in permissions2 can approve leaves
  */
 async function getApproverUserIds(): Promise<string[]> {
   const { db } = getFirebase();
 
   try {
-    // Query users by email
-    const userIds: string[] = [];
+    // Query active internal users
+    const q = query(
+      collection(db, COLLECTIONS.USERS),
+      where('isActive', '==', true),
+      where('domain', '==', 'vapourdesal.com')
+    );
 
-    for (const email of LEAVE_APPROVERS) {
-      const q = query(
-        collection(db, COLLECTIONS.USERS),
-        where('email', '==', email),
-        where('isActive', '==', true)
-      );
+    const snapshot = await getDocs(q);
 
-      const snapshot = await getDocs(q);
-      if (!snapshot.empty && snapshot.docs[0]) {
-        userIds.push(snapshot.docs[0].id);
+    // Filter users who have APPROVE_LEAVES or MANAGE_HR_SETTINGS permission
+    const approverIds: string[] = [];
+    const APPROVE_LEAVES = PERMISSION_FLAGS_2.APPROVE_LEAVES; // 16384
+    const MANAGE_HR_SETTINGS = PERMISSION_FLAGS_2.MANAGE_HR_SETTINGS; // 8192
+
+    snapshot.docs.forEach((doc) => {
+      const userData = doc.data();
+      const permissions2 = userData.permissions2 || 0;
+
+      // Check if user has APPROVE_LEAVES or MANAGE_HR_SETTINGS permission
+      const hasApproveLeaves = (permissions2 & APPROVE_LEAVES) === APPROVE_LEAVES;
+      const hasManageHR = (permissions2 & MANAGE_HR_SETTINGS) === MANAGE_HR_SETTINGS;
+
+      if (hasApproveLeaves || hasManageHR) {
+        approverIds.push(doc.id);
       }
-    }
+    });
 
-    return userIds;
+    return approverIds;
   } catch (error) {
     console.error('[getApproverUserIds] Error:', error);
     // Return empty array - will be handled by caller

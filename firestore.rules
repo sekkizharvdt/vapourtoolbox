@@ -554,29 +554,10 @@ service cloud.firestore {
     }
 
     // ============================================
-    // Leave Requests
+    // Leave Requests (LEGACY - Removed)
+    // Note: Leave requests now use /hrLeaveRequests collection (see below)
+    // with proper hasPermission2(16384) for APPROVE_LEAVES
     // ============================================
-
-    match /leaveRequests/{requestId} {
-      // Read: Own requests OR have APPROVE_LEAVES permission
-      allow read: if isInternalUser() && (
-                     isOwner(resource.data.userId) ||
-                     hasPermission(512) // APPROVE_LEAVES
-                   );
-
-      // Create: Users can create their own leave requests
-      allow create: if isInternalUser() &&
-                       isOwner(request.resource.data.userId);
-
-      // Update: Own requests (if not approved) OR have APPROVE_LEAVES
-      allow update: if isInternalUser() && (
-                       (isOwner(resource.data.userId) &&
-                        resource.data.status == 'PENDING') ||
-                       hasPermission(512) // APPROVE_LEAVES
-                     );
-
-      allow delete: if isSuperAdmin();
-    }
 
     // ============================================
     // On-Duty Records

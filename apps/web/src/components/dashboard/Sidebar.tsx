@@ -52,6 +52,7 @@ import {
   Feedback as FeedbackIcon,
   History as AuditIcon,
   RequestQuote as RequestQuoteIcon,
+  Groups as GroupsIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 // NOTE: Using <img> instead of next/image because app uses output: 'export'
@@ -88,6 +89,7 @@ const moduleIcons: Record<string, React.ReactNode> = {
   'shape-database': <CalculateIcon />,
   'bought-out-database': <LocalShippingIcon />,
   'entity-management': <BusinessIcon />,
+  hr: <GroupsIcon />,
   // Admin section
   admin: <AdminIcon />,
   'admin-users': <PeopleIcon />,
@@ -115,6 +117,7 @@ const SIDEBAR_CATEGORIES: CategoryConfig[] = [
       'time-tracking', // Flow - open to all
       'document-management', // Documents - open to all
       'project-management', // Projects - requires VIEW_PROJECTS
+      'hr', // HR - requires VIEW_HR (permissions2)
     ],
   },
   {

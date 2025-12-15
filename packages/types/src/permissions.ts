@@ -20,7 +20,7 @@ export enum PermissionFlag {
 
   // Time Tracking (8-10)
   GENERATE_TIMESHEETS = 1 << 8, // 256
-  APPROVE_LEAVES = 1 << 9, // 512
+  // Note: APPROVE_LEAVES moved to PERMISSION_FLAGS_2 in @vapour/constants (bit 14 = 16384)
   MANAGE_ON_DUTY = 1 << 10, // 1024
 
   // Accounting (11-13)
@@ -144,7 +144,7 @@ export function getGrantedPermissions(permissions: number): PermissionFlag[] {
  */
 export const RolePermissions = {
   SUPER_ADMIN: createPermissions(
-    // All permissions
+    // All permissions (Note: APPROVE_LEAVES is now in permissions2 via @vapour/constants)
     PermissionFlag.MANAGE_USERS,
     PermissionFlag.ASSIGN_ROLES,
     PermissionFlag.CREATE_PROJECTS,
@@ -152,7 +152,6 @@ export const RolePermissions = {
     PermissionFlag.ASSIGN_PROJECTS,
     PermissionFlag.MANAGE_ENTITIES,
     PermissionFlag.GENERATE_TIMESHEETS,
-    PermissionFlag.APPROVE_LEAVES,
     PermissionFlag.MANAGE_ON_DUTY,
     PermissionFlag.CREATE_TRANSACTIONS,
     PermissionFlag.APPROVE_TRANSACTIONS,
@@ -173,11 +172,11 @@ export const RolePermissions = {
   ),
 
   DIRECTOR: createPermissions(
+    // Note: APPROVE_LEAVES is now in permissions2 via @vapour/constants
     PermissionFlag.VIEW_ALL_PROJECTS,
     PermissionFlag.ASSIGN_PROJECTS,
     PermissionFlag.MANAGE_ENTITIES,
     PermissionFlag.GENERATE_TIMESHEETS,
-    PermissionFlag.APPROVE_LEAVES,
     PermissionFlag.APPROVE_TRANSACTIONS,
     PermissionFlag.VIEW_REPORTS,
     PermissionFlag.APPROVE_PR,
@@ -226,11 +225,11 @@ export const RolePermissions = {
   ),
 
   ENGINEERING_HEAD: createPermissions(
+    // Note: APPROVE_LEAVES is now in permissions2 via @vapour/constants
     PermissionFlag.CREATE_PROJECTS,
     PermissionFlag.VIEW_ALL_PROJECTS,
     PermissionFlag.ASSIGN_PROJECTS,
-    PermissionFlag.GENERATE_TIMESHEETS,
-    PermissionFlag.APPROVE_LEAVES
+    PermissionFlag.GENERATE_TIMESHEETS
   ),
 
   ENGINEER: createPermissions(
@@ -246,9 +245,9 @@ export const RolePermissions = {
   ),
 
   HR_ADMIN: createPermissions(
+    // Note: APPROVE_LEAVES is now in permissions2 via @vapour/constants
     PermissionFlag.MANAGE_USERS,
-    PermissionFlag.ASSIGN_ROLES,
-    PermissionFlag.APPROVE_LEAVES
+    PermissionFlag.ASSIGN_ROLES
   ),
 
   TEAM_MEMBER: createPermissions(
@@ -293,7 +292,7 @@ export const PermissionDescriptions: Record<PermissionFlag, string> = {
   [PermissionFlag.ASSIGN_PROJECTS]: 'Assign projects',
   [PermissionFlag.MANAGE_ENTITIES]: 'Manage entities',
   [PermissionFlag.GENERATE_TIMESHEETS]: 'Generate timesheets',
-  [PermissionFlag.APPROVE_LEAVES]: 'Approve leaves',
+  // Note: APPROVE_LEAVES is now in permissions2 via @vapour/constants
   [PermissionFlag.MANAGE_ON_DUTY]: 'Manage on-duty',
   [PermissionFlag.CREATE_TRANSACTIONS]: 'Create transactions',
   [PermissionFlag.APPROVE_TRANSACTIONS]: 'Approve transactions',

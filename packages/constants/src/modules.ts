@@ -252,6 +252,20 @@ export const MODULES: Record<string, ModuleDefinition> = {
     category: 'application',
     priority: 11,
   },
+
+  HR: {
+    id: 'hr',
+    name: 'HR & Leave Management',
+    shortName: 'HR',
+    description: 'Leave requests, approvals, and HR management',
+    icon: 'Groups',
+    color: '#8B5CF6', // Purple
+    path: '/hr',
+    status: 'active',
+    requiredPermissions2: 4096, // VIEW_HR (PERMISSION_FLAGS_2)
+    category: 'application',
+    priority: 12,
+  },
 };
 
 /**

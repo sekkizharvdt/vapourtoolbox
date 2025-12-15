@@ -88,6 +88,42 @@ export const moneySchema = z.object({
 });
 
 /**
+ * Attachment schema (generic for enquiries, proposals, etc.)
+ */
+export const attachmentSchema = z.object({
+  id: z.string().min(1),
+  fileName: z.string().min(1),
+  fileUrl: z.string().url().optional(), // URL might be generated later
+  storagePath: z.string().optional(),
+  fileSize: z.number().positive().optional(),
+  mimeType: z.string().optional(),
+  description: z.string().optional(),
+});
+
+/**
+ * Price Line Item schema (for proposal pricing)
+ */
+export const priceLineItemSchema = z.object({
+  id: z.string().min(1),
+  lineNumber: z.string(),
+  description: z.string().min(1),
+  amount: moneySchema,
+  category: z.enum(['EQUIPMENT', 'MATERIALS', 'LABOUR', 'ENGINEERING', 'OTHER']).optional(),
+  linkedScopeItemId: z.string().optional(),
+});
+
+/**
+ * Tax Line Item schema (for proposal pricing)
+ */
+export const taxLineItemSchema = z.object({
+  id: z.string().min(1),
+  taxType: z.string().min(1), // GST, IGST, CGST, SGST, etc.
+  taxRate: z.number().min(0).max(100),
+  taxAmount: moneySchema,
+  appliedTo: z.enum(['SUBTOTAL', 'LINE_ITEM']).optional(),
+});
+
+/**
  * User schema
  */
 export const userSchema = z.object({
@@ -830,7 +866,7 @@ export const createEnquiryInputSchema = z.object({
   estimatedBudget: moneySchema.optional(),
   receivedDate: z.date(),
   requirements: z.array(z.string()).default([]),
-  attachments: z.array(z.any()).default([]),
+  attachments: z.array(attachmentSchema.partial()).default([]),
   assignedToUserId: z.string().optional(),
 });
 
@@ -860,7 +896,7 @@ export const createEnquiryFormSchema = z.object({
   receivedDate: z.date(), // UI uses Date objects
   requiredDeliveryDate: z.date().optional(),
   requirements: z.array(z.string()).default([]),
-  attachments: z.array(z.any()).default([]),
+  attachments: z.array(attachmentSchema.partial()).default([]),
   assignedToUserId: z.string().optional(),
 });
 
@@ -947,44 +983,6 @@ export const scopeOfWorkSchema = z.object({
 });
 
 /**
- * Create Proposal Input schema
- */
-export const createProposalSchema = z.object({
-  enquiryId: z.string().min(1, 'Enquiry ID is required'),
-  title: z.string().min(3, 'Title must be at least 3 characters'),
-  clientId: z.string().min(1, 'Client is required'),
-  validityDate: z.date(), // UI uses Date
-  scopeOfWork: z.object({
-    summary: z.string().min(10, 'Summary must be at least 10 characters'),
-    objectives: z.array(z.string()).min(1, 'At least one objective is required'),
-    deliverables: z.array(z.string()).min(1, 'At least one deliverable is required'),
-    inclusions: z.array(z.string()).default([]),
-    exclusions: z.array(z.string()).default([]),
-    assumptions: z.array(z.string()).default([]),
-  }),
-  deliveryPeriod: z.object({
-    durationInWeeks: z.number().positive(),
-    description: z.string(),
-    milestones: z.array(z.any()).default([]), // TODO: Define milestone schema
-  }),
-  paymentTerms: z.string().min(10, 'Payment terms are required'),
-  terms: z
-    .object({
-      warranty: z.string().optional(),
-      guaranteeBank: z.string().optional(),
-      performanceBond: z.string().optional(),
-      liquidatedDamages: z.string().optional(),
-      forceMajeure: z.string().optional(),
-      disputeResolution: z.string().optional(),
-      customTerms: z.array(z.string()).default([]),
-    })
-    .optional(),
-});
-
-/**
- * Update Proposal Input schema
- */
-/**
  * Proposal Milestone schema
  */
 export const proposalMilestoneSchema = z.object({
@@ -1005,6 +1003,41 @@ export const deliveryPeriodSchema = z.object({
 });
 
 /**
+ * Create Proposal Input schema
+ */
+export const createProposalSchema = z.object({
+  enquiryId: z.string().min(1, 'Enquiry ID is required'),
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  clientId: z.string().min(1, 'Client is required'),
+  validityDate: z.date(), // UI uses Date
+  scopeOfWork: z.object({
+    summary: z.string().min(10, 'Summary must be at least 10 characters'),
+    objectives: z.array(z.string()).min(1, 'At least one objective is required'),
+    deliverables: z.array(z.string()).min(1, 'At least one deliverable is required'),
+    inclusions: z.array(z.string()).default([]),
+    exclusions: z.array(z.string()).default([]),
+    assumptions: z.array(z.string()).default([]),
+  }),
+  deliveryPeriod: z.object({
+    durationInWeeks: z.number().positive(),
+    description: z.string(),
+    milestones: z.array(proposalMilestoneSchema.partial()).default([]),
+  }),
+  paymentTerms: z.string().min(10, 'Payment terms are required'),
+  terms: z
+    .object({
+      warranty: z.string().optional(),
+      guaranteeBank: z.string().optional(),
+      performanceBond: z.string().optional(),
+      liquidatedDamages: z.string().optional(),
+      forceMajeure: z.string().optional(),
+      disputeResolution: z.string().optional(),
+      customTerms: z.array(z.string()).default([]),
+    })
+    .optional(),
+});
+
+/**
  * Update Proposal Input schema
  */
 export const updateProposalSchema = z.object({
@@ -1014,10 +1047,10 @@ export const updateProposalSchema = z.object({
   deliveryPeriod: deliveryPeriodSchema.partial().optional(),
   pricing: z
     .object({
-      currency: z.string().optional(), // TODO: Use currency enum
-      lineItems: z.array(z.any()).optional(),
+      currency: z.enum(['INR', 'USD', 'EUR', 'GBP', 'SGD', 'AED']).optional(),
+      lineItems: z.array(priceLineItemSchema.partial()).optional(),
       subtotal: moneySchema.optional(),
-      taxItems: z.array(z.any()).optional(),
+      taxItems: z.array(taxLineItemSchema.partial()).optional(),
       totalAmount: moneySchema.optional(),
       paymentTerms: z.string().optional(),
       advancePaymentPercentage: z.number().optional(),
