@@ -134,11 +134,11 @@ export async function withErrorHandling<T>(
 **Tasks:**
 
 - [x] Create `lib/utils/errorHandling.ts` utility
-- [x] Update 19/23 files to use standard pattern (76% complete)
+- [x] Update 25/25 files to use standard pattern (100% complete)
 - [x] Ensure critical operations re-throw errors
 - [ ] Add user-facing error notifications where appropriate
 
-**Files updated (19/23):**
+**Files updated (25/25):**
 
 1. ✅ `lib/accounting/auditLogger.ts`
 2. ✅ `lib/accounting/bankReconciliation/autoMatching.ts`
@@ -151,18 +151,20 @@ export async function withErrorHandling<T>(
 9. ✅ `lib/admin/systemStatusService.ts`
 10. ✅ `lib/audit/auditLogService.ts`
 11. ✅ `lib/audit/clientAuditService.ts`
-12. ⏳ `lib/companyDocuments/companyDocumentService.ts` (remaining)
-13. ✅ `lib/documents/submissionService.ts`
-14. ✅ `lib/firebase.ts`
-15. ⏳ `lib/hr/leaves/leaveBalanceService.ts` (remaining)
-16. ⏳ `lib/hr/leaves/leaveRequestService.ts` (remaining)
-17. ✅ `lib/initializeChartOfAccounts.ts`
-18. ✅ `lib/notifications/notification/crud.ts`
-19. ✅ `lib/procurement/offer/evaluation.ts`
-20. ✅ `lib/projects/projectService.ts`
-21. ✅ `lib/shapes/formulaEvaluator.ts`
-22. ⏳ `lib/ssot/streamCalculations.ts` (remaining)
-23. ✅ `lib/tasks/channelService.ts`
+12. ✅ `lib/companyDocuments/companyDocumentService.ts`
+13. ✅ `lib/documents/crsService.ts`
+14. ✅ `lib/documents/submissionService.ts`
+15. ✅ `lib/firebase.ts`
+16. ✅ `lib/hr/leaves/leaveBalanceService.ts`
+17. ✅ `lib/hr/leaves/leaveRequestService.ts`
+18. ✅ `lib/initializeChartOfAccounts.ts`
+19. ✅ `lib/notifications/notification/crud.ts`
+20. ✅ `lib/procurement/offer/evaluation.ts`
+21. ✅ `lib/projects/projectService.ts`
+22. ✅ `lib/shapes/formulaEvaluator.ts`
+23. ✅ `lib/ssot/streamCalculations.ts`
+24. ✅ `lib/tasks/channelService.ts`
+25. ✅ `lib/tasks/threadService.ts`
 
 ---
 
@@ -195,9 +197,9 @@ logger.error('Failed to fetch data', { error });
 
 **Tasks:**
 
-- [ ] Add logger import to 25 files
-- [ ] Replace 44 console.error calls
-- [ ] Ensure error objects are properly serialized
+- [x] Add logger import to 25 files
+- [x] Replace 44 console.error calls
+- [x] Ensure error objects are properly serialized
 - [ ] Verify log output in development
 
 ---
