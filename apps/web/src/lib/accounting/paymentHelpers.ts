@@ -18,12 +18,15 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { PaymentAllocation, TransactionStatus } from '@vapour/types';
 import {
   generateCustomerPaymentGLEntries,
   generateVendorPaymentGLEntries,
   type PaymentGLInput,
 } from './glEntry';
+
+const logger = createLogger({ context: 'paymentHelpers' });
 
 /**
  * Update invoice/bill status based on payment allocations
@@ -43,7 +46,7 @@ export async function updateTransactionStatusAfterPayment(
     const transactionDoc = await getDoc(transactionRef);
 
     if (!transactionDoc.exists()) {
-      console.error(`[updateTransactionStatusAfterPayment] Transaction ${transactionId} not found`);
+      logger.error('Transaction not found when updating status after payment', { transactionId });
       return;
     }
 
@@ -67,10 +70,11 @@ export async function updateTransactionStatusAfterPayment(
       updatedAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error(
-      '[updateTransactionStatusAfterPayment] Error updating transaction status:',
-      error
-    );
+    logger.error('Error updating transaction status after payment', {
+      error,
+      transactionId,
+      paidAmount,
+    });
     throw error;
   }
 }
@@ -141,7 +145,7 @@ export async function getOutstandingAmount(
       outstanding: totalAmount - totalPaid,
     };
   } catch (error) {
-    console.error('[getOutstandingAmount] Error calculating outstanding amount:', error);
+    logger.error('Error calculating outstanding amount', { error, transactionId, transactionType });
     throw error;
   }
 }
@@ -269,10 +273,10 @@ export async function createPaymentWithAllocationsAtomic(
 
     return paymentRef.id;
   } catch (error) {
-    console.error(
-      '[createPaymentWithAllocationsAtomic] Atomic operation failed, rolling back:',
-      error
-    );
+    logger.error('Atomic payment creation failed, rolling back', {
+      error,
+      allocationsCount: allocations.length,
+    });
     throw error; // Batch automatically rolls back on error
   }
 }
@@ -392,10 +396,7 @@ export async function updatePaymentWithAllocationsAtomic(
     // 5. Commit all operations atomically
     await batch.commit();
   } catch (error) {
-    console.error(
-      '[updatePaymentWithAllocationsAtomic] Atomic operation failed, rolling back:',
-      error
-    );
+    logger.error('Atomic payment update failed, rolling back', { error, paymentId });
     throw error;
   }
 }

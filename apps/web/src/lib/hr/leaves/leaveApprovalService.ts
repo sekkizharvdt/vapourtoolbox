@@ -17,9 +17,12 @@ import {
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { LeaveApprovalRecord } from '@vapour/types';
 import { getLeaveRequestById } from './leaveRequestService';
 import { addPendingLeave, confirmPendingLeave, removePendingLeave } from './leaveBalanceService';
+
+const logger = createLogger({ context: 'leaveApprovalService' });
 
 // TODO: Integrate task notifications once the flow module is ready
 // import { createTaskNotification, completeTaskNotifications } from '@/lib/flow/taskNotificationService';
@@ -56,13 +59,12 @@ async function getLeaveApproverEmails(): Promise<string[]> {
     }
 
     // Fallback to defaults if config not found
-    console.warn(
-      '[getLeaveApproverEmails] HR config not found, using default approvers. ' +
-        'Please configure hrConfig/leaveSettings in Firestore.'
+    logger.warn(
+      'HR config not found, using default approvers. Configure hrConfig/leaveSettings in Firestore.'
     );
     return DEFAULT_LEAVE_APPROVERS;
   } catch (error) {
-    console.error('[getLeaveApproverEmails] Error fetching config:', error);
+    logger.error('Failed to fetch leave approver config', { error });
     return DEFAULT_LEAVE_APPROVERS;
   }
 }
@@ -92,7 +94,7 @@ async function getApproverUserIds(): Promise<string[]> {
 
     return userIds;
   } catch (error) {
-    console.error('[getApproverUserIds] Error:', error);
+    logger.error('Failed to get approver user IDs', { error });
     // Return empty array - will be handled by caller
     return [];
   }
@@ -172,7 +174,7 @@ export async function submitLeaveRequest(
     // }
     // TODO: Notifications pending flow module integration
   } catch (error) {
-    console.error('[submitLeaveRequest] Error:', error);
+    logger.error('Failed to submit leave request', { error, requestId, userId });
     if (error instanceof Error) {
       throw error;
     }
@@ -249,7 +251,7 @@ export async function approveLeaveRequest(
     // });
     // TODO: Notifications pending flow module integration
   } catch (error) {
-    console.error('[approveLeaveRequest] Error:', error);
+    logger.error('Failed to approve leave request', { error, requestId, approverId });
     if (error instanceof Error) {
       throw error;
     }
@@ -331,7 +333,7 @@ export async function rejectLeaveRequest(
     // });
     // TODO: Notifications pending flow module integration
   } catch (error) {
-    console.error('[rejectLeaveRequest] Error:', error);
+    logger.error('Failed to reject leave request', { error, requestId, approverId });
     if (error instanceof Error) {
       throw error;
     }
@@ -402,7 +404,7 @@ export async function cancelLeaveRequest(
     }
     // Leave request cancelled successfully
   } catch (error) {
-    console.error('[cancelLeaveRequest] Error:', error);
+    logger.error('Failed to cancel leave request', { error, requestId, userId });
     if (error instanceof Error) {
       throw error;
     }

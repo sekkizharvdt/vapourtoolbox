@@ -142,7 +142,7 @@ export async function createOffer(
   try {
     await incrementOffersReceived(input.rfqId, input.vendorName);
   } catch (err) {
-    console.error('[offerService] Failed to increment RFQ offers count:', err);
+    logger.error('Failed to increment RFQ offers count', { error: err, rfqId: input.rfqId });
     // Don't fail offer creation if counter update fails
     // This is a non-critical update that can be manually corrected
   }

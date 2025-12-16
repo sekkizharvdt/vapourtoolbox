@@ -6,7 +6,10 @@
 import { doc, updateDoc, Timestamp, getDoc } from 'firebase/firestore';
 import { getFirebase } from '../firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { DocumentRequirement, Project } from '@vapour/types';
+
+const logger = createLogger({ context: 'documentRequirementService' });
 
 /**
  * Add document requirement to project charter
@@ -52,7 +55,7 @@ export async function addDocumentRequirement(
 
     return requirementId;
   } catch (error) {
-    console.error('[addDocumentRequirement] Error:', error);
+    logger.error('Failed to add document requirement', { error, projectId });
     throw new Error('Failed to add document requirement');
   }
 }
@@ -92,7 +95,7 @@ export async function updateDocumentRequirement(
       updatedBy: userId,
     });
   } catch (error) {
-    console.error('[updateDocumentRequirement] Error:', error);
+    logger.error('Failed to update document requirement', { error, projectId, requirementId });
     throw new Error('Failed to update document requirement');
   }
 }
@@ -129,7 +132,7 @@ export async function deleteDocumentRequirement(
       updatedBy: userId,
     });
   } catch (error) {
-    console.error('[deleteDocumentRequirement] Error:', error);
+    logger.error('Failed to delete document requirement', { error, projectId, requirementId });
     throw new Error('Failed to delete document requirement');
   }
 }
@@ -174,7 +177,12 @@ export async function linkDocumentToRequirement(
       updatedBy: userId,
     });
   } catch (error) {
-    console.error('[linkDocumentToRequirement] Error:', error);
+    logger.error('Failed to link document to requirement', {
+      error,
+      projectId,
+      requirementId,
+      documentId,
+    });
     throw new Error('Failed to link document to requirement');
   }
 }
@@ -217,7 +225,12 @@ export async function updateRequirementFromDocumentStatus(
       updatedBy: userId,
     });
   } catch (error) {
-    console.error('[updateRequirementFromDocumentStatus] Error:', error);
+    logger.error('Failed to update requirement from document status', {
+      error,
+      projectId,
+      requirementId,
+      newStatus,
+    });
     throw new Error('Failed to update requirement status');
   }
 }
@@ -250,7 +263,7 @@ export async function findMatchingRequirements(
         !req.linkedDocumentId
     );
   } catch (error) {
-    console.error('[findMatchingRequirements] Error:', error);
+    logger.error('Failed to find matching requirements', { error, projectId, documentCategory });
     return [];
   }
 }

@@ -6,7 +6,10 @@
 import { doc, updateDoc, Timestamp, getDoc, writeBatch, collection } from 'firebase/firestore';
 import { getFirebase } from '../firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { ProcurementItem, Project } from '@vapour/types';
+
+const logger = createLogger({ context: 'charterProcurementService' });
 
 /**
  * Add procurement item to project charter
@@ -52,7 +55,7 @@ export async function addProcurementItem(
 
     return itemId;
   } catch (error) {
-    console.error('[addProcurementItem] Error:', error);
+    logger.error('Failed to add procurement item', { error, projectId });
     throw new Error('Failed to add procurement item');
   }
 }
@@ -92,7 +95,7 @@ export async function updateProcurementItem(
       updatedBy: userId,
     });
   } catch (error) {
-    console.error('[updateProcurementItem] Error:', error);
+    logger.error('Failed to update procurement item', { error, projectId, itemId });
     throw new Error('Failed to update procurement item');
   }
 }
@@ -129,7 +132,7 @@ export async function deleteProcurementItem(
       updatedBy: userId,
     });
   } catch (error) {
-    console.error('[deleteProcurementItem] Error:', error);
+    logger.error('Failed to delete procurement item', { error, projectId, itemId });
     throw new Error('Failed to delete procurement item');
   }
 }
@@ -319,7 +322,7 @@ export async function createPRFromCharterItem(
       prNumber,
     };
   } catch (error) {
-    console.error('[createPRFromCharterItem] Error:', error);
+    logger.error('Failed to create PR from charter item', { error, projectId, itemId: item.id });
     throw new Error('Failed to create purchase request');
   }
 }
@@ -347,7 +350,7 @@ export async function createPRsFromCharterItems(
         prNumber: result.prNumber,
       });
     } catch (error) {
-      console.error(`[createPRsFromCharterItems] Error creating PR for item ${item.id}:`, error);
+      logger.error('Failed to create PR for charter item', { error, projectId, itemId: item.id });
       // Continue with next item even if one fails
     }
   }
@@ -399,7 +402,7 @@ export async function syncProcurementItemStatus(
       updatedAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error('[syncProcurementItemStatus] Error:', error);
+    logger.error('Failed to sync procurement item status', { error, projectId, itemId, status });
     throw new Error('Failed to sync procurement item status');
   }
 }

@@ -7,6 +7,7 @@
 import { doc, getDoc, updateDoc, Timestamp, writeBatch } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { PurchaseRequest } from '@vapour/types';
 import {
   createTaskNotification,
@@ -16,6 +17,8 @@ import {
 import { getPurchaseRequestItems } from './crud';
 import { validateProjectBudget } from './utils';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
+
+const logger = createLogger({ context: 'purchaseRequestWorkflow' });
 
 /**
  * Submit Purchase Request for approval
@@ -95,7 +98,7 @@ export async function submitPurchaseRequestForApproval(
       });
     }
   } catch (error) {
-    console.error('[submitPurchaseRequestForApproval] Error:', error);
+    logger.error('Failed to submit purchase request', { error, prId });
     throw error;
   }
 }
@@ -223,7 +226,7 @@ export async function approvePurchaseRequest(
       projectId: pr.projectId,
     });
   } catch (error) {
-    console.error('[approvePurchaseRequest] Error:', error);
+    logger.error('Failed to approve purchase request', { error, prId });
     throw error;
   }
 }
@@ -331,7 +334,7 @@ export async function rejectPurchaseRequest(
       projectId: pr.projectId,
     });
   } catch (error) {
-    console.error('[rejectPurchaseRequest] Error:', error);
+    logger.error('Failed to reject purchase request', { error, prId });
     throw error;
   }
 }
@@ -386,7 +389,7 @@ export async function addPurchaseRequestComment(
       projectId: pr.projectId,
     });
   } catch (error) {
-    console.error('[addPurchaseRequestComment] Error:', error);
+    logger.error('Failed to add purchase request comment', { error, prId });
     throw error;
   }
 }

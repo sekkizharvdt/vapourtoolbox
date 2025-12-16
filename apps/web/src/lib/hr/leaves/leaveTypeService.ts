@@ -19,7 +19,10 @@ import {
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { LeaveType, LeaveTypeCode } from '@vapour/types';
+
+const logger = createLogger({ context: 'leaveTypeService' });
 
 /**
  * Input for creating a leave type
@@ -84,7 +87,7 @@ export async function getLeaveTypes(includeInactive = false): Promise<LeaveType[
       return data;
     });
   } catch (error) {
-    console.error('[getLeaveTypes] Error:', error);
+    logger.error('Failed to get leave types', { error, includeInactive });
     throw new Error('Failed to get leave types');
   }
 }
@@ -109,7 +112,7 @@ export async function getLeaveTypeById(id: string): Promise<LeaveType | null> {
     };
     return data;
   } catch (error) {
-    console.error('[getLeaveTypeById] Error:', error);
+    logger.error('Failed to get leave type by ID', { error, id });
     throw new Error('Failed to get leave type');
   }
 }
@@ -141,7 +144,7 @@ export async function getLeaveTypeByCode(code: LeaveTypeCode): Promise<LeaveType
     };
     return data;
   } catch (error) {
-    console.error('[getLeaveTypeByCode] Error:', error);
+    logger.error('Failed to get leave type by code', { error, code });
     throw new Error('Failed to get leave type');
   }
 }
@@ -187,7 +190,7 @@ export async function createLeaveType(
 
     return leaveTypeRef.id;
   } catch (error) {
-    console.error('[createLeaveType] Error:', error);
+    logger.error('Failed to create leave type', { error, code: input.code });
     if (error instanceof Error) {
       throw error;
     }
@@ -214,7 +217,7 @@ export async function updateLeaveType(
       updatedBy: userId,
     });
   } catch (error) {
-    console.error('[updateLeaveType] Error:', error);
+    logger.error('Failed to update leave type', { error, id });
     throw new Error('Failed to update leave type');
   }
 }

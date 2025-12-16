@@ -377,7 +377,7 @@ export async function completeGR(
   try {
     await createBillFromGoodsReceipt(db, gr, userId, userEmail);
   } catch (err) {
-    console.error('[goodsReceiptService] Error creating bill:', err);
+    logger.error('Error creating bill from GR', { error: err, grId });
     // Don't fail GR completion if bill creation fails
   }
 
@@ -409,9 +409,8 @@ export async function approveGRForPayment(
 
   // Complete the GR_READY_FOR_PAYMENT task
   try {
-    const { findTaskNotificationByEntity, completeActionableTask } = await import(
-      '@/lib/tasks/taskNotificationService'
-    );
+    const { findTaskNotificationByEntity, completeActionableTask } =
+      await import('@/lib/tasks/taskNotificationService');
     const task = await findTaskNotificationByEntity('GOODS_RECEIPT', grId, 'GR_READY_FOR_PAYMENT', [
       'pending',
       'in_progress',
@@ -451,7 +450,7 @@ export async function approveGRForPayment(
   try {
     await createPaymentFromApprovedReceipt(db, gr, bankAccountId, userId, userEmail);
   } catch (err) {
-    console.error('[goodsReceiptService] Error creating payment:', err);
+    logger.error('Error creating payment from GR', { error: err, grId });
   }
 
   logger.info('Goods Receipt approved for payment', { grId });

@@ -18,8 +18,11 @@ import {
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { LeaveBalance, LeaveTypeCode } from '@vapour/types';
 import { getLeaveTypes } from './leaveTypeService';
+
+const logger = createLogger({ context: 'leaveBalanceService' });
 
 /**
  * Get current fiscal year (Jan 1 - Dec 31)
@@ -55,7 +58,7 @@ export async function getUserLeaveBalances(
       return data;
     });
   } catch (error) {
-    console.error('[getUserLeaveBalances] Error:', error);
+    logger.error('Failed to get user leave balances', { error, userId, fiscalYear: year });
     throw new Error('Failed to get leave balances');
   }
 }
@@ -80,7 +83,7 @@ export async function getLeaveBalanceById(id: string): Promise<LeaveBalance | nu
     };
     return data;
   } catch (error) {
-    console.error('[getLeaveBalanceById] Error:', error);
+    logger.error('Failed to get leave balance by ID', { error, id });
     throw new Error('Failed to get leave balance');
   }
 }
@@ -118,7 +121,12 @@ export async function getUserLeaveBalanceByType(
     };
     return data;
   } catch (error) {
-    console.error('[getUserLeaveBalanceByType] Error:', error);
+    logger.error('Failed to get user leave balance by type', {
+      error,
+      userId,
+      leaveTypeCode,
+      fiscalYear: year,
+    });
     throw new Error('Failed to get leave balance');
   }
 }
@@ -181,7 +189,7 @@ export async function initializeUserLeaveBalances(
 
     await batch.commit();
   } catch (error) {
-    console.error('[initializeUserLeaveBalances] Error:', error);
+    logger.error('Failed to initialize user leave balances', { error, userId, fiscalYear: year });
     throw new Error('Failed to initialize leave balances');
   }
 }
@@ -224,7 +232,7 @@ export async function updateLeaveBalance(
       updatedBy: userId,
     });
   } catch (error) {
-    console.error('[updateLeaveBalance] Error:', error);
+    logger.error('Failed to update leave balance', { error, balanceId, updates });
     throw new Error('Failed to update leave balance');
   }
 }
@@ -345,7 +353,11 @@ export async function getTeamLeaveBalances(
 
     return batches;
   } catch (error) {
-    console.error('[getTeamLeaveBalances] Error:', error);
+    logger.error('Failed to get team leave balances', {
+      error,
+      userCount: userIds.length,
+      fiscalYear: year,
+    });
     throw new Error('Failed to get team leave balances');
   }
 }
