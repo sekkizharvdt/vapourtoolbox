@@ -60,9 +60,10 @@ export async function createProjectCostCentre(
       variance: budgetAmount !== null ? budgetAmount : null,
       isActive: true,
       autoCreated: true,
-      createdAt: serverTimestamp() as unknown as Date,
+      // Note: serverTimestamp() returns a FieldValue that Firestore converts to Date on read
+      createdAt: serverTimestamp() as ReturnType<typeof serverTimestamp> & Date,
       createdBy: userId,
-      updatedAt: serverTimestamp() as unknown as Date,
+      updatedAt: serverTimestamp() as ReturnType<typeof serverTimestamp> & Date,
       updatedBy: userId,
     };
 

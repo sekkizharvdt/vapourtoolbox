@@ -8,21 +8,16 @@
 import { doc, updateDoc, getDoc, Timestamp, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import type { CustomerInvoice, TransactionStatus } from '@vapour/types';
+import type { CustomerInvoice, TransactionStatus, TransactionApprovalRecord } from '@vapour/types';
 import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
 
 const logger = createLogger({ context: 'invoiceApproval' });
 
 /**
  * Approval record for audit trail
+ * @deprecated Use TransactionApprovalRecord from @vapour/types instead
  */
-export interface InvoiceApprovalRecord {
-  action: 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'REQUESTED_CHANGES';
-  userId: string;
-  userName: string;
-  timestamp: Date;
-  comments?: string;
-}
+export type InvoiceApprovalRecord = TransactionApprovalRecord;
 
 /**
  * Submit invoice for approval
@@ -68,11 +63,7 @@ export async function submitInvoiceForApproval(
       submittedByUserName: userName,
       assignedApproverId: approverId,
       assignedApproverName: approverName,
-      approvalHistory: [
-        ...((invoice as unknown as { approvalHistory?: InvoiceApprovalRecord[] }).approvalHistory ||
-          []),
-        approvalRecord,
-      ],
+      approvalHistory: [...(invoice.approvalHistory || []), approvalRecord],
       updatedAt: Timestamp.now(),
       updatedBy: userId,
     });
@@ -145,17 +136,13 @@ export async function approveInvoice(
       status: 'APPROVED' as TransactionStatus,
       approvedBy: userId,
       approvedAt: Timestamp.now(),
-      approvalHistory: [
-        ...((invoice as unknown as { approvalHistory?: InvoiceApprovalRecord[] }).approvalHistory ||
-          []),
-        approvalRecord,
-      ],
+      approvalHistory: [...(invoice.approvalHistory || []), approvalRecord],
       updatedAt: Timestamp.now(),
       updatedBy: userId,
     });
 
     // Notify the submitter that their invoice was approved
-    const submittedBy = (invoice as unknown as { submittedByUserId?: string }).submittedByUserId;
+    const submittedBy = invoice.submittedByUserId;
     if (submittedBy) {
       await createTaskNotification({
         type: 'informational',
@@ -222,17 +209,13 @@ export async function rejectInvoice(
     await updateDoc(invoiceRef, {
       status: 'DRAFT' as TransactionStatus,
       rejectionReason: comments,
-      approvalHistory: [
-        ...((invoice as unknown as { approvalHistory?: InvoiceApprovalRecord[] }).approvalHistory ||
-          []),
-        approvalRecord,
-      ],
+      approvalHistory: [...(invoice.approvalHistory || []), approvalRecord],
       updatedAt: Timestamp.now(),
       updatedBy: userId,
     });
 
     // Notify the submitter that their invoice was rejected
-    const submittedBy = (invoice as unknown as { submittedByUserId?: string }).submittedByUserId;
+    const submittedBy = invoice.submittedByUserId;
     if (submittedBy) {
       await createTaskNotification({
         type: 'informational',

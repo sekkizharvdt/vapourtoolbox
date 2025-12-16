@@ -8,21 +8,16 @@
 import { doc, updateDoc, getDoc, Timestamp, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import type { VendorBill, TransactionStatus } from '@vapour/types';
+import type { VendorBill, TransactionStatus, TransactionApprovalRecord } from '@vapour/types';
 import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
 
 const logger = createLogger({ context: 'billApproval' });
 
 /**
  * Approval record for audit trail
+ * @deprecated Use TransactionApprovalRecord from @vapour/types instead
  */
-export interface BillApprovalRecord {
-  action: 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'REQUESTED_CHANGES';
-  userId: string;
-  userName: string;
-  timestamp: Date;
-  comments?: string;
-}
+export type BillApprovalRecord = TransactionApprovalRecord;
 
 /**
  * Submit bill for approval
@@ -68,10 +63,7 @@ export async function submitBillForApproval(
       submittedByUserName: userName,
       assignedApproverId: approverId,
       assignedApproverName: approverName,
-      approvalHistory: [
-        ...((bill as unknown as { approvalHistory?: BillApprovalRecord[] }).approvalHistory || []),
-        approvalRecord,
-      ],
+      approvalHistory: [...(bill.approvalHistory || []), approvalRecord],
       updatedAt: Timestamp.now(),
       updatedBy: userId,
     });
@@ -144,16 +136,13 @@ export async function approveBill(
       status: 'APPROVED' as TransactionStatus,
       approvedBy: userId,
       approvedAt: Timestamp.now(),
-      approvalHistory: [
-        ...((bill as unknown as { approvalHistory?: BillApprovalRecord[] }).approvalHistory || []),
-        approvalRecord,
-      ],
+      approvalHistory: [...(bill.approvalHistory || []), approvalRecord],
       updatedAt: Timestamp.now(),
       updatedBy: userId,
     });
 
     // Notify the submitter that their bill was approved
-    const submittedBy = (bill as unknown as { submittedByUserId?: string }).submittedByUserId;
+    const submittedBy = bill.submittedByUserId;
     if (submittedBy) {
       try {
         await createTaskNotification({
@@ -229,16 +218,13 @@ export async function rejectBill(
     await updateDoc(billRef, {
       status: 'DRAFT' as TransactionStatus,
       rejectionReason: comments,
-      approvalHistory: [
-        ...((bill as unknown as { approvalHistory?: BillApprovalRecord[] }).approvalHistory || []),
-        approvalRecord,
-      ],
+      approvalHistory: [...(bill.approvalHistory || []), approvalRecord],
       updatedAt: Timestamp.now(),
       updatedBy: userId,
     });
 
     // Notify the submitter that their bill was rejected
-    const submittedBy = (bill as unknown as { submittedByUserId?: string }).submittedByUserId;
+    const submittedBy = bill.submittedByUserId;
     if (submittedBy) {
       try {
         await createTaskNotification({

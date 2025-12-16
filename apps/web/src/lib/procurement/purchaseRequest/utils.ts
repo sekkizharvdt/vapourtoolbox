@@ -78,7 +78,7 @@ export async function generatePRNumber(): Promise<string> {
 export async function validateProjectBudget(
   pr: PurchaseRequest,
   items: PurchaseRequestItem[]
-): Promise<{ valid: boolean; error?: string; details?: Record<string, number> }> {
+): Promise<{ valid: boolean; error?: string; details?: Record<string, string | number> }> {
   const { db } = getFirebase();
 
   try {
@@ -86,10 +86,7 @@ export async function validateProjectBudget(
     if (!pr.projectId) {
       return {
         valid: true,
-        details: { message: 'No project linked - budget validation skipped' } as unknown as Record<
-          string,
-          number
-        >,
+        details: { message: 'No project linked - budget validation skipped' },
       };
     }
 
@@ -104,16 +101,13 @@ export async function validateProjectBudget(
       };
     }
 
-    const project = projectDoc.data() as unknown as Project;
+    const project = projectDoc.data() as Omit<Project, 'id'>;
 
     // Check if project has charter with budget
     if (!project.charter?.budgetLineItems || project.charter.budgetLineItems.length === 0) {
       return {
         valid: true,
-        details: { message: 'No charter budget defined - validation skipped' } as unknown as Record<
-          string,
-          number
-        >,
+        details: { message: 'No charter budget defined - validation skipped' },
       };
     }
 

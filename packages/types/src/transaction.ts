@@ -53,6 +53,18 @@ export type PaymentMethod =
   | 'OTHER';
 
 /**
+ * Transaction Approval Record
+ * Audit trail for approval workflow actions
+ */
+export interface TransactionApprovalRecord {
+  action: 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'REQUESTED_CHANGES';
+  userId: string;
+  userName: string;
+  timestamp: Date;
+  comments?: string;
+}
+
+/**
  * Base Transaction Interface
  * All transaction types extend this
  */
@@ -96,6 +108,14 @@ export interface BaseTransaction {
   approvedBy?: string;
   approvedAt?: Date;
   rejectionReason?: string;
+
+  // Approval workflow (optional - used by bills and invoices)
+  submittedAt?: Date;
+  submittedByUserId?: string;
+  submittedByUserName?: string;
+  assignedApproverId?: string;
+  assignedApproverName?: string;
+  approvalHistory?: TransactionApprovalRecord[];
 
   // References
   reference?: string; // Alternative reference field
