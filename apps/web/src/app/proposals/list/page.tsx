@@ -38,7 +38,7 @@ import ViewIcon from '@mui/icons-material/Visibility';
 import { PageHeader, FilterBar, LoadingState, EmptyState, TableActionCell } from '@vapour/ui';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
-import { listProposals } from '@/lib/proposal/proposalService';
+import { listProposals } from '@/lib/proposals/proposalService';
 import type { Proposal, ProposalStatus } from '@vapour/types';
 import { Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';

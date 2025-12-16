@@ -95,7 +95,8 @@ export async function createProposal(
     if (!enquiryDoc.exists()) {
       throw new Error('Enquiry not found');
     }
-    const enquiry = { id: enquiryDoc.id, ...enquiryDoc.data() } as Enquiry;
+    const enquiryData = enquiryDoc.data() as Omit<Enquiry, 'id'>;
+    const enquiry: Enquiry = { id: enquiryDoc.id, ...enquiryData };
 
     // Get client details
     const clientDoc = await getDoc(doc(db, COLLECTIONS.ENTITIES, input.clientId));
@@ -175,7 +176,8 @@ export async function getProposalById(db: Firestore, proposalId: string): Promis
       logger.warn('Proposal not found', { proposalId });
       return null;
     }
-    const proposal = { id: docSnap.id, ...docSnap.data() } as Proposal;
+    const proposalData = docSnap.data() as Omit<Proposal, 'id'>;
+    const proposal: Proposal = { id: docSnap.id, ...proposalData };
     return proposal;
   } catch (error) {
     logger.error('Error fetching proposal', { proposalId, error });
@@ -217,7 +219,8 @@ export async function getProposalByNumber(
       return null;
     }
 
-    const proposal = { id: firstDoc.id, ...firstDoc.data() } as Proposal;
+    const proposalData = firstDoc.data() as Omit<Proposal, 'id'>;
+    const proposal: Proposal = { id: firstDoc.id, ...proposalData };
     return proposal;
   } catch (error) {
     logger.error('Error fetching proposal by number', { proposalNumber, error });

@@ -8,28 +8,71 @@ import type { Money } from '@vapour/types';
 import type { Timestamp } from 'firebase/firestore';
 
 /**
- * Format money value
+ * Currency locale configuration
+ * Maps currency codes to appropriate locales for formatting
+ */
+const CURRENCY_LOCALES: Record<string, string> = {
+  INR: 'en-IN',
+  USD: 'en-US',
+  EUR: 'de-DE',
+  GBP: 'en-GB',
+  AED: 'ar-AE',
+  SAR: 'ar-SA',
+  QAR: 'ar-QA',
+  KWD: 'ar-KW',
+  OMR: 'ar-OM',
+  BHD: 'ar-BH',
+};
+
+/**
+ * Format currency amount using Intl.NumberFormat
+ *
+ * Centralized currency formatting function that should be used
+ * across all modules to ensure consistent formatting.
+ *
+ * @param amount - Numeric amount to format
+ * @param currency - ISO 4217 currency code (default: 'INR')
+ * @param options - Additional formatting options
+ * @returns Formatted currency string (e.g., "₹1,23,456.00" for INR)
+ *
+ * @example
+ * formatCurrency(123456.78, 'INR')  // "₹1,23,456.78"
+ * formatCurrency(123456.78, 'USD')  // "$123,456.78"
+ * formatCurrency(123456.78, 'AED')  // "AED 123,456.78"
+ */
+export function formatCurrency(
+  amount: number,
+  currency: string = 'INR',
+  options?: { minimumFractionDigits?: number; maximumFractionDigits?: number }
+): string {
+  const locale = CURRENCY_LOCALES[currency] || 'en-US';
+  const minDigits = options?.minimumFractionDigits ?? 2;
+  const maxDigits = options?.maximumFractionDigits ?? 2;
+
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: minDigits,
+      maximumFractionDigits: maxDigits,
+    }).format(amount);
+  } catch {
+    // Fallback for unsupported currencies
+    return `${currency} ${amount.toLocaleString(locale, {
+      minimumFractionDigits: minDigits,
+      maximumFractionDigits: maxDigits,
+    })}`;
+  }
+}
+
+/**
+ * Format money value from Money object
  *
  * @param money - Money object with amount and currency
  * @returns Formatted money string (e.g., "₹1,234.56")
  */
 export function formatMoney(money: Money): string {
-  const { amount, currency } = money;
-
-  const currencySymbols: Record<string, string> = {
-    INR: '₹',
-    USD: '$',
-    EUR: '€',
-    GBP: '£',
-    AED: 'AED ',
-  };
-
-  const symbol = currencySymbols[currency] || currency + ' ';
-
-  return `${symbol}${amount.toLocaleString('en-IN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatCurrency(money.amount, money.currency);
 }
 
 /**
@@ -60,7 +103,20 @@ export function formatDate(
   if (isNaN(date.getTime())) return '-';
 
   const day = date.getDate().toString().padStart(2, '0');
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   const month = months[date.getMonth()];
   const year = date.getFullYear();
 
@@ -71,7 +127,20 @@ export function formatDate(
 
   if (format === 'long') {
     // DD Month YYYY (e.g., 26 November 2025)
-    const longMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const longMonths = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
     return `${date.getDate()} ${longMonths[date.getMonth()]} ${year}`;
   }
 

@@ -55,7 +55,7 @@ import {
   removeProposalAttachment,
   detectAttachmentType,
   formatFileSize,
-} from '@/lib/proposal/proposalAttachmentService';
+} from '@/lib/proposals/proposalAttachmentService';
 import { formatDate } from '@/lib/utils/formatters';
 
 interface ProposalAttachmentsProps {

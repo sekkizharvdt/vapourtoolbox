@@ -14,6 +14,10 @@ import {
   Card,
   CardContent,
   Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   CheckCircle as ApproveIcon,
@@ -27,6 +31,7 @@ import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { formatDate } from '@/lib/utils/formatters';
+import { ConfirmDialog } from '@vapour/ui';
 
 interface CharterTabProps {
   project: Project;
@@ -55,6 +60,15 @@ export function CharterTab({ project }: CharterTabProps) {
   const approvalStatus = authorization?.approvalStatus || 'DRAFT';
 
   const canApprove = hasManageAccess && approvalStatus !== 'APPROVED';
+
+  // Rejection dialog state
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+
+  // Approval confirmation dialogs
+  const [showWarningConfirm, setShowWarningConfirm] = useState(false);
+  const [showApprovalConfirm, setShowApprovalConfirm] = useState(false);
+  const [pendingWarnings, setPendingWarnings] = useState<string[]>([]);
 
   const handleSaveAuthorization = async () => {
     if (!sponsorName.trim() || !sponsorTitle.trim()) {
@@ -95,38 +109,35 @@ export function CharterTab({ project }: CharterTabProps) {
 
   const handleApprove = async () => {
     // Import validation function
-    const { validateCharterForApproval, getValidationSummary } = await import(
-      '@/lib/projects/charterValidationService'
-    );
+    const { validateCharterForApproval, getValidationSummary } =
+      await import('@/lib/projects/charterValidationService');
 
     // Validate charter before approval
     const validationResult = validateCharterForApproval(project.charter);
 
     if (!validationResult.isValid) {
       const summary = getValidationSummary(validationResult);
-      alert(
+      setError(
         `Cannot approve charter - validation failed:\n\n${summary}\n\nPlease complete all required sections before approval.`
       );
       return;
     }
 
-    // Show warnings if any
+    // Show warnings if any - use dialog instead of window.confirm
     if (validationResult.warnings.length > 0) {
-      const warningMsg = `Charter validation passed with warnings:\n\n${validationResult.warnings.join('\n')}\n\nDo you want to proceed with approval?`;
-      if (!window.confirm(warningMsg)) {
-        return;
-      }
-    }
-
-    // Final confirmation
-    if (
-      !window.confirm(
-        'Approve this project charter? This will trigger automatic PR creation for HIGH/CRITICAL procurement items.'
-      )
-    ) {
+      setPendingWarnings(validationResult.warnings);
+      setShowWarningConfirm(true);
       return;
     }
 
+    // Show final confirmation dialog
+    setShowApprovalConfirm(true);
+  };
+
+  const proceedWithApproval = async () => {
+    setShowApprovalConfirm(false);
+    setShowWarningConfirm(false);
+    setPendingWarnings([]);
     setLoading(true);
     setError(null);
 
@@ -166,9 +177,7 @@ export function CharterTab({ project }: CharterTabProps) {
         updatedBy: userId,
       });
 
-      alert(
-        'Charter approved! Cost centre created and Purchase Requests will be automatically created.'
-      );
+      // Success message handled by UI update
     } catch (err) {
       console.error('[CharterTab] Error approving charter:', err);
       setError(err instanceof Error ? err.message : 'Failed to approve charter');
@@ -177,10 +186,17 @@ export function CharterTab({ project }: CharterTabProps) {
     }
   };
 
-  const handleReject = async () => {
-    const reason = window.prompt('Enter rejection reason:');
-    if (!reason) return;
+  const handleReject = () => {
+    setRejectionReason('');
+    setRejectDialogOpen(true);
+  };
 
+  const confirmRejection = async () => {
+    if (!rejectionReason.trim()) {
+      return;
+    }
+
+    setRejectDialogOpen(false);
     setLoading(true);
     setError(null);
 
@@ -190,7 +206,7 @@ export function CharterTab({ project }: CharterTabProps) {
 
       await updateDoc(projectRef, {
         'charter.authorization.approvalStatus': 'REJECTED',
-        'charter.authorization.rejectionReason': reason,
+        'charter.authorization.rejectionReason': rejectionReason.trim(),
         'charter.authorization.approvedBy': userId,
         'charter.authorization.approvedAt': Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -201,6 +217,7 @@ export function CharterTab({ project }: CharterTabProps) {
       setError(err instanceof Error ? err.message : 'Failed to reject charter');
     } finally {
       setLoading(false);
+      setRejectionReason('');
     }
   };
 
@@ -446,6 +463,85 @@ export function CharterTab({ project }: CharterTabProps) {
           for future enhancement. For now, focus on authorization and approval workflow.
         </Typography>
       </Alert>
+
+      {/* Rejection Dialog */}
+      <Dialog
+        open={rejectDialogOpen}
+        onClose={() => setRejectDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Reject Charter</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Rejection Reason"
+            fullWidth
+            multiline
+            rows={3}
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            placeholder="Please provide a reason for rejecting this charter..."
+            required
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={confirmRejection}
+            color="error"
+            variant="contained"
+            disabled={!rejectionReason.trim()}
+          >
+            Reject Charter
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Warning Confirmation Dialog */}
+      <ConfirmDialog
+        open={showWarningConfirm}
+        title="Charter Validation Warnings"
+        message={
+          <>
+            <Typography variant="body2" gutterBottom>
+              Charter validation passed with the following warnings:
+            </Typography>
+            <Box component="ul" sx={{ pl: 2, mt: 1 }}>
+              {pendingWarnings.map((warning, idx) => (
+                <Typography component="li" variant="body2" key={idx}>
+                  {warning}
+                </Typography>
+              ))}
+            </Box>
+            <Typography variant="body2" sx={{ mt: 2 }}>
+              Do you want to proceed with approval?
+            </Typography>
+          </>
+        }
+        confirmLabel="Proceed"
+        variant="warning"
+        onConfirm={() => {
+          setShowWarningConfirm(false);
+          setShowApprovalConfirm(true);
+        }}
+        onClose={() => {
+          setShowWarningConfirm(false);
+          setPendingWarnings([]);
+        }}
+      />
+
+      {/* Approval Confirmation Dialog */}
+      <ConfirmDialog
+        open={showApprovalConfirm}
+        title="Approve Project Charter"
+        message="Approve this project charter? This will trigger automatic PR creation for HIGH/CRITICAL procurement items."
+        confirmLabel="Approve"
+        variant="info"
+        onConfirm={proceedWithApproval}
+        onClose={() => setShowApprovalConfirm(false)}
+      />
     </Box>
   );
 }

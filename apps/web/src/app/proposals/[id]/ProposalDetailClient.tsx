@@ -45,7 +45,7 @@ import { Timestamp } from 'firebase/firestore';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
-import { getProposalById } from '@/lib/proposal/proposalService';
+import { getProposalById } from '@/lib/proposals/proposalService';
 import { generateAndDownloadProposalPDF } from '@/lib/proposals/proposalPDF';
 import {
   submitProposalForApproval,

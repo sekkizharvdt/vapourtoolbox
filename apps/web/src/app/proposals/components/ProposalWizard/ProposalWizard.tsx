@@ -19,7 +19,7 @@ import { createProposalSchema } from '@vapour/validation';
 import { Timestamp } from 'firebase/firestore';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
-import { createProposal, getProposalById, updateProposal } from '@/lib/proposal/proposalService';
+import { createProposal, getProposalById, updateProposal } from '@/lib/proposals/proposalService';
 import type { CreateProposalInput, ProposalMilestone, UpdateProposalInput } from '@vapour/types';
 
 // Steps
