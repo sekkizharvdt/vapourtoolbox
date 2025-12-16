@@ -25,12 +25,15 @@ import {
   type FirebaseStorage,
 } from 'firebase/storage';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type {
   CompanyDocument,
   CompanyDocumentCategory,
   CompanyDocumentInput,
   CompanyDocumentUpdate,
 } from '@vapour/types';
+
+const logger = createLogger({ context: 'companyDocumentService' });
 
 /**
  * Get all company documents, optionally filtered by category
@@ -330,7 +333,11 @@ export async function permanentlyDeleteCompanyDocument(
     const storageRef = ref(storage, document.storageRef);
     await deleteObject(storageRef);
   } catch (error) {
-    console.warn('Failed to delete file from storage:', error);
+    logger.warn('Failed to delete file from storage', {
+      error,
+      documentId,
+      storageRef: document.storageRef,
+    });
   }
 
   // Note: We're not deleting the Firestore document since security rules

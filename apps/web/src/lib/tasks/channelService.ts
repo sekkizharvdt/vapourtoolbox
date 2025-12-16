@@ -21,6 +21,7 @@ import {
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type {
   TaskNotification,
   TaskChannel,
@@ -34,6 +35,8 @@ import {
   isApprovalCategory,
 } from '@vapour/types';
 import type { DocumentData } from 'firebase/firestore';
+
+const logger = createLogger({ context: 'channelService' });
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -151,7 +154,7 @@ export async function getProjectCustomChannels(projectId: string): Promise<Proje
 
     return channels;
   } catch (error) {
-    console.error('[getProjectCustomChannels] Error:', error);
+    logger.error('getProjectCustomChannels failed', { projectId, error });
     return [];
   }
 }
@@ -180,7 +183,7 @@ export async function createProjectChannel(
     const docRef = await addDoc(collection(db, COLLECTIONS.PROJECT_CHANNELS), channelData);
     return docRef.id;
   } catch (error) {
-    console.error('[createProjectChannel] Error:', error);
+    logger.error('createProjectChannel failed', { projectId, name, error });
     throw new Error('Failed to create project channel');
   }
 }
@@ -295,7 +298,7 @@ export async function getTasksByProjectAndChannel(
 
     return tasks;
   } catch (error) {
-    console.error('[getTasksByProjectAndChannel] Error:', error);
+    logger.error('getTasksByProjectAndChannel failed', { projectId, channelId, error });
     throw new Error('Failed to get tasks by project and channel');
   }
 }
@@ -409,7 +412,7 @@ export function subscribeToProjectTasks(
       onUpdate(tasks);
     },
     (error) => {
-      console.error('[subscribeToProjectTasks] Error:', error);
+      logger.error('subscribeToProjectTasks snapshot error', { projectId, error });
     }
   );
 }
@@ -440,7 +443,7 @@ export function subscribeToUserTasks(
       onUpdate(tasks);
     },
     (error) => {
-      console.error('[subscribeToUserTasks] Error:', error);
+      logger.error('subscribeToUserTasks snapshot error', { userId, error });
     }
   );
 }

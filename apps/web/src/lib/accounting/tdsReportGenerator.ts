@@ -8,6 +8,9 @@
 
 import { Firestore, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'tdsReportGenerator' });
 
 /**
  * TDS Section codes as per Income Tax Act
@@ -305,7 +308,7 @@ async function extractTDSTransactions(
     // Sort by payment date
     transactions.sort((a, b) => a.paymentDate.getTime() - b.paymentDate.getTime());
   } catch (error) {
-    console.error('[TDS] Error extracting TDS transactions:', error);
+    logger.error('Error extracting TDS transactions', { error });
     throw error;
   }
 
@@ -384,7 +387,7 @@ export async function generateForm16A(
       generatedDate: new Date(),
     };
   } catch (error) {
-    console.error('[TDS] Error generating Form 16A:', error);
+    logger.error('Error generating Form 16A', { deducteeId, quarter, financialYear, error });
     throw error;
   }
 }
@@ -477,7 +480,7 @@ export async function generateForm26Q(
       generatedDate: new Date(),
     };
   } catch (error) {
-    console.error('[TDS] Error generating Form 26Q:', error);
+    logger.error('Error generating Form 26Q', { quarter, financialYear, error });
     throw error;
   }
 }
@@ -533,7 +536,7 @@ export async function getDeducteesWithTDS(
 
     return Array.from(deducteeMap.values()).sort((a, b) => b.totalTDS - a.totalTDS);
   } catch (error) {
-    console.error('[TDS] Error getting deductees:', error);
+    logger.error('Error getting deductees with TDS', { quarter, financialYear, error });
     throw error;
   }
 }

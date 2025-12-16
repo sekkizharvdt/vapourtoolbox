@@ -8,6 +8,9 @@
 import { getFirebase } from '@/lib/firebase';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'seedExchangeRates' });
 
 /**
  * Sample exchange rates (approximate as of late 2024)
@@ -59,7 +62,7 @@ export async function seedExchangeRates(): Promise<{
       count,
     };
   } catch (error) {
-    console.error('[seedExchangeRates] Error:', error);
+    logger.error('seedExchangeRates failed', { error });
     return {
       success: false,
       count: 0,

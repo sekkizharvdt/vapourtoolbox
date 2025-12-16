@@ -25,6 +25,9 @@ import type {
   MasterDocumentEntry,
   DocumentSubmission,
 } from '@vapour/types';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'crsService' });
 
 export interface UploadCRSRequest {
   projectId: string;
@@ -80,7 +83,11 @@ export async function uploadCommentResolutionSheet(
         onProgress?.(progress);
       },
       (error) => {
-        console.error('[CRSService] Upload error:', error);
+        logger.error('CRS upload failed', {
+          error,
+          projectId,
+          masterDocumentId: masterDocument.id,
+        });
         reject(new Error(`Upload failed: ${error.message}`));
       },
       async () => {

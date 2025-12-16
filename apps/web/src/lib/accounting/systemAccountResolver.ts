@@ -8,6 +8,9 @@
 
 import { collection, query, where, getDocs, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'systemAccountResolver' });
 
 export interface SystemAccountIds {
   // Receivables & Revenue (for invoices)
@@ -192,7 +195,7 @@ export async function getSystemAccountIds(
 
     return accounts;
   } catch (error) {
-    console.error('[systemAccountResolver] Error fetching system accounts:', error);
+    logger.error('Error fetching system accounts', { error });
     throw new Error(
       'Failed to fetch system accounts. Please ensure Chart of Accounts is initialized.'
     );

@@ -453,24 +453,5 @@ export function addForexEntryToLedger(
   return entries;
 }
 
-/**
- * Format currency for display
- */
-export function formatCurrency(amount: number, currency: string = 'INR'): string {
-  if (currency === 'INR') {
-    // Indian numbering system (lakhs and crores)
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  }
-
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
+// Re-export formatCurrency from centralized utility for backwards compatibility
+export { formatCurrency } from '@/lib/utils/formatters';

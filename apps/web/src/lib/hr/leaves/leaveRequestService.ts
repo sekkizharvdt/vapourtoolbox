@@ -112,9 +112,7 @@ async function generateLeaveRequestNumber(): Promise<string> {
     return `LR-${yearStr}-${sequence.toString().padStart(4, '0')}`;
   } catch (error) {
     // Fallback: generate based on timestamp if counter fails
-    console.warn('[generateLeaveRequestNumber] Counter failed, using timestamp fallback', {
-      error,
-    });
+    logger.warn('Counter failed, using timestamp fallback for request number', { error });
     const timestamp = Date.now().toString().slice(-4);
     const random = Math.floor(Math.random() * 100)
       .toString()

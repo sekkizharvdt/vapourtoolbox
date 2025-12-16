@@ -18,7 +18,10 @@ import {
   type QueryConstraint,
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { AuditLog, AuditAction, AuditEntityType, AuditSeverity } from '@vapour/types';
+
+const logger = createLogger({ context: 'auditLogService' });
 
 /**
  * Options for building an audit log query
@@ -101,7 +104,7 @@ export async function getAuditLogById(db: Firestore, id: string): Promise<AuditL
     };
     return result;
   } catch (error) {
-    console.error('[AuditLogService] Error fetching audit log:', error);
+    logger.error('Error fetching audit log', { id, error });
     return null;
   }
 }

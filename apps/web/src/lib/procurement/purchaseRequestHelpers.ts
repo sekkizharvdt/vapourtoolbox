@@ -278,17 +278,8 @@ export function validatePRItem(item: Partial<PurchaseRequestItem>): {
 // FORMATTING HELPERS
 // ============================================================================
 
-/**
- * Format currency (Indian Rupees)
- */
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
+// Re-export formatCurrency from centralized utility for backwards compatibility
+export { formatCurrency } from '@/lib/utils/formatters';
 
 /**
  * Format date

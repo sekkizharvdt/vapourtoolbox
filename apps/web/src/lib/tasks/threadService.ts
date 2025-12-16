@@ -29,8 +29,11 @@ import {
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { TaskThread, TaskMessage, TaskNotification } from '@vapour/types';
 import { createMentionsFromMessage } from './mentionService';
+
+const logger = createLogger({ context: 'threadService' });
 
 // Helper to convert doc snapshot to typed object
 function toThread(docSnap: DocumentSnapshot | QueryDocumentSnapshot): TaskThread {
@@ -273,7 +276,7 @@ export function subscribeToThreadMessages(
       callback(snapshot.docs.map(toMessage));
     },
     (error) => {
-      console.error('[ThreadService] Error subscribing to messages:', error);
+      logger.error('Error subscribing to thread messages', { error, threadId });
       onError?.(error);
     }
   );

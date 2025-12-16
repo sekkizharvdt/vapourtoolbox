@@ -62,7 +62,7 @@ export async function evaluateOffer(
   try {
     await incrementOffersEvaluated(offer.rfqId);
   } catch (err) {
-    console.error('[offerService] Failed to increment RFQ evaluations count:', err);
+    logger.error('Failed to increment RFQ evaluations count', { rfqId: offer.rfqId, error: err });
     // Don't fail offer evaluation if counter update fails
   }
 

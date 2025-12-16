@@ -5,7 +5,10 @@
  */
 
 import { create, all, type MathJsInstance } from 'mathjs';
+import { createLogger } from '@vapour/logger';
 import type { FormulaDefinition } from '@vapour/types';
+
+const logger = createLogger({ context: 'formulaEvaluator' });
 
 // Create mathjs instance with safe configuration
 const math: MathJsInstance = create(all as unknown as Parameters<typeof create>[0], {
@@ -72,9 +75,13 @@ export function evaluateFormula(
     if (formula.expectedRange) {
       const { min, max, warning } = formula.expectedRange;
       if (numericResult < min || numericResult > max) {
-        console.warn(
-          `Result ${numericResult} ${formula.unit} outside expected range [${min}, ${max}]. ${warning || ''}`
-        );
+        logger.warn('Formula result outside expected range', {
+          result: numericResult,
+          unit: formula.unit,
+          min,
+          max,
+          warning,
+        });
       }
     }
 
@@ -158,7 +165,7 @@ export function evaluateMultipleFormulas(
     try {
       results[key] = evaluateFormula(formula, context, density);
     } catch (error) {
-      console.error(`Failed to evaluate formula "${key}":`, error);
+      logger.error('Failed to evaluate formula', { key, expression: formula.expression, error });
       // Continue with other formulas even if one fails
     }
   }

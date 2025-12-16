@@ -8,6 +8,9 @@
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'reports/profitLoss' });
 
 export interface ProfitLossReport {
   period: {
@@ -204,7 +207,7 @@ export async function generateProfitLossReport(
       profitMargin,
     };
   } catch (error) {
-    console.error('[generateProfitLossReport] Error:', error);
+    logger.error('generateProfitLossReport failed', { error });
     throw new Error('Failed to generate Profit & Loss report');
   }
 }

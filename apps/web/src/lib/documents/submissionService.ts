@@ -22,6 +22,7 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, type FirebaseStorage } from 'firebase/storage';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
+import { createLogger } from '@vapour/logger';
 import type {
   DocumentRecord,
   DocumentSubmission,
@@ -29,6 +30,8 @@ import type {
   SubmissionFile,
   SubmissionFileType,
 } from '@vapour/types';
+
+const logger = createLogger({ context: 'submissionService' });
 
 /**
  * File data for submission
@@ -442,17 +445,22 @@ export async function submitDocument(
           projectId: request.projectId,
         });
       } catch (notificationError) {
-        console.error(
-          '[SubmissionService] Error creating reviewer notification:',
-          notificationError
-        );
+        logger.error('Error creating reviewer notification', {
+          masterDocumentId: request.masterDocumentId,
+          reviewerId: request.reviewerId,
+          error: notificationError,
+        });
         // Don't fail the submission if notification fails
       }
     }
 
     return { submissionId, documentId: primaryDocumentId, fileIds };
   } catch (error) {
-    console.error('[SubmissionService] Error submitting document:', error);
+    logger.error('Error submitting document', {
+      masterDocumentId: request.masterDocumentId,
+      revision: request.revision,
+      error,
+    });
     throw new Error(
       error instanceof Error
         ? `Failed to submit document: ${error.message}`

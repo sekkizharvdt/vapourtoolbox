@@ -8,6 +8,9 @@
 import { collection, getDocs } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'reports/balanceSheet' });
 
 export interface AccountBalance {
   id: string;
@@ -238,7 +241,7 @@ export async function generateBalanceSheet(
       difference,
     };
   } catch (error) {
-    console.error('[generateBalanceSheet] Error:', error);
+    logger.error('generateBalanceSheet failed', { asOfDate, error });
     throw new Error('Failed to generate Balance Sheet');
   }
 }

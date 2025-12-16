@@ -16,6 +16,9 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'bankReconciliation/matching' });
 import type {
   BankStatement,
   BankTransaction,
@@ -170,7 +173,7 @@ export async function getSuggestedMatches(
 
     return suggestions;
   } catch (error) {
-    console.error('[getSuggestedMatches] Error:', error);
+    logger.error('Error getting suggested matches', { statementId, error });
     throw error;
   }
 }
@@ -227,7 +230,7 @@ export async function matchTransactions(
 
     await batch.commit();
   } catch (error) {
-    console.error('[matchTransactions] Error:', error);
+    logger.error('Error matching transactions', { input, matchType, error });
     throw new Error('Failed to match transactions');
   }
 }
@@ -281,7 +284,7 @@ export async function unmatchTransaction(db: Firestore, bankTransactionId: strin
 
     await batch.commit();
   } catch (error) {
-    console.error('[unmatchTransaction] Error:', error);
+    logger.error('Error unmatching transaction', { bankTransactionId, error });
     throw new Error('Failed to unmatch transaction');
   }
 }
@@ -342,7 +345,11 @@ export async function matchMultipleTransactions(
 
     await batch.commit();
   } catch (error) {
-    console.error('[matchMultipleTransactions] Error:', error);
+    logger.error('Error matching multiple transactions', {
+      bankTransactionId,
+      accountingTransactionCount: accountingTransactionIds.length,
+      error,
+    });
     throw new Error('Failed to match multiple transactions');
   }
 }

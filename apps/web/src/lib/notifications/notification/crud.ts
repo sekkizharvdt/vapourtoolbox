@@ -19,8 +19,11 @@ import {
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { ProcurementNotification } from '@vapour/types';
 import type { CreateNotificationInput, GetNotificationsFilters } from './types';
+
+const logger = createLogger({ context: 'notification/crud' });
 
 /**
  * Create a new in-app notification
@@ -49,7 +52,7 @@ export async function createNotification(input: CreateNotificationInput): Promis
 
     return docRef.id;
   } catch (error) {
-    console.error('[createNotification] Error:', error);
+    logger.error('createNotification failed', { type: input.type, userId: input.userId, error });
     throw new Error('Failed to create notification');
   }
 }
@@ -94,7 +97,7 @@ export async function getUserNotifications(
 
     return notifications;
   } catch (error) {
-    console.error('[getUserNotifications] Error:', error);
+    logger.error('getUserNotifications failed', { userId: filters.userId, error });
     throw new Error('Failed to get notifications');
   }
 }
@@ -115,7 +118,7 @@ export async function getUnreadNotificationCount(userId: string): Promise<number
     const snapshot = await getDocs(q);
     return snapshot.size;
   } catch (error) {
-    console.error('[getUnreadNotificationCount] Error:', error);
+    logger.error('getUnreadNotificationCount failed', { userId, error });
     return 0; // Return 0 on error, don't throw
   }
 }
@@ -134,7 +137,7 @@ export async function markNotificationAsRead(notificationId: string): Promise<vo
       readAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error('[markNotificationAsRead] Error:', error);
+    logger.error('markNotificationAsRead failed', { notificationId, error });
     throw new Error('Failed to mark notification as read');
   }
 }
@@ -155,7 +158,7 @@ export async function markAllNotificationsAsRead(userId: string): Promise<void> 
 
     await Promise.all(updatePromises);
   } catch (error) {
-    console.error('[markAllNotificationsAsRead] Error:', error);
+    logger.error('markAllNotificationsAsRead failed', { userId, error });
     throw new Error('Failed to mark all notifications as read');
   }
 }

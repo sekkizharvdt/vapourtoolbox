@@ -7,7 +7,10 @@
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { TransactionType } from '@vapour/types';
+
+const logger = createLogger({ context: 'transactionNumberGenerator' });
 
 // Prefixes for different transaction types
 const TRANSACTION_PREFIXES: Record<TransactionType, string> = {
@@ -62,7 +65,7 @@ export async function generateTransactionNumber(type: TransactionType): Promise<
 
     return `${prefix}-${formattedNumber}`;
   } catch (error) {
-    console.error('[generateTransactionNumber] Error:', error);
+    logger.error('generateTransactionNumber failed', { type, error });
     // Fallback to timestamp-based number
     const timestamp = Date.now().toString().slice(-4);
     return `${prefix}-${timestamp}`;

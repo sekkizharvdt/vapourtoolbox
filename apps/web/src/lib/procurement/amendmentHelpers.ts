@@ -96,17 +96,8 @@ export function calculateAmendmentStats(amendments: PurchaseOrderAmendment[]) {
   };
 }
 
-/**
- * Format currency
- */
-export function formatCurrency(amount: number, currency = 'AED'): string {
-  return new Intl.NumberFormat('en-AE', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
+// Re-export formatCurrency from centralized utility for backwards compatibility
+export { formatCurrency } from '@/lib/utils/formatters';
 
 /**
  * Get available actions for an amendment

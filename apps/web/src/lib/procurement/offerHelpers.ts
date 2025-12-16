@@ -199,16 +199,8 @@ export function findBestOffer(offers: Offer[]): Offer | null {
 // FORMATTING HELPERS
 // ============================================================================
 
-/**
- * Format currency amount
- */
-export function formatCurrency(amount: number, currency: string = 'INR'): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-  }).format(amount);
-}
+// Re-export formatCurrency from centralized utility for backwards compatibility
+export { formatCurrency } from '@/lib/utils/formatters';
 
 /**
  * Format date

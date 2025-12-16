@@ -16,6 +16,7 @@ import {
   Timestamp,
   type Firestore,
 } from 'firebase/firestore';
+import { createLogger } from '@vapour/logger';
 import type {
   BankStatement,
   BankTransaction,
@@ -24,6 +25,8 @@ import type {
   BankStatementStatus,
 } from '@vapour/types';
 import { getUnmatchedAccountingTransactions } from './crud';
+
+const logger = createLogger({ context: 'bankReconciliation/reporting' });
 
 /**
  * Get reconciliation statistics for a statement
@@ -86,7 +89,7 @@ export async function getReconciliationStats(
 
     return stats;
   } catch (error) {
-    console.error('[getReconciliationStats] Error:', error);
+    logger.error('getReconciliationStats failed', { statementId, error });
     throw error;
   }
 }
@@ -140,7 +143,7 @@ export async function generateReconciliationReport(
 
     return report;
   } catch (error) {
-    console.error('[generateReconciliationReport] Error:', error);
+    logger.error('generateReconciliationReport failed', { statementId, error });
     throw error;
   }
 }
@@ -170,7 +173,7 @@ export async function markStatementAsReconciled(
       updatedAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error('[markStatementAsReconciled] Error:', error);
+    logger.error('markStatementAsReconciled failed', { statementId, error });
     throw error;
   }
 }

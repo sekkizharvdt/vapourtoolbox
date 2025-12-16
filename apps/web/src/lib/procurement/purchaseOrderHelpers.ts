@@ -81,21 +81,8 @@ export function canCancelPO(po: PurchaseOrder): boolean {
 // DISPLAY UTILITIES
 // ============================================================================
 
-export function formatCurrency(amount: number, currency: string = 'INR'): string {
-  const currencySymbols: Record<string, string> = {
-    INR: '₹',
-    USD: '$',
-    EUR: '€',
-    GBP: '£',
-  };
-
-  const symbol = currencySymbols[currency] || currency;
-
-  return `${symbol}${amount.toLocaleString('en-IN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
+// Re-export formatCurrency from centralized utility for backwards compatibility
+export { formatCurrency } from '@/lib/utils/formatters';
 
 export function formatExpectedDelivery(po: PurchaseOrder): string {
   if (!po.expectedDeliveryDate) {

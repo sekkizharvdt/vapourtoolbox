@@ -157,7 +157,10 @@ export async function initializeUserLeaveBalances(
     const leaveTypes = await getLeaveTypes();
 
     if (leaveTypes.length === 0) {
-      console.warn('[initializeUserLeaveBalances] No active leave types found');
+      logger.warn('No active leave types found during balance initialization', {
+        userId,
+        fiscalYear: year,
+      });
       return;
     }
 

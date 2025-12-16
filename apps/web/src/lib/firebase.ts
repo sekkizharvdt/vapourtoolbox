@@ -2,6 +2,9 @@
 'use client';
 
 import { initializeFirebase, getFirebaseClient } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'firebase' });
 
 // Initialize Firebase on client side
 let firebaseInitialized = false;
@@ -12,7 +15,7 @@ export function getFirebase() {
       initializeFirebase();
       firebaseInitialized = true;
     } catch (error) {
-      console.error('Failed to initialize Firebase:', error);
+      logger.error('Failed to initialize Firebase', { error });
       throw error;
     }
   }

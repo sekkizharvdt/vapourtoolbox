@@ -6,6 +6,7 @@
  */
 
 import { doc, getDoc, updateDoc, Timestamp, type Firestore } from 'firebase/firestore';
+import { createLogger } from '@vapour/logger';
 import type { BankStatement, BankStatementStatus } from '@vapour/types';
 import {
   batchAutoMatch,
@@ -17,6 +18,8 @@ import {
 } from '../autoMatching';
 import { getUnmatchedAccountingTransactions, getUnmatchedBankTransactions } from './crud';
 import { matchTransactions } from './matching';
+
+const logger = createLogger({ context: 'bankReconciliation/autoMatching' });
 
 /**
  * Get enhanced suggested matches using advanced matching algorithm
@@ -60,7 +63,7 @@ export async function getEnhancedSuggestedMatches(
 
     return allSuggestions;
   } catch (error) {
-    console.error('[getEnhancedSuggestedMatches] Error:', error);
+    logger.error('getEnhancedSuggestedMatches failed', { statementId, error });
     throw error;
   }
 }
@@ -102,7 +105,7 @@ export async function getEnhancedMatchStatistics(
 
     return getMatchStatistics(bankTransactions, accountingTransactions, config);
   } catch (error) {
-    console.error('[getEnhancedMatchStatistics] Error:', error);
+    logger.error('getEnhancedMatchStatistics failed', { statementId, error });
     throw error;
   }
 }
@@ -199,7 +202,7 @@ export async function autoMatchTransactions(
 
     return { matched, skipped, errors };
   } catch (error) {
-    console.error('[autoMatchTransactions] Error:', error);
+    logger.error('autoMatchTransactions failed', { statementId, error });
     throw error;
   }
 }
@@ -232,7 +235,7 @@ export async function getMultiTransactionMatches(
     const result = batchAutoMatch(bankTransactions, accountingTransactions, config);
     return result.multiMatches;
   } catch (error) {
-    console.error('[getMultiTransactionMatches] Error:', error);
+    logger.error('getMultiTransactionMatches failed', { statementId, error });
     throw error;
   }
 }

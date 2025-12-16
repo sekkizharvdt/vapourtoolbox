@@ -6,7 +6,10 @@
 import { collection, doc, serverTimestamp, getDocs, writeBatch } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import { INDIAN_COA_TEMPLATE } from '@vapour/types';
+
+const logger = createLogger({ context: 'initializeChartOfAccounts' });
 
 export interface InitializationResult {
   success: boolean;
@@ -109,7 +112,7 @@ export async function initializeChartOfAccounts(
       accountsCreated,
     };
   } catch (error) {
-    console.error('[initializeChartOfAccounts] Error:', error);
+    logger.error('initializeChartOfAccounts failed', { error });
     return {
       success: false,
       accountsCreated: 0,

@@ -5,13 +5,62 @@
  *
  * Individual message in a task thread
  * Displays user avatar, name, timestamp, and message content
- * Supports @mention highlighting
+ * Supports @mention highlighting using safe React rendering (no dangerouslySetInnerHTML)
  */
 
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { Box, Stack, Typography, Avatar, Chip } from '@mui/material';
 import type { TaskMessage } from '@vapour/types';
 import { formatMentions } from '@/lib/tasks/threadService';
+
+/**
+ * Represents a parsed segment of message content
+ * Can be either plain text or a mention
+ */
+interface MessageSegment {
+  type: 'text' | 'mention';
+  content: string;
+}
+
+/**
+ * Parse message content into segments of text and mentions
+ * This is safe because we render each segment as React elements, not HTML
+ */
+function parseMessageContent(content: string): MessageSegment[] {
+  const segments: MessageSegment[] = [];
+  const mentionRegex = /@(\w+)/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = mentionRegex.exec(content)) !== null) {
+    // Add text before the mention
+    if (match.index > lastIndex) {
+      segments.push({
+        type: 'text',
+        content: content.slice(lastIndex, match.index),
+      });
+    }
+
+    // Add the mention (match[1] is the captured group)
+    const username = match[1] ?? match[0].slice(1); // Fallback to removing @ manually
+    segments.push({
+      type: 'mention',
+      content: username,
+    });
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text after last mention
+  if (lastIndex < content.length) {
+    segments.push({
+      type: 'text',
+      content: content.slice(lastIndex),
+    });
+  }
+
+  return segments;
+}
 
 interface ThreadMessageProps {
   message: TaskMessage;
@@ -23,6 +72,9 @@ interface ThreadMessageProps {
 function ThreadMessageComponent({ message, userMap, currentUserId, isOwn }: ThreadMessageProps) {
   // Format content with @mentions replaced by display names
   const formattedContent = formatMentions(message.content, userMap);
+
+  // Parse content into segments for safe rendering (no dangerouslySetInnerHTML)
+  const messageSegments = useMemo(() => parseMessageContent(formattedContent), [formattedContent]);
 
   // Check if current user is mentioned
   const isMentioned = message.mentions?.includes(currentUserId);
@@ -98,24 +150,35 @@ function ThreadMessageComponent({ message, userMap, currentUserId, isOwn }: Thre
             )}
           </Stack>
 
-          {/* Message body with mention highlighting */}
+          {/* Message body with mention highlighting - using safe React rendering */}
           <Typography
             variant="body2"
+            component="div"
             sx={{
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
-              '& .mention': {
-                backgroundColor: 'primary.lighter',
-                color: 'primary.main',
-                fontWeight: 500,
-                borderRadius: 0.5,
-                px: 0.5,
-              },
             }}
-            dangerouslySetInnerHTML={{
-              __html: highlightMentions(formattedContent),
-            }}
-          />
+          >
+            {messageSegments.map((segment, index) =>
+              segment.type === 'mention' ? (
+                <Box
+                  key={index}
+                  component="span"
+                  sx={{
+                    backgroundColor: 'primary.lighter',
+                    color: 'primary.main',
+                    fontWeight: 500,
+                    borderRadius: 0.5,
+                    px: 0.5,
+                  }}
+                >
+                  @{segment.content}
+                </Box>
+              ) : (
+                <span key={index}>{segment.content}</span>
+              )
+            )}
+          </Typography>
 
           {/* Mention chips for quick reference */}
           {message.mentions && message.mentions.length > 0 && (
@@ -139,31 +202,6 @@ function ThreadMessageComponent({ message, userMap, currentUserId, isOwn }: Thre
       </Stack>
     </Box>
   );
-}
-
-/**
- * Escape HTML special characters to prevent XSS attacks
- */
-function escapeHtml(text: string): string {
-  const htmlEscapes: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  };
-  return text.replace(/[&<>"']/g, (char) => htmlEscapes[char] || char);
-}
-
-/**
- * Highlight @mentions in the message content with styled spans
- * Sanitizes HTML to prevent XSS attacks
- */
-function highlightMentions(content: string): string {
-  // First escape any HTML in the content to prevent XSS
-  const escaped = escapeHtml(content);
-  // Then apply mention highlighting
-  return escaped.replace(/@(\w+)/g, '<span class="mention">@$1</span>');
 }
 
 const ThreadMessage = memo(ThreadMessageComponent);

@@ -7,6 +7,7 @@
 
 import { collection, addDoc, Timestamp, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type {
   AuditLog,
   AuditAction,
@@ -14,6 +15,8 @@ import type {
   AuditEntityType,
   AuditFieldChange,
 } from '@vapour/types';
+
+const logger = createLogger({ context: 'clientAuditService' });
 
 /**
  * User context for audit logging
@@ -164,8 +167,8 @@ export async function logAuditEvent(
     await addDoc(collection(db, COLLECTIONS.AUDIT_LOGS), auditLog);
   } catch (error) {
     // Don't throw errors from audit logging - log but don't block the operation
-    console.error('[AuditService] Failed to write audit log:', error);
-    console.error('[AuditService] Audit log data:', {
+    logger.error('Failed to write audit log', {
+      error,
       action,
       entityType,
       entityId,

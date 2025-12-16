@@ -7,7 +7,10 @@
 import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { Project } from '@vapour/types';
+
+const logger = createLogger({ context: 'projectService' });
 
 /**
  * Get all projects accessible by the current user
@@ -30,7 +33,7 @@ export async function getProjects(): Promise<Project[]> {
 
     return projects;
   } catch (error) {
-    console.error('[getProjects] Error:', error);
+    logger.error('getProjects failed', { error });
     return [];
   }
 }
@@ -60,7 +63,7 @@ export async function getProjectsByStatus(status: string): Promise<Project[]> {
 
     return projects;
   } catch (error) {
-    console.error('[getProjectsByStatus] Error:', error);
+    logger.error('getProjectsByStatus failed', { status, error });
     return [];
   }
 }
@@ -90,7 +93,7 @@ export async function getActiveProjects(): Promise<Project[]> {
 
     return projects;
   } catch (error) {
-    console.error('[getActiveProjects] Error:', error);
+    logger.error('getActiveProjects failed', { error });
     return [];
   }
 }

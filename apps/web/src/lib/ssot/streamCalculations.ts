@@ -30,7 +30,10 @@ import {
   getEntropySubcooled,
   getEntropySuperheated,
 } from '@vapour/constants';
+import { createLogger } from '@vapour/logger';
 import type { FluidType, ProcessStreamInput, SteamRegion } from '@vapour/types';
+
+const logger = createLogger({ context: 'streamCalculations' });
 
 // ============================================================================
 // Types
@@ -415,7 +418,8 @@ export function calculateStreamProperties(input: StreamCalculationInput): Stream
   const boilingPointElevation = calculateBoilingPointElevation(fluidType, temperature, tds);
 
   // Determine steam region if applicable
-  const steamRegion = fluidType === 'STEAM' ? getSteamRegionType(pressureBar, temperature) : undefined;
+  const steamRegion =
+    fluidType === 'STEAM' ? getSteamRegionType(pressureBar, temperature) : undefined;
 
   return {
     density,
@@ -469,7 +473,12 @@ export function enrichStreamInput(input: ProcessStreamInput): ProcessStreamInput
     };
   } catch (error) {
     // If calculation fails (e.g., out of range), return input unchanged
-    console.warn('[streamCalculations] Calculation failed:', error);
+    logger.warn('Stream calculation failed, returning input unchanged', {
+      error,
+      fluidType,
+      temperature,
+      pressureMbar,
+    });
     return input;
   }
 }

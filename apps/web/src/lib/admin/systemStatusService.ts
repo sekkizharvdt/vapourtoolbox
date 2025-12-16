@@ -9,7 +9,10 @@
 import { doc, getDoc } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { createLogger } from '@vapour/logger';
 import type { SystemStatusResponse } from '@vapour/types';
+
+const logger = createLogger({ context: 'systemStatusService' });
 
 const SYSTEM_STATUS_DOC_ID = 'current';
 
@@ -29,7 +32,7 @@ export async function getSystemStatus(): Promise<SystemStatusResponse | null> {
 
     return docSnap.data() as SystemStatusResponse;
   } catch (error) {
-    console.error('[getSystemStatus] Error:', error);
+    logger.error('getSystemStatus failed', { error });
     throw new Error('Failed to get system status');
   }
 }
