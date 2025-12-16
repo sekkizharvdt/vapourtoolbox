@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Container,
   Typography,
   Box,
   Button,
@@ -216,19 +215,19 @@ export default function LeaveTypesSettingsPage() {
 
   if (!hasManageAccess) {
     return (
-      <Container maxWidth="xl">
+      <Box>
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
             Leave Type Settings
           </Typography>
           <Alert severity="error">You do not have permission to manage HR settings.</Alert>
         </Box>
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <Box>
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
           <Typography variant="h4" component="h1" gutterBottom>
@@ -501,6 +500,6 @@ export default function LeaveTypesSettingsPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 }

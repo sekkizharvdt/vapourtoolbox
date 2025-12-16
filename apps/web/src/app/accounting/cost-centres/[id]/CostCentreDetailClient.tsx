@@ -3,7 +3,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Container,
   Typography,
   Box,
   Paper,
@@ -17,9 +16,11 @@ import {
   Tabs,
   Tab,
   CircularProgress,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
-  ArrowBack as BackIcon,
+  Home as HomeIcon,
   Edit as EditIcon,
   Receipt as InvoiceIcon,
   Payment as PaymentIcon,
@@ -322,37 +323,31 @@ export default function CostCentreDetailClient() {
 
   if (authLoading || loading) {
     return (
-      <Container maxWidth="xl">
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Loading cost centre details...
-          </Typography>
-          <LinearProgress />
-        </Box>
-      </Container>
+      <Box sx={{ mt: 4 }}>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          Loading cost centre details...
+        </Typography>
+        <LinearProgress />
+      </Box>
     );
   }
 
   if (!hasViewAccess) {
     return (
-      <Container maxWidth="xl">
-        <Box sx={{ mb: 4 }}>
-          <Alert severity="error">You do not have permission to view cost centre details.</Alert>
-        </Box>
-      </Container>
+      <Box sx={{ mb: 4 }}>
+        <Alert severity="error">You do not have permission to view cost centre details.</Alert>
+      </Box>
     );
   }
 
   if (error || !costCentre) {
     return (
-      <Container maxWidth="xl">
-        <Box sx={{ mb: 4 }}>
-          <Button startIcon={<BackIcon />} onClick={handleBack} sx={{ mb: 2 }}>
-            Back to Cost Centres
-          </Button>
-          <Alert severity="error">{error || 'Cost centre not found'}</Alert>
-        </Box>
-      </Container>
+      <Box sx={{ mb: 4 }}>
+        <Button onClick={handleBack} sx={{ mb: 2 }}>
+          Back to Cost Centres
+        </Button>
+        <Alert severity="error">{error || 'Cost centre not found'}</Alert>
+      </Box>
     );
   }
 
@@ -361,12 +356,35 @@ export default function CostCentreDetailClient() {
   const variance = costCentre.variance ?? 0;
 
   return (
-    <Container maxWidth="xl">
+    <Box>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Button startIcon={<BackIcon />} onClick={handleBack} sx={{ mb: 2 }}>
-          Back to Cost Centres
-        </Button>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/accounting"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/accounting');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Accounting
+          </Link>
+          <Link
+            color="inherit"
+            href="/accounting/cost-centres"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/accounting/cost-centres');
+            }}
+            sx={{ cursor: 'pointer' }}
+          >
+            Cost Centres
+          </Link>
+          <Typography color="text.primary">{costCentre.code}</Typography>
+        </Breadcrumbs>
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
@@ -685,6 +703,6 @@ export default function CostCentreDetailClient() {
           }
         }}
       />
-    </Container>
+    </Box>
   );
 }

@@ -19,9 +19,11 @@ import {
   Chip,
   Grid,
   Divider,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
-  ArrowBack as ArrowBackIcon,
+  Home as HomeIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Print as PrintIcon,
@@ -91,11 +93,7 @@ export default function WCCDetailClient() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">{error || 'Work Completion Certificate not found'}</Alert>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => router.push('/procurement/work-completion')}
-          sx={{ mt: 2 }}
-        >
+        <Button onClick={() => router.push('/procurement/work-completion')} sx={{ mt: 2 }}>
           Back to Work Completion Certificates
         </Button>
       </Box>
@@ -109,14 +107,32 @@ export default function WCCDetailClient() {
       <Stack spacing={3}>
         {/* Header */}
         <Box>
-          <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-            <Button
-              startIcon={<ArrowBackIcon />}
-              onClick={() => router.push('/procurement/work-completion')}
+          <Breadcrumbs sx={{ mb: 2 }}>
+            <Link
+              color="inherit"
+              href="/procurement"
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                router.push('/procurement');
+              }}
+              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
             >
-              Back
-            </Button>
-          </Stack>
+              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+              Procurement
+            </Link>
+            <Link
+              color="inherit"
+              href="/procurement/work-completion"
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                router.push('/procurement/work-completion');
+              }}
+              sx={{ cursor: 'pointer' }}
+            >
+              Work Completion
+            </Link>
+            <Typography color="text.primary">{wcc.number}</Typography>
+          </Breadcrumbs>
 
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
             <Box>

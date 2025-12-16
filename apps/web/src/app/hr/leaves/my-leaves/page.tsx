@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Container,
   Typography,
   Box,
   Card,
@@ -83,7 +82,7 @@ export default function MyLeavesPage() {
 
   if (loading) {
     return (
-      <Container maxWidth="xl">
+      <Box>
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
             My Leaves
@@ -99,12 +98,12 @@ export default function MyLeavesPage() {
         <Box sx={{ mt: 4 }}>
           <Skeleton variant="rectangular" height={300} />
         </Box>
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <Box>
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
           <Typography variant="h4" component="h1" gutterBottom>
@@ -250,6 +249,6 @@ export default function MyLeavesPage() {
           </TableBody>
         </Table>
       </TableContainer>
-    </Container>
+    </Box>
   );
 }

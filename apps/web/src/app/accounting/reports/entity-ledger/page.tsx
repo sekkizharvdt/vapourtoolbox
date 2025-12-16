@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Container,
   Paper,
   Box,
   Typography,
@@ -213,15 +212,11 @@ export default function EntityLedgerPage() {
   const isVendor = selectedEntity?.roles.includes('VENDOR');
 
   if (loadingEntities) {
-    return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <LoadingState message="Loading entities..." variant="page" />
-      </Container>
-    );
+    return <LoadingState message="Loading entities..." variant="page" />;
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Box>
       <PageHeader
         title="Entity Ledger"
         subtitle="View financial history and outstanding balances for vendors and customers"
@@ -342,6 +337,6 @@ export default function EntityLedgerPage() {
           </Typography>
         </Paper>
       )}
-    </Container>
+    </Box>
   );
 }

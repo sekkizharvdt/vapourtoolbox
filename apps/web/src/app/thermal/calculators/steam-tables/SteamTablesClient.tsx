@@ -18,7 +18,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Container, Typography, Box, Grid, Paper, Chip, Stack } from '@mui/material';
+import { Typography, Box, Grid, Paper, Chip, Stack } from '@mui/material';
 import {
   getSaturationPressure,
   getSaturationTemperature,
@@ -213,7 +213,7 @@ export default function SteamTablesClient() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Box>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>
@@ -309,6 +309,6 @@ export default function SteamTablesClient() {
           </ul>
         </Typography>
       </Box>
-    </Container>
+    </Box>
   );
 }

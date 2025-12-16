@@ -27,8 +27,10 @@ import {
   TableHead,
   TableRow,
   Chip,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
-import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
+import { Home as HomeIcon, Save as SaveIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RFQ, RFQItem } from '@vapour/types';
 import { getRFQById, getRFQItems, updateRFQ } from '@/lib/procurement/rfq';
@@ -253,11 +255,7 @@ export default function EditRFQClient() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">{error}</Alert>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => router.push('/procurement/rfqs')}
-          sx={{ mt: 2 }}
-        >
+        <Button onClick={() => router.push('/procurement/rfqs')} sx={{ mt: 2 }}>
           Back to RFQs
         </Button>
       </Box>
@@ -270,13 +268,43 @@ export default function EditRFQClient() {
         {/* Header */}
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
           <Box>
-            <Button
-              startIcon={<ArrowBackIcon />}
-              onClick={() => router.push(`/procurement/rfqs/${rfqId}`)}
-              sx={{ mb: 1 }}
-            >
-              Back to Details
-            </Button>
+            <Breadcrumbs sx={{ mb: 2 }}>
+              <Link
+                color="inherit"
+                href="/procurement"
+                onClick={(e: React.MouseEvent) => {
+                  e.preventDefault();
+                  router.push('/procurement');
+                }}
+                sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+              >
+                <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+                Procurement
+              </Link>
+              <Link
+                color="inherit"
+                href="/procurement/rfqs"
+                onClick={(e: React.MouseEvent) => {
+                  e.preventDefault();
+                  router.push('/procurement/rfqs');
+                }}
+                sx={{ cursor: 'pointer' }}
+              >
+                RFQs
+              </Link>
+              <Link
+                color="inherit"
+                href={`/procurement/rfqs/${rfqId}`}
+                onClick={(e: React.MouseEvent) => {
+                  e.preventDefault();
+                  router.push(`/procurement/rfqs/${rfqId}`);
+                }}
+                sx={{ cursor: 'pointer' }}
+              >
+                {rfq?.number || rfqId}
+              </Link>
+              <Typography color="text.primary">Edit</Typography>
+            </Breadcrumbs>
             <Typography variant="h4" gutterBottom>
               Edit {rfq?.number}
             </Typography>

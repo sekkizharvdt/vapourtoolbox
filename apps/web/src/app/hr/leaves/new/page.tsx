@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Container,
   Typography,
   Box,
   Card,
@@ -161,7 +160,7 @@ export default function NewLeaveRequestPage() {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Container maxWidth="md">
+      <Box sx={{ maxWidth: 'md', mx: 'auto' }}>
         <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button startIcon={<BackIcon />} onClick={() => router.back()}>
             Back
@@ -325,7 +324,7 @@ export default function NewLeaveRequestPage() {
             </Grid>
           </CardContent>
         </Card>
-      </Container>
+      </Box>
     </LocalizationProvider>
   );
 }

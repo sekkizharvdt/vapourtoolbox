@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Container,
   Box,
   Typography,
   Button,
@@ -15,8 +14,10 @@ import {
   Alert,
   CircularProgress,
   Chip,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
-import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
+import { Home as HomeIcon, Save as SaveIcon } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
@@ -149,44 +150,48 @@ export default function BoughtOutItemDetailPage() {
 
   if (loading || !id) {
     return (
-      <Container maxWidth="lg">
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      </Container>
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   if (!item) {
     return (
-      <Container maxWidth="lg">
+      <Box>
         <Alert severity="error">Item not found</Alert>
         <Button sx={{ mt: 2 }} onClick={() => router.push('/bought-out')}>
           Back to List
         </Button>
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="lg">
+    <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/bought-out"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/bought-out');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Bought Out Items
+        </Link>
+        <Typography color="text.primary">{item.itemCode}</Typography>
+      </Breadcrumbs>
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => router.push('/bought-out')}
-            variant="outlined"
-          >
-            Back
-          </Button>
-          <Box>
-            <Typography variant="h4" component="h1">
-              {item.itemCode}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Created on {formatDate(item.createdAt)}
-            </Typography>
-          </Box>
+        <Box>
+          <Typography variant="h4" component="h1">
+            {item.itemCode}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Created on {formatDate(item.createdAt)}
+          </Typography>
         </Box>
         <Chip
           label={item.isActive ? 'Active' : 'Inactive'}
@@ -339,6 +344,6 @@ export default function BoughtOutItemDetailPage() {
           </Grid>
         </Grid>
       </form>
-    </Container>
+    </Box>
   );
 }

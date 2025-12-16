@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Container,
   Typography,
   Box,
   Card,
@@ -18,6 +17,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Timeline,
@@ -29,7 +30,7 @@ import {
   TimelineOppositeContent,
 } from '@mui/lab';
 import {
-  ArrowBack as BackIcon,
+  Home as HomeIcon,
   Check as ApproveIcon,
   Close as RejectIcon,
   Cancel as CancelIcon,
@@ -178,33 +179,56 @@ export default function LeaveDetailClient() {
 
   if (loading) {
     return (
-      <Container maxWidth="lg">
+      <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
         <Box sx={{ mb: 4 }}>
           <Skeleton variant="text" width={200} height={40} />
         </Box>
         <Skeleton variant="rectangular" height={400} />
-      </Container>
+      </Box>
     );
   }
 
   if (!request) {
     return (
-      <Container maxWidth="lg">
+      <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
         <Alert severity="error">Leave request not found.</Alert>
-        <Button startIcon={<BackIcon />} onClick={() => router.back()} sx={{ mt: 2 }}>
+        <Button onClick={() => router.back()} sx={{ mt: 2 }}>
           Go Back
         </Button>
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="lg">
+    <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/hr"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/hr');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          HR
+        </Link>
+        <Link
+          color="inherit"
+          href="/hr/leaves/my-leaves"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/hr/leaves/my-leaves');
+          }}
+          sx={{ cursor: 'pointer' }}
+        >
+          My Leaves
+        </Link>
+        <Typography color="text.primary">{request.requestNumber}</Typography>
+      </Breadcrumbs>
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button startIcon={<BackIcon />} onClick={() => router.back()}>
-            Back
-          </Button>
           <Typography variant="h5" component="h1">
             {request.requestNumber}
           </Typography>
@@ -461,6 +485,6 @@ export default function LeaveDetailClient() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 }

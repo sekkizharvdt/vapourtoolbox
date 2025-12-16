@@ -26,9 +26,11 @@ import {
   IconButton,
   CircularProgress,
   Alert,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
-  ArrowBack as ArrowBackIcon,
+  Home as HomeIcon,
   Save as SaveIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
@@ -361,11 +363,7 @@ export default function EditPRPage() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">{error}</Alert>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => router.push('/procurement/purchase-requests')}
-          sx={{ mt: 2 }}
-        >
+        <Button onClick={() => router.push('/procurement/purchase-requests')} sx={{ mt: 2 }}>
           Back to Purchase Requests
         </Button>
       </Box>
@@ -378,13 +376,43 @@ export default function EditPRPage() {
         {/* Header */}
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
           <Box>
-            <Button
-              startIcon={<ArrowBackIcon />}
-              onClick={() => router.push(`/procurement/purchase-requests/${prId}`)}
-              sx={{ mb: 1 }}
-            >
-              Back to Details
-            </Button>
+            <Breadcrumbs sx={{ mb: 2 }}>
+              <Link
+                color="inherit"
+                href="/procurement"
+                onClick={(e: React.MouseEvent) => {
+                  e.preventDefault();
+                  router.push('/procurement');
+                }}
+                sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+              >
+                <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+                Procurement
+              </Link>
+              <Link
+                color="inherit"
+                href="/procurement/purchase-requests"
+                onClick={(e: React.MouseEvent) => {
+                  e.preventDefault();
+                  router.push('/procurement/purchase-requests');
+                }}
+                sx={{ cursor: 'pointer' }}
+              >
+                Purchase Requests
+              </Link>
+              <Link
+                color="inherit"
+                href={`/procurement/purchase-requests/${prId}`}
+                onClick={(e: React.MouseEvent) => {
+                  e.preventDefault();
+                  router.push(`/procurement/purchase-requests/${prId}`);
+                }}
+                sx={{ cursor: 'pointer' }}
+              >
+                {pr?.number || prId}
+              </Link>
+              <Typography color="text.primary">Edit</Typography>
+            </Breadcrumbs>
             <Typography variant="h4" gutterBottom>
               Edit {pr?.number}
             </Typography>

@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Container,
   Box,
   Button,
   Chip,
@@ -130,127 +129,125 @@ export default function EstimationPage() {
   };
 
   return (
-    <Container maxWidth="xl">
-      <Box sx={{ mb: 4 }}>
-        <PageHeader
-          title="Bill of Materials (BOM)"
-          subtitle="Create and manage equipment BOMs with cost estimates"
-          action={
-            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate} size="large">
-              New BOM
-            </Button>
-          }
-        />
+    <Box>
+      <PageHeader
+        title="Bill of Materials (BOM)"
+        subtitle="Create and manage equipment BOMs with cost estimates"
+        action={
+          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate} size="large">
+            New BOM
+          </Button>
+        }
+      />
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>BOM Code</TableCell>
-                <TableCell>Name</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell>Project</TableCell>
-                <TableCell align="right">Items</TableCell>
-                <TableCell align="right">Total Cost</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Created</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <LoadingState message="Loading BOMs..." variant="table" colSpan={9} />
-              ) : boms.length === 0 ? (
-                <EmptyState
-                  message="No BOMs yet. Click 'New BOM' to create your first Bill of Materials."
-                  variant="table"
-                  colSpan={9}
-                  action={
-                    <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
-                      Create First BOM
-                    </Button>
-                  }
-                />
-              ) : (
-                boms.map((bom) => (
-                  <TableRow
-                    key={bom.id}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => handleEdit(bom.id)}
-                  >
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="medium">
-                        {bom.bomCode}
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>BOM Code</TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Category</TableCell>
+              <TableCell>Project</TableCell>
+              <TableCell align="right">Items</TableCell>
+              <TableCell align="right">Total Cost</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Created</TableCell>
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading ? (
+              <LoadingState message="Loading BOMs..." variant="table" colSpan={9} />
+            ) : boms.length === 0 ? (
+              <EmptyState
+                message="No BOMs yet. Click 'New BOM' to create your first Bill of Materials."
+                variant="table"
+                colSpan={9}
+                action={
+                  <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
+                    Create First BOM
+                  </Button>
+                }
+              />
+            ) : (
+              boms.map((bom) => (
+                <TableRow
+                  key={bom.id}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => handleEdit(bom.id)}
+                >
+                  <TableCell>
+                    <Typography variant="body2" fontWeight="medium">
+                      {bom.bomCode}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">{bom.name}</Typography>
+                    {bom.description && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {bom.description.length > 50
+                          ? `${bom.description.substring(0, 50)}...`
+                          : bom.description}
                       </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{bom.name}</Typography>
-                      {bom.description && (
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          {bom.description.length > 50
-                            ? `${bom.description.substring(0, 50)}...`
-                            : bom.description}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {categoryLabels[bom.category] || bom.category}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{bom.projectName || '-'}</Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2">{bom.summary.itemCount}</Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" fontWeight="medium">
-                        {formatCurrency(bom.summary.totalCost)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={bom.status}
-                        color={getStatusColor(bom.status, 'bom')}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{formatDate(bom.createdAt)}</Typography>
-                    </TableCell>
-                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                      <TableActionCell
-                        actions={[
-                          {
-                            icon: <EditIcon fontSize="small" />,
-                            label: 'Edit',
-                            onClick: () => handleEdit(bom.id),
-                          },
-                          {
-                            icon: <DeleteIcon fontSize="small" />,
-                            label: 'Delete',
-                            onClick: () => handleDelete(bom),
-                            color: 'error',
-                            disabled: bom.status !== 'DRAFT',
-                          },
-                        ]}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
-    </Container>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {categoryLabels[bom.category] || bom.category}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">{bom.projectName || '-'}</Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2">{bom.summary.itemCount}</Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2" fontWeight="medium">
+                      {formatCurrency(bom.summary.totalCost)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={bom.status}
+                      color={getStatusColor(bom.status, 'bom')}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">{formatDate(bom.createdAt)}</Typography>
+                  </TableCell>
+                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                    <TableActionCell
+                      actions={[
+                        {
+                          icon: <EditIcon fontSize="small" />,
+                          label: 'Edit',
+                          onClick: () => handleEdit(bom.id),
+                        },
+                        {
+                          icon: <DeleteIcon fontSize="small" />,
+                          label: 'Delete',
+                          onClick: () => handleDelete(bom),
+                          color: 'error',
+                          disabled: bom.status !== 'DRAFT',
+                        },
+                      ]}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
   );
 }

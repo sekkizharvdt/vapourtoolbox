@@ -8,8 +8,17 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Box, Stack, CircularProgress, Alert, Button } from '@mui/material';
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
+import {
+  Box,
+  Stack,
+  CircularProgress,
+  Alert,
+  Button,
+  Breadcrumbs,
+  Link,
+  Typography,
+} from '@mui/material';
+import { Home as HomeIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PurchaseOrder, PurchaseOrderItem } from '@vapour/types';
 import {
@@ -182,11 +191,7 @@ export default function PODetailPage() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">{error || 'Purchase Order not found'}</Alert>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => router.push('/procurement/pos')}
-          sx={{ mt: 2 }}
-        >
+        <Button onClick={() => router.push('/procurement/pos')} sx={{ mt: 2 }}>
           Back to Purchase Orders
         </Button>
       </Box>
@@ -196,6 +201,23 @@ export default function PODetailPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs>
+          <Link
+            color="inherit"
+            href="/procurement/pos"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement/pos');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Purchase Orders
+          </Link>
+          <Typography color="text.primary">{po.number}</Typography>
+        </Breadcrumbs>
+
         <POHeader
           po={po}
           onBack={() => router.push('/procurement/pos')}

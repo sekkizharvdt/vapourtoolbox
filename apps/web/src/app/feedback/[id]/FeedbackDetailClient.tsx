@@ -11,7 +11,6 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Container,
   Box,
   Typography,
   Paper,
@@ -28,6 +27,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   BugReport as BugReportIcon,
@@ -35,7 +36,7 @@ import {
   ChatBubble as ChatBubbleIcon,
   CheckCircle as CheckCircleIcon,
   Replay as ReplayIcon,
-  ArrowBack as ArrowBackIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -247,23 +248,34 @@ export default function FeedbackDetailClient() {
   if (error || !feedback) {
     return (
       <AuthenticatedLayout>
-        <Container maxWidth="md" sx={{ py: 4 }}>
+        <Box sx={{ maxWidth: 'md', mx: 'auto', py: 4 }}>
           <Alert severity="error">{error || 'Feedback not found'}</Alert>
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => router.push('/feedback')}
-            sx={{ mt: 2 }}
-          >
+          <Button onClick={() => router.push('/feedback')} sx={{ mt: 2 }}>
             Back to Feedback
           </Button>
-        </Container>
+        </Box>
       </AuthenticatedLayout>
     );
   }
 
   return (
     <AuthenticatedLayout>
-      <Container maxWidth="md" sx={{ py: 2 }}>
+      <Box sx={{ maxWidth: 'md', mx: 'auto', py: 2 }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/feedback"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/feedback');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Feedback
+          </Link>
+          <Typography color="text.primary">{feedback.title}</Typography>
+        </Breadcrumbs>
         <PageHeader title={feedback.title} />
 
         {/* Status and Type */}
@@ -437,9 +449,7 @@ export default function FeedbackDetailClient() {
         )}
 
         {/* Back Button */}
-        <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/feedback')}>
-          Back to Feedback
-        </Button>
+        <Button onClick={() => router.push('/feedback')}>Back to Feedback</Button>
 
         {/* Close Confirmation Dialog */}
         <Dialog open={closeDialogOpen} onClose={() => setCloseDialogOpen(false)}>
@@ -504,7 +514,7 @@ export default function FeedbackDetailClient() {
             </Button>
           </DialogActions>
         </Dialog>
-      </Container>
+      </Box>
     </AuthenticatedLayout>
   );
 }

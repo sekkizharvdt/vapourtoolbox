@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Container,
   Typography,
   Box,
   Button,
@@ -11,9 +10,11 @@ import {
   CircularProgress,
   Alert,
   Divider,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
-  ArrowBack as BackIcon,
+  Home as HomeIcon,
   Add as AddIcon,
   Calculate as CalculateIcon,
   PictureAsPdf as PdfIcon,
@@ -156,34 +157,44 @@ export default function BOMEditorClient() {
 
   if (loading) {
     return (
-      <Container maxWidth="xl">
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      </Container>
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   if (error || !bom) {
     return (
-      <Container maxWidth="xl">
+      <Box>
         <Alert severity="error" sx={{ mt: 4 }}>
           {error || 'BOM not found'}
         </Alert>
-        <Button startIcon={<BackIcon />} onClick={handleBack} sx={{ mt: 2 }}>
+        <Button onClick={handleBack} sx={{ mt: 2 }}>
           Back to BOMs
         </Button>
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <Box>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
-        <Button startIcon={<BackIcon />} onClick={handleBack} sx={{ mb: 2 }}>
-          Back to BOMs
-        </Button>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/estimation"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/estimation');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Estimation
+          </Link>
+          <Typography color="text.primary">{bom.bomCode}</Typography>
+        </Breadcrumbs>
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
           <Box>
@@ -503,6 +514,6 @@ export default function BOMEditorClient() {
           />
         </>
       )}
-    </Container>
+    </Box>
   );
 }

@@ -22,9 +22,11 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
-  ArrowBack as BackIcon,
+  Home as HomeIcon,
   MoreVert as MoreIcon,
   PictureAsPdf as PdfIcon,
   CloudUpload as SavePdfIcon,
@@ -306,10 +308,23 @@ export default function ProposalDetailClient() {
   const canConvert = canConvertToProject(proposal);
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Button startIcon={<BackIcon />} onClick={() => router.push('/proposals')} sx={{ mb: 2 }}>
-        Back to Proposals
-      </Button>
+    <Box>
+      {/* Breadcrumbs */}
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/proposals"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/proposals');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Proposals
+        </Link>
+        <Typography color="text.primary">{proposal.proposalNumber}</Typography>
+      </Breadcrumbs>
 
       {error && (
         <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>

@@ -16,10 +16,12 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Edit as EditIcon,
-  ArrowBack as BackIcon,
+  Home as HomeIcon,
   MoreVert as MoreIcon,
   Description as ProposalIcon,
   CheckCircle as WonIcon,
@@ -138,13 +140,22 @@ export default function EnquiryDetailClient() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Button
-        startIcon={<BackIcon />}
-        onClick={() => router.push('/proposals/enquiries')}
-        sx={{ mb: 2 }}
-      >
-        Back to Enquiries
-      </Button>
+      {/* Breadcrumbs */}
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/proposals/enquiries"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/proposals/enquiries');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Enquiries
+        </Link>
+        <Typography color="text.primary">{enquiry.enquiryNumber}</Typography>
+      </Breadcrumbs>
 
       <PageHeader
         title={enquiry.enquiryNumber}

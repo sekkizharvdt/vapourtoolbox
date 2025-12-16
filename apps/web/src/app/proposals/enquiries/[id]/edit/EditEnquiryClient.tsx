@@ -23,11 +23,13 @@ import {
   Select,
   MenuItem,
   FormHelperText,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
+import { Home as HomeIcon, Save as SaveIcon } from '@mui/icons-material';
 import { Controller, useForm } from 'react-hook-form';
 import { Timestamp } from 'firebase/firestore';
 import { useFirestore } from '@/lib/firebase/hooks';
@@ -232,13 +234,43 @@ export default function EditEnquiryClient() {
       <Stack spacing={3}>
         {/* Header */}
         <Box>
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => router.push(`/proposals/enquiries/${enquiryId}`)}
-            sx={{ mb: 1 }}
-          >
-            Back to Enquiry
-          </Button>
+          <Breadcrumbs sx={{ mb: 2 }}>
+            <Link
+              color="inherit"
+              href="/proposals"
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                router.push('/proposals');
+              }}
+              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+            >
+              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+              Proposals
+            </Link>
+            <Link
+              color="inherit"
+              href="/proposals/enquiries"
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                router.push('/proposals/enquiries');
+              }}
+              sx={{ cursor: 'pointer' }}
+            >
+              Enquiries
+            </Link>
+            <Link
+              color="inherit"
+              href={`/proposals/enquiries/${enquiryId}`}
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                router.push(`/proposals/enquiries/${enquiryId}`);
+              }}
+              sx={{ cursor: 'pointer' }}
+            >
+              {enquiry?.enquiryNumber || enquiryId}
+            </Link>
+            <Typography color="text.primary">Edit</Typography>
+          </Breadcrumbs>
           <Typography variant="h4" gutterBottom>
             Edit Enquiry
           </Typography>

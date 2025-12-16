@@ -29,6 +29,8 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -36,7 +38,7 @@ import {
   Cancel as CancelIcon,
   CheckCircle as CheckCircleIcon,
   PictureAsPdf as PdfIcon,
-  ArrowBack as ArrowBackIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RFQ, RFQItem } from '@vapour/types';
@@ -172,11 +174,7 @@ export default function RFQDetailPage() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">{error || 'RFQ not found'}</Alert>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => router.push('/procurement/rfqs')}
-          sx={{ mt: 2 }}
-        >
+        <Button onClick={() => router.push('/procurement/rfqs')} sx={{ mt: 2 }}>
           Back to RFQs
         </Button>
       </Box>
@@ -190,16 +188,26 @@ export default function RFQDetailPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs>
+          <Link
+            color="inherit"
+            href="/procurement/rfqs"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement/rfqs');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            RFQs
+          </Link>
+          <Typography color="text.primary">{rfq.number}</Typography>
+        </Breadcrumbs>
+
         {/* Header */}
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
           <Box>
-            <Button
-              startIcon={<ArrowBackIcon />}
-              onClick={() => router.push('/procurement/rfqs')}
-              sx={{ mb: 1 }}
-            >
-              Back to RFQs
-            </Button>
             <Typography variant="h4" gutterBottom>
               {rfq.number}
             </Typography>

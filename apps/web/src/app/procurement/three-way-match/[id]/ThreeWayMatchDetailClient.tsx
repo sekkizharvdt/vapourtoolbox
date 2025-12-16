@@ -8,9 +8,20 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Box, Stack, CircularProgress, Alert, Button, Typography, Chip, Grid } from '@mui/material';
 import {
-  ArrowBack as ArrowBackIcon,
+  Box,
+  Stack,
+  CircularProgress,
+  Alert,
+  Button,
+  Typography,
+  Chip,
+  Grid,
+  Breadcrumbs,
+  Link,
+} from '@mui/material';
+import {
+  Home as HomeIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
 } from '@mui/icons-material';
@@ -233,11 +244,7 @@ export default function ThreeWayMatchDetailClient() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">{error || 'Three-Way Match not found'}</Alert>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => router.push('/procurement/three-way-match')}
-          sx={{ mt: 2 }}
-        >
+        <Button onClick={() => router.push('/procurement/three-way-match')} sx={{ mt: 2 }}>
           Back to Three-Way Match
         </Button>
       </Box>
@@ -252,14 +259,32 @@ export default function ThreeWayMatchDetailClient() {
       <Stack spacing={3}>
         {/* Header */}
         <Box>
-          <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-            <Button
-              startIcon={<ArrowBackIcon />}
-              onClick={() => router.push('/procurement/three-way-match')}
+          <Breadcrumbs sx={{ mb: 2 }}>
+            <Link
+              color="inherit"
+              href="/procurement"
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                router.push('/procurement');
+              }}
+              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
             >
-              Back
-            </Button>
-          </Stack>
+              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+              Procurement
+            </Link>
+            <Link
+              color="inherit"
+              href="/procurement/three-way-match"
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                router.push('/procurement/three-way-match');
+              }}
+              sx={{ cursor: 'pointer' }}
+            >
+              Three-Way Match
+            </Link>
+            <Typography color="text.primary">{match.matchNumber}</Typography>
+          </Breadcrumbs>
 
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
             <Box>

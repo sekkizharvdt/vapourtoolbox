@@ -19,7 +19,6 @@ import {
   TextField,
   Tabs,
   Tab,
-  Container,
   Stack,
   Typography,
   Table,
@@ -257,11 +256,86 @@ export default function CompanyDocumentsPage() {
   }
 
   return (
-    <Container maxWidth="xl">
-      <Box sx={{ mb: 4 }}>
-        <PageHeader
-          title="Company Documents"
-          subtitle="SOPs, policies, templates, and company-wide resources"
+    <Box>
+      <PageHeader
+        title="Company Documents"
+        subtitle="SOPs, policies, templates, and company-wide resources"
+        action={
+          isAdmin && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setUploadDialogOpen(true)}
+            >
+              Upload Document
+            </Button>
+          )
+        }
+      />
+
+      {/* Category Tabs */}
+      <Paper sx={{ mb: 3 }}>
+        <Tabs
+          value={activeCategory}
+          onChange={(_, value) => setActiveCategory(value)}
+          variant="scrollable"
+          scrollButtons="auto"
+        >
+          <Tab
+            value="ALL"
+            label={
+              <Stack direction="row" spacing={1} alignItems="center">
+                <span>All</span>
+                <Chip label={totalDocuments} size="small" />
+              </Stack>
+            }
+          />
+          {(Object.keys(COMPANY_DOCUMENT_CATEGORIES) as CompanyDocumentCategory[]).map(
+            (category) => (
+              <Tab
+                key={category}
+                value={category}
+                icon={CATEGORY_ICONS[category]}
+                iconPosition="start"
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <span>{COMPANY_DOCUMENT_CATEGORIES[category].label}</span>
+                    {categoryCounts[category] > 0 && (
+                      <Chip label={categoryCounts[category]} size="small" />
+                    )}
+                  </Stack>
+                }
+              />
+            )
+          )}
+        </Tabs>
+      </Paper>
+
+      {/* Search */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <TextField
+          fullWidth
+          placeholder="Search documents by title, description, or tags..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+          }}
+          size="small"
+        />
+      </Paper>
+
+      {/* Documents Table */}
+      {filteredDocuments.length === 0 ? (
+        <EmptyState
+          message={
+            searchQuery
+              ? 'No documents match your search'
+              : activeCategory !== 'ALL'
+                ? `No ${COMPANY_DOCUMENT_CATEGORIES[activeCategory].label.toLowerCase()} found`
+                : 'No company documents uploaded yet'
+          }
+          variant="paper"
           action={
             isAdmin && (
               <Button
@@ -269,322 +343,245 @@ export default function CompanyDocumentsPage() {
                 startIcon={<AddIcon />}
                 onClick={() => setUploadDialogOpen(true)}
               >
-                Upload Document
+                Upload First Document
               </Button>
             )
           }
         />
-
-        {/* Category Tabs */}
-        <Paper sx={{ mb: 3 }}>
-          <Tabs
-            value={activeCategory}
-            onChange={(_, value) => setActiveCategory(value)}
-            variant="scrollable"
-            scrollButtons="auto"
-          >
-            <Tab
-              value="ALL"
-              label={
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <span>All</span>
-                  <Chip label={totalDocuments} size="small" />
-                </Stack>
-              }
-            />
-            {(Object.keys(COMPANY_DOCUMENT_CATEGORIES) as CompanyDocumentCategory[]).map(
-              (category) => (
-                <Tab
-                  key={category}
-                  value={category}
-                  icon={CATEGORY_ICONS[category]}
-                  iconPosition="start"
-                  label={
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <span>{COMPANY_DOCUMENT_CATEGORIES[category].label}</span>
-                      {categoryCounts[category] > 0 && (
-                        <Chip label={categoryCounts[category]} size="small" />
-                      )}
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Document</TableCell>
+                <TableCell>Category</TableCell>
+                <TableCell>Version</TableCell>
+                <TableCell>Size</TableCell>
+                <TableCell>Uploaded</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredDocuments.map((doc) => (
+                <TableRow key={doc.id} hover>
+                  <TableCell>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Box sx={{ color: 'primary.main' }}>{CATEGORY_ICONS[doc.category]}</Box>
+                      <Box>
+                        <Typography variant="body2" fontWeight="medium">
+                          {doc.title}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {doc.fileName}
+                        </Typography>
+                        {doc.isTemplate && doc.templateType && (
+                          <Chip
+                            label={TEMPLATE_TYPES[doc.templateType].label}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                            sx={{ ml: 1 }}
+                          />
+                        )}
+                      </Box>
                     </Stack>
-                  }
-                />
-              )
-            )}
-          </Tabs>
-        </Paper>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={COMPANY_DOCUMENT_CATEGORIES[doc.category].label}
+                      size="small"
+                      variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Tooltip title="View version history">
+                      <Chip
+                        label={`v${doc.version}`}
+                        size="small"
+                        onClick={() => handleViewHistory(doc)}
+                        sx={{ cursor: 'pointer' }}
+                      />
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell>{formatFileSize(doc.fileSize)}</TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {formatDate(doc.uploadedAt as { seconds: number })}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      by {doc.uploadedByName}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <IconButton size="small" onClick={() => handleDownload(doc)}>
+                      <DownloadIcon />
+                    </IconButton>
+                    {isAdmin && (
+                      <IconButton size="small" onClick={(e) => handleMenuOpen(e, doc)}>
+                        <MoreIcon />
+                      </IconButton>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
-        {/* Search */}
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <TextField
-            fullWidth
-            placeholder="Search documents by title, description, or tags..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
-            }}
-            size="small"
-          />
-        </Paper>
+      {/* Action Menu */}
+      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={handleMenuClose}>
+        <MenuItem onClick={() => menuDocument && handleDownload(menuDocument)}>
+          <ListItemIcon>
+            <DownloadIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Download</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => menuDocument && handleEdit(menuDocument)}>
+          <ListItemIcon>
+            <EditIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Edit Details</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => menuDocument && handleNewVersion(menuDocument)}>
+          <ListItemIcon>
+            <UploadIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Upload New Version</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => menuDocument && handleViewHistory(menuDocument)}>
+          <ListItemIcon>
+            <VersionIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Version History</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => menuDocument && handleDelete(menuDocument)}
+          sx={{ color: 'error.main' }}
+        >
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          <ListItemText>Delete</ListItemText>
+        </MenuItem>
+      </Menu>
 
-        {/* Documents Table */}
-        {filteredDocuments.length === 0 ? (
-          <EmptyState
-            message={
-              searchQuery
-                ? 'No documents match your search'
-                : activeCategory !== 'ALL'
-                  ? `No ${COMPANY_DOCUMENT_CATEGORIES[activeCategory].label.toLowerCase()} found`
-                  : 'No company documents uploaded yet'
-            }
-            variant="paper"
-            action={
-              isAdmin && (
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={() => setUploadDialogOpen(true)}
-                >
-                  Upload First Document
-                </Button>
-              )
-            }
-          />
-        ) : (
-          <TableContainer component={Paper}>
-            <Table>
+      {/* Upload Dialog */}
+      <UploadDocumentDialog
+        open={uploadDialogOpen}
+        onClose={() => setUploadDialogOpen(false)}
+        onSuccess={() => {
+          setUploadDialogOpen(false);
+          loadDocuments();
+        }}
+      />
+
+      {/* Edit Dialog */}
+      {selectedDocument && (
+        <EditCompanyDocumentDialog
+          open={editDialogOpen}
+          document={selectedDocument}
+          onClose={() => {
+            setEditDialogOpen(false);
+            setSelectedDocument(null);
+          }}
+          onSuccess={() => {
+            setEditDialogOpen(false);
+            setSelectedDocument(null);
+            loadDocuments();
+          }}
+        />
+      )}
+
+      {/* New Version Dialog */}
+      {selectedDocument && (
+        <NewVersionDialog
+          open={versionDialogOpen}
+          document={selectedDocument}
+          onClose={() => {
+            setVersionDialogOpen(false);
+            setSelectedDocument(null);
+          }}
+          onSuccess={() => {
+            setVersionDialogOpen(false);
+            setSelectedDocument(null);
+            loadDocuments();
+          }}
+        />
+      )}
+
+      {/* Version History Dialog */}
+      <Dialog
+        open={versionHistoryOpen}
+        onClose={() => setVersionHistoryOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Version History: {selectedDocument?.title}
+          <IconButton
+            onClick={() => setVersionHistoryOpen(false)}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <TableContainer>
+            <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Document</TableCell>
-                  <TableCell>Category</TableCell>
                   <TableCell>Version</TableCell>
-                  <TableCell>Size</TableCell>
-                  <TableCell>Uploaded</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>File</TableCell>
+                  <TableCell>Uploaded By</TableCell>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Notes</TableCell>
+                  <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredDocuments.map((doc) => (
-                  <TableRow key={doc.id} hover>
-                    <TableCell>
-                      <Stack direction="row" spacing={2} alignItems="center">
-                        <Box sx={{ color: 'primary.main' }}>{CATEGORY_ICONS[doc.category]}</Box>
-                        <Box>
-                          <Typography variant="body2" fontWeight="medium">
-                            {doc.title}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {doc.fileName}
-                          </Typography>
-                          {doc.isTemplate && doc.templateType && (
-                            <Chip
-                              label={TEMPLATE_TYPES[doc.templateType].label}
-                              size="small"
-                              color="primary"
-                              variant="outlined"
-                              sx={{ ml: 1 }}
-                            />
-                          )}
-                        </Box>
-                      </Stack>
-                    </TableCell>
+                {versionHistory.map((ver) => (
+                  <TableRow key={ver.id}>
                     <TableCell>
                       <Chip
-                        label={COMPANY_DOCUMENT_CATEGORIES[doc.category].label}
+                        label={`v${ver.version}`}
                         size="small"
-                        variant="outlined"
+                        color={ver.isLatest ? 'primary' : 'default'}
                       />
                     </TableCell>
+                    <TableCell>{ver.fileName}</TableCell>
+                    <TableCell>{ver.uploadedByName}</TableCell>
+                    <TableCell>{formatDate(ver.uploadedAt as { seconds: number })}</TableCell>
+                    <TableCell>{ver.revisionNotes || '-'}</TableCell>
                     <TableCell>
-                      <Tooltip title="View version history">
-                        <Chip
-                          label={`v${doc.version}`}
-                          size="small"
-                          onClick={() => handleViewHistory(doc)}
-                          sx={{ cursor: 'pointer' }}
-                        />
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>{formatFileSize(doc.fileSize)}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {formatDate(doc.uploadedAt as { seconds: number })}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        by {doc.uploadedByName}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <IconButton size="small" onClick={() => handleDownload(doc)}>
+                      <IconButton size="small" onClick={() => window.open(ver.fileUrl, '_blank')}>
                         <DownloadIcon />
                       </IconButton>
-                      {isAdmin && (
-                        <IconButton size="small" onClick={(e) => handleMenuOpen(e, doc)}>
-                          <MoreIcon />
-                        </IconButton>
-                      )}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
-        )}
+        </DialogContent>
+      </Dialog>
 
-        {/* Action Menu */}
-        <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={handleMenuClose}>
-          <MenuItem onClick={() => menuDocument && handleDownload(menuDocument)}>
-            <ListItemIcon>
-              <DownloadIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Download</ListItemText>
-          </MenuItem>
-          <MenuItem onClick={() => menuDocument && handleEdit(menuDocument)}>
-            <ListItemIcon>
-              <EditIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Edit Details</ListItemText>
-          </MenuItem>
-          <MenuItem onClick={() => menuDocument && handleNewVersion(menuDocument)}>
-            <ListItemIcon>
-              <UploadIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Upload New Version</ListItemText>
-          </MenuItem>
-          <MenuItem onClick={() => menuDocument && handleViewHistory(menuDocument)}>
-            <ListItemIcon>
-              <VersionIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Version History</ListItemText>
-          </MenuItem>
-          <MenuItem
-            onClick={() => menuDocument && handleDelete(menuDocument)}
-            sx={{ color: 'error.main' }}
-          >
-            <ListItemIcon>
-              <DeleteIcon fontSize="small" color="error" />
-            </ListItemIcon>
-            <ListItemText>Delete</ListItemText>
-          </MenuItem>
-        </Menu>
-
-        {/* Upload Dialog */}
-        <UploadDocumentDialog
-          open={uploadDialogOpen}
-          onClose={() => setUploadDialogOpen(false)}
-          onSuccess={() => {
-            setUploadDialogOpen(false);
-            loadDocuments();
-          }}
-        />
-
-        {/* Edit Dialog */}
-        {selectedDocument && (
-          <EditCompanyDocumentDialog
-            open={editDialogOpen}
-            document={selectedDocument}
-            onClose={() => {
-              setEditDialogOpen(false);
-              setSelectedDocument(null);
-            }}
-            onSuccess={() => {
-              setEditDialogOpen(false);
-              setSelectedDocument(null);
-              loadDocuments();
-            }}
-          />
-        )}
-
-        {/* New Version Dialog */}
-        {selectedDocument && (
-          <NewVersionDialog
-            open={versionDialogOpen}
-            document={selectedDocument}
-            onClose={() => {
-              setVersionDialogOpen(false);
-              setSelectedDocument(null);
-            }}
-            onSuccess={() => {
-              setVersionDialogOpen(false);
-              setSelectedDocument(null);
-              loadDocuments();
-            }}
-          />
-        )}
-
-        {/* Version History Dialog */}
-        <Dialog
-          open={versionHistoryOpen}
-          onClose={() => setVersionHistoryOpen(false)}
-          maxWidth="md"
-          fullWidth
-        >
-          <DialogTitle>
-            Version History: {selectedDocument?.title}
-            <IconButton
-              onClick={() => setVersionHistoryOpen(false)}
-              sx={{ position: 'absolute', right: 8, top: 8 }}
-            >
-              <CloseIcon />
-            </IconButton>
-          </DialogTitle>
-          <DialogContent>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Version</TableCell>
-                    <TableCell>File</TableCell>
-                    <TableCell>Uploaded By</TableCell>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Notes</TableCell>
-                    <TableCell>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {versionHistory.map((ver) => (
-                    <TableRow key={ver.id}>
-                      <TableCell>
-                        <Chip
-                          label={`v${ver.version}`}
-                          size="small"
-                          color={ver.isLatest ? 'primary' : 'default'}
-                        />
-                      </TableCell>
-                      <TableCell>{ver.fileName}</TableCell>
-                      <TableCell>{ver.uploadedByName}</TableCell>
-                      <TableCell>{formatDate(ver.uploadedAt as { seconds: number })}</TableCell>
-                      <TableCell>{ver.revisionNotes || '-'}</TableCell>
-                      <TableCell>
-                        <IconButton size="small" onClick={() => window.open(ver.fileUrl, '_blank')}>
-                          <DownloadIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </DialogContent>
-        </Dialog>
-
-        {/* Delete Confirmation Dialog */}
-        <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-          <DialogTitle>Delete Document</DialogTitle>
-          <DialogContent>
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              Are you sure you want to delete &quot;{selectedDocument?.title}&quot;? This action
-              cannot be undone.
-            </Alert>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleDeleteConfirm} color="error" variant="contained">
-              Delete
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Box>
-    </Container>
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Delete Document</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Are you sure you want to delete &quot;{selectedDocument?.title}&quot;? This action
+            cannot be undone.
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }

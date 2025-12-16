@@ -30,9 +30,11 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
-  ArrowBack as ArrowBackIcon,
+  Home as HomeIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Send as SendIcon,
@@ -184,11 +186,7 @@ export default function AmendmentDetailClient() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">{error || 'Amendment not found'}</Alert>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => router.push('/procurement/amendments')}
-          sx={{ mt: 2 }}
-        >
+        <Button onClick={() => router.push('/procurement/amendments')} sx={{ mt: 2 }}>
           Back to Amendments
         </Button>
       </Box>
@@ -202,14 +200,34 @@ export default function AmendmentDetailClient() {
       <Stack spacing={3}>
         {/* Header */}
         <Box>
-          <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-            <Button
-              startIcon={<ArrowBackIcon />}
-              onClick={() => router.push('/procurement/amendments')}
+          <Breadcrumbs sx={{ mb: 2 }}>
+            <Link
+              color="inherit"
+              href="/procurement"
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                router.push('/procurement');
+              }}
+              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
             >
-              Back
-            </Button>
-          </Stack>
+              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+              Procurement
+            </Link>
+            <Link
+              color="inherit"
+              href="/procurement/amendments"
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                router.push('/procurement/amendments');
+              }}
+              sx={{ cursor: 'pointer' }}
+            >
+              Amendments
+            </Link>
+            <Typography color="text.primary">
+              {amendment.purchaseOrderNumber} - #{amendment.amendmentNumber}
+            </Typography>
+          </Breadcrumbs>
 
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
             <Box>

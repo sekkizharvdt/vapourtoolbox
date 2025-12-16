@@ -24,8 +24,10 @@ import {
   TableRow,
   CircularProgress,
   Alert,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
-import { ArrowBack as ArrowBackIcon, Edit as EditIcon } from '@mui/icons-material';
+import { Home as HomeIcon, Edit as EditIcon } from '@mui/icons-material';
 import type { PurchaseRequest, PurchaseRequestItem } from '@vapour/types';
 import { getPurchaseRequestById, getPurchaseRequestItems } from '@/lib/procurement/purchaseRequest';
 import { formatDate } from '@/lib/utils/formatters';
@@ -138,11 +140,7 @@ export default function PRDetailPage() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">{error || 'Purchase Request not found'}</Alert>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => router.push('/procurement/purchase-requests')}
-          sx={{ mt: 2 }}
-        >
+        <Button onClick={() => router.push('/procurement/purchase-requests')} sx={{ mt: 2 }}>
           Back to Purchase Requests
         </Button>
       </Box>
@@ -153,15 +151,25 @@ export default function PRDetailPage() {
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
         {/* Header */}
+        {/* Breadcrumbs */}
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/procurement/purchase-requests"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement/purchase-requests');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Purchase Requests
+          </Link>
+          <Typography color="text.primary">{pr.number}</Typography>
+        </Breadcrumbs>
+
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
           <Box>
-            <Button
-              startIcon={<ArrowBackIcon />}
-              onClick={() => router.push('/procurement/purchase-requests')}
-              sx={{ mb: 1 }}
-            >
-              Back to Purchase Requests
-            </Button>
             <Typography variant="h4" gutterBottom>
               {pr.number}
             </Typography>

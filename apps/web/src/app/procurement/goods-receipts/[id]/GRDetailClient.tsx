@@ -28,9 +28,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
-  ArrowBack as ArrowBackIcon,
+  Home as HomeIcon,
   CheckCircle as CheckCircleIcon,
   Payment as PaymentIcon,
   Warning as WarningIcon,
@@ -156,11 +158,7 @@ export default function GRDetailClient() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">{error || 'Goods Receipt not found'}</Alert>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => router.push('/procurement/goods-receipts')}
-          sx={{ mt: 2 }}
-        >
+        <Button onClick={() => router.push('/procurement/goods-receipts')} sx={{ mt: 2 }}>
           Back to Goods Receipts
         </Button>
       </Box>
@@ -174,14 +172,32 @@ export default function GRDetailClient() {
       <Stack spacing={3}>
         {/* Header */}
         <Box>
-          <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-            <Button
-              startIcon={<ArrowBackIcon />}
-              onClick={() => router.push('/procurement/goods-receipts')}
+          <Breadcrumbs sx={{ mb: 2 }}>
+            <Link
+              color="inherit"
+              href="/procurement"
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                router.push('/procurement');
+              }}
+              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
             >
-              Back
-            </Button>
-          </Stack>
+              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+              Procurement
+            </Link>
+            <Link
+              color="inherit"
+              href="/procurement/goods-receipts"
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                router.push('/procurement/goods-receipts');
+              }}
+              sx={{ cursor: 'pointer' }}
+            >
+              Goods Receipts
+            </Link>
+            <Typography color="text.primary">{gr.number}</Typography>
+          </Breadcrumbs>
 
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
             <Box>

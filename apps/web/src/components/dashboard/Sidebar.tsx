@@ -13,7 +13,7 @@
  * - Administration (visible to admins only)
  */
 
-import { useMemo, useCallback, memo } from 'react';
+import { useMemo, useCallback, memo, useRef, useEffect } from 'react';
 import {
   Drawer,
   List,
@@ -176,6 +176,27 @@ function SidebarComponent({
   const pathname = usePathname();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Persist sidebar scroll position across navigation
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    // Restore scroll position on mount
+    const savedPosition = sessionStorage.getItem('sidebar-scroll');
+    if (savedPosition) {
+      container.scrollTop = parseInt(savedPosition, 10);
+    }
+
+    // Save scroll position on scroll
+    const handleScroll = () => {
+      sessionStorage.setItem('sidebar-scroll', String(container.scrollTop));
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Memoize accessible modules to avoid recalculation on every render
   const accessibleModules = useMemo(() => {
@@ -284,7 +305,7 @@ function SidebarComponent({
       <Divider />
 
       {/* Categorized Module List */}
-      <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+      <Box ref={scrollContainerRef} sx={{ flexGrow: 1, overflowY: 'auto' }}>
         {modulesByCategory.map((category, index) => (
           <Box
             key={category.id}
