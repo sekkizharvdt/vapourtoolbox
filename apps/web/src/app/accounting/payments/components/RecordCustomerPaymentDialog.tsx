@@ -1,21 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
-  TextField,
-  Grid,
-  MenuItem,
-  Box,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Stack,
-} from '@mui/material';
+import { TextField, Grid, MenuItem, Box, Typography } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
@@ -29,7 +15,6 @@ import type {
   PaymentMethod,
 } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
-import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import {
   createPaymentWithAllocationsAtomic,
   updatePaymentWithAllocationsAtomic,
@@ -41,31 +26,13 @@ import {
   createAuditFieldChanges,
   type AuditUserContext,
 } from '@/lib/accounting/auditLogger';
+import { InvoiceAllocationTable, PAYMENT_METHODS, CURRENCIES } from './customer-payment';
 
 interface RecordCustomerPaymentDialogProps {
   open: boolean;
   onClose: () => void;
   editingPayment?: CustomerPayment | null;
 }
-
-const PAYMENT_METHODS: PaymentMethod[] = [
-  'BANK_TRANSFER',
-  'UPI',
-  'CREDIT_CARD',
-  'DEBIT_CARD',
-  'CHEQUE',
-  'CASH',
-  'OTHER',
-];
-
-const CURRENCIES = [
-  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'GBP', symbol: '£', name: 'British Pound' },
-  { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham' },
-  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
-];
 
 export function RecordCustomerPaymentDialog({
   open,
@@ -616,104 +583,14 @@ export function RecordCustomerPaymentDialog({
           </Grid>
 
           {/* Invoice Allocation */}
-          {outstandingInvoices.length > 0 && (
-            <>
-              <Grid size={{ xs: 12 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="h6">Allocate to Invoices</Typography>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Allocated: {formatCurrency(totalAllocated)} | Unallocated:{' '}
-                      {formatCurrency(unallocated)}
-                    </Typography>
-                    <button type="button" onClick={handleAutoAllocate} style={{ marginLeft: 8 }}>
-                      Auto Allocate
-                    </button>
-                  </Box>
-                </Stack>
-              </Grid>
-
-              <Grid size={{ xs: 12 }}>
-                <TableContainer component={Paper} variant="outlined">
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Invoice Number</TableCell>
-                        <TableCell>Date</TableCell>
-                        <TableCell align="right">Invoice Amount</TableCell>
-                        <TableCell align="right">Outstanding (INR)</TableCell>
-                        <TableCell align="right">Allocate Amount</TableCell>
-                        <TableCell align="right">Remaining</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {outstandingInvoices.map((invoice, index) => {
-                        const allocation = allocations[index];
-                        // Handle Firestore Timestamp or Date for invoice date
-                        const invoiceDate = invoice.date
-                          ? typeof (invoice.date as unknown as { toDate?: () => Date }).toDate ===
-                            'function'
-                            ? (invoice.date as unknown as { toDate: () => Date }).toDate()
-                            : new Date(invoice.date as unknown as string | number)
-                          : null;
-                        // Show original currency amount if different from INR
-                        const invoiceCurrency = invoice.currency || 'INR';
-                        const originalAmount = invoice.totalAmount || 0;
-                        const isForexInvoice = invoiceCurrency !== 'INR';
-                        return (
-                          <TableRow key={invoice.id}>
-                            <TableCell>{invoice.transactionNumber}</TableCell>
-                            <TableCell>
-                              {invoiceDate ? invoiceDate.toLocaleDateString() : '-'}
-                            </TableCell>
-                            <TableCell align="right">
-                              {isForexInvoice ? (
-                                <Typography variant="body2">
-                                  {invoiceCurrency}{' '}
-                                  {originalAmount.toLocaleString('en-IN', {
-                                    minimumFractionDigits: 2,
-                                  })}
-                                </Typography>
-                              ) : (
-                                formatCurrency(originalAmount)
-                              )}
-                            </TableCell>
-                            <TableCell align="right">
-                              {formatCurrency(allocation?.originalAmount || 0)}
-                            </TableCell>
-                            <TableCell align="right">
-                              <TextField
-                                type="number"
-                                size="small"
-                                value={allocation?.allocatedAmount || 0}
-                                onChange={(e) =>
-                                  handleAllocationChange(
-                                    invoice.id!,
-                                    parseFloat(e.target.value) || 0
-                                  )
-                                }
-                                slotProps={{
-                                  htmlInput: {
-                                    min: 0,
-                                    max: allocation?.originalAmount || 0,
-                                    step: 0.01,
-                                  },
-                                }}
-                                sx={{ width: 120 }}
-                              />
-                            </TableCell>
-                            <TableCell align="right">
-                              {formatCurrency(allocation?.remainingAmount || 0)}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Grid>
-            </>
-          )}
+          <InvoiceAllocationTable
+            outstandingInvoices={outstandingInvoices}
+            allocations={allocations}
+            totalAllocated={totalAllocated}
+            unallocated={unallocated}
+            onAllocationChange={handleAllocationChange}
+            onAutoAllocate={handleAutoAllocate}
+          />
         </Grid>
       </Box>
 

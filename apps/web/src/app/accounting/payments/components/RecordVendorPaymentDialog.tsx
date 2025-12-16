@@ -1,27 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
-  TextField,
-  Grid,
-  MenuItem,
-  Box,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Stack,
-  Checkbox,
-  FormControlLabel,
-  Button,
-  Alert,
-  Chip,
-  CircularProgress,
-} from '@mui/material';
+import { TextField, Grid, MenuItem, Box, Typography } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
@@ -31,35 +11,23 @@ import { useAuth } from '@/contexts/AuthContext';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorPayment, VendorBill, PaymentAllocation, PaymentMethod } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
-import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import {
   createPaymentWithAllocationsAtomic,
   updatePaymentWithAllocationsAtomic,
 } from '@/lib/accounting/paymentHelpers';
+import {
+  BillAllocationTable,
+  TDSSection,
+  OutstandingBillsSummary,
+  PAYMENT_METHODS,
+  TDS_SECTIONS,
+} from './vendor-payment';
 
 interface RecordVendorPaymentDialogProps {
   open: boolean;
   onClose: () => void;
   editingPayment?: VendorPayment | null;
 }
-
-const PAYMENT_METHODS: PaymentMethod[] = [
-  'CASH',
-  'CHEQUE',
-  'BANK_TRANSFER',
-  'UPI',
-  'CREDIT_CARD',
-  'DEBIT_CARD',
-  'OTHER',
-];
-
-const TDS_SECTIONS = [
-  { code: '194C', name: 'Contractors - 2%', rate: 2 },
-  { code: '194J', name: 'Professional Services - 10%', rate: 10 },
-  { code: '194H', name: 'Commission/Brokerage - 5%', rate: 5 },
-  { code: '194I', name: 'Rent - 10%', rate: 10 },
-  { code: '194A', name: 'Interest (Other than Securities) - 10%', rate: 10 },
-];
 
 export function RecordVendorPaymentDialog({
   open,
@@ -441,149 +409,29 @@ export function RecordVendorPaymentDialog({
             />
           </Grid>
 
-          {/* Outstanding Bills Summary - shown immediately after vendor selection */}
-          {entityId && (
-            <Grid size={{ xs: 12 }}>
-              {loadingBills ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 2 }}>
-                  <CircularProgress size={20} />
-                  <Typography variant="body2" color="text.secondary">
-                    Loading outstanding bills...
-                  </Typography>
-                </Box>
-              ) : outstandingBills.length > 0 ? (
-                <Alert
-                  severity="info"
-                  sx={{ mb: 1 }}
-                  action={
-                    <Button color="inherit" size="small" onClick={handlePayFullOutstanding}>
-                      Pay Full Amount
-                    </Button>
-                  }
-                >
-                  <Typography variant="body2">
-                    <strong>{outstandingBills.length} outstanding bill(s)</strong> totalling{' '}
-                    <strong>{formatCurrency(totalOutstanding)}</strong>
-                  </Typography>
-                </Alert>
-              ) : (
-                <Alert severity="success" sx={{ mb: 1 }}>
-                  No outstanding bills for this vendor.
-                </Alert>
-              )}
-            </Grid>
-          )}
+          {/* Outstanding Bills Summary */}
+          <Grid size={{ xs: 12 }}>
+            <OutstandingBillsSummary
+              entityId={entityId}
+              loadingBills={loadingBills}
+              outstandingBills={outstandingBills}
+              totalOutstanding={totalOutstanding}
+              onPayFullOutstanding={handlePayFullOutstanding}
+            />
+          </Grid>
 
-          {/* Outstanding Bills Table - shown right after vendor selection */}
+          {/* Outstanding Bills Table */}
           {entityId && outstandingBills.length > 0 && !loadingBills && (
             <Grid size={{ xs: 12 }}>
-              <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow sx={{ bgcolor: 'action.hover' }}>
-                      <TableCell>
-                        <strong>Bill Number</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Date</strong>
-                      </TableCell>
-                      <TableCell>
-                        <strong>Description</strong>
-                      </TableCell>
-                      <TableCell align="right">
-                        <strong>Outstanding</strong>
-                      </TableCell>
-                      <TableCell align="right">
-                        <strong>Allocate</strong>
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {outstandingBills.map((bill, index) => {
-                      const allocation = allocations[index];
-                      const billDate = bill.date
-                        ? typeof (bill.date as unknown as { toDate?: () => Date }).toDate ===
-                          'function'
-                          ? (bill.date as unknown as { toDate: () => Date }).toDate()
-                          : new Date(bill.date as unknown as string | number)
-                        : null;
-                      return (
-                        <TableRow key={bill.id} hover>
-                          <TableCell>
-                            <Chip
-                              label={bill.transactionNumber}
-                              size="small"
-                              variant="outlined"
-                              color="primary"
-                            />
-                          </TableCell>
-                          <TableCell>{billDate ? billDate.toLocaleDateString() : '-'}</TableCell>
-                          <TableCell
-                            sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}
-                          >
-                            {bill.description || '-'}
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography variant="body2" fontWeight="medium">
-                              {formatCurrency(allocation?.originalAmount || 0)}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <TextField
-                              type="number"
-                              size="small"
-                              value={allocation?.allocatedAmount || 0}
-                              onChange={(e) =>
-                                handleAllocationChange(bill.id!, parseFloat(e.target.value) || 0)
-                              }
-                              slotProps={{
-                                htmlInput: {
-                                  min: 0,
-                                  max: allocation?.originalAmount || 0,
-                                  step: 0.01,
-                                },
-                              }}
-                              sx={{ width: 120 }}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                    {/* Summary row */}
-                    <TableRow sx={{ bgcolor: 'action.selected' }}>
-                      <TableCell colSpan={3}>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <Typography variant="body2" fontWeight="bold">
-                            Total
-                          </Typography>
-                          <Button
-                            size="small"
-                            variant="text"
-                            onClick={handleAutoAllocate}
-                            disabled={amount <= 0}
-                          >
-                            Auto Allocate
-                          </Button>
-                        </Stack>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2" fontWeight="bold">
-                          {formatCurrency(totalOutstanding)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography
-                          variant="body2"
-                          fontWeight="bold"
-                          color={totalAllocated > 0 ? 'success.main' : 'text.secondary'}
-                        >
-                          {formatCurrency(totalAllocated)}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <BillAllocationTable
+                outstandingBills={outstandingBills}
+                allocations={allocations}
+                totalOutstanding={totalOutstanding}
+                totalAllocated={totalAllocated}
+                amount={amount}
+                onAllocationChange={handleAllocationChange}
+                onAutoAllocate={handleAutoAllocate}
+              />
             </Grid>
           )}
 
@@ -682,66 +530,16 @@ export function RecordVendorPaymentDialog({
           </Grid>
 
           {/* TDS Section */}
-          <Grid size={{ xs: 12 }}>
-            <Typography variant="h6" gutterBottom>
-              TDS (Tax Deducted at Source)
-            </Typography>
-          </Grid>
-
-          <Grid size={{ xs: 12 }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={tdsDeducted}
-                  onChange={(e) => setTdsDeducted(e.target.checked)}
-                />
-              }
-              label="TDS Deducted"
-            />
-          </Grid>
-
-          {tdsDeducted && (
-            <>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  select
-                  label="TDS Section"
-                  value={tdsSection}
-                  onChange={(e) => setTdsSection(e.target.value)}
-                  required
-                >
-                  {TDS_SECTIONS.map((section) => (
-                    <MenuItem key={section.code} value={section.code}>
-                      {section.code} - {section.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="TDS Amount"
-                  type="number"
-                  value={tdsAmount}
-                  onChange={(e) => setTdsAmount(parseFloat(e.target.value) || 0)}
-                  slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
-                  helperText="Auto-calculated based on TDS section rate"
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12 }}>
-                <Paper sx={{ p: 2, bgcolor: 'info.light' }}>
-                  <Typography variant="body2">
-                    <strong>Net Payment to Vendor:</strong> {formatCurrency(netPayment)}
-                    <br />
-                    (Payment Amount: {formatCurrency(amount)} - TDS: {formatCurrency(tdsAmount)})
-                  </Typography>
-                </Paper>
-              </Grid>
-            </>
-          )}
+          <TDSSection
+            tdsDeducted={tdsDeducted}
+            setTdsDeducted={setTdsDeducted}
+            tdsSection={tdsSection}
+            setTdsSection={setTdsSection}
+            tdsAmount={tdsAmount}
+            setTdsAmount={setTdsAmount}
+            netPayment={netPayment}
+            amount={amount}
+          />
         </Grid>
       </Box>
 

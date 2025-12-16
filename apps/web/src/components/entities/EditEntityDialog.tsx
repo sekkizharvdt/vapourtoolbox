@@ -7,22 +7,11 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Box,
   Alert,
   CircularProgress,
-  Chip,
-  OutlinedInput,
-  SelectChangeEvent,
-  Grid,
   Typography,
   Divider,
-  FormControlLabel,
-  Checkbox,
 } from '@mui/material';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -30,13 +19,18 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity, EntityRole } from '@vapour/types';
 import { ContactsManager, EntityContactData } from './ContactsManager';
 import { BankDetailsManager, BankDetailsData } from './BankDetailsManager';
-import { StateSelector } from '@/components/common/forms/StateSelector';
 import {
   validatePAN,
   validateGSTIN,
   checkEntityDuplicates,
   formatDuplicateErrorMessage,
 } from '@vapour/validation';
+import {
+  BasicInfoSection,
+  AddressTaxSection,
+  ShippingAddressSection,
+  CreditTermsSection,
+} from './edit-entity';
 
 interface EditEntityDialogProps {
   open: boolean;
@@ -44,8 +38,6 @@ interface EditEntityDialogProps {
   onClose: () => void;
   onSuccess: () => void;
 }
-
-const ENTITY_ROLES: EntityRole[] = ['VENDOR', 'CUSTOMER', 'PARTNER'];
 
 export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntityDialogProps) {
   const [loading, setLoading] = useState(false);
@@ -199,11 +191,6 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
       }
     }
   }, [entity]);
-
-  const handleRolesChange = (event: SelectChangeEvent<EntityRole[]>) => {
-    const value = event.target.value;
-    setRoles(typeof value === 'string' ? [value as EntityRole] : value);
-  };
 
   const handleUpdate = async () => {
     if (!entity?.id) return;
@@ -404,54 +391,14 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
           {/* Basic Information */}
-          <Box>
-            <Typography variant="subtitle2" color="primary" gutterBottom>
-              Basic Information
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField
-                label="Entity Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                fullWidth
-                placeholder="e.g., ABC Industries Pvt Ltd"
-              />
-
-              <TextField
-                label="Legal Name"
-                value={legalName}
-                onChange={(e) => setLegalName(e.target.value)}
-                fullWidth
-                placeholder="If different from entity name"
-                helperText="Leave blank if same as entity name"
-              />
-
-              <FormControl fullWidth>
-                <InputLabel>Entity Roles</InputLabel>
-                <Select
-                  multiple
-                  value={roles}
-                  onChange={handleRolesChange}
-                  input={<OutlinedInput label="Entity Roles" />}
-                  renderValue={(selected) => (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {selected.map((role) => (
-                        <Chip key={role} label={role} size="small" />
-                      ))}
-                    </Box>
-                  )}
-                >
-                  {ENTITY_ROLES.map((role) => (
-                    <MenuItem key={role} value={role}>
-                      {role}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-          </Box>
+          <BasicInfoSection
+            name={name}
+            setName={setName}
+            legalName={legalName}
+            setLegalName={setLegalName}
+            roles={roles}
+            onRolesChange={setRoles}
+          />
 
           {/* Contact Details */}
           <Box>
@@ -459,189 +406,46 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
           </Box>
 
           {/* Address & Tax Information */}
-          <Box>
-            <Typography variant="subtitle2" color="primary" gutterBottom>
-              Address & Tax Information
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField
-                label="Address Line 1"
-                value={addressLine1}
-                onChange={(e) => setAddressLine1(e.target.value)}
-                fullWidth
-                placeholder="Street address (optional)"
-              />
-
-              <TextField
-                label="Address Line 2"
-                value={addressLine2}
-                onChange={(e) => setAddressLine2(e.target.value)}
-                fullWidth
-                placeholder="Apartment, suite, etc. (optional)"
-              />
-
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    label="City"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    fullWidth
-                    placeholder="Optional"
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <StateSelector
-                    label="State"
-                    value={state}
-                    onChange={setState}
-                    disabled={loading}
-                  />
-                </Grid>
-              </Grid>
-
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    label="Postal Code"
-                    value={postalCode}
-                    onChange={(e) => setPostalCode(e.target.value)}
-                    fullWidth
-                    placeholder="Optional"
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    label="Country"
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                    fullWidth
-                    placeholder="Optional"
-                  />
-                </Grid>
-              </Grid>
-
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    label="PAN"
-                    value={pan}
-                    onChange={(e) => setPan(e.target.value.toUpperCase())}
-                    fullWidth
-                    placeholder="e.g., AAAAA9999A"
-                    error={!!pan && !panValidation.valid}
-                    helperText={
-                      pan && !panValidation.valid ? panValidation.error : 'Optional - 10 characters'
-                    }
-                    inputProps={{ maxLength: 10, style: { textTransform: 'uppercase' } }}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    label="GSTIN"
-                    value={gstin}
-                    onChange={(e) => setGstin(e.target.value.toUpperCase())}
-                    fullWidth
-                    placeholder="e.g., 22AAAAA0000A1Z5"
-                    error={!!gstin && !gstinValidation.valid}
-                    helperText={
-                      gstin && !gstinValidation.valid
-                        ? gstinValidation.error
-                        : 'Optional - 15 characters'
-                    }
-                    inputProps={{ maxLength: 15, style: { textTransform: 'uppercase' } }}
-                  />
-                </Grid>
-              </Grid>
-            </Box>
-          </Box>
+          <AddressTaxSection
+            addressLine1={addressLine1}
+            setAddressLine1={setAddressLine1}
+            addressLine2={addressLine2}
+            setAddressLine2={setAddressLine2}
+            city={city}
+            setCity={setCity}
+            state={state}
+            setState={setState}
+            postalCode={postalCode}
+            setPostalCode={setPostalCode}
+            country={country}
+            setCountry={setCountry}
+            pan={pan}
+            setPan={setPan}
+            gstin={gstin}
+            setGstin={setGstin}
+            panValidation={panValidation}
+            gstinValidation={gstinValidation}
+            disabled={loading}
+          />
 
           {/* Shipping Address */}
-          <Box>
-            <Typography variant="subtitle2" color="primary" gutterBottom>
-              Shipping Address (Optional)
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={sameAsBilling}
-                    onChange={(e) => setSameAsBilling(e.target.checked)}
-                    disabled={loading}
-                  />
-                }
-                label="Same as billing address"
-              />
-
-              {!sameAsBilling && (
-                <>
-                  <TextField
-                    label="Address Line 1"
-                    value={shippingLine1}
-                    onChange={(e) => setShippingLine1(e.target.value)}
-                    fullWidth
-                    placeholder="Street address (optional)"
-                    disabled={loading}
-                  />
-
-                  <TextField
-                    label="Address Line 2"
-                    value={shippingLine2}
-                    onChange={(e) => setShippingLine2(e.target.value)}
-                    fullWidth
-                    placeholder="Apartment, suite, etc. (optional)"
-                    disabled={loading}
-                  />
-
-                  <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        label="City"
-                        value={shippingCity}
-                        onChange={(e) => setShippingCity(e.target.value)}
-                        fullWidth
-                        placeholder="Optional"
-                        disabled={loading}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <StateSelector
-                        label="State"
-                        value={shippingState}
-                        onChange={setShippingState}
-                        disabled={loading}
-                      />
-                    </Grid>
-                  </Grid>
-
-                  <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        label="Postal Code"
-                        value={shippingPostalCode}
-                        onChange={(e) => setShippingPostalCode(e.target.value)}
-                        fullWidth
-                        placeholder="Optional"
-                        disabled={loading}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        label="Country"
-                        value={shippingCountry}
-                        onChange={(e) => setShippingCountry(e.target.value)}
-                        fullWidth
-                        placeholder="Optional"
-                        disabled={loading}
-                      />
-                    </Grid>
-                  </Grid>
-                </>
-              )}
-            </Box>
-          </Box>
+          <ShippingAddressSection
+            sameAsBilling={sameAsBilling}
+            setSameAsBilling={setSameAsBilling}
+            shippingLine1={shippingLine1}
+            setShippingLine1={setShippingLine1}
+            shippingLine2={shippingLine2}
+            setShippingLine2={setShippingLine2}
+            shippingCity={shippingCity}
+            setShippingCity={setShippingCity}
+            shippingState={shippingState}
+            setShippingState={setShippingState}
+            shippingPostalCode={shippingPostalCode}
+            setShippingPostalCode={setShippingPostalCode}
+            shippingCountry={shippingCountry}
+            setShippingCountry={setShippingCountry}
+            disabled={loading}
+          />
 
           {/* Bank Details */}
           <Box>
@@ -657,42 +461,13 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
           </Box>
 
           {/* Credit Terms */}
-          <Box>
-            <Typography variant="subtitle2" color="primary" gutterBottom>
-              Credit Terms (Optional)
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    label="Credit Days"
-                    type="number"
-                    value={creditDays}
-                    onChange={(e) => setCreditDays(e.target.value)}
-                    fullWidth
-                    placeholder="e.g., 30"
-                    helperText="Payment due days from invoice date"
-                    disabled={loading}
-                    inputProps={{ min: 0 }}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    label="Credit Limit (INR)"
-                    type="number"
-                    value={creditLimit}
-                    onChange={(e) => setCreditLimit(e.target.value)}
-                    fullWidth
-                    placeholder="e.g., 100000"
-                    helperText="Maximum outstanding amount allowed"
-                    disabled={loading}
-                    inputProps={{ min: 0 }}
-                  />
-                </Grid>
-              </Grid>
-            </Box>
-          </Box>
+          <CreditTermsSection
+            creditDays={creditDays}
+            setCreditDays={setCreditDays}
+            creditLimit={creditLimit}
+            setCreditLimit={setCreditLimit}
+            disabled={loading}
+          />
         </Box>
       </DialogContent>
 
