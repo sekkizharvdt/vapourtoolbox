@@ -7,7 +7,7 @@ import { UserGuide } from '@/components/common/UserGuide';
 export default function GuidePage() {
   return (
     <AuthenticatedLayout>
-      <Container maxWidth="lg" sx={{ py: 2 }}>
+      <Container maxWidth="xl">
         <UserGuide />
       </Container>
     </AuthenticatedLayout>

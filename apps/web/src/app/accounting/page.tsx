@@ -1,15 +1,6 @@
 'use client';
 
-import {
-  Container,
-  Typography,
-  Box,
-  Card,
-  CardContent,
-  CardActions,
-  Button,
-  Grid,
-} from '@mui/material';
+import { Typography, Box, Card, CardContent, CardActions, Button, Grid } from '@mui/material';
 import {
   AccountBalance as AccountBalanceIcon,
   TrendingUp as TrendingUpIcon,
@@ -120,21 +111,19 @@ export default function AccountingPage() {
 
   if (!hasViewAccess) {
     return (
-      <Container maxWidth="xl">
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Accounting
-          </Typography>
-          <Typography variant="body1" color="error">
-            You do not have permission to access the Accounting module.
-          </Typography>
-        </Box>
-      </Container>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Accounting
+        </Typography>
+        <Typography variant="body1" color="error">
+          You do not have permission to access the Accounting module.
+        </Typography>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Accounting
@@ -201,6 +190,6 @@ export default function AccountingPage() {
           </Grid>
         ))}
       </Grid>
-    </Container>
+    </>
   );
 }

@@ -1,15 +1,6 @@
 'use client';
 
-import {
-  Container,
-  Typography,
-  Box,
-  Card,
-  CardContent,
-  CardActions,
-  Button,
-  Grid,
-} from '@mui/material';
+import { Typography, Box, Card, CardContent, CardActions, Button, Grid } from '@mui/material';
 import {
   EventNote as LeaveIcon,
   CalendarMonth as CalendarIcon,
@@ -77,21 +68,19 @@ export default function HRPage() {
 
   if (!hasViewAccess) {
     return (
-      <Container maxWidth="xl">
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            HR & Leave Management
-          </Typography>
-          <Typography variant="body1" color="error">
-            You do not have permission to access the HR module.
-          </Typography>
-        </Box>
-      </Container>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          HR & Leave Management
+        </Typography>
+        <Typography variant="body1" color="error">
+          You do not have permission to access the HR module.
+        </Typography>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           HR & Leave Management
@@ -158,6 +147,6 @@ export default function HRPage() {
           </Grid>
         ))}
       </Grid>
-    </Container>
+    </>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Container,
   Typography,
   Box,
   Chip,
@@ -85,7 +84,7 @@ export default function LeaveRequestsPage() {
 
   if (!hasApproveAccess) {
     return (
-      <Container maxWidth="xl">
+      <>
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
             Leave Requests
@@ -94,12 +93,12 @@ export default function LeaveRequestsPage() {
             You do not have permission to view leave requests. Only approvers can access this page.
           </Alert>
         </Box>
-      </Container>
+      </>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
           <Typography variant="h4" component="h1" gutterBottom>
@@ -197,6 +196,6 @@ export default function LeaveRequestsPage() {
           </Table>
         </TableContainer>
       )}
-    </Container>
+    </>
   );
 }

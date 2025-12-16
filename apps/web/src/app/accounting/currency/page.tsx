@@ -2,7 +2,6 @@
 
 import { useState, useEffect, lazy, Suspense } from 'react';
 import {
-  Container,
   Typography,
   Box,
   Paper,
@@ -303,7 +302,7 @@ export default function CurrencyForexPage() {
 
   if (!hasViewAccess) {
     return (
-      <Container maxWidth="xl">
+      <>
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
             Currency &amp; Forex Management
@@ -312,12 +311,12 @@ export default function CurrencyForexPage() {
             You do not have permission to access currency and forex management.
           </Alert>
         </Box>
-      </Container>
+      </>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Currency &amp; Forex Management
@@ -667,6 +666,6 @@ export default function CurrencyForexPage() {
           </Grid>
         </TabPanel>
       </Paper>
-    </Container>
+    </>
   );
 }

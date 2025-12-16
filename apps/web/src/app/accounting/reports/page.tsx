@@ -1,15 +1,6 @@
 'use client';
 
-import {
-  Container,
-  Typography,
-  Box,
-  Card,
-  CardContent,
-  CardActions,
-  Button,
-  Grid,
-} from '@mui/material';
+import { Typography, Box, Card, CardContent, CardActions, Button, Grid } from '@mui/material';
 import {
   AccountBalance as BalanceSheetIcon,
   TrendingUp as PLIcon,
@@ -94,7 +85,7 @@ export default function FinancialReportsPage() {
 
   if (!hasViewAccess) {
     return (
-      <Container maxWidth="xl">
+      <>
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
             Financial Reports
@@ -103,12 +94,12 @@ export default function FinancialReportsPage() {
             You do not have permission to access financial reports.
           </Typography>
         </Box>
-      </Container>
+      </>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Financial Reports
@@ -175,6 +166,6 @@ export default function FinancialReportsPage() {
           </Grid>
         ))}
       </Grid>
-    </Container>
+    </>
   );
 }

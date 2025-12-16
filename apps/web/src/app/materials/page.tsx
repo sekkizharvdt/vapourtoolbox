@@ -1,15 +1,6 @@
 'use client';
 
-import {
-  Container,
-  Typography,
-  Box,
-  Card,
-  CardContent,
-  CardActions,
-  Button,
-  Grid,
-} from '@mui/material';
+import { Typography, Box, Card, CardContent, CardActions, Button, Grid } from '@mui/material';
 import {
   Layers as PlatesIcon,
   Circle as PipesIcon,
@@ -170,7 +161,7 @@ export default function MaterialsPage() {
   }, [db]);
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Materials
@@ -269,6 +260,6 @@ export default function MaterialsPage() {
           </Grid>
         ))}
       </Grid>
-    </Container>
+    </>
   );
 }

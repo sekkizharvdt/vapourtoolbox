@@ -10,7 +10,6 @@
 import { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import {
-  Container,
   Box,
   Paper,
   Button,
@@ -198,7 +197,7 @@ export default function ProjectsListPage() {
   // User must at least be able to view projects
   if (!hasViewPermission) {
     return (
-      <Container maxWidth="xl">
+      <>
         <Box sx={{ py: 4, textAlign: 'center' }}>
           <Typography variant="h5" color="error">
             Access Denied
@@ -207,12 +206,12 @@ export default function ProjectsListPage() {
             You do not have permission to view projects.
           </Typography>
         </Box>
-      </Container>
+      </>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4 }}>
         {/* Header */}
         <PageHeader
@@ -495,6 +494,6 @@ export default function ProjectsListPage() {
           }}
         />
       </Box>
-    </Container>
+    </>
   );
 }

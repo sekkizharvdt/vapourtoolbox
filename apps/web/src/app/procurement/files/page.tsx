@@ -8,7 +8,7 @@
  */
 
 import { useCallback } from 'react';
-import { Container, Box, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { PageHeader } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewProcurement } from '@vapour/constants';
@@ -45,7 +45,7 @@ export default function ProcurementFilesPage() {
 
   if (!hasViewAccess) {
     return (
-      <Container maxWidth="xl">
+      <>
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
             Procurement Files
@@ -54,12 +54,12 @@ export default function ProcurementFilesPage() {
             You do not have permission to access the Procurement module.
           </Typography>
         </Box>
-      </Container>
+      </>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ height: 'calc(100vh - 120px)' }}>
+    <>
       <Box sx={{ mb: 2 }}>
         <PageHeader
           title="Procurement Files"
@@ -67,7 +67,7 @@ export default function ProcurementFilesPage() {
         />
       </Box>
 
-      <Box sx={{ height: 'calc(100% - 80px)' }}>
+      <Box sx={{ height: 'calc(100vh - 200px)' }}>
         <DocumentBrowser
           module="PROCUREMENT"
           showViewToggle={true}
@@ -78,6 +78,6 @@ export default function ProcurementFilesPage() {
           onUploadClick={handleUploadClick}
         />
       </Box>
-    </Container>
+    </>
   );
 }

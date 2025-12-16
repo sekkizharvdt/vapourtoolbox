@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Container,
   Typography,
   Box,
   Grid,
@@ -199,7 +198,7 @@ export default function ShapeCalculatorPage() {
     selectedShape && selectedMaterial && Object.keys(parameterValues).length > 0;
 
   return (
-    <Container maxWidth="xl">
+    <>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
@@ -332,6 +331,6 @@ export default function ShapeCalculatorPage() {
           )}
         </Grid>
       </Grid>
-    </Container>
+    </>
   );
 }

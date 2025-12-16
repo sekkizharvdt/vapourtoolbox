@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import {
-  Container,
   Typography,
   Box,
   Paper,
@@ -206,21 +205,19 @@ export default function EntitiesPage() {
   // User must at least be able to view entities
   if (!hasViewPermission) {
     return (
-      <Container maxWidth="xl">
-        <Box sx={{ py: 4, textAlign: 'center' }}>
-          <Typography variant="h5" color="error">
-            Access Denied
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-            You do not have permission to view entities.
-          </Typography>
-        </Box>
-      </Container>
+      <Box sx={{ py: 4, textAlign: 'center' }}>
+        <Typography variant="h5" color="error">
+          Access Denied
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
+          You do not have permission to view entities.
+        </Typography>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4 }}>
         {/* Header */}
         <PageHeader
@@ -537,6 +534,6 @@ export default function EntitiesPage() {
           }}
         />
       </Box>
-    </Container>
+    </>
   );
 }

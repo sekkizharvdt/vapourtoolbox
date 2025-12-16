@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Container,
   Box,
   Typography,
   Button,
@@ -145,7 +144,7 @@ export default function BoughtOutPage() {
   const dynamicColumns = getDynamicColumns();
 
   return (
-    <Container maxWidth="xl">
+    <>
       <PageHeader
         title="Bought-Out Items"
         subtitle="Manage procurement-ready equipment and components"
@@ -293,6 +292,6 @@ export default function BoughtOutPage() {
           </TableBody>
         </Table>
       </TableContainer>
-    </Container>
+    </>
   );
 }

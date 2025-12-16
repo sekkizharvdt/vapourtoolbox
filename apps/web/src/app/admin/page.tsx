@@ -13,6 +13,7 @@
 import { useState, useEffect } from 'react';
 import {
   Box,
+  Container,
   Typography,
   Grid,
   Card,
@@ -197,10 +198,10 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <Box>
+    <Container maxWidth="xl">
       {/* Header */}
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom>
+        <Typography variant="h4" component="h1" gutterBottom>
           Administration
         </Typography>
         <Typography variant="body1" color="text.secondary">
@@ -273,6 +274,6 @@ export default function AdminDashboardPage() {
           </Grid>
         ))}
       </Grid>
-    </Box>
+    </Container>
   );
 }

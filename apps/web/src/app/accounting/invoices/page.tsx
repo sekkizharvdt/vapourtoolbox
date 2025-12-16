@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import {
-  Container,
   Button,
   Paper,
   Table,
@@ -252,14 +251,14 @@ export default function InvoicesPage() {
 
   if (loading) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Box sx={{ py: 4 }}>
         <LoadingState message="Loading invoices..." variant="page" />
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Box sx={{ py: 4 }}>
       <PageHeader
         title="Customer Invoices"
         subtitle="Manage customer invoices and track payments"
@@ -494,6 +493,6 @@ export default function InvoicesPage() {
         onClose={handleApprovalDialogClose}
         invoice={selectedInvoice}
       />
-    </Container>
+    </Box>
   );
 }

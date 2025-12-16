@@ -2,13 +2,13 @@
 
 import {
   Box,
+  Container,
   Typography,
   Card,
   CardContent,
   CardActions,
   Button,
   Chip,
-  Stack,
 } from '@mui/material';
 import { Grid } from '@mui/material';
 import {
@@ -94,13 +94,15 @@ export default function SuperAdminPage() {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Stack spacing={1} sx={{ mb: 4 }}>
-        <Typography variant="h4">Super Admin Dashboard</Typography>
+    <Container maxWidth="xl">
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Super Admin Dashboard
+        </Typography>
         <Typography variant="body1" color="text.secondary">
           System-wide module integration management and monitoring
         </Typography>
-      </Stack>
+      </Box>
 
       <Grid container spacing={3}>
         {modules.map((module) => (
@@ -153,6 +155,6 @@ export default function SuperAdminPage() {
           </Grid>
         ))}
       </Grid>
-    </Box>
+    </Container>
   );
 }

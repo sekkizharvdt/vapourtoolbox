@@ -27,7 +27,6 @@ import {
   InputLabel,
   type SelectChangeEvent,
   TablePagination,
-  Container,
   Grid,
   Typography,
 } from '@mui/material';
@@ -114,7 +113,7 @@ export default function PurchaseOrdersPage() {
   const paginatedPOs = filteredPOs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4 }}>
         <PageHeader
           title="Purchase Orders"
@@ -270,6 +269,6 @@ export default function PurchaseOrdersPage() {
           />
         </TableContainer>
       </Box>
-    </Container>
+    </>
   );
 }

@@ -9,7 +9,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Container,
   Box,
   Alert,
   FormControl,
@@ -114,15 +113,11 @@ export default function SSOTPage() {
   }, [selectedProjectId]);
 
   if (loading && projects.length === 0) {
-    return (
-      <Container maxWidth="xl">
-        <LoadingState message="Loading projects..." />
-      </Container>
-    );
+    return <LoadingState message="Loading projects..." />;
   }
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4 }}>
         <PageHeader
           title="Process Data (SSOT)"
@@ -233,6 +228,6 @@ export default function SSOTPage() {
           </>
         )}
       </Box>
-    </Container>
+    </>
   );
 }

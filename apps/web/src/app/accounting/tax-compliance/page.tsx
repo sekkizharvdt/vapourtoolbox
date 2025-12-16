@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import {
-  Container,
   Typography,
   Box,
   Paper,
@@ -224,19 +223,19 @@ export default function TaxCompliancePage() {
 
   if (!hasViewAccess) {
     return (
-      <Container maxWidth="xl">
+      <>
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
             GST & TDS Compliance
           </Typography>
           <Alert severity="error">You do not have permission to view tax compliance reports.</Alert>
         </Box>
-      </Container>
+      </>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           GST & TDS Compliance
@@ -532,7 +531,7 @@ export default function TaxCompliancePage() {
           )}
         </>
       )}
-    </Container>
+    </>
   );
 }
 

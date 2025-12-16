@@ -7,7 +7,6 @@
  */
 
 import {
-  Container,
   Typography,
   Box,
   Grid,
@@ -97,13 +96,13 @@ const calculators: Calculator[] = [
 
 export default function ThermalCalculatorsPage() {
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Thermal Calculators
         </Typography>
-        <Typography variant="body1" color="text.secondary" paragraph>
+        <Typography variant="body1" color="text.secondary">
           Fundamental calculation tools for thermal desalination design. These building blocks
           provide quick property lookups and engineering calculations used throughout the design
           process.
@@ -171,31 +170,6 @@ export default function ThermalCalculatorsPage() {
           </Grid>
         ))}
       </Grid>
-
-      {/* Info Section */}
-      <Box sx={{ mt: 6, p: 3, bgcolor: 'action.hover', borderRadius: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          Reference Sources
-        </Typography>
-        <Typography variant="body2" color="text.secondary" component="div">
-          <ul style={{ margin: 0, paddingLeft: 20 }}>
-            <li>
-              <strong>IAPWS-IF97:</strong> International Association for the Properties of Water and
-              Steam - Industrial Formulation 1997
-            </li>
-            <li>
-              <strong>MIT Correlations:</strong> Sharqawy, Lienhard V, and Zubair seawater property
-              correlations
-            </li>
-            <li>
-              <strong>ASME B36.10:</strong> Welded and Seamless Wrought Steel Pipe
-            </li>
-            <li>
-              <strong>Darcy-Weisbach:</strong> Friction factor method with Colebrook equation
-            </li>
-          </ul>
-        </Typography>
-      </Box>
-    </Container>
+    </>
   );
 }

@@ -6,16 +6,7 @@
  * Card-based navigation to procurement workflows
  */
 
-import {
-  Container,
-  Typography,
-  Box,
-  Card,
-  CardContent,
-  CardActions,
-  Button,
-  Grid,
-} from '@mui/material';
+import { Typography, Box, Card, CardContent, CardActions, Button, Grid } from '@mui/material';
 import {
   Description as DescriptionIcon,
   RequestQuote as RequestQuoteIcon,
@@ -112,21 +103,19 @@ export default function ProcurementPage() {
 
   if (!hasViewAccess) {
     return (
-      <Container maxWidth="xl">
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Procurement
-          </Typography>
-          <Typography variant="body1" color="error">
-            You do not have permission to access the Procurement module.
-          </Typography>
-        </Box>
-      </Container>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Procurement
+        </Typography>
+        <Typography variant="body1" color="error">
+          You do not have permission to access the Procurement module.
+        </Typography>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Procurement
@@ -193,6 +182,6 @@ export default function ProcurementPage() {
           </Grid>
         ))}
       </Grid>
-    </Container>
+    </>
   );
 }

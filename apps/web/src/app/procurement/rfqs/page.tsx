@@ -25,7 +25,6 @@ import {
   FormControl,
   InputLabel,
   TablePagination,
-  Container,
   Grid,
   Typography,
 } from '@mui/material';
@@ -131,7 +130,7 @@ export default function RFQsPage() {
   const paginatedRfqs = filteredRfqs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4 }}>
         <PageHeader
           title="RFQs (Requests for Quotation)"
@@ -353,6 +352,6 @@ export default function RFQsPage() {
           />
         </TableContainer>
       </Box>
-    </Container>
+    </>
   );
 }

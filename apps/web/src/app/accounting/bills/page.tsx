@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import {
-  Container,
   Button,
   Paper,
   Table,
@@ -280,14 +279,14 @@ export default function BillsPage() {
 
   if (loading) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Box sx={{ py: 4 }}>
         <LoadingState message="Loading bills..." variant="page" />
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <>
       <PageHeader
         title="Vendor Bills"
         subtitle="Track vendor bills and manage payments"
@@ -575,6 +574,6 @@ export default function BillsPage() {
         onClose={handleCloseApprovalDialogs}
         bill={selectedBillForApproval}
       />
-    </Container>
+    </>
   );
 }

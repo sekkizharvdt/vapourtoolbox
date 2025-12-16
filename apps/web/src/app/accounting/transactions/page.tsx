@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Container,
   Paper,
   Table,
   TableBody,
@@ -132,14 +131,14 @@ export default function TransactionsPage() {
 
   if (loading) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Box sx={{ py: 4 }}>
         <LoadingState message="Loading transactions..." variant="page" />
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Box sx={{ py: 4 }}>
       <PageHeader title="All Transactions" subtitle="View and manage all accounting transactions" />
 
       <FilterBar onClear={handleClearFilters}>
@@ -279,6 +278,6 @@ export default function TransactionsPage() {
           Total: {formatCurrency(filteredTransactions.reduce((sum, txn) => sum + txn.amount, 0))}
         </Typography>
       </Box>
-    </Container>
+    </Box>
   );
 }

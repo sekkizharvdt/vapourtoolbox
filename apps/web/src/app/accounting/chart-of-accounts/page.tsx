@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Container,
   Typography,
   Box,
   Paper,
@@ -237,7 +236,7 @@ export default function ChartOfAccountsPage() {
 
   if (!hasViewAccess) {
     return (
-      <Container maxWidth="xl">
+      <>
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
             Chart of Accounts
@@ -246,12 +245,12 @@ export default function ChartOfAccountsPage() {
             You do not have permission to access the Chart of Accounts.
           </Alert>
         </Box>
-      </Container>
+      </>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4 }}>
         <PageHeader
           title="Chart of Accounts"
@@ -408,6 +407,6 @@ export default function ChartOfAccountsPage() {
           editingAccount={editingAccount}
         />
       </Box>
-    </Container>
+    </>
   );
 }

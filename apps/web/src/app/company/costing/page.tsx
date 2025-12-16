@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Container,
   Box,
   Typography,
   Card,
@@ -135,33 +134,27 @@ export default function CostingSettingsPage() {
 
   if (loading) {
     return (
-      <Container maxWidth="lg">
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: '60vh',
-          }}
-        >
-          <CircularProgress />
-        </Box>
-      </Container>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '60vh',
+        }}
+      >
+        <CircularProgress />
+      </Box>
     );
   }
 
   if (!canManageSettings) {
     return (
-      <Container maxWidth="lg">
-        <Alert severity="error">
-          You do not have permission to manage company costing settings.
-        </Alert>
-      </Container>
+      <Alert severity="error">You do not have permission to manage company costing settings.</Alert>
     );
   }
 
   return (
-    <Container maxWidth="lg">
+    <>
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
           <Typography variant="h4" gutterBottom>
@@ -293,6 +286,6 @@ export default function CostingSettingsPage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Container>
+    </>
   );
 }

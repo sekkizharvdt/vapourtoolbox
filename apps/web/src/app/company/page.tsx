@@ -1,16 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Container,
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Button,
-  CircularProgress,
-  Grid,
-} from '@mui/material';
+import { Box, Typography, Card, CardContent, Button, CircularProgress, Grid } from '@mui/material';
 import { doc, getDoc } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -87,18 +78,16 @@ export default function CompanySettingsPage() {
 
   if (loading) {
     return (
-      <Container maxWidth="xl">
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: '60vh',
-          }}
-        >
-          <CircularProgress />
-        </Box>
-      </Container>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '60vh',
+        }}
+      >
+        <CircularProgress />
+      </Box>
     );
   }
 
@@ -111,7 +100,7 @@ export default function CompanySettingsPage() {
 
   // Show read-only view
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
           <Typography variant="h4" gutterBottom>
@@ -303,6 +292,6 @@ export default function CompanySettingsPage() {
           </Card>
         </Grid>
       </Grid>
-    </Container>
+    </>
   );
 }

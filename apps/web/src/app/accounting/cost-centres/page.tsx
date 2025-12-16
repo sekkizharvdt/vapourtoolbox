@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Container,
   Typography,
   Box,
   Button,
@@ -117,7 +116,7 @@ export default function CostCentresPage() {
 
   if (!hasViewAccess) {
     return (
-      <Container maxWidth="xl">
+      <>
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
             Cost Centres
@@ -126,12 +125,12 @@ export default function CostCentresPage() {
             You do not have permission to access cost centre management.
           </Alert>
         </Box>
-      </Container>
+      </>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box sx={{ mb: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>
@@ -321,6 +320,6 @@ export default function CostCentresPage() {
 
       {/* Dialog */}
       <CostCentreDialog open={openDialog} costCentre={selectedCostCentre} onClose={handleClose} />
-    </Container>
+    </>
   );
 }

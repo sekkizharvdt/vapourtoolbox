@@ -7,16 +7,7 @@
  */
 
 import { useMemo } from 'react';
-import {
-  Container,
-  Typography,
-  Box,
-  Card,
-  CardContent,
-  CardActions,
-  Button,
-  Grid,
-} from '@mui/material';
+import { Typography, Box, Card, CardContent, CardActions, Button, Grid } from '@mui/material';
 import {
   List as ListIcon,
   PlayArrow as ActiveIcon,
@@ -121,21 +112,19 @@ export default function ProjectsPage() {
 
   if (!hasViewAccess) {
     return (
-      <Container maxWidth="xl">
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Projects
-          </Typography>
-          <Typography variant="body1" color="error">
-            You do not have permission to access the Projects module.
-          </Typography>
-        </Box>
-      </Container>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Projects
+        </Typography>
+        <Typography variant="body1" color="error">
+          You do not have permission to access the Projects module.
+        </Typography>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <>
       <Box
         sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
       >
@@ -207,6 +196,6 @@ export default function ProjectsPage() {
           </Grid>
         ))}
       </Grid>
-    </Container>
+    </>
   );
 }

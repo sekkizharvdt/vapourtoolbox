@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import {
   Box,
   Typography,
@@ -11,21 +11,12 @@ import {
   Chip,
   Alert,
   Button,
-  TextField,
   IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction,
   Divider,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -45,284 +36,51 @@ import { useProjectPage } from '../components/useProjectPage';
 import { ProjectSubPageWrapper } from '../components/ProjectSubPageWrapper';
 import { formatDate } from '@/lib/utils/formatters';
 
-// Objective Form Dialog
-function ObjectiveFormDialog({
-  open,
-  onClose,
-  objective,
-  onSave,
-  loading,
-}: {
-  open: boolean;
-  onClose: () => void;
-  objective?: ProjectObjective;
-  onSave: (objective: Omit<ProjectObjective, 'id'> & { id?: string }) => void;
-  loading: boolean;
-}) {
-  const [description, setDescription] = useState(objective?.description || '');
-  const [priority, setPriority] = useState<ProjectObjective['priority']>(
-    objective?.priority || 'MEDIUM'
-  );
-  const [status, setStatus] = useState<ProjectObjective['status']>(
-    objective?.status || 'NOT_STARTED'
-  );
-  const [successCriteria, setSuccessCriteria] = useState<string[]>(
-    objective?.successCriteria || []
-  );
-  const [newCriterion, setNewCriterion] = useState('');
+// Lazy load dialog components
+const ObjectiveFormDialog = lazy(() =>
+  import('./components/ObjectiveFormDialog').then((m) => ({ default: m.ObjectiveFormDialog }))
+);
+const DeliverableFormDialog = lazy(() =>
+  import('./components/DeliverableFormDialog').then((m) => ({ default: m.DeliverableFormDialog }))
+);
 
-  const handleAddCriterion = () => {
-    if (newCriterion.trim()) {
-      setSuccessCriteria([...successCriteria, newCriterion.trim()]);
-      setNewCriterion('');
-    }
-  };
-
-  const handleRemoveCriterion = (index: number) => {
-    setSuccessCriteria(successCriteria.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = () => {
-    if (!description.trim()) return;
-    onSave({
-      id: objective?.id,
-      description: description.trim(),
-      priority,
-      status,
-      successCriteria,
-    });
-  };
-
+// Dialog loading fallback
+function DialogLoader() {
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{objective ? 'Edit Objective' : 'Add Objective'}</DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-          <TextField
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            fullWidth
-            multiline
-            rows={2}
-            required
-          />
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 6 }}>
-              <FormControl fullWidth>
-                <InputLabel>Priority</InputLabel>
-                <Select
-                  value={priority}
-                  label="Priority"
-                  onChange={(e) => setPriority(e.target.value as ProjectObjective['priority'])}
-                >
-                  <MenuItem value="HIGH">High</MenuItem>
-                  <MenuItem value="MEDIUM">Medium</MenuItem>
-                  <MenuItem value="LOW">Low</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 6 }}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={status}
-                  label="Status"
-                  onChange={(e) => setStatus(e.target.value as ProjectObjective['status'])}
-                >
-                  <MenuItem value="NOT_STARTED">Not Started</MenuItem>
-                  <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                  <MenuItem value="ACHIEVED">Achieved</MenuItem>
-                  <MenuItem value="AT_RISK">At Risk</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-
-          <Typography variant="subtitle2" sx={{ mt: 1 }}>
-            Success Criteria
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <TextField
-              label="Add criterion"
-              value={newCriterion}
-              onChange={(e) => setNewCriterion(e.target.value)}
-              fullWidth
-              size="small"
-              onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCriterion())}
-            />
-            <Button variant="outlined" onClick={handleAddCriterion}>
-              Add
-            </Button>
-          </Box>
-          <List dense>
-            {successCriteria.map((criterion, index) => (
-              <ListItem key={index}>
-                <ListItemText primary={criterion} />
-                <ListItemSecondaryAction>
-                  <IconButton edge="end" size="small" onClick={() => handleRemoveCriterion(index)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
-            ))}
-          </List>
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={loading || !description.trim()}
-        >
-          {objective ? 'Update' : 'Add'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+      <CircularProgress />
+    </Box>
   );
 }
 
-// Deliverable Form Dialog
-function DeliverableFormDialog({
-  open,
-  onClose,
-  deliverable,
-  onSave,
-  loading,
-}: {
-  open: boolean;
-  onClose: () => void;
-  deliverable?: ProjectDeliverable;
-  onSave: (deliverable: Omit<ProjectDeliverable, 'id'> & { id?: string }) => void;
-  loading: boolean;
-}) {
-  const [name, setName] = useState(deliverable?.name || '');
-  const [description, setDescription] = useState(deliverable?.description || '');
-  const [type, setType] = useState<ProjectDeliverable['type']>(deliverable?.type || 'DOCUMENT');
-  const [status, setStatus] = useState<ProjectDeliverable['status']>(
-    deliverable?.status || 'PENDING'
-  );
-  const [acceptanceCriteria, setAcceptanceCriteria] = useState<string[]>(
-    deliverable?.acceptanceCriteria || []
-  );
-  const [newCriterion, setNewCriterion] = useState('');
+// Helper functions for status/priority colors
+function getStatusColor(status: string): 'default' | 'primary' | 'warning' | 'success' | 'error' {
+  switch (status) {
+    case 'ACHIEVED':
+    case 'ACCEPTED':
+      return 'success';
+    case 'IN_PROGRESS':
+    case 'SUBMITTED':
+      return 'primary';
+    case 'AT_RISK':
+    case 'REJECTED':
+      return 'error';
+    case 'PENDING':
+    case 'NOT_STARTED':
+    default:
+      return 'default';
+  }
+}
 
-  const handleAddCriterion = () => {
-    if (newCriterion.trim()) {
-      setAcceptanceCriteria([...acceptanceCriteria, newCriterion.trim()]);
-      setNewCriterion('');
-    }
-  };
-
-  const handleRemoveCriterion = (index: number) => {
-    setAcceptanceCriteria(acceptanceCriteria.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = () => {
-    if (!name.trim()) return;
-    onSave({
-      id: deliverable?.id,
-      name: name.trim(),
-      description: description.trim(),
-      type,
-      status,
-      acceptanceCriteria,
-    });
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{deliverable ? 'Edit Deliverable' : 'Add Deliverable'}</DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-          <TextField
-            label="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            fullWidth
-            required
-          />
-          <TextField
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            fullWidth
-            multiline
-            rows={2}
-          />
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 6 }}>
-              <FormControl fullWidth>
-                <InputLabel>Type</InputLabel>
-                <Select
-                  value={type}
-                  label="Type"
-                  onChange={(e) => setType(e.target.value as ProjectDeliverable['type'])}
-                >
-                  <MenuItem value="DOCUMENT">Document</MenuItem>
-                  <MenuItem value="PRODUCT">Product</MenuItem>
-                  <MenuItem value="SERVICE">Service</MenuItem>
-                  <MenuItem value="MILESTONE">Milestone</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 6 }}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={status}
-                  label="Status"
-                  onChange={(e) => setStatus(e.target.value as ProjectDeliverable['status'])}
-                >
-                  <MenuItem value="PENDING">Pending</MenuItem>
-                  <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-                  <MenuItem value="SUBMITTED">Submitted</MenuItem>
-                  <MenuItem value="ACCEPTED">Accepted</MenuItem>
-                  <MenuItem value="REJECTED">Rejected</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-
-          <Typography variant="subtitle2" sx={{ mt: 1 }}>
-            Acceptance Criteria
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <TextField
-              label="Add criterion"
-              value={newCriterion}
-              onChange={(e) => setNewCriterion(e.target.value)}
-              fullWidth
-              size="small"
-              onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCriterion())}
-            />
-            <Button variant="outlined" onClick={handleAddCriterion}>
-              Add
-            </Button>
-          </Box>
-          <List dense>
-            {acceptanceCriteria.map((criterion, index) => (
-              <ListItem key={index}>
-                <ListItemText primary={criterion} />
-                <ListItemSecondaryAction>
-                  <IconButton edge="end" size="small" onClick={() => handleRemoveCriterion(index)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
-            ))}
-          </List>
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={loading || !name.trim()}>
-          {deliverable ? 'Update' : 'Add'}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
+function getPriorityColor(priority: string): 'error' | 'warning' | 'default' {
+  switch (priority) {
+    case 'HIGH':
+      return 'error';
+    case 'MEDIUM':
+      return 'warning';
+    default:
+      return 'default';
+  }
 }
 
 // Objectives Content Component
@@ -342,37 +100,6 @@ function ObjectivesContent({ project }: { project: Project }) {
 
   const objectives = project.charter?.objectives || [];
   const deliverables = project.charter?.deliverables || [];
-
-  const getStatusColor = (
-    status: string
-  ): 'default' | 'primary' | 'warning' | 'success' | 'error' => {
-    switch (status) {
-      case 'ACHIEVED':
-      case 'ACCEPTED':
-        return 'success';
-      case 'IN_PROGRESS':
-      case 'SUBMITTED':
-        return 'primary';
-      case 'AT_RISK':
-      case 'REJECTED':
-        return 'error';
-      case 'PENDING':
-      case 'NOT_STARTED':
-      default:
-        return 'default';
-    }
-  };
-
-  const getPriorityColor = (priority: string): 'error' | 'warning' | 'default' => {
-    switch (priority) {
-      case 'HIGH':
-        return 'error';
-      case 'MEDIUM':
-        return 'warning';
-      default:
-        return 'default';
-    }
-  };
 
   const handleSaveObjective = async (
     objectiveData: Omit<ProjectObjective, 'id'> & { id?: string }
@@ -841,28 +568,36 @@ function ObjectivesContent({ project }: { project: Project }) {
         )}
       </Paper>
 
-      {/* Dialogs */}
-      <ObjectiveFormDialog
-        open={objectiveDialogOpen}
-        onClose={() => {
-          setObjectiveDialogOpen(false);
-          setEditingObjective(undefined);
-        }}
-        objective={editingObjective}
-        onSave={handleSaveObjective}
-        loading={loading}
-      />
+      {/* Dialogs - Lazy loaded */}
+      {objectiveDialogOpen && (
+        <Suspense fallback={<DialogLoader />}>
+          <ObjectiveFormDialog
+            open={objectiveDialogOpen}
+            onClose={() => {
+              setObjectiveDialogOpen(false);
+              setEditingObjective(undefined);
+            }}
+            objective={editingObjective}
+            onSave={handleSaveObjective}
+            loading={loading}
+          />
+        </Suspense>
+      )}
 
-      <DeliverableFormDialog
-        open={deliverableDialogOpen}
-        onClose={() => {
-          setDeliverableDialogOpen(false);
-          setEditingDeliverable(undefined);
-        }}
-        deliverable={editingDeliverable}
-        onSave={handleSaveDeliverable}
-        loading={loading}
-      />
+      {deliverableDialogOpen && (
+        <Suspense fallback={<DialogLoader />}>
+          <DeliverableFormDialog
+            open={deliverableDialogOpen}
+            onClose={() => {
+              setDeliverableDialogOpen(false);
+              setEditingDeliverable(undefined);
+            }}
+            deliverable={editingDeliverable}
+            onSave={handleSaveDeliverable}
+            loading={loading}
+          />
+        </Suspense>
+      )}
     </Box>
   );
 }

@@ -11,6 +11,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Box,
   Paper,
@@ -37,12 +38,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
   Alert,
   Tooltip,
-  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -67,20 +64,34 @@ import { useAuth } from '@/contexts/AuthContext';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import {
   getCompanyDocuments,
-  uploadCompanyDocument,
-  updateCompanyDocument,
   deleteCompanyDocument,
-  createNewVersion,
   getDocumentVersionHistory,
   getDocumentCountsByCategory,
 } from '@/lib/companyDocuments';
-import type {
-  CompanyDocument,
-  CompanyDocumentCategory,
-  CompanyDocumentInput,
-  TemplateType,
-} from '@vapour/types';
+import type { CompanyDocument, CompanyDocumentCategory } from '@vapour/types';
 import { COMPANY_DOCUMENT_CATEGORIES, TEMPLATE_TYPES } from '@vapour/types';
+
+// Dynamic imports for dialogs - loaded on demand for better code splitting
+const UploadDocumentDialog = dynamic(
+  () =>
+    import('./components/UploadDocumentDialog').then((mod) => ({
+      default: mod.UploadDocumentDialog,
+    })),
+  { ssr: false }
+);
+
+const EditCompanyDocumentDialog = dynamic(
+  () =>
+    import('./components/EditCompanyDocumentDialog').then((mod) => ({
+      default: mod.EditCompanyDocumentDialog,
+    })),
+  { ssr: false }
+);
+
+const NewVersionDialog = dynamic(
+  () => import('./components/NewVersionDialog').then((mod) => ({ default: mod.NewVersionDialog })),
+  { ssr: false }
+);
 
 const CATEGORY_ICONS: Record<CompanyDocumentCategory, React.ReactElement> = {
   SOP: <SOPIcon />,
@@ -469,7 +480,7 @@ export default function CompanyDocumentsPage() {
 
         {/* Edit Dialog */}
         {selectedDocument && (
-          <EditDocumentDialog
+          <EditCompanyDocumentDialog
             open={editDialogOpen}
             document={selectedDocument}
             onClose={() => {
@@ -575,351 +586,5 @@ export default function CompanyDocumentsPage() {
         </Dialog>
       </Box>
     </Container>
-  );
-}
-
-// Upload Document Dialog Component
-function UploadDocumentDialog({
-  open,
-  onClose,
-  onSuccess,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const { db, storage } = getFirebase();
-  const { user } = useAuth();
-
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<CompanyDocumentCategory>('SOP');
-  const [isTemplate, setIsTemplate] = useState(false);
-  const [templateType, setTemplateType] = useState<TemplateType>('OTHER');
-  const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      if (!title) {
-        // Auto-fill title from filename
-        setTitle(selectedFile.name.replace(/\.[^/.]+$/, ''));
-      }
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!db || !storage || !user || !file) return;
-
-    setUploading(true);
-    setError(null);
-
-    try {
-      const input: CompanyDocumentInput = {
-        title,
-        description,
-        category,
-        isTemplate: category === 'TEMPLATE' ? true : isTemplate,
-        templateType: category === 'TEMPLATE' || isTemplate ? templateType : undefined,
-      };
-
-      await uploadCompanyDocument(
-        db,
-        storage,
-        file,
-        input,
-        user.uid,
-        user.displayName || 'Unknown',
-        setUploadProgress
-      );
-
-      onSuccess();
-      // Reset form
-      setTitle('');
-      setDescription('');
-      setCategory('SOP');
-      setIsTemplate(false);
-      setFile(null);
-      setUploadProgress(0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Upload Company Document</DialogTitle>
-      <DialogContent>
-        <Stack spacing={3} sx={{ mt: 1 }}>
-          {error && <Alert severity="error">{error}</Alert>}
-
-          <Button variant="outlined" component="label" startIcon={<UploadIcon />} fullWidth>
-            {file ? file.name : 'Select File'}
-            <input type="file" hidden onChange={handleFileChange} />
-          </Button>
-
-          <TextField
-            label="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            fullWidth
-          />
-
-          <TextField
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            multiline
-            rows={2}
-            fullWidth
-          />
-
-          <FormControl fullWidth>
-            <InputLabel>Category</InputLabel>
-            <Select
-              value={category}
-              onChange={(e) => setCategory(e.target.value as CompanyDocumentCategory)}
-              label="Category"
-            >
-              {(Object.keys(COMPANY_DOCUMENT_CATEGORIES) as CompanyDocumentCategory[]).map(
-                (cat) => (
-                  <MenuItem key={cat} value={cat}>
-                    {COMPANY_DOCUMENT_CATEGORIES[cat].label}
-                  </MenuItem>
-                )
-              )}
-            </Select>
-          </FormControl>
-
-          {(category === 'TEMPLATE' || isTemplate) && (
-            <FormControl fullWidth>
-              <InputLabel>Template Type</InputLabel>
-              <Select
-                value={templateType}
-                onChange={(e) => setTemplateType(e.target.value as TemplateType)}
-                label="Template Type"
-              >
-                {(Object.keys(TEMPLATE_TYPES) as TemplateType[]).map((type) => (
-                  <MenuItem key={type} value={type}>
-                    {TEMPLATE_TYPES[type].label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-
-          {uploading && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <CircularProgress variant="determinate" value={uploadProgress} size={24} />
-              <Typography variant="body2">{Math.round(uploadProgress)}%</Typography>
-            </Box>
-          )}
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={uploading}>
-          Cancel
-        </Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={!file || !title || uploading}>
-          {uploading ? 'Uploading...' : 'Upload'}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-// Edit Document Dialog Component
-function EditDocumentDialog({
-  open,
-  document,
-  onClose,
-  onSuccess,
-}: {
-  open: boolean;
-  document: CompanyDocument;
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const { db } = getFirebase();
-  const { user } = useAuth();
-
-  const [title, setTitle] = useState(document.title);
-  const [description, setDescription] = useState(document.description);
-  const [category, setCategory] = useState<CompanyDocumentCategory>(document.category);
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async () => {
-    if (!db || !user) return;
-
-    setSaving(true);
-    try {
-      await updateCompanyDocument(
-        db,
-        document.id,
-        { title, description, category },
-        user.uid,
-        user.displayName || 'Unknown'
-      );
-      onSuccess();
-    } catch (error) {
-      console.error('Failed to update document:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Edit Document Details</DialogTitle>
-      <DialogContent>
-        <Stack spacing={3} sx={{ mt: 1 }}>
-          <TextField
-            label="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            fullWidth
-          />
-
-          <TextField
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            multiline
-            rows={2}
-            fullWidth
-          />
-
-          <FormControl fullWidth>
-            <InputLabel>Category</InputLabel>
-            <Select
-              value={category}
-              onChange={(e) => setCategory(e.target.value as CompanyDocumentCategory)}
-              label="Category"
-            >
-              {(Object.keys(COMPANY_DOCUMENT_CATEGORIES) as CompanyDocumentCategory[]).map(
-                (cat) => (
-                  <MenuItem key={cat} value={cat}>
-                    {COMPANY_DOCUMENT_CATEGORIES[cat].label}
-                  </MenuItem>
-                )
-              )}
-            </Select>
-          </FormControl>
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={saving}>
-          Cancel
-        </Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={!title || saving}>
-          {saving ? 'Saving...' : 'Save'}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-// New Version Dialog Component
-function NewVersionDialog({
-  open,
-  document,
-  onClose,
-  onSuccess,
-}: {
-  open: boolean;
-  document: CompanyDocument;
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const { db, storage } = getFirebase();
-  const { user } = useAuth();
-
-  const [file, setFile] = useState<File | null>(null);
-  const [revisionNotes, setRevisionNotes] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!db || !storage || !user || !file) return;
-
-    setUploading(true);
-    try {
-      await createNewVersion(
-        db,
-        storage,
-        document.id,
-        file,
-        revisionNotes,
-        user.uid,
-        user.displayName || 'Unknown',
-        setUploadProgress
-      );
-      onSuccess();
-      setFile(null);
-      setRevisionNotes('');
-      setUploadProgress(0);
-    } catch (error) {
-      console.error('Failed to upload new version:', error);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Upload New Version: {document.title}</DialogTitle>
-      <DialogContent>
-        <Stack spacing={3} sx={{ mt: 1 }}>
-          <Alert severity="info">
-            Current version: v{document.version}. New version will be v{document.version + 1}.
-          </Alert>
-
-          <Button variant="outlined" component="label" startIcon={<UploadIcon />} fullWidth>
-            {file ? file.name : 'Select New File'}
-            <input type="file" hidden onChange={handleFileChange} />
-          </Button>
-
-          <TextField
-            label="Revision Notes"
-            value={revisionNotes}
-            onChange={(e) => setRevisionNotes(e.target.value)}
-            multiline
-            rows={2}
-            fullWidth
-            placeholder="What changed in this version?"
-          />
-
-          {uploading && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <CircularProgress variant="determinate" value={uploadProgress} size={24} />
-              <Typography variant="body2">{Math.round(uploadProgress)}%</Typography>
-            </Box>
-          )}
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={uploading}>
-          Cancel
-        </Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={!file || uploading}>
-          {uploading ? 'Uploading...' : 'Upload Version'}
-        </Button>
-      </DialogActions>
-    </Dialog>
   );
 }

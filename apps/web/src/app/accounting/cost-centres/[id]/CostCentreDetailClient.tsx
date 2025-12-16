@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Container,
@@ -16,14 +16,7 @@ import {
   CardContent,
   Tabs,
   Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  IconButton,
-  Tooltip,
+  CircularProgress,
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
@@ -33,7 +26,7 @@ import {
   TrendingUp as UpIcon,
   TrendingDown as DownIcon,
   AccountBalance as AccountIcon,
-  OpenInNew as OpenIcon,
+  ShoppingCart as POIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting, canManageAccounting } from '@vapour/constants';
@@ -52,7 +45,29 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { docToTypedWithDates } from '@/lib/firebase/typeHelpers';
 import type { CostCentre, BaseTransaction, CustomerInvoice, PurchaseOrder } from '@vapour/types';
 import CostCentreDialog from '../components/CostCentreDialog';
-import { ShoppingCart as POIcon } from '@mui/icons-material';
+
+// Lazy load table components
+const InvoicesTable = lazy(() =>
+  import('./components/InvoicesTable').then((m) => ({ default: m.InvoicesTable }))
+);
+const PaymentsTable = lazy(() =>
+  import('./components/PaymentsTable').then((m) => ({ default: m.PaymentsTable }))
+);
+const BillsTable = lazy(() =>
+  import('./components/BillsTable').then((m) => ({ default: m.BillsTable }))
+);
+const PurchaseOrdersTable = lazy(() =>
+  import('./components/PurchaseOrdersTable').then((m) => ({ default: m.PurchaseOrdersTable }))
+);
+
+// Loading fallback for tables
+function TableLoader() {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+      <CircularProgress />
+    </Box>
+  );
+}
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -83,21 +98,15 @@ export default function CostCentreDetailClient() {
   const [tabValue, setTabValue] = useState(0);
   const [openEditDialog, setOpenEditDialog] = useState(false);
 
-  // Wait for auth to complete before checking permissions
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
   const hasEditAccess = claims?.permissions ? canManageAccounting(claims.permissions) : false;
 
-  // Extract ID from pathname - handle placeholder from static export
   const rawCostCentreId = pathname?.split('/').pop() || '';
   const costCentreId = rawCostCentreId && rawCostCentreId !== 'placeholder' ? rawCostCentreId : '';
 
-  // Load cost centre details - wait for auth to complete first
+  // Load cost centre details
   useEffect(() => {
-    // Wait for auth to complete before attempting data fetch
-    if (authLoading) {
-      return;
-    }
-
+    if (authLoading) return;
     if (!hasViewAccess || !costCentreId) {
       setLoading(false);
       return;
@@ -133,17 +142,13 @@ export default function CostCentreDetailClient() {
 
   // Load transactions linked to this cost centre
   useEffect(() => {
-    // Wait for auth and cost centre to load
     if (authLoading || !hasViewAccess || !costCentreId || !costCentre) return;
 
     const { db } = getFirebase();
-
-    // For project-linked cost centres, query by projectId
-    // For other cost centres, query by costCentreId
     const linkField = costCentre.projectId ? 'projectId' : 'costCentreId';
     const linkValue = costCentre.projectId || costCentreId;
 
-    // Query invoices (CUSTOMER_INVOICE)
+    // Query invoices
     const invoicesQuery = query(
       collection(db, COLLECTIONS.TRANSACTIONS),
       where(linkField, '==', linkValue),
@@ -160,7 +165,7 @@ export default function CostCentreDetailClient() {
       (err) => console.error('[CostCentreDetail] Error loading invoices:', err)
     );
 
-    // Query payments received (CUSTOMER_PAYMENT)
+    // Query payments
     const paymentsQuery = query(
       collection(db, COLLECTIONS.TRANSACTIONS),
       where(linkField, '==', linkValue),
@@ -177,7 +182,7 @@ export default function CostCentreDetailClient() {
       (err) => console.error('[CostCentreDetail] Error loading payments:', err)
     );
 
-    // Query bills (VENDOR_BILL)
+    // Query bills
     const billsQuery = query(
       collection(db, COLLECTIONS.TRANSACTIONS),
       where(linkField, '==', linkValue),
@@ -194,8 +199,7 @@ export default function CostCentreDetailClient() {
       (err) => console.error('[CostCentreDetail] Error loading bills:', err)
     );
 
-    // Query purchase orders (for committed amounts)
-    // POs use projectIds array, so we need array-contains for project-linked cost centres
+    // Query purchase orders
     let unsubPOs: (() => void) | undefined;
     if (costCentre.projectId) {
       const posQuery = query(
@@ -230,16 +234,10 @@ export default function CostCentreDetailClient() {
     };
   }, [hasViewAccess, costCentreId, authLoading, costCentre]);
 
-  const handleBack = () => {
-    router.push('/accounting/cost-centres');
-  };
-
-  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
+  const handleBack = () => router.push('/accounting/cost-centres');
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => setTabValue(newValue);
 
   const formatCurrency = (amount: number | undefined | null, currency = 'INR') => {
-    // Ensure we have a valid number (not undefined, null, Date, or NaN)
     const safeAmount = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
     return `${safeAmount.toLocaleString('en-IN', {
       minimumFractionDigits: 2,
@@ -282,8 +280,7 @@ export default function CostCentreDetailClient() {
   const paymentTotals = payments.reduce(
     (acc, pay) => {
       const currency = pay.currency || 'INR';
-      const amount = pay.amount || 0;
-      acc[currency] = (acc[currency] || 0) + amount;
+      acc[currency] = (acc[currency] || 0) + (pay.amount || 0);
       return acc;
     },
     {} as Record<string, number>
@@ -292,28 +289,23 @@ export default function CostCentreDetailClient() {
   const billTotals = bills.reduce(
     (acc, bill) => {
       const currency = bill.currency || 'INR';
-      const amount = bill.amount || 0;
-      acc[currency] = (acc[currency] || 0) + amount;
+      acc[currency] = (acc[currency] || 0) + (bill.amount || 0);
       return acc;
     },
     {} as Record<string, number>
   );
 
-  // Calculate PO totals (committed amounts)
   const poTotals = purchaseOrders.reduce(
     (acc, po) => {
       const currency = po.currency || 'INR';
-      const amount = po.grandTotal || 0;
-      acc[currency] = (acc[currency] || 0) + amount;
+      acc[currency] = (acc[currency] || 0) + (po.grandTotal || 0);
       return acc;
     },
     {} as Record<string, number>
   );
 
-  // Calculate vendor payments made
   const vendorPaymentTotals = bills.reduce(
     (acc, bill) => {
-      // Check if bill has a paidAmount field
       const currency = bill.currency || 'INR';
       const paidAmount = (bill as unknown as { paidAmount?: number }).paidAmount || 0;
       acc[currency] = (acc[currency] || 0) + paidAmount;
@@ -322,14 +314,12 @@ export default function CostCentreDetailClient() {
     {} as Record<string, number>
   );
 
-  // Format currency totals for display
   const formatCurrencyTotals = (totals: Record<string, number>) => {
     const entries = Object.entries(totals);
     if (entries.length === 0) return formatCurrency(0, costCentre?.budgetCurrency || 'INR');
     return entries.map(([currency, amount]) => formatCurrency(amount, currency)).join(' + ');
   };
 
-  // Show loading while auth is in progress or data is loading
   if (authLoading || loading) {
     return (
       <Container maxWidth="xl">
@@ -343,7 +333,6 @@ export default function CostCentreDetailClient() {
     );
   }
 
-  // Permission check after auth is complete
   if (!hasViewAccess) {
     return (
       <Container maxWidth="xl">
@@ -425,7 +414,7 @@ export default function CostCentreDetailClient() {
         </Box>
       </Box>
 
-      {/* Summary Cards */}
+      {/* Summary Cards - First Row */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
@@ -618,7 +607,7 @@ export default function CostCentreDetailClient() {
         </Paper>
       )}
 
-      {/* Tabs */}
+      {/* Tabs with lazy-loaded tables */}
       <Paper sx={{ mb: 3 }}>
         <Tabs
           value={tabValue}
@@ -639,238 +628,36 @@ export default function CostCentreDetailClient() {
           <Tab icon={<POIcon />} iconPosition="start" label={`POs (${purchaseOrders.length})`} />
         </Tabs>
 
-        {/* Invoices Tab */}
         <TabPanel value={tabValue} index={0}>
-          {invoices.length === 0 ? (
-            <Box sx={{ p: 3 }}>
-              <Alert severity="info">No invoices found for this cost centre.</Alert>
-            </Box>
-          ) : (
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Invoice #</TableCell>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Customer</TableCell>
-                    <TableCell align="right">Amount</TableCell>
-                    <TableCell align="right">Paid</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell align="center">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {invoices.map((invoice) => (
-                    <TableRow key={invoice.id} hover>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {invoice.transactionNumber}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{formatDate(invoice.date)}</TableCell>
-                      <TableCell>{invoice.entityName || '-'}</TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(invoice.totalAmount || invoice.amount, invoice.currency)}
-                      </TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(invoice.paidAmount || 0, invoice.currency)}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={invoice.paymentStatus || invoice.status}
-                          color={
-                            invoice.paymentStatus === 'PAID'
-                              ? 'success'
-                              : invoice.paymentStatus === 'PARTIALLY_PAID'
-                                ? 'warning'
-                                : 'default'
-                          }
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Tooltip title="View Invoice">
-                          <IconButton
-                            size="small"
-                            onClick={() => router.push(`/accounting/invoices/${invoice.id}`)}
-                          >
-                            <OpenIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+          <Suspense fallback={<TableLoader />}>
+            <InvoicesTable
+              invoices={invoices}
+              formatCurrency={formatCurrency}
+              formatDate={formatDate}
+            />
+          </Suspense>
         </TabPanel>
 
-        {/* Payments Tab */}
         <TabPanel value={tabValue} index={1}>
-          {payments.length === 0 ? (
-            <Box sx={{ p: 3 }}>
-              <Alert severity="info">No payments received for this cost centre.</Alert>
-            </Box>
-          ) : (
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Receipt #</TableCell>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Customer</TableCell>
-                    <TableCell>Reference</TableCell>
-                    <TableCell align="right">Amount</TableCell>
-                    <TableCell>Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {payments.map((payment) => (
-                    <TableRow key={payment.id} hover>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {payment.transactionNumber}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{formatDate(payment.date)}</TableCell>
-                      <TableCell>{payment.entityName || '-'}</TableCell>
-                      <TableCell>{payment.referenceNumber || payment.reference || '-'}</TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(payment.amount, payment.currency)}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={payment.status}
-                          color={payment.status === 'POSTED' ? 'success' : 'default'}
-                          size="small"
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+          <Suspense fallback={<TableLoader />}>
+            <PaymentsTable
+              payments={payments}
+              formatCurrency={formatCurrency}
+              formatDate={formatDate}
+            />
+          </Suspense>
         </TabPanel>
 
-        {/* Bills Tab */}
         <TabPanel value={tabValue} index={2}>
-          {bills.length === 0 ? (
-            <Box sx={{ p: 3 }}>
-              <Alert severity="info">No vendor bills found for this cost centre.</Alert>
-            </Box>
-          ) : (
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Bill #</TableCell>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Vendor</TableCell>
-                    <TableCell>Reference</TableCell>
-                    <TableCell align="right">Amount</TableCell>
-                    <TableCell>Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {bills.map((bill) => (
-                    <TableRow key={bill.id} hover>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {bill.transactionNumber}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{formatDate(bill.date)}</TableCell>
-                      <TableCell>{bill.entityName || '-'}</TableCell>
-                      <TableCell>{bill.referenceNumber || bill.reference || '-'}</TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(bill.amount, bill.currency)}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={bill.status}
-                          color={
-                            bill.status === 'PAID'
-                              ? 'success'
-                              : bill.status === 'POSTED'
-                                ? 'info'
-                                : 'default'
-                          }
-                          size="small"
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+          <Suspense fallback={<TableLoader />}>
+            <BillsTable bills={bills} formatCurrency={formatCurrency} formatDate={formatDate} />
+          </Suspense>
         </TabPanel>
 
-        {/* Purchase Orders Tab */}
         <TabPanel value={tabValue} index={3}>
-          {purchaseOrders.length === 0 ? (
-            <Box sx={{ p: 3 }}>
-              <Alert severity="info">No purchase orders found for this cost centre.</Alert>
-            </Box>
-          ) : (
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>PO #</TableCell>
-                    <TableCell>Title</TableCell>
-                    <TableCell>Vendor</TableCell>
-                    <TableCell align="right">Amount</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell align="center">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {purchaseOrders.map((po) => (
-                    <TableRow key={po.id} hover>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {po.number}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{po.title || '-'}</TableCell>
-                      <TableCell>{po.vendorName || '-'}</TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(po.grandTotal, po.currency)}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={po.status}
-                          color={
-                            po.status === 'COMPLETED'
-                              ? 'success'
-                              : po.status === 'DELIVERED'
-                                ? 'info'
-                                : po.status === 'CANCELLED'
-                                  ? 'error'
-                                  : 'warning'
-                          }
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Tooltip title="View PO">
-                          <IconButton
-                            size="small"
-                            onClick={() => router.push(`/procurement/pos/${po.id}`)}
-                          >
-                            <OpenIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+          <Suspense fallback={<TableLoader />}>
+            <PurchaseOrdersTable purchaseOrders={purchaseOrders} formatCurrency={formatCurrency} />
+          </Suspense>
         </TabPanel>
       </Paper>
 
@@ -880,7 +667,6 @@ export default function CostCentreDetailClient() {
         costCentre={costCentre}
         onClose={() => {
           setOpenEditDialog(false);
-          // Reload cost centre data
           if (costCentreId) {
             const { db } = getFirebase();
             getDoc(doc(db, COLLECTIONS.COST_CENTRES, costCentreId)).then((docSnap) => {

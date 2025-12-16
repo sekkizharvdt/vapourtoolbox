@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
-  Container,
   Typography,
   Box,
   Paper,
@@ -246,7 +245,7 @@ export default function FlangesPage() {
   }, [allVariants, materials]);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <>
       {/* Breadcrumbs */}
       <Breadcrumbs sx={{ mb: 2 }}>
         <Link
@@ -472,6 +471,6 @@ export default function FlangesPage() {
           />
         )}
       </Paper>
-    </Container>
+    </>
   );
 }

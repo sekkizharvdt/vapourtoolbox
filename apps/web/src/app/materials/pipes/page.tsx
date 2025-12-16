@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
-  Container,
   Typography,
   Box,
   Paper,
@@ -294,7 +293,7 @@ export default function PipesPage() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <>
       {/* Breadcrumbs */}
       <Breadcrumbs sx={{ mb: 2 }}>
         <Link
@@ -574,6 +573,6 @@ export default function PipesPage() {
           />
         )}
       </Paper>
-    </Container>
+    </>
   );
 }

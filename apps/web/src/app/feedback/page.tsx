@@ -17,7 +17,7 @@ function UserSubmissions() {
 export default function FeedbackPage() {
   return (
     <AuthenticatedLayout>
-      <Container maxWidth="md" sx={{ py: 2 }}>
+      <Container maxWidth="xl">
         <Suspense
           fallback={
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>

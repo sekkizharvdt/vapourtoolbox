@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import {
-  Container,
   Box,
   Typography,
   Button,
@@ -89,7 +88,7 @@ export default function NewBoughtOutItemPage() {
   };
 
   return (
-    <Container maxWidth="lg">
+    <>
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} variant="outlined">
           Back
@@ -242,6 +241,6 @@ export default function NewBoughtOutItemPage() {
           </Grid>
         </Grid>
       </form>
-    </Container>
+    </>
   );
 }

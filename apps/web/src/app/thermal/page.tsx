@@ -7,7 +7,6 @@
  */
 
 import {
-  Container,
   Typography,
   Box,
   Grid,
@@ -64,13 +63,13 @@ const designTools: DesignTool[] = [
 
 export default function ThermalLandingPage() {
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Thermal Desalination Design
         </Typography>
-        <Typography variant="body1" color="text.secondary" paragraph>
+        <Typography variant="body1" color="text.secondary">
           Engineering design calculators for thermal desalination processes including Multi-Effect
           Distillation (MED) and Multi-Stage Flash (MSF) systems.
         </Typography>
@@ -161,22 +160,6 @@ export default function ThermalLandingPage() {
           </Grid>
         ))}
       </Grid>
-
-      {/* Info Section */}
-      <Box sx={{ mt: 6, p: 3, bgcolor: 'action.hover', borderRadius: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          About Thermal Desalination
-        </Typography>
-        <Typography variant="body2" color="text.secondary" paragraph>
-          Thermal desalination processes use heat to evaporate seawater and condense the vapor to
-          produce fresh water. These calculators help engineers design the key components of MED and
-          MSF systems.
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          <strong>References:</strong> IAPWS-IF97 steam tables, MIT seawater correlations, ASME
-          B36.10 pipe standards.
-        </Typography>
-      </Box>
-    </Container>
+    </>
   );
 }

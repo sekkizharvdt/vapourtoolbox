@@ -8,7 +8,7 @@
  */
 
 import { useCallback } from 'react';
-import { Container, Box, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { PageHeader } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasAnyPermission, PermissionFlag } from '@vapour/types';
@@ -51,7 +51,7 @@ export default function AccountingFilesPage() {
 
   if (!hasViewAccess) {
     return (
-      <Container maxWidth="xl">
+      <>
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
             Accounting Files
@@ -60,12 +60,12 @@ export default function AccountingFilesPage() {
             You do not have permission to access the Accounting module.
           </Typography>
         </Box>
-      </Container>
+      </>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ height: 'calc(100vh - 120px)' }}>
+    <Box sx={{ height: 'calc(100vh - 120px)' }}>
       <Box sx={{ mb: 2 }}>
         <PageHeader
           title="Accounting Files"
@@ -84,6 +84,6 @@ export default function AccountingFilesPage() {
           onUploadClick={handleUploadClick}
         />
       </Box>
-    </Container>
+    </Box>
   );
 }
