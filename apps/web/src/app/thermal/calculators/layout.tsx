@@ -1,12 +1,9 @@
-'use client';
-
-import { ModuleLayout } from '@/components/layouts/ModuleLayout';
-
+/**
+ * Thermal Calculators Layout
+ *
+ * Pass-through layout - parent /thermal/layout.tsx provides ModuleLayout.
+ * No nested ModuleLayout needed to avoid double sidebar/margin.
+ */
 export default function ThermalCalculatorsLayout({ children }: { children: React.ReactNode }) {
-  // Thermal Calculators is open to all users - no permission check required
-  return (
-    <ModuleLayout moduleName="Thermal Calculators" moduleId="thermal-calcs">
-      {children}
-    </ModuleLayout>
-  );
+  return <>{children}</>;
 }

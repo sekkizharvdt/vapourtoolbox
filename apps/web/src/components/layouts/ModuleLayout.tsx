@@ -207,7 +207,8 @@ export function ModuleLayout({
     );
   }
 
-  const sidebarWidth = sidebarCollapsed ? 64 : 240;
+  // Must match SIDEBAR_WIDTH_COLLAPSED (80) and SIDEBAR_WIDTH (240) from Sidebar.tsx
+  const sidebarWidth = sidebarCollapsed ? 80 : 240;
 
   return (
     <Box sx={{ display: 'flex' }}>
