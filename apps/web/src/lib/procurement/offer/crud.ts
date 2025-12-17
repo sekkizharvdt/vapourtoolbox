@@ -24,6 +24,7 @@ import type { Offer, OfferItem } from '@vapour/types';
 import type { CreateOfferInput, CreateOfferItemInput, UpdateOfferInput } from './types';
 import { generateOfferNumber } from './utils';
 import { incrementOffersReceived } from '../rfq';
+import { logAuditEvent, createAuditContext } from '@/lib/audit';
 
 const logger = createLogger({ context: 'offerService' });
 
@@ -34,7 +35,8 @@ export async function createOffer(
   input: CreateOfferInput,
   items: CreateOfferItemInput[],
   userId: string,
-  userName: string
+  userName: string,
+  userEmail?: string
 ): Promise<string> {
   const { db } = getFirebase();
 
@@ -149,6 +151,29 @@ export async function createOffer(
 
   logger.info('Offer created', { offerId: offerRef.id, offerNumber });
 
+  // Log audit event (fire-and-forget)
+  const auditContext = createAuditContext(userId, userEmail || '', userName);
+  logAuditEvent(
+    db,
+    auditContext,
+    'OFFER_CREATED',
+    'OFFER',
+    offerRef.id,
+    `Created offer ${offerNumber} from ${input.vendorName} for RFQ ${input.rfqNumber}`,
+    {
+      entityName: offerNumber,
+      parentEntityType: 'RFQ',
+      parentEntityId: input.rfqId,
+      metadata: {
+        vendorId: input.vendorId,
+        vendorName: input.vendorName,
+        totalAmount: input.totalAmount,
+        currency: input.currency || 'INR',
+        itemCount: items.length,
+      },
+    }
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
+
   return offerRef.id;
 }
 
@@ -193,12 +218,21 @@ export async function getOfferItems(offerId: string): Promise<OfferItem[]> {
 export async function updateOffer(
   offerId: string,
   input: UpdateOfferInput,
-  _userId: string
+  userId: string,
+  userName?: string,
+  userEmail?: string
 ): Promise<void> {
   const { db } = getFirebase();
 
+  // Get existing offer for audit trail
+  const existingOffer = await getOfferById(offerId);
+  if (!existingOffer) {
+    throw new Error('Offer not found');
+  }
+
   const updateData: Record<string, unknown> = {
     updatedAt: Timestamp.now(),
+    updatedBy: userId,
   };
 
   if (input.vendorOfferNumber !== undefined) updateData.vendorOfferNumber = input.vendorOfferNumber;
@@ -216,4 +250,25 @@ export async function updateOffer(
   await updateDoc(doc(db, COLLECTIONS.OFFERS, offerId), updateData);
 
   logger.info('Offer updated', { offerId });
+
+  // Log audit event (fire-and-forget)
+  const auditContext = createAuditContext(userId, userEmail || '', userName || '');
+  logAuditEvent(
+    db,
+    auditContext,
+    'OFFER_UPDATED',
+    'OFFER',
+    offerId,
+    `Updated offer ${existingOffer.number}`,
+    {
+      entityName: existingOffer.number,
+      parentEntityType: 'RFQ',
+      parentEntityId: existingOffer.rfqId,
+      metadata: {
+        updatedFields: Object.keys(input).filter(
+          (k) => input[k as keyof UpdateOfferInput] !== undefined
+        ),
+      },
+    }
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
 }

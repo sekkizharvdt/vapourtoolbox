@@ -10,6 +10,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import { getOfferById } from './crud';
 import { getOffersByRFQ } from './queries';
+import { logAuditEvent, createAuditContext } from '@/lib/audit';
 
 const logger = createLogger({ context: 'offerService' });
 
@@ -19,6 +20,8 @@ const logger = createLogger({ context: 'offerService' });
 export async function selectOffer(
   offerId: string,
   userId: string,
+  userName?: string,
+  userEmail?: string,
   completionNotes?: string
 ): Promise<void> {
   const { db } = getFirebase();
@@ -31,6 +34,8 @@ export async function selectOffer(
   // Mark other offers as rejected
   const allOffers = await getOffersByRFQ(offer.rfqId);
   const batch = writeBatch(db);
+
+  const rejectedOfferIds: string[] = [];
 
   allOffers.forEach((other) => {
     if (other.id === offerId) {
@@ -45,6 +50,7 @@ export async function selectOffer(
         updatedAt: Timestamp.now(),
         updatedBy: userId,
       });
+      rejectedOfferIds.push(other.id);
     }
   });
 
@@ -61,21 +67,79 @@ export async function selectOffer(
   await batch.commit();
 
   logger.info('Offer selected and RFQ completed', { offerId, rfqId: offer.rfqId });
+
+  // Log audit event (fire-and-forget)
+  const auditContext = createAuditContext(userId, userEmail || '', userName || '');
+  logAuditEvent(
+    db,
+    auditContext,
+    'OFFER_SELECTED',
+    'OFFER',
+    offerId,
+    `Selected offer ${offer.number} from ${offer.vendorName} for RFQ ${offer.rfqNumber}`,
+    {
+      entityName: offer.number,
+      parentEntityType: 'RFQ',
+      parentEntityId: offer.rfqId,
+      metadata: {
+        vendorId: offer.vendorId,
+        vendorName: offer.vendorName,
+        totalAmount: offer.totalAmount,
+        rfqNumber: offer.rfqNumber,
+        rejectedOfferCount: rejectedOfferIds.length,
+        completionNotes,
+      },
+    }
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
 }
 
 /**
  * Reject an offer
  */
-export async function rejectOffer(offerId: string, reason: string, _userId: string): Promise<void> {
+export async function rejectOffer(
+  offerId: string,
+  reason: string,
+  userId: string,
+  userName?: string,
+  userEmail?: string
+): Promise<void> {
   const { db } = getFirebase();
+
+  // Get offer for audit trail
+  const offer = await getOfferById(offerId);
+  if (!offer) {
+    throw new Error('Offer not found');
+  }
 
   await updateDoc(doc(db, COLLECTIONS.OFFERS, offerId), {
     status: 'REJECTED',
     evaluationNotes: reason,
     updatedAt: Timestamp.now(),
+    updatedBy: userId,
   });
 
   logger.info('Offer rejected', { offerId });
+
+  // Log audit event (fire-and-forget)
+  const auditContext = createAuditContext(userId, userEmail || '', userName || '');
+  logAuditEvent(
+    db,
+    auditContext,
+    'OFFER_REJECTED',
+    'OFFER',
+    offerId,
+    `Rejected offer ${offer.number} from ${offer.vendorName}`,
+    {
+      entityName: offer.number,
+      parentEntityType: 'RFQ',
+      parentEntityId: offer.rfqId,
+      metadata: {
+        vendorId: offer.vendorId,
+        vendorName: offer.vendorName,
+        rejectionReason: reason,
+      },
+    }
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
 }
 
 /**
@@ -84,15 +148,45 @@ export async function rejectOffer(offerId: string, reason: string, _userId: stri
 export async function withdrawOffer(
   offerId: string,
   reason: string,
-  _userId: string
+  userId: string,
+  userName?: string,
+  userEmail?: string
 ): Promise<void> {
   const { db } = getFirebase();
+
+  // Get offer for audit trail
+  const offer = await getOfferById(offerId);
+  if (!offer) {
+    throw new Error('Offer not found');
+  }
 
   await updateDoc(doc(db, COLLECTIONS.OFFERS, offerId), {
     status: 'WITHDRAWN',
     evaluationNotes: reason,
     updatedAt: Timestamp.now(),
+    updatedBy: userId,
   });
 
   logger.info('Offer withdrawn', { offerId });
+
+  // Log audit event (fire-and-forget)
+  const auditContext = createAuditContext(userId, userEmail || '', userName || '');
+  logAuditEvent(
+    db,
+    auditContext,
+    'OFFER_WITHDRAWN',
+    'OFFER',
+    offerId,
+    `Withdrew offer ${offer.number} from ${offer.vendorName}`,
+    {
+      entityName: offer.number,
+      parentEntityType: 'RFQ',
+      parentEntityId: offer.rfqId,
+      metadata: {
+        vendorId: offer.vendorId,
+        vendorName: offer.vendorName,
+        withdrawalReason: reason,
+      },
+    }
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
 }

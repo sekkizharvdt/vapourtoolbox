@@ -52,6 +52,12 @@ export type AuditAction =
   | 'RFQ_CANCELLED'
   | 'QUOTATION_RECEIVED'
   | 'QUOTATION_EVALUATED'
+  // Procurement - Offers
+  | 'OFFER_CREATED'
+  | 'OFFER_UPDATED'
+  | 'OFFER_SELECTED'
+  | 'OFFER_REJECTED'
+  | 'OFFER_WITHDRAWN'
   // Procurement - Purchase Orders
   | 'PO_CREATED'
   | 'PO_UPDATED'
@@ -65,6 +71,11 @@ export type AuditAction =
   | 'GR_UPDATED'
   | 'GR_COMPLETED'
   | 'GR_REJECTED'
+  // Procurement - Packing List
+  | 'PACKING_LIST_CREATED'
+  | 'PACKING_LIST_FINALIZED'
+  | 'PACKING_LIST_SHIPPED'
+  | 'PACKING_LIST_DELIVERED'
   // Procurement - Three-Way Match
   | 'MATCH_CREATED'
   | 'MATCH_APPROVED'
@@ -166,6 +177,7 @@ export type AuditEntityType =
   | 'PURCHASE_REQUEST_ITEM'
   | 'RFQ'
   | 'QUOTATION'
+  | 'OFFER'
   | 'PURCHASE_ORDER'
   | 'PURCHASE_ORDER_ITEM'
   | 'PURCHASE_ORDER_AMENDMENT'

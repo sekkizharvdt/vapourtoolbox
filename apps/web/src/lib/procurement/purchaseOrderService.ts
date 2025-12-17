@@ -34,8 +34,10 @@ import type {
   OfferItem,
 } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
+import { PermissionFlag } from '@vapour/types';
 import { formatCurrency } from './purchaseOrderHelpers';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
+import { requirePermission, requireApprover, preventSelfApproval } from '@/lib/auth';
 
 const logger = createLogger({ context: 'purchaseOrderService' });
 
@@ -442,32 +444,59 @@ export async function approvePO(
   poId: string,
   userId: string,
   userName: string,
+  userPermissions: number,
   comments?: string,
   bankAccountId?: string
 ): Promise<void> {
   const { db } = getFirebase();
 
-  const now = Timestamp.now();
+  // Authorization: Require APPROVE_PO permission
+  requirePermission(userPermissions, PermissionFlag.APPROVE_PO, userId, 'approve purchase order');
 
-  // Get PO to check if advance payment is required
-  const po = await getPOById(poId);
-  if (!po) {
-    throw new Error('Purchase Order not found');
-  }
+  // Atomically approve PO to prevent race conditions
+  const po = await runTransaction(db, async (transaction) => {
+    const now = Timestamp.now();
+    const poRef = doc(db, COLLECTIONS.PURCHASE_ORDERS, poId);
 
-  await updateDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId), {
-    status: 'APPROVED',
-    approvedBy: userId,
-    approvedByName: userName,
-    approvedAt: now,
-    approvalComments: comments,
-    updatedAt: now,
-    updatedBy: userId,
+    const poDoc = await transaction.get(poRef);
+    if (!poDoc.exists()) {
+      throw new Error('Purchase Order not found');
+    }
+
+    const poData = { id: poDoc.id, ...poDoc.data() } as PurchaseOrder;
+
+    // Validate status within transaction
+    if (poData.status !== 'PENDING_APPROVAL') {
+      throw new Error(
+        `Cannot approve PO with status: ${poData.status}. PO must be PENDING_APPROVAL.`
+      );
+    }
+
+    // Authorization: Prevent self-approval
+    preventSelfApproval(userId, poData.createdBy, 'approve purchase order');
+
+    // Authorization: Check designated approver if set
+    if (poData.approverId && poData.approverId !== userId) {
+      requireApprover(userId, [poData.approverId], 'approve this purchase order');
+    }
+
+    // Update PO status atomically
+    transaction.update(poRef, {
+      status: 'APPROVED',
+      approvedBy: userId,
+      approvedByName: userName,
+      approvedAt: now,
+      approvalComments: comments,
+      updatedAt: now,
+      updatedBy: userId,
+    });
+
+    return poData;
   });
 
-  // Audit log: PO approved
+  // Audit log outside transaction (non-critical)
   const auditContext = createAuditContext(userId, '', userName);
-  await logAuditEvent(
+  logAuditEvent(
     db,
     auditContext,
     'PO_APPROVED',
@@ -482,18 +511,19 @@ export async function approvePO(
         comments,
       },
     }
-  );
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
 
   logger.info('PO approved', { poId });
 
-  // Create advance payment if required
+  // Create advance payment if required (outside transaction)
+  // This involves complex GL entry generation that can't easily be in same transaction
   if (po.advancePaymentRequired && bankAccountId) {
     try {
       const { createAdvancePaymentFromPO } = await import('./accountingIntegration');
       const userEmail = userName; // Use userName as fallback for email
       const paymentId = await createAdvancePaymentFromPO(db, po, bankAccountId, userId, userEmail);
 
-      // Update PO with payment reference and status
+      // Update PO with payment reference
       await updateDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId), {
         advancePaymentId: paymentId,
         advancePaymentStatus: 'REQUESTED',
@@ -503,13 +533,14 @@ export async function approvePO(
 
       logger.info('Advance payment created', { paymentId });
     } catch (err) {
-      logger.error('Error creating advance payment', { poId, error: err });
-      // Note: PO is already approved, advance payment can be created manually
-      // We don't fail the approval if payment creation fails
+      logger.error('Error creating advance payment (can be created manually)', {
+        poId,
+        error: err,
+      });
+      // PO is approved, advance payment can be created manually through accounting
     }
   } else if (po.advancePaymentRequired && !bankAccountId) {
     logger.warn('Advance payment required but no bank account provided');
-    // Update status to show advance payment is pending
     await updateDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId), {
       advancePaymentStatus: 'PENDING',
       updatedAt: Timestamp.now(),

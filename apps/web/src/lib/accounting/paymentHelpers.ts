@@ -14,6 +14,7 @@ import {
   where,
   getDocs,
   writeBatch,
+  runTransaction,
   type Firestore,
   type DocumentData,
 } from 'firebase/firestore';
@@ -284,6 +285,9 @@ export async function createPaymentWithAllocationsAtomic(
 /**
  * Atomically update an existing payment and recalculate invoice/bill statuses
  * Also regenerates GL entries for the updated payment
+ *
+ * Uses runTransaction to ensure reads and writes are atomic - prevents race
+ * conditions where invoice amounts change between read and update.
  */
 export async function updatePaymentWithAllocationsAtomic(
   db: Firestore,
@@ -292,90 +296,95 @@ export async function updatePaymentWithAllocationsAtomic(
   oldAllocations: PaymentAllocation[],
   newAllocations: PaymentAllocation[]
 ): Promise<void> {
-  const batch = writeBatch(db);
+  // Generate GL entries outside transaction (they don't modify state)
+  const paymentType = paymentData.type as 'CUSTOMER_PAYMENT' | 'VENDOR_PAYMENT';
+  const glInput: PaymentGLInput = {
+    transactionId: paymentId,
+    transactionNumber: paymentData.transactionNumber || '',
+    transactionDate: paymentData.transactionDate || Timestamp.now(),
+    amount: paymentData.amount || 0,
+    currency: paymentData.currency || 'INR',
+    paymentMethod: paymentData.paymentMethod || 'BANK_TRANSFER',
+    bankAccountId: paymentData.bankAccountId,
+    description: paymentData.description || '',
+    entityId: paymentData.entityId || '',
+    projectId: paymentData.projectId,
+  };
 
-  try {
-    // 1. Generate GL entries for the updated payment
-    const paymentType = paymentData.type as 'CUSTOMER_PAYMENT' | 'VENDOR_PAYMENT';
-    const glInput: PaymentGLInput = {
-      transactionId: paymentId,
-      transactionNumber: paymentData.transactionNumber || '',
-      transactionDate: paymentData.transactionDate || Timestamp.now(),
-      amount: paymentData.amount || 0,
-      currency: paymentData.currency || 'INR',
-      paymentMethod: paymentData.paymentMethod || 'BANK_TRANSFER',
-      bankAccountId: paymentData.bankAccountId,
-      description: paymentData.description || '',
-      entityId: paymentData.entityId || '',
-      projectId: paymentData.projectId,
-    };
+  let glResult;
+  if (paymentType === 'CUSTOMER_PAYMENT') {
+    glResult = await generateCustomerPaymentGLEntries(db, glInput);
+  } else if (paymentType === 'VENDOR_PAYMENT') {
+    glResult = await generateVendorPaymentGLEntries(db, glInput);
+  } else {
+    throw new Error(`Invalid payment type: ${paymentType}`);
+  }
 
-    let glResult;
-    if (paymentType === 'CUSTOMER_PAYMENT') {
-      glResult = await generateCustomerPaymentGLEntries(db, glInput);
-    } else if (paymentType === 'VENDOR_PAYMENT') {
-      glResult = await generateVendorPaymentGLEntries(db, glInput);
-    } else {
-      throw new Error(`Invalid payment type: ${paymentType}`);
-    }
+  if (!glResult.success) {
+    throw new Error(`GL entry generation failed: ${glResult.errors.join(', ')}`);
+  }
 
-    if (!glResult.success) {
-      throw new Error(`GL entry generation failed: ${glResult.errors.join(', ')}`);
-    }
+  // Use transaction to ensure consistent reads and writes
+  await runTransaction(db, async (transaction) => {
+    const now = Timestamp.now();
 
-    // 2. Update the payment document with new GL entries
+    // Read all affected invoices within transaction
+    const allInvoiceIds = new Set([
+      ...oldAllocations.filter((a) => a.allocatedAmount > 0).map((a) => a.invoiceId),
+      ...newAllocations.filter((a) => a.allocatedAmount > 0).map((a) => a.invoiceId),
+    ]);
+
+    const invoiceRefs = Array.from(allInvoiceIds).map((id) =>
+      doc(db, COLLECTIONS.TRANSACTIONS, id)
+    );
+    const invoiceDocs = await Promise.all(invoiceRefs.map((ref) => transaction.get(ref)));
+
+    // Build map of current invoice data
+    const invoiceDataMap = new Map<string, DocumentData>();
+    invoiceDocs.forEach((docSnap, index) => {
+      if (docSnap.exists()) {
+        invoiceDataMap.set(invoiceRefs[index]!.id, docSnap.data());
+      }
+    });
+
+    // Update the payment document with new GL entries
     const paymentRef = doc(db, COLLECTIONS.TRANSACTIONS, paymentId);
     const paymentDataWithGL = {
       ...paymentData,
       entries: glResult.entries,
-      glGeneratedAt: Timestamp.now(),
+      glGeneratedAt: now,
     };
-    batch.update(paymentRef, paymentDataWithGL);
+    transaction.update(paymentRef, paymentDataWithGL);
 
-    // 3. Revert old allocations
+    // Calculate net change per invoice
+    const invoiceChanges = new Map<string, number>();
+
+    // Subtract old allocations
     for (const allocation of oldAllocations) {
       if (allocation.allocatedAmount <= 0) continue;
-
-      const invoiceRef = doc(db, COLLECTIONS.TRANSACTIONS, allocation.invoiceId);
-      const invoiceDoc = await getDoc(invoiceRef);
-
-      if (invoiceDoc.exists()) {
-        const invoiceData = invoiceDoc.data();
-        const totalAmount = invoiceData.totalAmount || 0;
-        const previouslyPaid = (invoiceData.amountPaid || 0) - allocation.allocatedAmount;
-
-        let newStatus: TransactionStatus;
-        if (previouslyPaid >= totalAmount) {
-          newStatus = 'PAID';
-        } else if (previouslyPaid > 0) {
-          newStatus = 'PARTIALLY_PAID';
-        } else {
-          newStatus = 'UNPAID';
-        }
-
-        batch.update(invoiceRef, {
-          status: newStatus,
-          amountPaid: previouslyPaid,
-          updatedAt: Timestamp.now(),
-        });
-      }
+      const current = invoiceChanges.get(allocation.invoiceId) || 0;
+      invoiceChanges.set(allocation.invoiceId, current - allocation.allocatedAmount);
     }
 
-    // 4. Apply new allocations
+    // Add new allocations
     for (const allocation of newAllocations) {
       if (allocation.allocatedAmount <= 0) continue;
+      const current = invoiceChanges.get(allocation.invoiceId) || 0;
+      invoiceChanges.set(allocation.invoiceId, current + allocation.allocatedAmount);
+    }
 
-      const invoiceRef = doc(db, COLLECTIONS.TRANSACTIONS, allocation.invoiceId);
-      const invoiceDoc = await getDoc(invoiceRef);
+    // Apply changes to each invoice
+    for (const [invoiceId, netChange] of invoiceChanges) {
+      if (netChange === 0) continue;
 
-      if (!invoiceDoc.exists()) {
-        throw new Error(`Invoice ${allocation.invoiceId} not found`);
+      const invoiceData = invoiceDataMap.get(invoiceId);
+      if (!invoiceData) {
+        throw new Error(`Invoice ${invoiceId} not found`);
       }
 
-      const invoiceData = invoiceDoc.data();
       const totalAmount = invoiceData.totalAmount || 0;
       const previouslyPaid = invoiceData.amountPaid || 0;
-      const newTotalPaid = previouslyPaid + allocation.allocatedAmount;
+      const newTotalPaid = Math.max(0, previouslyPaid + netChange);
 
       let newStatus: TransactionStatus;
       if (newTotalPaid >= totalAmount) {
@@ -386,17 +395,14 @@ export async function updatePaymentWithAllocationsAtomic(
         newStatus = 'UNPAID';
       }
 
-      batch.update(invoiceRef, {
+      const invoiceRef = doc(db, COLLECTIONS.TRANSACTIONS, invoiceId);
+      transaction.update(invoiceRef, {
         status: newStatus,
         amountPaid: newTotalPaid,
-        updatedAt: Timestamp.now(),
+        updatedAt: now,
       });
     }
+  });
 
-    // 5. Commit all operations atomically
-    await batch.commit();
-  } catch (error) {
-    logger.error('Atomic payment update failed, rolling back', { error, paymentId });
-    throw error;
-  }
+  logger.info('Payment updated atomically', { paymentId, allocationsCount: newAllocations.length });
 }

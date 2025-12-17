@@ -43,7 +43,7 @@ import { POWorkflowDialogs } from './components/POWorkflowDialogs';
 export default function PODetailPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -116,16 +116,23 @@ export default function PODetailPage() {
   };
 
   const handleApprove = async () => {
-    if (!user || !po || !poId) return;
+    if (!user || !po || !poId || !claims) return;
 
     setActionLoading(true);
     try {
-      await approvePO(poId, user.uid, user.displayName || 'Unknown', dialogState.approvalComments);
+      await approvePO(
+        poId,
+        user.uid,
+        user.displayName || 'Unknown',
+        claims.permissions,
+        dialogState.approvalComments
+      );
       dialogState.resetApprovalForm();
       await loadPO();
     } catch (err) {
       console.error('[PODetailPage] Error approving PO:', err);
-      setError('Failed to approve PO');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to approve PO';
+      setError(errorMessage);
     } finally {
       setActionLoading(false);
     }

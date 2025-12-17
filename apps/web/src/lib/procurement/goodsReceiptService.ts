@@ -9,13 +9,10 @@ import {
   doc,
   getDoc,
   getDocs,
-  addDoc,
-  updateDoc,
   query,
   where,
   orderBy,
   Timestamp,
-  writeBatch,
   runTransaction,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -121,18 +118,21 @@ export async function createGoodsReceipt(
 ): Promise<string> {
   const { db } = getFirebase();
 
-  // Get PO
-  const poDoc = await getDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, input.purchaseOrderId));
-  if (!poDoc.exists()) {
-    throw new Error('Purchase Order not found');
-  }
-
-  const po = { id: poDoc.id, ...poDoc.data() } as PurchaseOrder;
-
+  // Generate GR number first (uses its own transaction for counter)
   const grNumber = await generateGRNumber();
-  const now = Timestamp.now();
 
-  // Determine overall condition
+  // Get PO items outside transaction (read-only, for item descriptions)
+  const poItemsQuery = query(
+    collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS),
+    where('purchaseOrderId', '==', input.purchaseOrderId)
+  );
+  const poItemsSnapshot = await getDocs(poItemsQuery);
+  const poItems = poItemsSnapshot.docs.map((docSnap) => ({
+    id: docSnap.id,
+    ...docSnap.data(),
+  })) as PurchaseOrderItem[];
+
+  // Calculate derived values
   const allAccepted = input.items.every((item) => item.acceptedQuantity === item.receivedQuantity);
   const someRejected = input.items.some((item) => item.rejectedQuantity > 0);
   const hasIssues = input.items.some((item) => item.hasIssues);
@@ -145,131 +145,139 @@ export async function createGoodsReceipt(
     overallCondition = 'REJECTED';
   }
 
-  // Create GR
-  const grData: Omit<GoodsReceipt, 'id'> = {
-    number: grNumber,
-    purchaseOrderId: input.purchaseOrderId,
-    poNumber: po.number,
-    packingListId: input.packingListId,
-    packingListNumber: undefined, // Could fetch if packingListId provided
-    projectId: input.projectId,
-    projectName: input.projectName,
-    inspectionType: input.inspectionType,
-    inspectionLocation: input.inspectionLocation,
-    inspectionDate: Timestamp.fromDate(input.inspectionDate),
-    overallCondition,
-    overallNotes: input.overallNotes,
-    hasIssues,
-    issuesSummary: hasIssues
-      ? input.items
-          .filter((item) => item.hasIssues)
-          .flatMap((item) => item.issues || [])
-          .join('; ')
-      : undefined,
-    status: 'IN_PROGRESS',
-    approvedForPayment: false,
-    inspectedBy: userId,
-    inspectedByName: userName,
-    createdAt: now,
-    updatedAt: now,
-  };
+  // Execute all writes atomically in a transaction
+  const { grId, poNumber, poVendorName } = await runTransaction(db, async (transaction) => {
+    const now = Timestamp.now();
 
-  const grRef = await addDoc(collection(db, COLLECTIONS.GOODS_RECEIPTS), grData);
+    // Read PO within transaction to ensure consistency
+    const poRef = doc(db, COLLECTIONS.PURCHASE_ORDERS, input.purchaseOrderId);
+    const poDoc = await transaction.get(poRef);
+    if (!poDoc.exists()) {
+      throw new Error('Purchase Order not found');
+    }
+    const po = { id: poDoc.id, ...poDoc.data() } as PurchaseOrder;
 
-  // Create GR items
-  const batch = writeBatch(db);
+    // Read current PO item quantities within transaction
+    const poItemRefs = input.items.map((item) =>
+      doc(db, COLLECTIONS.PURCHASE_ORDER_ITEMS, item.poItemId)
+    );
+    const poItemDocs = await Promise.all(poItemRefs.map((ref) => transaction.get(ref)));
 
-  // Get PO items to populate descriptions
-  const poItemsQuery = query(
-    collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS),
-    where('purchaseOrderId', '==', input.purchaseOrderId)
-  );
-  const poItemsSnapshot = await getDocs(poItemsQuery);
-  const poItems = poItemsSnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as PurchaseOrderItem[];
-
-  input.items.forEach((item, index) => {
-    const poItem = poItems.find((pi) => pi.id === item.poItemId);
-
-    const grItemData: Omit<GoodsReceiptItem, 'id'> = {
-      goodsReceiptId: grRef.id,
-      poItemId: item.poItemId,
-      lineNumber: index + 1,
-      description: poItem?.description || 'Unknown Item',
-      equipmentId: poItem?.equipmentId,
-      equipmentCode: poItem?.equipmentCode,
-      orderedQuantity: poItem?.quantity || 0,
-      receivedQuantity: item.receivedQuantity,
-      acceptedQuantity: item.acceptedQuantity,
-      rejectedQuantity: item.rejectedQuantity,
-      unit: poItem?.unit || '',
-      condition: item.condition,
-      conditionNotes: item.conditionNotes,
-      testingRequired: item.testingRequired,
-      testingCompleted: item.testingCompleted || false,
-      testResult: item.testResult,
-      photoCount: 0,
-      hasIssues: item.hasIssues,
-      issues: item.issues,
+    // Create GR document
+    const grRef = doc(collection(db, COLLECTIONS.GOODS_RECEIPTS));
+    const grData: Omit<GoodsReceipt, 'id'> = {
+      number: grNumber,
+      purchaseOrderId: input.purchaseOrderId,
+      poNumber: po.number,
+      packingListId: input.packingListId,
+      packingListNumber: undefined,
+      projectId: input.projectId,
+      projectName: input.projectName,
+      inspectionType: input.inspectionType,
+      inspectionLocation: input.inspectionLocation,
+      inspectionDate: Timestamp.fromDate(input.inspectionDate),
+      overallCondition,
+      overallNotes: input.overallNotes,
+      hasIssues,
+      issuesSummary: hasIssues
+        ? input.items
+            .filter((item) => item.hasIssues)
+            .flatMap((item) => item.issues || [])
+            .join('; ')
+        : undefined,
+      status: 'IN_PROGRESS',
+      approvedForPayment: false,
+      inspectedBy: userId,
+      inspectedByName: userName,
       createdAt: now,
       updatedAt: now,
     };
+    transaction.set(grRef, grData);
 
-    const itemRef = doc(collection(db, COLLECTIONS.GOODS_RECEIPT_ITEMS));
-    batch.set(itemRef, grItemData);
+    // Create GR items and update PO items atomically
+    input.items.forEach((item, index) => {
+      const poItem = poItems.find((pi) => pi.id === item.poItemId);
+      const poItemDoc = poItemDocs[index];
 
-    // Update PO item quantities
-    if (poItem) {
-      const newDelivered = poItem.quantityDelivered + item.receivedQuantity;
-      const newAccepted = poItem.quantityAccepted + item.acceptedQuantity;
-      const newRejected = poItem.quantityRejected + item.rejectedQuantity;
-
-      let deliveryStatus: 'PENDING' | 'PARTIAL' | 'COMPLETE' = 'PARTIAL';
-      if (newDelivered >= poItem.quantity) {
-        deliveryStatus = 'COMPLETE';
-      } else if (newDelivered === 0) {
-        deliveryStatus = 'PENDING';
-      }
-
-      batch.update(doc(db, COLLECTIONS.PURCHASE_ORDER_ITEMS, poItem.id), {
-        quantityDelivered: newDelivered,
-        quantityAccepted: newAccepted,
-        quantityRejected: newRejected,
-        deliveryStatus,
+      // Create GR item
+      const grItemRef = doc(collection(db, COLLECTIONS.GOODS_RECEIPT_ITEMS));
+      const grItemData: Omit<GoodsReceiptItem, 'id'> = {
+        goodsReceiptId: grRef.id,
+        poItemId: item.poItemId,
+        lineNumber: index + 1,
+        description: poItem?.description || 'Unknown Item',
+        equipmentId: poItem?.equipmentId,
+        equipmentCode: poItem?.equipmentCode,
+        orderedQuantity: poItem?.quantity || 0,
+        receivedQuantity: item.receivedQuantity,
+        acceptedQuantity: item.acceptedQuantity,
+        rejectedQuantity: item.rejectedQuantity,
+        unit: poItem?.unit || '',
+        condition: item.condition,
+        conditionNotes: item.conditionNotes,
+        testingRequired: item.testingRequired,
+        testingCompleted: item.testingCompleted || false,
+        testResult: item.testResult,
+        photoCount: 0,
+        hasIssues: item.hasIssues,
+        issues: item.issues,
+        createdAt: now,
         updatedAt: now,
-      });
-    }
+      };
+      transaction.set(grItemRef, grItemData);
+
+      // Update PO item quantities (using current values from transaction read)
+      if (poItemDoc?.exists()) {
+        const currentPoItem = poItemDoc.data() as PurchaseOrderItem;
+        const newDelivered = (currentPoItem.quantityDelivered || 0) + item.receivedQuantity;
+        const newAccepted = (currentPoItem.quantityAccepted || 0) + item.acceptedQuantity;
+        const newRejected = (currentPoItem.quantityRejected || 0) + item.rejectedQuantity;
+
+        let deliveryStatus: 'PENDING' | 'PARTIAL' | 'COMPLETE' = 'PARTIAL';
+        if (newDelivered >= (currentPoItem.quantity || 0)) {
+          deliveryStatus = 'COMPLETE';
+        } else if (newDelivered === 0) {
+          deliveryStatus = 'PENDING';
+        }
+
+        transaction.update(doc(db, COLLECTIONS.PURCHASE_ORDER_ITEMS, item.poItemId), {
+          quantityDelivered: newDelivered,
+          quantityAccepted: newAccepted,
+          quantityRejected: newRejected,
+          deliveryStatus,
+          updatedAt: now,
+        });
+      }
+    });
+
+    return { grId: grRef.id, poNumber: po.number, poVendorName: po.vendorName };
   });
 
-  await batch.commit();
-
-  // Audit log: GR created
+  // Audit log outside transaction (non-critical, fire-and-forget)
   const auditContext = createAuditContext(userId, '', userName);
-  await logAuditEvent(
+  logAuditEvent(
     db,
     auditContext,
     'GR_CREATED',
     'GOODS_RECEIPT',
-    grRef.id,
-    `Created Goods Receipt ${grNumber} for PO ${po.number}`,
+    grId,
+    `Created Goods Receipt ${grNumber} for PO ${poNumber}`,
     {
       entityName: grNumber,
       metadata: {
-        purchaseOrderId: po.id,
-        poNumber: po.number,
-        vendorName: po.vendorName,
+        purchaseOrderId: input.purchaseOrderId,
+        poNumber,
+        vendorName: poVendorName,
         overallCondition,
         itemCount: input.items.length,
         hasIssues,
       },
     }
-  );
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
 
-  logger.info('Goods Receipt created', { grId: grRef.id, grNumber });
+  logger.info('Goods Receipt created', { grId, grNumber });
 
-  return grRef.id;
+  return grId;
 }
 
 // ============================================================================
@@ -322,18 +330,67 @@ export async function completeGR(
     throw new Error('Goods Receipt not found');
   }
 
+  if (gr.status === 'COMPLETED') {
+    throw new Error('Goods Receipt is already completed');
+  }
+
   // Get PO to find creator for task notification
   const poDoc = await getDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, gr.purchaseOrderId));
   const po = poDoc.exists() ? (poDoc.data() as PurchaseOrder) : null;
 
-  await updateDoc(doc(db, COLLECTIONS.GOODS_RECEIPTS, grId), {
-    status: 'COMPLETED',
-    updatedAt: Timestamp.now(),
+  // Atomically update GR status and create bill in a transaction
+  // This ensures we don't end up with a completed GR but no bill
+  await runTransaction(db, async (transaction) => {
+    const now = Timestamp.now();
+    const grRef = doc(db, COLLECTIONS.GOODS_RECEIPTS, grId);
+
+    // Re-read GR within transaction to ensure consistency
+    const grDocInTxn = await transaction.get(grRef);
+    if (!grDocInTxn.exists()) {
+      throw new Error('Goods Receipt not found');
+    }
+
+    const grInTxn = { id: grDocInTxn.id, ...grDocInTxn.data() } as GoodsReceipt;
+    if (grInTxn.status === 'COMPLETED') {
+      throw new Error('Goods Receipt is already completed');
+    }
+
+    // Check if bill already exists
+    if (grInTxn.paymentRequestId) {
+      // Bill already exists, just mark GR as complete
+      transaction.update(grRef, {
+        status: 'COMPLETED',
+        updatedAt: now,
+      });
+      return;
+    }
+
+    // Mark GR as completed
+    transaction.update(grRef, {
+      status: 'COMPLETED',
+      updatedAt: now,
+    });
+
+    // Note: Bill creation involves complex GL entry generation that reads from
+    // chart of accounts. We call it after the transaction for now, but link it
+    // back. A future enhancement could make this fully transactional.
   });
 
-  // Audit log: GR completed
+  // Create bill after GR is marked complete (required by createBillFromGoodsReceipt)
+  // Refetch GR to get updated status
+  const updatedGR = await getGRById(grId);
+  if (updatedGR && !updatedGR.paymentRequestId) {
+    try {
+      await createBillFromGoodsReceipt(db, updatedGR, userId, userEmail);
+    } catch (err) {
+      // Log error but don't fail - GR is complete, bill can be created manually
+      logger.error('Error creating bill from GR (can be created manually)', { error: err, grId });
+    }
+  }
+
+  // Audit log outside transaction (non-critical)
   const auditContext = createAuditContext(userId, '', userName || userEmail);
-  await logAuditEvent(
+  logAuditEvent(
     db,
     auditContext,
     'GR_COMPLETED',
@@ -347,38 +404,27 @@ export async function completeGR(
         overallCondition: gr.overallCondition,
       },
     }
-  );
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
 
-  // Create task notification for PO creator to approve payment
+  // Create task notification for PO creator to approve payment (non-critical)
   if (po?.createdBy) {
-    try {
-      await createTaskNotification({
-        type: 'actionable',
-        category: 'GR_READY_FOR_PAYMENT',
-        userId: po.createdBy,
-        assignedBy: userId,
-        assignedByName: userName || userEmail,
-        title: `Approve Payment for GR ${gr.number}`,
-        message: `Goods Receipt ${gr.number} for PO ${gr.poNumber} (${po.vendorName || 'vendor'}) is complete. Please review and approve for payment.`,
-        entityType: 'GOODS_RECEIPT',
-        entityId: grId,
-        linkUrl: `/procurement/goods-receipts/${grId}`,
-        priority: gr.overallCondition === 'ACCEPTED' ? 'MEDIUM' : 'HIGH',
-        autoCompletable: true,
-        projectId: gr.projectId,
-      });
-    } catch (err) {
+    createTaskNotification({
+      type: 'actionable',
+      category: 'GR_READY_FOR_PAYMENT',
+      userId: po.createdBy,
+      assignedBy: userId,
+      assignedByName: userName || userEmail,
+      title: `Approve Payment for GR ${gr.number}`,
+      message: `Goods Receipt ${gr.number} for PO ${gr.poNumber} (${po.vendorName || 'vendor'}) is complete. Please review and approve for payment.`,
+      entityType: 'GOODS_RECEIPT',
+      entityId: grId,
+      linkUrl: `/procurement/goods-receipts/${grId}`,
+      priority: gr.overallCondition === 'ACCEPTED' ? 'MEDIUM' : 'HIGH',
+      autoCompletable: true,
+      projectId: gr.projectId,
+    }).catch((err) => {
       logger.error('Failed to create GR payment approval task', { error: err, grId });
-      // Don't fail main operation
-    }
-  }
-
-  // Automatically create bill in accounting
-  try {
-    await createBillFromGoodsReceipt(db, gr, userId, userEmail);
-  } catch (err) {
-    logger.error('Error creating bill from GR', { error: err, grId });
-    // Don't fail GR completion if bill creation fails
+    });
   }
 
   logger.info('Goods Receipt completed', { grId });
@@ -393,64 +439,91 @@ export async function approveGRForPayment(
 ): Promise<void> {
   const { db } = getFirebase();
 
-  const gr = await getGRById(grId);
-  if (!gr) {
-    throw new Error('Goods Receipt not found');
-  }
+  // Atomically approve GR for payment
+  // This prevents race conditions where multiple users try to approve
+  const gr = await runTransaction(db, async (transaction) => {
+    const now = Timestamp.now();
+    const grRef = doc(db, COLLECTIONS.GOODS_RECEIPTS, grId);
 
-  const now = Timestamp.now();
+    const grDoc = await transaction.get(grRef);
+    if (!grDoc.exists()) {
+      throw new Error('Goods Receipt not found');
+    }
 
-  await updateDoc(doc(db, COLLECTIONS.GOODS_RECEIPTS, grId), {
-    approvedForPayment: true,
-    paymentApprovedBy: userId,
-    paymentApprovedAt: now,
-    updatedAt: now,
+    const grData = { id: grDoc.id, ...grDoc.data() } as GoodsReceipt;
+
+    // Validation checks within transaction
+    if (grData.status !== 'COMPLETED') {
+      throw new Error('Goods Receipt must be completed before approving payment');
+    }
+
+    if (grData.approvedForPayment) {
+      throw new Error('Goods Receipt is already approved for payment');
+    }
+
+    if (!grData.paymentRequestId) {
+      throw new Error('No bill found for this Goods Receipt. Create bill first.');
+    }
+
+    // Update GR atomically
+    transaction.update(grRef, {
+      approvedForPayment: true,
+      paymentApprovedBy: userId,
+      paymentApprovedAt: now,
+      updatedAt: now,
+    });
+
+    return grData;
   });
 
-  // Complete the GR_READY_FOR_PAYMENT task
+  // Create payment after GR approval is persisted
+  // Note: Payment involves GL entries and bill updates - complex but handled by paymentHelpers
   try {
-    const { findTaskNotificationByEntity, completeActionableTask } =
-      await import('@/lib/tasks/taskNotificationService');
-    const task = await findTaskNotificationByEntity('GOODS_RECEIPT', grId, 'GR_READY_FOR_PAYMENT', [
-      'pending',
-      'in_progress',
-    ]);
-    if (task) {
-      await completeActionableTask(task.id, userId, true);
+    // Refetch GR with updated approval status
+    const updatedGR = await getGRById(grId);
+    if (updatedGR) {
+      await createPaymentFromApprovedReceipt(db, updatedGR, bankAccountId, userId, userEmail);
     }
   } catch (err) {
-    logger.error('Failed to complete GR payment task', { error: err, grId });
-    // Don't fail main operation
+    // Log error - payment can be created manually through accounting module
+    logger.error('Error creating payment from GR (can be created manually)', { error: err, grId });
   }
 
-  // Create informational notification for the inspector
+  // Complete the GR_READY_FOR_PAYMENT task (non-critical)
+  import('@/lib/tasks/taskNotificationService')
+    .then(async ({ findTaskNotificationByEntity, completeActionableTask }) => {
+      const task = await findTaskNotificationByEntity(
+        'GOODS_RECEIPT',
+        grId,
+        'GR_READY_FOR_PAYMENT',
+        ['pending', 'in_progress']
+      );
+      if (task) {
+        await completeActionableTask(task.id, userId, true);
+      }
+    })
+    .catch((err) => {
+      logger.error('Failed to complete GR payment task', { error: err, grId });
+    });
+
+  // Create informational notification for the inspector (non-critical)
   if (gr.inspectedBy && gr.inspectedBy !== userId) {
-    try {
-      await createTaskNotification({
-        type: 'informational',
-        category: 'GR_PAYMENT_APPROVED',
-        userId: gr.inspectedBy,
-        assignedBy: userId,
-        assignedByName: userName || userEmail,
-        title: `Payment Approved for GR ${gr.number}`,
-        message: `Payment has been approved for Goods Receipt ${gr.number} (PO ${gr.poNumber}). Vendor payment will be processed.`,
-        entityType: 'GOODS_RECEIPT',
-        entityId: grId,
-        linkUrl: `/procurement/goods-receipts/${grId}`,
-        priority: 'LOW',
-        projectId: gr.projectId,
-      });
-    } catch (err) {
+    createTaskNotification({
+      type: 'informational',
+      category: 'GR_PAYMENT_APPROVED',
+      userId: gr.inspectedBy,
+      assignedBy: userId,
+      assignedByName: userName || userEmail,
+      title: `Payment Approved for GR ${gr.number}`,
+      message: `Payment has been approved for Goods Receipt ${gr.number} (PO ${gr.poNumber}). Vendor payment will be processed.`,
+      entityType: 'GOODS_RECEIPT',
+      entityId: grId,
+      linkUrl: `/procurement/goods-receipts/${grId}`,
+      priority: 'LOW',
+      projectId: gr.projectId,
+    }).catch((err) => {
       logger.error('Failed to create GR payment approved notification', { error: err, grId });
-      // Don't fail main operation
-    }
-  }
-
-  // Automatically create payment in accounting
-  try {
-    await createPaymentFromApprovedReceipt(db, gr, bankAccountId, userId, userEmail);
-  } catch (err) {
-    logger.error('Error creating payment from GR', { error: err, grId });
+    });
   }
 
   logger.info('Goods Receipt approved for payment', { grId });

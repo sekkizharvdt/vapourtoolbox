@@ -28,6 +28,7 @@ import type {
   PurchaseOrderItem,
 } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
+import { logAuditEvent, createAuditContext } from '@/lib/audit';
 
 const logger = createLogger({ context: 'packingListService' });
 
@@ -112,7 +113,8 @@ export interface CreatePackingListInput {
 export async function createPackingList(
   input: CreatePackingListInput,
   userId: string,
-  userName: string
+  userName: string,
+  userEmail?: string
 ): Promise<string> {
   const { db } = getFirebase();
 
@@ -200,6 +202,29 @@ export async function createPackingList(
 
   logger.info('Packing List created', { plId: plRef.id, plNumber });
 
+  // Log audit event (fire-and-forget)
+  const auditContext = createAuditContext(userId, userEmail || '', userName);
+  logAuditEvent(
+    db,
+    auditContext,
+    'PACKING_LIST_CREATED',
+    'PACKING_LIST',
+    plRef.id,
+    `Created packing list ${plNumber} for PO ${po.number}`,
+    {
+      entityName: plNumber,
+      parentEntityType: 'PURCHASE_ORDER',
+      parentEntityId: input.purchaseOrderId,
+      metadata: {
+        poNumber: po.number,
+        vendorId: po.vendorId,
+        vendorName: po.vendorName,
+        numberOfPackages: input.numberOfPackages,
+        itemCount: input.items.length,
+      },
+    }
+  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
+
   return plRef.id;
 }
 
@@ -210,13 +235,24 @@ export async function createPackingList(
 export async function updatePackingListStatus(
   plId: string,
   status: PackingListStatus,
-  _userId: string
+  userId: string,
+  userName?: string,
+  userEmail?: string
 ): Promise<void> {
   const { db } = getFirebase();
+
+  // Get existing PL for audit trail
+  const existingPL = await getPLById(plId);
+  if (!existingPL) {
+    throw new Error('Packing List not found');
+  }
+
+  const previousStatus = existingPL.status;
 
   const updateData: Record<string, unknown> = {
     status,
     updatedAt: Timestamp.now(),
+    updatedBy: userId,
   };
 
   if (status === 'SHIPPED') {
@@ -228,6 +264,39 @@ export async function updatePackingListStatus(
   await updateDoc(doc(db, COLLECTIONS.PACKING_LISTS, plId), updateData);
 
   logger.info('Packing List status updated', { plId, status });
+
+  // Determine audit action based on new status
+  type PLAuditAction = 'PACKING_LIST_FINALIZED' | 'PACKING_LIST_SHIPPED' | 'PACKING_LIST_DELIVERED';
+
+  const actionMap: Record<string, PLAuditAction> = {
+    FINALIZED: 'PACKING_LIST_FINALIZED',
+    SHIPPED: 'PACKING_LIST_SHIPPED',
+    DELIVERED: 'PACKING_LIST_DELIVERED',
+  };
+
+  const auditAction = actionMap[status];
+  if (auditAction) {
+    const auditContext = createAuditContext(userId, userEmail || '', userName || '');
+    logAuditEvent(
+      db,
+      auditContext,
+      auditAction,
+      'PACKING_LIST',
+      plId,
+      `${status.toLowerCase().charAt(0).toUpperCase() + status.toLowerCase().slice(1)} packing list ${existingPL.number}`,
+      {
+        entityName: existingPL.number,
+        parentEntityType: 'PURCHASE_ORDER',
+        parentEntityId: existingPL.purchaseOrderId,
+        metadata: {
+          previousStatus,
+          newStatus: status,
+          poNumber: existingPL.poNumber,
+          vendorName: existingPL.vendorName,
+        },
+      }
+    ).catch((err) => logger.error('Failed to log audit event', { error: err }));
+  }
 }
 
 export async function getPLById(plId: string): Promise<PackingList | null> {
