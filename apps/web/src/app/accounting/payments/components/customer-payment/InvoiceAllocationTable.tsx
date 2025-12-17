@@ -18,8 +18,11 @@ import {
   Stack,
   TextField,
   Typography,
-  Box,
+  Button,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
+import { PlaylistAdd as FillIcon } from '@mui/icons-material';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import type { InvoiceAllocationTableProps } from './types';
 
@@ -30,6 +33,7 @@ export function InvoiceAllocationTable({
   unallocated,
   onAllocationChange,
   onAutoAllocate,
+  onFillRemaining,
 }: InvoiceAllocationTableProps) {
   if (outstandingInvoices.length === 0) {
     return null;
@@ -40,15 +44,20 @@ export function InvoiceAllocationTable({
       <Grid size={{ xs: 12 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">Allocate to Invoices</Typography>
-          <Box>
+          <Stack direction="row" spacing={2} alignItems="center">
             <Typography variant="body2" color="text.secondary">
               Allocated: {formatCurrency(totalAllocated)} | Unallocated:{' '}
               {formatCurrency(unallocated)}
             </Typography>
-            <button type="button" onClick={onAutoAllocate} style={{ marginLeft: 8 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={onAutoAllocate}
+              disabled={unallocated <= 0}
+            >
               Auto Allocate
-            </button>
-          </Box>
+            </Button>
+          </Stack>
         </Stack>
       </Grid>
 
@@ -63,6 +72,7 @@ export function InvoiceAllocationTable({
                 <TableCell align="right">Outstanding (INR)</TableCell>
                 <TableCell align="right">Allocate Amount</TableCell>
                 <TableCell align="right">Remaining</TableCell>
+                <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -118,6 +128,21 @@ export function InvoiceAllocationTable({
                     </TableCell>
                     <TableCell align="right">
                       {formatCurrency(allocation?.remainingAmount || 0)}
+                    </TableCell>
+                    <TableCell align="center">
+                      {allocation && allocation.remainingAmount > 0 && unallocated > 0 && (
+                        <Tooltip
+                          title={`Fill remaining ${formatCurrency(Math.min(unallocated, allocation.remainingAmount))}`}
+                        >
+                          <IconButton
+                            size="small"
+                            onClick={() => onFillRemaining(invoice.id!)}
+                            color="primary"
+                          >
+                            <FillIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 );

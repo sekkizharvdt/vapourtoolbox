@@ -19,7 +19,10 @@ import {
   TextField,
   Typography,
   Chip,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
+import { PlaylistAdd as FillIcon } from '@mui/icons-material';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import type { BillAllocationTableProps } from './types';
 
@@ -29,8 +32,10 @@ export function BillAllocationTable({
   totalOutstanding,
   totalAllocated,
   amount,
+  unallocated,
   onAllocationChange,
   onAutoAllocate,
+  onFillRemaining,
 }: BillAllocationTableProps) {
   return (
     <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
@@ -51,6 +56,9 @@ export function BillAllocationTable({
             </TableCell>
             <TableCell align="right">
               <strong>Allocate</strong>
+            </TableCell>
+            <TableCell align="center">
+              <strong>Actions</strong>
             </TableCell>
           </TableRow>
         </TableHead>
@@ -97,6 +105,21 @@ export function BillAllocationTable({
                     sx={{ width: 120 }}
                   />
                 </TableCell>
+                <TableCell align="center">
+                  {allocation && allocation.remainingAmount > 0 && unallocated > 0 && (
+                    <Tooltip
+                      title={`Fill remaining ${formatCurrency(Math.min(unallocated, allocation.remainingAmount))}`}
+                    >
+                      <IconButton
+                        size="small"
+                        onClick={() => onFillRemaining(bill.id!)}
+                        color="primary"
+                      >
+                        <FillIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </TableCell>
               </TableRow>
             );
           })}
@@ -126,6 +149,7 @@ export function BillAllocationTable({
                 {formatCurrency(totalAllocated)}
               </Typography>
             </TableCell>
+            <TableCell />
           </TableRow>
         </TableBody>
       </Table>

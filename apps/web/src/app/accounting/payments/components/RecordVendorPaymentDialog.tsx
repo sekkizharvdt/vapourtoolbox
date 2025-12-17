@@ -233,6 +233,30 @@ export function RecordVendorPaymentDialog({
     setAllocations(newAllocations);
   };
 
+  // Fill remaining balance for a specific bill
+  const handleFillRemaining = (billId: string) => {
+    const currentTotal = allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
+    const unallocatedAmount = amount - currentTotal;
+
+    if (unallocatedAmount <= 0) return;
+
+    setAllocations((prev) =>
+      prev.map((allocation) => {
+        if (allocation.invoiceId === billId) {
+          // Add unallocated amount to this bill, up to its remaining balance
+          const additionalAmount = Math.min(unallocatedAmount, allocation.remainingAmount);
+          const newAllocated = allocation.allocatedAmount + additionalAmount;
+          return {
+            ...allocation,
+            allocatedAmount: newAllocated,
+            remainingAmount: allocation.originalAmount - newAllocated,
+          };
+        }
+        return allocation;
+      })
+    );
+  };
+
   // Pay full outstanding amount - sets amount and allocates to all bills
   const handlePayFullOutstanding = () => {
     setAmount(totalOutstanding);
@@ -429,8 +453,10 @@ export function RecordVendorPaymentDialog({
                 totalOutstanding={totalOutstanding}
                 totalAllocated={totalAllocated}
                 amount={amount}
+                unallocated={amount - totalAllocated}
                 onAllocationChange={handleAllocationChange}
                 onAutoAllocate={handleAutoAllocate}
+                onFillRemaining={handleFillRemaining}
               />
             </Grid>
           )}

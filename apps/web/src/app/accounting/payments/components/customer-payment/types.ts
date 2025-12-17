@@ -11,6 +11,7 @@ export interface InvoiceAllocationTableProps {
   unallocated: number;
   onAllocationChange: (invoiceId: string, allocatedAmount: number) => void;
   onAutoAllocate: () => void;
+  onFillRemaining: (invoiceId: string) => void;
 }
 
 export const PAYMENT_METHODS: PaymentMethod[] = [

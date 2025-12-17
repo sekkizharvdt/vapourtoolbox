@@ -10,8 +10,10 @@ export interface BillAllocationTableProps {
   totalOutstanding: number;
   totalAllocated: number;
   amount: number;
+  unallocated: number;
   onAllocationChange: (billId: string, allocatedAmount: number) => void;
   onAutoAllocate: () => void;
+  onFillRemaining: (billId: string) => void;
 }
 
 export interface TDSSectionProps {

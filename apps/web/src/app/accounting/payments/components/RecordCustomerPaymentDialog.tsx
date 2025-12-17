@@ -242,6 +242,30 @@ export function RecordCustomerPaymentDialog({
     setAllocations(newAllocations);
   };
 
+  // Fill remaining balance for a specific invoice
+  const handleFillRemaining = (invoiceId: string) => {
+    const currentTotal = allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
+    const unallocatedAmount = baseAmount - currentTotal;
+
+    if (unallocatedAmount <= 0) return;
+
+    setAllocations((prev) =>
+      prev.map((allocation) => {
+        if (allocation.invoiceId === invoiceId) {
+          // Add unallocated amount to this invoice, up to its remaining balance
+          const additionalAmount = Math.min(unallocatedAmount, allocation.remainingAmount);
+          const newAllocated = allocation.allocatedAmount + additionalAmount;
+          return {
+            ...allocation,
+            allocatedAmount: newAllocated,
+            remainingAmount: allocation.originalAmount - newAllocated,
+          };
+        }
+        return allocation;
+      })
+    );
+  };
+
   const handleSubmit = async () => {
     // Validation
     if (!entityId) {
@@ -590,6 +614,7 @@ export function RecordCustomerPaymentDialog({
             unallocated={unallocated}
             onAllocationChange={handleAllocationChange}
             onAutoAllocate={handleAutoAllocate}
+            onFillRemaining={handleFillRemaining}
           />
         </Grid>
       </Box>

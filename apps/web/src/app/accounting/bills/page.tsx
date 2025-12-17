@@ -39,6 +39,7 @@ import {
   Numbers as NumbersIcon,
   Send as SendIcon,
   Check as CheckIcon,
+  Block as VoidIcon,
 } from '@mui/icons-material';
 import {
   PageHeader,
@@ -85,6 +86,11 @@ const ApproveBillDialog = dynamic(
   () => import('./components/ApproveBillDialog').then((mod) => mod.ApproveBillDialog),
   { ssr: false }
 );
+const VoidAndRecreateBillDialog = dynamic(
+  () =>
+    import('./components/VoidAndRecreateBillDialog').then((mod) => mod.VoidAndRecreateBillDialog),
+  { ssr: false }
+);
 
 // Generate month options for the filter (current month and 11 previous months)
 function getMonthOptions() {
@@ -123,6 +129,10 @@ export default function BillsPage() {
   const [submitForApprovalDialogOpen, setSubmitForApprovalDialogOpen] = useState(false);
   const [approveBillDialogOpen, setApproveBillDialogOpen] = useState(false);
   const [selectedBillForApproval, setSelectedBillForApproval] = useState<VendorBill | null>(null);
+
+  // Void dialog state
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
+  const [selectedBillForVoid, setSelectedBillForVoid] = useState<VendorBill | null>(null);
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
@@ -274,6 +284,17 @@ export default function BillsPage() {
     setSelectedBillForApproval(null);
   };
 
+  // Void handlers
+  const handleVoidBill = (bill: VendorBill) => {
+    setSelectedBillForVoid(bill);
+    setVoidDialogOpen(true);
+  };
+
+  const handleCloseVoidDialog = () => {
+    setVoidDialogOpen(false);
+    setSelectedBillForVoid(null);
+  };
+
   // Paginate filtered bills
   const paginatedBills = filteredBills.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
@@ -358,6 +379,7 @@ export default function BillsPage() {
             <MenuItem value="APPROVED">Approved</MenuItem>
             <MenuItem value="PAID">Paid</MenuItem>
             <MenuItem value="OVERDUE">Overdue</MenuItem>
+            <MenuItem value="VOID">Voided</MenuItem>
           </Select>
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -490,6 +512,17 @@ export default function BillsPage() {
                               show: actions.canRecordPayment,
                             },
                             {
+                              icon: <VoidIcon />,
+                              label: 'Void / Change Vendor',
+                              onClick: () => handleVoidBill(bill),
+                              color: 'warning',
+                              show:
+                                canManage &&
+                                bill.status !== 'VOID' &&
+                                bill.status !== 'PAID' &&
+                                bill.status !== 'PARTIALLY_PAID',
+                            },
+                            {
                               icon: <DeleteIcon />,
                               label: 'Delete Bill',
                               onClick: () => handleDelete(bill.id!),
@@ -573,6 +606,13 @@ export default function BillsPage() {
         open={approveBillDialogOpen}
         onClose={handleCloseApprovalDialogs}
         bill={selectedBillForApproval}
+      />
+
+      {/* Void and Recreate Dialog */}
+      <VoidAndRecreateBillDialog
+        open={voidDialogOpen}
+        onClose={handleCloseVoidDialog}
+        bill={selectedBillForVoid}
       />
     </>
   );
