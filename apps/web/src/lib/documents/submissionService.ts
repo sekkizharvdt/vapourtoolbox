@@ -13,6 +13,7 @@ import {
   doc,
   addDoc,
   updateDoc,
+  deleteDoc,
   getDocs,
   query,
   where,
@@ -20,9 +21,16 @@ import {
   Timestamp,
   type Firestore,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, type FirebaseStorage } from 'firebase/storage';
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+  type FirebaseStorage,
+} from 'firebase/storage';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
 import { createLogger } from '@vapour/logger';
+import { FileUploadTracker } from '@/lib/utils/compensatingTransaction';
 import type {
   DocumentRecord,
   DocumentSubmission,
@@ -314,19 +322,31 @@ function generateFileId(): string {
 
 /**
  * Main submission function (multi-file support)
- * Orchestrates the entire submission process
+ * Orchestrates the entire submission process with error recovery.
+ *
+ * Uses FileUploadTracker to clean up uploaded files if database operations fail,
+ * preventing orphaned files in Firebase Storage.
  */
 export async function submitDocument(
   db: Firestore,
   storage: FirebaseStorage,
   request: SubmitDocumentRequest
 ): Promise<{ submissionId: string; documentId: string; fileIds: string[] }> {
+  // Track uploaded files for cleanup on failure
+  const uploadTracker = new FileUploadTracker(async (path: string) => {
+    const storageRef = ref(storage, path);
+    await deleteObject(storageRef);
+  });
+
+  // Track created document records for cleanup
+  const createdDocumentRecordIds: string[] = [];
+
   try {
     const uploadedFiles: SubmissionFile[] = [];
     let primaryDocumentId = '';
     const fileIds: string[] = [];
 
-    // 1. Upload all files to Firebase Storage
+    // 1. Upload all files to Firebase Storage (with tracking for rollback)
     for (const fileData of request.files) {
       const { downloadUrl, filePath, fileSize } = await uploadDocumentFile(
         storage,
@@ -336,6 +356,9 @@ export async function submitDocument(
         fileData.file,
         fileData.fileType
       );
+
+      // Track the uploaded file for potential cleanup
+      uploadTracker.track(filePath);
 
       // 2. Create DocumentRecord for primary file (backward compat)
       let documentRecordId: string | undefined;
@@ -354,6 +377,7 @@ export async function submitDocument(
           submittedByName: request.submittedByName,
         });
         primaryDocumentId = documentRecordId;
+        createdDocumentRecordIds.push(documentRecordId);
       }
 
       const fileId = generateFileId();
@@ -392,6 +416,7 @@ export async function submitDocument(
       });
       firstFile.documentRecordId = primaryDocumentId;
       firstFile.isPrimary = true;
+      createdDocumentRecordIds.push(primaryDocumentId);
     }
 
     // 3. Get next submission number
@@ -456,11 +481,38 @@ export async function submitDocument(
 
     return { submissionId, documentId: primaryDocumentId, fileIds };
   } catch (error) {
-    logger.error('Error submitting document', {
+    logger.error('Error submitting document, initiating cleanup', {
       masterDocumentId: request.masterDocumentId,
       revision: request.revision,
+      uploadedFiles: uploadTracker.paths.length,
+      createdRecords: createdDocumentRecordIds.length,
       error,
     });
+
+    // Cleanup: Delete uploaded files from storage
+    const fileCleanup = await uploadTracker.cleanup();
+    if (fileCleanup.failed > 0) {
+      logger.error('Some uploaded files could not be cleaned up', {
+        cleaned: fileCleanup.cleaned,
+        failed: fileCleanup.failed,
+        errors: fileCleanup.errors.map((e) => e.message),
+      });
+    } else if (fileCleanup.cleaned > 0) {
+      logger.info('Cleaned up uploaded files after submission failure', {
+        cleaned: fileCleanup.cleaned,
+      });
+    }
+
+    // Cleanup: Delete created document records
+    for (const recordId of createdDocumentRecordIds) {
+      try {
+        await deleteDoc(doc(db, 'documents', recordId));
+        logger.info('Cleaned up document record after submission failure', { recordId });
+      } catch (cleanupError) {
+        logger.error('Failed to clean up document record', { recordId, cleanupError });
+      }
+    }
+
     throw new Error(
       error instanceof Error
         ? `Failed to submit document: ${error.message}`

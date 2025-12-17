@@ -70,3 +70,6 @@ export { generateTransmittal, getTransmittalDownloadUrl } from './transmittals';
 
 // Import document parsing functions
 export { parseDocumentForPR } from './documentParsing';
+
+// Import denormalization sync functions (keeps denormalized data fresh)
+export { onUserNameChange, onEntityNameChange, onProjectNameChange } from './denormalizationSync';

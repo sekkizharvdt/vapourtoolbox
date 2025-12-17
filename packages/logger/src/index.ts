@@ -3,6 +3,12 @@
  *
  * Structured logging utility for Vapour Toolbox
  * Provides consistent logging across web and functions
+ *
+ * Features:
+ * - Correlation ID support for request tracing
+ * - Structured metadata with JSON output
+ * - Environment-aware log level filtering
+ * - Child loggers for component-specific context
  */
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -16,15 +22,75 @@ export interface LogEntry {
   message: string;
   timestamp: string;
   context?: string;
+  correlationId?: string;
   metadata?: LogMetadata;
   environment?: string;
 }
 
 export interface LoggerConfig {
   context?: string;
+  correlationId?: string;
   minLevel?: LogLevel;
   environment?: string;
   enabled?: boolean;
+}
+
+/**
+ * Generate a unique correlation ID
+ *
+ * Format: timestamp-random (e.g., "1703001234567-a1b2c3d4")
+ */
+export function generateCorrelationId(): string {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 10);
+  return `${timestamp}-${random}`;
+}
+
+/**
+ * Global correlation ID storage (for async context in browsers)
+ * In Node.js, AsyncLocalStorage would be preferred
+ */
+let globalCorrelationId: string | undefined;
+
+/**
+ * Set the global correlation ID for the current request/operation
+ */
+export function setCorrelationId(id: string): void {
+  globalCorrelationId = id;
+}
+
+/**
+ * Get the current correlation ID
+ */
+export function getCorrelationId(): string | undefined {
+  return globalCorrelationId;
+}
+
+/**
+ * Clear the correlation ID (call at end of request)
+ */
+export function clearCorrelationId(): void {
+  globalCorrelationId = undefined;
+}
+
+/**
+ * Execute a function with a correlation ID context
+ */
+export async function withCorrelationId<T>(id: string, fn: () => Promise<T>): Promise<T> {
+  const previousId = globalCorrelationId;
+  globalCorrelationId = id;
+  try {
+    return await fn();
+  } finally {
+    globalCorrelationId = previousId;
+  }
+}
+
+/**
+ * Execute a function with an auto-generated correlation ID
+ */
+export async function withNewCorrelationId<T>(fn: () => Promise<T>): Promise<T> {
+  return withCorrelationId(generateCorrelationId(), fn);
 }
 
 const LOG_LEVELS: Record<LogLevel, number> = {
@@ -39,12 +105,14 @@ const LOG_LEVELS: Record<LogLevel, number> = {
  */
 export class Logger {
   private context?: string;
+  private correlationId?: string;
   private minLevel: LogLevel;
   private environment: string;
   private enabled: boolean;
 
   constructor(config: LoggerConfig = {}) {
     this.context = config.context;
+    this.correlationId = config.correlationId;
     this.minLevel = config.minLevel || this.detectMinLevel();
     this.environment = config.environment || this.detectEnvironment();
     this.enabled = config.enabled !== false;
@@ -108,6 +176,11 @@ export class Logger {
     // Level
     parts.push(`[${entry.level.toUpperCase()}]`);
 
+    // Correlation ID (if present)
+    if (entry.correlationId) {
+      parts.push(`[${entry.correlationId}]`);
+    }
+
     // Context
     if (entry.context) {
       parts.push(`[${entry.context}]`);
@@ -120,17 +193,27 @@ export class Logger {
   }
 
   /**
+   * Get effective correlation ID (instance > global)
+   */
+  private getEffectiveCorrelationId(): string | undefined {
+    return this.correlationId || getCorrelationId();
+  }
+
+  /**
    * Emit log entry
    */
   private emit(level: LogLevel, message: string, metadata?: LogMetadata): void {
     if (!this.shouldLog(level)) return;
+
+    const correlationId = this.getEffectiveCorrelationId();
 
     const entry: LogEntry = {
       level,
       message,
       timestamp: new Date().toISOString(),
       context: this.context,
-      metadata,
+      correlationId,
+      metadata: correlationId ? { ...metadata, correlationId } : metadata,
       environment: this.environment,
     };
 
@@ -189,6 +272,20 @@ export class Logger {
   child(context: string): Logger {
     return new Logger({
       context: this.context ? `${this.context}:${context}` : context,
+      correlationId: this.correlationId,
+      minLevel: this.minLevel,
+      environment: this.environment,
+      enabled: this.enabled,
+    });
+  }
+
+  /**
+   * Create a child logger with a specific correlation ID
+   */
+  withCorrelationId(correlationId: string): Logger {
+    return new Logger({
+      context: this.context,
+      correlationId,
       minLevel: this.minLevel,
       environment: this.environment,
       enabled: this.enabled,
