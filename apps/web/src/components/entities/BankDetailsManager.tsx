@@ -319,6 +319,7 @@ export function BankDetailsManager({
                         size="small"
                         onClick={() => startEdit(details)}
                         disabled={disabled}
+                        aria-label="Edit bank details"
                       >
                         <EditIcon fontSize="small" />
                       </IconButton>
@@ -329,6 +330,7 @@ export function BankDetailsManager({
                         onClick={() => handleDelete(details.id)}
                         disabled={disabled}
                         color="error"
+                        aria-label="Delete bank details"
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>

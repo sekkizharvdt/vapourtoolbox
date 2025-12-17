@@ -212,7 +212,7 @@ export default function ExcelUploadDialog({
       <DialogTitle>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">Import Items from Excel</Typography>
-          <IconButton size="small" onClick={handleClose}>
+          <IconButton size="small" onClick={handleClose} aria-label="Close dialog">
             <CloseIcon />
           </IconButton>
         </Stack>

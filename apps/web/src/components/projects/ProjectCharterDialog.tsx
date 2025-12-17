@@ -144,7 +144,7 @@ export function ProjectCharterDialog({ open, project, onClose }: ProjectCharterD
               />
             </Box>
           </Box>
-          <IconButton onClick={onClose} edge="end">
+          <IconButton onClick={onClose} edge="end" aria-label="Close dialog">
             <CloseIcon />
           </IconButton>
         </Box>

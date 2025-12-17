@@ -136,7 +136,7 @@ export function KeyboardShortcutsHelp() {
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
           Keyboard Shortcuts
         </Typography>
-        <IconButton onClick={closeHelp} size="small">
+        <IconButton onClick={closeHelp} size="small" aria-label="Close keyboard shortcuts">
           <CloseIcon />
         </IconButton>
       </DialogTitle>

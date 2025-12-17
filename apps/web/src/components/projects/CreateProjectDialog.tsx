@@ -495,6 +495,7 @@ export function CreateProjectDialog({ open, onClose, onSuccess }: CreateProjectD
                             size="small"
                             onClick={() => handleRemoveTeamMember(member.userId)}
                             color="error"
+                            aria-label="Remove team member"
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>

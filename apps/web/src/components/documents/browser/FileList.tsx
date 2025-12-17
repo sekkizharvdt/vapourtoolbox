@@ -302,17 +302,21 @@ function FileListComponent({
                 <TableCell align="right">
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <Tooltip title="View">
-                      <IconButton size="small" onClick={handleView(doc)}>
+                      <IconButton size="small" onClick={handleView(doc)} aria-label="View document">
                         <ViewIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Download">
-                      <IconButton size="small" onClick={handleDownload(doc)}>
+                      <IconButton
+                        size="small"
+                        onClick={handleDownload(doc)}
+                        aria-label="Download document"
+                      >
                         <DownloadIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="More options">
-                      <IconButton size="small">
+                      <IconButton size="small" aria-label="More options">
                         <MoreIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>

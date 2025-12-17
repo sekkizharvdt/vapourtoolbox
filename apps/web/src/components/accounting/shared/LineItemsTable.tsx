@@ -178,9 +178,7 @@ export function LineItemsTable({
                     size="small"
                     select
                     value={item.gstRate}
-                    onChange={(e) =>
-                      onUpdateLineItem(index, 'gstRate', parseFloat(e.target.value))
-                    }
+                    onChange={(e) => onUpdateLineItem(index, 'gstRate', parseFloat(e.target.value))}
                     disabled={readOnly}
                   >
                     {getGSTRateSuggestions().map((rate) => (
@@ -209,6 +207,7 @@ export function LineItemsTable({
                       onClick={() => onRemoveLineItem(index)}
                       disabled={lineItems.length <= minItems}
                       color="error"
+                      aria-label="Remove line item"
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
@@ -237,27 +236,19 @@ export function LineItemsTable({
                   <>
                     <TableRow>
                       <TableCell colSpan={5} align="right">
-                        <Typography variant="body2">
-                          CGST ({gstDetails.cgstRate}%):
-                        </Typography>
+                        <Typography variant="body2">CGST ({gstDetails.cgstRate}%):</Typography>
                       </TableCell>
                       <TableCell align="right">
-                        <Typography variant="body2">
-                          {gstDetails.cgstAmount?.toFixed(2)}
-                        </Typography>
+                        <Typography variant="body2">{gstDetails.cgstAmount?.toFixed(2)}</Typography>
                       </TableCell>
                       {!readOnly && <TableCell />}
                     </TableRow>
                     <TableRow>
                       <TableCell colSpan={5} align="right">
-                        <Typography variant="body2">
-                          SGST ({gstDetails.sgstRate}%):
-                        </Typography>
+                        <Typography variant="body2">SGST ({gstDetails.sgstRate}%):</Typography>
                       </TableCell>
                       <TableCell align="right">
-                        <Typography variant="body2">
-                          {gstDetails.sgstAmount?.toFixed(2)}
-                        </Typography>
+                        <Typography variant="body2">{gstDetails.sgstAmount?.toFixed(2)}</Typography>
                       </TableCell>
                       {!readOnly && <TableCell />}
                     </TableRow>
@@ -269,9 +260,7 @@ export function LineItemsTable({
                       <Typography variant="body2">IGST ({gstDetails.igstRate}%):</Typography>
                     </TableCell>
                     <TableCell align="right">
-                      <Typography variant="body2">
-                        {gstDetails.igstAmount?.toFixed(2)}
-                      </Typography>
+                      <Typography variant="body2">{gstDetails.igstAmount?.toFixed(2)}</Typography>
                     </TableCell>
                     {!readOnly && <TableCell />}
                   </TableRow>
@@ -315,12 +304,7 @@ export function LineItemsTable({
       {/* Add Line Item Button */}
       {!readOnly && (
         <Box sx={{ mt: 2 }}>
-          <Button
-            variant="outlined"
-            startIcon={<AddIcon />}
-            onClick={onAddLineItem}
-            size="small"
-          >
+          <Button variant="outlined" startIcon={<AddIcon />} onClick={onAddLineItem} size="small">
             Add Line Item
           </Button>
         </Box>

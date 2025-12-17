@@ -219,6 +219,7 @@ export default function MentionsView({ onSelectMention, compact = false }: Menti
                       size="small"
                       onClick={(e) => handleMarkRead(mention.id, e)}
                       title="Mark as read"
+                      aria-label="Mark mention as read"
                     >
                       <MarkReadIcon fontSize="small" />
                     </IconButton>

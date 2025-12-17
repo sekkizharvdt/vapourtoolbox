@@ -219,7 +219,10 @@ export default function ShapeCalculationResults({
           <Typography variant="caption" color="text.secondary">
             Cost Breakdown
           </Typography>
-          <IconButton size="small">
+          <IconButton
+            size="small"
+            aria-label={showCostBreakdown ? 'Collapse cost breakdown' : 'Expand cost breakdown'}
+          >
             {showCostBreakdown ? (
               <ExpandLessIcon fontSize="small" />
             ) : (

@@ -178,6 +178,7 @@ export function ScreenshotUpload({
               />
               <IconButton
                 size="small"
+                aria-label={`Remove screenshot ${index + 1}`}
                 sx={{
                   position: 'absolute',
                   top: 2,

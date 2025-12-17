@@ -198,7 +198,11 @@ export default function MaterialVariantList({
                     <Chip label={availability.label} size="small" color={availability.color} />
                     {variant.discontinuedDate && (
                       <Tooltip title={`Discontinued on ${formatDate(variant.discontinuedDate)}`}>
-                        <IconButton size="small" sx={{ ml: 0.5 }}>
+                        <IconButton
+                          size="small"
+                          sx={{ ml: 0.5 }}
+                          aria-label="View discontinuation details"
+                        >
                           <InfoIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>

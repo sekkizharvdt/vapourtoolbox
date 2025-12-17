@@ -252,6 +252,7 @@ export default function MaterialVariantManager({
                         size="small"
                         onClick={() => handleOpenDialog(variant)}
                         title="Edit variant"
+                        aria-label="Edit variant"
                       >
                         <EditIcon fontSize="small" />
                       </IconButton>
@@ -259,6 +260,7 @@ export default function MaterialVariantManager({
                         size="small"
                         onClick={() => handleDuplicateVariant(variant)}
                         title="Duplicate variant"
+                        aria-label="Duplicate variant"
                       >
                         <CopyIcon fontSize="small" />
                       </IconButton>
@@ -267,6 +269,7 @@ export default function MaterialVariantManager({
                         color="error"
                         onClick={() => handleDeleteVariant(variant.id)}
                         title="Delete variant"
+                        aria-label="Delete variant"
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>

@@ -125,7 +125,7 @@ export default function TimerWidget({
             {activeTask.title}
           </Typography>
           <Tooltip title="Open task">
-            <IconButton size="small" onClick={handleOpenTask}>
+            <IconButton size="small" onClick={handleOpenTask} aria-label="Open task">
               <OpenInNewIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -165,6 +165,7 @@ export default function TimerWidget({
               <IconButton
                 onClick={handleResume}
                 color="primary"
+                aria-label="Resume timer"
                 sx={{
                   backgroundColor: 'primary.light',
                   '&:hover': {
@@ -181,6 +182,7 @@ export default function TimerWidget({
               <IconButton
                 onClick={handlePause}
                 color="warning"
+                aria-label="Pause timer"
                 sx={{
                   backgroundColor: 'warning.light',
                   '&:hover': {
@@ -199,6 +201,7 @@ export default function TimerWidget({
             <IconButton
               onClick={handleStop}
               color="error"
+              aria-label="Stop timer"
               sx={{
                 backgroundColor: 'error.light',
                 '&:hover': {

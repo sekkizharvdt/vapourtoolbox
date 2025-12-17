@@ -159,7 +159,7 @@ export default function ParameterInputForm({
                       {param.unit}
                       {param.description && (
                         <Tooltip title={param.description}>
-                          <IconButton size="small">
+                          <IconButton size="small" aria-label="Parameter info">
                             <InfoIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>

@@ -300,6 +300,7 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
                           size="small"
                           onClick={() => handleSetPrimary(contact.id)}
                           disabled={disabled}
+                          aria-label="Set as primary contact"
                         >
                           <StarBorderIcon fontSize="small" />
                         </IconButton>
@@ -307,7 +308,7 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
                     )}
                     {contact.isPrimary && (
                       <Tooltip title="Primary Contact">
-                        <IconButton size="small" disabled>
+                        <IconButton size="small" disabled aria-label="Primary contact">
                           <StarIcon fontSize="small" color="primary" />
                         </IconButton>
                       </Tooltip>
@@ -317,6 +318,7 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
                         size="small"
                         onClick={() => startEdit(contact)}
                         disabled={disabled}
+                        aria-label="Edit contact"
                       >
                         <EditIcon fontSize="small" />
                       </IconButton>
@@ -327,6 +329,7 @@ export function ContactsManager({ contacts, onChange, disabled = false }: Contac
                         onClick={() => handleDelete(contact.id)}
                         disabled={disabled}
                         color="error"
+                        aria-label="Delete contact"
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>

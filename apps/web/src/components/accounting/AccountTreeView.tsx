@@ -1,14 +1,5 @@
 import { useState, useMemo } from 'react';
-import {
-  Box,
-  Typography,
-  IconButton,
-  Chip,
-  Stack,
-  Collapse,
-  Paper,
-  Button,
-} from '@mui/material';
+import { Box, Typography, IconButton, Chip, Stack, Collapse, Paper, Button } from '@mui/material';
 import {
   ChevronRight as ChevronRightIcon,
   ExpandMore as ExpandMoreIcon,
@@ -161,6 +152,7 @@ export function AccountTreeView({ accounts, onEdit }: AccountTreeViewProps) {
                 size="small"
                 onClick={() => toggleExpand(account.id)}
                 sx={{ p: 0.5 }}
+                aria-label={isExpanded ? 'Collapse account' : 'Expand account'}
               >
                 {isExpanded ? <ExpandMoreIcon /> : <ChevronRightIcon />}
               </IconButton>
@@ -277,9 +269,7 @@ export function AccountTreeView({ accounts, onEdit }: AccountTreeViewProps) {
         {/* Children */}
         {hasChildren && (
           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-            <Box>
-              {account.children!.map((child) => renderAccount(child, depth + 1))}
-            </Box>
+            <Box>{account.children!.map((child) => renderAccount(child, depth + 1))}</Box>
           </Collapse>
         )}
       </Box>

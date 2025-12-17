@@ -337,7 +337,12 @@ export function OnboardingTooltip({
                     <Typography variant="subtitle2" fontWeight={600} sx={{ flexGrow: 1 }}>
                       {title}
                     </Typography>
-                    <IconButton size="small" onClick={handleClose} sx={{ mt: -0.5, mr: -0.5 }}>
+                    <IconButton
+                      size="small"
+                      onClick={handleClose}
+                      sx={{ mt: -0.5, mr: -0.5 }}
+                      aria-label="Close tooltip"
+                    >
                       <CloseIcon fontSize="small" />
                     </IconButton>
                   </Box>
@@ -441,7 +446,7 @@ interface ContextualHelpProps {
 export function ContextualHelp({ id, title, content, placement = 'top' }: ContextualHelpProps) {
   return (
     <OnboardingTooltip id={id} title={title} content={content} placement={placement} alwaysShow>
-      <IconButton size="small" sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}>
+      <IconButton size="small" sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }} aria-label="Help">
         <HelpOutlineIcon fontSize="small" />
       </IconButton>
     </OnboardingTooltip>
@@ -528,7 +533,7 @@ export function TourStep({
             <Typography variant="caption" color="text.secondary">
               {step + 1} / {totalSteps}
             </Typography>
-            <IconButton size="small" onClick={endTour}>
+            <IconButton size="small" onClick={endTour} aria-label="End tour">
               <CloseIcon fontSize="small" />
             </IconButton>
           </Box>

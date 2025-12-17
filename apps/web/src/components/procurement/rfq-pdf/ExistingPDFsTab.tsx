@@ -100,7 +100,7 @@ export function ExistingPDFsTab({
           Latest PDFs
         </Typography>
         <Tooltip title="Refresh">
-          <IconButton size="small" onClick={onRefresh}>
+          <IconButton size="small" onClick={onRefresh} aria-label="Refresh PDF list">
             <RefreshIcon />
           </IconButton>
         </Tooltip>

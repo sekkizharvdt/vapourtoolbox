@@ -79,7 +79,6 @@ export function ViewProjectDialog({
     }
   };
 
-
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
@@ -98,15 +97,26 @@ export function ViewProjectDialog({
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             {canManage && (
               <>
-                <IconButton size="small" onClick={onEdit} title="Edit Project">
+                <IconButton
+                  size="small"
+                  onClick={onEdit}
+                  title="Edit Project"
+                  aria-label="Edit project"
+                >
                   <EditIcon />
                 </IconButton>
-                <IconButton size="small" color="error" onClick={onDelete} title="Delete Project">
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={onDelete}
+                  title="Delete Project"
+                  aria-label="Delete project"
+                >
                   <DeleteIcon />
                 </IconButton>
               </>
             )}
-            <IconButton onClick={onClose}>
+            <IconButton onClick={onClose} aria-label="Close dialog">
               <CloseIcon />
             </IconButton>
           </Box>

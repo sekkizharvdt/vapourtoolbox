@@ -256,7 +256,10 @@ export function UserFeedbackList() {
                 />
 
                 {/* Expand/Collapse */}
-                <IconButton size="small">
+                <IconButton
+                  size="small"
+                  aria-label={expandedId === item.id ? 'Collapse details' : 'Expand details'}
+                >
                   {expandedId === item.id ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                 </IconButton>
               </Stack>

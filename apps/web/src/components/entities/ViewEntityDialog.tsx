@@ -104,16 +104,21 @@ export function ViewEntityDialog({
               size="small"
             />
             {canEdit && !entity.isArchived && (
-              <IconButton size="small" onClick={onEdit} title="Edit Entity">
+              <IconButton size="small" onClick={onEdit} aria-label="Edit Entity">
                 <EditIcon />
               </IconButton>
             )}
             {canArchive && !entity.isArchived && (
-              <IconButton size="small" color="warning" onClick={onArchive} title="Archive Entity">
+              <IconButton
+                size="small"
+                color="warning"
+                onClick={onArchive}
+                aria-label="Archive Entity"
+              >
                 <ArchiveIcon />
               </IconButton>
             )}
-            <IconButton onClick={onClose}>
+            <IconButton onClick={onClose} aria-label="Close dialog">
               <CloseIcon />
             </IconButton>
           </Box>

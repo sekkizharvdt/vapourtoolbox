@@ -188,10 +188,15 @@ export default function TaskThreadPanel({
               </Typography>
             </Stack>
             <Stack direction="row" spacing={0.5}>
-              <IconButton size="small" onClick={handleViewTask} title="View task details">
+              <IconButton
+                size="small"
+                onClick={handleViewTask}
+                title="View task details"
+                aria-label="View task details"
+              >
                 <OpenInNewIcon fontSize="small" />
               </IconButton>
-              <IconButton size="small" onClick={onClose}>
+              <IconButton size="small" onClick={onClose} aria-label="Close thread panel">
                 <CloseIcon fontSize="small" />
               </IconButton>
             </Stack>

@@ -119,6 +119,7 @@ const FolderTreeItem = memo(function FolderTreeItem({
         <IconButton
           size="small"
           onClick={handleToggle}
+          aria-label={isExpanded ? 'Collapse folder' : 'Expand folder'}
           sx={{
             p: 0.25,
             mr: 0.5,
@@ -182,7 +183,12 @@ const FolderTreeItem = memo(function FolderTreeItem({
         {/* Create subfolder button */}
         {allowFolderCreation && node.type !== 'virtual' && (
           <Tooltip title="Create subfolder">
-            <IconButton size="small" onClick={handleCreateFolder} sx={{ p: 0.25 }}>
+            <IconButton
+              size="small"
+              onClick={handleCreateFolder}
+              sx={{ p: 0.25 }}
+              aria-label="Create subfolder"
+            >
               <CreateNewFolderIcon fontSize="small" />
             </IconButton>
           </Tooltip>

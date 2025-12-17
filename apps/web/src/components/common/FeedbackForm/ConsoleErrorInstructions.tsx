@@ -43,7 +43,12 @@ export function ConsoleErrorInstructions() {
             How to get console error messages
           </Typography>
         </Box>
-        <IconButton size="small">{expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}</IconButton>
+        <IconButton
+          size="small"
+          aria-label={expanded ? 'Collapse instructions' : 'Expand instructions'}
+        >
+          {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </IconButton>
       </Box>
 
       <Collapse in={expanded}>

@@ -185,7 +185,7 @@ function DocumentBrowserComponent({
               ),
               endAdornment: searchQuery && (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={handleClearSearch}>
+                  <IconButton size="small" onClick={handleClearSearch} aria-label="Clear search">
                     <CloseIcon fontSize="small" />
                   </IconButton>
                 </InputAdornment>
@@ -202,12 +202,12 @@ function DocumentBrowserComponent({
                 {selectedDocumentIds.size} selected
               </Typography>
               <Tooltip title="Move selected">
-                <IconButton size="small">
+                <IconButton size="small" aria-label="Move selected documents">
                   <MoveIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Delete selected">
-                <IconButton size="small" color="error">
+                <IconButton size="small" color="error" aria-label="Delete selected documents">
                   <DeleteIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -220,7 +220,11 @@ function DocumentBrowserComponent({
           {/* Actions */}
           {allowFolderCreation && selectedPath && (
             <Tooltip title="Create folder">
-              <IconButton size="small" onClick={() => setCreateFolderOpen(true)}>
+              <IconButton
+                size="small"
+                onClick={() => setCreateFolderOpen(true)}
+                aria-label="Create folder"
+              >
                 <CreateFolderIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -228,14 +232,14 @@ function DocumentBrowserComponent({
 
           {allowUpload && (
             <Tooltip title="Upload documents">
-              <IconButton size="small" onClick={onUploadClick}>
+              <IconButton size="small" onClick={onUploadClick} aria-label="Upload documents">
                 <UploadIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           )}
 
           <Tooltip title="Refresh">
-            <IconButton size="small" onClick={handleRefresh}>
+            <IconButton size="small" onClick={handleRefresh} aria-label="Refresh document list">
               <RefreshIcon fontSize="small" />
             </IconButton>
           </Tooltip>

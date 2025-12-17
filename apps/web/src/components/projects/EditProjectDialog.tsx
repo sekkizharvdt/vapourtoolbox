@@ -533,6 +533,7 @@ export function EditProjectDialog({ open, project, onClose, onSuccess }: EditPro
                             size="small"
                             onClick={() => handleRemoveTeamMember(member.userId)}
                             color="error"
+                            aria-label="Remove team member"
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>

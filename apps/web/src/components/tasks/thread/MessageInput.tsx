@@ -207,6 +207,7 @@ export default function MessageInput({
           color="primary"
           onClick={handleSend}
           disabled={!message.trim() || sending || disabled}
+          aria-label="Send message"
           sx={{
             backgroundColor: 'primary.main',
             color: 'white',

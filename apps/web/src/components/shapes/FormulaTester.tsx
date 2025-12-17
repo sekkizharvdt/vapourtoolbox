@@ -297,7 +297,11 @@ export default function FormulaTester() {
                 />
               </Grid>
               <Grid size={{ xs: 2 }}>
-                <IconButton onClick={() => handleRemoveVariable(index)} color="error">
+                <IconButton
+                  onClick={() => handleRemoveVariable(index)}
+                  color="error"
+                  aria-label="Remove variable"
+                >
                   <DeleteIcon />
                 </IconButton>
               </Grid>
@@ -337,7 +341,11 @@ export default function FormulaTester() {
                 />
               </Grid>
               <Grid size={{ xs: 2 }}>
-                <IconButton onClick={() => handleRemoveConstant(index)} color="error">
+                <IconButton
+                  onClick={() => handleRemoveConstant(index)}
+                  color="error"
+                  aria-label="Remove constant"
+                >
                   <DeleteIcon />
                 </IconButton>
               </Grid>

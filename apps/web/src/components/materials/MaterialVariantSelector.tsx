@@ -133,6 +133,7 @@ export default function MaterialVariantSelector({
             transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
             transition: 'transform 0.3s',
           }}
+          aria-label={expanded ? 'Collapse variants' : 'Expand variants'}
         >
           <ExpandMoreIcon />
         </IconButton>
@@ -264,8 +265,9 @@ export default function MaterialVariantSelector({
                         <Grid
                           size={{
                             xs: 12,
-                            sm: "auto"
-                          }}>
+                            sm: 'auto',
+                          }}
+                        >
                           <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
                             <Typography variant="h6" color="primary">
                               {formatPrice(
