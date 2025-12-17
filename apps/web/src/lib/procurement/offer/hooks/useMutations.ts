@@ -177,16 +177,18 @@ export function useSelectOffer() {
     mutationFn: async ({
       offerId,
       userId,
+      userPermissions,
       rfqId,
       completionNotes,
     }: {
       offerId: string;
       userId: string;
+      userPermissions: number;
       rfqId?: string;
       completionNotes?: string;
     }) => {
       logger.debug('Selecting offer', { offerId });
-      await selectOffer(offerId, userId, completionNotes);
+      await selectOffer(offerId, userId, userPermissions, undefined, undefined, completionNotes);
       logger.info('Offer selected', { offerId });
       return { offerId, rfqId };
     },
@@ -216,15 +218,17 @@ export function useRejectOffer() {
       offerId,
       reason,
       userId,
+      userPermissions,
       rfqId,
     }: {
       offerId: string;
       reason: string;
       userId: string;
+      userPermissions: number;
       rfqId?: string;
     }) => {
       logger.debug('Rejecting offer', { offerId });
-      await rejectOffer(offerId, reason, userId);
+      await rejectOffer(offerId, reason, userId, userPermissions);
       logger.info('Offer rejected', { offerId });
       return { offerId, rfqId };
     },
@@ -252,15 +256,17 @@ export function useWithdrawOffer() {
       offerId,
       reason,
       userId,
+      userPermissions,
       rfqId,
     }: {
       offerId: string;
       reason: string;
       userId: string;
+      userPermissions: number;
       rfqId?: string;
     }) => {
       logger.debug('Withdrawing offer', { offerId });
-      await withdrawOffer(offerId, reason, userId);
+      await withdrawOffer(offerId, reason, userId, userPermissions);
       logger.info('Offer withdrawn', { offerId });
       return { offerId, rfqId };
     },

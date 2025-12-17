@@ -8,9 +8,12 @@ import { doc, updateDoc, Timestamp, writeBatch } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
+import { PermissionFlag } from '@vapour/types';
 import { getOfferById } from './crud';
 import { getOffersByRFQ } from './queries';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
+import { requirePermission } from '@/lib/auth';
+import { offerStateMachine } from '@/lib/workflow/stateMachines';
 
 const logger = createLogger({ context: 'offerService' });
 
@@ -20,15 +23,25 @@ const logger = createLogger({ context: 'offerService' });
 export async function selectOffer(
   offerId: string,
   userId: string,
+  userPermissions: number,
   userName?: string,
   userEmail?: string,
   completionNotes?: string
 ): Promise<void> {
   const { db } = getFirebase();
 
+  // Authorization: Require APPROVE_PO permission (offers lead to PO creation)
+  requirePermission(userPermissions, PermissionFlag.APPROVE_PO, userId, 'select offer');
+
   const offer = await getOfferById(offerId);
   if (!offer) {
     throw new Error('Offer not found');
+  }
+
+  // Validate state machine transition
+  const transitionResult = offerStateMachine.validateTransition(offer.status, 'SELECTED');
+  if (!transitionResult.allowed) {
+    throw new Error(transitionResult.reason || `Cannot select offer with status: ${offer.status}`);
   }
 
   // Mark other offers as rejected
@@ -100,15 +113,25 @@ export async function rejectOffer(
   offerId: string,
   reason: string,
   userId: string,
+  userPermissions: number,
   userName?: string,
   userEmail?: string
 ): Promise<void> {
   const { db } = getFirebase();
 
-  // Get offer for audit trail
+  // Authorization: Require APPROVE_PO permission (offers lead to PO creation)
+  requirePermission(userPermissions, PermissionFlag.APPROVE_PO, userId, 'reject offer');
+
+  // Get offer for audit trail and validation
   const offer = await getOfferById(offerId);
   if (!offer) {
     throw new Error('Offer not found');
+  }
+
+  // Validate state machine transition
+  const transitionResult = offerStateMachine.validateTransition(offer.status, 'REJECTED');
+  if (!transitionResult.allowed) {
+    throw new Error(transitionResult.reason || `Cannot reject offer with status: ${offer.status}`);
   }
 
   await updateDoc(doc(db, COLLECTIONS.OFFERS, offerId), {
@@ -149,15 +172,27 @@ export async function withdrawOffer(
   offerId: string,
   reason: string,
   userId: string,
+  userPermissions: number,
   userName?: string,
   userEmail?: string
 ): Promise<void> {
   const { db } = getFirebase();
 
-  // Get offer for audit trail
+  // Authorization: Require APPROVE_PO permission (offers lead to PO creation)
+  requirePermission(userPermissions, PermissionFlag.APPROVE_PO, userId, 'withdraw offer');
+
+  // Get offer for audit trail and validation
   const offer = await getOfferById(offerId);
   if (!offer) {
     throw new Error('Offer not found');
+  }
+
+  // Validate state machine transition
+  const transitionResult = offerStateMachine.validateTransition(offer.status, 'WITHDRAWN');
+  if (!transitionResult.allowed) {
+    throw new Error(
+      transitionResult.reason || `Cannot withdraw offer with status: ${offer.status}`
+    );
   }
 
   await updateDoc(doc(db, COLLECTIONS.OFFERS, offerId), {

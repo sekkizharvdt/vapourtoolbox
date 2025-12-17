@@ -9,12 +9,15 @@ import { doc, updateDoc, getDoc, Timestamp, type Firestore } from 'firebase/fire
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { Proposal, ApprovalRecord, ProposalStatus } from '@vapour/types';
+import { PermissionFlag } from '@vapour/types';
 import {
   createTaskNotification,
   findTaskNotificationByEntity,
   completeActionableTask,
 } from '@/lib/tasks/taskNotificationService';
 import { getProposalApprovers } from './userHelpers';
+import { requirePermission, preventSelfApproval } from '@/lib/auth';
+import { proposalStateMachine } from '@/lib/workflow/stateMachines';
 
 const logger = createLogger({ context: 'proposalApproval' });
 
@@ -39,8 +42,15 @@ export async function submitProposalForApproval(
 
     const proposal = proposalSnap.data() as Proposal;
 
-    if (proposal.status !== 'DRAFT') {
-      throw new Error(`Cannot submit proposal with status: ${proposal.status}`);
+    // Validate state machine transition
+    const transitionResult = proposalStateMachine.validateTransition(
+      proposal.status,
+      'PENDING_APPROVAL'
+    );
+    if (!transitionResult.allowed) {
+      throw new Error(
+        transitionResult.reason || `Cannot submit proposal with status: ${proposal.status}`
+      );
     }
 
     await updateDoc(proposalRef, {
@@ -96,9 +106,18 @@ export async function approveProposal(
   proposalId: string,
   userId: string,
   userName: string,
+  userPermissions: number,
   comments?: string
 ): Promise<void> {
   try {
+    // Authorization: Require APPROVE_ESTIMATES permission
+    requirePermission(
+      userPermissions,
+      PermissionFlag.APPROVE_ESTIMATES,
+      userId,
+      'approve proposal'
+    );
+
     const proposalRef = doc(db, COLLECTIONS.PROPOSALS, proposalId);
     const proposalSnap = await getDoc(proposalRef);
 
@@ -108,8 +127,17 @@ export async function approveProposal(
 
     const proposal = proposalSnap.data() as Proposal;
 
-    if (proposal.status !== 'PENDING_APPROVAL') {
-      throw new Error(`Cannot approve proposal with status: ${proposal.status}`);
+    // Validate state machine transition
+    const transitionResult = proposalStateMachine.validateTransition(proposal.status, 'APPROVED');
+    if (!transitionResult.allowed) {
+      throw new Error(
+        transitionResult.reason || `Cannot approve proposal with status: ${proposal.status}`
+      );
+    }
+
+    // Authorization: Prevent self-approval
+    if (proposal.submittedByUserId) {
+      preventSelfApproval(userId, proposal.submittedByUserId, 'approve proposal');
     }
 
     const approvalRecord: ApprovalRecord = {
@@ -174,9 +202,13 @@ export async function rejectProposal(
   proposalId: string,
   userId: string,
   userName: string,
+  userPermissions: number,
   comments: string
 ): Promise<void> {
   try {
+    // Authorization: Require APPROVE_ESTIMATES permission
+    requirePermission(userPermissions, PermissionFlag.APPROVE_ESTIMATES, userId, 'reject proposal');
+
     const proposalRef = doc(db, COLLECTIONS.PROPOSALS, proposalId);
     const proposalSnap = await getDoc(proposalRef);
 
@@ -186,8 +218,12 @@ export async function rejectProposal(
 
     const proposal = proposalSnap.data() as Proposal;
 
-    if (proposal.status !== 'PENDING_APPROVAL') {
-      throw new Error(`Cannot reject proposal with status: ${proposal.status}`);
+    // Validate state machine transition (PENDING_APPROVAL -> DRAFT for internal rejection/revision)
+    const transitionResult = proposalStateMachine.validateTransition(proposal.status, 'DRAFT');
+    if (!transitionResult.allowed) {
+      throw new Error(
+        transitionResult.reason || `Cannot reject proposal with status: ${proposal.status}`
+      );
     }
 
     const approvalRecord: ApprovalRecord = {
@@ -250,9 +286,18 @@ export async function requestProposalChanges(
   proposalId: string,
   userId: string,
   userName: string,
+  userPermissions: number,
   comments: string
 ): Promise<void> {
   try {
+    // Authorization: Require APPROVE_ESTIMATES permission
+    requirePermission(
+      userPermissions,
+      PermissionFlag.APPROVE_ESTIMATES,
+      userId,
+      'request changes to proposal'
+    );
+
     const proposalRef = doc(db, COLLECTIONS.PROPOSALS, proposalId);
     const proposalSnap = await getDoc(proposalRef);
 
@@ -262,8 +307,13 @@ export async function requestProposalChanges(
 
     const proposal = proposalSnap.data() as Proposal;
 
-    if (proposal.status !== 'PENDING_APPROVAL') {
-      throw new Error(`Cannot request changes for proposal with status: ${proposal.status}`);
+    // Validate state machine transition (PENDING_APPROVAL -> DRAFT)
+    const transitionResult = proposalStateMachine.validateTransition(proposal.status, 'DRAFT');
+    if (!transitionResult.allowed) {
+      throw new Error(
+        transitionResult.reason ||
+          `Cannot request changes for proposal with status: ${proposal.status}`
+      );
     }
 
     const approvalRecord: ApprovalRecord = {
@@ -336,8 +386,12 @@ export async function markProposalAsSubmitted(
 
     const proposal = proposalSnap.data() as Proposal;
 
-    if (proposal.status !== 'APPROVED') {
-      throw new Error(`Cannot submit proposal with status: ${proposal.status}`);
+    // Validate state machine transition (APPROVED -> SUBMITTED)
+    const transitionResult = proposalStateMachine.validateTransition(proposal.status, 'SUBMITTED');
+    if (!transitionResult.allowed) {
+      throw new Error(
+        transitionResult.reason || `Cannot submit proposal with status: ${proposal.status}`
+      );
     }
 
     await updateDoc(proposalRef, {
@@ -368,6 +422,22 @@ export async function updateProposalStatus(
 ): Promise<void> {
   try {
     const proposalRef = doc(db, COLLECTIONS.PROPOSALS, proposalId);
+    const proposalSnap = await getDoc(proposalRef);
+
+    if (!proposalSnap.exists()) {
+      throw new Error('Proposal not found');
+    }
+
+    const proposal = proposalSnap.data() as Proposal;
+
+    // Validate state machine transition
+    const transitionResult = proposalStateMachine.validateTransition(proposal.status, newStatus);
+    if (!transitionResult.allowed) {
+      throw new Error(
+        transitionResult.reason ||
+          `Cannot transition proposal from ${proposal.status} to ${newStatus}`
+      );
+    }
 
     await updateDoc(proposalRef, {
       status: newStatus,
@@ -376,7 +446,12 @@ export async function updateProposalStatus(
       updatedBy: userId,
     });
 
-    logger.info('Proposal status updated', { proposalId, newStatus, userId });
+    logger.info('Proposal status updated', {
+      proposalId,
+      previousStatus: proposal.status,
+      newStatus,
+      userId,
+    });
   } catch (error) {
     logger.error('Error updating proposal status', { proposalId, error });
     throw error;

@@ -69,7 +69,7 @@ export default function ProposalDetailClient() {
   const pathname = usePathname();
   const router = useRouter();
   const db = useFirestore();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [loading, setLoading] = useState(true);
@@ -228,6 +228,8 @@ export default function ProposalDetailClient() {
       setActionLoading(true);
       handleCommentDialogClose();
 
+      const permissions = claims?.permissions ?? 0;
+
       switch (commentDialog.action) {
         case 'approve':
           await approveProposal(
@@ -235,6 +237,7 @@ export default function ProposalDetailClient() {
             proposal.id,
             user.uid,
             user.displayName || 'Unknown',
+            permissions,
             commentText
           );
           break;
@@ -244,6 +247,7 @@ export default function ProposalDetailClient() {
             proposal.id,
             user.uid,
             user.displayName || 'Unknown',
+            permissions,
             commentText
           );
           break;
@@ -253,6 +257,7 @@ export default function ProposalDetailClient() {
             proposal.id,
             user.uid,
             user.displayName || 'Unknown',
+            permissions,
             commentText
           );
           break;

@@ -485,18 +485,18 @@ function formatDate(timestamp: Timestamp, timezone: string): string {
 
 ## 11. Summary: Fundamental Issues Priority
 
-| Issue                    | Severity | Fix Effort | Data Risk  | Status            |
-| ------------------------ | -------- | ---------- | ---------- | ----------------- |
-| Transaction Safety       | CRITICAL | 2 weeks    | Corruption | ✅ DONE           |
-| Double-Entry Enforcement | CRITICAL | 1 week     | Financial  | Pending           |
-| Idempotency              | CRITICAL | 1 week     | Duplicates | Pending           |
-| Authorization            | HIGH     | 2 weeks    | Security   | ✅ DONE (partial) |
-| Audit Trail              | HIGH     | 1 week     | Compliance | ✅ DONE (partial) |
-| State Machine            | HIGH     | 1 week     | Integrity  | ✅ DONE           |
-| Denormalization          | MEDIUM   | Ongoing    | Display    | Pending           |
-| Error Recovery           | MEDIUM   | 2 weeks    | Orphans    | Pending           |
-| Timezone                 | MEDIUM   | 1 week     | Accuracy   | Pending           |
-| Observability            | LOW      | 1 week     | Operations | Pending           |
+| Issue                    | Severity | Fix Effort | Data Risk  | Status  |
+| ------------------------ | -------- | ---------- | ---------- | ------- |
+| Transaction Safety       | CRITICAL | 2 weeks    | Corruption | ✅ DONE |
+| Double-Entry Enforcement | CRITICAL | 1 week     | Financial  | Pending |
+| Idempotency              | CRITICAL | 1 week     | Duplicates | Pending |
+| Authorization            | HIGH     | 2 weeks    | Security   | ✅ DONE |
+| Audit Trail              | HIGH     | 1 week     | Compliance | ✅ DONE |
+| State Machine            | HIGH     | 1 week     | Integrity  | ✅ DONE |
+| Denormalization          | MEDIUM   | Ongoing    | Display    | Pending |
+| Error Recovery           | MEDIUM   | 2 weeks    | Orphans    | Pending |
+| Timezone                 | MEDIUM   | 1 week     | Accuracy   | Pending |
+| Observability            | LOW      | 1 week     | Operations | Pending |
 
 **Total Estimated Effort**: 12 weeks (3 months)
 
@@ -520,7 +520,18 @@ function formatDate(timestamp: Timestamp, timezone: string): string {
   - `requirePermission()` - Check PermissionFlag
   - `requireApprover()` - Verify designated approver
   - `preventSelfApproval()` - Block self-approval
-- Added authorization to `approvePO` function
+- Added authorization to PO workflow functions:
+  - `approvePO` - Requires APPROVE_PO, prevents self-approval
+  - `rejectPO` - Requires APPROVE_PO, prevents self-rejection
+  - `issuePO` - Requires APPROVE_PO
+- Added authorization to proposal workflow functions:
+  - `approveProposal` - Requires APPROVE_ESTIMATES, prevents self-approval
+  - `rejectProposal` - Requires APPROVE_ESTIMATES
+  - `requestProposalChanges` - Requires APPROVE_ESTIMATES
+- Added authorization to offer workflow functions:
+  - `selectOffer` - Requires APPROVE_PO
+  - `rejectOffer` - Requires APPROVE_PO
+  - `withdrawOffer` - Requires APPROVE_PO
 
 #### State Machine Framework
 
@@ -530,6 +541,11 @@ function formatDate(timestamp: Timestamp, timezone: string): string {
   - `goodsReceiptStateMachine`, `offerStateMachine`
   - `packingListStateMachine`, `purchaseRequestStateMachine`
 - Includes permission mapping for status transitions
+- **Integrated state machines into services:**
+  - `purchaseOrderService.ts` - All status transitions now validated
+  - `approvalWorkflow.ts` - All proposal transitions validated
+  - `offer/workflow.ts` - All offer transitions validated
+  - `goodsReceiptService.ts` - GR completion validated
 
 #### Audit Completeness
 
@@ -546,8 +562,7 @@ function formatDate(timestamp: Timestamp, timezone: string): string {
 
 #### Phase 2 Remaining: Security & Authorization
 
-- Add authorization to remaining approval functions
-- Add authorization to delete functions
+- Add authorization to delete functions (boughtOut, enquiry, document)
 
 #### Phase 3: Data Integrity
 

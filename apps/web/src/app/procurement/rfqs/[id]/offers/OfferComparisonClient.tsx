@@ -57,7 +57,7 @@ import type {
 export default function OfferComparisonPage() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -139,10 +139,10 @@ export default function OfferComparisonPage() {
   };
 
   const handleSelectOffer = async (offerId: string) => {
-    if (!user) return;
+    if (!user || !claims) return;
 
     try {
-      await selectOffer(offerId, user.uid);
+      await selectOffer(offerId, user.uid, claims.permissions);
       router.push(`/procurement/rfqs/${rfqId}`);
     } catch (err) {
       console.error('[OfferComparisonPage] Error selecting offer:', err);

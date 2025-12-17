@@ -139,11 +139,17 @@ export default function PODetailPage() {
   };
 
   const handleReject = async () => {
-    if (!user || !po || !poId || !dialogState.rejectionReason.trim()) return;
+    if (!user || !po || !poId || !claims || !dialogState.rejectionReason.trim()) return;
 
     setActionLoading(true);
     try {
-      await rejectPO(poId, user.uid, user.displayName || 'Unknown', dialogState.rejectionReason);
+      await rejectPO(
+        poId,
+        user.uid,
+        user.displayName || 'Unknown',
+        claims.permissions,
+        dialogState.rejectionReason
+      );
       dialogState.resetRejectionForm();
       await loadPO();
     } catch (err) {
@@ -155,11 +161,16 @@ export default function PODetailPage() {
   };
 
   const handleIssue = async () => {
-    if (!user || !po || !poId) return;
+    if (!user || !po || !poId || !claims) return;
 
     setActionLoading(true);
     try {
-      await issuePO(poId, user.uid, user.displayName || user.email || 'Unknown');
+      await issuePO(
+        poId,
+        user.uid,
+        user.displayName || user.email || 'Unknown',
+        claims.permissions
+      );
       dialogState.setIssueDialogOpen(false);
       await loadPO();
     } catch (err) {

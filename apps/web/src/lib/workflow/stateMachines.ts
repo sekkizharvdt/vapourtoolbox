@@ -84,9 +84,9 @@ export const purchaseOrderStateMachine: StateMachine<PurchaseOrderStatus> = crea
 export const proposalStateMachine: StateMachine<ProposalStatus> = createStateMachine({
   transitions: {
     DRAFT: ['PENDING_APPROVAL'],
-    PENDING_APPROVAL: ['APPROVED', 'REJECTED'],
+    PENDING_APPROVAL: ['APPROVED', 'DRAFT'], // DRAFT = internal rejection (return for revision)
     APPROVED: ['SUBMITTED'],
-    REJECTED: ['DRAFT'], // Allow revision
+    REJECTED: [], // Terminal - only for client rejection
     SUBMITTED: ['UNDER_NEGOTIATION', 'ACCEPTED', 'REJECTED', 'EXPIRED'],
     UNDER_NEGOTIATION: ['ACCEPTED', 'REJECTED', 'EXPIRED'],
     ACCEPTED: [], // Terminal
@@ -94,9 +94,9 @@ export const proposalStateMachine: StateMachine<ProposalStatus> = createStateMac
   },
   transitionPermissions: {
     PENDING_APPROVAL_APPROVED: PermissionFlag.APPROVE_ESTIMATES,
-    PENDING_APPROVAL_REJECTED: PermissionFlag.APPROVE_ESTIMATES,
+    PENDING_APPROVAL_DRAFT: PermissionFlag.APPROVE_ESTIMATES, // Return for revision
   },
-  terminalStates: ['ACCEPTED', 'EXPIRED'],
+  terminalStates: ['ACCEPTED', 'EXPIRED', 'REJECTED'],
 });
 
 // ============================================================================

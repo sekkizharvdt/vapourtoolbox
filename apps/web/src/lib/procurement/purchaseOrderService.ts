@@ -38,6 +38,7 @@ import { PermissionFlag } from '@vapour/types';
 import { formatCurrency } from './purchaseOrderHelpers';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { requirePermission, requireApprover, preventSelfApproval } from '@/lib/auth';
+import { purchaseOrderStateMachine } from '@/lib/workflow/stateMachines';
 
 const logger = createLogger({ context: 'purchaseOrderService' });
 
@@ -465,11 +466,13 @@ export async function approvePO(
 
     const poData = { id: poDoc.id, ...poDoc.data() } as PurchaseOrder;
 
-    // Validate status within transaction
-    if (poData.status !== 'PENDING_APPROVAL') {
-      throw new Error(
-        `Cannot approve PO with status: ${poData.status}. PO must be PENDING_APPROVAL.`
-      );
+    // Validate state machine transition
+    const transitionResult = purchaseOrderStateMachine.validateTransition(
+      poData.status,
+      'APPROVED'
+    );
+    if (!transitionResult.allowed) {
+      throw new Error(transitionResult.reason || `Cannot approve PO with status: ${poData.status}`);
     }
 
     // Authorization: Prevent self-approval
@@ -553,15 +556,28 @@ export async function rejectPO(
   poId: string,
   userId: string,
   userName: string,
+  userPermissions: number,
   reason: string
 ): Promise<void> {
   const { db } = getFirebase();
 
-  // Get PO for audit log
+  // Authorization: Require APPROVE_PO permission
+  requirePermission(userPermissions, PermissionFlag.APPROVE_PO, userId, 'reject purchase order');
+
+  // Get PO for validation and audit log
   const po = await getPOById(poId);
   if (!po) {
     throw new Error('Purchase Order not found');
   }
+
+  // Validate state machine transition
+  const transitionResult = purchaseOrderStateMachine.validateTransition(po.status, 'REJECTED');
+  if (!transitionResult.allowed) {
+    throw new Error(transitionResult.reason || `Cannot reject PO with status: ${po.status}`);
+  }
+
+  // Authorization: Prevent self-rejection
+  preventSelfApproval(userId, po.createdBy, 'reject purchase order');
 
   const now = Timestamp.now();
 
@@ -597,13 +613,27 @@ export async function rejectPO(
   logger.info('PO rejected', { poId });
 }
 
-export async function issuePO(poId: string, userId: string, userName: string): Promise<void> {
+export async function issuePO(
+  poId: string,
+  userId: string,
+  userName: string,
+  userPermissions: number
+): Promise<void> {
   const { db } = getFirebase();
 
-  // Get PO for audit log
+  // Authorization: Require APPROVE_PO permission to issue
+  requirePermission(userPermissions, PermissionFlag.APPROVE_PO, userId, 'issue purchase order');
+
+  // Get PO for validation and audit log
   const po = await getPOById(poId);
   if (!po) {
     throw new Error('Purchase Order not found');
+  }
+
+  // Validate state machine transition
+  const transitionResult = purchaseOrderStateMachine.validateTransition(po.status, 'ISSUED');
+  if (!transitionResult.allowed) {
+    throw new Error(transitionResult.reason || `Cannot issue PO with status: ${po.status}`);
   }
 
   const now = Timestamp.now();
@@ -645,11 +675,25 @@ export async function updatePOStatus(
 ): Promise<void> {
   const { db } = getFirebase();
 
+  // Get current PO to validate transition
+  const po = await getPOById(poId);
+  if (!po) {
+    throw new Error('Purchase Order not found');
+  }
+
+  // Validate state machine transition
+  const transitionResult = purchaseOrderStateMachine.validateTransition(po.status, status);
+  if (!transitionResult.allowed) {
+    throw new Error(
+      transitionResult.reason || `Cannot transition PO from ${po.status} to ${status}`
+    );
+  }
+
   await updateDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId), {
     status,
     updatedAt: Timestamp.now(),
     updatedBy: userId,
   });
 
-  logger.info('PO status updated', { poId, status });
+  logger.info('PO status updated', { poId, previousStatus: po.status, newStatus: status });
 }

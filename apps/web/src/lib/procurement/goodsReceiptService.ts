@@ -27,6 +27,7 @@ import type {
 import { createLogger } from '@vapour/logger';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
+import { goodsReceiptStateMachine } from '@/lib/workflow/stateMachines';
 
 const logger = createLogger({ context: 'goodsReceiptService' });
 import {
@@ -330,8 +331,10 @@ export async function completeGR(
     throw new Error('Goods Receipt not found');
   }
 
-  if (gr.status === 'COMPLETED') {
-    throw new Error('Goods Receipt is already completed');
+  // Validate state machine transition
+  const transitionResult = goodsReceiptStateMachine.validateTransition(gr.status, 'COMPLETED');
+  if (!transitionResult.allowed) {
+    throw new Error(transitionResult.reason || `Cannot complete GR with status: ${gr.status}`);
   }
 
   // Get PO to find creator for task notification
@@ -351,8 +354,16 @@ export async function completeGR(
     }
 
     const grInTxn = { id: grDocInTxn.id, ...grDocInTxn.data() } as GoodsReceipt;
-    if (grInTxn.status === 'COMPLETED') {
-      throw new Error('Goods Receipt is already completed');
+
+    // Re-validate state machine transition within transaction
+    const txnTransitionResult = goodsReceiptStateMachine.validateTransition(
+      grInTxn.status,
+      'COMPLETED'
+    );
+    if (!txnTransitionResult.allowed) {
+      throw new Error(
+        txnTransitionResult.reason || `Cannot complete GR with status: ${grInTxn.status}`
+      );
     }
 
     // Check if bill already exists
