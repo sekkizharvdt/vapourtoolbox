@@ -38,13 +38,16 @@ export async function seedExchangeRates(): Promise<{
     const effectiveFrom = Timestamp.now();
     let count = 0;
 
+    // Store rates in the correct direction: fromCurrency -> toCurrency = INR
+    // This matches the production format from the RBI API (currency.ts)
+    // Example: USD -> INR with rate 83.25 means 1 USD = 83.25 INR
     for (const [currency, rate] of Object.entries(SAMPLE_RATES)) {
       await addDoc(collection(db, COLLECTIONS.EXCHANGE_RATES), {
-        fromCurrency: 'INR',
-        toCurrency: currency,
+        fromCurrency: currency, // USD, EUR, etc.
+        toCurrency: 'INR', // Always convert TO INR
         baseCurrency: 'INR',
-        rate,
-        inverseRate: 1 / rate,
+        rate, // 1 USD = 83.25 INR
+        inverseRate: 1 / rate, // 1 INR = 0.012 USD
         effectiveFrom,
         status: 'ACTIVE',
         source: 'MANUAL',

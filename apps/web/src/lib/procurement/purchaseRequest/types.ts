@@ -25,6 +25,9 @@ export interface CreatePurchaseRequestInput {
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   requiredBy?: Date;
 
+  // Approval workflow
+  approverId?: string;
+
   // Bulk upload tracking
   isBulkUpload?: boolean;
   bulkUploadFileUrl?: string;

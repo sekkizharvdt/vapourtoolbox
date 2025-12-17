@@ -47,6 +47,7 @@ import {
 import ExcelUploadDialog from '@/components/procurement/ExcelUploadDialog';
 import DocumentParseDialog from '@/components/procurement/DocumentParseDialog';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
+import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
 
 interface FormData {
   type: 'PROJECT' | 'BUDGETARY' | 'INTERNAL';
@@ -57,6 +58,7 @@ interface FormData {
   description: string;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   requiredBy: string;
+  approverId: string;
 }
 
 export default function NewPurchaseRequestPage() {
@@ -77,6 +79,7 @@ export default function NewPurchaseRequestPage() {
     description: '',
     priority: 'MEDIUM',
     requiredBy: '',
+    approverId: '',
   });
 
   const [lineItems, setLineItems] = useState<CreatePurchaseRequestItemInput[]>([
@@ -171,6 +174,7 @@ export default function NewPurchaseRequestPage() {
     priority: formData.priority,
     requiredBy: formData.requiredBy ? new Date(formData.requiredBy) : undefined,
     items: lineItems.filter((item) => item.description.trim() !== ''),
+    ...(formData.approverId && { approverId: formData.approverId }),
   });
 
   const handleSaveDraft = async () => {
@@ -359,6 +363,15 @@ export default function NewPurchaseRequestPage() {
               fullWidth
               required
               placeholder="Detailed description of the purchase request and its purpose"
+            />
+
+            <ApproverSelector
+              value={formData.approverId || null}
+              onChange={(userId) => handleInputChange('approverId', userId || '')}
+              label="Approver"
+              approvalType="pr"
+              helperText="Select who should approve this purchase request"
+              excludeUserIds={user ? [user.uid] : []}
             />
           </Stack>
         </Paper>

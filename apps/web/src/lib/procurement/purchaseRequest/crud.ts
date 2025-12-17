@@ -79,6 +79,7 @@ export async function createPurchaseRequest(
 
       // Workflow
       status: 'DRAFT',
+      ...(input.approverId && { approverId: input.approverId }),
 
       // Submitter
       submittedBy: userId,

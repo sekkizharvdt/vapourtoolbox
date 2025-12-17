@@ -17,6 +17,7 @@ import {
 import { getPurchaseRequestItems } from './crud';
 import { validateProjectBudget } from './utils';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
+import { requireApprover, preventSelfApproval } from '@/lib/auth';
 
 const logger = createLogger({ context: 'purchaseRequestWorkflow' });
 
@@ -61,41 +62,58 @@ export async function submitPurchaseRequestForApproval(
 
     // Audit log: PR submitted
     const auditContext = createAuditContext(userId, '', userName);
-    await logAuditEvent(
-      db,
-      auditContext,
-      'PR_SUBMITTED',
-      'PURCHASE_REQUEST',
-      prId,
-      `Submitted purchase request ${pr.number} for approval`,
-      {
-        entityName: pr.number,
-        metadata: {
-          title: pr.title,
-          itemCount: pr.itemCount,
-          projectId: pr.projectId,
-          approverId: pr.approverId,
-        },
-      }
-    );
+    try {
+      await logAuditEvent(
+        db,
+        auditContext,
+        'PR_SUBMITTED',
+        'PURCHASE_REQUEST',
+        prId,
+        `Submitted purchase request ${pr.number} for approval`,
+        {
+          entityName: pr.number,
+          parentEntityType: pr.projectId ? 'PROJECT' : undefined,
+          parentEntityId: pr.projectId || undefined,
+          metadata: {
+            title: pr.title,
+            itemCount: pr.itemCount,
+            projectId: pr.projectId,
+            approverId: pr.approverId,
+          },
+        }
+      );
+    } catch (auditError) {
+      // Audit logging should not block the main operation
+      logger.warn('Failed to write audit log for PR submission', { auditError, prId });
+    }
 
     // Create task notification for the selected approver (if specified)
+    // Non-blocking - notification failure should not block PR submission
     if (pr.approverId) {
-      await createTaskNotification({
-        type: 'actionable',
-        category: 'PR_SUBMITTED',
-        userId: pr.approverId,
-        assignedBy: userId,
-        assignedByName: userName,
-        title: `Review Purchase Request ${pr.number}`,
-        message: `${userName} submitted a purchase request for your review: ${pr.title}`,
-        entityType: 'PURCHASE_REQUEST',
-        entityId: prId,
-        linkUrl: `/procurement/purchase-requests/${prId}`,
-        priority: pr.priority === 'URGENT' ? 'HIGH' : 'MEDIUM',
-        autoCompletable: true,
-        projectId: pr.projectId,
-      });
+      try {
+        await createTaskNotification({
+          type: 'actionable',
+          category: 'PR_SUBMITTED',
+          userId: pr.approverId,
+          assignedBy: userId,
+          assignedByName: userName,
+          title: `Review Purchase Request ${pr.number}`,
+          message: `${userName} submitted a purchase request for your review: ${pr.title}`,
+          entityType: 'PURCHASE_REQUEST',
+          entityId: prId,
+          linkUrl: `/procurement/purchase-requests/${prId}`,
+          priority: pr.priority === 'URGENT' ? 'HIGH' : 'MEDIUM',
+          autoCompletable: true,
+          projectId: pr.projectId,
+        });
+      } catch (notificationError) {
+        // Notification failure should not block the main operation
+        logger.warn('Failed to create task notification for PR submission', {
+          notificationError,
+          prId,
+          approverId: pr.approverId,
+        });
+      }
     }
   } catch (error) {
     logger.error('Failed to submit purchase request', { error, prId });
@@ -123,6 +141,16 @@ export async function approvePurchaseRequest(
     }
 
     const pr = docSnap.data() as PurchaseRequest;
+
+    // Authorization: Prevent self-approval
+    if (pr.submittedBy) {
+      preventSelfApproval(userId, pr.submittedBy, 'approve this purchase request');
+    }
+
+    // Authorization: Check designated approver if set
+    if (pr.approverId && pr.approverId !== userId) {
+      requireApprover(userId, [pr.approverId], 'approve this purchase request');
+    }
 
     // Validate PR can be approved
     if (pr.status !== 'SUBMITTED' && pr.status !== 'UNDER_REVIEW') {
@@ -187,44 +215,54 @@ export async function approvePurchaseRequest(
       await completeActionableTask(reviewTask.id, userId, true);
     }
 
-    // Audit log: PR approved
+    // Audit log: PR approved (non-blocking)
     const auditContext = createAuditContext(userId, '', userName);
-    await logAuditEvent(
-      db,
-      auditContext,
-      'PR_APPROVED',
-      'PURCHASE_REQUEST',
-      prId,
-      `Approved purchase request ${pr.number}`,
-      {
-        entityName: pr.number,
-        metadata: {
-          title: pr.title,
-          itemCount: items.length,
-          projectId: pr.projectId,
-          submittedBy: pr.submittedBy,
-          comments,
-        },
-      }
-    );
+    try {
+      await logAuditEvent(
+        db,
+        auditContext,
+        'PR_APPROVED',
+        'PURCHASE_REQUEST',
+        prId,
+        `Approved purchase request ${pr.number}`,
+        {
+          entityName: pr.number,
+          parentEntityType: pr.projectId ? 'PROJECT' : undefined,
+          parentEntityId: pr.projectId || undefined,
+          metadata: {
+            title: pr.title,
+            itemCount: items.length,
+            projectId: pr.projectId,
+            submittedBy: pr.submittedBy,
+            comments,
+          },
+        }
+      );
+    } catch (auditError) {
+      logger.warn('Failed to write audit log for PR approval', { auditError, prId });
+    }
 
-    // Create informational notification for submitter
-    await createTaskNotification({
-      type: 'informational',
-      category: 'PR_APPROVED',
-      userId: pr.submittedBy,
-      assignedBy: userId,
-      assignedByName: userName,
-      title: `Purchase Request ${pr.number} Approved`,
-      message: comments
-        ? `Your purchase request was approved by ${userName}: ${comments}`
-        : `Your purchase request was approved by ${userName}`,
-      entityType: 'PURCHASE_REQUEST',
-      entityId: prId,
-      linkUrl: `/procurement/purchase-requests/${prId}`,
-      priority: 'HIGH',
-      projectId: pr.projectId,
-    });
+    // Create informational notification for submitter (non-blocking)
+    try {
+      await createTaskNotification({
+        type: 'informational',
+        category: 'PR_APPROVED',
+        userId: pr.submittedBy,
+        assignedBy: userId,
+        assignedByName: userName,
+        title: `Purchase Request ${pr.number} Approved`,
+        message: comments
+          ? `Your purchase request was approved by ${userName}: ${comments}`
+          : `Your purchase request was approved by ${userName}`,
+        entityType: 'PURCHASE_REQUEST',
+        entityId: prId,
+        linkUrl: `/procurement/purchase-requests/${prId}`,
+        priority: 'HIGH',
+        projectId: pr.projectId,
+      });
+    } catch (notificationError) {
+      logger.warn('Failed to create notification for PR approval', { notificationError, prId });
+    }
   } catch (error) {
     logger.error('Failed to approve purchase request', { error, prId });
     throw error;
@@ -251,6 +289,16 @@ export async function rejectPurchaseRequest(
     }
 
     const pr = docSnap.data() as PurchaseRequest;
+
+    // Authorization: Prevent self-rejection (same as approval)
+    if (pr.submittedBy) {
+      preventSelfApproval(userId, pr.submittedBy, 'reject this purchase request');
+    }
+
+    // Authorization: Check designated approver if set
+    if (pr.approverId && pr.approverId !== userId) {
+      requireApprover(userId, [pr.approverId], 'reject this purchase request');
+    }
 
     // Validate PR can be rejected
     if (pr.status !== 'SUBMITTED' && pr.status !== 'UNDER_REVIEW') {
@@ -297,42 +345,52 @@ export async function rejectPurchaseRequest(
       await completeActionableTask(reviewTask.id, userId, true);
     }
 
-    // Audit log: PR rejected
+    // Audit log: PR rejected (non-blocking)
     const auditContext = createAuditContext(userId, '', userName);
-    await logAuditEvent(
-      db,
-      auditContext,
-      'PR_REJECTED',
-      'PURCHASE_REQUEST',
-      prId,
-      `Rejected purchase request ${pr.number}: ${reason}`,
-      {
-        entityName: pr.number,
-        severity: 'WARNING',
-        metadata: {
-          title: pr.title,
-          projectId: pr.projectId,
-          submittedBy: pr.submittedBy,
-          rejectionReason: reason,
-        },
-      }
-    );
+    try {
+      await logAuditEvent(
+        db,
+        auditContext,
+        'PR_REJECTED',
+        'PURCHASE_REQUEST',
+        prId,
+        `Rejected purchase request ${pr.number}: ${reason}`,
+        {
+          entityName: pr.number,
+          severity: 'WARNING',
+          parentEntityType: pr.projectId ? 'PROJECT' : undefined,
+          parentEntityId: pr.projectId || undefined,
+          metadata: {
+            title: pr.title,
+            projectId: pr.projectId,
+            submittedBy: pr.submittedBy,
+            rejectionReason: reason,
+          },
+        }
+      );
+    } catch (auditError) {
+      logger.warn('Failed to write audit log for PR rejection', { auditError, prId });
+    }
 
-    // Create informational notification for submitter
-    await createTaskNotification({
-      type: 'informational',
-      category: 'PR_REJECTED',
-      userId: pr.submittedBy,
-      assignedBy: userId,
-      assignedByName: userName,
-      title: `Purchase Request ${pr.number} Rejected`,
-      message: `Your purchase request was rejected by ${userName}: ${reason}`,
-      entityType: 'PURCHASE_REQUEST',
-      entityId: prId,
-      linkUrl: `/procurement/purchase-requests/${prId}`,
-      priority: 'HIGH',
-      projectId: pr.projectId,
-    });
+    // Create informational notification for submitter (non-blocking)
+    try {
+      await createTaskNotification({
+        type: 'informational',
+        category: 'PR_REJECTED',
+        userId: pr.submittedBy,
+        assignedBy: userId,
+        assignedByName: userName,
+        title: `Purchase Request ${pr.number} Rejected`,
+        message: `Your purchase request was rejected by ${userName}: ${reason}`,
+        entityType: 'PURCHASE_REQUEST',
+        entityId: prId,
+        linkUrl: `/procurement/purchase-requests/${prId}`,
+        priority: 'HIGH',
+        projectId: pr.projectId,
+      });
+    } catch (notificationError) {
+      logger.warn('Failed to create notification for PR rejection', { notificationError, prId });
+    }
   } catch (error) {
     logger.error('Failed to reject purchase request', { error, prId });
     throw error;
