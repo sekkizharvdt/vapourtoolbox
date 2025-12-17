@@ -21,7 +21,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { RFQ, RFQItem, OfferComparisonData } from '@vapour/types';
 import type { EvaluateOfferInput } from './types';
-import { getOfferById, getOfferItems } from './crud';
+import { getOfferById, getOfferItemsBatch } from './crud';
 import { getOffersByRFQ } from './queries';
 import { incrementOffersEvaluated } from '../rfq';
 
@@ -128,13 +128,14 @@ export async function getOfferComparison(rfqId: string): Promise<OfferComparison
     throw new Error('RFQ not found');
   }
 
-  // Get all offer items for each offer
-  const offersWithItems = await Promise.all(
-    offers.map(async (offer) => {
-      const items = await getOfferItems(offer.id);
-      return { offer, items };
-    })
-  );
+  // Get all offer items in a single batch query (avoid N+1 queries)
+  const offerIds = offers.map((o) => o.id);
+  const offerItemsMap = await getOfferItemsBatch(offerIds);
+
+  const offersWithItems = offers.map((offer) => ({
+    offer,
+    items: offerItemsMap.get(offer.id) || [],
+  }));
 
   // Get RFQ items
   const rfqItemsQuery = query(

@@ -208,29 +208,44 @@ export async function searchMaterials(
 }
 
 /**
- * Get materials by vendor ID
+ * Get materials by vendor ID with pagination
  *
  * @param db - Firestore instance
  * @param vendorId - Vendor entity ID
- * @returns Array of materials supplied by this vendor
+ * @param limitResults - Maximum number of results (default 100)
+ * @returns MaterialListResult with materials and pagination info
  */
-export async function getMaterialsByVendor(db: Firestore, vendorId: string): Promise<Material[]> {
+export async function getMaterialsByVendor(
+  db: Firestore,
+  vendorId: string,
+  limitResults: number = 100
+): Promise<MaterialListResult> {
   try {
-    logger.debug('Getting materials by vendor', { vendorId });
+    logger.debug('Getting materials by vendor', { vendorId, limitResults });
 
     const q = query(
       collection(db, COLLECTIONS.MATERIALS),
       where('preferredVendors', 'array-contains', vendorId),
       where('isActive', '==', true),
-      orderBy('updatedAt', 'desc')
+      orderBy('updatedAt', 'desc'),
+      limit(limitResults + 1)
     );
 
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((doc) => ({
+    const materials: Material[] = snapshot.docs.slice(0, limitResults).map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Material[];
+
+    const hasMore = snapshot.size > limitResults;
+    const lastMaterial = materials[materials.length - 1];
+
+    return {
+      materials,
+      hasMore,
+      lastDoc: lastMaterial?.id,
+    };
   } catch (error) {
     logger.error('Failed to get materials by vendor', { vendorId, error });
     throw new Error(

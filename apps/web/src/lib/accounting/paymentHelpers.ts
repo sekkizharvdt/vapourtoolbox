@@ -240,15 +240,17 @@ export async function createPaymentWithAllocationsAtomic(
     };
     const paymentRef = saveTransactionBatch(batch, db, paymentDataWithGL);
 
-    // 4. Update each invoice/bill status in the same batch
-    for (const allocation of allocations) {
-      if (allocation.allocatedAmount <= 0) continue;
+    // 4. Fetch all invoices in parallel (avoid N+1 queries)
+    const validAllocations = allocations.filter((a) => a.allocatedAmount > 0);
+    const invoiceRefs = validAllocations.map((a) => doc(db, COLLECTIONS.TRANSACTIONS, a.invoiceId));
+    const invoiceDocs = await Promise.all(invoiceRefs.map((ref) => getDoc(ref)));
 
-      // Get current invoice data to calculate new status
-      const invoiceRef = doc(db, COLLECTIONS.TRANSACTIONS, allocation.invoiceId);
-      const invoiceDoc = await getDoc(invoiceRef);
+    // 5. Update each invoice/bill status in the same batch
+    validAllocations.forEach((allocation, index) => {
+      const invoiceDoc = invoiceDocs[index];
+      const invoiceRef = invoiceRefs[index];
 
-      if (!invoiceDoc.exists()) {
+      if (!invoiceDoc || !invoiceDoc.exists() || !invoiceRef) {
         throw new Error(`Invoice ${allocation.invoiceId} not found`);
       }
 
@@ -271,9 +273,9 @@ export async function createPaymentWithAllocationsAtomic(
         amountPaid: newTotalPaid,
         updatedAt: Timestamp.now(),
       });
-    }
+    });
 
-    // 5. Commit all operations atomically
+    // 6. Commit all operations atomically
     await batch.commit();
 
     return paymentRef.id;

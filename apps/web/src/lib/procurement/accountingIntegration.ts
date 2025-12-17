@@ -106,22 +106,25 @@ export async function createBillFromGoodsReceipt(
 
     const purchaseOrder = docToTyped<PurchaseOrder>(poDoc.id, poDoc.data());
 
-    // Fetch goods receipt items to calculate actual amounts
-    const grItemsQuery = query(
-      collection(db, COLLECTIONS.GOODS_RECEIPT_ITEMS),
-      where('goodsReceiptId', '==', goodsReceipt.id)
-    );
-    const grItemsSnapshot = await getDocs(grItemsQuery);
+    // Fetch goods receipt items and purchase order items in parallel (avoid sequential queries)
+    const [grItemsSnapshot, poItemsSnapshot] = await Promise.all([
+      getDocs(
+        query(
+          collection(db, COLLECTIONS.GOODS_RECEIPT_ITEMS),
+          where('goodsReceiptId', '==', goodsReceipt.id)
+        )
+      ),
+      getDocs(
+        query(
+          collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS),
+          where('purchaseOrderId', '==', purchaseOrder.id)
+        )
+      ),
+    ]);
+
     const goodsReceiptItems = grItemsSnapshot.docs.map((doc) =>
       docToTyped<GoodsReceiptItem>(doc.id, doc.data())
     );
-
-    // Fetch purchase order items for financial data
-    const poItemsQuery = query(
-      collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS),
-      where('purchaseOrderId', '==', purchaseOrder.id)
-    );
-    const poItemsSnapshot = await getDocs(poItemsQuery);
     const purchaseOrderItems = poItemsSnapshot.docs.map((doc) =>
       docToTyped<PurchaseOrderItem>(doc.id, doc.data())
     );

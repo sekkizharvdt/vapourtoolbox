@@ -11,3 +11,6 @@ export * from './stateMachine';
 export * from './dateTime';
 export * from './compensatingTransaction';
 export * from './idempotencyService';
+export * from './optimisticLocking';
+export * from './batchProcessor';
+export * from './materializedAggregations';

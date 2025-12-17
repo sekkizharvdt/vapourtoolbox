@@ -142,18 +142,23 @@ export async function getAllMentions(
 }
 
 /**
- * Get mentions in a specific thread
+ * Get mentions in a specific thread with pagination
  */
 export async function getMentionsByThread(
   threadId: string,
-  userId?: string
+  userId?: string,
+  limitCount: number = 100
 ): Promise<TaskMention[]> {
   const { db } = getFirebase();
 
   const mentionsRef = collection(db, COLLECTIONS.TASK_MENTIONS);
 
   // Build query with optional user filter
-  const constraints = [where('threadId', '==', threadId), orderBy('createdAt', 'asc')];
+  const constraints = [
+    where('threadId', '==', threadId),
+    orderBy('createdAt', 'asc'),
+    limit(limitCount),
+  ];
 
   const q = query(mentionsRef, ...constraints);
   const snapshot = await getDocs(q);
@@ -170,15 +175,25 @@ export async function getMentionsByThread(
 
 /**
  * Get unread mention count for a user
+ * Uses limit to cap reads - if count exceeds limit, returns limit value
  */
-export async function getUnreadMentionCount(userId: string): Promise<number> {
+export async function getUnreadMentionCount(
+  userId: string,
+  maxCount: number = 99
+): Promise<number> {
   const { db } = getFirebase();
 
   const mentionsRef = collection(db, COLLECTIONS.TASK_MENTIONS);
-  const q = query(mentionsRef, where('mentionedUserId', '==', userId), where('read', '==', false));
+  const q = query(
+    mentionsRef,
+    where('mentionedUserId', '==', userId),
+    where('read', '==', false),
+    limit(maxCount + 1)
+  );
 
   const snapshot = await getDocs(q);
-  return snapshot.size;
+  // Return the actual count, capped at maxCount (useful for badge display "99+")
+  return Math.min(snapshot.size, maxCount);
 }
 
 // ============================================================================

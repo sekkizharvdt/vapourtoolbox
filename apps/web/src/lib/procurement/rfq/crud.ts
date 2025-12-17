@@ -90,22 +90,22 @@ export async function createRFQ(
   });
   const projectIds = Array.from(projectMap.keys());
 
-  // Fetch project names from Firestore
-  const projectNames: string[] = [];
-  for (const projectId of projectIds) {
-    try {
-      const projectDoc = await getDoc(doc(db, COLLECTIONS.PROJECTS, projectId));
-      if (projectDoc.exists()) {
-        const projectData = projectDoc.data();
-        projectNames.push(projectData.name || `Project ${projectId}`);
-      } else {
-        projectNames.push(`Project ${projectId}`);
+  // Fetch project names from Firestore in parallel (avoid N+1 queries)
+  const projectNames: string[] = await Promise.all(
+    projectIds.map(async (projectId) => {
+      try {
+        const projectDoc = await getDoc(doc(db, COLLECTIONS.PROJECTS, projectId));
+        if (projectDoc.exists()) {
+          const projectData = projectDoc.data();
+          return projectData.name || `Project ${projectId}`;
+        }
+        return `Project ${projectId}`;
+      } catch (err) {
+        logger.warn('Failed to fetch project name', { projectId, error: err });
+        return `Project ${projectId}`;
       }
-    } catch (err) {
-      logger.warn('Failed to fetch project name', { projectId, error: err });
-      projectNames.push(`Project ${projectId}`);
-    }
-  }
+    })
+  );
 
   const now = Timestamp.now();
 
@@ -219,30 +219,35 @@ export async function createRFQFromPRs(
 ): Promise<string> {
   const { db } = getFirebase();
 
-  // Fetch all PRs
-  const prs: PurchaseRequest[] = [];
-  for (const prId of prIds) {
-    const prDoc = await getDoc(doc(db, COLLECTIONS.PURCHASE_REQUESTS, prId));
-    if (prDoc.exists()) {
-      prs.push({ id: prDoc.id, ...prDoc.data() } as PurchaseRequest);
-    }
-  }
+  // Fetch all PRs in parallel (avoid N+1 queries)
+  const prDocs = await Promise.all(
+    prIds.map((prId) => getDoc(doc(db, COLLECTIONS.PURCHASE_REQUESTS, prId)))
+  );
+  const prs: PurchaseRequest[] = prDocs
+    .filter((prDoc) => prDoc.exists())
+    .map((prDoc) => ({ id: prDoc.id, ...prDoc.data() }) as PurchaseRequest);
 
   if (prs.length === 0) {
     throw new Error('No valid Purchase Requests found');
   }
 
-  // Fetch all PR items for these PRs
+  // Fetch all PR items for these PRs in parallel (avoid N+1 queries)
+  const itemSnapshots = await Promise.all(
+    prs.map((pr) =>
+      getDocs(
+        query(
+          collection(db, COLLECTIONS.PURCHASE_REQUEST_ITEMS),
+          where('purchaseRequestId', '==', pr.id),
+          where('status', '==', 'APPROVED')
+        )
+      )
+    )
+  );
+
   const allItems: CreateRFQItemInput[] = [];
-
-  for (const pr of prs) {
-    const itemsQuery = query(
-      collection(db, COLLECTIONS.PURCHASE_REQUEST_ITEMS),
-      where('purchaseRequestId', '==', pr.id),
-      where('status', '==', 'APPROVED')
-    );
-
-    const itemsSnapshot = await getDocs(itemsQuery);
+  prs.forEach((pr, prIndex) => {
+    const itemsSnapshot = itemSnapshots[prIndex];
+    if (!itemsSnapshot) return;
 
     itemsSnapshot.forEach((itemDoc) => {
       const prItem = { id: itemDoc.id, ...itemDoc.data() } as PurchaseRequestItem;
@@ -264,7 +269,7 @@ export async function createRFQFromPRs(
         deliveryLocation: prItem.deliveryLocation,
       });
     });
-  }
+  });
 
   if (allItems.length === 0) {
     throw new Error('No approved items found in the selected Purchase Requests');

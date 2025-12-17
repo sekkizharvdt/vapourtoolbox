@@ -18,6 +18,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   Timestamp,
   type Firestore,
 } from 'firebase/firestore';
@@ -107,24 +108,33 @@ export async function createTransmittal(
   return docRef.id;
 }
 
+export interface TransmittalListResult {
+  transmittals: DocumentTransmittal[];
+  hasMore: boolean;
+}
+
 /**
- * Get transmittals for a project
+ * Get transmittals for a project with pagination
  */
 export async function getProjectTransmittals(
   db: Firestore,
-  projectId: string
-): Promise<DocumentTransmittal[]> {
+  projectId: string,
+  limitResults: number = 50
+): Promise<TransmittalListResult> {
   const transmittalsRef = collection(db, 'projects', projectId, 'transmittals');
-  const q = query(transmittalsRef, orderBy('transmittalDate', 'desc'));
+  const q = query(transmittalsRef, orderBy('transmittalDate', 'desc'), limit(limitResults + 1));
 
   const snapshot = await getDocs(q);
   const transmittals: DocumentTransmittal[] = [];
 
-  snapshot.forEach((doc) => {
+  snapshot.docs.slice(0, limitResults).forEach((doc) => {
     transmittals.push(docToTyped<DocumentTransmittal>(doc.id, doc.data()));
   });
 
-  return transmittals;
+  return {
+    transmittals,
+    hasMore: snapshot.size > limitResults,
+  };
 }
 
 /**

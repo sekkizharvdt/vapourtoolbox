@@ -135,29 +135,37 @@ export async function validateProjectBudget(
 
     const approvedPRsSnapshot = await getDocs(approvedPRsQuery);
 
-    // Calculate total committed costs from approved PRs
+    // Filter out the current PR and get IDs of approved PRs
+    const approvedPRIds = approvedPRsSnapshot.docs
+      .map((prDoc) => ({ id: prDoc.id, data: prDoc.data() as PurchaseRequest }))
+      .filter((item) => item.data.number !== pr.number)
+      .map((item) => item.id);
+
+    // Batch fetch all PR items in parallel (avoid N+1 queries)
+    // Firestore 'in' queries support up to 30 items per query
     let totalCommittedCost = 0;
-    for (const prDoc of approvedPRsSnapshot.docs) {
-      const approvedPR = prDoc.data() as PurchaseRequest;
 
-      // Skip the current PR if it's already in the list
-      if (approvedPR.number === pr.number) {
-        continue;
-      }
-
-      // Fetch items for this PR
-      const itemsQuery = query(
-        collection(db, COLLECTIONS.PURCHASE_REQUEST_ITEMS),
-        where('purchaseRequestId', '==', prDoc.id)
+    if (approvedPRIds.length > 0) {
+      const batchSize = 30;
+      const itemsBatches = await Promise.all(
+        Array.from({ length: Math.ceil(approvedPRIds.length / batchSize) }, (_, i) => {
+          const batchIds = approvedPRIds.slice(i * batchSize, (i + 1) * batchSize);
+          return getDocs(
+            query(
+              collection(db, COLLECTIONS.PURCHASE_REQUEST_ITEMS),
+              where('purchaseRequestId', 'in', batchIds)
+            )
+          );
+        })
       );
-      const itemsSnapshot = await getDocs(itemsQuery);
 
-      const prCost = itemsSnapshot.docs.reduce((sum, itemDoc) => {
-        const item = itemDoc.data() as PurchaseRequestItem;
-        return sum + (item.estimatedTotalCost || 0);
-      }, 0);
-
-      totalCommittedCost += prCost;
+      // Sum up costs from all batches
+      for (const itemsSnapshot of itemsBatches) {
+        totalCommittedCost += itemsSnapshot.docs.reduce((sum, itemDoc) => {
+          const item = itemDoc.data() as PurchaseRequestItem;
+          return sum + (item.estimatedTotalCost || 0);
+        }, 0);
+      }
     }
 
     // Calculate available budget

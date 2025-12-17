@@ -213,6 +213,50 @@ export async function getOfferItems(offerId: string): Promise<OfferItem[]> {
 }
 
 /**
+ * Get offer items for multiple offers in a single batch query (avoid N+1 queries)
+ * Uses Firestore 'in' query with batching for offers > 30
+ */
+export async function getOfferItemsBatch(offerIds: string[]): Promise<Map<string, OfferItem[]>> {
+  const { db } = getFirebase();
+
+  if (offerIds.length === 0) {
+    return new Map();
+  }
+
+  const result = new Map<string, OfferItem[]>();
+
+  // Initialize empty arrays for all offer IDs
+  offerIds.forEach((id) => result.set(id, []));
+
+  // Batch query in chunks of 30 (Firestore 'in' limit)
+  const batchSize = 30;
+  const batches = await Promise.all(
+    Array.from({ length: Math.ceil(offerIds.length / batchSize) }, (_, i) => {
+      const batchIds = offerIds.slice(i * batchSize, (i + 1) * batchSize);
+      return getDocs(
+        query(
+          collection(db, COLLECTIONS.OFFER_ITEMS),
+          where('offerId', 'in', batchIds),
+          orderBy('lineNumber', 'asc')
+        )
+      );
+    })
+  );
+
+  // Group items by offerId
+  for (const snapshot of batches) {
+    for (const docSnap of snapshot.docs) {
+      const item = { id: docSnap.id, ...docSnap.data() } as OfferItem;
+      const items = result.get(item.offerId) || [];
+      items.push(item);
+      result.set(item.offerId, items);
+    }
+  }
+
+  return result;
+}
+
+/**
  * Update offer details
  */
 export async function updateOffer(

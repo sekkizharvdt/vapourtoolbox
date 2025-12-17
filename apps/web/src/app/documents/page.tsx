@@ -158,8 +158,8 @@ export default function CompanyDocumentsPage() {
     if (!db) return;
     setLoading(true);
     try {
-      const docs = await getCompanyDocuments(db);
-      setDocuments(docs);
+      const result = await getCompanyDocuments(db);
+      setDocuments(result.documents);
       const counts = await getDocumentCountsByCategory(db);
       setCategoryCounts(counts);
     } catch (error) {

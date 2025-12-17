@@ -14,6 +14,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   Timestamp,
   type Firestore,
 } from 'firebase/firestore';
@@ -35,13 +36,20 @@ import type {
 
 const logger = createLogger({ context: 'companyDocumentService' });
 
+export interface CompanyDocumentListResult {
+  documents: CompanyDocument[];
+  hasMore: boolean;
+  lastDoc?: string;
+}
+
 /**
- * Get all company documents, optionally filtered by category
+ * Get company documents with pagination, optionally filtered by category
  */
 export async function getCompanyDocuments(
   db: Firestore,
-  category?: CompanyDocumentCategory
-): Promise<CompanyDocument[]> {
+  category?: CompanyDocumentCategory,
+  limitResults: number = 100
+): Promise<CompanyDocumentListResult> {
   const collectionRef = collection(db, COLLECTIONS.COMPANY_DOCUMENTS);
 
   let q;
@@ -51,7 +59,8 @@ export async function getCompanyDocuments(
       where('isDeleted', '==', false),
       where('isLatest', '==', true),
       where('category', '==', category),
-      orderBy('title', 'asc')
+      orderBy('title', 'asc'),
+      limit(limitResults + 1)
     );
   } else {
     q = query(
@@ -59,17 +68,27 @@ export async function getCompanyDocuments(
       where('isDeleted', '==', false),
       where('isLatest', '==', true),
       orderBy('category', 'asc'),
-      orderBy('title', 'asc')
+      orderBy('title', 'asc'),
+      limit(limitResults + 1)
     );
   }
 
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(
+  const documents = snapshot.docs.slice(0, limitResults).map(
     (doc): CompanyDocument => ({
       id: doc.id,
       ...(doc.data() as Omit<CompanyDocument, 'id'>),
     })
   );
+
+  const hasMore = snapshot.size > limitResults;
+  const lastDocument = documents[documents.length - 1];
+
+  return {
+    documents,
+    hasMore,
+    lastDoc: lastDocument?.id,
+  };
 }
 
 /**
@@ -354,23 +373,25 @@ export async function searchCompanyDocuments(
 ): Promise<CompanyDocument[]> {
   // Note: Firestore doesn't support full-text search natively
   // This is a client-side filter - for production, consider Algolia or similar
-  const docs = await getCompanyDocuments(db, category);
+  const result = await getCompanyDocuments(db, category, 500); // Get more for search filtering
 
-  const query = searchQuery.toLowerCase();
-  return docs.filter(
+  const queryLower = searchQuery.toLowerCase();
+  return result.documents.filter(
     (doc) =>
-      doc.title.toLowerCase().includes(query) ||
-      doc.description.toLowerCase().includes(query) ||
-      doc.tags.some((tag) => tag.toLowerCase().includes(query))
+      doc.title.toLowerCase().includes(queryLower) ||
+      doc.description.toLowerCase().includes(queryLower) ||
+      doc.tags.some((tag) => tag.toLowerCase().includes(queryLower))
   );
 }
 
 /**
  * Get documents by template type (for app generation)
+ * Templates are typically few, so default limit is reasonable
  */
 export async function getTemplatesByType(
   db: Firestore,
-  templateType: string
+  templateType: string,
+  limitResults: number = 50
 ): Promise<CompanyDocument[]> {
   const collectionRef = collection(db, COLLECTIONS.COMPANY_DOCUMENTS);
 
@@ -379,7 +400,8 @@ export async function getTemplatesByType(
     where('isDeleted', '==', false),
     where('isLatest', '==', true),
     where('isTemplate', '==', true),
-    where('templateType', '==', templateType)
+    where('templateType', '==', templateType),
+    limit(limitResults)
   );
 
   const snapshot = await getDocs(q);
@@ -397,7 +419,7 @@ export async function getTemplatesByType(
 export async function getDocumentCountsByCategory(
   db: Firestore
 ): Promise<Record<CompanyDocumentCategory, number>> {
-  const docs = await getCompanyDocuments(db);
+  const result = await getCompanyDocuments(db, undefined, 1000); // Get enough for accurate counts
 
   const counts: Record<CompanyDocumentCategory, number> = {
     SOP: 0,
@@ -408,7 +430,7 @@ export async function getDocumentCountsByCategory(
     OTHER: 0,
   };
 
-  docs.forEach((doc) => {
+  result.documents.forEach((doc) => {
     counts[doc.category]++;
   });
 
