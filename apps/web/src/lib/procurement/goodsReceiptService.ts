@@ -28,6 +28,7 @@ import { createLogger } from '@vapour/logger';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
 import { goodsReceiptStateMachine } from '@/lib/workflow/stateMachines';
+import { withIdempotency, generateIdempotencyKey } from '@/lib/utils/idempotencyService';
 
 const logger = createLogger({ context: 'goodsReceiptService' });
 import {
@@ -119,166 +120,185 @@ export async function createGoodsReceipt(
 ): Promise<string> {
   const { db } = getFirebase();
 
-  // Generate GR number first (uses its own transaction for counter)
-  const grNumber = await generateGRNumber();
-
-  // Get PO items outside transaction (read-only, for item descriptions)
-  const poItemsQuery = query(
-    collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS),
-    where('purchaseOrderId', '==', input.purchaseOrderId)
+  // Generate idempotency key based on PO ID, inspection date, and user
+  // This prevents duplicate GR creation from double-clicks or network retries
+  const inspectionDateStr = input.inspectionDate.toISOString().split('T')[0]; // YYYY-MM-DD
+  const idempotencyKey = generateIdempotencyKey(
+    'create-goods-receipt',
+    input.purchaseOrderId,
+    `${userId}-${inspectionDateStr}`
   );
-  const poItemsSnapshot = await getDocs(poItemsQuery);
-  const poItems = poItemsSnapshot.docs.map((docSnap) => ({
-    id: docSnap.id,
-    ...docSnap.data(),
-  })) as PurchaseOrderItem[];
 
-  // Calculate derived values
-  const allAccepted = input.items.every((item) => item.acceptedQuantity === item.receivedQuantity);
-  const someRejected = input.items.some((item) => item.rejectedQuantity > 0);
-  const hasIssues = input.items.some((item) => item.hasIssues);
-
-  let overallCondition: 'ACCEPTED' | 'CONDITIONALLY_ACCEPTED' | 'REJECTED' = 'ACCEPTED';
-  if (someRejected || hasIssues) {
-    overallCondition = 'CONDITIONALLY_ACCEPTED';
-  }
-  if (!allAccepted && input.items.every((item) => item.acceptedQuantity === 0)) {
-    overallCondition = 'REJECTED';
-  }
-
-  // Execute all writes atomically in a transaction
-  const { grId, poNumber, poVendorName } = await runTransaction(db, async (transaction) => {
-    const now = Timestamp.now();
-
-    // Read PO within transaction to ensure consistency
-    const poRef = doc(db, COLLECTIONS.PURCHASE_ORDERS, input.purchaseOrderId);
-    const poDoc = await transaction.get(poRef);
-    if (!poDoc.exists()) {
-      throw new Error('Purchase Order not found');
-    }
-    const po = { id: poDoc.id, ...poDoc.data() } as PurchaseOrder;
-
-    // Read current PO item quantities within transaction
-    const poItemRefs = input.items.map((item) =>
-      doc(db, COLLECTIONS.PURCHASE_ORDER_ITEMS, item.poItemId)
-    );
-    const poItemDocs = await Promise.all(poItemRefs.map((ref) => transaction.get(ref)));
-
-    // Create GR document
-    const grRef = doc(collection(db, COLLECTIONS.GOODS_RECEIPTS));
-    const grData: Omit<GoodsReceipt, 'id'> = {
-      number: grNumber,
-      purchaseOrderId: input.purchaseOrderId,
-      poNumber: po.number,
-      packingListId: input.packingListId,
-      packingListNumber: undefined,
-      projectId: input.projectId,
-      projectName: input.projectName,
-      inspectionType: input.inspectionType,
-      inspectionLocation: input.inspectionLocation,
-      inspectionDate: Timestamp.fromDate(input.inspectionDate),
-      overallCondition,
-      overallNotes: input.overallNotes,
-      hasIssues,
-      issuesSummary: hasIssues
-        ? input.items
-            .filter((item) => item.hasIssues)
-            .flatMap((item) => item.issues || [])
-            .join('; ')
-        : undefined,
-      status: 'IN_PROGRESS',
-      approvedForPayment: false,
-      inspectedBy: userId,
-      inspectedByName: userName,
-      createdAt: now,
-      updatedAt: now,
-    };
-    transaction.set(grRef, grData);
-
-    // Create GR items and update PO items atomically
-    input.items.forEach((item, index) => {
-      const poItem = poItems.find((pi) => pi.id === item.poItemId);
-      const poItemDoc = poItemDocs[index];
-
-      // Create GR item
-      const grItemRef = doc(collection(db, COLLECTIONS.GOODS_RECEIPT_ITEMS));
-      const grItemData: Omit<GoodsReceiptItem, 'id'> = {
-        goodsReceiptId: grRef.id,
-        poItemId: item.poItemId,
-        lineNumber: index + 1,
-        description: poItem?.description || 'Unknown Item',
-        equipmentId: poItem?.equipmentId,
-        equipmentCode: poItem?.equipmentCode,
-        orderedQuantity: poItem?.quantity || 0,
-        receivedQuantity: item.receivedQuantity,
-        acceptedQuantity: item.acceptedQuantity,
-        rejectedQuantity: item.rejectedQuantity,
-        unit: poItem?.unit || '',
-        condition: item.condition,
-        conditionNotes: item.conditionNotes,
-        testingRequired: item.testingRequired,
-        testingCompleted: item.testingCompleted || false,
-        testResult: item.testResult,
-        photoCount: 0,
-        hasIssues: item.hasIssues,
-        issues: item.issues,
-        createdAt: now,
-        updatedAt: now,
-      };
-      transaction.set(grItemRef, grItemData);
-
-      // Update PO item quantities (using current values from transaction read)
-      if (poItemDoc?.exists()) {
-        const currentPoItem = poItemDoc.data() as PurchaseOrderItem;
-        const newDelivered = (currentPoItem.quantityDelivered || 0) + item.receivedQuantity;
-        const newAccepted = (currentPoItem.quantityAccepted || 0) + item.acceptedQuantity;
-        const newRejected = (currentPoItem.quantityRejected || 0) + item.rejectedQuantity;
-
-        let deliveryStatus: 'PENDING' | 'PARTIAL' | 'COMPLETE' = 'PARTIAL';
-        if (newDelivered >= (currentPoItem.quantity || 0)) {
-          deliveryStatus = 'COMPLETE';
-        } else if (newDelivered === 0) {
-          deliveryStatus = 'PENDING';
-        }
-
-        transaction.update(doc(db, COLLECTIONS.PURCHASE_ORDER_ITEMS, item.poItemId), {
-          quantityDelivered: newDelivered,
-          quantityAccepted: newAccepted,
-          quantityRejected: newRejected,
-          deliveryStatus,
-          updatedAt: now,
-        });
-      }
-    });
-
-    return { grId: grRef.id, poNumber: po.number, poVendorName: po.vendorName };
-  });
-
-  // Audit log outside transaction (non-critical, fire-and-forget)
-  const auditContext = createAuditContext(userId, '', userName);
-  logAuditEvent(
+  return withIdempotency(
     db,
-    auditContext,
-    'GR_CREATED',
-    'GOODS_RECEIPT',
-    grId,
-    `Created Goods Receipt ${grNumber} for PO ${poNumber}`,
-    {
-      entityName: grNumber,
-      metadata: {
-        purchaseOrderId: input.purchaseOrderId,
-        poNumber,
-        vendorName: poVendorName,
-        overallCondition,
-        itemCount: input.items.length,
-        hasIssues,
-      },
-    }
-  ).catch((err) => logger.error('Failed to log audit event', { error: err }));
+    idempotencyKey,
+    'create-goods-receipt',
+    async () => {
+      // Generate GR number (uses its own transaction for counter)
+      const grNumber = await generateGRNumber();
 
-  logger.info('Goods Receipt created', { grId, grNumber });
+      // Get PO items outside transaction (read-only, for item descriptions)
+      const poItemsQuery = query(
+        collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS),
+        where('purchaseOrderId', '==', input.purchaseOrderId)
+      );
+      const poItemsSnapshot = await getDocs(poItemsQuery);
+      const poItems = poItemsSnapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      })) as PurchaseOrderItem[];
 
-  return grId;
+      // Calculate derived values
+      const allAccepted = input.items.every(
+        (item) => item.acceptedQuantity === item.receivedQuantity
+      );
+      const someRejected = input.items.some((item) => item.rejectedQuantity > 0);
+      const hasIssues = input.items.some((item) => item.hasIssues);
+
+      let overallCondition: 'ACCEPTED' | 'CONDITIONALLY_ACCEPTED' | 'REJECTED' = 'ACCEPTED';
+      if (someRejected || hasIssues) {
+        overallCondition = 'CONDITIONALLY_ACCEPTED';
+      }
+      if (!allAccepted && input.items.every((item) => item.acceptedQuantity === 0)) {
+        overallCondition = 'REJECTED';
+      }
+
+      // Execute all writes atomically in a transaction
+      const { grId, poNumber, poVendorName } = await runTransaction(db, async (transaction) => {
+        const now = Timestamp.now();
+
+        // Read PO within transaction to ensure consistency
+        const poRef = doc(db, COLLECTIONS.PURCHASE_ORDERS, input.purchaseOrderId);
+        const poDoc = await transaction.get(poRef);
+        if (!poDoc.exists()) {
+          throw new Error('Purchase Order not found');
+        }
+        const po = { id: poDoc.id, ...poDoc.data() } as PurchaseOrder;
+
+        // Read current PO item quantities within transaction
+        const poItemRefs = input.items.map((item) =>
+          doc(db, COLLECTIONS.PURCHASE_ORDER_ITEMS, item.poItemId)
+        );
+        const poItemDocs = await Promise.all(poItemRefs.map((ref) => transaction.get(ref)));
+
+        // Create GR document
+        const grRef = doc(collection(db, COLLECTIONS.GOODS_RECEIPTS));
+        const grData: Omit<GoodsReceipt, 'id'> = {
+          number: grNumber,
+          purchaseOrderId: input.purchaseOrderId,
+          poNumber: po.number,
+          packingListId: input.packingListId,
+          packingListNumber: undefined,
+          projectId: input.projectId,
+          projectName: input.projectName,
+          inspectionType: input.inspectionType,
+          inspectionLocation: input.inspectionLocation,
+          inspectionDate: Timestamp.fromDate(input.inspectionDate),
+          overallCondition,
+          overallNotes: input.overallNotes,
+          hasIssues,
+          issuesSummary: hasIssues
+            ? input.items
+                .filter((item) => item.hasIssues)
+                .flatMap((item) => item.issues || [])
+                .join('; ')
+            : undefined,
+          status: 'IN_PROGRESS',
+          approvedForPayment: false,
+          inspectedBy: userId,
+          inspectedByName: userName,
+          createdAt: now,
+          updatedAt: now,
+        };
+        transaction.set(grRef, grData);
+
+        // Create GR items and update PO items atomically
+        input.items.forEach((item, index) => {
+          const poItem = poItems.find((pi) => pi.id === item.poItemId);
+          const poItemDoc = poItemDocs[index];
+
+          // Create GR item
+          const grItemRef = doc(collection(db, COLLECTIONS.GOODS_RECEIPT_ITEMS));
+          const grItemData: Omit<GoodsReceiptItem, 'id'> = {
+            goodsReceiptId: grRef.id,
+            poItemId: item.poItemId,
+            lineNumber: index + 1,
+            description: poItem?.description || 'Unknown Item',
+            equipmentId: poItem?.equipmentId,
+            equipmentCode: poItem?.equipmentCode,
+            orderedQuantity: poItem?.quantity || 0,
+            receivedQuantity: item.receivedQuantity,
+            acceptedQuantity: item.acceptedQuantity,
+            rejectedQuantity: item.rejectedQuantity,
+            unit: poItem?.unit || '',
+            condition: item.condition,
+            conditionNotes: item.conditionNotes,
+            testingRequired: item.testingRequired,
+            testingCompleted: item.testingCompleted || false,
+            testResult: item.testResult,
+            photoCount: 0,
+            hasIssues: item.hasIssues,
+            issues: item.issues,
+            createdAt: now,
+            updatedAt: now,
+          };
+          transaction.set(grItemRef, grItemData);
+
+          // Update PO item quantities (using current values from transaction read)
+          if (poItemDoc?.exists()) {
+            const currentPoItem = poItemDoc.data() as PurchaseOrderItem;
+            const newDelivered = (currentPoItem.quantityDelivered || 0) + item.receivedQuantity;
+            const newAccepted = (currentPoItem.quantityAccepted || 0) + item.acceptedQuantity;
+            const newRejected = (currentPoItem.quantityRejected || 0) + item.rejectedQuantity;
+
+            let deliveryStatus: 'PENDING' | 'PARTIAL' | 'COMPLETE' = 'PARTIAL';
+            if (newDelivered >= (currentPoItem.quantity || 0)) {
+              deliveryStatus = 'COMPLETE';
+            } else if (newDelivered === 0) {
+              deliveryStatus = 'PENDING';
+            }
+
+            transaction.update(doc(db, COLLECTIONS.PURCHASE_ORDER_ITEMS, item.poItemId), {
+              quantityDelivered: newDelivered,
+              quantityAccepted: newAccepted,
+              quantityRejected: newRejected,
+              deliveryStatus,
+              updatedAt: now,
+            });
+          }
+        });
+
+        return { grId: grRef.id, poNumber: po.number, poVendorName: po.vendorName };
+      });
+
+      // Audit log outside transaction (non-critical, fire-and-forget)
+      const auditContext = createAuditContext(userId, '', userName);
+      logAuditEvent(
+        db,
+        auditContext,
+        'GR_CREATED',
+        'GOODS_RECEIPT',
+        grId,
+        `Created Goods Receipt ${grNumber} for PO ${poNumber}`,
+        {
+          entityName: grNumber,
+          metadata: {
+            purchaseOrderId: input.purchaseOrderId,
+            poNumber,
+            vendorName: poVendorName,
+            overallCondition,
+            itemCount: input.items.length,
+            hasIssues,
+          },
+        }
+      ).catch((err) => logger.error('Failed to log audit event', { error: err }));
+
+      logger.info('Goods Receipt created', { grId, grNumber });
+
+      return grId;
+    },
+    { userId, metadata: { purchaseOrderId: input.purchaseOrderId, userName } }
+  );
 }
 
 // ============================================================================

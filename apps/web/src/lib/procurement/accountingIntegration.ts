@@ -15,11 +15,10 @@ import {
   doc,
   getDoc,
   updateDoc,
-  addDoc,
-  collection,
   query,
   where,
   getDocs,
+  collection,
   Timestamp,
   type Firestore,
 } from 'firebase/firestore';
@@ -38,6 +37,7 @@ import { createLogger } from '@vapour/logger';
 const logger = createLogger({ context: 'accountingIntegration' });
 import { generateBillGLEntries, type BillGLInput } from '../accounting/glEntry';
 import { createPaymentWithAllocationsAtomic } from '../accounting/paymentHelpers';
+import { saveTransaction } from '../accounting/transactionService';
 
 /**
  * Error types for integration failures
@@ -271,22 +271,23 @@ export async function createBillFromGoodsReceipt(
       createdByEmail: userEmail,
     };
 
-    // Create the bill
-    const billRef = await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), billData);
+    // Create the bill with double-entry validation
+    // This will throw UnbalancedEntriesError if entries don't balance
+    const billId = await saveTransaction(db, billData);
 
     // Update goods receipt with bill reference
     const grRef = doc(db, COLLECTIONS.GOODS_RECEIPTS, goodsReceipt.id);
     await updateDoc(grRef, {
-      paymentRequestId: billRef.id,
+      paymentRequestId: billId,
       updatedAt: Timestamp.now(),
     });
 
     logger.info('Created bill from goods receipt', {
-      billId: billRef.id,
+      billId,
       goodsReceiptId: goodsReceipt.id,
     });
 
-    return billRef.id;
+    return billId;
   } catch (error) {
     if (error instanceof AccountingIntegrationError) {
       throw error;

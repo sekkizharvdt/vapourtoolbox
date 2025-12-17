@@ -33,6 +33,8 @@ import type {
   DocumentVersionHistory,
   EquipmentDocumentSummary,
 } from '@vapour/types';
+import { PermissionFlag } from '@vapour/types';
+import { requireOwnerOrPermission } from '@/lib/auth';
 
 const logger = createLogger({ context: 'documentService' });
 
@@ -496,14 +498,40 @@ export async function trackDocumentDownload(documentId: string, userId: string):
 // DELETE DOCUMENT (SOFT DELETE)
 // ============================================================================
 
+/**
+ * Delete a document (soft delete by setting status to DELETED)
+ *
+ * Authorization: User must be the uploader OR have MANAGE_MASTER_DOCUMENT_LIST permission
+ *
+ * @param documentId - Document ID to delete
+ * @param userId - User performing the deletion
+ * @param userPermissions - User's permission flags
+ * @param reason - Optional deletion reason
+ */
 export async function deleteDocument(
   documentId: string,
   userId: string,
+  userPermissions: number,
   reason?: string
 ): Promise<void> {
   const { db } = getFirebase();
 
   try {
+    // Get document to check ownership
+    const document = await getDocumentById(documentId);
+    if (!document) {
+      throw new Error('Document not found');
+    }
+
+    // Authorization: Require ownership or MANAGE_MASTER_DOCUMENT_LIST permission
+    requireOwnerOrPermission(
+      userId,
+      document.uploadedBy,
+      userPermissions,
+      PermissionFlag.MANAGE_MASTER_DOCUMENT_LIST,
+      'delete document'
+    );
+
     const docRef = doc(db, COLLECTIONS.DOCUMENTS, documentId);
 
     await updateDoc(docRef, {

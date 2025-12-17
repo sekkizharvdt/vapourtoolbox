@@ -50,7 +50,7 @@ export default function EnquiryDetailClient() {
   const pathname = usePathname();
   const router = useRouter();
   const db = useFirestore();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
 
   const [enquiry, setEnquiry] = useState<Enquiry | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,11 +113,11 @@ export default function EnquiryDetailClient() {
   };
 
   const handleDelete = async () => {
-    if (!db || !enquiry || !user?.uid) return;
+    if (!db || !enquiry || !user?.uid || !claims) return;
     if (!window.confirm('Are you sure you want to delete this enquiry?')) return;
 
     try {
-      await deleteEnquiry(db, enquiry.id, user.uid);
+      await deleteEnquiry(db, enquiry.id, user.uid, claims.permissions);
       router.push('/proposals/enquiries');
     } catch (err) {
       console.error('Error deleting enquiry:', err);

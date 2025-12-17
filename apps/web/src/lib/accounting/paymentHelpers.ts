@@ -26,6 +26,7 @@ import {
   generateVendorPaymentGLEntries,
   type PaymentGLInput,
 } from './glEntry';
+import { enforceDoubleEntry, saveTransactionBatch } from './transactionService';
 
 const logger = createLogger({ context: 'paymentHelpers' });
 
@@ -227,16 +228,19 @@ export async function createPaymentWithAllocationsAtomic(
       throw new Error(`GL entry generation failed: ${glResult.errors.join(', ')}`);
     }
 
-    // 2. Create the payment document with GL entries
-    const paymentRef = doc(collection(db, COLLECTIONS.TRANSACTIONS));
+    // 2. Enforce double-entry validation before creating the payment
+    enforceDoubleEntry(glResult.entries);
+
+    // 3. Create the payment document with GL entries using the validated helper
     const paymentDataWithGL = {
       ...paymentData,
+      type: paymentType, // Ensure type is set for transaction service
       entries: glResult.entries,
       glGeneratedAt: Timestamp.now(),
     };
-    batch.set(paymentRef, paymentDataWithGL);
+    const paymentRef = saveTransactionBatch(batch, db, paymentDataWithGL);
 
-    // 3. Update each invoice/bill status in the same batch
+    // 4. Update each invoice/bill status in the same batch
     for (const allocation of allocations) {
       if (allocation.allocatedAmount <= 0) continue;
 
@@ -269,7 +273,7 @@ export async function createPaymentWithAllocationsAtomic(
       });
     }
 
-    // 4. Commit all operations atomically
+    // 5. Commit all operations atomically
     await batch.commit();
 
     return paymentRef.id;

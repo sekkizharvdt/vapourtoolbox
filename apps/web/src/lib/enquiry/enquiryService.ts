@@ -28,7 +28,9 @@ import type {
   EnquiryStatus,
   EnquiryDocument,
 } from '@vapour/types';
+import { PermissionFlag } from '@vapour/types';
 import { ref, uploadBytes, getDownloadURL, deleteObject, FirebaseStorage } from 'firebase/storage';
+import { requireOwnerOrPermission } from '@/lib/auth';
 
 const logger = createLogger({ context: 'enquiryService' });
 
@@ -353,13 +355,36 @@ export async function markProposalCreated(
 
 /**
  * Delete enquiry (soft delete by setting status to CANCELLED)
+ *
+ * Authorization: User must be the creator OR have MANAGE_ENTITIES permission
+ *
+ * @param db - Firestore instance
+ * @param enquiryId - Enquiry ID to delete
+ * @param userId - User performing the deletion
+ * @param userPermissions - User's permission flags
  */
 export async function deleteEnquiry(
   db: Firestore,
   enquiryId: string,
-  userId: string
+  userId: string,
+  userPermissions: number
 ): Promise<void> {
   try {
+    // Get enquiry to check ownership
+    const enquiry = await getEnquiryById(db, enquiryId);
+    if (!enquiry) {
+      throw new Error('Enquiry not found');
+    }
+
+    // Authorization: Require ownership or MANAGE_ENTITIES permission
+    requireOwnerOrPermission(
+      userId,
+      enquiry.createdBy,
+      userPermissions,
+      PermissionFlag.MANAGE_ENTITIES,
+      'delete enquiry'
+    );
+
     await updateEnquiryStatus(db, enquiryId, 'CANCELLED', userId, 'Deleted by user');
     logger.info('Enquiry deleted (soft)', { enquiryId });
   } catch (error) {

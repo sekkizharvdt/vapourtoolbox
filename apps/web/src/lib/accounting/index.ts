@@ -12,6 +12,7 @@
 export * from './fiscalYearService';
 export * from './paymentHelpers';
 export * from './transactionHelpers';
+export * from './transactionService';
 export * from './transactionNumberGenerator';
 export * from './systemAccountResolver';
 export * from './ledgerValidator';

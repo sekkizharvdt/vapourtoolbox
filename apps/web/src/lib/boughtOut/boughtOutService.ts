@@ -17,7 +17,9 @@ import {
   CreateBoughtOutItemInput,
   UpdateBoughtOutItemInput,
   ListBoughtOutItemsOptions,
+  PermissionFlag,
 } from '@vapour/types';
+import { requirePermission } from '@/lib/auth';
 
 const COLLECTIONS = {
   BOUGHT_OUT_ITEMS: 'bought_out_items',
@@ -128,12 +130,26 @@ export async function updateBoughtOutItem(
 
 /**
  * Soft delete a bought-out item
+ *
+ * @param db - Firestore instance
+ * @param itemId - Item ID to delete
+ * @param userId - User performing the deletion
+ * @param userPermissions - User's permission flags
  */
 export async function deleteBoughtOutItem(
   db: Firestore,
   itemId: string,
-  userId: string
+  userId: string,
+  userPermissions: number
 ): Promise<void> {
+  // Authorization: Require MANAGE_ENTITIES permission
+  requirePermission(
+    userPermissions,
+    PermissionFlag.MANAGE_ENTITIES,
+    userId,
+    'delete bought-out item'
+  );
+
   // Soft delete by setting isActive = false
   await updateDoc(doc(db, COLLECTIONS.BOUGHT_OUT_ITEMS, itemId), {
     isActive: false,

@@ -39,6 +39,7 @@ import { formatCurrency } from './purchaseOrderHelpers';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { requirePermission, requireApprover, preventSelfApproval } from '@/lib/auth';
 import { purchaseOrderStateMachine } from '@/lib/workflow/stateMachines';
+import { withIdempotency, generateIdempotencyKey } from '@/lib/utils/idempotencyService';
 
 const logger = createLogger({ context: 'purchaseOrderService' });
 
@@ -113,191 +114,202 @@ export async function createPOFromOffer(
 ): Promise<string> {
   const { db } = getFirebase();
 
-  // Get offer and its items
-  const offerDoc = await getDoc(doc(db, COLLECTIONS.OFFERS, offerId));
-  if (!offerDoc.exists()) {
-    throw new Error('Offer not found');
-  }
+  // Generate idempotency key based on offer ID and user
+  // This prevents duplicate PO creation from double-clicks or network retries
+  const idempotencyKey = generateIdempotencyKey('create-po-from-offer', offerId, userId);
 
-  const offer = { id: offerDoc.id, ...offerDoc.data() } as Offer;
-
-  const offerItemsQuery = query(
-    collection(db, COLLECTIONS.OFFER_ITEMS),
-    where('offerId', '==', offerId),
-    orderBy('lineNumber', 'asc')
-  );
-  const offerItemsSnapshot = await getDocs(offerItemsQuery);
-  const offerItems = offerItemsSnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as OfferItem[];
-
-  const poNumber = await generatePONumber();
-  const now = Timestamp.now();
-
-  // Calculate totals
-  const subtotal = offer.subtotal;
-  const totalTax = offer.taxAmount;
-
-  // For now, split tax equally into CGST and SGST (intra-state)
-  const cgst = totalTax / 2;
-  const sgst = totalTax / 2;
-  const igst = 0; // Inter-state
-
-  const grandTotal = offer.totalAmount;
-
-  // Calculate advance amount if required
-  let advanceAmount = 0;
-  if (terms.advancePaymentRequired && terms.advancePercentage) {
-    advanceAmount = (grandTotal * terms.advancePercentage) / 100;
-  }
-
-  // Create PO
-  const poData: Omit<PurchaseOrder, 'id'> = {
-    number: poNumber,
-    rfqId: offer.rfqId,
-    offerId: offer.id,
-    selectedOfferNumber: offer.number,
-    vendorId: offer.vendorId,
-    vendorName: offer.vendorName,
-    projectIds: [], // Will be populated from items
-    projectNames: [],
-    title: `Purchase Order for ${offer.vendorName}`,
-    description: `PO created from offer ${offer.number}`,
-    subtotal,
-    cgst,
-    sgst,
-    igst,
-    totalTax,
-    grandTotal,
-    currency: offer.currency,
-    paymentTerms: terms.paymentTerms,
-    deliveryTerms: terms.deliveryTerms,
-    warrantyTerms: terms.warrantyTerms,
-    penaltyClause: terms.penaltyClause,
-    otherClauses: terms.otherClauses || [],
-    deliveryAddress: terms.deliveryAddress,
-    expectedDeliveryDate: terms.expectedDeliveryDate
-      ? Timestamp.fromDate(terms.expectedDeliveryDate)
-      : undefined,
-    pdfVersion: 1,
-    status: 'DRAFT',
-    advancePaymentRequired: terms.advancePaymentRequired || false,
-    advancePercentage: terms.advancePercentage,
-    advanceAmount: advanceAmount || undefined,
-    advancePaymentStatus: terms.advancePaymentRequired ? 'PENDING' : undefined,
-    deliveryProgress: 0,
-    paymentProgress: 0,
-    createdAt: now,
-    updatedAt: now,
-    createdBy: userId,
-    updatedBy: userId,
-  };
-
-  const poRef = await addDoc(collection(db, COLLECTIONS.PURCHASE_ORDERS), poData);
-
-  // Create PO items from offer items
-  // Batch fetch RFQ items to get projectId for each item (avoid N+1 query)
-  const rfqItemMap = new Map<
-    string,
-    { projectId: string; equipmentId?: string; equipmentCode?: string }
-  >();
-
-  // Get unique RFQ item IDs
-  const uniqueRfqItemIds = [...new Set(offerItems.map((item) => item.rfqItemId))];
-
-  // Batch fetch all RFQ items in parallel (Firestore doesn't support 'in' for document refs,
-  // but we can use Promise.all for parallel fetching)
-  const rfqItemPromises = uniqueRfqItemIds.map(async (rfqItemId) => {
-    try {
-      const rfqItemDoc = await getDoc(doc(db, COLLECTIONS.RFQ_ITEMS, rfqItemId));
-      if (rfqItemDoc.exists()) {
-        const rfqItemData = rfqItemDoc.data();
-        return {
-          id: rfqItemId,
-          data: {
-            projectId: rfqItemData.projectId || '',
-            equipmentId: rfqItemData.equipmentId,
-            equipmentCode: rfqItemData.equipmentCode,
-          },
-        };
-      } else {
-        logger.warn('RFQ item not found', { rfqItemId });
-        return { id: rfqItemId, data: { projectId: '' } };
-      }
-    } catch (err) {
-      logger.error('Error fetching RFQ item', { rfqItemId, error: err });
-      return { id: rfqItemId, data: { projectId: '' } };
-    }
-  });
-
-  const rfqItemResults = await Promise.all(rfqItemPromises);
-  rfqItemResults.forEach(({ id, data }) => {
-    rfqItemMap.set(id, data);
-  });
-
-  const batch = writeBatch(db);
-
-  offerItems.forEach((item) => {
-    const rfqItemInfo = rfqItemMap.get(item.rfqItemId) || { projectId: '' };
-
-    const poItemData: Omit<PurchaseOrderItem, 'id'> = {
-      purchaseOrderId: poRef.id,
-      offerItemId: item.id,
-      rfqItemId: item.rfqItemId,
-      lineNumber: item.lineNumber,
-      description: item.description,
-      projectId: rfqItemInfo.projectId,
-      equipmentId: rfqItemInfo.equipmentId,
-      equipmentCode: rfqItemInfo.equipmentCode,
-      quantity: item.quotedQuantity,
-      unit: item.unit,
-      unitPrice: item.unitPrice,
-      amount: item.amount,
-      gstRate: item.gstRate || 0,
-      gstAmount: item.gstAmount || 0,
-      makeModel: item.makeModel,
-      deliveryDate: item.deliveryDate,
-      quantityDelivered: 0,
-      quantityAccepted: 0,
-      quantityRejected: 0,
-      deliveryStatus: 'PENDING',
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    const itemRef = doc(collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS));
-    batch.set(itemRef, poItemData);
-  });
-
-  await batch.commit();
-
-  // Audit log: PO created
-  const auditContext = createAuditContext(userId, '', userName);
-  await logAuditEvent(
+  return withIdempotency(
     db,
-    auditContext,
-    'PO_CREATED',
-    'PURCHASE_ORDER',
-    poRef.id,
-    `Created Purchase Order ${poNumber} for ${offer.vendorName}`,
-    {
-      entityName: poNumber,
-      metadata: {
+    idempotencyKey,
+    'create-po-from-offer',
+    async () => {
+      // Get offer and its items
+      const offerDoc = await getDoc(doc(db, COLLECTIONS.OFFERS, offerId));
+      if (!offerDoc.exists()) {
+        throw new Error('Offer not found');
+      }
+
+      const offer = { id: offerDoc.id, ...offerDoc.data() } as Offer;
+
+      const offerItemsQuery = query(
+        collection(db, COLLECTIONS.OFFER_ITEMS),
+        where('offerId', '==', offerId),
+        orderBy('lineNumber', 'asc')
+      );
+      const offerItemsSnapshot = await getDocs(offerItemsQuery);
+      const offerItems = offerItemsSnapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })) as OfferItem[];
+
+      const poNumber = await generatePONumber();
+      const now = Timestamp.now();
+
+      // Calculate totals
+      const subtotal = offer.subtotal;
+      const totalTax = offer.taxAmount;
+
+      // For now, split tax equally into CGST and SGST (intra-state)
+      const cgst = totalTax / 2;
+      const sgst = totalTax / 2;
+      const igst = 0; // Inter-state
+
+      const grandTotal = offer.totalAmount;
+
+      // Calculate advance amount if required
+      let advanceAmount = 0;
+      if (terms.advancePaymentRequired && terms.advancePercentage) {
+        advanceAmount = (grandTotal * terms.advancePercentage) / 100;
+      }
+
+      // Create PO
+      const poData: Omit<PurchaseOrder, 'id'> = {
+        number: poNumber,
+        rfqId: offer.rfqId,
+        offerId: offer.id,
+        selectedOfferNumber: offer.number,
         vendorId: offer.vendorId,
         vendorName: offer.vendorName,
-        offerId: offer.id,
-        offerNumber: offer.number,
-        grandTotal: grandTotal,
+        projectIds: [], // Will be populated from items
+        projectNames: [],
+        title: `Purchase Order for ${offer.vendorName}`,
+        description: `PO created from offer ${offer.number}`,
+        subtotal,
+        cgst,
+        sgst,
+        igst,
+        totalTax,
+        grandTotal,
         currency: offer.currency,
-        itemCount: offerItems.length,
-      },
-    }
+        paymentTerms: terms.paymentTerms,
+        deliveryTerms: terms.deliveryTerms,
+        warrantyTerms: terms.warrantyTerms,
+        penaltyClause: terms.penaltyClause,
+        otherClauses: terms.otherClauses || [],
+        deliveryAddress: terms.deliveryAddress,
+        expectedDeliveryDate: terms.expectedDeliveryDate
+          ? Timestamp.fromDate(terms.expectedDeliveryDate)
+          : undefined,
+        pdfVersion: 1,
+        status: 'DRAFT',
+        advancePaymentRequired: terms.advancePaymentRequired || false,
+        advancePercentage: terms.advancePercentage,
+        advanceAmount: advanceAmount || undefined,
+        advancePaymentStatus: terms.advancePaymentRequired ? 'PENDING' : undefined,
+        deliveryProgress: 0,
+        paymentProgress: 0,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: userId,
+        updatedBy: userId,
+      };
+
+      const poRef = await addDoc(collection(db, COLLECTIONS.PURCHASE_ORDERS), poData);
+
+      // Create PO items from offer items
+      // Batch fetch RFQ items to get projectId for each item (avoid N+1 query)
+      const rfqItemMap = new Map<
+        string,
+        { projectId: string; equipmentId?: string; equipmentCode?: string }
+      >();
+
+      // Get unique RFQ item IDs
+      const uniqueRfqItemIds = [...new Set(offerItems.map((item) => item.rfqItemId))];
+
+      // Batch fetch all RFQ items in parallel
+      const rfqItemPromises = uniqueRfqItemIds.map(async (rfqItemId) => {
+        try {
+          const rfqItemDoc = await getDoc(doc(db, COLLECTIONS.RFQ_ITEMS, rfqItemId));
+          if (rfqItemDoc.exists()) {
+            const rfqItemData = rfqItemDoc.data();
+            return {
+              id: rfqItemId,
+              data: {
+                projectId: rfqItemData.projectId || '',
+                equipmentId: rfqItemData.equipmentId,
+                equipmentCode: rfqItemData.equipmentCode,
+              },
+            };
+          } else {
+            logger.warn('RFQ item not found', { rfqItemId });
+            return { id: rfqItemId, data: { projectId: '' } };
+          }
+        } catch (err) {
+          logger.error('Error fetching RFQ item', { rfqItemId, error: err });
+          return { id: rfqItemId, data: { projectId: '' } };
+        }
+      });
+
+      const rfqItemResults = await Promise.all(rfqItemPromises);
+      rfqItemResults.forEach(({ id, data }) => {
+        rfqItemMap.set(id, data);
+      });
+
+      const batch = writeBatch(db);
+
+      offerItems.forEach((item) => {
+        const rfqItemInfo = rfqItemMap.get(item.rfqItemId) || { projectId: '' };
+
+        const poItemData: Omit<PurchaseOrderItem, 'id'> = {
+          purchaseOrderId: poRef.id,
+          offerItemId: item.id,
+          rfqItemId: item.rfqItemId,
+          lineNumber: item.lineNumber,
+          description: item.description,
+          projectId: rfqItemInfo.projectId,
+          equipmentId: rfqItemInfo.equipmentId,
+          equipmentCode: rfqItemInfo.equipmentCode,
+          quantity: item.quotedQuantity,
+          unit: item.unit,
+          unitPrice: item.unitPrice,
+          amount: item.amount,
+          gstRate: item.gstRate || 0,
+          gstAmount: item.gstAmount || 0,
+          makeModel: item.makeModel,
+          deliveryDate: item.deliveryDate,
+          quantityDelivered: 0,
+          quantityAccepted: 0,
+          quantityRejected: 0,
+          deliveryStatus: 'PENDING',
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        const itemRef = doc(collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS));
+        batch.set(itemRef, poItemData);
+      });
+
+      await batch.commit();
+
+      // Audit log: PO created
+      const auditContext = createAuditContext(userId, '', userName);
+      await logAuditEvent(
+        db,
+        auditContext,
+        'PO_CREATED',
+        'PURCHASE_ORDER',
+        poRef.id,
+        `Created Purchase Order ${poNumber} for ${offer.vendorName}`,
+        {
+          entityName: poNumber,
+          metadata: {
+            vendorId: offer.vendorId,
+            vendorName: offer.vendorName,
+            offerId: offer.id,
+            offerNumber: offer.number,
+            grandTotal: grandTotal,
+            currency: offer.currency,
+            itemCount: offerItems.length,
+          },
+        }
+      );
+
+      logger.info('PO created', { poId: poRef.id, poNumber });
+
+      return poRef.id;
+    },
+    { userId, metadata: { offerId, userName } }
   );
-
-  logger.info('PO created', { poId: poRef.id, poNumber });
-
-  return poRef.id;
 }
 
 // ============================================================================

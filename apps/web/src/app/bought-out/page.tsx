@@ -46,7 +46,7 @@ interface DynamicColumn {
 
 export default function BoughtOutPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { db } = getFirebase();
 
   const [items, setItems] = useState<BoughtOutItem[]>([]);
@@ -84,10 +84,10 @@ export default function BoughtOutPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this item?')) return;
-    if (!user) return;
+    if (!user || !claims) return;
 
     try {
-      await deleteBoughtOutItem(db, id, user.uid);
+      await deleteBoughtOutItem(db, id, user.uid, claims.permissions);
       loadItems();
     } catch (error) {
       console.error('Error deleting item:', error);
