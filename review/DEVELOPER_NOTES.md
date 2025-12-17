@@ -1,6 +1,6 @@
 # VDT-Unified Developer Notes
 
-## Architecture Grade: 8.2/10
+## Architecture Grade: 8.7/10
 
 This document provides essential guidance for developers working on the VDT-Unified codebase. Understanding these patterns and constraints is critical for maintaining code quality and system integrity.
 
@@ -17,7 +17,8 @@ This document provides essential guidance for developers working on the VDT-Unif
 7. [Firestore Patterns](#7-firestore-patterns)
 8. [State Management](#8-state-management)
 9. [Common Pitfalls](#9-common-pitfalls)
-10. [Code Review Checklist](#10-code-review-checklist)
+10. [Scalability Patterns](#10-scalability-patterns)
+11. [Code Review Checklist](#11-code-review-checklist)
 
 ---
 
@@ -542,9 +543,134 @@ const q = query(
 );
 ```
 
+### 9.5 N+1 Query Patterns
+
+```typescript
+// ❌ WRONG - N+1 queries (one query per item)
+for (const po of purchaseOrders) {
+  const items = await getPOItems(po.id); // N queries!
+}
+
+// ✅ CORRECT - Batch query using 'in' operator
+import { getOfferItemsBatch } from '@/lib/procurement/offer/crud';
+
+const itemsMap = await getOfferItemsBatch(offerIds); // Single batched query
+offers.forEach((offer) => {
+  const items = itemsMap.get(offer.id) || [];
+});
+```
+
 ---
 
-## 10. Code Review Checklist
+## 10. Scalability Patterns
+
+### 10.1 Optimistic Locking for Concurrent Edits
+
+Prevent lost updates when multiple users edit the same document:
+
+```typescript
+import { updateWithVersionCheck, OptimisticLockError } from '@/lib/utils/optimisticLocking';
+
+// Read document with version
+const doc = await getDoc(docRef);
+const version = doc.data()?.version ?? 0;
+
+try {
+  // Update with version check - fails if someone else modified it
+  await updateWithVersionCheck(db, docRef, { name: 'New Name' }, version);
+} catch (error) {
+  if (error instanceof OptimisticLockError) {
+    // Document was modified by another user - refresh and retry
+    toast.error('Document was modified. Please refresh and try again.');
+  }
+}
+```
+
+### 10.2 Batch Processing for Heavy Operations
+
+Process large datasets without overwhelming Firestore:
+
+```typescript
+import { processBatch, processParallelBatch } from '@/lib/utils/batchProcessor';
+
+// Sequential processing with progress tracking
+const result = await processBatch(
+  items,
+  async (item) => {
+    return await processItem(item);
+  },
+  {
+    batchSize: 50,
+    delayBetweenBatches: 100,
+    onProgress: (progress) => setProgress(progress.percent),
+    stopOnError: false, // Continue on individual failures
+  }
+);
+
+console.log(`Processed ${result.successCount}/${result.totalCount} items`);
+```
+
+### 10.3 Materialized Aggregations for Dashboards
+
+Avoid expensive real-time aggregation queries:
+
+```typescript
+import {
+  incrementCounter,
+  updateStatusCounter,
+  AggregationKeys,
+} from '@/lib/utils/materializedAggregations';
+
+// When PO status changes, update counters atomically
+await updateStatusCounter(db, 'purchaseOrders', oldStatus, newStatus, { projectId });
+
+// Read pre-computed counts for dashboard (instant, not full scan)
+const pendingCount = await getAggregation(db, AggregationKeys.poCountByStatus('PENDING_APPROVAL'));
+```
+
+### 10.4 React Query Caching for Frequently-Read Data
+
+Use aggressive caching for reference data that rarely changes:
+
+```typescript
+import { useAccounts, useBankAccounts } from '@/lib/accounting/hooks/useAccounts';
+import { useLeaveTypes } from '@/lib/hr/leaves/hooks/useLeaveTypes';
+
+// Chart of Accounts cached for 10 minutes
+const { data: accounts } = useAccounts({ isActive: true });
+
+// Bank accounts with 10-minute stale time
+const { data: bankAccounts } = useBankAccounts();
+```
+
+### 10.5 Pagination for List Queries
+
+Always paginate unbounded queries:
+
+```typescript
+// ✅ CORRECT - Returns paginated results
+export async function getCompanyDocuments(
+  filters: DocumentFilters,
+  pageSize: number = 50
+): Promise<{ documents: CompanyDocument[]; hasMore: boolean }> {
+  const q = query(
+    collection(db, COLLECTIONS.COMPANY_DOCUMENTS),
+    where('isActive', '==', true),
+    orderBy('createdAt', 'desc'),
+    limit(pageSize + 1) // Fetch one extra to check hasMore
+  );
+
+  const docs = snapshot.docs.slice(0, pageSize);
+  return {
+    documents: docs.map((d) => ({ id: d.id, ...d.data() })),
+    hasMore: snapshot.docs.length > pageSize,
+  };
+}
+```
+
+---
+
+## 11. Code Review Checklist
 
 Before approving any PR, verify:
 
@@ -610,30 +736,49 @@ import { getStartOfDay, getFiscalYear, DEFAULT_TIMEZONE } from '@/lib/utils/date
 // Firestore
 import { COLLECTIONS } from '@vapour/firebase';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
+
+// Scalability
+import { updateWithVersionCheck, OptimisticLockError } from '@/lib/utils/optimisticLocking';
+import { processBatch, processParallelBatch } from '@/lib/utils/batchProcessor';
+import {
+  incrementCounter,
+  updateStatusCounter,
+  AggregationKeys,
+} from '@/lib/utils/materializedAggregations';
+
+// Caching Hooks
+import { useAccounts, useBankAccounts } from '@/lib/accounting/hooks/useAccounts';
+import { useLeaveTypes } from '@/lib/hr/leaves/hooks/useLeaveTypes';
 ```
 
 ### File Locations
 
-| Utility             | Location                                        |
-| ------------------- | ----------------------------------------------- |
-| Transaction helpers | `apps/web/src/lib/utils/transactionHelpers.ts`  |
-| Authorization       | `apps/web/src/lib/auth/authorizationService.ts` |
-| State machines      | `apps/web/src/lib/workflow/stateMachines.ts`    |
-| Error handling      | `apps/web/src/lib/utils/errorHandling.ts`       |
-| Date utilities      | `apps/web/src/lib/utils/dateTime.ts`            |
-| Idempotency         | `apps/web/src/lib/utils/idempotencyService.ts`  |
-| Audit logging       | `apps/web/src/lib/audit/clientAuditService.ts`  |
-| Type helpers        | `apps/web/src/lib/firebase/typeHelpers.ts`      |
+| Utility                   | Location                                             |
+| ------------------------- | ---------------------------------------------------- |
+| Transaction helpers       | `apps/web/src/lib/utils/transactionHelpers.ts`       |
+| Authorization             | `apps/web/src/lib/auth/authorizationService.ts`      |
+| State machines            | `apps/web/src/lib/workflow/stateMachines.ts`         |
+| Error handling            | `apps/web/src/lib/utils/errorHandling.ts`            |
+| Date utilities            | `apps/web/src/lib/utils/dateTime.ts`                 |
+| Idempotency               | `apps/web/src/lib/utils/idempotencyService.ts`       |
+| Audit logging             | `apps/web/src/lib/audit/clientAuditService.ts`       |
+| Type helpers              | `apps/web/src/lib/firebase/typeHelpers.ts`           |
+| Optimistic locking        | `apps/web/src/lib/utils/optimisticLocking.ts`        |
+| Batch processor           | `apps/web/src/lib/utils/batchProcessor.ts`           |
+| Materialized aggregations | `apps/web/src/lib/utils/materializedAggregations.ts` |
+| Accounts hooks            | `apps/web/src/lib/accounting/hooks/useAccounts.ts`   |
+| Leave types hooks         | `apps/web/src/lib/hr/leaves/hooks/useLeaveTypes.ts`  |
 
 ---
 
 ## Version History
 
-| Date       | Version | Changes                                                |
-| ---------- | ------- | ------------------------------------------------------ |
-| 2025-12-17 | 1.0     | Initial developer notes after architecture remediation |
+| Date       | Version | Changes                                                                                                     |
+| ---------- | ------- | ----------------------------------------------------------------------------------------------------------- |
+| 2025-12-17 | 1.0     | Initial developer notes after architecture remediation                                                      |
+| 2025-12-17 | 1.1     | Added scalability patterns (optimistic locking, batch processing, materialized aggregations, caching hooks) |
 
 ---
 
 _Last updated: December 2025_
-_Architecture Grade: 8.2/10_
+_Architecture Grade: 8.7/10_
