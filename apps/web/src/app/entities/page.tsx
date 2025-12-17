@@ -262,7 +262,14 @@ export default function EntitiesPage() {
         </Grid>
 
         {/* Filters */}
-        <FilterBar onClear={() => window.location.reload()}>
+        <FilterBar
+          onClear={() => {
+            setSearchTerm('');
+            setStatusFilter('all');
+            setRoleFilter('all');
+            setPage(0);
+          }}
+        >
           <TextField
             placeholder="Search entities..."
             value={searchTerm}

@@ -99,6 +99,7 @@ export default function EnquiriesPage() {
   const [urgencyFilter, setUrgencyFilter] = useState<EnquiryUrgency | 'ALL'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const entityId = claims?.entityId;
@@ -132,15 +133,15 @@ export default function EnquiriesPage() {
     };
 
     fetchEnquiries();
-  }, [db, claims?.entityId, statusFilter, urgencyFilter, searchTerm]);
+  }, [db, claims?.entityId, statusFilter, urgencyFilter, searchTerm, refreshKey]);
 
   const handleCreateEnquiry = () => {
     setCreateDialogOpen(true);
   };
 
   const handleEnquiryCreated = () => {
-    // Refresh list
-    window.location.reload(); // Simple reload for now, ideally refetch data
+    // Trigger a refetch by updating the refresh key
+    setRefreshKey((prev) => prev + 1);
   };
 
   const handleViewEnquiry = (enquiryId: string) => {
@@ -167,7 +168,7 @@ export default function EnquiriesPage() {
         <EmptyState
           title="Error Loading Enquiries"
           message={error}
-          action={<Button onClick={() => window.location.reload()}>Retry</Button>}
+          action={<Button onClick={() => setRefreshKey((prev) => prev + 1)}>Retry</Button>}
         />
       </Box>
     );

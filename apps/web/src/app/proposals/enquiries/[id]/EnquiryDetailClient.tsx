@@ -57,6 +57,7 @@ export default function EnquiryDetailClient() {
   const [error, setError] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [enquiryId, setEnquiryId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -75,6 +76,7 @@ export default function EnquiryDetailClient() {
     const loadEnquiry = async () => {
       try {
         setLoading(true);
+        setError(null);
         const data = await getEnquiryById(db, enquiryId);
         if (!data) {
           setError('Enquiry not found');
@@ -90,7 +92,7 @@ export default function EnquiryDetailClient() {
     };
 
     loadEnquiry();
-  }, [db, enquiryId]);
+  }, [db, enquiryId, refreshKey]);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -132,7 +134,7 @@ export default function EnquiryDetailClient() {
         <EmptyState
           title="Enquiry Not Found"
           message={error || "The enquiry you're looking for doesn't exist or has been deleted."}
-          action={<Button onClick={() => window.location.reload()}>Retry</Button>}
+          action={<Button onClick={() => setRefreshKey((prev) => prev + 1)}>Retry</Button>}
         />
       </Box>
     );

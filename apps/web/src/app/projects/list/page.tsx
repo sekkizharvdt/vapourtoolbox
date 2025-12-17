@@ -283,8 +283,16 @@ export default function ProjectsListPage() {
                 <MenuItem value="LOW">Low</MenuItem>
               </Select>
             </FormControl>
-            <Tooltip title="Refresh">
-              <IconButton onClick={() => window.location.reload()}>
+            <Tooltip title="Clear filters">
+              <IconButton
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('all');
+                  setPriorityFilter('all');
+                  setPage(0);
+                }}
+                aria-label="Clear filters"
+              >
                 <RefreshIcon />
               </IconButton>
             </Tooltip>

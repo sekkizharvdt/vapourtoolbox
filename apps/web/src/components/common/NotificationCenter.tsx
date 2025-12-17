@@ -357,7 +357,7 @@ export function NotificationCenter({
     <>
       {/* Notification Bell Button */}
       <Tooltip title="Notifications">
-        <IconButton color="inherit" onClick={() => setOpen(true)}>
+        <IconButton color="inherit" onClick={() => setOpen(true)} aria-label="Open notifications">
           <Badge badgeContent={unreadCount} color="error" max={99}>
             <NotificationsIcon />
           </Badge>
@@ -387,16 +387,28 @@ export function NotificationCenter({
           <Typography variant="h6">Notifications</Typography>
           <Box>
             <Tooltip title="Filter">
-              <IconButton size="small" onClick={(e) => setFilterAnchor(e.currentTarget)}>
+              <IconButton
+                size="small"
+                onClick={(e) => setFilterAnchor(e.currentTarget)}
+                aria-label="Filter notifications"
+              >
                 <FilterListIcon />
               </IconButton>
             </Tooltip>
             <Tooltip title="Settings">
-              <IconButton size="small" onClick={() => setShowSettings(!showSettings)}>
+              <IconButton
+                size="small"
+                onClick={() => setShowSettings(!showSettings)}
+                aria-label="Notification settings"
+              >
                 <SettingsIcon />
               </IconButton>
             </Tooltip>
-            <IconButton size="small" onClick={() => setOpen(false)}>
+            <IconButton
+              size="small"
+              onClick={() => setOpen(false)}
+              aria-label="Close notifications"
+            >
               <CloseIcon />
             </IconButton>
           </Box>

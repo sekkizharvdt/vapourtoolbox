@@ -398,7 +398,13 @@ export default function UserManagementPage() {
       </Alert>
 
       {/* Filters */}
-      <FilterBar onClear={() => window.location.reload()}>
+      <FilterBar
+        onClear={() => {
+          setSearchTerm('');
+          setStatusFilter('all');
+          setPage(0);
+        }}
+      >
         <TextField
           placeholder="Search by name or email..."
           value={searchTerm}

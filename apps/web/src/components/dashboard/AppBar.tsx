@@ -89,6 +89,7 @@ export function DashboardAppBar({
           edge="start"
           onClick={onMenuClick}
           sx={{ mr: 2, display: { md: 'none' } }}
+          aria-label="Open navigation menu"
         >
           <MenuIcon />
         </IconButton>
@@ -143,18 +144,22 @@ export function DashboardAppBar({
               color="inherit"
               onClick={onCommandPaletteOpen}
               sx={{ display: { xs: 'flex', sm: 'none' } }}
-              title="Search (Cmd+K)"
+              aria-label="Search (Cmd+K)"
             >
               <SearchIcon />
             </IconButton>
           )}
 
-          <IconButton color="inherit" onClick={handleHome} title="Home / Dashboard">
+          <IconButton color="inherit" onClick={handleHome} aria-label="Home / Dashboard">
             <HomeIcon />
           </IconButton>
 
           <Tooltip title="User Guide">
-            <IconButton color="inherit" onClick={() => router.push('/guide')}>
+            <IconButton
+              color="inherit"
+              onClick={() => router.push('/guide')}
+              aria-label="User Guide"
+            >
               <HelpOutlineIcon />
             </IconButton>
           </Tooltip>
@@ -166,6 +171,7 @@ export function DashboardAppBar({
               href="/feedback"
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="Send Feedback (opens in new tab)"
             >
               <FeedbackIcon />
             </IconButton>
@@ -173,11 +179,11 @@ export function DashboardAppBar({
 
           <ThemeToggle />
 
-          <IconButton color="inherit">
+          <IconButton color="inherit" aria-label="Notifications">
             <NotificationsIcon />
           </IconButton>
 
-          <IconButton onClick={handleMenu} color="inherit">
+          <IconButton onClick={handleMenu} color="inherit" aria-label="User menu">
             {user?.photoURL ? (
               <Avatar
                 src={user.photoURL}

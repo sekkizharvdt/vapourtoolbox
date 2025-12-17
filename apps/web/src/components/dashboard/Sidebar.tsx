@@ -478,6 +478,7 @@ function SidebarComponent({
         <Tooltip title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} placement="right">
           <IconButton
             onClick={onToggleCollapse}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             sx={{
               width: '100%',
               borderRadius: 1,
