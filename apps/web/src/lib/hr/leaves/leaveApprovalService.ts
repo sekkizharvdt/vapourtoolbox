@@ -71,25 +71,37 @@ async function getLeaveApproverEmails(): Promise<string[]> {
 
 /**
  * Get approver user IDs from emails
+ *
+ * Performance: Uses batched 'in' queries instead of N+1 sequential queries
+ * Firestore 'in' queries support max 30 values, so we batch if needed
  */
 async function getApproverUserIds(): Promise<string[]> {
   const { db } = getFirebase();
 
   try {
     const approverEmails = await getLeaveApproverEmails();
-    const userIds: string[] = [];
 
-    for (const email of approverEmails) {
+    if (approverEmails.length === 0) {
+      return [];
+    }
+
+    const userIds: string[] = [];
+    const batchSize = 30; // Firestore 'in' query limit
+
+    // Process emails in batches of 30 (Firestore 'in' query limit)
+    for (let i = 0; i < approverEmails.length; i += batchSize) {
+      const emailBatch = approverEmails.slice(i, i + batchSize);
+
       const q = query(
         collection(db, COLLECTIONS.USERS),
-        where('email', '==', email),
+        where('email', 'in', emailBatch),
         where('isActive', '==', true)
       );
 
       const snapshot = await getDocs(q);
-      if (!snapshot.empty && snapshot.docs[0]) {
-        userIds.push(snapshot.docs[0].id);
-      }
+      snapshot.docs.forEach((doc) => {
+        userIds.push(doc.id);
+      });
     }
 
     return userIds;

@@ -13,6 +13,7 @@ import {
   getDoc,
   updateDoc,
   Timestamp,
+  writeBatch,
   type Firestore,
   arrayUnion,
   arrayRemove,
@@ -308,6 +309,8 @@ export async function removeDocumentLink(db: Firestore, request: RemoveLinkReque
 /**
  * Update link status when a document status changes
  * This should be called whenever a document's status changes
+ *
+ * Performance: Uses parallel reads and batch writes instead of sequential N+1 operations
  */
 export async function updateLinksStatus(
   db: Firestore,
@@ -337,11 +340,25 @@ export async function updateLinksStatus(
   // Documents that have this as related
   document.relatedDocuments.forEach((link) => linkedDocumentIds.add(link.masterDocumentId));
 
-  // Update each linked document
-  for (const linkedDocId of linkedDocumentIds) {
+  if (linkedDocumentIds.size === 0) {
+    return;
+  }
+
+  // Fetch all linked documents in parallel (instead of N+1 sequential queries)
+  const linkedDocIds = Array.from(linkedDocumentIds);
+  const linkedDocPromises = linkedDocIds.map(async (linkedDocId) => {
     const linkedDocRef = doc(db, 'projects', projectId, 'masterDocuments', linkedDocId);
     const linkedSnapshot = await getDoc(linkedDocRef);
+    return { linkedDocId, linkedDocRef, linkedSnapshot };
+  });
 
+  const linkedDocResults = await Promise.all(linkedDocPromises);
+
+  // Use batch write for all updates (instead of sequential writes)
+  const batch = writeBatch(db);
+  const now = Timestamp.now();
+
+  for (const { linkedDocRef, linkedSnapshot } of linkedDocResults) {
     if (!linkedSnapshot.exists()) {
       continue;
     }
@@ -369,12 +386,15 @@ export async function updateLinksStatus(
         : link
     );
 
-    // Update the document
-    await updateDoc(linkedDocRef, {
+    // Add to batch
+    batch.update(linkedDocRef, {
       predecessors: updatedPredecessors,
       successors: updatedSuccessors,
       relatedDocuments: updatedRelated,
-      updatedAt: Timestamp.now(),
+      updatedAt: now,
     });
   }
+
+  // Commit all updates atomically
+  await batch.commit();
 }

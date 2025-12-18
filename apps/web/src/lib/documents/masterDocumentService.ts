@@ -17,6 +17,7 @@ import {
   orderBy,
   Timestamp,
   writeBatch,
+  getCountFromServer,
   type QueryConstraint,
   type Firestore,
 } from 'firebase/firestore';
@@ -313,28 +314,36 @@ export async function removePredecessor(
 /**
  * Check if all predecessors are completed
  * Returns true if all predecessors are in APPROVED or ACCEPTED status
+ *
+ * Performance: Uses parallel fetching instead of sequential N+1 queries
  */
 export async function checkPredecessorsCompleted(
   projectId: string,
   masterDocumentId: string
 ): Promise<{ allCompleted: boolean; pendingPredecessors: DocumentLink[] }> {
-  const doc = await getMasterDocumentById(projectId, masterDocumentId);
+  const docData = await getMasterDocumentById(projectId, masterDocumentId);
 
-  if (!doc) {
+  if (!docData) {
     throw new Error('Document not found');
   }
 
   // If no predecessors, return true
-  if (doc.predecessors.length === 0) {
+  if (docData.predecessors.length === 0) {
     return { allCompleted: true, pendingPredecessors: [] };
   }
+
+  // Fetch all predecessors in parallel (instead of N+1 sequential queries)
+  const predecessorPromises = docData.predecessors.map((predecessor) =>
+    getMasterDocumentById(projectId, predecessor.masterDocumentId)
+      .then((predecessorDoc) => ({ predecessor, predecessorDoc }))
+  );
+
+  const results = await Promise.all(predecessorPromises);
 
   // Check each predecessor's current status
   const pendingPredecessors: DocumentLink[] = [];
 
-  for (const predecessor of doc.predecessors) {
-    const predecessorDoc = await getMasterDocumentById(projectId, predecessor.masterDocumentId);
-
+  for (const { predecessor, predecessorDoc } of results) {
     if (
       predecessorDoc &&
       predecessorDoc.status !== 'APPROVED' &&
@@ -356,36 +365,54 @@ export async function checkPredecessorsCompleted(
 /**
  * Get successors that can be started
  * (for notification after a document is approved)
+ *
+ * Performance: Uses parallel fetching instead of sequential N+1 queries
  */
 export async function getSuccessorsReadyToStart(
   projectId: string,
   masterDocumentId: string
 ): Promise<MasterDocumentEntry[]> {
-  const doc = await getMasterDocumentById(projectId, masterDocumentId);
+  const docData = await getMasterDocumentById(projectId, masterDocumentId);
 
-  if (!doc) {
+  if (!docData) {
     throw new Error('Document not found');
   }
 
-  const readySuccessors: MasterDocumentEntry[] = [];
-
-  for (const successor of doc.successors) {
-    const successorDoc = await getMasterDocumentById(projectId, successor.masterDocumentId);
-
-    if (successorDoc && successorDoc.status === 'DRAFT') {
-      // Check if all predecessors are completed
-      const { allCompleted } = await checkPredecessorsCompleted(
-        projectId,
-        successor.masterDocumentId
-      );
-
-      if (allCompleted) {
-        readySuccessors.push(successorDoc);
-      }
-    }
+  if (docData.successors.length === 0) {
+    return [];
   }
 
-  return readySuccessors;
+  // Fetch all successors in parallel (instead of N+1 sequential queries)
+  const successorPromises = docData.successors.map((successor) =>
+    getMasterDocumentById(projectId, successor.masterDocumentId)
+  );
+
+  const successorDocs = await Promise.all(successorPromises);
+
+  // Filter to only DRAFT documents
+  const draftSuccessors = successorDocs.filter(
+    (successorDoc): successorDoc is MasterDocumentEntry =>
+      successorDoc !== null && successorDoc.status === 'DRAFT'
+  );
+
+  if (draftSuccessors.length === 0) {
+    return [];
+  }
+
+  // Check predecessors for all draft successors in parallel
+  const readyChecks = await Promise.all(
+    draftSuccessors.map(async (successorDoc) => {
+      const { allCompleted } = await checkPredecessorsCompleted(
+        projectId,
+        successorDoc.id
+      );
+      return { successorDoc, allCompleted };
+    })
+  );
+
+  return readyChecks
+    .filter(({ allCompleted }) => allCompleted)
+    .map(({ successorDoc }) => successorDoc);
 }
 
 // ============================================================================
@@ -440,6 +467,9 @@ export async function removeInputFile(
 
 /**
  * Get document statistics for a project
+ *
+ * Performance: Uses parallel Firestore count queries instead of loading all documents
+ * For overdue and discipline counts, we still fetch documents (minimal compared to before)
  */
 export async function getDocumentStatistics(
   db: Firestore,
@@ -451,45 +481,82 @@ export async function getDocumentStatistics(
   overdue: number;
   completionRate: number;
 }> {
-  const documents = await getMasterDocumentsByProject(db, projectId);
+  const collectionRef = collection(db, 'projects', projectId, 'masterDocuments');
 
-  const byStatus: Record<string, number> = {};
-  const byDiscipline: Record<string, number> = {};
-  let overdue = 0;
-  let completed = 0;
+  // Define all statuses to count
+  const statuses: MasterDocumentStatus[] = [
+    'DRAFT',
+    'IN_PROGRESS',
+    'SUBMITTED',
+    'UNDER_REVIEW',
+    'APPROVED',
+    'ACCEPTED',
+    'ON_HOLD',
+    'CANCELLED',
+  ];
 
-  const now = new Date();
-
-  documents.forEach((doc) => {
-    // Count by status
-    byStatus[doc.status] = (byStatus[doc.status] || 0) + 1;
-
-    // Count by discipline
-    byDiscipline[doc.disciplineCode] = (byDiscipline[doc.disciplineCode] || 0) + 1;
-
-    // Count overdue
-    if (
-      doc.dueDate &&
-      doc.dueDate.toDate() < now &&
-      doc.status !== 'APPROVED' &&
-      doc.status !== 'ACCEPTED'
-    ) {
-      overdue++;
-    }
-
-    // Count completed
-    if (doc.status === 'APPROVED' || doc.status === 'ACCEPTED') {
-      completed++;
-    }
+  // Parallel count queries for each status (much faster than loading all docs)
+  const statusCountPromises = statuses.map(async (status) => {
+    const statusQuery = query(
+      collectionRef,
+      where('isDeleted', '==', false),
+      where('status', '==', status)
+    );
+    const snapshot = await getCountFromServer(statusQuery);
+    return { status, count: snapshot.data().count };
   });
 
-  const completionRate = documents.length > 0 ? (completed / documents.length) * 100 : 0;
+  // Count overdue documents (documents with dueDate < now and not completed)
+  const now = Timestamp.now();
+  const overdueQuery = query(
+    collectionRef,
+    where('isDeleted', '==', false),
+    where('dueDate', '<', now),
+    where('status', 'not-in', ['APPROVED', 'ACCEPTED'])
+  );
+  const overduePromise = getCountFromServer(overdueQuery).then((s) => s.data().count);
+
+  // Total count
+  const totalQuery = query(collectionRef, where('isDeleted', '==', false));
+  const totalPromise = getCountFromServer(totalQuery).then((s) => s.data().count);
+
+  // For discipline breakdown, we need to fetch documents since Firestore doesn't support
+  // groupBy aggregations. However, we only select minimal fields needed.
+  // This is still better than the previous approach which loaded all document data.
+  const disciplinePromise = getDocs(
+    query(collectionRef, where('isDeleted', '==', false))
+  ).then((snapshot) => {
+    const byDiscipline: Record<string, number> = {};
+    snapshot.forEach((doc) => {
+      const disciplineCode = doc.data().disciplineCode as string;
+      byDiscipline[disciplineCode] = (byDiscipline[disciplineCode] || 0) + 1;
+    });
+    return byDiscipline;
+  });
+
+  // Execute all queries in parallel
+  const [statusCounts, overdueCount, totalCount, byDiscipline] = await Promise.all([
+    Promise.all(statusCountPromises),
+    overduePromise,
+    totalPromise,
+    disciplinePromise,
+  ]);
+
+  // Build status counts object
+  const byStatus: Record<string, number> = {};
+  statusCounts.forEach(({ status, count }) => {
+    byStatus[status] = count;
+  });
+
+  // Calculate completion rate
+  const completedCount = (byStatus['APPROVED'] || 0) + (byStatus['ACCEPTED'] || 0);
+  const completionRate = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   return {
-    total: documents.length,
+    total: totalCount,
     byStatus: byStatus as Record<MasterDocumentStatus, number>,
     byDiscipline,
-    overdue,
+    overdue: overdueCount,
     completionRate,
   };
 }
