@@ -186,8 +186,19 @@ export function FeedbackForm() {
     try {
       const { db } = getFirebase();
 
-      const feedbackData = {
-        ...formData,
+      // Build feedback data, excluding undefined values (Firestore doesn't accept undefined)
+      const feedbackData: Record<string, unknown> = {
+        type: formData.type,
+        module: formData.module,
+        title: formData.title,
+        description: formData.description,
+        pageUrl: formData.pageUrl,
+        browserInfo: formData.browserInfo,
+        screenshotUrls: formData.screenshotUrls,
+        stepsToReproduce: formData.stepsToReproduce,
+        expectedBehavior: formData.expectedBehavior,
+        actualBehavior: formData.actualBehavior,
+        consoleErrors: formData.consoleErrors,
         userId: user?.uid || null,
         userEmail: user?.email || null,
         userName: user?.displayName || null,
@@ -195,6 +206,17 @@ export function FeedbackForm() {
         status: 'new',
         priority: formData.type === 'bug' ? 'medium' : 'low',
       };
+
+      // Only add optional fields if they have values (avoid undefined in Firestore)
+      if (formData.severity) {
+        feedbackData.severity = formData.severity;
+      }
+      if (formData.frequency) {
+        feedbackData.frequency = formData.frequency;
+      }
+      if (formData.impact) {
+        feedbackData.impact = formData.impact;
+      }
 
       await addDoc(collection(db, 'feedback'), feedbackData);
 
