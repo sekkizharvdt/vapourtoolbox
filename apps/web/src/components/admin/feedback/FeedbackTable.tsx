@@ -24,6 +24,13 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import type { FeedbackItem } from './types';
 import { typeConfig, statusConfig } from './config';
+import { MODULE_OPTIONS } from '@/components/common/FeedbackForm/types';
+
+// Get module label from value
+function getModuleLabel(module: string | undefined): string {
+  if (!module) return 'Other';
+  return MODULE_OPTIONS.find((m) => m.value === module)?.label || module;
+}
 
 interface FeedbackTableProps {
   items: FeedbackItem[];
@@ -49,15 +56,16 @@ export function FeedbackTable({
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell sx={{ width: 120 }}>Type</TableCell>
+            <TableCell sx={{ width: 100 }}>Type</TableCell>
+            <TableCell sx={{ width: 140 }}>Module</TableCell>
             <TableCell>Title</TableCell>
-            <TableCell sx={{ width: 180 }}>Submitted By</TableCell>
-            <TableCell sx={{ width: 130 }}>Status</TableCell>
-            <TableCell sx={{ width: 140 }}>Submitted</TableCell>
-            <TableCell sx={{ width: 60 }} align="center">
+            <TableCell sx={{ width: 160 }}>Submitted By</TableCell>
+            <TableCell sx={{ width: 110 }}>Status</TableCell>
+            <TableCell sx={{ width: 120 }}>Submitted</TableCell>
+            <TableCell sx={{ width: 50 }} align="center">
               📎
             </TableCell>
-            <TableCell sx={{ width: 100 }} align="right">
+            <TableCell sx={{ width: 90 }} align="right">
               Actions
             </TableCell>
           </TableRow>
@@ -81,6 +89,21 @@ export function FeedbackTable({
                     {typeConfig[item.type].label.split(' ')[0]}
                   </Typography>
                 </Box>
+              </TableCell>
+
+              {/* Module */}
+              <TableCell>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    maxWidth: 130,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {getModuleLabel(item.module)}
+                </Typography>
               </TableCell>
 
               {/* Title */}

@@ -9,6 +9,7 @@
 
 import { Box, Typography, Stack, Skeleton } from '@mui/material';
 import dynamic from 'next/dynamic';
+import { FeedbackStats } from '@/components/admin/feedback';
 
 // Lazy load FeedbackList - admin-only component (700+ lines)
 const FeedbackList = dynamic(
@@ -36,6 +37,10 @@ export default function FeedbackManagementPage() {
         </Box>
       </Stack>
 
+      {/* Statistics Dashboard */}
+      <FeedbackStats />
+
+      {/* Feedback List */}
       <FeedbackList />
     </Box>
   );

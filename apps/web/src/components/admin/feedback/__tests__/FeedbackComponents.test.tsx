@@ -101,6 +101,8 @@ describe('FeedbackFilters', () => {
     setTypeFilter: jest.fn(),
     statusFilter: 'all' as const,
     setStatusFilter: jest.fn(),
+    moduleFilter: 'all' as const,
+    setModuleFilter: jest.fn(),
     filteredCount: 10,
     totalCount: 25,
   };
@@ -165,8 +167,9 @@ describe('FeedbackFilters', () => {
       const setStatusFilter = jest.fn();
       render(<FeedbackFilters {...defaultProps} setStatusFilter={setStatusFilter} />);
 
-      // Open the select dropdown
-      fireEvent.mouseDown(screen.getByRole('combobox'));
+      // Open the status select dropdown (first combobox)
+      const comboboxes = screen.getAllByRole('combobox');
+      fireEvent.mouseDown(comboboxes[0]!); // Status dropdown is first
 
       // Click on "New" option
       const listbox = within(screen.getByRole('listbox'));
@@ -243,6 +246,7 @@ describe('FeedbackTable', () => {
       render(<FeedbackTable {...defaultProps} />);
 
       expect(screen.getByText('Type')).toBeInTheDocument();
+      expect(screen.getByText('Module')).toBeInTheDocument();
       expect(screen.getByText('Title')).toBeInTheDocument();
       expect(screen.getByText('Submitted By')).toBeInTheDocument();
       expect(screen.getByText('Status')).toBeInTheDocument();
@@ -297,7 +301,7 @@ describe('FeedbackTable', () => {
       const onViewDetails = jest.fn();
       render(<FeedbackTable {...defaultProps} onViewDetails={onViewDetails} />);
 
-      const viewButtons = screen.getAllByRole('button', { name: /view details/i });
+      const viewButtons = screen.getAllByRole('button', { name: /view feedback details/i });
       fireEvent.click(viewButtons[0]!);
 
       expect(onViewDetails).toHaveBeenCalledWith(mockItems[0]);

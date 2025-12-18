@@ -40,6 +40,7 @@ import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { StatCard } from '@vapour/ui';
+import { MODULE_OPTIONS, type FeedbackModule } from '@/components/common/FeedbackForm/types';
 
 type FeedbackType = 'bug' | 'feature' | 'general';
 type FeedbackStatus = 'new' | 'in_progress' | 'resolved' | 'closed' | 'wont_fix';
@@ -47,12 +48,19 @@ type FeedbackStatus = 'new' | 'in_progress' | 'resolved' | 'closed' | 'wont_fix'
 interface FeedbackItem {
   id: string;
   type: FeedbackType;
+  module?: FeedbackModule;
   title: string;
   description: string;
   status: FeedbackStatus;
   adminNotes?: string;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
+}
+
+// Get module label from value
+function getModuleLabel(module: string | undefined): string {
+  if (!module) return 'Other';
+  return MODULE_OPTIONS.find((m) => m.value === module)?.label || module;
 }
 
 const typeConfig: Record<
@@ -269,21 +277,35 @@ export function UserFeedbackList() {
                 <Divider sx={{ my: 2 }} />
 
                 <Stack spacing={2}>
-                  <Box>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      display="block"
-                      gutterBottom
-                    >
-                      Type
-                    </Typography>
-                    <Chip
-                      label={typeConfig[item.type].label}
-                      size="small"
-                      icon={typeConfig[item.type].icon as React.ReactElement}
-                    />
-                  </Box>
+                  <Stack direction="row" spacing={2} flexWrap="wrap">
+                    <Box>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
+                        gutterBottom
+                      >
+                        Type
+                      </Typography>
+                      <Chip
+                        label={typeConfig[item.type].label}
+                        size="small"
+                        icon={typeConfig[item.type].icon as React.ReactElement}
+                      />
+                    </Box>
+
+                    <Box>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
+                        gutterBottom
+                      >
+                        Module
+                      </Typography>
+                      <Chip label={getModuleLabel(item.module)} size="small" variant="outlined" />
+                    </Box>
+                  </Stack>
 
                   <Box>
                     <Typography

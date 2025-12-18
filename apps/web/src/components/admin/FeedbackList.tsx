@@ -25,6 +25,7 @@ import {
   FeedbackItem,
   FeedbackType,
   FeedbackStatus,
+  FeedbackModule,
   FeedbackFilters,
   FeedbackTable,
   FeedbackDetailDialog,
@@ -37,6 +38,7 @@ export function FeedbackList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<FeedbackType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | 'all'>('all');
+  const [moduleFilter, setModuleFilter] = useState<FeedbackModule | 'all'>('all');
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -76,6 +78,12 @@ export function FeedbackList() {
 
     // Status filter
     if (statusFilter !== 'all' && item.status !== statusFilter) return false;
+
+    // Module filter (handle older records without module field)
+    if (moduleFilter !== 'all') {
+      const itemModule = item.module || 'other';
+      if (itemModule !== moduleFilter) return false;
+    }
 
     // Search filter
     if (searchQuery) {
@@ -187,6 +195,8 @@ export function FeedbackList() {
         setTypeFilter={setTypeFilter}
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
+        moduleFilter={moduleFilter}
+        setModuleFilter={setModuleFilter}
         filteredCount={filteredFeedback.length}
         totalCount={feedback.length}
       />
