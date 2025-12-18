@@ -137,7 +137,11 @@ export function FeedbackTable({
               <TableCell align="right">
                 <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
                   <Tooltip title="View Details">
-                    <IconButton size="small" onClick={() => onViewDetails(item)}>
+                    <IconButton
+                      size="small"
+                      onClick={() => onViewDetails(item)}
+                      aria-label="View feedback details"
+                    >
                       <VisibilityIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
@@ -149,6 +153,7 @@ export function FeedbackTable({
                         href={item.pageUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        aria-label="Open page URL in new tab"
                       >
                         <OpenInNewIcon fontSize="small" />
                       </IconButton>

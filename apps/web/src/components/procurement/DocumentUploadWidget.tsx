@@ -205,7 +205,12 @@ export default function DocumentUploadWidget({
                 <ListItemSecondaryAction>
                   <Stack direction="row" spacing={1}>
                     {onDownload && (
-                      <IconButton size="small" onClick={() => onDownload(doc)} title="Download">
+                      <IconButton
+                        size="small"
+                        onClick={() => onDownload(doc)}
+                        title="Download"
+                        aria-label="Download document"
+                      >
                         <GetAppIcon fontSize="small" />
                       </IconButton>
                     )}
@@ -214,6 +219,7 @@ export default function DocumentUploadWidget({
                         size="small"
                         onClick={() => handleDelete(doc.id)}
                         title="Delete"
+                        aria-label="Delete document"
                         color="error"
                       >
                         <DeleteIcon fontSize="small" />

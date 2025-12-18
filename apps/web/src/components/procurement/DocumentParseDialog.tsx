@@ -259,7 +259,7 @@ export default function DocumentParseDialog({
             <DescriptionIcon color="primary" />
             <Typography variant="h6">Import Items from Document</Typography>
           </Stack>
-          <IconButton size="small" onClick={handleClose}>
+          <IconButton size="small" onClick={handleClose} aria-label="Close dialog">
             <CloseIcon />
           </IconButton>
         </Stack>
@@ -517,6 +517,7 @@ export default function DocumentParseDialog({
                               size="small"
                               onClick={() => setEditingIndex(index)}
                               title="Edit"
+                              aria-label="Edit item"
                             >
                               <EditIcon fontSize="small" />
                             </IconButton>
@@ -524,6 +525,7 @@ export default function DocumentParseDialog({
                               size="small"
                               onClick={() => handleRemoveItem(index)}
                               title="Remove"
+                              aria-label="Remove item"
                             >
                               <DeleteIcon fontSize="small" />
                             </IconButton>

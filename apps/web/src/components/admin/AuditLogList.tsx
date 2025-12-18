@@ -294,7 +294,7 @@ export function AuditLogList() {
           </FormControl>
 
           <Tooltip title="Clear Filters">
-            <IconButton onClick={clearFilters} size="small">
+            <IconButton onClick={clearFilters} size="small" aria-label="Clear filters">
               <RefreshIcon />
             </IconButton>
           </Tooltip>
@@ -408,6 +408,7 @@ export function AuditLogList() {
                           e.stopPropagation();
                           openDetailDialog(log);
                         }}
+                        aria-label="View details"
                       >
                         <VisibilityIcon fontSize="small" />
                       </IconButton>

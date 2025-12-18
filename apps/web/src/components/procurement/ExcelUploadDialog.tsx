@@ -326,7 +326,11 @@ export default function ExcelUploadDialog({
                         <TableCell>{item.unit}</TableCell>
                         <TableCell>{item.equipmentCode || '-'}</TableCell>
                         <TableCell>
-                          <IconButton size="small" onClick={() => handleRemoveItem(index)}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveItem(index)}
+                            aria-label="Remove item"
+                          >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </TableCell>
