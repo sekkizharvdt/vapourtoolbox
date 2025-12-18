@@ -1,16 +1,29 @@
 /**
  * Feedback Admin Components Tests
  *
- * Tests for FeedbackFilters, FeedbackTable, FeedbackDetailDialog, and config
+ * Tests for FeedbackFilters, FeedbackTable, FeedbackDetailDialog, FeedbackStats and config
  */
 
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { Timestamp } from 'firebase/firestore';
 import { FeedbackFilters } from '../FeedbackFilters';
 import { FeedbackTable } from '../FeedbackTable';
 import { FeedbackDetailDialog } from '../FeedbackDetailDialog';
+import { FeedbackStats } from '../FeedbackStats';
 import { typeConfig, statusConfig } from '../config';
-import type { FeedbackItem } from '../types';
+import type { FeedbackItem, FeedbackStats as FeedbackStatsType } from '../types';
+
+// Mock the firebase and stats service
+jest.mock('@/lib/firebase', () => ({
+  getFirebase: jest.fn(() => ({ db: {} })),
+}));
+
+jest.mock('@/lib/feedback/feedbackStatsService', () => ({
+  getFeedbackStats: jest.fn(),
+}));
+
+import { getFeedbackStats } from '@/lib/feedback/feedbackStatsService';
+const mockGetFeedbackStats = getFeedbackStats as jest.Mock;
 
 // Helper to create mock Timestamp
 const mockTimestamp = (date: Date = new Date()): Timestamp =>
@@ -615,6 +628,142 @@ describe('FeedbackDetailDialog', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
       expect(onClose).toHaveBeenCalled();
+    });
+  });
+});
+
+describe('FeedbackStats', () => {
+  const mockStats: FeedbackStatsType = {
+    total: 25,
+    byType: { bug: 10, feature: 8, general: 7 },
+    byStatus: { new: 5, in_progress: 3, resolved: 10, closed: 5, wont_fix: 2 },
+    byModule: {
+      procurement: 8,
+      accounting: 6,
+      projects: 5,
+      materials: 3,
+      documents: 2,
+      other: 1,
+    },
+    bySeverity: { critical: 2, major: 4, minor: 3, cosmetic: 1 },
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('Loading State', () => {
+    it('should show loading skeletons while fetching data', () => {
+      mockGetFeedbackStats.mockImplementation(() => new Promise(() => {})); // Never resolves
+
+      render(<FeedbackStats />);
+
+      // Should show 4 skeleton cards
+      const skeletons = document.querySelectorAll('.MuiSkeleton-root');
+      expect(skeletons.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Error State', () => {
+    it('should show error alert when loading fails', async () => {
+      mockGetFeedbackStats.mockRejectedValue(new Error('Failed to fetch'));
+
+      render(<FeedbackStats />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Failed to load statistics')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Stats Display', () => {
+    beforeEach(() => {
+      mockGetFeedbackStats.mockResolvedValue(mockStats);
+    });
+
+    it('should display total feedback count', async () => {
+      render(<FeedbackStats />);
+
+      await waitFor(() => {
+        expect(screen.getByText('25')).toBeInTheDocument();
+        expect(screen.getByText('Total Feedback')).toBeInTheDocument();
+      });
+    });
+
+    it('should display status counts', async () => {
+      render(<FeedbackStats />);
+
+      await waitFor(() => {
+        expect(screen.getByText('New')).toBeInTheDocument();
+        expect(screen.getByText('In Progress')).toBeInTheDocument();
+        expect(screen.getByText('Resolved')).toBeInTheDocument();
+      });
+    });
+
+    it('should display type breakdown', async () => {
+      render(<FeedbackStats />);
+
+      await waitFor(() => {
+        expect(screen.getByText('By Type')).toBeInTheDocument();
+        expect(screen.getByText('Bugs')).toBeInTheDocument();
+        expect(screen.getByText('Features')).toBeInTheDocument();
+        expect(screen.getByText('General')).toBeInTheDocument();
+      });
+    });
+
+    it('should display module breakdown', async () => {
+      render(<FeedbackStats />);
+
+      await waitFor(() => {
+        expect(screen.getByText('By Module')).toBeInTheDocument();
+      });
+    });
+
+    it('should display bug severity breakdown when bugs exist', async () => {
+      render(<FeedbackStats />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Bug Severity')).toBeInTheDocument();
+        expect(screen.getByText('Critical')).toBeInTheDocument();
+        expect(screen.getByText('Major')).toBeInTheDocument();
+        expect(screen.getByText('Minor')).toBeInTheDocument();
+        expect(screen.getByText('Cosmetic')).toBeInTheDocument();
+      });
+    });
+
+    it('should show "No bug reports yet" when no bugs exist', async () => {
+      mockGetFeedbackStats.mockResolvedValue({
+        ...mockStats,
+        byType: { bug: 0, feature: 8, general: 7 },
+      });
+
+      render(<FeedbackStats />);
+
+      await waitFor(() => {
+        expect(screen.getByText('No bug reports yet')).toBeInTheDocument();
+      });
+    });
+
+    it('should show "No module data available" when no modules', async () => {
+      mockGetFeedbackStats.mockResolvedValue({
+        ...mockStats,
+        byModule: {},
+      });
+
+      render(<FeedbackStats />);
+
+      await waitFor(() => {
+        expect(screen.getByText('No module data available')).toBeInTheDocument();
+      });
+    });
+
+    it('should calculate resolved count as sum of resolved and closed', async () => {
+      render(<FeedbackStats />);
+
+      await waitFor(() => {
+        // Resolved (10) + Closed (5) = 15
+        expect(screen.getByText('15')).toBeInTheDocument();
+      });
     });
   });
 });
