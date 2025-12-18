@@ -83,6 +83,7 @@ export default function EditPRPage() {
     priority: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT',
     requiredBy: '',
     approverId: '', // User ID of the selected approver
+    approverName: '', // Display name of the selected approver
   });
 
   const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
@@ -139,6 +140,7 @@ export default function EditPRPage() {
         priority: prData.priority,
         requiredBy: prData.requiredBy?.toDate?.()?.toISOString().split('T')[0] || '',
         approverId: prData.approverId || '',
+        approverName: prData.approverName || '',
       });
 
       // Populate line items
@@ -274,6 +276,7 @@ export default function EditPRPage() {
           requiredBy: Timestamp.fromDate(new Date(formData.requiredBy)),
         }),
         ...(formData.approverId && { approverId: formData.approverId }),
+        ...(formData.approverName && { approverName: formData.approverName }),
         itemCount: activeItems.length,
         updatedAt: now,
         updatedBy: user.uid,
@@ -546,6 +549,10 @@ export default function EditPRPage() {
             <ApproverSelector
               value={formData.approverId || null}
               onChange={(userId) => handleInputChange('approverId', userId || '')}
+              onChangeWithName={(userId, displayName) => {
+                handleInputChange('approverId', userId || '');
+                handleInputChange('approverName', displayName || '');
+              }}
               label="Approver"
               approvalType="pr"
               helperText="Select who should approve this purchase request"

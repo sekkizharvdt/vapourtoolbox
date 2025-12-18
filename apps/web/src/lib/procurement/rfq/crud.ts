@@ -232,13 +232,16 @@ export async function createRFQFromPRs(
   }
 
   // Fetch all PR items for these PRs in parallel (avoid N+1 queries)
+  // Accept both APPROVED and PENDING items - the PR itself is already approved,
+  // so items are valid even if their individual status wasn't updated.
+  // Exclude REJECTED and CONVERTED items.
   const itemSnapshots = await Promise.all(
     prs.map((pr) =>
       getDocs(
         query(
           collection(db, COLLECTIONS.PURCHASE_REQUEST_ITEMS),
           where('purchaseRequestId', '==', pr.id),
-          where('status', '==', 'APPROVED')
+          where('status', 'in', ['APPROVED', 'PENDING'])
         )
       )
     )
@@ -272,7 +275,9 @@ export async function createRFQFromPRs(
   });
 
   if (allItems.length === 0) {
-    throw new Error('No approved items found in the selected Purchase Requests');
+    throw new Error(
+      'No items found in the selected Purchase Requests. Ensure PRs have items that are not rejected or already converted.'
+    );
   }
 
   // Create RFQ

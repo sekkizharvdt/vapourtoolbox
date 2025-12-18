@@ -165,7 +165,8 @@ export default function EditRFQClient() {
           };
           return vendor;
         })
-        .filter((vendor) => vendor.isDeleted !== true);
+        .filter((vendor) => vendor.isDeleted !== true)
+        .sort((a, b) => a.name.localeCompare(b.name));
       setVendors(vendorList);
     } catch (err) {
       console.error('[EditRFQClient] Error loading vendors:', err);

@@ -252,7 +252,12 @@ export default function PRDetailPage() {
         </Paper>
 
         {/* Approval Information */}
-        {(pr.status === 'APPROVED' || pr.status === 'REJECTED' || pr.reviewedBy) && (
+        {(pr.status === 'APPROVED' ||
+          pr.status === 'REJECTED' ||
+          pr.status === 'SUBMITTED' ||
+          pr.status === 'UNDER_REVIEW' ||
+          pr.reviewedBy ||
+          pr.approverId) && (
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               Approval Status
@@ -260,6 +265,21 @@ export default function PRDetailPage() {
             <Divider sx={{ mb: 2 }} />
 
             <Stack spacing={2}>
+              {/* Show assigned approver for pending approvals */}
+              {pr.approverId && !pr.approvedBy && (
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Assigned Approver
+                  </Typography>
+                  <Typography variant="body1">
+                    {pr.approverName || 'Approver assigned (name not available)'}
+                  </Typography>
+                  {(pr.status === 'SUBMITTED' || pr.status === 'UNDER_REVIEW') && (
+                    <Chip label="Pending Approval" size="small" color="warning" sx={{ mt: 0.5 }} />
+                  )}
+                </Box>
+              )}
+
               {pr.reviewedBy && (
                 <Box>
                   <Typography variant="subtitle2" color="text.secondary">

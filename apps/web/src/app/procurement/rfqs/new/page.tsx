@@ -118,7 +118,8 @@ export default function NewRFQPage() {
           };
           return vendor;
         })
-        .filter((vendor) => vendor.isDeleted !== true);
+        .filter((vendor) => vendor.isDeleted !== true)
+        .sort((a, b) => a.name.localeCompare(b.name));
       setVendors(vendorList);
     } catch (err) {
       console.error('[NewRFQPage] Error loading vendors:', err);

@@ -59,6 +59,7 @@ interface FormData {
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   requiredBy: string;
   approverId: string;
+  approverName: string;
 }
 
 export default function NewPurchaseRequestPage() {
@@ -80,6 +81,7 @@ export default function NewPurchaseRequestPage() {
     priority: 'MEDIUM',
     requiredBy: '',
     approverId: '',
+    approverName: '',
   });
 
   const [lineItems, setLineItems] = useState<CreatePurchaseRequestItemInput[]>([
@@ -175,6 +177,7 @@ export default function NewPurchaseRequestPage() {
     requiredBy: formData.requiredBy ? new Date(formData.requiredBy) : undefined,
     items: lineItems.filter((item) => item.description.trim() !== ''),
     ...(formData.approverId && { approverId: formData.approverId }),
+    ...(formData.approverName && { approverName: formData.approverName }),
   });
 
   const handleSaveDraft = async () => {
@@ -368,6 +371,10 @@ export default function NewPurchaseRequestPage() {
             <ApproverSelector
               value={formData.approverId || null}
               onChange={(userId) => handleInputChange('approverId', userId || '')}
+              onChangeWithName={(userId, displayName) => {
+                handleInputChange('approverId', userId || '');
+                handleInputChange('approverName', displayName || '');
+              }}
               label="Approver"
               approvalType="pr"
               helperText="Select who should approve this purchase request"

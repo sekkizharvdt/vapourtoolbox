@@ -27,6 +27,7 @@ export interface CreatePurchaseRequestInput {
 
   // Approval workflow
   approverId?: string;
+  approverName?: string;
 
   // Bulk upload tracking
   isBulkUpload?: boolean;

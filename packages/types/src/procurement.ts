@@ -56,6 +56,7 @@ export interface PurchaseRequest {
 
   // Selected approver (optional - if specified, creates task notification)
   approverId?: string;
+  approverName?: string; // Denormalized
 
   reviewedBy?: string;
   reviewedByName?: string; // Denormalized
