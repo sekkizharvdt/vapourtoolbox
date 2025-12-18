@@ -9,7 +9,7 @@
  * - General feedback
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Box, CircularProgress, Alert } from '@mui/material';
 import {
   collection,
@@ -30,6 +30,7 @@ import {
   FeedbackTable,
   FeedbackDetailDialog,
 } from './feedback';
+import type { ReporterOption } from './feedback/FeedbackFilters';
 
 export function FeedbackList() {
   const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
@@ -39,6 +40,7 @@ export function FeedbackList() {
   const [typeFilter, setTypeFilter] = useState<FeedbackType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | 'all'>('all');
   const [moduleFilter, setModuleFilter] = useState<FeedbackModule | 'all'>('all');
+  const [reporterFilter, setReporterFilter] = useState<string>('all');
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -71,6 +73,22 @@ export function FeedbackList() {
     return () => unsubscribe();
   }, []);
 
+  // Extract unique reporters from feedback
+  const reporters = useMemo<ReporterOption[]>(() => {
+    const reporterMap = new Map<string, ReporterOption>();
+    feedback.forEach((item) => {
+      if (!reporterMap.has(item.userId)) {
+        reporterMap.set(item.userId, {
+          id: item.userId,
+          name: item.userName,
+          email: item.userEmail,
+        });
+      }
+    });
+    // Sort by name
+    return Array.from(reporterMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [feedback]);
+
   // Filter feedback
   const filteredFeedback = feedback.filter((item) => {
     // Type filter
@@ -84,6 +102,9 @@ export function FeedbackList() {
       const itemModule = item.module || 'other';
       if (itemModule !== moduleFilter) return false;
     }
+
+    // Reporter filter
+    if (reporterFilter !== 'all' && item.userId !== reporterFilter) return false;
 
     // Search filter
     if (searchQuery) {
@@ -197,6 +218,9 @@ export function FeedbackList() {
         setStatusFilter={setStatusFilter}
         moduleFilter={moduleFilter}
         setModuleFilter={setModuleFilter}
+        reporterFilter={reporterFilter}
+        setReporterFilter={setReporterFilter}
+        reporters={reporters}
         filteredCount={filteredFeedback.length}
         totalCount={feedback.length}
       />

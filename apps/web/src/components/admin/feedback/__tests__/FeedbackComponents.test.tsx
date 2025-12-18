@@ -94,6 +94,11 @@ describe('statusConfig', () => {
 });
 
 describe('FeedbackFilters', () => {
+  const mockReporters = [
+    { id: 'user1', name: 'John Doe', email: 'john@example.com' },
+    { id: 'user2', name: 'Jane Smith', email: 'jane@example.com' },
+  ];
+
   const defaultProps = {
     searchQuery: '',
     setSearchQuery: jest.fn(),
@@ -103,6 +108,9 @@ describe('FeedbackFilters', () => {
     setStatusFilter: jest.fn(),
     moduleFilter: 'all' as const,
     setModuleFilter: jest.fn(),
+    reporterFilter: 'all',
+    setReporterFilter: jest.fn(),
+    reporters: mockReporters,
     filteredCount: 10,
     totalCount: 25,
   };

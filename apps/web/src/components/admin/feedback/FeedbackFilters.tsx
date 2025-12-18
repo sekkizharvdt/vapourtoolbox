@@ -25,6 +25,12 @@ import type { FeedbackType, FeedbackStatus, FeedbackModule } from './types';
 import { statusConfig } from './config';
 import { MODULE_OPTIONS } from '@/components/common/FeedbackForm/types';
 
+export interface ReporterOption {
+  id: string;
+  name: string;
+  email: string;
+}
+
 interface FeedbackFiltersProps {
   searchQuery: string;
   setSearchQuery: (value: string) => void;
@@ -34,6 +40,9 @@ interface FeedbackFiltersProps {
   setStatusFilter: (value: FeedbackStatus | 'all') => void;
   moduleFilter: FeedbackModule | 'all';
   setModuleFilter: (value: FeedbackModule | 'all') => void;
+  reporterFilter: string;
+  setReporterFilter: (value: string) => void;
+  reporters: ReporterOption[];
   filteredCount: number;
   totalCount: number;
 }
@@ -47,6 +56,9 @@ export function FeedbackFilters({
   setStatusFilter,
   moduleFilter,
   setModuleFilter,
+  reporterFilter,
+  setReporterFilter,
+  reporters,
   filteredCount,
   totalCount,
 }: FeedbackFiltersProps) {
@@ -97,7 +109,7 @@ export function FeedbackFilters({
           </Typography>
         </Stack>
 
-        {/* Second row: Status and Module filters */}
+        {/* Second row: Status, Module, and Reporter filters */}
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Status</InputLabel>
@@ -126,6 +138,22 @@ export function FeedbackFilters({
               {MODULE_OPTIONS.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
                   {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Reporter</InputLabel>
+            <Select
+              value={reporterFilter}
+              label="Reporter"
+              onChange={(e) => setReporterFilter(e.target.value)}
+            >
+              <MenuItem value="all">All Reporters</MenuItem>
+              {reporters.map((reporter) => (
+                <MenuItem key={reporter.id} value={reporter.id}>
+                  {reporter.name}
                 </MenuItem>
               ))}
             </Select>
