@@ -10,15 +10,15 @@
 
 This codebase is a large-scale enterprise application built with Next.js, Firebase, and MUI. **Architecture remediation has been completed**, establishing proper foundations for financial data integrity, authorization, and workflow reliability. **Phase 3 (Testing) now covers document services comprehensively.** **Performance optimizations continue with N+1 query pattern fixes.**
 
-### Overall Grade: 9.2/10 ⬆️ (Performance Optimizations)
+### Overall Grade: 8.8/10 (Performance Optimizations)
 
-_Note: Grade improved with N+1 query pattern fixes in masterDocumentService.ts (checkPredecessorsCompleted, getSuccessorsReadyToStart, getDocumentStatistics now use parallel fetching and Firestore count queries). Test file lint issues resolved across 12 test files. Total tests: 2,480+._
+_Note: N+1 query pattern fixes in masterDocumentService.ts (checkPredecessorsCompleted, getSuccessorsReadyToStart, getDocumentStatistics now use parallel fetching and Firestore count queries). Test file lint issues resolved across 12 test files. Total tests: 2,480+._
 
 | Category        | Score | Verdict                                                                                     |
 | --------------- | ----- | ------------------------------------------------------------------------------------------- |
 | Architecture    | 9.0   | Transaction safety ✅, Authorization framework ✅, State machines ✅                        |
 | Code Quality    | 8.5   | Reduced unsafe casts, structured logging, scalability utilities                             |
-| Testing         | 9.2   | 380 new tests, 2,480+ total, document services fully tested ✅                              |
+| Testing         | 8.8   | 380 new tests, 2,480+ total, document services fully tested ✅                              |
 | Security        | 9.0   | Authorization checks ✅, XSS fixed ✅, audit logger with retry/fallback ✅                  |
 | Performance     | 8.8   | N+1 patterns fixed ✅, pagination added ✅, caching hooks ✅, parallel Firestore queries ✅ |
 | Maintainability | 8.7   | State machines, error handling utilities, comprehensive developer notes, +10 aria-labels    |
@@ -1334,14 +1334,14 @@ grep -r "aria-label" apps/web/src/components --include="*.tsx" | wc -l  # 19 lab
 | --------------- | ------ | ------ | --------- | --------- | --------- | --------- | ---------- | ---------------------------------------------------------------------- |
 | Architecture    | 8.0    | 8.0    | 9.0       | 9.0       | 9.0       | 9.0       | 9.0        | Transaction safety, authorization, state machines                      |
 | Code Quality    | 6.5    | 7.0    | 8.5       | 8.5       | 8.5       | 8.5       | 8.5        | Structured logging, reduced casts, scalability utilities               |
-| Testing         | 6.0    | 6.0    | 6.5       | 7.0       | 8.5       | 8.7       | **9.2**    | 12 test files lint-fixed, all tests passing                            |
+| Testing         | 6.0    | 6.0    | 6.5       | 7.0       | 8.5       | 8.7       | **8.8**    | 12 test files lint-fixed, all tests passing                            |
 | Security        | 7.0    | 8.0    | 9.0       | 9.0       | 9.0       | 9.0       | 9.0        | Authorization framework, audit completeness                            |
 | Performance     | 7.5    | 7.5    | 8.5       | 8.5       | 8.5       | 8.5       | **8.8**    | N+1 fixes in masterDocumentService, parallel Firestore count queries   |
 | Maintainability | 7.0    | 7.0    | 8.0       | 8.5       | 8.5       | 8.7       | 8.7        | +10 aria-labels in procurement/admin components, 56+ total aria-labels |
 
-**Overall: (9.0 + 8.5 + 9.2 + 9.0 + 8.8 + 8.7) / 6 = 8.87 → Rounded to 9.2**
+**Overall: (9.0 + 8.5 + 8.8 + 9.0 + 8.8 + 8.7) / 6 = 52.8 / 6 = 8.8**
 
-_(Performance improved from 8.5 to 8.8 with N+1 query fixes in masterDocumentService.ts using Promise.all for parallel fetching and getCountFromServer for statistics. Testing improved from 8.7 to 9.2 with lint fixes across 12 test files - all 2,480+ tests passing.)_
+_(Performance improved from 8.5 to 8.8 with N+1 query fixes in masterDocumentService.ts using Promise.all for parallel fetching and getCountFromServer for statistics. Testing improved from 8.7 to 8.8 with lint fixes across 12 test files - all 2,480+ tests passing.)_
 
 ---
 
@@ -1351,4 +1351,4 @@ _Updated: December 17, 2025 AM - Architecture Remediation Complete (Grade 8.7)_
 _Updated: December 17, 2025 PM - Testing & Accessibility Progress (Grade 8.9)_
 _Updated: December 18, 2025 AM - Architecture Utility Testing Complete (Grade 8.7)_
 _Updated: December 18, 2025 PM - Extended Testing & Accessibility (Grade 8.9)_
-_Updated: December 18, 2025 Eve - N+1 Query Fixes & Test Lint Cleanup (Grade 9.2)_
+_Updated: December 18, 2025 Eve - N+1 Query Fixes & Test Lint Cleanup (Grade 8.8)_
