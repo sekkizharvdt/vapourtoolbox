@@ -12,13 +12,9 @@ import { EntityInfoCard } from '../EntityInfoCard';
 import type { FinancialSummary, AgingBucket, EntityTransaction } from '../types';
 import type { BusinessEntity } from '@vapour/types';
 
-// Mock formatCurrency since it depends on external module
-jest.mock('@/lib/accounting/transactionHelpers', () => ({
-  formatCurrency: (amount: number, currency: string) => `${currency} ${amount.toLocaleString()}`,
-}));
-
-// Mock formatDate
+// Mock formatters
 jest.mock('@/lib/utils/formatters', () => ({
+  formatCurrency: (amount: number, currency: string) => `${currency} ${amount.toLocaleString()}`,
   formatDate: (date: Date | undefined) => (date ? new Date(date).toLocaleDateString() : '-'),
 }));
 
@@ -273,7 +269,10 @@ describe('TransactionsTable', () => {
       transactionNumber: 'INV-001',
       description: 'First invoice',
       totalAmount: 50000,
+      baseAmount: 50000,
       outstandingAmount: 10000,
+      outstandingBaseAmount: 10000,
+      paidBaseAmount: 40000,
       paymentStatus: 'PARTIAL',
     }),
     createMockEntityTransaction({
@@ -282,7 +281,10 @@ describe('TransactionsTable', () => {
       transactionNumber: 'BILL-001',
       description: 'First bill',
       totalAmount: 30000,
+      baseAmount: 30000,
       outstandingAmount: 0,
+      outstandingBaseAmount: 0,
+      paidBaseAmount: 30000,
       paymentStatus: 'PAID',
     }),
     createMockEntityTransaction({
@@ -290,7 +292,10 @@ describe('TransactionsTable', () => {
       transactionNumber: 'INV-002',
       description: 'Second invoice',
       totalAmount: 75000,
+      baseAmount: 75000,
       outstandingAmount: 75000,
+      outstandingBaseAmount: 75000,
+      paidBaseAmount: 0,
       paymentStatus: 'UNPAID',
     }),
   ];
