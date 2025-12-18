@@ -10,6 +10,10 @@ export interface EntityTransaction extends BaseTransaction {
   invoiceDate?: Date;
   billDate?: Date;
   dueDate?: Date;
+  // Base currency (INR) equivalents for foreign transactions
+  totalBaseAmount?: number; // totalAmount in INR
+  paidBaseAmount?: number; // paidAmount in INR
+  outstandingBaseAmount?: number; // outstandingAmount in INR
 }
 
 export interface AgingBucket {

@@ -8,13 +8,14 @@ import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
 } from '@mui/icons-material';
-import { formatCurrency } from '@/lib/accounting/transactionHelpers';
+import { formatCurrency } from '@/lib/utils/formatters';
 import type { FinancialSummary } from './types';
 
 interface FinancialSummaryCardsProps {
   summary: FinancialSummary;
   isCustomer: boolean;
   isVendor: boolean;
+  /** Primary transaction currency for display context */
   currency: string;
 }
 

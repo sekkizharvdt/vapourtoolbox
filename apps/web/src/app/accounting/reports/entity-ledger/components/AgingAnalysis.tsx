@@ -1,11 +1,12 @@
 'use client';
 
 import { Box, Typography, Grid, Paper } from '@mui/material';
-import { formatCurrency } from '@/lib/accounting/transactionHelpers';
+import { formatCurrency } from '@/lib/utils/formatters';
 import type { AgingBucket } from './types';
 
 interface AgingAnalysisProps {
   aging: AgingBucket;
+  /** Currency for display - aging should always be calculated in INR (base currency) */
   currency: string;
 }
 

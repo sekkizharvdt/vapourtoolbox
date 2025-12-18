@@ -20,7 +20,6 @@ import {
   Select,
   MenuItem,
   InputAdornment,
-  Typography,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -50,8 +49,8 @@ import { collection, query, where, orderBy, doc, Timestamp } from 'firebase/fire
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { CustomerInvoice } from '@vapour/types';
-import { formatCurrency } from '@/lib/accounting/transactionHelpers';
-import { formatDate } from '@/lib/utils/formatters';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
+import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { SubmitForApprovalDialog } from './components/SubmitForApprovalDialog';
 import { ApproveInvoiceDialog } from './components/ApproveInvoiceDialog';
@@ -130,20 +129,23 @@ export default function InvoicesPage() {
     });
   }, [rawInvoices]);
 
-  // Calculate stats (exclude deleted invoices)
+  // Calculate stats (exclude deleted invoices) - always in INR (base currency)
   const stats = useMemo(() => {
     const activeInvoices = invoices.filter((inv) => !inv.deletedAt);
-    const totalInvoiced = activeInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+    const totalInvoiced = activeInvoices.reduce(
+      (sum, inv) => sum + (inv.baseAmount || inv.totalAmount || 0),
+      0
+    );
     const outstanding = activeInvoices
       .filter((inv) => inv.status !== 'PAID' && inv.status !== 'DRAFT')
-      .reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+      .reduce((sum, inv) => sum + (inv.baseAmount || inv.totalAmount || 0), 0);
     const overdue = activeInvoices
       .filter((inv) => {
         if (inv.status !== 'UNPAID' || !inv.dueDate) return false;
         const dueDate = toDate(inv.dueDate);
         return dueDate && dueDate < new Date();
       })
-      .reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+      .reduce((sum, inv) => sum + (inv.baseAmount || inv.totalAmount || 0), 0);
 
     return { totalInvoiced, outstanding, overdue };
   }, [invoices]);
@@ -281,20 +283,20 @@ export default function InvoicesPage() {
         }}
       >
         <StatCard
-          label="Total Invoiced"
-          value={formatCurrency(stats.totalInvoiced)}
+          label="Total Invoiced (INR)"
+          value={formatCurrency(stats.totalInvoiced, 'INR')}
           icon={<MoneyIcon />}
           color="primary"
         />
         <StatCard
-          label="Outstanding Amount"
-          value={formatCurrency(stats.outstanding)}
+          label="Outstanding (INR)"
+          value={formatCurrency(stats.outstanding, 'INR')}
           icon={<PendingIcon />}
           color="warning"
         />
         <StatCard
-          label="Overdue Amount"
-          value={formatCurrency(stats.overdue)}
+          label="Overdue (INR)"
+          value={formatCurrency(stats.overdue, 'INR')}
           icon={<WarningIcon />}
           color="error"
         />
@@ -395,13 +397,13 @@ export default function InvoicesPage() {
                       )}
                     </TableCell>
                     <TableCell align="right">
-                      {formatCurrency(invoice.totalAmount || 0, invoice.currency || 'INR')}
-                      {invoice.currency && invoice.currency !== 'INR' && invoice.exchangeRate && (
-                        <Typography variant="caption" display="block" color="text.secondary">
-                          ≈{' '}
-                          {formatCurrency((invoice.totalAmount || 0) * invoice.exchangeRate, 'INR')}
-                        </Typography>
-                      )}
+                      <DualCurrencyAmount
+                        foreignAmount={invoice.totalAmount || 0}
+                        foreignCurrency={invoice.currency || 'INR'}
+                        baseAmount={invoice.baseAmount || invoice.totalAmount || 0}
+                        exchangeRate={invoice.exchangeRate}
+                        size="small"
+                      />
                     </TableCell>
                     <TableCell>
                       <Chip

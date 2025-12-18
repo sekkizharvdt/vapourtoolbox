@@ -34,8 +34,8 @@ import { getFirebase } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BaseTransaction, TransactionType } from '@vapour/types';
-import { formatCurrency } from '@/lib/accounting/transactionHelpers';
-import { formatDate } from '@/lib/utils/formatters';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
+import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 
 export default function TransactionsPage() {
   // Note: Auth context available but not currently used
@@ -235,7 +235,15 @@ export default function TransactionsPage() {
                   </TableCell>
                   <TableCell>{txn.description || '-'}</TableCell>
                   <TableCell>{txn.reference || '-'}</TableCell>
-                  <TableCell align="right">{formatCurrency(txn.amount)}</TableCell>
+                  <TableCell align="right">
+                    <DualCurrencyAmount
+                      foreignAmount={txn.amount}
+                      foreignCurrency={txn.currency}
+                      baseAmount={txn.baseAmount}
+                      exchangeRate={txn.exchangeRate}
+                      size="small"
+                    />
+                  </TableCell>
                   <TableCell>
                     <Chip
                       label={txn.status}
@@ -275,7 +283,7 @@ export default function TransactionsPage() {
           Showing {filteredTransactions.length} of {transactions.length} transactions
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Total: {formatCurrency(filteredTransactions.reduce((sum, txn) => sum + txn.amount, 0))}
+          Total (INR): {formatCurrency(filteredTransactions.reduce((sum, txn) => sum + (txn.baseAmount || txn.amount), 0), 'INR')}
         </Typography>
       </Box>
     </Box>

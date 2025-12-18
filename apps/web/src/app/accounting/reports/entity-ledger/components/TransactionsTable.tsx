@@ -12,8 +12,8 @@ import {
   TableRow,
   TablePagination,
 } from '@mui/material';
-import { formatCurrency } from '@/lib/accounting/transactionHelpers';
-import { formatDate } from '@/lib/utils/formatters';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
+import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 import { getTransactionTypeLabel, getTransactionTypeColor, getPaymentStatusColor } from './helpers';
 import type { EntityTransaction } from './types';
 
@@ -79,14 +79,23 @@ export function TransactionsTable({
                   )}
                 </TableCell>
                 <TableCell align="right">
-                  <Typography variant="body2" fontWeight="medium">
-                    {formatCurrency(txn.totalAmount || txn.amount, txn.currency)}
-                  </Typography>
+                  <DualCurrencyAmount
+                    foreignAmount={txn.totalAmount || txn.amount}
+                    foreignCurrency={txn.currency}
+                    baseAmount={txn.totalBaseAmount || txn.baseAmount}
+                    exchangeRate={txn.exchangeRate}
+                    size="small"
+                  />
                 </TableCell>
                 <TableCell align="right">
-                  {txn.outstandingAmount !== undefined && txn.outstandingAmount > 0 ? (
+                  {(txn.outstandingAmount !== undefined && txn.outstandingAmount > 0) ||
+                  (txn.outstandingBaseAmount !== undefined && txn.outstandingBaseAmount > 0) ? (
                     <Typography variant="body2" color="warning.main" fontWeight="medium">
-                      {formatCurrency(txn.outstandingAmount, txn.currency)}
+                      {/* Outstanding always shown in INR (base currency) */}
+                      {formatCurrency(
+                        txn.outstandingBaseAmount || txn.baseAmount - (txn.paidBaseAmount || 0),
+                        'INR'
+                      )}
                     </Typography>
                   ) : (
                     <Typography variant="body2" color="text.secondary">

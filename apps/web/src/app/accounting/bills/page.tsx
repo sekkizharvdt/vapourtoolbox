@@ -65,8 +65,8 @@ import {
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { VendorBill } from '@vapour/types';
-import { formatCurrency } from '@/lib/accounting/transactionHelpers';
-import { formatDate } from '@/lib/utils/formatters';
+import { formatCurrency, formatDate } from '@/lib/utils/formatters';
+import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { getBillAvailableActions } from '@/lib/accounting/billApprovalService';
 
@@ -150,17 +150,20 @@ export default function BillsPage() {
 
   const { data: bills, loading } = useFirestoreQuery<VendorBill>(billsQuery);
 
-  // Calculate stats
+  // Calculate stats - always in INR (base currency)
   const stats = useMemo(() => {
-    const totalBilled = bills.reduce((sum, bill) => sum + (bill.totalAmount || 0), 0);
+    const totalBilled = bills.reduce(
+      (sum, bill) => sum + (bill.baseAmount || bill.totalAmount || 0),
+      0
+    );
     const outstanding = bills
       .filter((bill) => bill.status !== 'PAID' && bill.status !== 'DRAFT')
-      .reduce((sum, bill) => sum + (bill.totalAmount || 0), 0);
+      .reduce((sum, bill) => sum + (bill.baseAmount || bill.totalAmount || 0), 0);
     const overdue = bills
       .filter(
         (bill) => bill.status === 'UNPAID' && bill.dueDate && new Date(bill.dueDate) < new Date()
       )
-      .reduce((sum, bill) => sum + (bill.totalAmount || 0), 0);
+      .reduce((sum, bill) => sum + (bill.baseAmount || bill.totalAmount || 0), 0);
 
     return { totalBilled, outstanding, overdue };
   }, [bills]);
@@ -330,20 +333,20 @@ export default function BillsPage() {
         }}
       >
         <StatCard
-          label="Total Billed"
-          value={formatCurrency(stats.totalBilled)}
+          label="Total Billed (INR)"
+          value={formatCurrency(stats.totalBilled, 'INR')}
           icon={<MoneyIcon />}
           color="primary"
         />
         <StatCard
-          label="Outstanding Amount"
-          value={formatCurrency(stats.outstanding)}
+          label="Outstanding (INR)"
+          value={formatCurrency(stats.outstanding, 'INR')}
           icon={<PendingIcon />}
           color="warning"
         />
         <StatCard
-          label="Overdue Amount"
-          value={formatCurrency(stats.overdue)}
+          label="Overdue (INR)"
+          value={formatCurrency(stats.overdue, 'INR')}
           icon={<WarningIcon />}
           color="error"
         />
@@ -440,14 +443,26 @@ export default function BillsPage() {
                   <TableCell>{bill.vendorInvoiceNumber || bill.transactionNumber}</TableCell>
                   <TableCell>{bill.entityName || '-'}</TableCell>
                   <TableCell>{bill.description || '-'}</TableCell>
-                  <TableCell align="right">{formatCurrency(bill.subtotal || 0)}</TableCell>
                   <TableCell align="right">
-                    {formatCurrency(bill.gstDetails?.totalGST || 0)}
+                    {formatCurrency(bill.subtotal || 0, bill.currency || 'INR')}
                   </TableCell>
                   <TableCell align="right">
-                    {bill.tdsDeducted ? formatCurrency(bill.tdsAmount || 0) : '-'}
+                    {formatCurrency(bill.gstDetails?.totalGST || 0, bill.currency || 'INR')}
                   </TableCell>
-                  <TableCell align="right">{formatCurrency(bill.totalAmount || 0)}</TableCell>
+                  <TableCell align="right">
+                    {bill.tdsDeducted
+                      ? formatCurrency(bill.tdsAmount || 0, bill.currency || 'INR')
+                      : '-'}
+                  </TableCell>
+                  <TableCell align="right">
+                    <DualCurrencyAmount
+                      foreignAmount={bill.totalAmount || 0}
+                      foreignCurrency={bill.currency || 'INR'}
+                      baseAmount={bill.baseAmount || bill.totalAmount || 0}
+                      exchangeRate={bill.exchangeRate}
+                      size="small"
+                    />
+                  </TableCell>
                   <TableCell>
                     <Chip
                       label={

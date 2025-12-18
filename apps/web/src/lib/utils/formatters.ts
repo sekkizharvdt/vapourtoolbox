@@ -76,6 +76,63 @@ export function formatMoney(money: Money): string {
 }
 
 /**
+ * Format dual currency amount for foreign transactions
+ *
+ * Shows foreign amount with INR equivalent in parentheses.
+ * For INR transactions, returns single formatted amount.
+ *
+ * @param foreignAmount - Amount in foreign currency
+ * @param foreignCurrency - Currency code (e.g., 'USD')
+ * @param baseAmount - Amount in base currency (INR)
+ * @param baseCurrency - Base currency code (default: 'INR')
+ * @returns Formatted string like "$1,000.00 (₹83,250.00)"
+ *
+ * @example
+ * formatDualCurrency(1000, 'USD', 83250)  // "$1,000.00 (₹83,250.00)"
+ * formatDualCurrency(1000, 'INR', 1000)   // "₹1,000.00"
+ */
+export function formatDualCurrency(
+  foreignAmount: number,
+  foreignCurrency: string,
+  baseAmount: number,
+  baseCurrency: string = 'INR'
+): string {
+  // If already in base currency, return single format
+  if (foreignCurrency === baseCurrency) {
+    return formatCurrency(foreignAmount, baseCurrency);
+  }
+
+  const formattedForeign = formatCurrency(foreignAmount, foreignCurrency);
+  const formattedBase = formatCurrency(baseAmount, baseCurrency);
+  return `${formattedForeign} (${formattedBase})`;
+}
+
+/**
+ * Format exchange rate for display
+ *
+ * @param rate - Exchange rate value (e.g., 83.25 for 1 USD = 83.25 INR)
+ * @param fromCurrency - Source currency code
+ * @param toCurrency - Target currency code (default: 'INR')
+ * @param format - 'short' for "@83.25", 'long' for "1 USD = ₹83.25"
+ * @returns Formatted exchange rate string
+ *
+ * @example
+ * formatExchangeRate(83.25, 'USD')                // "@83.25"
+ * formatExchangeRate(83.25, 'USD', 'INR', 'long') // "1 USD = ₹83.25"
+ */
+export function formatExchangeRate(
+  rate: number,
+  fromCurrency: string,
+  toCurrency: string = 'INR',
+  format: 'short' | 'long' = 'short'
+): string {
+  if (format === 'short') {
+    return `@${rate.toFixed(2)}`;
+  }
+  return `1 ${fromCurrency} = ${formatCurrency(rate, toCurrency)}`;
+}
+
+/**
  * Format date from Firestore Timestamp
  *
  * @param timestamp - Firestore Timestamp or Date or string or object with toDate method

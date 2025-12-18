@@ -15,6 +15,8 @@ import {
   truncateText,
   formatWeight,
   formatRelativeTime,
+  formatDualCurrency,
+  formatExchangeRate,
 } from './formatters';
 
 describe('Formatters', () => {
@@ -332,6 +334,72 @@ describe('Formatters', () => {
     it('should handle timestamp object with toDate method', () => {
       const timestamp = { toDate: () => new Date() };
       expect(formatRelativeTime(timestamp as never)).toBe('just now');
+    });
+  });
+
+  describe('formatDualCurrency', () => {
+    it('should format foreign currency with INR equivalent', () => {
+      const result = formatDualCurrency(1000, 'USD', 83250);
+      expect(result).toBe('$1,000.00 (₹83,250.00)');
+    });
+
+    it('should return single format for INR transactions', () => {
+      const result = formatDualCurrency(1000, 'INR', 1000);
+      expect(result).toBe('₹1,000.00');
+    });
+
+    it('should handle EUR currency', () => {
+      const result = formatDualCurrency(500, 'EUR', 45000);
+      expect(result).toContain('€');
+      expect(result).toContain('₹45,000.00');
+    });
+
+    it('should handle GBP currency', () => {
+      const result = formatDualCurrency(200, 'GBP', 21000);
+      expect(result).toContain('£');
+      expect(result).toContain('₹21,000.00');
+    });
+
+    it('should handle zero amounts', () => {
+      const result = formatDualCurrency(0, 'USD', 0);
+      expect(result).toBe('$0.00 (₹0.00)');
+    });
+
+    it('should handle custom base currency', () => {
+      const result = formatDualCurrency(1000, 'INR', 12, 'USD');
+      expect(result).toBe('₹1,000.00 ($12.00)');
+    });
+  });
+
+  describe('formatExchangeRate', () => {
+    it('should format short rate with @ symbol', () => {
+      const result = formatExchangeRate(83.25, 'USD');
+      expect(result).toBe('@83.25');
+    });
+
+    it('should format long rate with currency text', () => {
+      const result = formatExchangeRate(83.25, 'USD', 'INR', 'long');
+      expect(result).toBe('1 USD = ₹83.25');
+    });
+
+    it('should handle EUR to INR', () => {
+      const result = formatExchangeRate(90.5, 'EUR', 'INR', 'long');
+      expect(result).toBe('1 EUR = ₹90.50');
+    });
+
+    it('should round to 2 decimal places', () => {
+      const result = formatExchangeRate(83.256789, 'USD');
+      expect(result).toBe('@83.26');
+    });
+
+    it('should handle rate of 1', () => {
+      const result = formatExchangeRate(1, 'INR');
+      expect(result).toBe('@1.00');
+    });
+
+    it('should handle very small rates', () => {
+      const result = formatExchangeRate(0.01, 'JPY');
+      expect(result).toBe('@0.01');
     });
   });
 });
