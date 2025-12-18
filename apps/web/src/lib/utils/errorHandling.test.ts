@@ -117,6 +117,21 @@ describe('errorHandling', () => {
 
       expect(result).toEqual({ default: true });
     });
+
+    it('should accept metadata option without crashing', async () => {
+      const operation = jest.fn().mockRejectedValue(new Error('Test error'));
+
+      try {
+        await withErrorHandling(operation, 'testOperation', {
+          metadata: { userId: '123' },
+        });
+      } catch {
+        // Expected to throw
+      }
+
+      // Verify operation was called and metadata didn't cause issues
+      expect(operation).toHaveBeenCalled();
+    });
   });
 
   describe('withErrorHandlingSync', () => {
