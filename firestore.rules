@@ -1194,8 +1194,13 @@ service cloud.firestore {
                        request.resource.data.userId == request.auth.uid &&
                        request.resource.data.status == 'new';
 
-      // Update: Only admins can update feedback status
-      allow update: if isAdmin();
+      // Update: Admins can update any field
+      // Reporters can close their own resolved feedback or add follow-up comments
+      allow update: if isAdmin() ||
+        (isAuthenticated() &&
+         resource.data.userId == request.auth.uid &&
+         resource.data.status == 'resolved' &&
+         (request.resource.data.status == 'closed' || request.resource.data.status == 'in_progress'));
 
       // Delete: Only super admins
       allow delete: if isSuperAdmin();
