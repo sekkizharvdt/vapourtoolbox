@@ -142,10 +142,6 @@ export default function NewPurchaseRequestPage() {
       setError('Please enter title');
       return false;
     }
-    if (!formData.description.trim()) {
-      setError('Please enter description');
-      return false;
-    }
 
     // Validate line items
     const validItems = lineItems.filter((item) => item.description.trim() !== '');
@@ -166,19 +162,32 @@ export default function NewPurchaseRequestPage() {
     return true;
   };
 
-  const buildInput = (): CreatePurchaseRequestInput => ({
-    type: formData.type,
-    category: formData.category,
-    projectId: formData.projectId,
-    projectName: formData.projectName,
-    title: formData.title,
-    description: formData.description,
-    priority: formData.priority,
-    requiredBy: formData.requiredBy ? new Date(formData.requiredBy) : undefined,
-    items: lineItems.filter((item) => item.description.trim() !== ''),
-    ...(formData.approverId && { approverId: formData.approverId }),
-    ...(formData.approverName && { approverName: formData.approverName }),
-  });
+  const buildInput = (): CreatePurchaseRequestInput => {
+    // Auto-generate description from line items (first 3 items summarized)
+    const validItems = lineItems.filter((item) => item.description.trim() !== '');
+    const itemSummary = validItems
+      .slice(0, 3)
+      .map((item) => item.description.trim())
+      .join(', ');
+    const autoDescription =
+      validItems.length > 3
+        ? `${itemSummary}, and ${validItems.length - 3} more item(s)`
+        : itemSummary;
+
+    return {
+      type: formData.type,
+      category: formData.category,
+      projectId: formData.projectId,
+      projectName: formData.projectName,
+      title: formData.title,
+      description: autoDescription,
+      priority: formData.priority,
+      requiredBy: formData.requiredBy ? new Date(formData.requiredBy) : undefined,
+      items: validItems,
+      ...(formData.approverId && { approverId: formData.approverId }),
+      ...(formData.approverName && { approverName: formData.approverName }),
+    };
+  };
 
   const handleSaveDraft = async () => {
     if (!user || !validateForm()) return;
@@ -356,17 +365,6 @@ export default function NewPurchaseRequestPage() {
                 helperText="Optional"
               />
             </Stack>
-
-            <TextField
-              label="Description"
-              value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              multiline
-              rows={2}
-              fullWidth
-              required
-              placeholder="Detailed description of the purchase request and its purpose"
-            />
 
             <ApproverSelector
               value={formData.approverId || null}
