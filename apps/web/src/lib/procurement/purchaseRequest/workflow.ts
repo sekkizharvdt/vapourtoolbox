@@ -4,11 +4,22 @@
  * Submit, Approve, Reject, and Comment operations
  */
 
-import { doc, getDoc, updateDoc, Timestamp, writeBatch } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  Timestamp,
+  writeBatch,
+  collection,
+  query,
+  where,
+  getDocs,
+} from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import type { PurchaseRequest } from '@vapour/types';
+import { PermissionFlag, hasPermission } from '@vapour/types';
+import type { PurchaseRequest, User } from '@vapour/types';
 import {
   createTaskNotification,
   findTaskNotificationByEntity,
@@ -87,33 +98,74 @@ export async function submitPurchaseRequestForApproval(
       logger.warn('Failed to write audit log for PR submission', { auditError, prId });
     }
 
-    // Create task notification for the selected approver (if specified)
+    // Create task notification(s) for approver(s)
     // Non-blocking - notification failure should not block PR submission
-    if (pr.approverId) {
-      try {
-        await createTaskNotification({
-          type: 'actionable',
-          category: 'PR_SUBMITTED',
-          userId: pr.approverId,
-          assignedBy: userId,
-          assignedByName: userName,
-          title: `Review Purchase Request ${pr.number}`,
-          message: `${userName} submitted a purchase request for your review: ${pr.title}`,
-          entityType: 'PURCHASE_REQUEST',
-          entityId: prId,
-          linkUrl: `/procurement/purchase-requests/${prId}`,
-          priority: pr.priority === 'URGENT' ? 'HIGH' : 'MEDIUM',
-          autoCompletable: true,
-          projectId: pr.projectId,
+    try {
+      let approverIds: string[] = [];
+
+      if (pr.approverId) {
+        // Specific approver selected
+        approverIds = [pr.approverId];
+        logger.info('Notifying specific approver for PR', { prId, approverId: pr.approverId });
+      } else {
+        // No specific approver - notify all users with APPROVE_PR permission
+        logger.info('No specific approver set, finding users with APPROVE_PR permission', { prId });
+        const usersRef = collection(db, COLLECTIONS.USERS);
+        const q = query(usersRef, where('isActive', '==', true));
+        const snapshot = await getDocs(q);
+
+        snapshot.forEach((userDoc) => {
+          const userData = userDoc.data() as User;
+          if (
+            userData.permissions &&
+            hasPermission(userData.permissions, PermissionFlag.APPROVE_PR)
+          ) {
+            // Don't notify the submitter
+            if (userDoc.id !== userId) {
+              approverIds.push(userDoc.id);
+            }
+          }
         });
-      } catch (notificationError) {
-        // Notification failure should not block the main operation
-        logger.warn('Failed to create task notification for PR submission', {
-          notificationError,
-          prId,
-          approverId: pr.approverId,
-        });
+        logger.info('Found users with APPROVE_PR permission', { prId, count: approverIds.length });
       }
+
+      // Create notifications for all approvers
+      for (const approverId of approverIds) {
+        try {
+          await createTaskNotification({
+            type: 'actionable',
+            category: 'PR_SUBMITTED',
+            userId: approverId,
+            assignedBy: userId,
+            assignedByName: userName,
+            title: `Review Purchase Request ${pr.number}`,
+            message: `${userName} submitted a purchase request for your review: ${pr.title}`,
+            entityType: 'PURCHASE_REQUEST',
+            entityId: prId,
+            linkUrl: `/procurement/purchase-requests/${prId}`,
+            priority: pr.priority === 'URGENT' ? 'HIGH' : 'MEDIUM',
+            autoCompletable: true,
+            projectId: pr.projectId,
+          });
+          logger.info('Created task notification for approver', { prId, approverId });
+        } catch (notificationError) {
+          logger.warn('Failed to create task notification for approver', {
+            notificationError,
+            prId,
+            approverId,
+          });
+        }
+      }
+
+      if (approverIds.length === 0) {
+        logger.warn('No approvers found to notify for PR submission', { prId });
+      }
+    } catch (notificationError) {
+      // Notification failure should not block the main operation
+      logger.warn('Failed to process notifications for PR submission', {
+        notificationError,
+        prId,
+      });
     }
   } catch (error) {
     logger.error('Failed to submit purchase request', { error, prId });
