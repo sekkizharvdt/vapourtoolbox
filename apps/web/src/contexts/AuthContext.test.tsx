@@ -10,7 +10,7 @@ import { AuthProvider, useAuth } from './AuthContext';
 import { onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut } from 'firebase/auth';
 import { getDoc, setDoc } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
-import { isAuthorizedDomain } from '@vapour/constants';
+import { isAuthorizedDomain, PERMISSION_PRESETS } from '@vapour/constants';
 import { createMockFirebaseUser, createMockCustomClaims } from '@/test-utils';
 import type { User as FirebaseUser } from 'firebase/auth';
 
@@ -522,14 +522,14 @@ describe('AuthContext', () => {
       const setDocCall = (setDoc as jest.Mock).mock.calls[0];
       const userData = setDocCall[1];
 
-      // Verify key fields
+      // Verify key fields - internal users are auto-approved with VIEWER permissions
       expect(userData).toMatchObject({
         uid: 'new-user-uid',
         email: 'newuser@vapourdesal.com',
         displayName: 'New User',
-        status: 'pending',
-        isActive: false,
-        permissions: 0,
+        status: 'active',
+        isActive: true,
+        permissions: PERMISSION_PRESETS.VIEWER,
         domain: 'internal', // Should be internal for @vapourdesal.com
         assignedProjects: [],
       });
