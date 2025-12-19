@@ -142,27 +142,31 @@ export async function createRFQ(
   const batch = writeBatch(db);
 
   items.forEach((item, index) => {
-    const itemData: Omit<RFQItem, 'id'> = {
+    // Build item data with only defined fields to prevent Firestore errors
+    // Firestore throws "Unsupported field value: undefined" if any field is undefined
+    const itemData: Record<string, unknown> = {
       rfqId: rfqRef.id,
       purchaseRequestId: item.purchaseRequestId,
       purchaseRequestItemId: item.purchaseRequestItemId,
       lineNumber: index + 1,
       description: item.description,
-      specification: item.specification,
       quantity: item.quantity,
       unit: item.unit,
-      projectId: item.projectId,
-      equipmentId: item.equipmentId,
-      equipmentCode: item.equipmentCode,
-      technicalSpec: item.technicalSpec,
-      drawingNumbers: item.drawingNumbers,
-      makeModel: item.makeModel,
-      requiredBy: item.requiredBy ? Timestamp.fromDate(item.requiredBy) : undefined,
-      deliveryLocation: item.deliveryLocation,
-      conditions: item.conditions,
       createdAt: now,
       updatedAt: now,
     };
+
+    // Add optional fields only if they have values
+    if (item.specification) itemData.specification = item.specification;
+    if (item.projectId) itemData.projectId = item.projectId;
+    if (item.equipmentId) itemData.equipmentId = item.equipmentId;
+    if (item.equipmentCode) itemData.equipmentCode = item.equipmentCode;
+    if (item.technicalSpec) itemData.technicalSpec = item.technicalSpec;
+    if (item.drawingNumbers) itemData.drawingNumbers = item.drawingNumbers;
+    if (item.makeModel) itemData.makeModel = item.makeModel;
+    if (item.requiredBy) itemData.requiredBy = Timestamp.fromDate(item.requiredBy);
+    if (item.deliveryLocation) itemData.deliveryLocation = item.deliveryLocation;
+    if (item.conditions) itemData.conditions = item.conditions;
 
     const itemRef = doc(collection(db, COLLECTIONS.RFQ_ITEMS));
     batch.set(itemRef, itemData);
@@ -255,22 +259,27 @@ export async function createRFQFromPRs(
     itemsSnapshot.forEach((itemDoc) => {
       const prItem = { id: itemDoc.id, ...itemDoc.data() } as PurchaseRequestItem;
 
-      allItems.push({
+      // Build item object, filtering out undefined optional fields to prevent Firestore errors
+      const rfqItem: CreateRFQItemInput = {
         purchaseRequestId: pr.id,
         purchaseRequestItemId: prItem.id,
         description: prItem.description,
-        specification: prItem.specification,
         quantity: prItem.quantity,
         unit: prItem.unit,
-        ...(pr.projectId && { projectId: pr.projectId }),
-        equipmentId: prItem.equipmentId,
-        equipmentCode: prItem.equipmentCode,
-        technicalSpec: prItem.technicalSpec,
-        drawingNumbers: prItem.drawingNumbers,
-        makeModel: prItem.makeModel,
-        requiredBy: prItem.requiredBy?.toDate(),
-        deliveryLocation: prItem.deliveryLocation,
-      });
+      };
+
+      // Add optional fields only if they have values
+      if (pr.projectId) rfqItem.projectId = pr.projectId;
+      if (prItem.specification) rfqItem.specification = prItem.specification;
+      if (prItem.equipmentId) rfqItem.equipmentId = prItem.equipmentId;
+      if (prItem.equipmentCode) rfqItem.equipmentCode = prItem.equipmentCode;
+      if (prItem.technicalSpec) rfqItem.technicalSpec = prItem.technicalSpec;
+      if (prItem.drawingNumbers) rfqItem.drawingNumbers = prItem.drawingNumbers;
+      if (prItem.makeModel) rfqItem.makeModel = prItem.makeModel;
+      if (prItem.requiredBy) rfqItem.requiredBy = prItem.requiredBy.toDate();
+      if (prItem.deliveryLocation) rfqItem.deliveryLocation = prItem.deliveryLocation;
+
+      allItems.push(rfqItem);
     });
   });
 
