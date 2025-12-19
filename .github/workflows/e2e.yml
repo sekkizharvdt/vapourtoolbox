@@ -1,0 +1,188 @@
+name: E2E Tests
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      browser:
+        description: 'Browser to test'
+        required: false
+        default: 'chromium'
+        type: choice
+        options:
+          - chromium
+          - firefox
+          - webkit
+          - all
+
+  # Run on PRs that modify e2e tests or related code
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'apps/web/e2e/**'
+      - 'apps/web/src/**'
+      - 'apps/web/playwright.config.ts'
+      - '.github/workflows/e2e.yml'
+
+  # Run on push to main (after merge)
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/web/e2e/**'
+      - 'apps/web/src/**'
+      - 'apps/web/playwright.config.ts'
+      - '.github/workflows/e2e.yml'
+
+# Cancel in-progress runs when a new workflow with the same group name starts
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-tests:
+    name: E2E Tests (Authenticated)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.19.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm --filter "@vapour/*" --filter "!@vapour/web" build
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Setup Java for Firebase Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install Playwright Browsers
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Create Firebase test config
+        run: |
+          # Create a firebase.e2e.json config for emulator
+          cat > firebase.e2e.json << 'EOF'
+          {
+            "emulators": {
+              "auth": {
+                "port": 9099,
+                "host": "127.0.0.1"
+              },
+              "firestore": {
+                "port": 8080,
+                "host": "127.0.0.1"
+              },
+              "ui": {
+                "enabled": false
+              }
+            },
+            "firestore": {
+              "rules": "firestore.rules"
+            }
+          }
+          EOF
+
+      - name: Start Firebase Emulators
+        run: |
+          firebase emulators:start --only auth,firestore --config firebase.e2e.json --project vapour-toolbox &
+          # Wait for emulators to be ready
+          echo "Waiting for Firebase emulators to start..."
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:9099/ > /dev/null 2>&1; then
+              echo "Auth emulator is ready"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+          # Verify Firestore is also ready
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:8080/ > /dev/null 2>&1; then
+              echo "Firestore emulator is ready"
+              break
+            fi
+            echo "Waiting for Firestore... ($i/30)"
+            sleep 2
+          done
+
+      - name: Build and Start Next.js Server
+        working-directory: apps/web
+        run: |
+          # Build the app with emulator config
+          NODE_ENV=production pnpm build
+          # Start the production server in background
+          pnpm start --port 3001 &
+          # Wait for server to be ready
+          echo "Waiting for Next.js server to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:3001/ > /dev/null 2>&1; then
+              echo "Next.js server is ready"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+        env:
+          NEXT_PUBLIC_USE_EMULATOR: 'true'
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyCxzqzAUTT3Ouiv-szpfO1Au4LwEMnP-4w
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: vapour-toolbox.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: vapour-toolbox
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: vapour-toolbox.firebasestorage.app
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 697891123609
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:697891123609:web:334e56be149a056f252308
+
+      - name: Run Playwright E2E Tests
+        working-directory: apps/web
+        run: pnpm exec playwright test --project=setup --project=chromium
+        env:
+          NEXT_PUBLIC_USE_EMULATOR: 'true'
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: vapour-toolbox
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: apps/web/test-results/
+          retention-days: 7
+
+      - name: Upload Screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: screenshots
+          path: apps/web/test-results/**/*.png
+          retention-days: 7
