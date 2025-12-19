@@ -7,10 +7,11 @@ import {
   signOut as firebaseSignOut,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithEmailAndPassword,
 } from 'firebase/auth';
 import { getFirebase } from '@/lib/firebase';
 import type { CustomClaims } from '@vapour/types';
-import { isAuthorizedDomain } from '@vapour/constants';
+import { isAuthorizedDomain, PERMISSION_PRESETS } from '@vapour/constants';
 import { createLogger } from '@vapour/utils';
 
 const logger = createLogger('Auth');
@@ -74,10 +75,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [claims, setClaims] = useState<CustomClaims | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Expose auth loading state to window for E2E testing
+  // Expose auth loading state and test sign-in method to window for E2E testing
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as Window & { __authLoading?: boolean }).__authLoading = loading;
+      const win = window as Window & {
+        __authLoading?: boolean;
+        __e2eSignIn?: (email: string, password: string) => Promise<void>;
+      };
+      win.__authLoading = loading;
+
+      // Only expose test sign-in when using emulator
+      if (process.env.NEXT_PUBLIC_USE_EMULATOR === 'true') {
+        win.__e2eSignIn = async (email: string, password: string) => {
+          const { auth } = getFirebase();
+          await signInWithEmailAndPassword(auth, email, password);
+        };
+      }
     }
   }, [loading]);
 
@@ -237,25 +250,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userDocRef = doc(db, 'users', result.user.uid);
       const userDocSnap = await getDoc(userDocRef);
 
-      // If user document doesn't exist, create it with pending status
+      // If user document doesn't exist, create it
       if (!userDocSnap.exists()) {
         // Calculate domain from email (@vapourdesal.com = internal, others = external)
-        const domain = email.endsWith('@vapourdesal.com') ? 'internal' : 'external';
+        const isInternalUser = email.endsWith('@vapourdesal.com');
+        const domain = isInternalUser ? 'internal' : 'external';
+
+        // Auto-approve internal users with VIEWER permissions
+        // External users remain pending until admin approves
+        const userStatus = isInternalUser ? 'active' : 'pending';
+        const userIsActive = isInternalUser;
+        const userPermissions = isInternalUser ? PERMISSION_PRESETS.VIEWER : 0;
 
         await setDoc(userDocRef, {
           uid: result.user.uid,
           email: email,
           displayName: result.user.displayName || '',
           photoURL: result.user.photoURL || '',
-          status: 'pending',
-          isActive: false,
-          permissions: 0, // No permissions until admin approves
+          status: userStatus,
+          isActive: userIsActive,
+          permissions: userPermissions,
           domain: domain,
           assignedProjects: [],
           department: '',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
+
+        if (isInternalUser) {
+          logger.info('Auto-approved internal user with VIEWER permissions', { email });
+        }
       }
 
       // Success - user will be handled by onAuthStateChanged

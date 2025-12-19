@@ -2,9 +2,16 @@
  * Playwright E2E Test Configuration
  *
  * Tests run against a local development server or Firebase emulator.
+ *
+ * Authentication:
+ * - With emulator: NEXT_PUBLIC_USE_EMULATOR=true pnpm test:e2e
+ * - Without emulator: Auth-required tests will be skipped
  */
 
 import { defineConfig, devices } from '@playwright/test';
+
+// Auth storage state path
+const STORAGE_STATE_PATH = 'e2e/.auth/user.json';
 
 /**
  * Read environment variables from file.
@@ -17,7 +24,8 @@ export default defineConfig({
   testDir: './e2e',
 
   // Run tests in files in parallel
-  fullyParallel: true,
+  // Disabled on WSL to prevent memory exhaustion and disconnects
+  fullyParallel: false,
 
   // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
@@ -25,8 +33,9 @@ export default defineConfig({
   // Retry on CI only
   retries: process.env.CI ? 2 : 0,
 
-  // Opt out of parallel tests on CI (more stable)
-  workers: process.env.CI ? 1 : undefined,
+  // Limit workers to prevent WSL memory exhaustion
+  // WSL has limited memory - too many browser instances cause disconnects
+  workers: 1,
 
   // Reporter to use
   reporter: [['html', { outputFolder: 'playwright-report' }], ['list']],
@@ -42,32 +51,55 @@ export default defineConfig({
     // Take screenshot on failure
     screenshot: 'only-on-failure',
 
-    // Video recording
-    video: 'on-first-retry',
+    // Video recording - disabled to reduce memory usage on WSL
+    video: 'off',
   },
 
   // Configure projects for major browsers
   projects: [
+    // Setup project - runs first to authenticate
+    {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+    },
+
+    // Main test project - uses authenticated state
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        // Use authenticated state from setup
+        storageState: STORAGE_STATE_PATH,
+      },
+      dependencies: ['setup'],
     },
     // Uncomment to add more browsers
     // {
     //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
+    //   use: {
+    //     ...devices['Desktop Firefox'],
+    //     storageState: STORAGE_STATE_PATH,
+    //   },
+    //   dependencies: ['setup'],
     // },
     // {
     //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
+    //   use: {
+    //     ...devices['Desktop Safari'],
+    //     storageState: STORAGE_STATE_PATH,
+    //   },
+    //   dependencies: ['setup'],
     // },
   ],
 
   // Run your local dev server before starting the tests
+  // IMPORTANT: For local development, start the dev server manually BEFORE running tests:
+  //   NEXT_PUBLIC_USE_EMULATOR=true pnpm dev --port 3001
+  // This prevents Playwright from spawning additional processes that can crash WSL
   webServer: {
-    command: 'pnpm dev',
+    command: 'pnpm dev --port 3001',
     url: 'http://localhost:3001',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true, // Always reuse to prevent spawning new processes
     timeout: 120 * 1000, // 2 minutes to start
   },
 
