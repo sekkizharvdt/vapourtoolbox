@@ -70,6 +70,7 @@ export default function NewRFQPage() {
   // Step 3: RFQ Details
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [remarks, setRemarks] = useState('');
   const [paymentTerms, setPaymentTerms] = useState('');
   const [deliveryTerms, setDeliveryTerms] = useState('');
   const [warrantyTerms, setWarrantyTerms] = useState('');
@@ -138,15 +139,35 @@ export default function NewRFQPage() {
       return;
     }
 
+    // Auto-populate description when moving from step 1 to step 2
+    if (activeStep === 1) {
+      const selectedPRDetails = availablePRs.filter((pr) => selectedPRs.includes(pr.id));
+      if (!description.trim()) {
+        // Auto-generate description from selected PRs
+        const prNumbers = selectedPRDetails.map((pr) => pr.number).join(', ');
+        const prTitles = selectedPRDetails.map((pr) => pr.title).join('; ');
+        const autoDescription = `Request for Quotation for items from ${prNumbers}.\n\nScope: ${prTitles}`;
+        setDescription(autoDescription);
+      }
+      // Auto-generate title if empty
+      if (!title.trim()) {
+        const projectNames = [
+          ...new Set(selectedPRDetails.map((pr) => pr.projectName).filter(Boolean)),
+        ];
+        const autoTitle =
+          projectNames.length > 0
+            ? `RFQ - ${projectNames.join(', ')}`
+            : `RFQ - ${selectedPRDetails.map((pr) => pr.number).join(', ')}`;
+        setTitle(autoTitle);
+      }
+    }
+
     if (activeStep === 2) {
       if (!title.trim()) {
         setError('Title is required');
         return;
       }
-      if (!description.trim()) {
-        setError('Description is required');
-        return;
-      }
+      // Description is now optional - auto-generated if not provided
       if (!dueDate) {
         setError('Due date is required');
         return;
@@ -186,6 +207,7 @@ export default function NewRFQPage() {
           paymentTerms: paymentTerms || undefined,
           deliveryTerms: deliveryTerms || undefined,
           warrantyTerms: warrantyTerms || undefined,
+          otherTerms: remarks.trim() ? [`Remarks: ${remarks.trim()}`] : undefined,
           dueDate: new Date(dueDate),
           validityPeriod,
         },
@@ -359,11 +381,22 @@ export default function NewRFQPage() {
                 label="Description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                required
                 fullWidth
                 multiline
-                rows={4}
-                placeholder="Detailed description of the RFQ requirements..."
+                rows={3}
+                placeholder="Auto-generated from selected PRs. You can edit if needed."
+                helperText="Auto-populated from selected Purchase Requests"
+              />
+
+              <TextField
+                label="Remarks"
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                fullWidth
+                multiline
+                rows={2}
+                placeholder="Any specific requirements or notes for vendors (optional)"
+                helperText="Optional - Add any special instructions or requirements"
               />
 
               <TextField
