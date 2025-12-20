@@ -2,9 +2,12 @@
  * Transaction Number Generator
  * Generates sequential transaction numbers for different transaction types
  * Format: PREFIX-NNNN (e.g., INV-0001, BILL-0042, JE-0123)
+ *
+ * Uses atomic Firestore transactions with counter documents to prevent
+ * race conditions when multiple users create transactions simultaneously.
  */
 
-import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { doc, runTransaction, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
@@ -25,6 +28,8 @@ const TRANSACTION_PREFIXES: Record<TransactionType, string> = {
 
 /**
  * Generate next transaction number for a given type
+ * Uses atomic transaction with counter document to prevent duplicates
+ *
  * @param type - Transaction type
  * @returns Promise with generated transaction number
  */
@@ -33,42 +38,50 @@ export async function generateTransactionNumber(type: TransactionType): Promise<
 
   try {
     const { db } = getFirebase();
-    const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
 
-    // Query for last transaction of this type
-    const q = query(
-      transactionsRef,
-      where('type', '==', type),
-      orderBy('transactionNumber', 'desc'),
-      limit(1)
-    );
+    // Use a counter document per transaction type per year/month to ensure uniqueness
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const counterKey = `transaction-${type.toLowerCase()}-${year}-${month}`;
+    const counterRef = doc(db, COLLECTIONS.COUNTERS, counterKey);
 
-    const snapshot = await getDocs(q);
+    // Use Firestore transaction for atomic read-modify-write
+    const transactionNumber = await runTransaction(db, async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
 
-    let nextNumber = 1;
-
-    if (!snapshot.empty) {
-      const lastTransaction = snapshot.docs[0]?.data();
-      const lastNumber = lastTransaction?.transactionNumber;
-
-      if (lastNumber && typeof lastNumber === 'string') {
-        // Extract number from last transaction number (e.g., "INV-0042" -> 42)
-        const match = lastNumber.match(/-(\d+)$/);
-        if (match && match[1]) {
-          nextNumber = parseInt(match[1], 10) + 1;
-        }
+      let sequence = 1;
+      if (counterDoc.exists()) {
+        const data = counterDoc.data();
+        sequence = (data.value || 0) + 1;
+        transaction.update(counterRef, {
+          value: sequence,
+          updatedAt: Timestamp.now(),
+        });
+      } else {
+        // Initialize counter for this type/month
+        transaction.set(counterRef, {
+          type: `accounting_${type.toLowerCase()}`,
+          year,
+          month: parseInt(month, 10),
+          value: sequence,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
       }
-    }
 
-    // Format number with leading zeros (4 digits)
-    const formattedNumber = nextNumber.toString().padStart(4, '0');
+      // Format number with leading zeros (4 digits)
+      const formattedNumber = sequence.toString().padStart(4, '0');
+      return `${prefix}-${formattedNumber}`;
+    });
 
-    return `${prefix}-${formattedNumber}`;
+    return transactionNumber;
   } catch (error) {
     logger.error('generateTransactionNumber failed', { type, error });
-    // Fallback to timestamp-based number
+    // Fallback to timestamp-based number with random suffix for uniqueness
     const timestamp = Date.now().toString().slice(-4);
-    return `${prefix}-${timestamp}`;
+    const randomSuffix = Math.random().toString(36).slice(-2).toUpperCase();
+    return `${prefix}-${timestamp}${randomSuffix}`;
   }
 }
 
