@@ -128,24 +128,11 @@ jobs:
             sleep 2
           done
 
-      - name: Build and Start Next.js Server
+      - name: Run Playwright E2E Tests
         working-directory: apps/web
-        run: |
-          # Build the app with emulator config
-          NODE_ENV=production pnpm build
-          # Start the production server in background
-          pnpm start --port 3001 &
-          # Wait for server to be ready
-          echo "Waiting for Next.js server to start..."
-          for i in {1..30}; do
-            if curl -s http://localhost:3001/ > /dev/null 2>&1; then
-              echo "Next.js server is ready"
-              break
-            fi
-            echo "Waiting... ($i/30)"
-            sleep 2
-          done
+        run: pnpm exec playwright test --project=setup --project=chromium
         env:
+          # Firebase client config (needed for Next.js build during webServer startup)
           NEXT_PUBLIC_USE_EMULATOR: 'true'
           NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyCxzqzAUTT3Ouiv-szpfO1Au4LwEMnP-4w
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: vapour-toolbox.firebaseapp.com
@@ -153,13 +140,7 @@ jobs:
           NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: vapour-toolbox.firebasestorage.app
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: 697891123609
           NEXT_PUBLIC_FIREBASE_APP_ID: 1:697891123609:web:334e56be149a056f252308
-
-      - name: Run Playwright E2E Tests
-        working-directory: apps/web
-        run: pnpm exec playwright test --project=setup --project=chromium
-        env:
-          NEXT_PUBLIC_USE_EMULATOR: 'true'
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: vapour-toolbox
+          # Emulator host configuration
           FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
           FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
 
