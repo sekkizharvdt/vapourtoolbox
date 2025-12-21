@@ -51,9 +51,6 @@ const TEST_USER_CLAIMS = {
   department: 'Engineering',
 };
 
-// Store the custom token for use in sign-in
-let customToken: string | null = null;
-
 interface AuthStatus {
   ready: boolean;
   email: string;
@@ -160,11 +157,6 @@ async function setupTestUser(): Promise<boolean> {
 
     console.log('  Created/Updated user document in Firestore');
 
-    // Step 4: Create a custom token for signing in
-    // This bypasses the need for email/password provider to be enabled
-    customToken = await auth.createCustomToken(userId, TEST_USER_CLAIMS);
-    console.log('  Created custom token for test user');
-
     return true;
   } catch (error) {
     console.error('  Error setting up test user:', error);
@@ -195,7 +187,7 @@ setup('authenticate', async ({ browser }) => {
     } else {
       const userSetup = await setupTestUser();
 
-      if (userSetup && customToken) {
+      if (userSetup) {
         // Navigate to the app
         await page.goto('/login');
         await page.waitForLoadState('networkidle');
@@ -213,31 +205,33 @@ setup('authenticate', async ({ browser }) => {
             console.log('  Auth did not finish loading in time');
           });
 
-        // Try to sign in using the custom token (bypasses email/password provider)
-        const token = customToken; // TypeScript now knows this is string
-        const signInResult = await page.evaluate(async (t) => {
-          const win = window as Window & {
-            __e2eSignInWithToken?: (token: string) => Promise<void>;
-          };
-
-          if (!win.__e2eSignInWithToken) {
-            return {
-              success: false,
-              error:
-                'E2E sign-in with token method not available. Is NEXT_PUBLIC_USE_EMULATOR=true?',
+        // Try to sign in using email/password (requires Email/Password provider enabled in Firebase Console)
+        // This is the most reliable method when the provider is enabled
+        const signInResult = await page.evaluate(
+          async (creds) => {
+            const win = window as Window & {
+              __e2eSignIn?: (email: string, password: string) => Promise<void>;
             };
-          }
 
-          try {
-            await win.__e2eSignInWithToken(t);
-            return { success: true };
-          } catch (error) {
-            return { success: false, error: String(error) };
-          }
-        }, token);
+            if (!win.__e2eSignIn) {
+              return {
+                success: false,
+                error: 'E2E sign-in method not available. Is NEXT_PUBLIC_USE_EMULATOR=true?',
+              };
+            }
+
+            try {
+              await win.__e2eSignIn(creds.email, creds.password);
+              return { success: true };
+            } catch (error) {
+              return { success: false, error: String(error) };
+            }
+          },
+          { email: TEST_USER.email, password: TEST_USER.password }
+        );
 
         if (signInResult.success) {
-          console.log('  Signed in via custom token');
+          console.log('  Signed in via email/password');
 
           // Wait for auth state to update
           await page.waitForTimeout(1000);
