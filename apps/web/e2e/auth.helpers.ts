@@ -43,18 +43,25 @@ export async function isTestUserReady(): Promise<boolean> {
  * Call this at the start of each test that needs authentication
  */
 export async function signInForTest(page: Page): Promise<boolean> {
+  console.log(`  [signInForTest] Starting sign-in process...`);
+
   const status = await readAuthStatus();
+  console.log(`  [signInForTest] Auth status: ready=${status?.ready}`);
 
   if (!status?.ready) {
+    console.log(`  [signInForTest] Status not ready - returning false`);
     return false;
   }
 
   // Navigate to login first to ensure Firebase is initialized
+  console.log(`  [signInForTest] Navigating to /login...`);
   await page.goto('/login');
   await page.waitForLoadState('networkidle');
+  console.log(`  [signInForTest] Login page loaded, URL: ${page.url()}`);
 
   // Wait for auth to initialize
-  await page
+  console.log(`  [signInForTest] Waiting for __authLoading === false...`);
+  const authLoadingResult = await page
     .waitForFunction(
       () => {
         const win = window as Window & { __authLoading?: boolean };
@@ -62,9 +69,13 @@ export async function signInForTest(page: Page): Promise<boolean> {
       },
       { timeout: 10000 }
     )
-    .catch(() => {});
+    .then(() => true)
+    .catch(() => false);
+
+  console.log(`  [signInForTest] Auth loading wait result: ${authLoadingResult}`);
 
   // Sign in using the E2E method
+  console.log(`  [signInForTest] Calling __e2eSignIn...`);
   const signInResult = await page.evaluate(
     async (creds) => {
       const win = window as Window & {
@@ -85,12 +96,19 @@ export async function signInForTest(page: Page): Promise<boolean> {
     { email: status.email, password: status.password }
   );
 
+  console.log(
+    `  [signInForTest] Sign-in result: success=${signInResult.success}, error=${signInResult.success ? 'none' : signInResult.error}`
+  );
+
   if (!signInResult.success) {
+    console.log(`  [signInForTest] Sign-in failed - returning false`);
     return false;
   }
 
   // Wait for auth state to update
+  console.log(`  [signInForTest] Waiting 500ms for auth state to update...`);
   await page.waitForTimeout(500);
 
+  console.log(`  [signInForTest] Sign-in successful - returning true`);
   return true;
 }

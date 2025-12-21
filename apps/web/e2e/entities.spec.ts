@@ -30,13 +30,19 @@ async function navigateToEntitiesPage(page: Page): Promise<boolean> {
   // Try navigating directly first
   await page.goto('/entities');
   await page.waitForLoadState('domcontentloaded');
-  await page.waitForTimeout(1000); // React hydration time
+  await page.waitForTimeout(2000); // React hydration time - increased for SSR pages
+
+  const currentUrl = page.url();
+  console.log(`  [navigateToEntitiesPage] Current URL after initial navigation: ${currentUrl}`);
 
   // Check if authenticated
   const isOnPage = await page
     .getByText(/Entity Management/i)
     .isVisible()
     .catch(() => false);
+
+  console.log(`  [navigateToEntitiesPage] Entity Management visible: ${isOnPage}`);
+
   if (isOnPage) return true;
 
   // Check for access denied
@@ -44,24 +50,49 @@ async function navigateToEntitiesPage(page: Page): Promise<boolean> {
     .getByText(/Access Denied/i)
     .isVisible()
     .catch(() => false);
-  if (accessDenied) return false;
+
+  console.log(`  [navigateToEntitiesPage] Access Denied visible: ${accessDenied}`);
+
+  if (accessDenied) {
+    console.log(`  [navigateToEntitiesPage] User has Access Denied - returning false`);
+    return false;
+  }
 
   // Not authenticated - try signing in
   const testUserReady = await isTestUserReady();
-  if (!testUserReady) return false;
+  console.log(`  [navigateToEntitiesPage] Test user ready: ${testUserReady}`);
 
+  if (!testUserReady) {
+    console.log(`  [navigateToEntitiesPage] Test user not ready - returning false`);
+    return false;
+  }
+
+  console.log(`  [navigateToEntitiesPage] Calling signInForTest...`);
   const signedIn = await signInForTest(page);
-  if (!signedIn) return false;
+  console.log(`  [navigateToEntitiesPage] signInForTest returned: ${signedIn}`);
+
+  if (!signedIn) {
+    console.log(`  [navigateToEntitiesPage] Sign in failed - returning false`);
+    return false;
+  }
 
   // Navigate after sign in
+  console.log(`  [navigateToEntitiesPage] Navigating to /entities after sign in...`);
   await page.goto('/entities');
   await page.waitForLoadState('domcontentloaded');
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(2000);
 
-  return await page
+  const finalUrl = page.url();
+  console.log(`  [navigateToEntitiesPage] Final URL: ${finalUrl}`);
+
+  const finalIsOnPage = await page
     .getByText(/Entity Management/i)
     .isVisible()
     .catch(() => false);
+
+  console.log(`  [navigateToEntitiesPage] Final Entity Management visible: ${finalIsOnPage}`);
+
+  return finalIsOnPage;
 }
 
 test.describe('Entities Module', () => {

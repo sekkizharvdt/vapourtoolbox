@@ -356,7 +356,15 @@
       "Bash(NEXT_PUBLIC_USE_EMULATOR=true pnpm exec playwright test:*)",
       "Bash(git restore:*)",
       "Bash(gh run download:*)",
-      "Bash(gh workflow run:*)"
+      "Bash(gh workflow run:*)",
+      "Bash(for comp in BugDetailsSection FeatureRequestSection FeedbackTypeSelector)",
+      "Bash(do if grep -rq \"$comp\" /home/sekki/projects/VDT-Unified/apps/web/src/components/common/FeedbackForm/__tests__/)",
+      "Bash(then echo \"  ✅ $comp - tested\")",
+      "Bash(else echo \"  ❌ $comp - NO TESTS\")",
+      "Bash(for comp in FeedbackDetailDialog FeedbackTable FeedbackStats FeedbackFilters)",
+      "Bash(do if grep -rq \"$comp\" /home/sekki/projects/VDT-Unified/apps/web/src/components/admin/feedback/__tests__/)",
+      "Bash(killall:*)",
+      "Bash(killall firebase:*)"
     ],
     "deny": [],
     "ask": []
