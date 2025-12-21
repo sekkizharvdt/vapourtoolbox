@@ -80,7 +80,22 @@ async function navigateToEntitiesPage(page: Page): Promise<boolean> {
   console.log(`  [navigateToEntitiesPage] Navigating to /entities after sign in...`);
   await page.goto('/entities');
   await page.waitForLoadState('domcontentloaded');
-  await page.waitForTimeout(3000); // Increased wait time for SSR + hydration
+
+  // Wait for auth to be processed on the page
+  console.log(`  [navigateToEntitiesPage] Waiting for auth to be processed...`);
+  await page
+    .waitForFunction(
+      () => {
+        const win = window as Window & { __authLoading?: boolean };
+        return win.__authLoading === false;
+      },
+      { timeout: 10000 }
+    )
+    .then(() => console.log(`  [navigateToEntitiesPage] Auth loading complete`))
+    .catch(() => console.log(`  [navigateToEntitiesPage] Auth loading timed out`));
+
+  // Additional wait for React to render
+  await page.waitForTimeout(2000);
 
   const finalUrl = page.url();
   console.log(`  [navigateToEntitiesPage] Final URL: ${finalUrl}`);
