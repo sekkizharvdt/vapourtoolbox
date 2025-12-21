@@ -12,9 +12,8 @@
  *
  * Run with: pnpm test:e2e --grep "Entities"
  *
- * Note: These tests require authentication. Without Firebase emulator
- * with test users, tests will verify redirect to login page.
- * With proper auth setup, tests verify full functionality.
+ * Note: These tests require authentication via Firebase emulator.
+ * The auth.setup.ts must run first to create the test user.
  */
 
 import { test, expect, Page } from '@playwright/test';
@@ -23,63 +22,46 @@ import { signInForTest, isTestUserReady } from './auth.helpers';
 // Test configuration
 const TEST_TIMEOUT = 30000;
 
-// Helper to check if user is authenticated and on entities page
-async function isOnEntitiesPage(page: Page): Promise<boolean> {
-  const url = page.url();
-  if (url.includes('/login')) {
-    return false;
-  }
-  // Check for entities page elements
-  const pageTitle = await page
+/**
+ * Navigate to entities page with authentication handling
+ * Following the pattern from E2E_TESTING.md
+ */
+async function navigateToEntitiesPage(page: Page): Promise<boolean> {
+  // Try navigating directly first
+  await page.goto('/entities');
+  await page.waitForLoadState('domcontentloaded');
+  await page.waitForTimeout(1000); // React hydration time
+
+  // Check if authenticated
+  const isOnPage = await page
     .getByText(/Entity Management/i)
     .isVisible()
     .catch(() => false);
-  return pageTitle;
-}
-
-/**
- * Navigate to entities page, signing in if necessary
- * Returns true if authenticated and on entities page
- */
-async function navigateToEntitiesPage(page: Page): Promise<boolean> {
-  // First try navigating directly
-  await page.goto('/entities');
-  await page.waitForLoadState('domcontentloaded');
-  // Give React time to hydrate
-  await page.waitForTimeout(1000);
-
-  // If already authenticated, we're done
-  if (await isOnEntitiesPage(page)) {
-    return true;
-  }
+  if (isOnPage) return true;
 
   // Check for access denied
   const accessDenied = await page
     .getByText(/Access Denied/i)
     .isVisible()
     .catch(() => false);
-  if (accessDenied) {
-    return false;
-  }
+  if (accessDenied) return false;
 
-  // If not authenticated, try signing in
+  // Not authenticated - try signing in
   const testUserReady = await isTestUserReady();
-  if (!testUserReady) {
-    return false;
-  }
+  if (!testUserReady) return false;
 
-  // Sign in and navigate to entities
   const signedIn = await signInForTest(page);
-  if (!signedIn) {
-    return false;
-  }
+  if (!signedIn) return false;
 
-  // Navigate to entities after sign in
+  // Navigate after sign in
   await page.goto('/entities');
   await page.waitForLoadState('domcontentloaded');
   await page.waitForTimeout(1000);
 
-  return isOnEntitiesPage(page);
+  return await page
+    .getByText(/Entity Management/i)
+    .isVisible()
+    .catch(() => false);
 }
 
 test.describe('Entities Module', () => {
@@ -103,7 +85,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -118,7 +100,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -136,7 +118,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -154,7 +136,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -177,7 +159,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -200,7 +182,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -218,7 +200,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -243,7 +225,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -260,7 +242,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -286,7 +268,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -304,7 +286,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -324,7 +306,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -347,7 +329,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -374,7 +356,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -402,7 +384,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -425,7 +407,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -448,7 +430,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -476,7 +458,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -500,7 +482,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -527,7 +509,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -551,7 +533,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -581,7 +563,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -609,7 +591,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -635,7 +617,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -665,46 +647,30 @@ test.describe('Entities Module', () => {
   test.describe('Responsive Design', () => {
     test('should work on mobile viewport', async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 667 });
-      await navigateToEntitiesPage(page);
+      const isAuthenticated = await navigateToEntitiesPage(page);
 
-      // Should show either entities page or login page
-      const entitiesVisible = await page
-        .getByText(/Entity Management/i)
-        .isVisible()
-        .catch(() => false);
-      const loginVisible = await page
-        .getByRole('button', { name: /sign in with google/i })
-        .isVisible()
-        .catch(() => false);
-
-      // At least one should be visible
-      expect(entitiesVisible || loginVisible).toBe(true);
-
-      if (entitiesVisible) {
-        // Stats cards should be visible
-        await expect(page.getByText(/Total Entities/i)).toBeVisible();
+      if (!isAuthenticated) {
+        test.skip(true, 'Requires authentication - test user not ready');
+        return;
       }
+
+      // Verify page renders correctly on mobile
+      await expect(page.getByText(/Entity Management/i)).toBeVisible();
+      await expect(page.getByText(/Total Entities/i)).toBeVisible();
     });
 
     test('should work on tablet viewport', async ({ page }) => {
       await page.setViewportSize({ width: 768, height: 1024 });
-      await navigateToEntitiesPage(page);
+      const isAuthenticated = await navigateToEntitiesPage(page);
 
-      // Should show either entities page or login page
-      const entitiesVisible = await page
-        .getByText(/Entity Management/i)
-        .isVisible()
-        .catch(() => false);
-      const loginVisible = await page
-        .getByRole('button', { name: /sign in with google/i })
-        .isVisible()
-        .catch(() => false);
-
-      expect(entitiesVisible || loginVisible).toBe(true);
-
-      if (entitiesVisible) {
-        await expect(page.getByPlaceholder(/Search entities/i)).toBeVisible();
+      if (!isAuthenticated) {
+        test.skip(true, 'Requires authentication - test user not ready');
+        return;
       }
+
+      // Verify page renders correctly on tablet
+      await expect(page.getByText(/Entity Management/i)).toBeVisible();
+      await expect(page.getByPlaceholder(/Search entities/i)).toBeVisible();
     });
   });
 
@@ -713,7 +679,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -733,7 +699,7 @@ test.describe('Entities Module', () => {
       const isAuthenticated = await navigateToEntitiesPage(page);
 
       if (!isAuthenticated) {
-        test.skip(true, 'Requires authentication');
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
@@ -750,6 +716,7 @@ test.describe('Entities Module', () => {
         await page.keyboard.press('Tab');
         const focusedElement = await page.evaluate(() => document.activeElement?.tagName);
         console.log('Focused element:', focusedElement);
+        test.skip(true, 'Requires authentication - test user not ready');
         return;
       }
 
