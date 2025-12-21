@@ -10,14 +10,21 @@ import {
   Typography,
   Alert,
   CircularProgress,
+  TextField,
+  Divider,
+  Collapse,
 } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, claims, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, claims, loading: authLoading, signInWithGoogle, sendEmailLink } = useAuth();
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [email, setEmail] = useState('');
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -47,7 +54,7 @@ export default function LoginPage() {
       if (firebaseError.message === 'UNAUTHORIZED_DOMAIN') {
         setError(
           'Your email domain is not authorized to access this application. ' +
-          'Only @vapourdesal.com and invited client domains are allowed.'
+            'Only @vapourdesal.com and invited client domains are allowed.'
         );
       } else if (firebaseError.code === 'auth/popup-closed-by-user') {
         setError('Sign-in cancelled. Please try again.');
@@ -56,8 +63,8 @@ export default function LoginPage() {
       } else if (firebaseError.code === 'auth/internal-error') {
         setError(
           `Internal authentication error: ${firebaseError.message || 'Unknown error'}. ` +
-          'This may be caused by network issues, browser extensions, or firewall settings. ' +
-          'Please check the browser console (F12) for details.'
+            'This may be caused by network issues, browser extensions, or firewall settings. ' +
+            'Please check the browser console (F12) for details.'
         );
       } else if (firebaseError.code === 'auth/network-request-failed') {
         setError(
@@ -66,11 +73,47 @@ export default function LoginPage() {
       } else {
         setError(
           `Failed to sign in with Google: ${firebaseError.code || firebaseError.message || 'Unknown error'}. ` +
-          'Please check the browser console (F12) for details.'
+            'Please check the browser console (F12) for details.'
         );
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEmailSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setEmailLoading(true);
+
+    try {
+      await sendEmailLink(email);
+      setSuccess(
+        `Sign-in link sent to ${email}. Please check your email and click the link to sign in.`
+      );
+      setEmail('');
+    } catch (err: unknown) {
+      const isFirebaseError = (error: unknown): error is { code?: string; message?: string } => {
+        return typeof error === 'object' && error !== null;
+      };
+
+      const firebaseError = isFirebaseError(err) ? err : { code: undefined, message: String(err) };
+
+      if (firebaseError.message === 'UNAUTHORIZED_DOMAIN') {
+        setError(
+          'Your email domain is not authorized to access this application. ' +
+            'Please contact the administrator to request access.'
+        );
+      } else if (firebaseError.code === 'auth/invalid-email') {
+        setError('Please enter a valid email address.');
+      } else {
+        setError(
+          `Failed to send sign-in link: ${firebaseError.code || firebaseError.message || 'Unknown error'}`
+        );
+      }
+    } finally {
+      setEmailLoading(false);
     }
   };
 
@@ -96,18 +139,19 @@ export default function LoginPage() {
           <Typography variant="h4" component="h1" gutterBottom align="center">
             Vapour Toolbox
           </Typography>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            align="center"
-            sx={{ mb: 3 }}
-          >
+          <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
             Sign in to continue
           </Typography>
 
           {error && (
             <Alert severity="error" sx={{ mb: 3 }}>
               {error}
+            </Alert>
+          )}
+
+          {success && (
+            <Alert severity="success" sx={{ mb: 3 }}>
+              {success}
             </Alert>
           )}
 
@@ -167,6 +211,56 @@ export default function LoginPage() {
             )}
           </Button>
 
+          {/* Divider with "or" */}
+          <Box sx={{ my: 3, display: 'flex', alignItems: 'center' }}>
+            <Divider sx={{ flex: 1 }} />
+            <Typography variant="body2" color="text.secondary" sx={{ mx: 2 }}>
+              or
+            </Typography>
+            <Divider sx={{ flex: 1 }} />
+          </Box>
+
+          {/* Email Link Sign-In */}
+          <Button
+            fullWidth
+            variant="text"
+            size="small"
+            onClick={() => setShowEmailForm(!showEmailForm)}
+            sx={{ mb: 1, textTransform: 'none' }}
+          >
+            {showEmailForm ? 'Hide email sign-in' : 'Sign in with email link (no password)'}
+          </Button>
+
+          <Collapse in={showEmailForm}>
+            <Box component="form" onSubmit={handleEmailSignIn} sx={{ mt: 2 }}>
+              <TextField
+                fullWidth
+                type="email"
+                label="Email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={emailLoading}
+                required
+                size="small"
+                sx={{ mb: 2 }}
+                helperText="We'll send you a sign-in link"
+              />
+              <Button
+                fullWidth
+                type="submit"
+                variant="contained"
+                disabled={emailLoading || !email}
+                sx={{ textTransform: 'none' }}
+              >
+                {emailLoading ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  'Send sign-in link'
+                )}
+              </Button>
+            </Box>
+          </Collapse>
+
           <Box sx={{ mt: 3, textAlign: 'center' }}>
             <Typography variant="caption" color="text.secondary" display="block">
               Internal users: @vapourdesal.com
@@ -176,12 +270,7 @@ export default function LoginPage() {
             </Typography>
           </Box>
 
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            align="center"
-            sx={{ mt: 3 }}
-          >
+          <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 3 }}>
             Vapour Desal Technologies Private Limited
           </Typography>
         </Paper>

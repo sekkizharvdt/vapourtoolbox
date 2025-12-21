@@ -20,6 +20,10 @@
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
       {
+        "source": "/auth/email-link",
+        "destination": "/auth/email-link.html"
+      },
+      {
         "source": "/accounting/cost-centres/*",
         "destination": "/accounting/cost-centres/placeholder.html"
       },

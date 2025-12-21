@@ -8,6 +8,10 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signInWithEmailAndPassword,
+  signInWithCustomToken,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
 } from 'firebase/auth';
 import { getFirebase } from '@/lib/firebase';
 import type { CustomClaims } from '@vapour/types';
@@ -65,6 +69,9 @@ interface AuthContextType {
   claims: CustomClaims | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  sendEmailLink: (email: string) => Promise<void>;
+  completeEmailLinkSignIn: (email: string, link: string) => Promise<void>;
+  isEmailLinkSignIn: (link: string) => boolean;
   signOut: () => Promise<void>;
 }
 
@@ -75,20 +82,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [claims, setClaims] = useState<CustomClaims | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Expose auth loading state and test sign-in method to window for E2E testing
+  // Expose auth loading state and test sign-in methods to window for E2E testing
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const win = window as Window & {
         __authLoading?: boolean;
         __e2eSignIn?: (email: string, password: string) => Promise<void>;
+        __e2eSignInWithToken?: (token: string) => Promise<void>;
       };
       win.__authLoading = loading;
 
-      // Only expose test sign-in when using emulator
+      // Only expose test sign-in methods when using emulator
       if (process.env.NEXT_PUBLIC_USE_EMULATOR === 'true') {
+        // Email/password sign-in (requires provider to be enabled)
         win.__e2eSignIn = async (email: string, password: string) => {
           const { auth } = getFirebase();
           await signInWithEmailAndPassword(auth, email, password);
+        };
+
+        // Custom token sign-in (works without any provider enabled)
+        // This is the preferred method for E2E tests
+        win.__e2eSignInWithToken = async (token: string) => {
+          const { auth } = getFirebase();
+          await signInWithCustomToken(auth, token);
         };
       }
     }
@@ -292,6 +308,94 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  /**
+   * Send a sign-in link to the user's email
+   * Used for passwordless authentication (external users without Google)
+   */
+  const sendEmailLink = async (email: string) => {
+    const { auth } = getFirebase();
+
+    // Validate domain is authorized
+    if (!isAuthorizedDomain(email)) {
+      throw new Error('UNAUTHORIZED_DOMAIN');
+    }
+
+    // Action code settings for email link
+    const actionCodeSettings = {
+      // URL to redirect to after clicking the link
+      url: `${window.location.origin}/auth/email-link`,
+      handleCodeInApp: true,
+    };
+
+    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+
+    // Store email in localStorage for retrieval on callback page
+    window.localStorage.setItem('emailForSignIn', email);
+  };
+
+  /**
+   * Complete the email link sign-in process
+   * Called from the callback page after user clicks the link
+   */
+  const completeEmailLinkSignIn = async (email: string, link: string) => {
+    const { auth, db } = getFirebase();
+
+    // Validate domain is authorized
+    if (!isAuthorizedDomain(email)) {
+      throw new Error('UNAUTHORIZED_DOMAIN');
+    }
+
+    const result = await signInWithEmailLink(auth, email, link);
+
+    // Clear stored email
+    window.localStorage.removeItem('emailForSignIn');
+
+    // Check if user document exists in Firestore
+    const { doc, getDoc, setDoc, serverTimestamp } = await import('firebase/firestore');
+    const userDocRef = doc(db, 'users', result.user.uid);
+    const userDocSnap = await getDoc(userDocRef);
+
+    // If user document doesn't exist, create it
+    if (!userDocSnap.exists()) {
+      // Calculate domain from email (@vapourdesal.com = internal, others = external)
+      const isInternalUser = email.endsWith('@vapourdesal.com');
+      const domain = isInternalUser ? 'internal' : 'external';
+
+      // Auto-approve internal users with VIEWER permissions
+      // External users remain pending until admin approves
+      const userStatus = isInternalUser ? 'active' : 'pending';
+      const userIsActive = isInternalUser;
+      const userPermissions = isInternalUser ? PERMISSION_PRESETS.VIEWER : 0;
+
+      await setDoc(userDocRef, {
+        uid: result.user.uid,
+        email: email,
+        displayName: result.user.displayName || email.split('@')[0] || '',
+        photoURL: result.user.photoURL || '',
+        status: userStatus,
+        isActive: userIsActive,
+        permissions: userPermissions,
+        domain: domain,
+        assignedProjects: [],
+        department: '',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      if (isInternalUser) {
+        logger.info('Auto-approved internal user with VIEWER permissions', { email });
+      }
+    }
+  };
+
+  /**
+   * Check if a URL is a sign-in email link
+   */
+  const isEmailLinkSignIn = (link: string): boolean => {
+    const { auth } = getFirebase();
+    return isSignInWithEmailLink(auth, link);
+  };
+
   const signOut = async () => {
     const { auth } = getFirebase();
     await firebaseSignOut(auth);
@@ -303,6 +407,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       claims,
       loading,
       signInWithGoogle,
+      sendEmailLink,
+      completeEmailLinkSignIn,
+      isEmailLinkSignIn,
       signOut,
     }),
     [user, claims, loading]
