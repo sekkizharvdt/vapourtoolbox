@@ -15,9 +15,8 @@
  *
  * How it works:
  * 1. Creates a test user in the Firebase Auth Emulator with custom claims using firebase-admin
- * 2. Creates a custom token for the user
- * 3. Uses the app's __e2eSignInWithToken method to sign in with the custom token
- * 4. Saves credentials and setup status for use in subsequent tests
+ * 2. Signs in using email/password via the app's __e2eSignIn method
+ * 3. Saves credentials and setup status for use in subsequent tests
  *
  * NOTE: Firebase Auth stores state in IndexedDB, which isn't captured by Playwright's
  * storageState. Each test must re-authenticate using the signInForTest() helper.
@@ -102,7 +101,7 @@ function initFirebaseAdmin() {
 
 /**
  * Create a test user in Firebase Auth Emulator and set custom claims
- * Also creates a custom token for signing in (bypasses email/password provider requirement)
+ * Deletes existing user first to ensure password is correct
  */
 async function setupTestUser(): Promise<boolean> {
   try {
@@ -113,19 +112,23 @@ async function setupTestUser(): Promise<boolean> {
     let userRecord: admin.auth.UserRecord;
 
     // Step 1: Create or Get User
+    // Always delete and recreate to ensure password is correct
     try {
-      userRecord = await auth.getUserByEmail(TEST_USER.email);
-      console.log('  Using existing test user');
+      const existingUser = await auth.getUserByEmail(TEST_USER.email);
+      await auth.deleteUser(existingUser.uid);
+      console.log('  Deleted existing test user to recreate with fresh credentials');
     } catch {
-      // User doesn't exist, create new
-      userRecord = await auth.createUser({
-        email: TEST_USER.email,
-        password: TEST_USER.password,
-        displayName: TEST_USER.displayName,
-        emailVerified: true,
-      });
-      console.log('  Created new test user');
+      // User doesn't exist, that's fine
     }
+
+    // Create fresh user with known password
+    userRecord = await auth.createUser({
+      email: TEST_USER.email,
+      password: TEST_USER.password,
+      displayName: TEST_USER.displayName,
+      emailVerified: true,
+    });
+    console.log('  Created test user with fresh credentials');
 
     const userId = userRecord.uid;
 
