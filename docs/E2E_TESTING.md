@@ -20,7 +20,50 @@ NEXT_PUBLIC_USE_EMULATOR=true pnpm dev --port 3001
 
 # Terminal 3: Run E2E Tests
 cd apps/web
-NEXT_PUBLIC_USE_EMULATOR=true pnpm exec playwright test e2e/feedback.spec.ts --reporter=list
+NEXT_PUBLIC_USE_EMULATOR=true pnpm exec playwright test --reporter=list
+```
+
+## CI/CD Integration
+
+### GitHub Actions Workflow
+
+E2E tests run **on-demand only** via GitHub Actions to save CI resources. They are not run on every push.
+
+**To run E2E tests:**
+
+1. Go to **Actions** tab in GitHub
+2. Select **E2E Tests** workflow
+3. Click **Run workflow**
+4. Choose browser (chromium, firefox, webkit, or all)
+
+The workflow is defined in `.github/workflows/e2e.yml` and:
+
+- Starts Firebase emulators automatically
+- Builds necessary packages
+- Runs Playwright tests with proper environment variables
+- Uploads test reports and screenshots as artifacts
+
+### Required Environment Variables for CI
+
+When running E2E tests in CI, these environment variables must be set:
+
+```yaml
+# Firebase client config
+NEXT_PUBLIC_USE_EMULATOR: 'true'
+NEXT_PUBLIC_FIREBASE_API_KEY: <your-api-key>
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: <your-auth-domain>
+NEXT_PUBLIC_FIREBASE_PROJECT_ID: <your-project-id>
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: <your-storage-bucket>
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: <your-sender-id>
+NEXT_PUBLIC_FIREBASE_APP_ID: <your-app-id>
+
+# Emulator URLs for the web app to connect to
+NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL: http://127.0.0.1:9099
+NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL: 127.0.0.1:8080
+
+# Emulator host configuration (for firebase-admin SDK)
+FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
 ```
 
 ## Architecture Overview
@@ -33,13 +76,27 @@ Firebase Auth stores state in **IndexedDB**, which is NOT captured by Playwright
 2. Each test must re-authenticate using the `signInForTest()` helper
 3. Auth status is communicated between setup and tests via a JSON file (`e2e/.auth/status.json`)
 
+### How Test User Creation Works
+
+The test setup (`auth.setup.ts`):
+
+1. **Deletes any existing test user** to ensure fresh credentials
+2. **Creates a new user** with known email/password via `firebase-admin`
+3. **Sets custom claims** (permissions, domain, department)
+4. **Creates a Firestore user document** with active status
+5. **Signs in via the app** using `signInWithEmailAndPassword`
+6. **Writes status file** for test coordination
+
+This approach ensures the password always matches what we're trying to sign in with (the emulator may have stale users from previous runs).
+
 ### Key Files
 
 ```
 apps/web/e2e/
 ├── auth.setup.ts       # Creates test user in Firebase emulator
 ├── auth.helpers.ts     # Shared auth helpers (signInForTest, isTestUserReady)
-├── feedback.spec.ts    # Example test file
+├── critical-path.spec.ts # Basic app functionality tests
+├── feedback.spec.ts    # Feedback module tests
 └── .auth/
     ├── user.json       # Playwright storage state (cookies/localStorage)
     └── status.json     # Auth status for test coordination
@@ -183,6 +240,16 @@ await page.getByRole('button', { name: /Bug Report/i }).click(); // ✅ Specific
 await page.getByRole('button', { name: /View/i }).first().click();
 ```
 
+**Important:** When testing login page buttons, be specific to avoid matching both "Sign in with Google" and "Send sign-in link" buttons:
+
+```typescript
+// DON'T use generic "sign in" selector
+await page.getByRole('button', { name: /sign in/i }); // ❌ Matches 2 buttons
+
+// DO use specific button text
+await page.getByRole('button', { name: /sign in with google/i }); // ✅ Specific
+```
+
 ### 5. Wait Strategies
 
 ```typescript
@@ -267,6 +334,7 @@ NEXT_PUBLIC_USE_EMULATOR=true pnpm exec playwright test --reporter=html
 2. **Run in headed mode** to see what's happening
 3. **Use Playwright Inspector**: `pnpm exec playwright test --debug`
 4. **Check the error context** files in test-results
+5. **Download CI artifacts** from GitHub Actions for playwright-report and screenshots
 
 ## Common Issues
 
@@ -313,6 +381,42 @@ fullyParallel: false,
 video: 'off',
 ```
 
+### auth/invalid-credential error
+
+This happens when the test user exists in the emulator with a different password from a previous run. The fix (already implemented in `auth.setup.ts`) is to always delete and recreate the user:
+
+```typescript
+// Always delete and recreate to ensure password is correct
+try {
+  const existingUser = await auth.getUserByEmail(TEST_USER.email);
+  await auth.deleteUser(existingUser.uid);
+} catch {
+  // User doesn't exist, that's fine
+}
+
+// Create fresh user with known password
+userRecord = await auth.createUser({
+  email: TEST_USER.email,
+  password: TEST_USER.password,
+  ...
+});
+```
+
+### E2E sign-in method not available
+
+This error means `NEXT_PUBLIC_USE_EMULATOR=true` is not set. The `__e2eSignIn` method is only exposed when running in emulator mode.
+
+### Web app not connecting to emulators
+
+Ensure these environment variables are set:
+
+```bash
+NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL=http://127.0.0.1:9099
+NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL=127.0.0.1:8080
+```
+
+These are required for the web app (client-side) to connect to the emulators. The `FIREBASE_AUTH_EMULATOR_HOST` and `FIRESTORE_EMULATOR_HOST` variables are only for the firebase-admin SDK (server-side/test setup).
+
 ## Module Test Checklist
 
 When creating tests for a new module:
@@ -327,3 +431,4 @@ When creating tests for a new module:
 - [ ] Handle elements below the fold with `scrollIntoViewIfNeeded()`
 - [ ] Use correct MUI selectors
 - [ ] Gracefully skip tests when auth unavailable
+- [ ] Use specific selectors (e.g., `/sign in with google/i` not `/sign in/i`)
