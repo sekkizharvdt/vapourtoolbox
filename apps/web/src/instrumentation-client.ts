@@ -29,6 +29,9 @@ Sentry.init({
     'Failed to fetch',
     'Extension context invalidated',
     'Non-Error promise rejection captured',
+    // Firebase config errors - expected when bots/crawlers access the site,
+    // users have ad blockers, or old cached JS bundles are loaded
+    'Firebase Client Configuration Error',
   ],
 
   beforeSend(event) {
