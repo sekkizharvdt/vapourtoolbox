@@ -80,19 +80,46 @@ async function navigateToEntitiesPage(page: Page): Promise<boolean> {
   console.log(`  [navigateToEntitiesPage] Navigating to /entities after sign in...`);
   await page.goto('/entities');
   await page.waitForLoadState('domcontentloaded');
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(3000); // Increased wait time for SSR + hydration
 
   const finalUrl = page.url();
   console.log(`  [navigateToEntitiesPage] Final URL: ${finalUrl}`);
 
-  const finalIsOnPage = await page
+  // Check what's visible on the page
+  const entityManagementVisible = await page
     .getByText(/Entity Management/i)
     .isVisible()
     .catch(() => false);
+  const accessDeniedVisible = await page
+    .getByText(/Access Denied/i)
+    .isVisible()
+    .catch(() => false);
+  const loadingAuthVisible = await page
+    .getByText(/Loading authentication/i)
+    .isVisible()
+    .catch(() => false);
+  const authTimeoutVisible = await page
+    .getByText(/Authentication Timeout/i)
+    .isVisible()
+    .catch(() => false);
+  const pendingApprovalVisible = await page
+    .getByText(/pending.?approval/i)
+    .isVisible()
+    .catch(() => false);
+  const googleSignInVisible = await page
+    .getByRole('button', { name: /sign in with google/i })
+    .isVisible()
+    .catch(() => false);
 
-  console.log(`  [navigateToEntitiesPage] Final Entity Management visible: ${finalIsOnPage}`);
+  console.log(`  [navigateToEntitiesPage] Page state after navigation:`);
+  console.log(`    Entity Management visible: ${entityManagementVisible}`);
+  console.log(`    Access Denied visible: ${accessDeniedVisible}`);
+  console.log(`    Loading authentication visible: ${loadingAuthVisible}`);
+  console.log(`    Authentication Timeout visible: ${authTimeoutVisible}`);
+  console.log(`    Pending approval visible: ${pendingApprovalVisible}`);
+  console.log(`    Google Sign-In button visible: ${googleSignInVisible}`);
 
-  return finalIsOnPage;
+  return entityManagementVisible;
 }
 
 test.describe('Entities Module', () => {
