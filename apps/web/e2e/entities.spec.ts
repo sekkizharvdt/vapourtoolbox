@@ -81,24 +81,45 @@ async function navigateToEntitiesPage(page: Page): Promise<boolean> {
   await page.goto('/entities');
   await page.waitForLoadState('domcontentloaded');
 
-  // Wait for auth to be processed on the page
-  console.log(`  [navigateToEntitiesPage] Waiting for auth to be processed...`);
+  // Wait for FULL auth state (user + claims) not just loading
+  // This is crucial because Firebase Auth restores from IndexedDB after navigation
+  console.log(`  [navigateToEntitiesPage] Waiting for full auth state (user + claims)...`);
   await page
     .waitForFunction(
       () => {
-        const win = window as Window & { __authLoading?: boolean };
-        return win.__authLoading === false;
+        const win = window as Window & {
+          __authLoading?: boolean;
+          __authUser?: boolean;
+          __authClaims?: boolean;
+        };
+        // Must have: loading=false AND user=true AND claims=true
+        return win.__authLoading === false && win.__authUser === true && win.__authClaims === true;
       },
-      { timeout: 10000 }
+      { timeout: 15000 }
     )
-    .then(() => console.log(`  [navigateToEntitiesPage] Auth loading complete`))
-    .catch(() => console.log(`  [navigateToEntitiesPage] Auth loading timed out`));
+    .then(() => console.log(`  [navigateToEntitiesPage] Full auth state available`))
+    .catch(() => console.log(`  [navigateToEntitiesPage] Auth state wait timed out`));
 
-  // Additional wait for React to render
-  await page.waitForTimeout(2000);
+  // Brief wait for React to render with the new auth state
+  await page.waitForTimeout(500);
 
   const finalUrl = page.url();
   console.log(`  [navigateToEntitiesPage] Final URL: ${finalUrl}`);
+
+  // Wait for page to fully render - expect either Entity Management content or an error state
+  // The page should now show loading states instead of blank screen while auth restores
+  console.log(`  [navigateToEntitiesPage] Waiting for page content to render...`);
+
+  // Wait for either the actual page content OR a known state (not a blank screen)
+  const pageReady = await page
+    .waitForSelector(
+      'text=/Entity Management|Access Denied|Redirecting to login|Verifying permissions|Loading authentication|Authentication Timeout/i',
+      { timeout: 10000 }
+    )
+    .then(() => true)
+    .catch(() => false);
+
+  console.log(`  [navigateToEntitiesPage] Page ready: ${pageReady}`);
 
   // Check what's visible on the page
   const entityManagementVisible = await page
@@ -107,6 +128,14 @@ async function navigateToEntitiesPage(page: Page): Promise<boolean> {
     .catch(() => false);
   const accessDeniedVisible = await page
     .getByText(/Access Denied/i)
+    .isVisible()
+    .catch(() => false);
+  const redirectingVisible = await page
+    .getByText(/Redirecting to login/i)
+    .isVisible()
+    .catch(() => false);
+  const verifyingVisible = await page
+    .getByText(/Verifying permissions/i)
     .isVisible()
     .catch(() => false);
   const loadingAuthVisible = await page
@@ -138,10 +167,27 @@ async function navigateToEntitiesPage(page: Page): Promise<boolean> {
   console.log(`  [navigateToEntitiesPage] Page state after navigation:`);
   console.log(`    Entity Management visible: ${entityManagementVisible}`);
   console.log(`    Access Denied visible: ${accessDeniedVisible}`);
+  console.log(`    Redirecting to login visible: ${redirectingVisible}`);
+  console.log(`    Verifying permissions visible: ${verifyingVisible}`);
   console.log(`    Loading authentication visible: ${loadingAuthVisible}`);
   console.log(`    Authentication Timeout visible: ${authTimeoutVisible}`);
   console.log(`    Pending approval visible: ${pendingApprovalVisible}`);
   console.log(`    Google Sign-In button visible: ${googleSignInVisible}`);
+
+  // If still showing loading states, wait a bit more and check again
+  if (!entityManagementVisible && (redirectingVisible || verifyingVisible || loadingAuthVisible)) {
+    console.log(`  [navigateToEntitiesPage] Still in loading state, waiting for content...`);
+    await page.waitForTimeout(2000);
+
+    const finalCheck = await page
+      .getByText(/Entity Management/i)
+      .isVisible()
+      .catch(() => false);
+    console.log(
+      `  [navigateToEntitiesPage] Final check - Entity Management visible: ${finalCheck}`
+    );
+    return finalCheck;
+  }
 
   return entityManagementVisible;
 }
@@ -154,11 +200,15 @@ test.describe('Entities Module', () => {
       await page.goto('/entities');
       await page.waitForLoadState('networkidle');
 
-      // Should show either entities page, access denied, or login page
+      // Should show either entities page, access denied, loading state, or login page
+      // The page should never be completely blank anymore
       await expect(
         page
           .getByText(/Entity Management/i)
           .or(page.getByText(/Access Denied/i))
+          .or(page.getByText(/Redirecting to login/i))
+          .or(page.getByText(/Verifying permissions/i))
+          .or(page.getByText(/Loading authentication/i))
           .or(page.getByRole('button', { name: /sign in with google/i }))
       ).toBeVisible({ timeout: 15000 });
     });

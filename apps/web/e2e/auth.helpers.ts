@@ -105,10 +105,29 @@ export async function signInForTest(page: Page): Promise<boolean> {
     return false;
   }
 
-  // Wait for auth state to update
-  console.log(`  [signInForTest] Waiting 500ms for auth state to update...`);
-  await page.waitForTimeout(500);
+  // Wait for full auth state (user + claims) not just loading
+  // This ensures Firebase has fully restored auth and claims are available
+  console.log(`  [signInForTest] Waiting for full auth state (user + claims)...`);
+  const authStateReady = await page
+    .waitForFunction(
+      () => {
+        const win = window as Window & {
+          __authLoading?: boolean;
+          __authUser?: boolean;
+          __authClaims?: boolean;
+        };
+        return win.__authLoading === false && win.__authUser === true && win.__authClaims === true;
+      },
+      { timeout: 10000 }
+    )
+    .then(() => true)
+    .catch(() => false);
 
-  console.log(`  [signInForTest] Sign-in successful - returning true`);
+  if (!authStateReady) {
+    console.log(`  [signInForTest] Auth state wait timed out - returning false`);
+    return false;
+  }
+
+  console.log(`  [signInForTest] Full auth state ready - returning true`);
   return true;
 }

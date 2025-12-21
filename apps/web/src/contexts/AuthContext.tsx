@@ -82,15 +82,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [claims, setClaims] = useState<CustomClaims | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Expose auth loading state and test sign-in methods to window for E2E testing
+  // Expose auth state and test sign-in methods to window for E2E testing
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const win = window as Window & {
         __authLoading?: boolean;
+        __authUser?: boolean;
+        __authClaims?: boolean;
         __e2eSignIn?: (email: string, password: string) => Promise<void>;
         __e2eSignInWithToken?: (token: string) => Promise<void>;
       };
       win.__authLoading = loading;
+      win.__authUser = !!user;
+      win.__authClaims = !!claims;
 
       // Only expose test sign-in methods when using emulator
       if (process.env.NEXT_PUBLIC_USE_EMULATOR === 'true') {
@@ -108,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
     }
-  }, [loading]);
+  }, [loading, user, claims]);
 
   useEffect(() => {
     const { auth } = getFirebase();

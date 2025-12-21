@@ -175,9 +175,27 @@ export function ModuleLayout({
     );
   }
 
-  // Don't render if not authenticated or pending approval (will redirect)
+  // If not authenticated or pending approval, show loading while redirect happens
+  // This prevents the "white screen of death" where the page briefly shows nothing
+  // The useEffect above will handle the redirect to /login or /pending-approval
   if (!user || !claims) {
-    return null;
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+          gap: 2,
+        }}
+      >
+        <CircularProgress />
+        <Typography variant="body2" color="text.secondary">
+          {!user ? 'Redirecting to login...' : 'Verifying permissions...'}
+        </Typography>
+      </Box>
+    );
   }
 
   // Check module-specific permissions
