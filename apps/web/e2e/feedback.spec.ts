@@ -125,7 +125,7 @@ test.describe('Feedback Module', () => {
       await expect(
         page
           .getByText(/Feedback & Support/i)
-          .or(page.getByRole('button', { name: /sign in|google/i }))
+          .or(page.getByRole('button', { name: /sign in with google/i }))
       ).toBeVisible({ timeout: 15000 });
     });
 
@@ -600,7 +600,7 @@ test.describe('Feedback Module', () => {
 
       if (!isAuthenticated) {
         // Verify login page works on mobile
-        await expect(page.getByRole('button', { name: /sign in|google/i })).toBeVisible();
+        await expect(page.getByRole('button', { name: /sign in with google/i })).toBeVisible();
         return;
       }
 
@@ -622,7 +622,7 @@ test.describe('Feedback Module', () => {
 
       if (!isAuthenticated) {
         // Verify login page works on tablet
-        await expect(page.getByRole('button', { name: /sign in|google/i })).toBeVisible();
+        await expect(page.getByRole('button', { name: /sign in with google/i })).toBeVisible();
         return;
       }
 

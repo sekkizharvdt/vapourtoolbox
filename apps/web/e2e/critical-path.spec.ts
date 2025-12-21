@@ -26,9 +26,9 @@ test.describe('Critical Path', () => {
       await page.goto('/');
 
       // Should redirect to login or show login
-      // Wait for either the login page or dashboard (if already authenticated)
+      // Wait for either the login page (Google Sign-In button) or dashboard (if already authenticated)
       await expect(
-        page.getByRole('button', { name: /sign in/i }).or(page.getByText(/dashboard/i))
+        page.getByRole('button', { name: /sign in with google/i }).or(page.getByText(/dashboard/i))
       ).toBeVisible({ timeout: 15000 });
     });
 
@@ -45,8 +45,8 @@ test.describe('Critical Path', () => {
       // Wait for page to load
       await page.waitForLoadState('networkidle');
 
-      // Look for Google sign-in button
-      const signInButton = page.getByRole('button', { name: /google|sign in/i });
+      // Look for Google sign-in button specifically
+      const signInButton = page.getByRole('button', { name: /sign in with google/i });
       await expect(signInButton).toBeVisible({ timeout: 10000 });
     });
   });
@@ -62,7 +62,7 @@ test.describe('Critical Path', () => {
       await expect(
         page
           .getByText(/purchase request|procurement/i)
-          .or(page.getByRole('button', { name: /sign in/i }))
+          .or(page.getByRole('button', { name: /sign in with google/i }))
       ).toBeVisible({ timeout: 15000 });
     });
 
@@ -71,7 +71,7 @@ test.describe('Critical Path', () => {
 
       // Should show dashboard or redirect to login
       await expect(
-        page.getByText(/dashboard/i).or(page.getByRole('button', { name: /sign in/i }))
+        page.getByText(/dashboard/i).or(page.getByRole('button', { name: /sign in with google/i }))
       ).toBeVisible({ timeout: 15000 });
     });
   });
@@ -142,8 +142,8 @@ test.describe('Authentication Flow', () => {
     const hasLogo = await page.locator('img[alt*="logo"], svg[class*="logo"]').count();
     expect(hasLogo).toBeGreaterThanOrEqual(0); // Logo is optional
 
-    // Check for sign-in button
-    const signInButton = page.getByRole('button', { name: /sign in|google/i });
+    // Check for Google sign-in button
+    const signInButton = page.getByRole('button', { name: /sign in with google/i });
     await expect(signInButton).toBeVisible();
   });
 });
