@@ -111,6 +111,15 @@ async function navigateToEntitiesPage(page: Page): Promise<boolean> {
     .isVisible()
     .catch(() => false);
 
+  // Get body text content for debugging
+  const bodyText = await page
+    .locator('body')
+    .innerText()
+    .catch(() => 'ERROR getting body text');
+  console.log(
+    `  [navigateToEntitiesPage] Page body text (first 500 chars): ${bodyText.slice(0, 500)}`
+  );
+
   console.log(`  [navigateToEntitiesPage] Page state after navigation:`);
   console.log(`    Entity Management visible: ${entityManagementVisible}`);
   console.log(`    Access Denied visible: ${accessDeniedVisible}`);
