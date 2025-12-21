@@ -50,6 +50,7 @@ const config: Config = {
     '/test-results/',
     '/e2e/', // Playwright E2E tests - run separately with `pnpm test:e2e`
     '/__integration__/', // Integration tests - run separately with `pnpm test:integration`
+    '__tests__/test-utils\\.ts$', // Test utility files, not tests themselves
   ],
 
   // Module file extensions
