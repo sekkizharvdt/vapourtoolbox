@@ -35,13 +35,14 @@ async function navigateToEntitiesPage(page: Page): Promise<boolean> {
   const currentUrl = page.url();
   console.log(`  [navigateToEntitiesPage] Current URL after initial navigation: ${currentUrl}`);
 
-  // Check if authenticated
+  // Check if authenticated - use the unique page subtitle instead of "Entity Management"
+  // which appears both in the sidebar and as the page title
   const isOnPage = await page
-    .getByText(/Entity Management/i)
+    .getByText(/Manage vendors, customers, and business partners/i)
     .isVisible()
     .catch(() => false);
 
-  console.log(`  [navigateToEntitiesPage] Entity Management visible: ${isOnPage}`);
+  console.log(`  [navigateToEntitiesPage] Entity page subtitle visible: ${isOnPage}`);
 
   if (isOnPage) return true;
 
@@ -122,8 +123,9 @@ async function navigateToEntitiesPage(page: Page): Promise<boolean> {
   console.log(`  [navigateToEntitiesPage] Page ready: ${pageReady}`);
 
   // Check what's visible on the page
+  // Use the page subtitle which is unique to the entities page (not in sidebar)
   const entityManagementVisible = await page
-    .getByText(/Entity Management/i)
+    .getByText(/Manage vendors, customers, and business partners/i)
     .isVisible()
     .catch(() => false);
   const accessDeniedVisible = await page
@@ -180,11 +182,11 @@ async function navigateToEntitiesPage(page: Page): Promise<boolean> {
     await page.waitForTimeout(2000);
 
     const finalCheck = await page
-      .getByText(/Entity Management/i)
+      .getByText(/Manage vendors, customers, and business partners/i)
       .isVisible()
       .catch(() => false);
     console.log(
-      `  [navigateToEntitiesPage] Final check - Entity Management visible: ${finalCheck}`
+      `  [navigateToEntitiesPage] Final check - Entity page subtitle visible: ${finalCheck}`
     );
     return finalCheck;
   }
