@@ -1,7 +1,9 @@
 name: E2E Tests
 
+# E2E tests are run on-demand only to save CI resources
+# They take ~5-10 minutes and require Firebase emulators
+# Run manually before releases or when debugging auth/UI issues
 on:
-  # Manual trigger
   workflow_dispatch:
     inputs:
       browser:
@@ -14,27 +16,6 @@ on:
           - firefox
           - webkit
           - all
-
-  # Run on PRs that modify e2e tests or related code
-  pull_request:
-    branches:
-      - main
-      - develop
-    paths:
-      - 'apps/web/e2e/**'
-      - 'apps/web/src/**'
-      - 'apps/web/playwright.config.ts'
-      - '.github/workflows/e2e.yml'
-
-  # Run on push to main (after merge)
-  push:
-    branches:
-      - main
-    paths:
-      - 'apps/web/e2e/**'
-      - 'apps/web/src/**'
-      - 'apps/web/playwright.config.ts'
-      - '.github/workflows/e2e.yml'
 
 # Cancel in-progress runs when a new workflow with the same group name starts
 concurrency:
