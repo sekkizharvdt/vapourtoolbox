@@ -124,6 +124,8 @@ jobs:
           # Emulator URLs for the web app to connect to
           NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL: http://127.0.0.1:9099
           NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL: 127.0.0.1:8080
+          # Firebase Admin SDK config (for SSR pages)
+          FIREBASE_PROJECT_ID: vapour-toolbox
           # Emulator host configuration (for firebase-admin SDK)
           FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
           FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
