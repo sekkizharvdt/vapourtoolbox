@@ -75,15 +75,14 @@ export async function createOffer(
   const offerNumber = await generateOfferNumber();
   const now = Timestamp.now();
 
-  // Create offer document
-  const offerData: Omit<Offer, 'id'> = {
+  // Create offer document - build with only defined fields to prevent Firestore errors
+  const offerData: Record<string, unknown> = {
+    // Required fields
     number: offerNumber,
     rfqId: input.rfqId,
     rfqNumber: input.rfqNumber,
     vendorId: input.vendorId,
     vendorName: input.vendorName,
-    vendorOfferNumber: input.vendorOfferNumber,
-    vendorOfferDate: input.vendorOfferDate ? Timestamp.fromDate(input.vendorOfferDate) : undefined,
     offerFileUrl: input.offerFileUrl,
     additionalDocuments: input.additionalDocuments || [],
     itemsParsed: items.length > 0,
@@ -93,8 +92,6 @@ export async function createOffer(
     currency: input.currency || 'INR',
     paymentTerms: input.paymentTerms,
     deliveryTerms: input.deliveryTerms,
-    validityDate: input.validityDate ? Timestamp.fromDate(input.validityDate) : undefined,
-    warrantyTerms: input.warrantyTerms,
     status: 'UPLOADED',
     isRecommended: false,
     uploadedBy: userId,
@@ -103,6 +100,12 @@ export async function createOffer(
     createdAt: now,
     updatedAt: now,
   };
+
+  // Add optional fields only if they have values
+  if (input.vendorOfferNumber) offerData.vendorOfferNumber = input.vendorOfferNumber;
+  if (input.vendorOfferDate) offerData.vendorOfferDate = Timestamp.fromDate(input.vendorOfferDate);
+  if (input.validityDate) offerData.validityDate = Timestamp.fromDate(input.validityDate);
+  if (input.warrantyTerms) offerData.warrantyTerms = input.warrantyTerms;
 
   const offerRef = await addDoc(collection(db, COLLECTIONS.OFFERS), offerData);
 
@@ -113,7 +116,8 @@ export async function createOffer(
     const amount = item.unitPrice * item.quotedQuantity;
     const gstAmount = item.gstRate ? (amount * item.gstRate) / 100 : 0;
 
-    const itemData: Omit<OfferItem, 'id'> = {
+    // Build offer item with only defined fields to prevent Firestore errors
+    const itemData: Record<string, unknown> = {
       offerId: offerRef.id,
       rfqItemId: item.rfqItemId,
       lineNumber: index + 1,
@@ -122,17 +126,19 @@ export async function createOffer(
       unit: item.unit,
       unitPrice: item.unitPrice,
       amount,
-      gstRate: item.gstRate,
       gstAmount,
-      deliveryPeriod: item.deliveryPeriod,
-      deliveryDate: item.deliveryDate ? Timestamp.fromDate(item.deliveryDate) : undefined,
-      makeModel: item.makeModel,
-      meetsSpec: item.meetsSpec,
-      deviations: item.deviations,
-      vendorNotes: item.vendorNotes,
       createdAt: now,
       updatedAt: now,
     };
+
+    // Add optional fields only if they have values
+    if (item.gstRate !== undefined) itemData.gstRate = item.gstRate;
+    if (item.deliveryPeriod) itemData.deliveryPeriod = item.deliveryPeriod;
+    if (item.deliveryDate) itemData.deliveryDate = Timestamp.fromDate(item.deliveryDate);
+    if (item.makeModel) itemData.makeModel = item.makeModel;
+    if (item.meetsSpec !== undefined) itemData.meetsSpec = item.meetsSpec;
+    if (item.deviations) itemData.deviations = item.deviations;
+    if (item.vendorNotes) itemData.vendorNotes = item.vendorNotes;
 
     const itemRef = doc(collection(db, COLLECTIONS.OFFER_ITEMS));
     batch.set(itemRef, itemData);

@@ -129,8 +129,9 @@ export async function createPackingList(
   const plNumber = await generatePLNumber();
   const now = Timestamp.now();
 
-  // Create packing list
-  const plData: Omit<PackingList, 'id'> = {
+  // Create packing list - build with only defined fields to prevent Firestore errors
+  const plData: Record<string, unknown> = {
+    // Required fields
     number: plNumber,
     purchaseOrderId: input.purchaseOrderId,
     poNumber: po.number,
@@ -139,25 +140,27 @@ export async function createPackingList(
     projectId: input.projectId,
     projectName: input.projectName,
     numberOfPackages: input.numberOfPackages,
-    totalWeight: input.totalWeight,
-    totalVolume: input.totalVolume,
-    shippingMethod: input.shippingMethod,
-    shippingCompany: input.shippingCompany,
-    trackingNumber: input.trackingNumber,
-    estimatedDeliveryDate: input.estimatedDeliveryDate
-      ? Timestamp.fromDate(input.estimatedDeliveryDate)
-      : undefined,
     deliveryAddress: input.deliveryAddress,
-    contactPerson: input.contactPerson,
-    contactPhone: input.contactPhone,
-    packingInstructions: input.packingInstructions,
-    handlingInstructions: input.handlingInstructions,
     status: 'DRAFT',
     createdBy: userId,
     createdByName: userName,
     createdAt: now,
     updatedAt: now,
   };
+
+  // Add optional fields only if they have values
+  if (input.totalWeight !== undefined) plData.totalWeight = input.totalWeight;
+  if (input.totalVolume !== undefined) plData.totalVolume = input.totalVolume;
+  if (input.shippingMethod) plData.shippingMethod = input.shippingMethod;
+  if (input.shippingCompany) plData.shippingCompany = input.shippingCompany;
+  if (input.trackingNumber) plData.trackingNumber = input.trackingNumber;
+  if (input.estimatedDeliveryDate) {
+    plData.estimatedDeliveryDate = Timestamp.fromDate(input.estimatedDeliveryDate);
+  }
+  if (input.contactPerson) plData.contactPerson = input.contactPerson;
+  if (input.contactPhone) plData.contactPhone = input.contactPhone;
+  if (input.packingInstructions) plData.packingInstructions = input.packingInstructions;
+  if (input.handlingInstructions) plData.handlingInstructions = input.handlingInstructions;
 
   const plRef = await addDoc(collection(db, COLLECTIONS.PACKING_LISTS), plData);
 
@@ -178,21 +181,24 @@ export async function createPackingList(
   input.items.forEach((item, index) => {
     const poItem = poItems.find((pi) => pi.id === item.poItemId);
 
-    const plItemData: Omit<PackingListItem, 'id'> = {
+    // Build packing list item with only defined fields to prevent Firestore errors
+    const plItemData: Record<string, unknown> = {
       packingListId: plRef.id,
       poItemId: item.poItemId,
       lineNumber: index + 1,
       description: poItem?.description || 'Unknown Item',
       quantity: item.quantity,
       unit: poItem?.unit || '',
-      equipmentId: poItem?.equipmentId,
-      equipmentCode: poItem?.equipmentCode,
       packageNumber: item.packageNumber,
-      weight: item.weight,
-      dimensions: item.dimensions,
       createdAt: now,
       updatedAt: now,
     };
+
+    // Add optional fields only if they have values
+    if (poItem?.equipmentId) plItemData.equipmentId = poItem.equipmentId;
+    if (poItem?.equipmentCode) plItemData.equipmentCode = poItem.equipmentCode;
+    if (item.weight !== undefined) plItemData.weight = item.weight;
+    if (item.dimensions) plItemData.dimensions = item.dimensions;
 
     const itemRef = doc(collection(db, COLLECTIONS.PACKING_LIST_ITEMS));
     batch.set(itemRef, plItemData);

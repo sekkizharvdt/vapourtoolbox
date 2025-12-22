@@ -159,8 +159,10 @@ export async function createPOFromOffer(
         advanceAmount = (grandTotal * terms.advancePercentage) / 100;
       }
 
-      // Create PO
-      const poData: Omit<PurchaseOrder, 'id'> = {
+      // Create PO - build with only defined fields to prevent Firestore errors
+      // Firestore throws "Unsupported field value: undefined" if any field is undefined
+      const poData: Record<string, unknown> = {
+        // Required fields
         number: poNumber,
         rfqId: offer.rfqId,
         offerId: offer.id,
@@ -180,19 +182,11 @@ export async function createPOFromOffer(
         currency: offer.currency,
         paymentTerms: terms.paymentTerms,
         deliveryTerms: terms.deliveryTerms,
-        warrantyTerms: terms.warrantyTerms,
-        penaltyClause: terms.penaltyClause,
         otherClauses: terms.otherClauses || [],
         deliveryAddress: terms.deliveryAddress,
-        expectedDeliveryDate: terms.expectedDeliveryDate
-          ? Timestamp.fromDate(terms.expectedDeliveryDate)
-          : undefined,
         pdfVersion: 1,
         status: 'DRAFT',
         advancePaymentRequired: terms.advancePaymentRequired || false,
-        advancePercentage: terms.advancePercentage,
-        advanceAmount: advanceAmount || undefined,
-        advancePaymentStatus: terms.advancePaymentRequired ? 'PENDING' : undefined,
         deliveryProgress: 0,
         paymentProgress: 0,
         createdAt: now,
@@ -200,6 +194,18 @@ export async function createPOFromOffer(
         createdBy: userId,
         updatedBy: userId,
       };
+
+      // Add optional fields only if they have values
+      if (terms.warrantyTerms) poData.warrantyTerms = terms.warrantyTerms;
+      if (terms.penaltyClause) poData.penaltyClause = terms.penaltyClause;
+      if (terms.expectedDeliveryDate) {
+        poData.expectedDeliveryDate = Timestamp.fromDate(terms.expectedDeliveryDate);
+      }
+      if (terms.advancePercentage !== undefined) {
+        poData.advancePercentage = terms.advancePercentage;
+      }
+      if (advanceAmount) poData.advanceAmount = advanceAmount;
+      if (terms.advancePaymentRequired) poData.advancePaymentStatus = 'PENDING';
 
       const poRef = await addDoc(collection(db, COLLECTIONS.PURCHASE_ORDERS), poData);
 
@@ -247,23 +253,20 @@ export async function createPOFromOffer(
       offerItems.forEach((item) => {
         const rfqItemInfo = rfqItemMap.get(item.rfqItemId) || { projectId: '' };
 
-        const poItemData: Omit<PurchaseOrderItem, 'id'> = {
+        // Build PO item with only defined fields to prevent Firestore errors
+        const poItemData: Record<string, unknown> = {
           purchaseOrderId: poRef.id,
           offerItemId: item.id,
           rfqItemId: item.rfqItemId,
           lineNumber: item.lineNumber,
           description: item.description,
           projectId: rfqItemInfo.projectId,
-          equipmentId: rfqItemInfo.equipmentId,
-          equipmentCode: rfqItemInfo.equipmentCode,
           quantity: item.quotedQuantity,
           unit: item.unit,
           unitPrice: item.unitPrice,
           amount: item.amount,
           gstRate: item.gstRate || 0,
           gstAmount: item.gstAmount || 0,
-          makeModel: item.makeModel,
-          deliveryDate: item.deliveryDate,
           quantityDelivered: 0,
           quantityAccepted: 0,
           quantityRejected: 0,
@@ -271,6 +274,12 @@ export async function createPOFromOffer(
           createdAt: now,
           updatedAt: now,
         };
+
+        // Add optional fields only if they have values
+        if (rfqItemInfo.equipmentId) poItemData.equipmentId = rfqItemInfo.equipmentId;
+        if (rfqItemInfo.equipmentCode) poItemData.equipmentCode = rfqItemInfo.equipmentCode;
+        if (item.makeModel) poItemData.makeModel = item.makeModel;
+        if (item.deliveryDate) poItemData.deliveryDate = item.deliveryDate;
 
         const itemRef = doc(collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS));
         batch.set(itemRef, poItemData);

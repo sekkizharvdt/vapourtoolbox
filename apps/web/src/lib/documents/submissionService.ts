@@ -247,7 +247,8 @@ async function createDocumentSubmission(
 ): Promise<string> {
   const primaryFile = data.files.find((f) => f.isPrimary);
 
-  const submission: Omit<DocumentSubmission, 'id'> = {
+  // Build submission with only defined fields to prevent Firestore errors
+  const submission: Record<string, unknown> = {
     projectId: data.projectId,
     masterDocumentId: data.masterDocumentId,
     documentNumber: data.documentNumber,
@@ -260,13 +261,11 @@ async function createDocumentSubmission(
 
     // Multiple files
     files: data.files,
-    primaryFileId: primaryFile?.id,
 
     // Submission
     submittedBy: data.submittedBy,
     submittedByName: data.submittedByName,
     submittedAt: Timestamp.now(),
-    submissionNotes: data.submissionNotes,
 
     // Client Response
     clientStatus: 'PENDING' as const,
@@ -287,6 +286,10 @@ async function createDocumentSubmission(
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   };
+
+  // Add optional fields only if they have values
+  if (primaryFile?.id) submission.primaryFileId = primaryFile.id;
+  if (data.submissionNotes) submission.submissionNotes = data.submissionNotes;
 
   const submissionsRef = collection(db, 'projects', data.projectId, 'documentSubmissions');
   const docRef = await addDoc(submissionsRef, submission);

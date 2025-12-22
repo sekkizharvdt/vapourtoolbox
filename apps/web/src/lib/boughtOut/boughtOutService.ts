@@ -37,22 +37,43 @@ export async function createBoughtOutItem(
   const itemCode = await generateBoughtOutItemCode(db);
 
   const now = Timestamp.now();
-  const item: Omit<BoughtOutItem, 'id'> = {
-    ...input,
+
+  // Build item data with only defined fields to prevent Firestore errors
+  // Firestore throws "Unsupported field value: undefined" if any field is undefined
+  const item: Record<string, unknown> = {
+    // Required fields
     itemCode,
-    pricing: {
-      ...input.pricing,
-      lastUpdated: now,
-    },
+    name: input.name,
+    category: input.category,
+    entityId: input.entityId,
+    specifications: input.specifications,
     isActive: true,
     createdAt: now,
     createdBy: userId,
     updatedAt: now,
     updatedBy: userId,
+
+    // Pricing with lastUpdated - build carefully to avoid undefined values
+    pricing: {
+      listPrice: input.pricing.listPrice,
+      currency: input.pricing.currency,
+      lastUpdated: now,
+      ...(input.pricing.leadTime !== undefined && { leadTime: input.pricing.leadTime }),
+      ...(input.pricing.moq !== undefined && { moq: input.pricing.moq }),
+      ...(input.pricing.vendorId && { vendorId: input.pricing.vendorId }),
+    },
   };
 
+  // Add optional fields only if they have values
+  if (input.description) item.description = input.description;
+  if (input.tags && input.tags.length > 0) item.tags = input.tags;
+  if (input.attachments) item.attachments = input.attachments;
+
   const docRef = await addDoc(collection(db, COLLECTIONS.BOUGHT_OUT_ITEMS), item);
-  return { id: docRef.id, ...item };
+
+  // Re-fetch to get properly typed result
+  const createdDoc = await getDoc(docRef);
+  return { id: createdDoc.id, ...(createdDoc.data() as Omit<BoughtOutItem, 'id'>) };
 }
 
 /**
@@ -112,17 +133,33 @@ export async function updateBoughtOutItem(
 ): Promise<void> {
   const docRef = doc(db, COLLECTIONS.BOUGHT_OUT_ITEMS, itemId);
 
+  // Build updates object with only defined fields to prevent Firestore errors
   const updates: Record<string, unknown> = {
-    ...input,
     updatedAt: Timestamp.now(),
     updatedBy: userId,
   };
 
+  // Add optional fields only if they are defined
+  if (input.name !== undefined) updates.name = input.name;
+  if (input.description !== undefined) updates.description = input.description;
+  if (input.category !== undefined) updates.category = input.category;
+  if (input.specifications !== undefined) updates.specifications = input.specifications;
+  if (input.attachments !== undefined) updates.attachments = input.attachments;
+  if (input.tags !== undefined) updates.tags = input.tags;
+  if (input.isActive !== undefined) updates.isActive = input.isActive;
+
   if (input.pricing) {
-    updates.pricing = {
-      ...input.pricing,
+    // Build pricing object carefully to avoid undefined values
+    const pricingUpdate: Record<string, unknown> = {
       lastUpdated: Timestamp.now(),
     };
+    if (input.pricing.listPrice !== undefined) pricingUpdate.listPrice = input.pricing.listPrice;
+    if (input.pricing.currency !== undefined) pricingUpdate.currency = input.pricing.currency;
+    if (input.pricing.leadTime !== undefined) pricingUpdate.leadTime = input.pricing.leadTime;
+    if (input.pricing.moq !== undefined) pricingUpdate.moq = input.pricing.moq;
+    if (input.pricing.vendorId !== undefined) pricingUpdate.vendorId = input.pricing.vendorId;
+
+    updates.pricing = pricingUpdate;
   }
 
   await updateDoc(docRef, updates);
