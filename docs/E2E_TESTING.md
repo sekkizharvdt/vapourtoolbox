@@ -93,10 +93,11 @@ This approach ensures the password always matches what we're trying to sign in w
 
 ```
 apps/web/e2e/
-├── auth.setup.ts       # Creates test user in Firebase emulator
+├── auth.setup.ts       # Creates test user and seeds test data in Firebase emulator
 ├── auth.helpers.ts     # Shared auth helpers (signInForTest, isTestUserReady)
 ├── critical-path.spec.ts # Basic app functionality tests
-├── feedback.spec.ts    # Feedback module tests
+├── entities.spec.ts    # Entities module tests (31 tests - full coverage)
+├── feedback.spec.ts    # Feedback module tests (44 tests)
 └── .auth/
     ├── user.json       # Playwright storage state (cookies/localStorage)
     └── status.json     # Auth status for test coordination
@@ -432,3 +433,242 @@ When creating tests for a new module:
 - [ ] Use correct MUI selectors
 - [ ] Gracefully skip tests when auth unavailable
 - [ ] Use specific selectors (e.g., `/sign in with google/i` not `/sign in/i`)
+
+## Advanced Patterns (Learned from Entities Module)
+
+### 1. Shared Authentication Session
+
+For faster tests, sign in once and reuse the session across tests:
+
+```typescript
+let sharedContext: BrowserContext | null = null;
+let sharedPage: Page | null = null;
+let isAuthenticated = false;
+
+test.describe('Your Module', () => {
+  test.beforeAll(async ({ browser }) => {
+    const testUserReady = await isTestUserReady();
+    if (!testUserReady) return;
+
+    sharedContext = await browser.newContext();
+    sharedPage = await sharedContext.newPage();
+    isAuthenticated = await signInForTest(sharedPage);
+  });
+
+  test.afterAll(async () => {
+    if (sharedPage) await sharedPage.close();
+    if (sharedContext) await sharedContext.close();
+    sharedPage = null;
+    sharedContext = null;
+    isAuthenticated = false;
+  });
+
+  // Tests use getAuthenticatedPage() instead of creating new pages
+});
+```
+
+**Performance Impact**: Reduced test suite time from ~30 minutes to ~4 minutes.
+
+### 2. Seeding Test Data
+
+When tests need data (entities, documents, etc.), seed them in `auth.setup.ts`:
+
+```typescript
+const TEST_ENTITIES = [
+  {
+    id: 'e2e-entity-active-vendor',
+    code: 'ENT-E2E-001',
+    name: 'E2E Test Vendor',
+    isActive: true,
+    isArchived: false,
+  },
+  // More entities...
+];
+
+async function seedTestEntities(): Promise<boolean> {
+  const firestore = admin.firestore();
+  const now = new Date();
+  const batch = firestore.batch();
+
+  for (const [i, entity] of TEST_ENTITIES.entries()) {
+    const docRef = firestore.collection('entities').doc(entity.id);
+    // Use different timestamps for predictable sort order
+    const entityTime = new Date(now.getTime() - (entity.isArchived ? 10000 : i * 1000));
+    batch.set(docRef, {
+      ...entity,
+      createdAt: admin.firestore.Timestamp.fromDate(entityTime),
+      updatedAt: admin.firestore.Timestamp.fromDate(entityTime),
+    });
+  }
+  await batch.commit();
+  return true;
+}
+```
+
+**Important**: Use different timestamps if your query sorts by `createdAt` to ensure predictable ordering.
+
+### 3. Force Token Refresh After Admin SDK Claims
+
+When `auth.setup.ts` sets custom claims via Admin SDK, the client doesn't automatically get them:
+
+```typescript
+// In AuthContext.tsx - expose method for E2E tests
+if (process.env.NEXT_PUBLIC_USE_EMULATOR === 'true') {
+  extWin.__e2eForceTokenRefresh = async () => {
+    const { auth } = getFirebase();
+    if (auth.currentUser) {
+      await auth.currentUser.getIdToken(true); // Force refresh
+      await auth.currentUser.getIdTokenResult(true);
+    }
+  };
+}
+
+// In auth.setup.ts - call after sign in
+await page.evaluate(async () => {
+  const win = window as Window & { __e2eForceTokenRefresh?: () => Promise<void> };
+  if (win.__e2eForceTokenRefresh) {
+    await win.__e2eForceTokenRefresh();
+  }
+});
+```
+
+### 4. Wait for Data to Load
+
+After navigation, wait for actual data (not just the page shell):
+
+```typescript
+async function getAuthenticatedPage(): Promise<Page | null> {
+  if (!isAuthenticated || !sharedPage) return null;
+
+  await sharedPage.goto('/entities');
+  await sharedPage.waitForLoadState('domcontentloaded');
+
+  // Wait for page subtitle (confirms auth worked)
+  const pageReady = await sharedPage
+    .getByText(/Manage vendors, customers, and business partners/i)
+    .waitFor({ state: 'visible', timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (!pageReady) return null;
+
+  // Wait for table data to load from Firestore
+  await sharedPage
+    .locator('table')
+    .or(sharedPage.getByText(/No entities yet/i))
+    .or(sharedPage.getByText(/E2E Test/i))
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 })
+    .catch(() => console.log('Timeout waiting for table'));
+
+  return sharedPage;
+}
+```
+
+### 5. MUI Select Dropdowns
+
+MUI Select components don't use standard `<label>` association. Use text content:
+
+```typescript
+// DON'T use getByLabel for MUI Select
+await page.getByLabel(/Status/i); // ❌ Won't find it
+
+// DO use getByText with .first() (label appears twice in MUI Select)
+await page
+  .getByText(/All Status/i)
+  .first()
+  .click();
+await page.getByRole('option', { name: /Active/i }).click();
+```
+
+### 6. Handle Duplicate Text (Sidebar + Page Title)
+
+Text often appears in both sidebar navigation and page header:
+
+```typescript
+// DON'T rely on text that appears in sidebar
+await page.getByText(/Entity Management/i); // ❌ Matches 2 elements
+
+// DO use unique page subtitles
+await page.getByText(/Manage vendors, customers, and business partners/i); // ✅ Unique
+
+// OR use .first() when appropriate
+await page.getByText(/Entity Management/i).first();
+```
+
+### 7. Responsive Test Considerations
+
+On mobile/tablet, the sidebar may be collapsed:
+
+```typescript
+test('should work on mobile viewport', async () => {
+  const page = await getAuthenticatedPage();
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.reload();
+
+  // DON'T check for sidebar text
+  await page.getByText(/Entity Management/i); // ❌ Sidebar hidden
+
+  // DO check for main content area
+  await page.getByText(/Manage vendors, customers, and business partners/i); // ✅
+});
+```
+
+### 8. Graceful Empty State Handling
+
+Tests should handle both data-present and empty states:
+
+```typescript
+test('should display table headers or empty state', async () => {
+  const page = await getAuthenticatedPage();
+
+  const hasTable = await page
+    .locator('table')
+    .isVisible()
+    .catch(() => false);
+  const hasEmptyState = await page
+    .getByText(/No entities yet/i)
+    .isVisible()
+    .catch(() => false);
+
+  if (hasEmptyState) {
+    await expect(page.getByText(/No entities yet/i)).toBeVisible();
+    return; // Test passes - empty state is valid
+  }
+
+  if (hasTable) {
+    await expect(page.getByText(/Entity Name/i).first()).toBeVisible();
+  }
+});
+```
+
+## Exposed Window Globals for E2E
+
+The app exposes these globals on `window` when `NEXT_PUBLIC_USE_EMULATOR=true`:
+
+```typescript
+interface Window {
+  __authLoading?: boolean; // True while auth is loading
+  __authUser?: boolean; // True if user is signed in
+  __authClaims?: boolean; // True if claims are loaded
+  __e2eSignIn?: (email: string, password: string) => Promise<void>;
+  __e2eSignInWithToken?: (token: string) => Promise<void>;
+  __e2eForceTokenRefresh?: () => Promise<void>;
+}
+```
+
+Use these to wait for full auth state:
+
+```typescript
+await page.waitForFunction(
+  () => {
+    const win = window as Window & {
+      __authLoading?: boolean;
+      __authUser?: boolean;
+      __authClaims?: boolean;
+    };
+    return win.__authLoading === false && win.__authUser === true && win.__authClaims === true;
+  },
+  { timeout: 15000 }
+);
+```
