@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   Box,
@@ -222,6 +223,7 @@ function PendingUserCard({ user, onApprove }: { user: User; onApprove: (user: Us
 }
 
 export default function UserManagementPage() {
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -324,16 +326,21 @@ export default function UserManagementPage() {
         title="User Management"
         subtitle="Manage users, permissions, and module access"
         action={
-          <Button
-            variant="contained"
-            startIcon={<PersonAddIcon />}
-            onClick={() => {
-              // Invite user dialog (future enhancement)
-              alert('Invite user dialog coming soon');
-            }}
-          >
-            Invite User
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" onClick={() => router.push('/admin/users/permissions')}>
+              Permission Matrix
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<PersonAddIcon />}
+              onClick={() => {
+                // Invite user dialog (future enhancement)
+                alert('Invite user dialog coming soon');
+              }}
+            >
+              Invite User
+            </Button>
+          </Stack>
         }
       />
 

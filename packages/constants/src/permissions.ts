@@ -545,3 +545,502 @@ export const OPEN_MODULES = [
   'Shape Database',
   'Bought Out Items',
 ] as const;
+
+/**
+ * Permission Definition
+ * Defines a single permission within a permission module
+ */
+export interface PermissionDef {
+  /** Permission flag value */
+  flag: number;
+  /** Short label for the permission */
+  label: string;
+  /** Longer description of what the permission allows */
+  description: string;
+  /** Category: 'view', 'manage', 'approve', or 'action' */
+  category: 'view' | 'manage' | 'approve' | 'action';
+  /** Which permission field to check: 'permissions' (default) or 'permissions2' */
+  field?: 'permissions' | 'permissions2';
+}
+
+/**
+ * Permission Module Definition for Permission Matrix
+ * Groups permissions by logical business module
+ */
+export interface PermissionModuleDef {
+  /** Module identifier (kebab-case) */
+  id: string;
+  /** Display name for the module */
+  name: string;
+  /** Brief description of the module */
+  description: string;
+  /** Permissions available in this module */
+  permissions: PermissionDef[];
+}
+
+/**
+ * Comprehensive Module Permissions Mapping
+ *
+ * This is the single source of truth for:
+ * - Which modules exist in the system
+ * - What permissions each module has
+ * - How to check permissions (which field, which flag)
+ *
+ * Used by:
+ * - Permission Matrix page (dual views: by module, by user)
+ * - User management dialogs
+ * - Authorization checks throughout the app
+ */
+export const MODULE_PERMISSIONS: PermissionModuleDef[] = [
+  {
+    id: 'user-management',
+    name: 'User Management',
+    description: 'Manage users, roles, and permissions',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS.VIEW_USERS,
+        label: 'View Users',
+        description: 'View user list and profiles',
+        category: 'view',
+      },
+      {
+        flag: PERMISSION_FLAGS.MANAGE_USERS,
+        label: 'Manage Users',
+        description: 'Create, edit, and deactivate users',
+        category: 'manage',
+      },
+      {
+        flag: PERMISSION_FLAGS.MANAGE_ROLES,
+        label: 'Manage Roles',
+        description: 'Assign roles and modify permissions',
+        category: 'manage',
+      },
+    ],
+  },
+  {
+    id: 'projects',
+    name: 'Projects',
+    description: 'Project creation and management',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS.VIEW_PROJECTS,
+        label: 'View',
+        description: 'View projects and project details',
+        category: 'view',
+      },
+      {
+        flag: PERMISSION_FLAGS.MANAGE_PROJECTS,
+        label: 'Manage',
+        description: 'Create, edit, and archive projects',
+        category: 'manage',
+      },
+    ],
+  },
+  {
+    id: 'entities',
+    name: 'Entities',
+    description: 'Vendors, customers, and other entities',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS.VIEW_ENTITIES,
+        label: 'View',
+        description: 'View entity list and details',
+        category: 'view',
+      },
+      {
+        flag: PERMISSION_FLAGS.CREATE_ENTITIES,
+        label: 'Create',
+        description: 'Create new entities',
+        category: 'action',
+      },
+      {
+        flag: PERMISSION_FLAGS.EDIT_ENTITIES,
+        label: 'Edit',
+        description: 'Edit existing entities',
+        category: 'manage',
+      },
+      {
+        flag: PERMISSION_FLAGS.DELETE_ENTITIES,
+        label: 'Delete',
+        description: 'Delete or archive entities',
+        category: 'manage',
+      },
+    ],
+  },
+  {
+    id: 'procurement',
+    name: 'Procurement',
+    description: 'Purchase requests, RFQs, and purchase orders',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS.VIEW_PROCUREMENT,
+        label: 'View',
+        description: 'View PRs, RFQs, and POs',
+        category: 'view',
+      },
+      {
+        flag: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+        label: 'Manage',
+        description: 'Create and edit PRs, RFQs, and POs',
+        category: 'manage',
+      },
+    ],
+  },
+  {
+    id: 'accounting',
+    name: 'Accounting',
+    description: 'Financial transactions and reporting',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS.VIEW_ACCOUNTING,
+        label: 'View',
+        description: 'View transactions and reports',
+        category: 'view',
+      },
+      {
+        flag: PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+        label: 'Manage',
+        description: 'Create transactions, manage accounts',
+        category: 'manage',
+      },
+    ],
+  },
+  {
+    id: 'estimation',
+    name: 'Estimation',
+    description: 'Cost estimation and BOMs',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS.VIEW_ESTIMATION,
+        label: 'View',
+        description: 'View estimates and BOMs',
+        category: 'view',
+      },
+      {
+        flag: PERMISSION_FLAGS.MANAGE_ESTIMATION,
+        label: 'Manage',
+        description: 'Create and edit estimates',
+        category: 'manage',
+      },
+    ],
+  },
+  {
+    id: 'proposals',
+    name: 'Proposals & Enquiries',
+    description: 'Proposals and customer enquiries',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS.VIEW_PROPOSALS,
+        label: 'View',
+        description: 'View proposals and enquiries',
+        category: 'view',
+      },
+      {
+        flag: PERMISSION_FLAGS.MANAGE_PROPOSALS,
+        label: 'Manage',
+        description: 'Create and edit proposals',
+        category: 'manage',
+      },
+    ],
+  },
+  {
+    id: 'documents',
+    name: 'Document Management',
+    description: 'Project documents and submissions',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS.MANAGE_DOCUMENTS,
+        label: 'Manage',
+        description: 'Manage master document list',
+        category: 'manage',
+      },
+      {
+        flag: PERMISSION_FLAGS.SUBMIT_DOCUMENTS,
+        label: 'Submit',
+        description: 'Submit documents for review',
+        category: 'action',
+      },
+      {
+        flag: PERMISSION_FLAGS.REVIEW_DOCUMENTS,
+        label: 'Review',
+        description: 'Review and comment on documents',
+        category: 'action',
+      },
+      {
+        flag: PERMISSION_FLAGS.APPROVE_DOCUMENTS,
+        label: 'Approve',
+        description: 'Approve document submissions',
+        category: 'approve',
+      },
+    ],
+  },
+  {
+    id: 'time-tracking',
+    name: 'Time Tracking',
+    description: 'Time entries and timesheets',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS.VIEW_TIME_TRACKING,
+        label: 'View',
+        description: 'View timesheets and reports',
+        category: 'view',
+      },
+      {
+        flag: PERMISSION_FLAGS.MANAGE_TIME_TRACKING,
+        label: 'Manage',
+        description: 'Manage time tracking settings',
+        category: 'manage',
+      },
+    ],
+  },
+  {
+    id: 'analytics',
+    name: 'Analytics & Reporting',
+    description: 'Reports and data analytics',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS.VIEW_ANALYTICS,
+        label: 'View',
+        description: 'View analytics dashboards',
+        category: 'view',
+      },
+      {
+        flag: PERMISSION_FLAGS.EXPORT_DATA,
+        label: 'Export',
+        description: 'Export data and reports',
+        category: 'action',
+      },
+    ],
+  },
+  {
+    id: 'company-settings',
+    name: 'Company Settings',
+    description: 'System-wide company configuration',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS.MANAGE_COMPANY_SETTINGS,
+        label: 'Manage',
+        description: 'Configure company settings',
+        category: 'manage',
+      },
+    ],
+  },
+  // permissions2 modules
+  {
+    id: 'materials',
+    name: 'Material Database',
+    description: 'Material specifications and pricing',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS_2.VIEW_MATERIAL_DB,
+        label: 'View',
+        description: 'View material database',
+        category: 'view',
+        field: 'permissions2',
+      },
+      {
+        flag: PERMISSION_FLAGS_2.MANAGE_MATERIAL_DB,
+        label: 'Manage',
+        description: 'Edit material database',
+        category: 'manage',
+        field: 'permissions2',
+      },
+    ],
+  },
+  {
+    id: 'shapes',
+    name: 'Shape Database',
+    description: 'Shape formulas and calculations',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS_2.VIEW_SHAPE_DB,
+        label: 'View',
+        description: 'View shape database',
+        category: 'view',
+        field: 'permissions2',
+      },
+      {
+        flag: PERMISSION_FLAGS_2.MANAGE_SHAPE_DB,
+        label: 'Manage',
+        description: 'Edit shape database',
+        category: 'manage',
+        field: 'permissions2',
+      },
+    ],
+  },
+  {
+    id: 'bought-out',
+    name: 'Bought Out Items',
+    description: 'Bought-out components and assemblies',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS_2.VIEW_BOUGHT_OUT_DB,
+        label: 'View',
+        description: 'View bought-out database',
+        category: 'view',
+        field: 'permissions2',
+      },
+      {
+        flag: PERMISSION_FLAGS_2.MANAGE_BOUGHT_OUT_DB,
+        label: 'Manage',
+        description: 'Edit bought-out database',
+        category: 'manage',
+        field: 'permissions2',
+      },
+    ],
+  },
+  {
+    id: 'thermal-desal',
+    name: 'Thermal Desalination',
+    description: 'Flash chamber and thermal calculations',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL,
+        label: 'View',
+        description: 'View thermal desalination module',
+        category: 'view',
+        field: 'permissions2',
+      },
+      {
+        flag: PERMISSION_FLAGS_2.MANAGE_THERMAL_DESAL,
+        label: 'Manage',
+        description: 'Edit thermal desalination data',
+        category: 'manage',
+        field: 'permissions2',
+      },
+    ],
+  },
+  {
+    id: 'thermal-calcs',
+    name: 'Thermal Calculators',
+    description: 'Engineering calculators and tools',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS_2.VIEW_THERMAL_CALCS,
+        label: 'View',
+        description: 'View thermal calculators',
+        category: 'view',
+        field: 'permissions2',
+      },
+      {
+        flag: PERMISSION_FLAGS_2.MANAGE_THERMAL_CALCS,
+        label: 'Manage',
+        description: 'Configure thermal calculators',
+        category: 'manage',
+        field: 'permissions2',
+      },
+    ],
+  },
+  {
+    id: 'ssot',
+    name: 'Process Data (SSOT)',
+    description: 'Single source of truth for process data',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS_2.VIEW_SSOT,
+        label: 'View',
+        description: 'View process data',
+        category: 'view',
+        field: 'permissions2',
+      },
+      {
+        flag: PERMISSION_FLAGS_2.MANAGE_SSOT,
+        label: 'Manage',
+        description: 'Edit process data',
+        category: 'manage',
+        field: 'permissions2',
+      },
+    ],
+  },
+  {
+    id: 'hr',
+    name: 'HR & Leave Management',
+    description: 'Human resources and leave tracking',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS_2.VIEW_HR,
+        label: 'View',
+        description: 'View HR module and leave balances',
+        category: 'view',
+        field: 'permissions2',
+      },
+      {
+        flag: PERMISSION_FLAGS_2.MANAGE_HR_SETTINGS,
+        label: 'Manage Settings',
+        description: 'Configure leave types and policies',
+        category: 'manage',
+        field: 'permissions2',
+      },
+      {
+        flag: PERMISSION_FLAGS_2.APPROVE_LEAVES,
+        label: 'Approve Leaves',
+        description: 'Approve or reject leave requests',
+        category: 'approve',
+        field: 'permissions2',
+      },
+      {
+        flag: PERMISSION_FLAGS_2.MANAGE_HR_PROFILES,
+        label: 'Manage Profiles',
+        description: 'Edit employee HR profiles',
+        category: 'manage',
+        field: 'permissions2',
+      },
+    ],
+  },
+];
+
+/**
+ * Get all approval permissions for quick reference
+ * Returns flat array of all permissions with category 'approve'
+ */
+export function getApprovalPermissions(): Array<{
+  moduleId: string;
+  moduleName: string;
+  permission: PermissionDef;
+}> {
+  const approvals: Array<{
+    moduleId: string;
+    moduleName: string;
+    permission: PermissionDef;
+  }> = [];
+
+  for (const module of MODULE_PERMISSIONS) {
+    for (const perm of module.permissions) {
+      if (perm.category === 'approve') {
+        approvals.push({
+          moduleId: module.id,
+          moduleName: module.name,
+          permission: perm,
+        });
+      }
+    }
+  }
+
+  return approvals;
+}
+
+/**
+ * Get permission module by ID
+ */
+export function getPermissionModuleById(moduleId: string): PermissionModuleDef | undefined {
+  return MODULE_PERMISSIONS.find((m) => m.id === moduleId);
+}
+
+/**
+ * Check if a user has a specific module permission
+ */
+export function hasModulePermission(
+  permissions: number,
+  permissions2: number,
+  moduleId: string,
+  permissionLabel: string
+): boolean {
+  const module = getPermissionModuleById(moduleId);
+  if (!module) return false;
+
+  const perm = module.permissions.find((p) => p.label === permissionLabel);
+  if (!perm) return false;
+
+  const permsToCheck = perm.field === 'permissions2' ? permissions2 : permissions;
+  return (permsToCheck & perm.flag) === perm.flag;
+}

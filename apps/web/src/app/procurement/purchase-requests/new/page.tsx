@@ -130,7 +130,7 @@ export default function NewPurchaseRequestPage() {
     setDocumentDialogOpen(false);
   };
 
-  const validateForm = (): boolean => {
+  const validateForm = (requireApprover: boolean = false): boolean => {
     setError(null);
 
     // Validate basic info
@@ -140,6 +140,12 @@ export default function NewPurchaseRequestPage() {
     }
     if (!formData.title.trim()) {
       setError('Please enter title');
+      return false;
+    }
+
+    // Validate approver is selected when submitting for approval
+    if (requireApprover && !formData.approverId) {
+      setError('Please select an approver before submitting for approval');
       return false;
     }
 
@@ -211,7 +217,7 @@ export default function NewPurchaseRequestPage() {
   };
 
   const handleSubmit = async () => {
-    if (!user || !validateForm()) return;
+    if (!user || !validateForm(true)) return; // true = require approver
 
     setSubmitting(true);
     setError(null);
@@ -377,6 +383,7 @@ export default function NewPurchaseRequestPage() {
               approvalType="pr"
               helperText="Select who should approve this purchase request"
               excludeUserIds={user ? [user.uid] : []}
+              required
             />
           </Stack>
         </Paper>

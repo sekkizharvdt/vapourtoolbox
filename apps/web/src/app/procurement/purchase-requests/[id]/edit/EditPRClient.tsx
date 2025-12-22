@@ -235,6 +235,12 @@ export default function EditPRPage() {
       return;
     }
 
+    // Validate approver is selected when submitting for approval
+    if (submitForApproval && !formData.approverId) {
+      setError('Please select an approver before submitting for approval');
+      return;
+    }
+
     const activeItems = lineItems.filter((item) => !item.isDeleted);
     if (activeItems.length === 0) {
       setError('At least one line item is required');
@@ -557,6 +563,7 @@ export default function EditPRPage() {
               approvalType="pr"
               helperText="Select who should approve this purchase request"
               excludeUserIds={user ? [user.uid] : []}
+              required
             />
           </Stack>
         </Paper>
