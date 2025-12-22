@@ -3,11 +3,11 @@
 /**
  * Edit User Dialog
  *
- * Simplified dialog for editing user information and permissions.
- * Uses RESTRICTED_MODULES config for a clean 6-row permission table.
+ * Dialog for editing user information and permissions.
+ * Uses ALL_PERMISSIONS for a flat list of all permission checkboxes.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -24,19 +24,11 @@ import {
   CircularProgress,
   Checkbox,
   Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Tooltip,
   FormControlLabel,
   Divider,
   Stack,
+  Tooltip,
 } from '@mui/material';
-import { Info as InfoIcon } from '@mui/icons-material';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -46,10 +38,11 @@ import {
   PERMISSION_FLAGS,
   hasPermission,
   hasPermission2,
-  RESTRICTED_MODULES,
   OPEN_MODULES,
   getAllPermissions,
   getAllPermissions2,
+  ALL_PERMISSIONS,
+  type PermissionItem,
 } from '@vapour/constants';
 
 interface EditUserDialogProps {
@@ -74,6 +67,10 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
   const [permissions, setPermissions] = useState<number>(0);
   const [permissions2, setPermissions2] = useState<number>(0);
 
+  // Split permissions into regular and admin-only
+  const regularPermissions = useMemo(() => ALL_PERMISSIONS.filter((p) => !p.adminOnly), []);
+  const adminPermissions = useMemo(() => ALL_PERMISSIONS.filter((p) => p.adminOnly), []);
+
   // Initialize form when user changes
   useEffect(() => {
     if (user && open) {
@@ -90,151 +87,71 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
     }
   }, [user, open]);
 
-  // Check if permission is set
-  const hasViewPermission = useCallback(
-    (module: (typeof RESTRICTED_MODULES)[number]): boolean => {
-      if (module.field === 'permissions2') {
-        return hasPermission2(permissions2, module.viewFlag);
+  // Check if a permission is set
+  const hasPermissionCheck = useCallback(
+    (perm: PermissionItem): boolean => {
+      if (perm.field === 'permissions2') {
+        return hasPermission2(permissions2, perm.flag);
       }
-      return hasPermission(permissions, module.viewFlag);
+      return hasPermission(permissions, perm.flag);
     },
     [permissions, permissions2]
   );
 
-  const hasManagePermission = useCallback(
-    (module: (typeof RESTRICTED_MODULES)[number]): boolean => {
-      if (module.field === 'permissions2') {
-        return hasPermission2(permissions2, module.manageFlag);
-      }
-      return hasPermission(permissions, module.manageFlag);
-    },
-    [permissions, permissions2]
-  );
-
-  // Toggle permission
-  const togglePermission = useCallback(
-    (flag: number, field: 'permissions' | 'permissions2' = 'permissions') => {
-      if (field === 'permissions2') {
-        setPermissions2((prev) => (prev & flag ? prev & ~flag : prev | flag));
-      } else {
-        setPermissions((prev) => (prev & flag ? prev & ~flag : prev | flag));
-      }
-    },
-    []
-  );
-
-  // Toggle view permission (also clears manage if unchecking view)
-  const toggleView = useCallback(
-    (module: (typeof RESTRICTED_MODULES)[number]) => {
-      const field = module.field || 'permissions';
-      const perms = field === 'permissions2' ? permissions2 : permissions;
-      const hasView =
-        field === 'permissions2'
-          ? hasPermission2(perms, module.viewFlag)
-          : hasPermission(perms, module.viewFlag);
-
-      if (hasView) {
-        // Unchecking view - also remove manage
-        if (field === 'permissions2') {
-          setPermissions2((prev) => prev & ~module.viewFlag & ~module.manageFlag);
-        } else {
-          setPermissions((prev) => prev & ~module.viewFlag & ~module.manageFlag);
-        }
-      } else {
-        // Adding view
-        togglePermission(module.viewFlag, field);
-      }
-    },
-    [permissions, permissions2, togglePermission]
-  );
-
-  // Toggle manage permission (automatically adds view)
-  const toggleManage = useCallback(
-    (module: (typeof RESTRICTED_MODULES)[number]) => {
-      const field = module.field || 'permissions';
-      const perms = field === 'permissions2' ? permissions2 : permissions;
-      const hasManage =
-        field === 'permissions2'
-          ? hasPermission2(perms, module.manageFlag)
-          : hasPermission(perms, module.manageFlag);
-
-      if (hasManage) {
-        // Just remove manage, keep view
-        togglePermission(module.manageFlag, field);
-      } else {
-        // Add manage + view
-        if (field === 'permissions2') {
-          setPermissions2((prev) => prev | module.viewFlag | module.manageFlag);
-        } else {
-          setPermissions((prev) => prev | module.viewFlag | module.manageFlag);
-        }
-      }
-    },
-    [permissions, permissions2, togglePermission]
-  );
-
-  // Check if user has admin permission
-  const isAdmin = hasPermission(permissions, PERMISSION_FLAGS.MANAGE_USERS);
-
-  // Toggle admin permission
-  const toggleAdmin = useCallback(() => {
-    setPermissions((prev) =>
-      prev & PERMISSION_FLAGS.MANAGE_USERS
-        ? prev & ~PERMISSION_FLAGS.MANAGE_USERS
-        : prev | PERMISSION_FLAGS.MANAGE_USERS
-    );
+  // Toggle a permission
+  const togglePermissionItem = useCallback((perm: PermissionItem) => {
+    if (perm.field === 'permissions2') {
+      setPermissions2((prev) => (prev & perm.flag ? prev & ~perm.flag : prev | perm.flag));
+    } else {
+      setPermissions((prev) => (prev & perm.flag ? prev & ~perm.flag : prev | perm.flag));
+    }
   }, []);
 
   // Quick actions
-  const grantAllView = useCallback(() => {
+  const selectAll = useCallback(() => {
     let newPerms = permissions;
     let newPerms2 = permissions2;
-    RESTRICTED_MODULES.forEach((module) => {
-      if (module.field === 'permissions2') {
-        newPerms2 |= module.viewFlag;
+    regularPermissions.forEach((perm) => {
+      if (perm.field === 'permissions2') {
+        newPerms2 |= perm.flag;
       } else {
-        newPerms |= module.viewFlag;
+        newPerms |= perm.flag;
       }
     });
     setPermissions(newPerms);
     setPermissions2(newPerms2);
-  }, [permissions, permissions2]);
+  }, [permissions, permissions2, regularPermissions]);
 
-  const grantAllManage = useCallback(() => {
+  const clearAll = useCallback(() => {
     let newPerms = permissions;
     let newPerms2 = permissions2;
-    RESTRICTED_MODULES.forEach((module) => {
-      if (module.field === 'permissions2') {
-        newPerms2 |= module.viewFlag | module.manageFlag;
+    // Clear all regular permissions
+    regularPermissions.forEach((perm) => {
+      if (perm.field === 'permissions2') {
+        newPerms2 &= ~perm.flag;
       } else {
-        newPerms |= module.viewFlag | module.manageFlag;
+        newPerms &= ~perm.flag;
+      }
+    });
+    // Also clear admin permissions
+    adminPermissions.forEach((perm) => {
+      if (perm.field === 'permissions2') {
+        newPerms2 &= ~perm.flag;
+      } else {
+        newPerms &= ~perm.flag;
       }
     });
     setPermissions(newPerms);
     setPermissions2(newPerms2);
-  }, [permissions, permissions2]);
-
-  const clearAllPermissions = useCallback(() => {
-    // Clear module permissions but keep other flags
-    let newPerms = permissions;
-    let newPerms2 = permissions2;
-    RESTRICTED_MODULES.forEach((module) => {
-      if (module.field === 'permissions2') {
-        newPerms2 &= ~module.viewFlag & ~module.manageFlag;
-      } else {
-        newPerms &= ~module.viewFlag & ~module.manageFlag;
-      }
-    });
-    // Also clear admin
-    newPerms &= ~PERMISSION_FLAGS.MANAGE_USERS;
-    setPermissions(newPerms);
-    setPermissions2(newPerms2);
-  }, [permissions, permissions2]);
+  }, [permissions, permissions2, regularPermissions, adminPermissions]);
 
   const grantFullAccess = useCallback(() => {
     setPermissions(getAllPermissions());
     setPermissions2(getAllPermissions2());
   }, []);
+
+  // Check if current user is admin (has MANAGE_USERS)
+  const isAdmin = hasPermission(permissions, PERMISSION_FLAGS.MANAGE_USERS);
 
   const handleSave = async () => {
     if (!user) return;
@@ -399,22 +316,19 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
 
           <Divider sx={{ my: 1 }} />
 
-          {/* Module Access Section */}
+          {/* Permissions Section */}
           <Box>
             <Box
               sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}
             >
               <Typography variant="subtitle2" color="text.secondary">
-                Module Access
+                Permissions
               </Typography>
               <Stack direction="row" spacing={1}>
-                <Button size="small" variant="text" onClick={grantAllView}>
-                  All View
+                <Button size="small" variant="text" onClick={selectAll}>
+                  Select All
                 </Button>
-                <Button size="small" variant="text" onClick={grantAllManage}>
-                  All Manage
-                </Button>
-                <Button size="small" variant="text" color="inherit" onClick={clearAllPermissions}>
+                <Button size="small" variant="text" color="inherit" onClick={clearAll}>
                   Clear
                 </Button>
                 <Button size="small" variant="outlined" onClick={grantFullAccess}>
@@ -430,70 +344,78 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
               </Typography>
             </Alert>
 
-            {/* Restricted Modules Table */}
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>
-                      <strong>Module</strong>
-                    </TableCell>
-                    <TableCell align="center" sx={{ width: 80 }}>
-                      <strong>View</strong>
-                    </TableCell>
-                    <TableCell align="center" sx={{ width: 80 }}>
-                      <strong>Manage</strong>
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {RESTRICTED_MODULES.map((module) => (
-                    <TableRow key={module.id}>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          {module.name}
-                          {module.note && (
-                            <Tooltip title={module.note}>
-                              <InfoIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Checkbox
-                          checked={hasViewPermission(module)}
-                          onChange={() => toggleView(module)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Checkbox
-                          checked={hasManagePermission(module)}
-                          onChange={() => toggleManage(module)}
-                          size="small"
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            {/* Regular Permissions - Flat checkbox list */}
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: 0.5,
+                mb: 2,
+              }}
+            >
+              {regularPermissions.map((perm) => (
+                <Tooltip key={`${perm.field}-${perm.flag}`} title={perm.description} arrow>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={hasPermissionCheck(perm)}
+                        onChange={() => togglePermissionItem(perm)}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                        {perm.label}
+                      </Typography>
+                    }
+                    sx={{ m: 0 }}
+                  />
+                </Tooltip>
+              ))}
+            </Box>
           </Box>
 
           <Divider sx={{ my: 1 }} />
 
-          {/* Admin Access */}
+          {/* Admin Permissions Section */}
           <Box>
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Admin Access
+              Admin Permissions
             </Typography>
-            <FormControlLabel
-              control={<Checkbox checked={isAdmin} onChange={toggleAdmin} />}
-              label="Can manage users (Administrator)"
-            />
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4 }}>
-              Grants access to Administration section: User Management, Company Settings, Feedback
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+              These permissions grant access to sensitive system functions
             </Typography>
+
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: 0.5,
+                backgroundColor: isAdmin ? 'action.hover' : 'transparent',
+                p: 1,
+                borderRadius: 1,
+              }}
+            >
+              {adminPermissions.map((perm) => (
+                <Tooltip key={`${perm.field}-${perm.flag}`} title={perm.description} arrow>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={hasPermissionCheck(perm)}
+                        onChange={() => togglePermissionItem(perm)}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                        {perm.label}
+                      </Typography>
+                    }
+                    sx={{ m: 0 }}
+                  />
+                </Tooltip>
+              ))}
+            </Box>
           </Box>
         </Box>
       </DialogContent>

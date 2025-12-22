@@ -12,7 +12,8 @@ export const PERMISSION_FLAGS = {
   // User Management (bits 0-2)
   MANAGE_USERS: 1 << 0, // 1
   VIEW_USERS: 1 << 1, // 2
-  MANAGE_ROLES: 1 << 2, // 4
+  /** @deprecated Role system has been removed. Kept for backward compatibility. */
+  MANAGE_ROLES: 1 << 2, // 4 - DEPRECATED: Role system removed
 
   // Project Management (bits 3-4)
   MANAGE_PROJECTS: 1 << 3, // 8
@@ -32,8 +33,9 @@ export const PERMISSION_FLAGS = {
   EXPORT_DATA: 1 << 11, // 2048
 
   // Time Tracking (bits 12-13)
-  MANAGE_TIME_TRACKING: 1 << 12, // 4096
-  VIEW_TIME_TRACKING: 1 << 13, // 8192
+  /** @deprecated Flow module is now open to everyone. Kept for backward compatibility. */
+  MANAGE_TIME_TRACKING: 1 << 12, // 4096 - DEPRECATED: Flow module is open
+  VIEW_TIME_TRACKING: 1 << 13, // 8192 - Admin-only for viewing reports
 
   // Accounting (bits 14-15)
   MANAGE_ACCOUNTING: 1 << 14, // 16384
@@ -76,7 +78,8 @@ export const PERMISSION_FLAGS = {
 export const PERMISSION_BITS = {
   MANAGE_USERS: 1,
   VIEW_USERS: 2,
-  MANAGE_ROLES: 4,
+  /** @deprecated Role system has been removed. Kept for backward compatibility. */
+  MANAGE_ROLES: 4, // DEPRECATED
   MANAGE_PROJECTS: 8,
   VIEW_PROJECTS: 16,
   VIEW_ENTITIES: 32,
@@ -86,7 +89,8 @@ export const PERMISSION_BITS = {
   MANAGE_COMPANY_SETTINGS: 512,
   VIEW_ANALYTICS: 1024,
   EXPORT_DATA: 2048,
-  MANAGE_TIME_TRACKING: 4096,
+  /** @deprecated Flow module is now open to everyone. Kept for backward compatibility. */
+  MANAGE_TIME_TRACKING: 4096, // DEPRECATED
   VIEW_TIME_TRACKING: 8192,
   MANAGE_ACCOUNTING: 16384,
   VIEW_ACCOUNTING: 32768,
@@ -537,14 +541,284 @@ export const RESTRICTED_MODULES: RestrictedModule[] = [
  * These modules are accessible to all authenticated users.
  */
 export const OPEN_MODULES = [
-  'Flow (Time Tracking)',
-  'Documents',
-  'Estimation',
-  'Thermal Calculators',
-  'Material Database',
-  'Shape Database',
-  'Bought Out Items',
+  'Flow (Tasks & Time)',
+  'Company Documents (viewing)',
+  'Thermal Calculators (viewing)',
+  'Material Database (viewing)',
+  'Shape Database (viewing)',
+  'Bought Out Items (viewing)',
+  'HR Module (viewing)',
 ] as const;
+
+/**
+ * Permission Item for flat permission list
+ * Used by EditUserDialog and ApproveUserDialog for granular permission control
+ */
+export interface PermissionItem {
+  /** Permission flag value */
+  flag: number;
+  /** Display label for the permission */
+  label: string;
+  /** Description of what the permission allows */
+  description: string;
+  /** Which permission field to check: 'permissions' or 'permissions2' */
+  field: 'permissions' | 'permissions2';
+  /** If true, only shown in admin section of the UI */
+  adminOnly: boolean;
+}
+
+/**
+ * Complete list of all permissions for the user management UI
+ *
+ * This provides a flat list of all permission flags with their metadata,
+ * categorized into regular permissions (shown to all admins) and
+ * admin-only permissions (sensitive system-level access).
+ *
+ * Used by:
+ * - EditUserDialog for editing user permissions
+ * - ApproveUserDialog for setting up new user permissions
+ */
+export const ALL_PERMISSIONS: PermissionItem[] = [
+  // ==========================================
+  // Regular Permissions (permissions field)
+  // ==========================================
+  {
+    flag: PERMISSION_FLAGS.VIEW_PROJECTS,
+    label: 'View Projects',
+    description: 'View project details and lists',
+    field: 'permissions',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS.MANAGE_PROJECTS,
+    label: 'Manage Projects',
+    description: 'Create, edit, and archive projects',
+    field: 'permissions',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS.VIEW_ENTITIES,
+    label: 'View Entities',
+    description: 'View vendors, customers, and other entities',
+    field: 'permissions',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS.CREATE_ENTITIES,
+    label: 'Create Entities',
+    description: 'Create new vendors, customers, and entities',
+    field: 'permissions',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS.VIEW_ACCOUNTING,
+    label: 'View Accounting',
+    description: 'View transactions and financial reports',
+    field: 'permissions',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+    label: 'Manage Accounting',
+    description: 'Create transactions, manage accounts',
+    field: 'permissions',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS.VIEW_PROCUREMENT,
+    label: 'View Procurement',
+    description: 'View PRs, RFQs, and POs',
+    field: 'permissions',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    label: 'Manage Procurement',
+    description: 'Create and edit PRs, RFQs, and POs',
+    field: 'permissions',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS.VIEW_ESTIMATION,
+    label: 'View Estimation',
+    description: 'View estimates and BOMs',
+    field: 'permissions',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS.MANAGE_ESTIMATION,
+    label: 'Manage Estimation',
+    description: 'Create and edit estimates',
+    field: 'permissions',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS.VIEW_PROPOSALS,
+    label: 'View Proposals',
+    description: 'View proposals and enquiries',
+    field: 'permissions',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS.MANAGE_PROPOSALS,
+    label: 'Manage Proposals',
+    description: 'Create and edit proposals',
+    field: 'permissions',
+    adminOnly: false,
+  },
+
+  // ==========================================
+  // Regular Permissions (permissions2 field)
+  // ==========================================
+  {
+    flag: PERMISSION_FLAGS_2.VIEW_THERMAL_DESAL,
+    label: 'View Thermal Desalination',
+    description: 'View thermal desalination module',
+    field: 'permissions2',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS_2.MANAGE_THERMAL_DESAL,
+    label: 'Manage Thermal Desalination',
+    description: 'Edit thermal desalination data',
+    field: 'permissions2',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS_2.VIEW_SSOT,
+    label: 'View Process Data (SSOT)',
+    description: 'View process data',
+    field: 'permissions2',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS_2.MANAGE_SSOT,
+    label: 'Manage Process Data (SSOT)',
+    description: 'Edit process data',
+    field: 'permissions2',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS_2.MANAGE_MATERIAL_DB,
+    label: 'Manage Material Database',
+    description: 'Edit material database entries',
+    field: 'permissions2',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS_2.MANAGE_SHAPE_DB,
+    label: 'Manage Shape Database',
+    description: 'Edit shape database entries',
+    field: 'permissions2',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS_2.MANAGE_BOUGHT_OUT_DB,
+    label: 'Manage Bought Out Items',
+    description: 'Edit bought-out database entries',
+    field: 'permissions2',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS_2.MANAGE_HR_SETTINGS,
+    label: 'Manage HR Settings',
+    description: 'Configure leave types and policies',
+    field: 'permissions2',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS_2.APPROVE_LEAVES,
+    label: 'Approve Leaves',
+    description: 'Approve or reject leave requests',
+    field: 'permissions2',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS_2.MANAGE_HR_PROFILES,
+    label: 'Manage HR Profiles',
+    description: 'Edit employee HR profiles',
+    field: 'permissions2',
+    adminOnly: false,
+  },
+
+  // ==========================================
+  // Admin-Only Permissions (permissions field)
+  // ==========================================
+  {
+    flag: PERMISSION_FLAGS.MANAGE_USERS,
+    label: 'Manage Users',
+    description: 'Create, edit, and deactivate users',
+    field: 'permissions',
+    adminOnly: true,
+  },
+  {
+    flag: PERMISSION_FLAGS.VIEW_USERS,
+    label: 'View Users',
+    description: 'View user list and profiles',
+    field: 'permissions',
+    adminOnly: true,
+  },
+  {
+    flag: PERMISSION_FLAGS.EDIT_ENTITIES,
+    label: 'Edit Entities',
+    description: 'Edit existing entities',
+    field: 'permissions',
+    adminOnly: true,
+  },
+  {
+    flag: PERMISSION_FLAGS.DELETE_ENTITIES,
+    label: 'Delete Entities',
+    description: 'Delete or archive entities',
+    field: 'permissions',
+    adminOnly: true,
+  },
+  {
+    flag: PERMISSION_FLAGS.MANAGE_COMPANY_SETTINGS,
+    label: 'Manage Company Settings',
+    description: 'Configure company-wide settings',
+    field: 'permissions',
+    adminOnly: true,
+  },
+  {
+    flag: PERMISSION_FLAGS.VIEW_ANALYTICS,
+    label: 'View Analytics',
+    description: 'View analytics dashboards',
+    field: 'permissions',
+    adminOnly: true,
+  },
+  {
+    flag: PERMISSION_FLAGS.EXPORT_DATA,
+    label: 'Export Data',
+    description: 'Export data and reports',
+    field: 'permissions',
+    adminOnly: true,
+  },
+  {
+    flag: PERMISSION_FLAGS.VIEW_TIME_TRACKING,
+    label: 'View Time Reports',
+    description: 'View task summaries and time reports',
+    field: 'permissions',
+    adminOnly: true,
+  },
+  {
+    flag: PERMISSION_FLAGS.MANAGE_DOCUMENTS,
+    label: 'Manage Company Documents',
+    description: 'Upload SOPs, policies, and templates',
+    field: 'permissions',
+    adminOnly: true,
+  },
+
+  // ==========================================
+  // Admin-Only Permissions (permissions2 field)
+  // ==========================================
+  {
+    flag: PERMISSION_FLAGS_2.MANAGE_THERMAL_CALCS,
+    label: 'Configure Thermal Calculators',
+    description: 'Configure thermal calculator settings',
+    field: 'permissions2',
+    adminOnly: true,
+  },
+];
 
 /**
  * Permission Definition
