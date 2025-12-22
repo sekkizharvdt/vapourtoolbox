@@ -98,17 +98,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Only expose test sign-in methods when using emulator
       if (process.env.NEXT_PUBLIC_USE_EMULATOR === 'true') {
+        const extWin = win as Window & {
+          __authLoading?: boolean;
+          __authUser?: boolean;
+          __authClaims?: boolean;
+          __e2eSignIn?: (email: string, password: string) => Promise<void>;
+          __e2eSignInWithToken?: (token: string) => Promise<void>;
+          __e2eForceTokenRefresh?: () => Promise<void>;
+        };
+
         // Email/password sign-in (requires provider to be enabled)
-        win.__e2eSignIn = async (email: string, password: string) => {
+        extWin.__e2eSignIn = async (email: string, password: string) => {
           const { auth } = getFirebase();
           await signInWithEmailAndPassword(auth, email, password);
         };
 
         // Custom token sign-in (works without any provider enabled)
         // This is the preferred method for E2E tests
-        win.__e2eSignInWithToken = async (token: string) => {
+        extWin.__e2eSignInWithToken = async (token: string) => {
           const { auth } = getFirebase();
           await signInWithCustomToken(auth, token);
+        };
+
+        // Force token refresh - needed after Admin SDK sets claims
+        // The onAuthStateChanged listener will pick up new claims after refresh
+        extWin.__e2eForceTokenRefresh = async () => {
+          const { auth } = getFirebase();
+          if (auth.currentUser) {
+            await auth.currentUser.getIdToken(true); // force refresh
+            // Trigger a re-evaluation of claims by the auth state listener
+            // We need to manually trigger onAuthStateChanged since getIdToken alone doesn't
+            const idTokenResult = await auth.currentUser.getIdTokenResult(true);
+            logger.debug('E2E: Forced token refresh', { claims: idTokenResult.claims });
+          }
         };
       }
     }

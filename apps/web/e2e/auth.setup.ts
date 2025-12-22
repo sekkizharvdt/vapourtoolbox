@@ -168,6 +168,109 @@ async function setupTestUser(): Promise<boolean> {
 }
 
 /**
+ * Test entities for E2E tests
+ */
+const TEST_ENTITIES = [
+  {
+    id: 'e2e-entity-active-vendor',
+    code: 'ENT-E2E-001',
+    name: 'E2E Test Vendor',
+    nameNormalized: 'e2e test vendor',
+    roles: ['vendor'],
+    contactPerson: 'John Vendor',
+    email: 'vendor@e2etest.com',
+    phone: '+1234567890',
+    billingAddress: {
+      street: '123 Vendor St',
+      city: 'Test City',
+      state: 'Test State',
+      country: 'USA',
+      postalCode: '12345',
+    },
+    isActive: true,
+    isArchived: false,
+  },
+  {
+    id: 'e2e-entity-active-customer',
+    code: 'ENT-E2E-002',
+    name: 'E2E Test Customer',
+    nameNormalized: 'e2e test customer',
+    roles: ['customer'],
+    contactPerson: 'Jane Customer',
+    email: 'customer@e2etest.com',
+    phone: '+1234567891',
+    billingAddress: {
+      street: '456 Customer Ave',
+      city: 'Test City',
+      state: 'Test State',
+      country: 'USA',
+      postalCode: '12345',
+    },
+    isActive: true,
+    isArchived: false,
+  },
+  {
+    id: 'e2e-entity-archived',
+    code: 'ENT-E2E-003',
+    name: 'E2E Archived Entity',
+    nameNormalized: 'e2e archived entity',
+    roles: ['vendor', 'customer'],
+    contactPerson: 'Archived Person',
+    email: 'archived@e2etest.com',
+    phone: '+1234567892',
+    billingAddress: {
+      street: '789 Archived Rd',
+      city: 'Test City',
+      state: 'Test State',
+      country: 'USA',
+      postalCode: '12345',
+    },
+    isActive: false,
+    isArchived: true,
+    archiveReason: 'E2E Test - Archived entity for testing',
+  },
+];
+
+/**
+ * Seed test entities in Firestore for E2E tests
+ */
+async function seedTestEntities(): Promise<boolean> {
+  try {
+    initFirebaseAdmin();
+    const firestore = admin.firestore();
+    const now = new Date();
+    const batch = firestore.batch();
+
+    // Use different timestamps so entities sort predictably (newest first)
+    // Active entities get more recent timestamps to appear first in the list
+    for (const [i, entity] of TEST_ENTITIES.entries()) {
+      const docRef = firestore.collection('entities').doc(entity.id);
+      // Archived entity gets oldest timestamp, active entities get newer timestamps
+      const entityTime = new Date(
+        now.getTime() - (entity.isArchived ? 10000 : (TEST_ENTITIES.length - i) * 1000)
+      );
+      batch.set(docRef, {
+        ...entity,
+        createdAt: admin.firestore.Timestamp.fromDate(entityTime),
+        updatedAt: admin.firestore.Timestamp.fromDate(entityTime),
+        ...(entity.isArchived && {
+          archivedAt: admin.firestore.Timestamp.fromDate(entityTime),
+          archivedBy: 'e2e-test',
+          archivedByName: 'E2E Test',
+        }),
+      });
+    }
+
+    await batch.commit();
+    console.log(`  Seeded ${TEST_ENTITIES.length} test entities`);
+    return true;
+  } catch (error) {
+    console.error('  Error seeding test entities:', error);
+    return false;
+  }
+}
+
+/**
  * Main authentication setup
  */
 setup('authenticate', async ({ browser }) => {
@@ -189,6 +292,11 @@ setup('authenticate', async ({ browser }) => {
       console.log('  Start with: firebase emulators:start --only auth,firestore');
     } else {
       const userSetup = await setupTestUser();
+
+      // Seed test entities for E2E tests
+      if (userSetup) {
+        await seedTestEntities();
+      }
 
       if (userSetup) {
         // Navigate to the app
@@ -236,24 +344,79 @@ setup('authenticate', async ({ browser }) => {
         if (signInResult.success) {
           console.log('  Signed in via email/password');
 
-          // Wait for auth state to update
-          await page.waitForTimeout(1000);
+          // Force token refresh to pick up the new claims set by Admin SDK
+          console.log('  Forcing token refresh to get claims...');
+          const refreshResult = await page.evaluate(async () => {
+            // Use the exposed __e2eForceTokenRefresh method
+            const win = window as Window & {
+              __e2eForceTokenRefresh?: () => Promise<void>;
+            };
 
-          // Navigate to a protected page to verify auth worked
-          await page.goto('/feedback');
-          await page.waitForLoadState('domcontentloaded');
-          await page.waitForTimeout(2000);
+            if (!win.__e2eForceTokenRefresh) {
+              return { success: false, error: '__e2eForceTokenRefresh not available' };
+            }
 
-          const currentUrl = page.url();
-          isAuthenticated =
-            !currentUrl.includes('/login') && !currentUrl.includes('/pending-approval');
+            try {
+              await win.__e2eForceTokenRefresh();
+              return { success: true };
+            } catch (e) {
+              return { success: false, error: String(e) };
+            }
+          });
 
-          if (isAuthenticated) {
+          console.log(
+            '  Token refresh result:',
+            refreshResult.success ? 'success' : refreshResult.error
+          );
+
+          // Wait for full auth state (user + claims) not just loading
+          console.log('  Waiting for full auth state (user + claims)...');
+          const authStateReady = await page
+            .waitForFunction(
+              () => {
+                const win = window as Window & {
+                  __authLoading?: boolean;
+                  __authUser?: boolean;
+                  __authClaims?: boolean;
+                };
+                return (
+                  win.__authLoading === false &&
+                  win.__authUser === true &&
+                  win.__authClaims === true
+                );
+              },
+              { timeout: 15000 }
+            )
+            .then(() => true)
+            .catch(() => false);
+
+          if (authStateReady) {
+            console.log('  Full auth state ready');
+            isAuthenticated = true;
             console.log('  Authentication successful!');
-          } else if (currentUrl.includes('/pending-approval')) {
-            console.log('  User authenticated but pending approval (claims not set properly)');
           } else {
-            console.log('  Auth state not persisted');
+            // Check what state we're in
+            const authState = await page.evaluate(() => {
+              const win = window as Window & {
+                __authLoading?: boolean;
+                __authUser?: boolean;
+                __authClaims?: boolean;
+              };
+              return {
+                loading: win.__authLoading,
+                user: win.__authUser,
+                claims: win.__authClaims,
+              };
+            });
+            console.log('  Auth state:', authState);
+
+            if (authState.user && !authState.claims) {
+              console.log('  User authenticated but claims not available (pending approval state)');
+            } else if (!authState.user) {
+              console.log('  Auth state not persisted');
+            } else {
+              console.log('  Unknown auth state');
+            }
           }
         } else {
           console.log('  Sign-in failed:', signInResult.error);
