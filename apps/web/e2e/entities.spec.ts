@@ -223,8 +223,8 @@ test.describe('Entities Module', () => {
         return;
       }
 
-      // Check for page header
-      await expect(page.getByText(/Entity Management/i)).toBeVisible();
+      // Check for page header - use .first() because "Entity Management" appears in both sidebar and page title
+      await expect(page.getByText(/Entity Management/i).first()).toBeVisible();
       await expect(
         page.getByText(/Manage vendors, customers, and business partners/i)
       ).toBeVisible();
@@ -259,11 +259,11 @@ test.describe('Entities Module', () => {
       // Search field should be visible
       await expect(page.getByPlaceholder(/Search entities/i)).toBeVisible();
 
-      // Status dropdown should be visible
-      await expect(page.getByLabel(/Status/i)).toBeVisible();
+      // Status dropdown should be visible - use .first() because label appears twice (label + input)
+      await expect(page.getByLabel(/Status/i).first()).toBeVisible();
 
-      // Role dropdown should be visible
-      await expect(page.getByLabel(/Role/i)).toBeVisible();
+      // Role dropdown should be visible - use .first() because label appears twice (label + input)
+      await expect(page.getByLabel(/Role/i).first()).toBeVisible();
     });
 
     test('should filter by status', async ({ page }) => {
@@ -274,8 +274,11 @@ test.describe('Entities Module', () => {
         return;
       }
 
-      // Click status dropdown
-      await page.getByLabel(/Status/i).click();
+      // Click status dropdown - use .first() because label appears twice
+      await page
+        .getByLabel(/Status/i)
+        .first()
+        .click();
 
       // Check for options
       await expect(page.getByRole('option', { name: /All Status/i })).toBeVisible();
@@ -297,8 +300,8 @@ test.describe('Entities Module', () => {
         return;
       }
 
-      // Click role dropdown
-      await page.getByLabel(/Role/i).click();
+      // Click role dropdown - use .first() because label appears twice
+      await page.getByLabel(/Role/i).first().click();
 
       // Check for options
       await expect(page.getByRole('option', { name: /All Roles/i })).toBeVisible();
@@ -326,8 +329,8 @@ test.describe('Entities Module', () => {
       // Wait for filter to apply
       await page.waitForTimeout(500);
 
-      // Page should still be visible (filter applied)
-      await expect(page.getByText(/Entity Management/i)).toBeVisible();
+      // Page should still be visible (filter applied) - use .first() for multiple matches
+      await expect(page.getByText(/Entity Management/i).first()).toBeVisible();
     });
 
     test('should clear filters', async ({ page }) => {
@@ -340,7 +343,10 @@ test.describe('Entities Module', () => {
 
       // Apply some filters
       await page.getByPlaceholder(/Search entities/i).fill('Test');
-      await page.getByLabel(/Status/i).click();
+      await page
+        .getByLabel(/Status/i)
+        .first()
+        .click();
       await page.getByRole('option', { name: /^Active$/i }).click();
 
       // Click clear button (from FilterBar)
@@ -729,8 +735,11 @@ test.describe('Entities Module', () => {
         return;
       }
 
-      // Filter to archived entities
-      await page.getByLabel(/Status/i).click();
+      // Filter to archived entities - use .first() because label appears twice
+      await page
+        .getByLabel(/Status/i)
+        .first()
+        .click();
       await page.getByRole('option', { name: /Archived/i }).click();
 
       await page.waitForTimeout(500);
@@ -755,8 +764,11 @@ test.describe('Entities Module', () => {
         return;
       }
 
-      // Filter to archived entities
-      await page.getByLabel(/Status/i).click();
+      // Filter to archived entities - use .first() because label appears twice
+      await page
+        .getByLabel(/Status/i)
+        .first()
+        .click();
       await page.getByRole('option', { name: /Archived/i }).click();
 
       await page.waitForTimeout(500);
@@ -788,8 +800,8 @@ test.describe('Entities Module', () => {
         return;
       }
 
-      // Verify page renders correctly on mobile
-      await expect(page.getByText(/Entity Management/i)).toBeVisible();
+      // Verify page renders correctly on mobile - use .first() for multiple matches
+      await expect(page.getByText(/Entity Management/i).first()).toBeVisible();
       await expect(page.getByText(/Total Entities/i)).toBeVisible();
     });
 
@@ -802,8 +814,8 @@ test.describe('Entities Module', () => {
         return;
       }
 
-      // Verify page renders correctly on tablet
-      await expect(page.getByText(/Entity Management/i)).toBeVisible();
+      // Verify page renders correctly on tablet - use .first() for multiple matches
+      await expect(page.getByText(/Entity Management/i).first()).toBeVisible();
       await expect(page.getByPlaceholder(/Search entities/i)).toBeVisible();
     });
   });
@@ -822,8 +834,11 @@ test.describe('Entities Module', () => {
 
       await page.waitForTimeout(500);
 
-      // Should show either empty state or the table (with no matching results)
-      const pageVisible = await page.getByText(/Entity Management/i).isVisible();
+      // Should show either empty state or the table (with no matching results) - use .first() for multiple matches
+      const pageVisible = await page
+        .getByText(/Entity Management/i)
+        .first()
+        .isVisible();
       expect(pageVisible).toBe(true);
     });
   });
@@ -837,9 +852,9 @@ test.describe('Entities Module', () => {
         return;
       }
 
-      // Filter dropdowns should have labels
-      await expect(page.getByLabel(/Status/i)).toBeVisible();
-      await expect(page.getByLabel(/Role/i)).toBeVisible();
+      // Filter dropdowns should have labels - use .first() because label appears twice
+      await expect(page.getByLabel(/Status/i).first()).toBeVisible();
+      await expect(page.getByLabel(/Role/i).first()).toBeVisible();
     });
 
     test('should be keyboard navigable', async ({ page }) => {
