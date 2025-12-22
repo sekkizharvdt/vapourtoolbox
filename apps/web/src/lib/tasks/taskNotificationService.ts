@@ -82,24 +82,26 @@ export async function createTaskNotification(input: CreateTaskNotificationInput)
   try {
     const now = Timestamp.now();
 
-    const taskNotificationData: Omit<TaskNotification, 'id'> = {
-      // Classification
+    // Build notification data, only including optional fields if they have values
+    // Firestore doesn't accept undefined values, so we use spread conditionally
+    const taskNotificationData: Record<string, unknown> = {
+      // Classification (required)
       type: input.type,
       category: input.category,
 
-      // Assignment
+      // Assignment (required: userId, optional: assignedBy/Name)
       userId: input.userId,
-      assignedBy: input.assignedBy,
-      assignedByName: input.assignedByName,
+      ...(input.assignedBy && { assignedBy: input.assignedBy }),
+      ...(input.assignedByName && { assignedByName: input.assignedByName }),
 
-      // Content
+      // Content (required: title, message)
       title: input.title,
       message: input.message,
       priority: input.priority || 'MEDIUM',
 
-      // Linking
-      projectId: input.projectId,
-      equipmentId: input.equipmentId,
+      // Linking (required: entityType, entityId, linkUrl; optional: projectId, equipmentId)
+      ...(input.projectId && { projectId: input.projectId }),
+      ...(input.equipmentId && { equipmentId: input.equipmentId }),
       entityType: input.entityType,
       entityId: input.entityId,
       linkUrl: input.linkUrl,
@@ -112,8 +114,8 @@ export async function createTaskNotification(input: CreateTaskNotificationInput)
       autoCompletable: input.autoCompletable || false,
       completionConfirmed: false,
 
-      // Metadata
-      metadata: input.metadata,
+      // Metadata (optional)
+      ...(input.metadata && { metadata: input.metadata }),
 
       // Timestamps
       createdAt: now,
@@ -124,9 +126,17 @@ export async function createTaskNotification(input: CreateTaskNotificationInput)
       taskNotificationData
     );
 
+    logger.info('Created task notification', {
+      id: docRef.id,
+      category: input.category,
+      userId: input.userId,
+      entityType: input.entityType,
+      entityId: input.entityId,
+    });
+
     return docRef.id;
   } catch (error) {
-    logger.error('Failed to create task notification', { error });
+    logger.error('Failed to create task notification', { error, input });
     throw new Error('Failed to create task notification');
   }
 }
