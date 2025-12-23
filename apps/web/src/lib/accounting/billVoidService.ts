@@ -32,6 +32,22 @@ import { logAuditEvent, createAuditContext } from '@/lib/audit';
 
 const logger = createLogger({ context: 'billVoidService' });
 
+/**
+ * Safely convert Firestore document data to VendorBill
+ *
+ * Note: We use type assertion here because Firestore's DocumentData
+ * doesn't carry our TypeScript types. The data was written using our
+ * typed service layer, so we trust the structure. The canVoidBill
+ * function validates the critical status field before proceeding.
+ */
+function docToVendorBill(id: string, data: Record<string, unknown>): VendorBill {
+  // Add the id field and return as VendorBill
+  // This is safe because we wrote this data through our typed APIs
+  // The type assertion on DocumentData is necessary for Firestore interop
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  return { ...data, id } as VendorBill;
+}
+
 export interface VoidBillInput {
   billId: string;
   reason: string;
@@ -113,7 +129,7 @@ export async function voidBill(db: Firestore, input: VoidBillInput): Promise<Voi
       return { success: false, voidedBillId: billId, error: 'Bill not found' };
     }
 
-    const bill = { ...billSnap.data(), id: billSnap.id } as unknown as VendorBill;
+    const bill = docToVendorBill(billSnap.id, billSnap.data() as Record<string, unknown>);
 
     // Check if bill can be voided
     const voidCheck = canVoidBill(bill);
@@ -203,7 +219,7 @@ export async function voidAndRecreateBill(
         throw new Error('Bill not found');
       }
 
-      const bill = { ...billSnap.data(), id: billSnap.id } as unknown as VendorBill;
+      const bill = docToVendorBill(billSnap.id, billSnap.data() as Record<string, unknown>);
 
       // Check if bill can be voided
       const voidCheck = canVoidBill(bill);

@@ -13,6 +13,53 @@ import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
 
 const logger = createLogger({ context: 'invoiceApproval' });
 
+// Validation constants
+const MAX_COMMENT_LENGTH = 2000;
+const MAX_ID_LENGTH = 100;
+const MAX_NAME_LENGTH = 200;
+
+/**
+ * Validate required string ID
+ */
+function validateRequiredId(value: string, fieldName: string): void {
+  if (!value || typeof value !== 'string') {
+    throw new Error(`${fieldName} is required`);
+  }
+  if (value.trim().length === 0) {
+    throw new Error(`${fieldName} cannot be empty`);
+  }
+  if (value.length > MAX_ID_LENGTH) {
+    throw new Error(`${fieldName} exceeds maximum length of ${MAX_ID_LENGTH} characters`);
+  }
+}
+
+/**
+ * Validate user name
+ */
+function validateUserName(value: string, fieldName: string): void {
+  if (!value || typeof value !== 'string') {
+    throw new Error(`${fieldName} is required`);
+  }
+  if (value.trim().length === 0) {
+    throw new Error(`${fieldName} cannot be empty`);
+  }
+  if (value.length > MAX_NAME_LENGTH) {
+    throw new Error(`${fieldName} exceeds maximum length of ${MAX_NAME_LENGTH} characters`);
+  }
+}
+
+/**
+ * Validate optional comment
+ */
+function validateComment(value: string | undefined, required: boolean = false): void {
+  if (required && (!value || value.trim().length === 0)) {
+    throw new Error('Comment is required');
+  }
+  if (value && value.length > MAX_COMMENT_LENGTH) {
+    throw new Error(`Comment exceeds maximum length of ${MAX_COMMENT_LENGTH} characters`);
+  }
+}
+
 /**
  * Approval record for audit trail
  * @deprecated Use TransactionApprovalRecord from @vapour/types instead
@@ -34,6 +81,14 @@ export async function submitInvoiceForApproval(
   userName: string,
   comments?: string
 ): Promise<void> {
+  // Validate all inputs
+  validateRequiredId(invoiceId, 'Invoice ID');
+  validateRequiredId(approverId, 'Approver ID');
+  validateUserName(approverName, 'Approver name');
+  validateRequiredId(userId, 'User ID');
+  validateUserName(userName, 'User name');
+  validateComment(comments);
+
   try {
     const invoiceRef = doc(db, COLLECTIONS.TRANSACTIONS, invoiceId);
     const invoiceSnap = await getDoc(invoiceRef);
@@ -110,6 +165,12 @@ export async function approveInvoice(
   userName: string,
   comments?: string
 ): Promise<void> {
+  // Validate all inputs
+  validateRequiredId(invoiceId, 'Invoice ID');
+  validateRequiredId(userId, 'User ID');
+  validateUserName(userName, 'User name');
+  validateComment(comments);
+
   try {
     const invoiceRef = doc(db, COLLECTIONS.TRANSACTIONS, invoiceId);
     const invoiceSnap = await getDoc(invoiceRef);
@@ -184,6 +245,12 @@ export async function rejectInvoice(
   userName: string,
   comments: string
 ): Promise<void> {
+  // Validate all inputs - comments are required for rejections
+  validateRequiredId(invoiceId, 'Invoice ID');
+  validateRequiredId(userId, 'User ID');
+  validateUserName(userName, 'User name');
+  validateComment(comments, true); // Required for rejection
+
   try {
     const invoiceRef = doc(db, COLLECTIONS.TRANSACTIONS, invoiceId);
     const invoiceSnap = await getDoc(invoiceRef);

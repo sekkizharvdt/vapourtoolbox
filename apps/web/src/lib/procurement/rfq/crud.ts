@@ -24,6 +24,15 @@ import type { RFQ, RFQItem, PurchaseRequest, PurchaseRequestItem } from '@vapour
 import type { CreateRFQInput, CreateRFQItemInput, UpdateRFQInput } from './types';
 import { generateRFQNumber } from './utils';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
+import {
+  validateString,
+  validateNumber,
+  validateArray,
+  validateFields,
+  assertValid,
+  MAX_LENGTHS,
+  sanitizeString,
+} from '@/lib/utils/inputValidation';
 
 const logger = createLogger({ context: 'rfqService' });
 
@@ -38,18 +47,58 @@ export async function createRFQ(
 ): Promise<string> {
   const { db } = getFirebase();
 
-  // Validate inputs
-  if (!input.title?.trim()) {
-    throw new Error('RFQ title is required');
-  }
+  // Validate inputs with proper length limits and sanitization
+  const validationResult = validateFields({
+    title: {
+      value: input.title,
+      validator: (v) =>
+        validateString(v, 'Title', { required: true, maxLength: MAX_LENGTHS.SHORT_TEXT }),
+    },
+    description: {
+      value: input.description,
+      validator: (v) =>
+        validateString(v, 'Description', { required: false, maxLength: MAX_LENGTHS.LONG_TEXT }),
+    },
+    paymentTerms: {
+      value: input.paymentTerms,
+      validator: (v) =>
+        validateString(v, 'Payment Terms', { required: false, maxLength: MAX_LENGTHS.MEDIUM_TEXT }),
+    },
+    deliveryTerms: {
+      value: input.deliveryTerms,
+      validator: (v) =>
+        validateString(v, 'Delivery Terms', {
+          required: false,
+          maxLength: MAX_LENGTHS.MEDIUM_TEXT,
+        }),
+    },
+  });
 
-  if (input.purchaseRequestIds.length === 0) {
-    throw new Error('At least one Purchase Request is required');
-  }
+  assertValid(validationResult);
 
-  if (input.vendorIds.length === 0) {
-    throw new Error('At least one vendor must be selected');
-  }
+  // Sanitize text fields
+  const sanitizedInput = {
+    ...input,
+    title: sanitizeString(input.title),
+    description: sanitizeString(input.description),
+    paymentTerms: input.paymentTerms ? sanitizeString(input.paymentTerms) : undefined,
+    deliveryTerms: input.deliveryTerms ? sanitizeString(input.deliveryTerms) : undefined,
+  };
+
+  // Validate array fields
+  const prValidation = validateArray(input.purchaseRequestIds, 'Purchase Requests', {
+    required: true,
+    minLength: 1,
+    maxLength: 50,
+  });
+  assertValid(prValidation);
+
+  const vendorValidation = validateArray(input.vendorIds, 'Vendors', {
+    required: true,
+    minLength: 1,
+    maxLength: 20,
+  });
+  assertValid(vendorValidation);
 
   if (input.vendorIds.length !== input.vendorNames.length) {
     throw new Error('Vendor IDs and names must match in length');
@@ -63,19 +112,37 @@ export async function createRFQ(
     throw new Error('Due date must be in the future');
   }
 
-  if (items.length === 0) {
-    throw new Error('At least one item is required');
-  }
+  // Validate items array
+  const itemsValidation = validateArray(items, 'Items', {
+    required: true,
+    minLength: 1,
+    maxLength: 500,
+  });
+  assertValid(itemsValidation);
 
-  // Validate each item has required fields
+  // Validate each item has required fields with length limits
   items.forEach((item, index) => {
-    if (!item.description?.trim()) {
-      throw new Error(`Item ${index + 1}: Description is required`);
-    }
-    // projectId is optional - not all PRs are linked to projects (e.g., BUDGETARY, INTERNAL types)
-    if (item.quantity <= 0) {
-      throw new Error(`Item ${index + 1}: Quantity must be greater than 0`);
-    }
+    const itemResult = validateFields({
+      description: {
+        value: item.description,
+        validator: (v) =>
+          validateString(v, `Item ${index + 1} Description`, {
+            required: true,
+            maxLength: MAX_LENGTHS.MEDIUM_TEXT,
+          }),
+      },
+      quantity: {
+        value: item.quantity,
+        validator: (v) =>
+          validateNumber(v, `Item ${index + 1} Quantity`, {
+            required: true,
+            positive: true,
+            min: 0.001,
+            max: 999999999,
+          }),
+      },
+    });
+    assertValid(itemResult);
   });
 
   // Generate RFQ number
@@ -109,18 +176,18 @@ export async function createRFQ(
 
   const now = Timestamp.now();
 
-  // Create RFQ document
+  // Create RFQ document using sanitized input
   const rfqData: Omit<RFQ, 'id'> = {
     number: rfqNumber,
     purchaseRequestIds: input.purchaseRequestIds,
     projectIds,
     projectNames,
-    title: input.title,
-    description: input.description,
+    title: sanitizedInput.title,
+    description: sanitizedInput.description,
     vendorIds: input.vendorIds,
     vendorNames: input.vendorNames,
-    paymentTerms: input.paymentTerms,
-    deliveryTerms: input.deliveryTerms,
+    paymentTerms: sanitizedInput.paymentTerms,
+    deliveryTerms: sanitizedInput.deliveryTerms,
     warrantyTerms: input.warrantyTerms,
     otherTerms: input.otherTerms || [],
     dueDate: Timestamp.fromDate(input.dueDate),

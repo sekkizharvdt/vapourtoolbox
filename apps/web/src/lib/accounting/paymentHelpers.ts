@@ -29,6 +29,106 @@ import { enforceDoubleEntry, saveTransactionBatch } from './transactionService';
 
 const logger = createLogger({ context: 'paymentHelpers' });
 
+// Maximum values for financial validation
+const MAX_PAYMENT_AMOUNT = 1_000_000_000_000; // 1 trillion (covers large enterprise transactions)
+const MAX_ALLOCATIONS = 100; // Maximum invoices per payment
+
+/**
+ * Validate payment amount
+ * Ensures amount is a positive number within acceptable range
+ */
+function validatePaymentAmount(amount: unknown, fieldName: string): void {
+  if (typeof amount !== 'number' || !Number.isFinite(amount)) {
+    throw new Error(`${fieldName} must be a valid number`);
+  }
+  if (amount < 0) {
+    throw new Error(`${fieldName} cannot be negative`);
+  }
+  if (amount > MAX_PAYMENT_AMOUNT) {
+    throw new Error(`${fieldName} exceeds maximum allowed value`);
+  }
+}
+
+/**
+ * Validate payment allocations array
+ * Checks for valid structure, amounts, and prevents duplicates
+ */
+function validateAllocations(allocations: PaymentAllocation[], paymentAmount: number): void {
+  if (!Array.isArray(allocations)) {
+    throw new Error('Allocations must be an array');
+  }
+  if (allocations.length > MAX_ALLOCATIONS) {
+    throw new Error(`Cannot have more than ${MAX_ALLOCATIONS} allocations per payment`);
+  }
+
+  const seenInvoiceIds = new Set<string>();
+  let totalAllocated = 0;
+
+  for (const allocation of allocations) {
+    // Validate invoice ID
+    if (!allocation.invoiceId || typeof allocation.invoiceId !== 'string') {
+      throw new Error('Each allocation must have a valid invoice ID');
+    }
+    if (allocation.invoiceId.length > 100) {
+      throw new Error('Invoice ID exceeds maximum length');
+    }
+
+    // Check for duplicates
+    if (seenInvoiceIds.has(allocation.invoiceId)) {
+      throw new Error(`Duplicate allocation for invoice: ${allocation.invoiceId}`);
+    }
+    seenInvoiceIds.add(allocation.invoiceId);
+
+    // Validate amount
+    validatePaymentAmount(allocation.allocatedAmount, 'Allocation amount');
+    totalAllocated += allocation.allocatedAmount;
+  }
+
+  // Validate total doesn't exceed payment amount (with small tolerance for floating point)
+  if (totalAllocated > paymentAmount + 0.01) {
+    throw new Error(
+      `Total allocations (${totalAllocated.toFixed(2)}) exceed payment amount (${paymentAmount.toFixed(2)})`
+    );
+  }
+}
+
+/**
+ * Validate payment data structure
+ */
+function validatePaymentData(paymentData: DocumentData): void {
+  // Validate payment type
+  const validTypes = ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT'];
+  if (!validTypes.includes(paymentData.type)) {
+    throw new Error(`Invalid payment type: ${paymentData.type}`);
+  }
+
+  // Validate amount
+  validatePaymentAmount(paymentData.amount, 'Payment amount');
+
+  // Validate currency if provided
+  if (paymentData.currency && typeof paymentData.currency !== 'string') {
+    throw new Error('Currency must be a string');
+  }
+  if (paymentData.currency && paymentData.currency.length > 10) {
+    throw new Error('Currency code exceeds maximum length');
+  }
+
+  // Validate entity ID
+  if (!paymentData.entityId || typeof paymentData.entityId !== 'string') {
+    throw new Error('Entity ID is required');
+  }
+  if (paymentData.entityId.length > 100) {
+    throw new Error('Entity ID exceeds maximum length');
+  }
+
+  // Validate description length if provided
+  if (paymentData.description && typeof paymentData.description === 'string') {
+    if (paymentData.description.length > 5000) {
+      throw new Error('Description exceeds maximum length of 5000 characters');
+    }
+  }
+}
+
 /**
  * Update invoice/bill status based on payment allocations
  *
@@ -203,6 +303,10 @@ export async function createPaymentWithAllocationsAtomic(
   paymentData: DocumentData,
   allocations: PaymentAllocation[]
 ): Promise<string> {
+  // Validate inputs before any database operations
+  validatePaymentData(paymentData);
+  validateAllocations(allocations, paymentData.amount || 0);
+
   const batch = writeBatch(db);
 
   try {
@@ -308,6 +412,13 @@ export async function updatePaymentWithAllocationsAtomic(
   oldAllocations: PaymentAllocation[],
   newAllocations: PaymentAllocation[]
 ): Promise<void> {
+  // Validate inputs before any operations
+  if (!paymentId || typeof paymentId !== 'string' || paymentId.length > 100) {
+    throw new Error('Invalid payment ID');
+  }
+  validatePaymentData(paymentData);
+  validateAllocations(newAllocations, paymentData.amount || 0);
+
   // Generate GL entries outside transaction (they don't modify state)
   const paymentType = paymentData.type as 'CUSTOMER_PAYMENT' | 'VENDOR_PAYMENT';
   const glInput: PaymentGLInput = {

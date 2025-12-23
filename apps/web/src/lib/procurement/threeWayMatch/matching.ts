@@ -75,17 +75,60 @@ export async function performThreeWayMatch(
     let matchedLines = 0;
     let unmatchedLines = 0;
 
+    // Build lookup maps for O(1) access instead of O(n) find() in loop
+    // Map GR items by PO item ID for quick lookup
+    const grItemsByPoItemId = new Map(grItems.map((item) => [item.poItemId, item]));
+
+    // Build a map for PO items by normalized description for fuzzy matching
+    // This converts O(n*m) nested loops to O(n+m)
+    const poItemsByNormalizedDesc = new Map<string, (typeof poItems)[0]>();
+    const poItemDescWords = new Map<string, (typeof poItems)[0]>();
+    poItems.forEach((item) => {
+      const normalized = item.description.toLowerCase();
+      poItemsByNormalizedDesc.set(normalized, item);
+      // Also index by individual words for partial matching
+      normalized.split(/\s+/).forEach((word) => {
+        if (word.length > 3) {
+          // Only index meaningful words
+          poItemDescWords.set(word, item);
+        }
+      });
+    });
+
+    /**
+     * Find matching PO item for an invoice line using pre-built maps
+     */
+    function findMatchingPoItem(invoiceDescription: string): (typeof poItems)[0] | undefined {
+      const normalized = invoiceDescription.toLowerCase();
+
+      // Try exact match first
+      const exactMatch = poItemsByNormalizedDesc.get(normalized);
+      if (exactMatch) return exactMatch;
+
+      // Try to find by checking if invoice desc contains PO desc or vice versa
+      for (const [poDesc, poItem] of poItemsByNormalizedDesc) {
+        if (normalized.includes(poDesc) || poDesc.includes(normalized)) {
+          return poItem;
+        }
+      }
+
+      // Try matching by significant words
+      const invoiceWords = normalized.split(/\s+/).filter((w) => w.length > 3);
+      for (const word of invoiceWords) {
+        const match = poItemDescWords.get(word);
+        if (match) return match;
+      }
+
+      return undefined;
+    }
+
     // Match invoice lines with PO and GR items
     vendorBill.lineItems.forEach((invoiceLine, index) => {
-      // Find corresponding PO item (match by description or item ID)
-      const poItem = poItems.find(
-        (item) =>
-          item.description.toLowerCase().includes(invoiceLine.description.toLowerCase()) ||
-          invoiceLine.description.toLowerCase().includes(item.description.toLowerCase())
-      );
+      // Find corresponding PO item using optimized lookup
+      const poItem = findMatchingPoItem(invoiceLine.description);
 
-      // Find corresponding GR item (only if we found a PO item)
-      const grItem = poItem ? grItems.find((item) => item.poItemId === poItem.id) : undefined;
+      // Find corresponding GR item using Map lookup - O(1) instead of O(n)
+      const grItem = poItem ? grItemsByPoItemId.get(poItem.id) : undefined;
 
       if (!poItem || !grItem) {
         unmatchedLines++;
@@ -258,9 +301,11 @@ export async function performThreeWayMatch(
 
     // Calculate financial summary
     const poAmount = po.grandTotal;
-    // Calculate GR amount using PO unit prices
+    // Build PO items lookup by ID for efficient access
+    const poItemsById = new Map(poItems.map((item) => [item.id, item]));
+    // Calculate GR amount using PO unit prices - O(n) with Map lookup
     const grAmount = grItems.reduce((sum, grItem) => {
-      const poItem = poItems.find((po) => po.id === grItem.poItemId);
+      const poItem = poItemsById.get(grItem.poItemId);
       const unitPrice = poItem?.unitPrice || 0;
       return sum + grItem.receivedQuantity * unitPrice;
     }, 0);
@@ -288,10 +333,10 @@ export async function performThreeWayMatch(
 
     const requiresApproval = Boolean(
       !withinTolerance ||
-        discrepancies.length > 0 ||
-        (toleranceConfig &&
-          !toleranceConfig.autoApproveIfWithinTolerance &&
-          invoiceAmount > toleranceConfig.autoApproveMaxAmount)
+      discrepancies.length > 0 ||
+      (toleranceConfig &&
+        !toleranceConfig.autoApproveIfWithinTolerance &&
+        invoiceAmount > toleranceConfig.autoApproveMaxAmount)
     );
 
     // Create 3-way match record

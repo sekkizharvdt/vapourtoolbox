@@ -30,6 +30,28 @@ interface PipeMaterialVariant {
 }
 
 /**
+ * Type guard to check if a value is a valid PipeMaterialVariant
+ */
+function isPipeMaterialVariant(value: unknown): value is PipeMaterialVariant {
+  if (value === null || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.nps === 'string' &&
+    typeof v.dn === 'string' &&
+    typeof v.od_mm === 'number' &&
+    typeof v.wt_mm === 'number'
+  );
+}
+
+/**
+ * Safely extract pipe variants from material data
+ */
+function extractPipeVariants(variants: unknown): PipeMaterialVariant[] {
+  if (!Array.isArray(variants)) return [];
+  return variants.filter(isPipeMaterialVariant);
+}
+
+/**
  * Pipe variant with calculated dimensions
  */
 export interface PipeVariant {
@@ -172,7 +194,7 @@ export async function getSchedule40Pipes(db: Firestore): Promise<PipeVariant[]> 
     // Process variants to extract Schedule 40 pipes
     if (material.variants && Array.isArray(material.variants)) {
       // Material variants are stored with pipe-specific fields
-      const pipeVariants = material.variants as unknown as PipeMaterialVariant[];
+      const pipeVariants = extractPipeVariants(material.variants);
 
       pipeVariants.forEach((v) => {
         // Only include Schedule 40 (or STD which is equivalent)

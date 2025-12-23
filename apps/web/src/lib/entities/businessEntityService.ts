@@ -206,11 +206,17 @@ export async function getCustomers(db: Firestore, activeOnly = true): Promise<Bu
 }
 
 /**
- * Search entities by name or code (case-insensitive)
+ * Search entities by name or code
  *
- * Note: This still requires client-side filtering for text search
- * as Firestore doesn't support full-text search natively.
- * Consider using Algolia or Typesense for production full-text search.
+ * Uses a hybrid approach for efficient searching:
+ * 1. For prefix searches (3+ chars): Uses Firestore range query on nameNormalized
+ * 2. Falls back to limited client-side filtering when necessary
+ *
+ * The nameNormalized field is lowercase for case-insensitive matching.
+ *
+ * **Required Firestore Composite Indexes:**
+ * - entities: (nameNormalized ASC) - for prefix search
+ * - entities: (isActive ASC, nameNormalized ASC) - for filtered prefix search
  *
  * @param db - Firestore instance
  * @param searchTerm - Search term (searches in name and code)
@@ -222,12 +228,82 @@ export async function searchEntities(
   searchTerm: string,
   options: EntityQueryOptions = {}
 ): Promise<BusinessEntity[]> {
-  // Get all entities matching the filter options
-  const entities = await queryEntities(db, options);
+  // Validate and sanitize search term
+  if (!searchTerm || typeof searchTerm !== 'string') {
+    return queryEntities(db, { ...options, limitResults: options.limitResults || 50 });
+  }
 
-  // Client-side text search (case-insensitive)
-  const lowerSearchTerm = searchTerm.toLowerCase();
+  const trimmedSearch = searchTerm.trim();
+  if (trimmedSearch.length === 0) {
+    return queryEntities(db, { ...options, limitResults: options.limitResults || 50 });
+  }
 
+  // Limit search term length to prevent abuse
+  if (trimmedSearch.length > 100) {
+    throw new Error('Search term exceeds maximum length of 100 characters');
+  }
+
+  const lowerSearchTerm = trimmedSearch.toLowerCase();
+
+  // For prefix searches with 3+ characters, use Firestore range query
+  // This is much more efficient than loading all entities
+  if (lowerSearchTerm.length >= 3) {
+    try {
+      const { isActive, limitResults = 50 } = options;
+
+      // Build prefix range query on nameNormalized
+      // Using \uf8ff as the upper bound creates an effective "starts with" query
+      const endTerm = lowerSearchTerm + '\uf8ff';
+
+      let searchQuery: Query<DocumentData> = collection(db, COLLECTIONS.ENTITIES);
+
+      // Add isActive filter if specified (commonly used for dropdowns)
+      if (isActive !== undefined) {
+        searchQuery = query(searchQuery, where('isActive', '==', isActive));
+      }
+
+      // Add prefix range query on nameNormalized
+      searchQuery = query(
+        searchQuery,
+        where('nameNormalized', '>=', lowerSearchTerm),
+        where('nameNormalized', '<=', endTerm),
+        orderBy('nameNormalized', 'asc'),
+        limit(limitResults)
+      );
+
+      const snapshot = await getDocs(searchQuery);
+      let entities = snapshot.docs.map((d) => docToTyped<BusinessEntity>(d.id, d.data()));
+
+      // Filter out soft-deleted entities
+      entities = entities.filter((entity) => entity.isDeleted !== true);
+
+      // Apply role filter if specified (client-side, as it's array-contains)
+      if (options.role !== undefined) {
+        const roles = Array.isArray(options.role) ? options.role : [options.role];
+        entities = entities.filter((entity) => roles.some((r) => entity.roles.includes(r)));
+      }
+
+      logger.info('Entities searched with prefix query', {
+        searchTerm: trimmedSearch,
+        count: entities.length,
+      });
+
+      return entities;
+    } catch (error) {
+      // If range query fails (e.g., missing index), fall back to limited client-side search
+      logger.warn('Prefix query failed, falling back to client-side search', { error });
+    }
+  }
+
+  // Fallback: Get limited entities and filter client-side
+  // Use a smaller limit for short search terms to be more responsive
+  const fallbackLimit = lowerSearchTerm.length < 3 ? 100 : 200;
+  const entities = await queryEntities(db, {
+    ...options,
+    limitResults: Math.min(options.limitResults || fallbackLimit, fallbackLimit),
+  });
+
+  // Client-side text search (case-insensitive) with multiple field matching
   return entities.filter(
     (entity) =>
       entity.nameNormalized?.includes(lowerSearchTerm) ||

@@ -30,6 +30,38 @@ import type {
 import { getUnmatchedAccountingTransactions, getUnmatchedBankTransactions } from './crud';
 
 /**
+ * Shape of accounting transaction fields used for matching
+ */
+interface AccountingTransactionMatchFields {
+  amount?: number;
+  totalAmount?: number;
+  date?: Timestamp;
+  description?: string;
+  reference?: string;
+  chequeNumber?: string;
+}
+
+/**
+ * Type guard to safely extract matching fields from accounting transaction
+ */
+function extractMatchFields(txn: unknown): AccountingTransactionMatchFields {
+  if (txn === null || typeof txn !== 'object') {
+    return {};
+  }
+
+  const obj = txn as Record<string, unknown>;
+
+  return {
+    amount: typeof obj.amount === 'number' ? obj.amount : undefined,
+    totalAmount: typeof obj.totalAmount === 'number' ? obj.totalAmount : undefined,
+    date: obj.date instanceof Timestamp ? obj.date : undefined,
+    description: typeof obj.description === 'string' ? obj.description : undefined,
+    reference: typeof obj.reference === 'string' ? obj.reference : undefined,
+    chequeNumber: typeof obj.chequeNumber === 'string' ? obj.chequeNumber : undefined,
+  };
+}
+
+/**
  * Calculate match score between bank transaction and accounting transaction
  * Returns a score from 0-100 indicating match quality
  */
@@ -39,14 +71,7 @@ export function calculateMatchScore(
 ): { score: number; reasons: string[] } {
   let score = 0;
   const reasons: string[] = [];
-  const accTxn = accountingTxn as {
-    amount?: number;
-    totalAmount?: number;
-    date?: Timestamp;
-    description?: string;
-    reference?: string;
-    chequeNumber?: string;
-  };
+  const accTxn = extractMatchFields(accountingTxn);
 
   // Amount match (40 points)
   const bankAmount = bankTxn.debitAmount || bankTxn.creditAmount;
