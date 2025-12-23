@@ -19,10 +19,10 @@ import {
   type EntityQueryOptions,
 } from '../businessEntityService';
 import { entityKeys, type EntityFilters } from '@/lib/queryKeys';
-import { createLogger } from '@vapour/utils';
+import { createLogger } from '@vapour/logger';
 import type { EntityRole } from '@vapour/types';
 
-const logger = createLogger('useEntities');
+const logger = createLogger({ context: 'useEntities' });
 
 /**
  * Hook to fetch entities with filtering options

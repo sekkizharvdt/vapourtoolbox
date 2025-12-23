@@ -33,7 +33,7 @@ jest.mock('../../businessEntityService', () => ({
 }));
 
 // Mock logger
-jest.mock('@vapour/utils', () => ({
+jest.mock('@vapour/logger', () => ({
   createLogger: () => ({
     debug: jest.fn(),
     info: jest.fn(),
@@ -96,7 +96,7 @@ describe('useEntities', () => {
   describe('useEntities hook', () => {
     it('should fetch entities successfully', async () => {
       const mockEntities = [createMockEntity({ id: '1' }), createMockEntity({ id: '2' })];
-      mockQueryEntities.mockResolvedValue(mockEntities);
+      mockQueryEntities.mockResolvedValue({ items: mockEntities, total: mockEntities.length });
 
       const { result } = renderHook(() => useEntities(), { wrapper: createWrapper() });
 
@@ -109,7 +109,7 @@ describe('useEntities', () => {
     });
 
     it('should pass query options to queryEntities', async () => {
-      mockQueryEntities.mockResolvedValue([]);
+      mockQueryEntities.mockResolvedValue({ items: [], total: 0 });
 
       const options = { status: 'active' as const, role: 'VENDOR' as const };
       const { result } = renderHook(() => useEntities(options), { wrapper: createWrapper() });

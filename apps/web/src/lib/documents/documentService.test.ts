@@ -209,9 +209,7 @@ describe('uploadDocument', () => {
       entityId: 'po-1',
     };
 
-    await expect(uploadDocument(request, 'user-1', 'Test User')).rejects.toThrow(
-      'Failed to upload document'
-    );
+    await expect(uploadDocument(request, 'user-1', 'Test User')).rejects.toThrow('Storage error');
   });
 });
 
@@ -577,9 +575,7 @@ describe('getDocumentVersionHistory', () => {
       exists: () => false,
     });
 
-    await expect(getDocumentVersionHistory('non-existent')).rejects.toThrow(
-      'Failed to get document version history'
-    );
+    await expect(getDocumentVersionHistory('non-existent')).rejects.toThrow('Document not found');
   });
 });
 
@@ -780,8 +776,6 @@ describe('deleteDocument', () => {
       exists: () => false,
     });
 
-    await expect(deleteDocument('non-existent', 'user-1', 0)).rejects.toThrow(
-      'Failed to delete document'
-    );
+    await expect(deleteDocument('non-existent', 'user-1', 0)).rejects.toThrow('Document not found');
   });
 });
