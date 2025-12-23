@@ -20,6 +20,8 @@ jest.mock('firebase/firestore', () => ({
   where: jest.fn(),
   getDocs: jest.fn(),
   getCountFromServer: jest.fn(),
+  orderBy: jest.fn(),
+  limit: jest.fn(),
   Timestamp: {
     now: jest.fn(() => ({ toDate: () => new Date() })),
   },
@@ -41,6 +43,8 @@ import {
   where,
   getDocs,
   getCountFromServer,
+  orderBy,
+  limit,
   type Firestore,
 } from 'firebase/firestore';
 
@@ -49,6 +53,8 @@ const mockQuery = query as jest.Mock;
 const mockWhere = where as jest.Mock;
 const mockGetDocs = getDocs as jest.Mock;
 const mockGetCountFromServer = getCountFromServer as jest.Mock;
+const mockOrderBy = orderBy as jest.Mock;
+const mockLimit = limit as jest.Mock;
 
 describe('feedbackStatsService', () => {
   const mockDb = {} as unknown as Firestore;
@@ -58,54 +64,99 @@ describe('feedbackStatsService', () => {
     mockCollection.mockReturnValue('feedbackCollection');
     mockQuery.mockReturnValue('queryRef');
     mockWhere.mockReturnValue('whereClause');
+    mockOrderBy.mockReturnValue('orderByClause');
+    mockLimit.mockReturnValue('limitClause');
   });
+
+  /**
+   * Helper to setup mocks for getFeedbackStats
+   * The function uses getCountFromServer for most counts, plus getDocs for module breakdown
+   */
+  function setupGetFeedbackStatsMocks(options: {
+    total?: number;
+    bug?: number;
+    feature?: number;
+    general?: number;
+    new?: number;
+    in_progress?: number;
+    resolved?: number;
+    closed?: number;
+    wont_fix?: number;
+    critical?: number;
+    major?: number;
+    minor?: number;
+    cosmetic?: number;
+    moduleBreakdownItems?: Array<{ module?: string }>;
+  }) {
+    const {
+      total = 0,
+      bug = 0,
+      feature = 0,
+      general = 0,
+      new: newCount = 0,
+      in_progress = 0,
+      resolved = 0,
+      closed = 0,
+      wont_fix = 0,
+      critical = 0,
+      major = 0,
+      minor = 0,
+      cosmetic = 0,
+      moduleBreakdownItems = [],
+    } = options;
+
+    // Mock getCountFromServer for all count queries (13 calls in the Promise.all)
+    mockGetCountFromServer
+      .mockResolvedValueOnce({ data: () => ({ count: total }) })
+      .mockResolvedValueOnce({ data: () => ({ count: bug }) })
+      .mockResolvedValueOnce({ data: () => ({ count: feature }) })
+      .mockResolvedValueOnce({ data: () => ({ count: general }) })
+      .mockResolvedValueOnce({ data: () => ({ count: newCount }) })
+      .mockResolvedValueOnce({ data: () => ({ count: in_progress }) })
+      .mockResolvedValueOnce({ data: () => ({ count: resolved }) })
+      .mockResolvedValueOnce({ data: () => ({ count: closed }) })
+      .mockResolvedValueOnce({ data: () => ({ count: wont_fix }) })
+      .mockResolvedValueOnce({ data: () => ({ count: critical }) })
+      .mockResolvedValueOnce({ data: () => ({ count: major }) })
+      .mockResolvedValueOnce({ data: () => ({ count: minor }) })
+      .mockResolvedValueOnce({ data: () => ({ count: cosmetic }) });
+
+    // Mock getDocs for module breakdown
+    mockGetDocs.mockResolvedValue({
+      forEach: (callback: (doc: { id: string; data: () => unknown }) => void) => {
+        moduleBreakdownItems.forEach((item, index) =>
+          callback({
+            id: `id-${index}`,
+            data: () => item,
+          })
+        );
+      },
+    });
+  }
 
   describe('getFeedbackStats', () => {
     it('should calculate correct statistics from feedback items', async () => {
-      const mockFeedbackItems = [
-        {
-          id: '1',
-          type: 'bug',
-          module: 'procurement',
-          status: 'new',
-          severity: 'critical',
-        },
-        {
-          id: '2',
-          type: 'bug',
-          module: 'procurement',
-          status: 'in_progress',
-          severity: 'major',
-        },
-        {
-          id: '3',
-          type: 'feature',
-          module: 'accounting',
-          status: 'resolved',
-        },
-        {
-          id: '4',
-          type: 'general',
-          module: 'projects',
-          status: 'closed',
-        },
-        {
-          id: '5',
-          type: 'bug',
-          status: 'new', // No module - should default to 'other'
-          severity: 'minor',
-        },
-      ];
-
-      mockGetDocs.mockResolvedValue({
-        forEach: (callback: (doc: { id: string; data: () => unknown }) => void) => {
-          mockFeedbackItems.forEach((item) =>
-            callback({
-              id: item.id,
-              data: () => item,
-            })
-          );
-        },
+      setupGetFeedbackStatsMocks({
+        total: 5,
+        bug: 3,
+        feature: 1,
+        general: 1,
+        new: 2,
+        in_progress: 1,
+        resolved: 1,
+        closed: 1,
+        wont_fix: 0,
+        critical: 1,
+        major: 1,
+        minor: 1,
+        cosmetic: 0,
+        moduleBreakdownItems: [
+          { module: 'procurement' },
+          { module: 'procurement' },
+          { module: 'accounting' },
+          { module: 'projects' },
+          { module: undefined }, // defaults to 'other'
+        ],
       });
 
       const stats = await getFeedbackStats(mockDb);
@@ -129,13 +180,12 @@ describe('feedbackStatsService', () => {
         critical: 1,
         major: 1,
         minor: 1,
+        cosmetic: 0,
       });
     });
 
     it('should return empty stats when no feedback exists', async () => {
-      mockGetDocs.mockResolvedValue({
-        forEach: () => {},
-      });
+      setupGetFeedbackStatsMocks({});
 
       const stats = await getFeedbackStats(mockDb);
 
@@ -149,35 +199,30 @@ describe('feedbackStatsService', () => {
         wont_fix: 0,
       });
       expect(stats.byModule).toEqual({});
-      expect(stats.bySeverity).toEqual({});
+      expect(stats.bySeverity).toEqual({
+        critical: 0,
+        major: 0,
+        minor: 0,
+        cosmetic: 0,
+      });
     });
 
-    it('should handle items with invalid type gracefully', async () => {
-      const mockFeedbackItems = [
-        { id: '1', type: 'invalid_type', module: 'accounting', status: 'new' },
-        { id: '2', type: 'bug', module: 'accounting', status: 'new' },
-      ];
-
-      mockGetDocs.mockResolvedValue({
-        forEach: (callback: (doc: { id: string; data: () => unknown }) => void) => {
-          mockFeedbackItems.forEach((item) =>
-            callback({
-              id: item.id,
-              data: () => item,
-            })
-          );
-        },
+    it('should use count queries for type stats instead of iterating all docs', async () => {
+      setupGetFeedbackStatsMocks({
+        total: 2,
+        bug: 1,
+        moduleBreakdownItems: [{ module: 'accounting' }, { module: 'accounting' }],
       });
 
-      const stats = await getFeedbackStats(mockDb);
+      await getFeedbackStats(mockDb);
 
-      expect(stats.total).toBe(2);
-      expect(stats.byType.bug).toBe(1);
+      // Verify getCountFromServer was called (13 times for all counts)
+      expect(mockGetCountFromServer).toHaveBeenCalledTimes(13);
     });
 
     it('should throw error when Firestore query fails', async () => {
       const error = new Error('Firestore error');
-      mockGetDocs.mockRejectedValue(error);
+      mockGetCountFromServer.mockRejectedValue(error);
 
       await expect(getFeedbackStats(mockDb)).rejects.toThrow('Firestore error');
     });

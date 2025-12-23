@@ -309,61 +309,119 @@ describe('businessEntityService', () => {
 
   describe('searchEntities', () => {
     it('should filter by name', async () => {
+      // Use unique nameNormalized values to properly test name filtering
       const entities = [
-        createMockEntity({ name: 'ABC Corporation' }),
-        createMockEntity({ id: 'entity-2', name: 'XYZ Limited' }),
+        createMockEntity({
+          name: 'ABC Corporation',
+          nameNormalized: 'abc corporation',
+          code: 'A001',
+        }),
+        createMockEntity({
+          id: 'entity-2',
+          name: 'XYZ Limited',
+          nameNormalized: 'xyz limited',
+          code: 'X001',
+        }),
       ];
       (getDocs as jest.Mock).mockResolvedValue(createMockSnapshot(entities));
 
-      const result = await searchEntities(mockDb, 'ABC');
+      // Use short search term to force client-side filtering
+      const result = await searchEntities(mockDb, 'AB');
 
       expect(result).toHaveLength(1);
       expect(result[0]!.name).toBe('ABC Corporation');
     });
 
     it('should filter by code', async () => {
+      // Use unique nameNormalized values to properly test code filtering
       const entities = [
-        createMockEntity({ code: 'VND001' }),
-        createMockEntity({ id: 'entity-2', code: 'CUS001' }),
+        createMockEntity({
+          code: 'VND001',
+          nameNormalized: 'vendor one',
+        }),
+        createMockEntity({
+          id: 'entity-2',
+          code: 'CUS001',
+          nameNormalized: 'customer one',
+        }),
       ];
       (getDocs as jest.Mock).mockResolvedValue(createMockSnapshot(entities));
 
-      const result = await searchEntities(mockDb, 'VND');
+      // Use short search term to force client-side filtering
+      const result = await searchEntities(mockDb, 'VN');
 
       expect(result).toHaveLength(1);
     });
 
     it('should be case-insensitive', async () => {
-      const entities = [createMockEntity({ name: 'ABC Corporation' })];
+      const entities = [
+        createMockEntity({
+          name: 'ABC Corporation',
+          nameNormalized: 'abc corporation',
+        }),
+      ];
       (getDocs as jest.Mock).mockResolvedValue(createMockSnapshot(entities));
 
-      const result = await searchEntities(mockDb, 'abc');
+      // Use short search term to force client-side filtering
+      const result = await searchEntities(mockDb, 'ab');
 
       expect(result).toHaveLength(1);
     });
 
     it('should filter by contactPerson', async () => {
+      // Use completely unique values across all searchable fields
       const entities = [
-        createMockEntity({ contactPerson: 'John Smith', email: 'smith@example.com' }),
-        createMockEntity({ id: 'entity-2', contactPerson: 'Jane Doe', email: 'doe@example.com' }),
+        createMockEntity({
+          code: 'X001',
+          name: 'Alpha',
+          nameNormalized: 'alpha',
+          contactPerson: 'Bob Wilson',
+          email: 'alpha@test.net',
+        }),
+        createMockEntity({
+          id: 'entity-2',
+          code: 'X002',
+          name: 'Beta',
+          nameNormalized: 'beta',
+          contactPerson: 'Amy Davis',
+          email: 'beta@test.net',
+        }),
       ];
       (getDocs as jest.Mock).mockResolvedValue(createMockSnapshot(entities));
 
-      const result = await searchEntities(mockDb, 'John');
+      // Search for 'Bo' which only matches 'Bob Wilson'
+      const result = await searchEntities(mockDb, 'Bo');
 
       expect(result).toHaveLength(1);
+      expect(result[0]!.contactPerson).toBe('Bob Wilson');
     });
 
     it('should filter by email', async () => {
+      // Use completely unique values across all searchable fields
       const entities = [
-        createMockEntity({ email: 'john@company.com' }),
-        createMockEntity({ id: 'entity-2', email: 'jane@other.com' }),
+        createMockEntity({
+          code: 'Y001',
+          name: 'Gamma',
+          nameNormalized: 'gamma',
+          contactPerson: 'Tim Ray',
+          email: 'unique123@test.net',
+        }),
+        createMockEntity({
+          id: 'entity-2',
+          code: 'Y002',
+          name: 'Delta',
+          nameNormalized: 'delta',
+          contactPerson: 'Sue Lin',
+          email: 'other456@test.net',
+        }),
       ];
       (getDocs as jest.Mock).mockResolvedValue(createMockSnapshot(entities));
 
-      const result = await searchEntities(mockDb, 'company.com');
+      // Search for '123' which only matches 'unique123@test.net'
+      const result = await searchEntities(mockDb, '12');
 
       expect(result).toHaveLength(1);
+      expect(result[0]!.email).toBe('unique123@test.net');
     });
 
     it('should use nameNormalized when available', async () => {
