@@ -2,6 +2,13 @@
  * RFQ Query Operations
  *
  * Query and list operations for RFQs
+ *
+ * **Required Firestore Composite Indexes:**
+ * - rfqs: (status ASC, createdAt DESC)
+ * - rfqs: (projectIds ARRAY_CONTAINS, createdAt DESC)
+ * - rfqs: (vendorIds ARRAY_CONTAINS, createdAt DESC)
+ * - rfqs: (createdBy ASC, createdAt DESC)
+ * - rfqs: (status ASC, projectIds ARRAY_CONTAINS, createdAt DESC)
  */
 
 import {

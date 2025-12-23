@@ -2,6 +2,13 @@
  * Purchase Request CRUD Operations
  *
  * Create, Read, Update operations for Purchase Requests
+ *
+ * **Required Firestore Composite Indexes:**
+ * - purchaseRequests: (status ASC, createdAt DESC)
+ * - purchaseRequests: (projectId ASC, createdAt DESC)
+ * - purchaseRequests: (createdBy ASC, createdAt DESC)
+ * - purchaseRequests: (status ASC, projectId ASC, createdAt DESC)
+ * - purchaseRequests: (status IN, createdAt DESC)
  */
 
 import {

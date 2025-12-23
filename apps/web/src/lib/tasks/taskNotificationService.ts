@@ -3,6 +3,13 @@
  *
  * Unified notification-task system where all notifications are actionable
  * or acknowledgeable items with optional time tracking
+ *
+ * **Required Firestore Composite Indexes:**
+ * - taskNotifications: (userId ASC, priority DESC, createdAt DESC)
+ * - taskNotifications: (userId ASC, status ASC, createdAt DESC)
+ * - taskNotifications: (userId ASC, read ASC)
+ * - taskNotifications: (userId ASC, type ASC, status ASC)
+ * - taskNotifications: (entityType ASC, entityId ASC, status IN)
  */
 
 import {
