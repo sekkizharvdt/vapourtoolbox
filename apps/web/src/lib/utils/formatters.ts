@@ -356,3 +356,109 @@ export function formatRelativeTime(timestamp: Timestamp | Date): string {
   const years = Math.floor(diffDays / 365);
   return `${years} year${years !== 1 ? 's' : ''} ago`;
 }
+
+// =============================================================================
+// Currency Precision Utilities
+// =============================================================================
+
+/**
+ * Currency precision configuration
+ * Most currencies use 2 decimal places, but some (BHD, KWD, OMR) use 3
+ */
+const CURRENCY_PRECISION: Record<string, number> = {
+  BHD: 3, // Bahraini Dinar
+  KWD: 3, // Kuwaiti Dinar
+  OMR: 3, // Omani Rial
+  // All other currencies default to 2 decimal places
+};
+
+/**
+ * Get the number of decimal places for a currency
+ *
+ * @param currency - ISO 4217 currency code
+ * @returns Number of decimal places (2 or 3)
+ */
+export function getCurrencyPrecision(currency: string = 'INR'): number {
+  return CURRENCY_PRECISION[currency] ?? 2;
+}
+
+/**
+ * Round a monetary amount to the appropriate precision for its currency
+ *
+ * Uses proper rounding (not truncation) to avoid accumulating errors.
+ * This is the canonical way to round currency amounts in this codebase.
+ *
+ * @param amount - Numeric amount to round
+ * @param currency - ISO 4217 currency code (default: 'INR')
+ * @returns Properly rounded amount
+ *
+ * @example
+ * roundCurrency(123.456)         // 123.46 (INR default, 2 decimals)
+ * roundCurrency(123.456, 'USD')  // 123.46 (USD, 2 decimals)
+ * roundCurrency(123.4567, 'KWD') // 123.457 (KWD, 3 decimals)
+ */
+export function roundCurrency(amount: number, currency: string = 'INR'): number {
+  const precision = getCurrencyPrecision(currency);
+  const multiplier = Math.pow(10, precision);
+  return Math.round(amount * multiplier) / multiplier;
+}
+
+/**
+ * Compare two currency amounts for equality with floating-point tolerance
+ *
+ * Compares amounts after rounding to appropriate currency precision.
+ * This avoids false negatives from floating-point arithmetic.
+ *
+ * @param a - First amount
+ * @param b - Second amount
+ * @param currency - ISO 4217 currency code (default: 'INR')
+ * @returns true if amounts are equal within currency precision
+ *
+ * @example
+ * currencyEquals(100.001, 100.002)  // true (difference < 0.01)
+ * currencyEquals(100.01, 100.02)    // false (difference >= 0.01)
+ */
+export function currencyEquals(a: number, b: number, currency: string = 'INR'): boolean {
+  const precision = getCurrencyPrecision(currency);
+  const tolerance = Math.pow(10, -precision) / 2; // Half of smallest unit
+  return Math.abs(a - b) < tolerance;
+}
+
+/**
+ * Check if an amount is effectively zero for a given currency
+ *
+ * @param amount - Amount to check
+ * @param currency - ISO 4217 currency code (default: 'INR')
+ * @returns true if amount rounds to zero
+ */
+export function isZeroCurrency(amount: number, currency: string = 'INR'): boolean {
+  return currencyEquals(amount, 0, currency);
+}
+
+/**
+ * Calculate the difference between two currency amounts
+ *
+ * Returns the difference rounded to the appropriate currency precision.
+ *
+ * @param a - First amount
+ * @param b - Second amount
+ * @param currency - ISO 4217 currency code (default: 'INR')
+ * @returns Rounded difference (a - b)
+ */
+export function currencyDifference(a: number, b: number, currency: string = 'INR'): number {
+  return roundCurrency(a - b, currency);
+}
+
+/**
+ * Sum multiple currency amounts with proper precision handling
+ *
+ * Rounds the final result to avoid accumulating floating-point errors.
+ *
+ * @param amounts - Array of amounts to sum
+ * @param currency - ISO 4217 currency code (default: 'INR')
+ * @returns Rounded sum
+ */
+export function currencySum(amounts: number[], currency: string = 'INR'): number {
+  const sum = amounts.reduce((acc, amount) => acc + amount, 0);
+  return roundCurrency(sum, currency);
+}

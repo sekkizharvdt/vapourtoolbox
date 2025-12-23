@@ -17,6 +17,12 @@ import {
   formatRelativeTime,
   formatDualCurrency,
   formatExchangeRate,
+  getCurrencyPrecision,
+  roundCurrency,
+  currencyEquals,
+  isZeroCurrency,
+  currencyDifference,
+  currencySum,
 } from './formatters';
 
 describe('Formatters', () => {
@@ -400,6 +406,148 @@ describe('Formatters', () => {
     it('should handle very small rates', () => {
       const result = formatExchangeRate(0.01, 'JPY');
       expect(result).toBe('@0.01');
+    });
+  });
+
+  // =========================================================================
+  // Currency Precision Utilities
+  // =========================================================================
+
+  describe('getCurrencyPrecision', () => {
+    it('should return 2 for most currencies (INR, USD, EUR)', () => {
+      expect(getCurrencyPrecision('INR')).toBe(2);
+      expect(getCurrencyPrecision('USD')).toBe(2);
+      expect(getCurrencyPrecision('EUR')).toBe(2);
+      expect(getCurrencyPrecision('GBP')).toBe(2);
+      expect(getCurrencyPrecision('AED')).toBe(2);
+    });
+
+    it('should return 3 for 3-decimal currencies (BHD, KWD, OMR)', () => {
+      expect(getCurrencyPrecision('BHD')).toBe(3);
+      expect(getCurrencyPrecision('KWD')).toBe(3);
+      expect(getCurrencyPrecision('OMR')).toBe(3);
+    });
+
+    it('should default to 2 for unknown currencies', () => {
+      expect(getCurrencyPrecision('XYZ')).toBe(2);
+      expect(getCurrencyPrecision()).toBe(2);
+    });
+  });
+
+  describe('roundCurrency', () => {
+    it('should round to 2 decimals for INR', () => {
+      expect(roundCurrency(123.456, 'INR')).toBe(123.46);
+      expect(roundCurrency(123.454, 'INR')).toBe(123.45);
+      expect(roundCurrency(123.455, 'INR')).toBe(123.46); // Banker's rounding
+    });
+
+    it('should round to 3 decimals for KWD', () => {
+      expect(roundCurrency(123.4567, 'KWD')).toBe(123.457);
+      expect(roundCurrency(123.4564, 'KWD')).toBe(123.456);
+    });
+
+    it('should handle negative amounts', () => {
+      expect(roundCurrency(-123.456, 'INR')).toBe(-123.46);
+    });
+
+    it('should handle very small amounts', () => {
+      expect(roundCurrency(0.001, 'INR')).toBe(0);
+      expect(roundCurrency(0.005, 'INR')).toBe(0.01);
+    });
+
+    it('should handle whole numbers', () => {
+      expect(roundCurrency(100, 'INR')).toBe(100);
+    });
+
+    it('should default to INR', () => {
+      expect(roundCurrency(123.456)).toBe(123.46);
+    });
+  });
+
+  describe('currencyEquals', () => {
+    it('should return true for equal amounts', () => {
+      expect(currencyEquals(100.0, 100.0)).toBe(true);
+      expect(currencyEquals(0, 0)).toBe(true);
+    });
+
+    it('should return true for amounts within tolerance', () => {
+      // Tolerance for INR is 0.005 (half of 0.01)
+      expect(currencyEquals(100.001, 100.002, 'INR')).toBe(true);
+      expect(currencyEquals(100.004, 100.0, 'INR')).toBe(true);
+    });
+
+    it('should return false for amounts outside tolerance', () => {
+      expect(currencyEquals(100.01, 100.02, 'INR')).toBe(false);
+      expect(currencyEquals(100.0, 100.01, 'INR')).toBe(false);
+    });
+
+    it('should handle floating-point precision issues', () => {
+      // Classic floating-point issue: 0.1 + 0.2 !== 0.3
+      const sum = 0.1 + 0.2;
+      expect(currencyEquals(sum, 0.3, 'INR')).toBe(true);
+    });
+
+    it('should use appropriate tolerance for 3-decimal currencies', () => {
+      // Tolerance for KWD is 0.0005 (half of 0.001)
+      expect(currencyEquals(100.0001, 100.0004, 'KWD')).toBe(true);
+      expect(currencyEquals(100.001, 100.002, 'KWD')).toBe(false);
+    });
+  });
+
+  describe('isZeroCurrency', () => {
+    it('should return true for zero', () => {
+      expect(isZeroCurrency(0)).toBe(true);
+      expect(isZeroCurrency(-0)).toBe(true);
+    });
+
+    it('should return true for amounts that round to zero', () => {
+      expect(isZeroCurrency(0.001, 'INR')).toBe(true);
+      expect(isZeroCurrency(-0.001, 'INR')).toBe(true);
+    });
+
+    it('should return false for non-zero amounts', () => {
+      expect(isZeroCurrency(0.01, 'INR')).toBe(false);
+      expect(isZeroCurrency(-0.01, 'INR')).toBe(false);
+      expect(isZeroCurrency(100, 'INR')).toBe(false);
+    });
+  });
+
+  describe('currencyDifference', () => {
+    it('should calculate difference with proper rounding', () => {
+      expect(currencyDifference(100.5, 50.25, 'INR')).toBe(50.25);
+      expect(currencyDifference(100, 33.33, 'INR')).toBe(66.67);
+    });
+
+    it('should handle negative results', () => {
+      expect(currencyDifference(50, 100, 'INR')).toBe(-50);
+    });
+
+    it('should avoid floating-point errors', () => {
+      expect(currencyDifference(100.1, 0.1, 'INR')).toBe(100);
+    });
+  });
+
+  describe('currencySum', () => {
+    it('should sum amounts with proper rounding', () => {
+      expect(currencySum([10.5, 20.25, 30.75], 'INR')).toBe(61.5);
+    });
+
+    it('should handle empty array', () => {
+      expect(currencySum([], 'INR')).toBe(0);
+    });
+
+    it('should handle single amount', () => {
+      expect(currencySum([100.555], 'INR')).toBe(100.56);
+    });
+
+    it('should avoid accumulating floating-point errors', () => {
+      // Adding many 0.1 values should not accumulate errors
+      const amounts = Array(10).fill(0.1);
+      expect(currencySum(amounts, 'INR')).toBe(1);
+    });
+
+    it('should handle negative amounts', () => {
+      expect(currencySum([100, -50, 25.5], 'INR')).toBe(75.5);
     });
   });
 });
