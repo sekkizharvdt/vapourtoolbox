@@ -88,8 +88,8 @@ export default function RFQsPage() {
 
     setLoading(true);
     try {
-      const data = await listRFQs({});
-      setRfqs(data);
+      const result = await listRFQs({});
+      setRfqs(result.items);
     } catch (error) {
       console.error('[RFQsPage] Error loading RFQs:', error);
     } finally {

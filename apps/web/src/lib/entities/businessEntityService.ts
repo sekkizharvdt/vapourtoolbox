@@ -11,6 +11,7 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
   getDocs,
   getDoc,
   doc,
@@ -25,6 +26,11 @@ import type { BusinessEntity, Status, EntityRole } from '@vapour/types';
 
 const logger = createLogger({ context: 'businessEntityService' });
 
+/** Default page size for pagination */
+const DEFAULT_PAGE_SIZE = 50;
+/** Maximum allowed page size */
+const MAX_PAGE_SIZE = 100;
+
 /**
  * Entity search/filter options
  */
@@ -35,11 +41,25 @@ export interface EntityQueryOptions {
   assignedToUserId?: string;
   orderByField?: 'createdAt' | 'name' | 'code';
   orderDirection?: 'asc' | 'desc';
+  /** Maximum number of results to return. Default: 50. Max: 100. */
   limitResults?: number;
+  /** Cursor for pagination - pass lastDocId from previous response */
+  afterId?: string;
 }
 
 /**
- * Query entities with server-side filtering
+ * Paginated result for entity listing
+ */
+export interface PaginatedEntitiesResult {
+  items: BusinessEntity[];
+  /** ID of the last document - use as afterId for next page */
+  lastDocId: string | null;
+  /** True if there are more results after this page */
+  hasMore: boolean;
+}
+
+/**
+ * Query entities with server-side filtering and cursor-based pagination
  *
  * This function builds optimized Firestore queries using composite indexes
  * to filter entities by status, role, and other criteria.
@@ -50,13 +70,13 @@ export interface EntityQueryOptions {
  * - entities: (status ASC, isActive ASC, createdAt DESC)
  *
  * @param db - Firestore instance
- * @param options - Query filtering options
- * @returns Array of matching business entities
+ * @param options - Query filtering options including pagination cursor
+ * @returns Paginated result with items, cursor for next page, and hasMore flag
  */
 export async function queryEntities(
   db: Firestore,
   options: EntityQueryOptions = {}
-): Promise<BusinessEntity[]> {
+): Promise<PaginatedEntitiesResult> {
   try {
     const {
       status,
@@ -65,7 +85,8 @@ export async function queryEntities(
       assignedToUserId,
       orderByField = 'createdAt',
       orderDirection = 'desc',
-      limitResults = 100,
+      limitResults,
+      afterId,
     } = options;
 
     logger.debug('Querying entities', { options });
@@ -100,8 +121,19 @@ export async function queryEntities(
     // Add ordering
     entityQuery = query(entityQuery, orderBy(orderByField, orderDirection));
 
-    // Add limit
-    entityQuery = query(entityQuery, limit(limitResults));
+    // Handle cursor-based pagination
+    if (afterId) {
+      const cursorDoc = await getDoc(doc(db, COLLECTIONS.ENTITIES, afterId));
+      if (cursorDoc.exists()) {
+        entityQuery = query(entityQuery, startAfter(cursorDoc));
+      } else {
+        logger.warn('Pagination cursor document not found', { afterId });
+      }
+    }
+
+    // Apply limit (fetch one extra to determine hasMore)
+    const pageSize = Math.min(limitResults || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+    entityQuery = query(entityQuery, limit(pageSize + 1));
 
     const snapshot = await getDocs(entityQuery);
 
@@ -116,12 +148,23 @@ export async function queryEntities(
       entities = entities.filter((entity) => roles.some((r) => entity.roles.includes(r)));
     }
 
+    // Check if there are more results
+    const hasMore = entities.length > pageSize;
+    if (hasMore) {
+      entities.pop(); // Remove the extra item used for hasMore check
+    }
+
     logger.info('Entities queried successfully', {
       count: entities.length,
       filters: options,
+      hasMore,
     });
 
-    return entities;
+    return {
+      items: entities,
+      lastDocId: entities.length > 0 ? (entities[entities.length - 1]?.id ?? null) : null,
+      hasMore,
+    };
   } catch (error) {
     logger.error('Error querying entities', { error, options: JSON.stringify(options) });
     throw new Error(
@@ -173,36 +216,39 @@ export async function getActiveEntitiesByRole(
   db: Firestore,
   role: EntityRole
 ): Promise<BusinessEntity[]> {
-  return queryEntities(db, {
+  const result = await queryEntities(db, {
     isActive: true,
     role,
     orderByField: 'name',
     orderDirection: 'asc',
   });
+  return result.items;
 }
 
 /**
  * Get vendors (active by default)
  */
 export async function getVendors(db: Firestore, activeOnly = true): Promise<BusinessEntity[]> {
-  return queryEntities(db, {
+  const result = await queryEntities(db, {
     role: 'VENDOR',
     ...(activeOnly && { isActive: true }),
     orderByField: 'name',
     orderDirection: 'asc',
   });
+  return result.items;
 }
 
 /**
  * Get customers (active by default)
  */
 export async function getCustomers(db: Firestore, activeOnly = true): Promise<BusinessEntity[]> {
-  return queryEntities(db, {
+  const result = await queryEntities(db, {
     role: 'CUSTOMER',
     ...(activeOnly && { isActive: true }),
     orderByField: 'name',
     orderDirection: 'asc',
   });
+  return result.items;
 }
 
 /**
@@ -230,12 +276,20 @@ export async function searchEntities(
 ): Promise<BusinessEntity[]> {
   // Validate and sanitize search term
   if (!searchTerm || typeof searchTerm !== 'string') {
-    return queryEntities(db, { ...options, limitResults: options.limitResults || 50 });
+    const result = await queryEntities(db, {
+      ...options,
+      limitResults: options.limitResults || 50,
+    });
+    return result.items;
   }
 
   const trimmedSearch = searchTerm.trim();
   if (trimmedSearch.length === 0) {
-    return queryEntities(db, { ...options, limitResults: options.limitResults || 50 });
+    const result = await queryEntities(db, {
+      ...options,
+      limitResults: options.limitResults || 50,
+    });
+    return result.items;
   }
 
   // Limit search term length to prevent abuse
@@ -298,13 +352,13 @@ export async function searchEntities(
   // Fallback: Get limited entities and filter client-side
   // Use a smaller limit for short search terms to be more responsive
   const fallbackLimit = lowerSearchTerm.length < 3 ? 100 : 200;
-  const entities = await queryEntities(db, {
+  const result = await queryEntities(db, {
     ...options,
     limitResults: Math.min(options.limitResults || fallbackLimit, fallbackLimit),
   });
 
   // Client-side text search (case-insensitive) with multiple field matching
-  return entities.filter(
+  return result.items.filter(
     (entity) =>
       entity.nameNormalized?.includes(lowerSearchTerm) ||
       entity.name?.toLowerCase().includes(lowerSearchTerm) ||

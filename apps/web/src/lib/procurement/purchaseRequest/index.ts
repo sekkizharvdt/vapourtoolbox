@@ -23,6 +23,7 @@ export type {
   CreatePurchaseRequestItemInput,
   UpdatePurchaseRequestInput,
   ListPurchaseRequestsFilters,
+  PaginatedPurchaseRequestsResult,
 } from './types';
 
 // Export CRUD operations

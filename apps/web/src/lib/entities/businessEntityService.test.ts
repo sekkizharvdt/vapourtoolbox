@@ -115,7 +115,7 @@ describe('businessEntityService', () => {
 
       const result = await queryEntities(mockDb);
 
-      expect(result).toHaveLength(2);
+      expect(result.items).toHaveLength(2);
       expect(collection).toHaveBeenCalledWith(mockDb, 'entities');
     });
 
@@ -162,8 +162,8 @@ describe('businessEntityService', () => {
 
       const result = await queryEntities(mockDb, { role: 'VENDOR' });
 
-      expect(result).toHaveLength(1);
-      expect(result[0]!.roles).toContain('VENDOR');
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]!.roles).toContain('VENDOR');
     });
 
     it('should filter by multiple roles', async () => {
@@ -176,7 +176,7 @@ describe('businessEntityService', () => {
 
       const result = await queryEntities(mockDb, { role: ['VENDOR', 'CUSTOMER'] });
 
-      expect(result).toHaveLength(2);
+      expect(result.items).toHaveLength(2);
     });
 
     it('should exclude soft-deleted entities', async () => {
@@ -186,8 +186,8 @@ describe('businessEntityService', () => {
 
       const result = await queryEntities(mockDb);
 
-      expect(result).toHaveLength(1);
-      expect(result[0]!.isDeleted).toBe(false);
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]!.isDeleted).toBe(false);
     });
 
     it('should apply custom ordering', async () => {
@@ -199,13 +199,14 @@ describe('businessEntityService', () => {
       expect(orderBy).toHaveBeenCalledWith('name', 'asc');
     });
 
-    it('should apply limit', async () => {
+    it('should apply limit (with +1 for hasMore check)', async () => {
       const entities = [createMockEntity()];
       (getDocs as jest.Mock).mockResolvedValue(createMockSnapshot(entities));
 
       await queryEntities(mockDb, { limitResults: 50 });
 
-      expect(limit).toHaveBeenCalledWith(50);
+      // Limit is pageSize + 1 to check if there are more results
+      expect(limit).toHaveBeenCalledWith(51);
     });
 
     it('should throw error on Firestore failure', async () => {

@@ -132,8 +132,8 @@ export default function PurchaseRequestsPage() {
 
     setLoading(true);
     try {
-      const data = await listPurchaseRequests({});
-      setRequests(data);
+      const result = await listPurchaseRequests({});
+      setRequests(result.items);
     } catch (error) {
       console.error('[PurchaseRequestsPage] Error loading requests:', error);
     } finally {

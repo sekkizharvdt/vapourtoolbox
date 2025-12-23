@@ -76,7 +76,21 @@ export interface ListRFQsFilters {
   projectId?: string;
   vendorId?: string;
   createdBy?: string;
+  /** Maximum number of results to return. Default: 50. Max: 100. */
   limit?: number;
+  /** Cursor for pagination - pass lastDocId from previous response */
+  afterId?: string;
+}
+
+/**
+ * Paginated result for RFQ listing
+ */
+export interface PaginatedRFQsResult {
+  items: import('@vapour/types').RFQ[];
+  /** ID of the last document - use as afterId for next page */
+  lastDocId: string | null;
+  /** True if there are more results after this page */
+  hasMore: boolean;
 }
 
 /**

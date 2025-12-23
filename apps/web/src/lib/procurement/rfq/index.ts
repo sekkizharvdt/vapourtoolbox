@@ -25,6 +25,7 @@ export type {
   CreateRFQInput,
   CreateRFQItemInput,
   ListRFQsFilters,
+  PaginatedRFQsResult,
   UpdateRFQInput,
 } from './types';
 

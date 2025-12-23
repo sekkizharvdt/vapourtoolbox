@@ -12,9 +12,10 @@ import { listPurchaseRequests } from './crud';
  * Used by Engineering Head to see PRs awaiting review
  */
 export async function getPendingApprovals(): Promise<PurchaseRequest[]> {
-  return listPurchaseRequests({
+  const result = await listPurchaseRequests({
     status: 'SUBMITTED',
   });
+  return result.items;
 }
 
 /**
@@ -22,9 +23,10 @@ export async function getPendingApprovals(): Promise<PurchaseRequest[]> {
  * Used by Engineering Head to see PRs currently being reviewed
  */
 export async function getUnderReviewPRs(): Promise<PurchaseRequest[]> {
-  return listPurchaseRequests({
+  const result = await listPurchaseRequests({
     status: 'UNDER_REVIEW',
   });
+  return result.items;
 }
 
 /**
@@ -32,8 +34,9 @@ export async function getUnderReviewPRs(): Promise<PurchaseRequest[]> {
  * Optionally filter by project
  */
 export async function getApprovedPRs(projectId?: string): Promise<PurchaseRequest[]> {
-  return listPurchaseRequests({
+  const result = await listPurchaseRequests({
     status: 'APPROVED',
     projectId,
   });
+  return result.items;
 }

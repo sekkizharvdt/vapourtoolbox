@@ -58,9 +58,9 @@ export function useEntities(
         throw new Error('Firestore not initialized');
       }
       logger.debug('Fetching entities', { options });
-      const entities = await queryEntities(db, options);
-      logger.info('Entities fetched successfully', { count: entities.length });
-      return entities;
+      const result = await queryEntities(db, options);
+      logger.info('Entities fetched successfully', { count: result.items.length });
+      return result.items;
     },
     enabled: (queryOptions?.enabled ?? true) && !!db,
     staleTime: queryOptions?.staleTime ?? 5 * 60 * 1000, // 5 minutes

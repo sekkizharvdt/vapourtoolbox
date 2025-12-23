@@ -83,5 +83,16 @@ export interface ListPurchaseRequestsFilters {
   status?: PurchaseRequestStatus;
   createdBy?: string;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  /** Maximum number of results to return. Default: 50. Max: 100. */
   limit?: number;
+  /** Cursor for pagination - pass lastDocId from previous response */
+  afterId?: string;
+}
+
+export interface PaginatedPurchaseRequestsResult {
+  items: import('@vapour/types').PurchaseRequest[];
+  /** ID of the last document - use as afterId for next page */
+  lastDocId: string | null;
+  /** True if there are more results after this page */
+  hasMore: boolean;
 }

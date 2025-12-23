@@ -89,9 +89,9 @@ export default function NewRFQPage() {
       const { db } = getFirebase();
 
       // Fetch approved PRs
-      const prs = await listPurchaseRequests({ status: 'APPROVED' });
+      const result = await listPurchaseRequests({ status: 'APPROVED' });
 
-      if (prs.length === 0) {
+      if (result.items.length === 0) {
         setAvailablePRs([]);
         return;
       }
@@ -111,8 +111,8 @@ export default function NewRFQPage() {
       });
 
       // Filter out PRs that are already linked to RFQs
-      const availablePRs = prs.filter((pr) => !prIdsInRFQs.has(pr.id));
-      setAvailablePRs(availablePRs);
+      const filteredPRs = result.items.filter((pr) => !prIdsInRFQs.has(pr.id));
+      setAvailablePRs(filteredPRs);
     } catch (err) {
       console.error('[NewRFQPage] Error loading PRs:', err);
       setError('Failed to load purchase requests');

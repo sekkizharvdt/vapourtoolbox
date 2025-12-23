@@ -14,6 +14,7 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
   Timestamp,
   writeBatch,
   increment,
@@ -29,6 +30,7 @@ import type {
   CreatePurchaseRequestInput,
   UpdatePurchaseRequestInput,
   ListPurchaseRequestsFilters,
+  PaginatedPurchaseRequestsResult,
 } from './types';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 
@@ -256,12 +258,20 @@ export async function getPurchaseRequestItems(prId: string): Promise<PurchaseReq
   }
 }
 
+/** Default page size for pagination */
+const DEFAULT_PAGE_SIZE = 50;
+/** Maximum allowed page size */
+const MAX_PAGE_SIZE = 100;
+
 /**
- * List Purchase Requests with optional filters
+ * List Purchase Requests with optional filters and cursor-based pagination
+ *
+ * @param filters - Optional filters including pagination cursor
+ * @returns Paginated result with items, cursor for next page, and hasMore flag
  */
 export async function listPurchaseRequests(
   filters: ListPurchaseRequestsFilters = {}
-): Promise<PurchaseRequest[]> {
+): Promise<PaginatedPurchaseRequestsResult> {
   const { db } = getFirebase();
 
   try {
@@ -295,26 +305,45 @@ export async function listPurchaseRequests(
     // Order by creation date (newest first)
     constraints.push(orderBy('createdAt', 'desc'));
 
-    // Limit
-    if (filters.limit) {
-      constraints.push(limit(filters.limit));
+    // Handle cursor-based pagination
+    if (filters.afterId) {
+      const cursorDoc = await getDoc(doc(db, COLLECTIONS.PURCHASE_REQUESTS, filters.afterId));
+      if (cursorDoc.exists()) {
+        constraints.push(startAfter(cursorDoc));
+      } else {
+        logger.warn('Pagination cursor document not found', { afterId: filters.afterId });
+      }
     }
+
+    // Apply limit (fetch one extra to determine hasMore)
+    const pageSize = Math.min(filters.limit || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+    constraints.push(limit(pageSize + 1));
 
     const q = query(collection(db, COLLECTIONS.PURCHASE_REQUESTS), ...constraints);
     const snapshot = await getDocs(q);
 
     const prs: PurchaseRequest[] = [];
-    snapshot.forEach((doc) => {
+    snapshot.forEach((docSnap) => {
       prs.push({
-        id: doc.id,
-        ...doc.data(),
+        id: docSnap.id,
+        ...docSnap.data(),
       } as PurchaseRequest);
     });
 
-    return prs;
+    // Check if there are more results
+    const hasMore = prs.length > pageSize;
+    if (hasMore) {
+      prs.pop(); // Remove the extra item used for hasMore check
+    }
+
+    return {
+      items: prs,
+      lastDocId: prs.length > 0 ? (prs[prs.length - 1]?.id ?? null) : null,
+      hasMore,
+    };
   } catch (error) {
     logger.error('Failed to list purchase requests', { filters, error });
-    throw new Error('Failed to list purchase requests');
+    throw error;
   }
 }
 

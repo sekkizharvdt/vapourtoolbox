@@ -71,10 +71,10 @@ export default function EngineeringApprovalPage() {
 
     try {
       // Get all submitted PRs awaiting approval
-      const data = await listPurchaseRequests({
+      const result = await listPurchaseRequests({
         status: 'SUBMITTED',
       });
-      setRequests(data);
+      setRequests(result.items);
     } catch (err) {
       console.error('[EngineeringApproval] Error loading requests:', err);
       setError(err instanceof Error ? err.message : 'Failed to load purchase requests');
