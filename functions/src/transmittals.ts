@@ -10,7 +10,8 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
-import * as puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 import archiver from 'archiver';
 
 interface GenerateTransmittalRequest {
@@ -44,9 +45,17 @@ async function generateTransmittalPDF(transmittalData: {
   createdByName: string;
   documents: TransmittalDocument[];
 }): Promise<Buffer> {
+  // Configure chromium for serverless environment
+  chromium.setHeadlessMode = 'shell';
+  chromium.setGraphicsMode = false;
+
+  const executablePath = await chromium.executablePath();
+
   const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
+    executablePath,
+    headless: chromium.headless,
   });
 
   try {

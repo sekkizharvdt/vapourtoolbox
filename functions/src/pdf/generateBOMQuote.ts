@@ -6,7 +6,8 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 import Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -312,28 +313,41 @@ async function renderPDF(data: Record<string, unknown>): Promise<Buffer> {
   const template = Handlebars.compile(templateSource);
   const html = template(data);
 
-  // Launch Puppeteer
+  // Launch Puppeteer with @sparticuz/chromium for Cloud Functions compatibility
+  chromium.setHeadlessMode = 'shell';
+  chromium.setGraphicsMode = false;
+
+  const executablePath = await chromium.executablePath();
+  logger.info('Using chromium executable:', { executablePath });
+
   const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
+    executablePath,
+    headless: chromium.headless,
   });
 
-  const page = await browser.newPage();
-  await page.setContent(html, { waitUntil: 'networkidle0' });
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
 
-  // Generate PDF
-  const pdf = await page.pdf({
-    format: 'A4',
-    printBackground: true,
-    margin: {
-      top: '20mm',
-      right: '15mm',
-      bottom: '20mm',
-      left: '15mm',
-    },
-  });
+    // Generate PDF
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: '20mm',
+        right: '15mm',
+        bottom: '20mm',
+        left: '15mm',
+      },
+    });
 
-  await browser.close();
+    logger.info('PDF generated successfully', { size: pdf.length });
 
-  return Buffer.from(pdf);
+    return Buffer.from(pdf);
+  } finally {
+    await browser.close();
+    logger.info('Browser closed');
+  }
 }

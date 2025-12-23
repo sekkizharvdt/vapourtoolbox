@@ -14,7 +14,8 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 import Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -759,21 +760,21 @@ async function renderPDF(data: Record<string, unknown>): Promise<Buffer> {
 
   logger.info('Template compiled, launching browser...');
 
-  // Launch Puppeteer with Cloud Functions-compatible settings
+  // Launch Puppeteer with @sparticuz/chromium for Cloud Functions compatibility
   let browser;
   try {
+    // Configure chromium for serverless environment
+    chromium.setHeadlessMode = 'shell';
+    chromium.setGraphicsMode = false;
+
+    const executablePath = await chromium.executablePath();
+    logger.info('Using chromium executable:', { executablePath });
+
     browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-extensions',
-      ],
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath,
+      headless: chromium.headless,
     });
 
     logger.info('Browser launched, creating page...');

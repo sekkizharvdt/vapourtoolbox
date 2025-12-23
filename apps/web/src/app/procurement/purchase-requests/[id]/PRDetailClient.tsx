@@ -28,8 +28,9 @@ import {
   Link,
 } from '@mui/material';
 import { Home as HomeIcon, Edit as EditIcon } from '@mui/icons-material';
-import type { PurchaseRequest, PurchaseRequestItem } from '@vapour/types';
+import type { PurchaseRequest, PurchaseRequestItem, RFQ } from '@vapour/types';
 import { getPurchaseRequestById, getPurchaseRequestItems } from '@/lib/procurement/purchaseRequest';
+import { findRFQsByPurchaseRequestId } from '@/lib/procurement/rfq/queries';
 import { formatDate } from '@/lib/utils/formatters';
 
 export default function PRDetailPage() {
@@ -39,6 +40,7 @@ export default function PRDetailPage() {
   const [loading, setLoading] = useState(true);
   const [pr, setPr] = useState<PurchaseRequest | null>(null);
   const [items, setItems] = useState<PurchaseRequestItem[]>([]);
+  const [linkedRFQ, setLinkedRFQ] = useState<RFQ | null>(null);
   const [error, setError] = useState<string>('');
   const [prId, setPrId] = useState<string | null>(null);
 
@@ -77,6 +79,19 @@ export default function PRDetailPage() {
 
       setPr(prData);
       setItems(itemsData);
+
+      // If PR was converted to RFQ, try to find the linked RFQ
+      if (prData.status === 'CONVERTED_TO_RFQ') {
+        try {
+          const rfqs = await findRFQsByPurchaseRequestId(prId);
+          if (rfqs.length > 0) {
+            setLinkedRFQ(rfqs[0] ?? null);
+          }
+        } catch (rfqErr) {
+          console.warn('[PRDetailPage] Error finding linked RFQ:', rfqErr);
+          // Don't fail the page if RFQ lookup fails
+        }
+      }
     } catch (err) {
       console.error('[PRDetailPage] Error loading PR:', err);
       setError('Failed to load Purchase Request');
@@ -182,15 +197,31 @@ export default function PRDetailPage() {
           </Box>
 
           {/* Action Buttons */}
-          {canEdit(pr.status) && (
-            <Button
-              variant="contained"
-              startIcon={<EditIcon />}
-              onClick={() => router.push(`/procurement/purchase-requests/${pr.id}/edit`)}
-            >
-              Edit
-            </Button>
-          )}
+          <Stack direction="row" spacing={1}>
+            {canEdit(pr.status) && (
+              <Button
+                variant="contained"
+                startIcon={<EditIcon />}
+                onClick={() => router.push(`/procurement/purchase-requests/${pr.id}/edit`)}
+              >
+                Edit
+              </Button>
+            )}
+            {pr.status === 'CONVERTED_TO_RFQ' && linkedRFQ && (
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={() => router.push(`/procurement/rfqs/${linkedRFQ.id}`)}
+              >
+                View RFQ ({linkedRFQ.number})
+              </Button>
+            )}
+            {pr.status === 'CONVERTED_TO_RFQ' && !linkedRFQ && (
+              <Alert severity="warning" sx={{ py: 0 }}>
+                RFQ not found - please contact support
+              </Alert>
+            )}
+          </Stack>
         </Stack>
 
         {/* PR Details */}

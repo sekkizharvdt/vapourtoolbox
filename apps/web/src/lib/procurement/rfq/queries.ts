@@ -33,6 +33,33 @@ const logger = createLogger({ context: 'rfq/queries' });
 
 /** Default page size for pagination */
 const DEFAULT_PAGE_SIZE = 50;
+
+/**
+ * Find RFQs that were created from a specific Purchase Request
+ *
+ * Useful for tracing PR -> RFQ conversion and debugging visibility issues.
+ * Since RFQs store purchaseRequestIds as an array, this uses array-contains.
+ */
+export async function findRFQsByPurchaseRequestId(prId: string): Promise<RFQ[]> {
+  const { db } = getFirebase();
+
+  const q = query(
+    collection(db, COLLECTIONS.RFQS),
+    where('purchaseRequestIds', 'array-contains', prId),
+    orderBy('createdAt', 'desc')
+  );
+
+  const snapshot = await getDocs(q);
+
+  const rfqs: RFQ[] = snapshot.docs.map((docSnap) => ({
+    id: docSnap.id,
+    ...docSnap.data(),
+  })) as RFQ[];
+
+  logger.info('Found RFQs for PR', { prId, count: rfqs.length });
+
+  return rfqs;
+}
 /** Maximum allowed page size */
 const MAX_PAGE_SIZE = 100;
 

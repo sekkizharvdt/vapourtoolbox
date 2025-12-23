@@ -440,10 +440,11 @@ service cloud.firestore {
 
     match /rfqs/{rfqId} {
       // Read: Internal users OR external CLIENT_PM for their projects
+      // RFQs can span multiple projects, so we check if ANY of the user's assigned projects match
       allow read: if (isInternalUser()) ||
                      (isExternalUser() &&
                       hasPermission(131072) && // VIEW_PROCUREMENT (bit 17)
-                      isAssignedToProject(resource.data.projectId));
+                      resource.data.projectIds.hasAny(request.auth.token.assignedProjects));
 
       allow create: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
       allow update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)

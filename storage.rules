@@ -25,6 +25,23 @@ service firebase.storage {
       allow write: if isAuthenticated();
     }
 
+    // Document parsing - temporary uploads for AI parsing
+    // Path: parsing/{userId}/{filename}
+    // Files are uploaded by client, processed by Cloud Function, then deleted
+    match /parsing/{userId}/{allPaths=**} {
+      // Read: User can read their own uploads, Cloud Functions have admin access
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+
+      // Write: Only the authenticated user can write to their own folder
+      // Max file size: 10MB (documents can be larger than images)
+      allow write: if isAuthenticated() &&
+                     request.auth.uid == userId &&
+                     request.resource.size < 10 * 1024 * 1024;
+
+      // Delete: User can delete their own files
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+
     // Feedback screenshots - users can upload to their own folder
     // Path: feedback/{userId}/{filename}
     match /feedback/{userId}/{allPaths=**} {
