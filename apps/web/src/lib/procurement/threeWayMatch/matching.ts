@@ -7,7 +7,13 @@
 import { collection, doc, addDoc, type Firestore, Timestamp, writeBatch } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import type { ThreeWayMatch, MatchLineItem, MatchDiscrepancy } from '@vapour/types';
+import {
+  PermissionFlag,
+  type ThreeWayMatch,
+  type MatchLineItem,
+  type MatchDiscrepancy,
+} from '@vapour/types';
+import { requireAnyPermission, type AuthorizationContext } from '@/lib/auth/authorizationService';
 import {
   getPurchaseOrder,
   getGoodsReceipt,
@@ -28,7 +34,24 @@ const logger = createLogger({ context: 'threeWayMatchService' });
 const CURRENCY_EPSILON = 0.005;
 
 /**
+ * Procurement permission flags for three-way match operations
+ * User must have either CREATE_PO or APPROVE_PO permissions
+ */
+const MATCH_PERMISSIONS = [PermissionFlag.CREATE_PO, PermissionFlag.APPROVE_PO] as const;
+
+/**
  * Perform 3-way match between PO, GR, and Vendor Invoice
+ *
+ * @param db - Firestore instance
+ * @param purchaseOrderId - Purchase Order ID
+ * @param goodsReceiptId - Goods Receipt ID
+ * @param vendorBillId - Vendor Bill ID
+ * @param userId - User performing the match
+ * @param userName - User's display name
+ * @param matchType - Type of match (AUTOMATIC, MANUAL, SYSTEM_ASSISTED)
+ * @param auth - Authorization context (optional for backward compatibility)
+ * @returns Created match ID
+ * @throws AuthorizationError if user lacks procurement permissions
  */
 export async function performThreeWayMatch(
   db: Firestore,
@@ -37,8 +60,19 @@ export async function performThreeWayMatch(
   vendorBillId: string,
   userId: string,
   userName: string,
-  matchType: 'AUTOMATIC' | 'MANUAL' | 'SYSTEM_ASSISTED' = 'AUTOMATIC'
+  matchType: 'AUTOMATIC' | 'MANUAL' | 'SYSTEM_ASSISTED' = 'AUTOMATIC',
+  auth?: AuthorizationContext
 ): Promise<string> {
+  // Check permission if auth context provided
+  if (auth) {
+    requireAnyPermission(
+      auth.userPermissions,
+      [...MATCH_PERMISSIONS],
+      auth.userId,
+      'perform three-way match'
+    );
+  }
+
   try {
     // Fetch all required documents
     const [po, gr, vendorBill, toleranceConfig] = await Promise.all([

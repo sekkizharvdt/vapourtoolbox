@@ -16,7 +16,8 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import type { MatchDiscrepancy } from '@vapour/types';
+import { PermissionFlag, type MatchDiscrepancy } from '@vapour/types';
+import { requireAnyPermission, type AuthorizationContext } from '@/lib/auth/authorizationService';
 
 const logger = createLogger({ context: 'threeWayMatchService' });
 
@@ -44,6 +45,15 @@ export async function getMatchDiscrepancies(
 
 /**
  * Resolve a discrepancy
+ *
+ * @param db - Firestore instance
+ * @param discrepancyId - Discrepancy ID to resolve
+ * @param resolution - Resolution type
+ * @param userId - User resolving the discrepancy
+ * @param userName - User's display name
+ * @param notes - Optional resolution notes
+ * @param auth - Authorization context (optional for backward compatibility)
+ * @throws AuthorizationError if user lacks CREATE_PO or APPROVE_PO permission
  */
 export async function resolveDiscrepancy(
   db: Firestore,
@@ -51,8 +61,20 @@ export async function resolveDiscrepancy(
   resolution: MatchDiscrepancy['resolution'],
   userId: string,
   userName: string,
-  notes?: string
+  notes?: string,
+  auth?: AuthorizationContext
 ): Promise<void> {
+  // Check permission if auth context provided
+  // Allow users with either CREATE_PO or APPROVE_PO to resolve discrepancies
+  if (auth) {
+    requireAnyPermission(
+      auth.userPermissions,
+      [PermissionFlag.CREATE_PO, PermissionFlag.APPROVE_PO],
+      auth.userId,
+      'resolve match discrepancy'
+    );
+  }
+
   try {
     const discrepancyRef = doc(db, COLLECTIONS.MATCH_DISCREPANCIES, discrepancyId);
 

@@ -167,7 +167,7 @@ export async function uploadDocument(
     };
   } catch (error) {
     logger.error('Failed to upload document', { error });
-    throw new Error('Failed to upload document');
+    throw error;
   }
 }
 
@@ -189,7 +189,7 @@ export async function getDocumentById(documentId: string): Promise<DocumentRecor
     return docToTyped<DocumentRecord>(docSnap.id, docSnap.data());
   } catch (error) {
     logger.error('Failed to get document', { documentId, error });
-    throw new Error('Failed to get document');
+    throw error;
   }
 }
 
@@ -318,7 +318,7 @@ export async function searchDocuments(
     };
   } catch (error) {
     logger.error('Failed to search documents', { filters, error });
-    throw new Error('Failed to search documents');
+    throw error;
   }
 }
 
@@ -407,7 +407,7 @@ export async function getDocumentVersionHistory(
     };
   } catch (error) {
     logger.error('Failed to get document version history', { documentId, error });
-    throw new Error('Failed to get document version history');
+    throw error;
   }
 }
 
@@ -461,7 +461,7 @@ export async function getEquipmentDocumentSummary(
     };
   } catch (error) {
     logger.error('Failed to get equipment document summary', { equipmentId, error });
-    throw new Error('Failed to get equipment document summary');
+    throw error;
   }
 }
 
@@ -543,7 +543,7 @@ export async function deleteDocument(
     });
   } catch (error) {
     logger.error('Failed to delete document', { documentId, error });
-    throw new Error('Failed to delete document');
+    throw error;
   }
 }
 

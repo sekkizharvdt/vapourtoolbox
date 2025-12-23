@@ -39,10 +39,30 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import type { LedgerEntry } from '@vapour/types';
+import { PermissionFlag, type LedgerEntry } from '@vapour/types';
 import { validateLedgerEntries } from './ledgerValidator';
+import { requirePermission, type AuthorizationContext } from '@/lib/auth/authorizationService';
+
+// Re-export AuthorizationContext for consumers
+export type { AuthorizationContext } from '@/lib/auth/authorizationService';
 
 const logger = createLogger({ context: 'transactionService' });
+
+/**
+ * Validate user has permission to create accounting transactions
+ *
+ * @param auth - Authorization context with user permissions
+ * @param operation - Operation description for error messages
+ * @throws AuthorizationError if user lacks CREATE_TRANSACTIONS permission
+ */
+function requireTransactionPermission(auth: AuthorizationContext, operation: string): void {
+  requirePermission(
+    auth.userPermissions,
+    PermissionFlag.CREATE_TRANSACTIONS,
+    auth.userId,
+    operation
+  );
+}
 
 /**
  * Error thrown when transaction entries don't balance
@@ -111,22 +131,31 @@ export function enforceDoubleEntry(entries: LedgerEntry[] | undefined): void {
  *
  * @param db - Firestore instance
  * @param transactionData - Transaction data with entries
+ * @param auth - Authorization context (optional for backward compatibility, will be required in future)
  * @returns Created transaction ID
  * @throws UnbalancedEntriesError if entries don't balance
+ * @throws AuthorizationError if user lacks CREATE_TRANSACTIONS permission
  */
 export async function saveTransaction(
   db: Firestore,
-  transactionData: TransactionWithEntries
+  transactionData: TransactionWithEntries,
+  auth?: AuthorizationContext
 ): Promise<string> {
+  // Check permission if auth context provided
+  if (auth) {
+    requireTransactionPermission(auth, 'create accounting transaction');
+  }
+
   // Enforce double-entry before save
   enforceDoubleEntry(transactionData.entries);
 
-  // Add validation timestamp
+  // Add validation timestamp and creator info
   const dataWithValidation = {
     ...transactionData,
     doubleEntryValidatedAt: Timestamp.now(),
     createdAt: transactionData.createdAt || Timestamp.now(),
     updatedAt: Timestamp.now(),
+    ...(auth && { createdBy: auth.userId }),
   };
 
   const docRef = await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), dataWithValidation);
@@ -135,6 +164,7 @@ export async function saveTransaction(
     transactionId: docRef.id,
     type: transactionData.type,
     entriesCount: transactionData.entries?.length || 0,
+    userId: auth?.userId,
   });
 
   return docRef.id;
@@ -148,23 +178,32 @@ export async function saveTransaction(
  * @param transaction - Firestore transaction
  * @param db - Firestore instance
  * @param transactionData - Transaction data with entries
+ * @param auth - Authorization context (optional for backward compatibility, will be required in future)
  * @returns Document reference (ID available after commit)
  * @throws UnbalancedEntriesError if entries don't balance
+ * @throws AuthorizationError if user lacks CREATE_TRANSACTIONS permission
  */
 export function saveTransactionAtomic(
   transaction: Transaction,
   db: Firestore,
-  transactionData: TransactionWithEntries
+  transactionData: TransactionWithEntries,
+  auth?: AuthorizationContext
 ): DocumentReference {
+  // Check permission if auth context provided
+  if (auth) {
+    requireTransactionPermission(auth, 'create accounting transaction');
+  }
+
   // Enforce double-entry before save
   enforceDoubleEntry(transactionData.entries);
 
-  // Add validation timestamp
+  // Add validation timestamp and creator info
   const dataWithValidation = {
     ...transactionData,
     doubleEntryValidatedAt: Timestamp.now(),
     createdAt: transactionData.createdAt || Timestamp.now(),
     updatedAt: Timestamp.now(),
+    ...(auth && { createdBy: auth.userId }),
   };
 
   const docRef = doc(collection(db, COLLECTIONS.TRANSACTIONS));
@@ -181,23 +220,32 @@ export function saveTransactionAtomic(
  * @param batch - Firestore write batch
  * @param db - Firestore instance
  * @param transactionData - Transaction data with entries
+ * @param auth - Authorization context (optional for backward compatibility, will be required in future)
  * @returns Document reference (ID available after commit)
  * @throws UnbalancedEntriesError if entries don't balance
+ * @throws AuthorizationError if user lacks CREATE_TRANSACTIONS permission
  */
 export function saveTransactionBatch(
   batch: WriteBatch,
   db: Firestore,
-  transactionData: TransactionWithEntries
+  transactionData: TransactionWithEntries,
+  auth?: AuthorizationContext
 ): DocumentReference {
+  // Check permission if auth context provided
+  if (auth) {
+    requireTransactionPermission(auth, 'create accounting transaction');
+  }
+
   // Enforce double-entry before save
   enforceDoubleEntry(transactionData.entries);
 
-  // Add validation timestamp
+  // Add validation timestamp and creator info
   const dataWithValidation = {
     ...transactionData,
     doubleEntryValidatedAt: Timestamp.now(),
     createdAt: transactionData.createdAt || Timestamp.now(),
     updatedAt: Timestamp.now(),
+    ...(auth && { createdBy: auth.userId }),
   };
 
   const docRef = doc(collection(db, COLLECTIONS.TRANSACTIONS));
@@ -215,19 +263,27 @@ export function saveTransactionBatch(
  * @param db - Firestore instance
  * @param transactionData - Transaction data with entries
  * @param additionalUpdates - Optional callback to perform additional updates in same transaction
+ * @param auth - Authorization context (optional for backward compatibility, will be required in future)
  * @returns Created transaction ID
  * @throws UnbalancedEntriesError if entries don't balance
+ * @throws AuthorizationError if user lacks CREATE_TRANSACTIONS permission
  */
 export async function createTransactionWithUpdates(
   db: Firestore,
   transactionData: TransactionWithEntries,
-  additionalUpdates?: (transaction: Transaction, txRef: DocumentReference) => void | Promise<void>
+  additionalUpdates?: (transaction: Transaction, txRef: DocumentReference) => void | Promise<void>,
+  auth?: AuthorizationContext
 ): Promise<string> {
+  // Check permission if auth context provided
+  if (auth) {
+    requireTransactionPermission(auth, 'create accounting transaction');
+  }
+
   // Pre-validate outside transaction (faster failure)
   enforceDoubleEntry(transactionData.entries);
 
   const transactionId = await runTransaction(db, async (firestoreTransaction) => {
-    // Create transaction document
+    // Create transaction document (skip auth check here since we already checked above)
     const txRef = saveTransactionAtomic(firestoreTransaction, db, transactionData);
 
     // Perform additional updates if provided
@@ -241,6 +297,7 @@ export async function createTransactionWithUpdates(
   logger.info('Transaction created with atomic updates', {
     transactionId,
     type: transactionData.type,
+    userId: auth?.userId,
   });
 
   return transactionId;

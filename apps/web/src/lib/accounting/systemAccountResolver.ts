@@ -196,9 +196,7 @@ export async function getSystemAccountIds(
     return accounts;
   } catch (error) {
     logger.error('Error fetching system accounts', { error });
-    throw new Error(
-      'Failed to fetch system accounts. Please ensure Chart of Accounts is initialized.'
-    );
+    throw error;
   }
 }
 

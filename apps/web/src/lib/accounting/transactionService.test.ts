@@ -10,8 +10,34 @@ import {
   enforceDoubleEntry,
   validateTransactionEntries,
   UnbalancedEntriesError,
+  saveTransaction,
+  saveTransactionAtomic,
+  saveTransactionBatch,
+  createTransactionWithUpdates,
 } from './transactionService';
-import type { LedgerEntry } from '@vapour/types';
+import { PermissionFlag, type LedgerEntry } from '@vapour/types';
+import { AuthorizationError } from '@/lib/auth/authorizationService';
+
+// Mock firebase/firestore
+jest.mock('firebase/firestore', () => ({
+  doc: jest.fn(() => ({ id: 'mock-doc-id' })),
+  addDoc: jest.fn(() => Promise.resolve({ id: 'mock-doc-id' })),
+  collection: jest.fn(() => 'mock-collection'),
+  runTransaction: jest.fn((_, callback) => callback({ set: jest.fn() })),
+  Timestamp: {
+    now: jest.fn(() => ({ toDate: () => new Date() })),
+  },
+}));
+
+// Mock logger
+jest.mock('@vapour/logger', () => ({
+  createLogger: () => ({
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  }),
+}));
 
 // Helper to create valid balanced entries
 const createBalancedEntries = (amount: number = 1000): LedgerEntry[] => [
@@ -305,6 +331,142 @@ describe('Transaction Service', () => {
 
       expect(result.isValid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Permission checks', () => {
+    const mockDb = {} as unknown as import('firebase/firestore').Firestore;
+    const mockTransaction = {
+      set: jest.fn(),
+    } as unknown as import('firebase/firestore').Transaction;
+    const mockBatch = { set: jest.fn() } as unknown as import('firebase/firestore').WriteBatch;
+
+    // User with CREATE_TRANSACTIONS permission
+    const authorizedAuth = {
+      userId: 'user-001',
+      userPermissions: PermissionFlag.CREATE_TRANSACTIONS,
+    };
+
+    // User without CREATE_TRANSACTIONS permission
+    const unauthorizedAuth = {
+      userId: 'user-002',
+      userPermissions: 0,
+    };
+
+    const validTransactionData = {
+      type: 'JOURNAL_ENTRY',
+      entries: [
+        { accountId: 'acc-001', debit: 1000, credit: 0 },
+        { accountId: 'acc-002', debit: 0, credit: 1000 },
+      ],
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    describe('saveTransaction', () => {
+      it('should succeed when user has CREATE_TRANSACTIONS permission', async () => {
+        await expect(saveTransaction(mockDb, validTransactionData, authorizedAuth)).resolves.toBe(
+          'mock-doc-id'
+        );
+      });
+
+      it('should throw AuthorizationError when user lacks CREATE_TRANSACTIONS permission', async () => {
+        await expect(
+          saveTransaction(mockDb, validTransactionData, unauthorizedAuth)
+        ).rejects.toThrow(AuthorizationError);
+      });
+
+      it('should succeed without auth context (backward compatibility)', async () => {
+        await expect(saveTransaction(mockDb, validTransactionData)).resolves.toBe('mock-doc-id');
+      });
+
+      it('should include createdBy when auth context is provided', async () => {
+        const { addDoc } = await import('firebase/firestore');
+        await saveTransaction(mockDb, validTransactionData, authorizedAuth);
+
+        expect(addDoc).toHaveBeenCalledWith(
+          'mock-collection',
+          expect.objectContaining({
+            createdBy: 'user-001',
+          })
+        );
+      });
+    });
+
+    describe('saveTransactionAtomic', () => {
+      it('should succeed when user has CREATE_TRANSACTIONS permission', () => {
+        expect(() =>
+          saveTransactionAtomic(mockTransaction, mockDb, validTransactionData, authorizedAuth)
+        ).not.toThrow();
+      });
+
+      it('should throw AuthorizationError when user lacks CREATE_TRANSACTIONS permission', () => {
+        expect(() =>
+          saveTransactionAtomic(mockTransaction, mockDb, validTransactionData, unauthorizedAuth)
+        ).toThrow(AuthorizationError);
+      });
+
+      it('should succeed without auth context (backward compatibility)', () => {
+        expect(() =>
+          saveTransactionAtomic(mockTransaction, mockDb, validTransactionData)
+        ).not.toThrow();
+      });
+    });
+
+    describe('saveTransactionBatch', () => {
+      it('should succeed when user has CREATE_TRANSACTIONS permission', () => {
+        expect(() =>
+          saveTransactionBatch(mockBatch, mockDb, validTransactionData, authorizedAuth)
+        ).not.toThrow();
+      });
+
+      it('should throw AuthorizationError when user lacks CREATE_TRANSACTIONS permission', () => {
+        expect(() =>
+          saveTransactionBatch(mockBatch, mockDb, validTransactionData, unauthorizedAuth)
+        ).toThrow(AuthorizationError);
+      });
+
+      it('should succeed without auth context (backward compatibility)', () => {
+        expect(() => saveTransactionBatch(mockBatch, mockDb, validTransactionData)).not.toThrow();
+      });
+    });
+
+    describe('createTransactionWithUpdates', () => {
+      it('should succeed when user has CREATE_TRANSACTIONS permission', async () => {
+        await expect(
+          createTransactionWithUpdates(mockDb, validTransactionData, undefined, authorizedAuth)
+        ).resolves.toBe('mock-doc-id');
+      });
+
+      it('should throw AuthorizationError when user lacks CREATE_TRANSACTIONS permission', async () => {
+        await expect(
+          createTransactionWithUpdates(mockDb, validTransactionData, undefined, unauthorizedAuth)
+        ).rejects.toThrow(AuthorizationError);
+      });
+
+      it('should succeed without auth context (backward compatibility)', async () => {
+        await expect(createTransactionWithUpdates(mockDb, validTransactionData)).resolves.toBe(
+          'mock-doc-id'
+        );
+      });
+    });
+
+    describe('permission error details', () => {
+      it('should include permission flag in AuthorizationError', async () => {
+        try {
+          await saveTransaction(mockDb, validTransactionData, unauthorizedAuth);
+          fail('Expected AuthorizationError to be thrown');
+        } catch (error) {
+          expect(error).toBeInstanceOf(AuthorizationError);
+          if (error instanceof AuthorizationError) {
+            expect(error.requiredPermission).toBe(PermissionFlag.CREATE_TRANSACTIONS);
+            expect(error.userId).toBe('user-002');
+            expect(error.operation).toContain('create accounting transaction');
+          }
+        }
+      });
     });
   });
 });

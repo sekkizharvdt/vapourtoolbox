@@ -15,20 +15,40 @@ import {
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
-import type { ThreeWayMatch } from '@vapour/types';
+import { PermissionFlag, type ThreeWayMatch } from '@vapour/types';
+import { requirePermission, type AuthorizationContext } from '@/lib/auth/authorizationService';
 
 const logger = createLogger({ context: 'threeWayMatchService' });
 
 /**
  * Approve a match
+ *
+ * @param db - Firestore instance
+ * @param matchId - Match ID to approve
+ * @param userId - User performing the approval
+ * @param userName - User's display name
+ * @param comments - Optional approval comments
+ * @param auth - Authorization context (optional for backward compatibility)
+ * @throws AuthorizationError if user lacks APPROVE_PO permission
  */
 export async function approveMatch(
   db: Firestore,
   matchId: string,
   userId: string,
   userName: string,
-  comments?: string
+  comments?: string,
+  auth?: AuthorizationContext
 ): Promise<void> {
+  // Check permission if auth context provided
+  if (auth) {
+    requirePermission(
+      auth.userPermissions,
+      PermissionFlag.APPROVE_PO,
+      auth.userId,
+      'approve three-way match'
+    );
+  }
+
   try {
     const matchRef = doc(db, COLLECTIONS.THREE_WAY_MATCHES, matchId);
 
@@ -56,9 +76,8 @@ export async function approveMatch(
       .commit();
 
     // Create vendor bill in accounting system
-    const { createVendorBillFromMatch } = await import(
-      '@/lib/accounting/vendorBillIntegrationService'
-    );
+    const { createVendorBillFromMatch } =
+      await import('@/lib/accounting/vendorBillIntegrationService');
 
     const vendorBillId = await createVendorBillFromMatch(db, matchId, userId, userName);
 
@@ -104,14 +123,33 @@ export async function approveMatch(
 
 /**
  * Reject a match
+ *
+ * @param db - Firestore instance
+ * @param matchId - Match ID to reject
+ * @param userId - User performing the rejection
+ * @param userName - User's display name
+ * @param reason - Rejection reason
+ * @param auth - Authorization context (optional for backward compatibility)
+ * @throws AuthorizationError if user lacks APPROVE_PO permission
  */
 export async function rejectMatch(
   db: Firestore,
   matchId: string,
   userId: string,
   userName: string,
-  reason: string
+  reason: string,
+  auth?: AuthorizationContext
 ): Promise<void> {
+  // Check permission if auth context provided
+  if (auth) {
+    requirePermission(
+      auth.userPermissions,
+      PermissionFlag.APPROVE_PO,
+      auth.userId,
+      'reject three-way match'
+    );
+  }
+
   try {
     const matchRef = doc(db, COLLECTIONS.THREE_WAY_MATCHES, matchId);
 
