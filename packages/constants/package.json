@@ -5,7 +5,9 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "dependencies": {
     "@vapour/types": "workspace:*"
