@@ -549,6 +549,72 @@ export async function updateTaskDuration(
   }
 }
 
+/**
+ * Complete all pending task notifications for an entity
+ *
+ * When an entity action is completed (e.g., leave request approved/rejected),
+ * this marks all related pending task notifications as completed.
+ *
+ * @param entityType - Entity type (e.g., 'HR_LEAVE_REQUEST')
+ * @param entityId - Entity ID
+ * @param completedByUserId - User who triggered the completion
+ * @returns Number of notifications completed
+ */
+export async function completeTaskNotificationsByEntity(
+  entityType: string,
+  entityId: string,
+  completedByUserId: string
+): Promise<number> {
+  const { db } = getFirebase();
+
+  try {
+    // Find all pending task notifications for this entity
+    const q = query(
+      collection(db, COLLECTIONS.TASK_NOTIFICATIONS),
+      where('entityType', '==', entityType),
+      where('entityId', '==', entityId),
+      where('status', 'in', ['pending', 'in_progress'])
+    );
+
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      logger.debug('No pending task notifications found for entity', { entityType, entityId });
+      return 0;
+    }
+
+    const now = Timestamp.now();
+    const updatePromises = snapshot.docs.map((docSnap) =>
+      updateDoc(doc(db, COLLECTIONS.TASK_NOTIFICATIONS, docSnap.id), {
+        status: 'completed',
+        autoCompletedAt: now,
+        completionConfirmed: true,
+        read: true,
+        updatedAt: now,
+      })
+    );
+
+    await Promise.all(updatePromises);
+
+    logger.info('Completed task notifications for entity', {
+      entityType,
+      entityId,
+      count: snapshot.size,
+      completedByUserId,
+    });
+
+    return snapshot.size;
+  } catch (error) {
+    logger.error('Failed to complete task notifications by entity', {
+      error,
+      entityType,
+      entityId,
+    });
+    // Don't throw - this is a non-critical operation
+    return 0;
+  }
+}
+
 // ============================================================================
 // COUNTS & STATS
 // ============================================================================

@@ -18,14 +18,15 @@ import {
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import type { LeaveApprovalRecord } from '@vapour/types';
+import type { LeaveApprovalRecord, CreateTaskNotificationInput } from '@vapour/types';
 import { getLeaveRequestById } from './leaveRequestService';
 import { addPendingLeave, confirmPendingLeave, removePendingLeave } from './leaveBalanceService';
+import {
+  createTaskNotification,
+  completeTaskNotificationsByEntity,
+} from '@/lib/tasks/taskNotificationService';
 
 const logger = createLogger({ context: 'leaveApprovalService' });
-
-// TODO: Integrate task notifications once the flow module is ready
-// import { createTaskNotification, completeTaskNotifications } from '@/lib/flow/taskNotificationService';
 
 // Fallback approvers if Firestore config is not set up
 // To configure: create document hrConfig/leaveSettings with { leaveApprovers: ['email1', 'email2'] }
@@ -174,17 +175,37 @@ export async function submitLeaveRequest(
       request.fiscalYear
     );
 
-    // TODO: Create task notifications for approvers once flow module is ready
-    // for (const approverId of approverIds) {
-    //   await createTaskNotification({
-    //     userId: approverId,
-    //     category: 'LEAVE_SUBMITTED',
-    //     title: `Leave Request: ${request.userName}`,
-    //     message: `${request.userName} has requested ${request.numberOfDays} day(s) of ${request.leaveTypeName}`,
-    //     ...
-    //   });
-    // }
-    // TODO: Notifications pending flow module integration
+    // Create task notifications for approvers
+    const notificationPromises = approverIds.map((approverId) => {
+      const notificationInput: CreateTaskNotificationInput = {
+        type: 'actionable',
+        category: 'LEAVE_SUBMITTED',
+        userId: approverId,
+        assignedBy: userId,
+        assignedByName: userName,
+        title: `Leave Request: ${request.userName}`,
+        message: `${request.userName} has requested ${request.numberOfDays} day(s) of ${request.leaveTypeName}`,
+        priority: 'HIGH',
+        entityType: 'HR_LEAVE_REQUEST',
+        entityId: requestId,
+        linkUrl: `/hr/leaves/${requestId}`,
+        autoCompletable: true,
+        metadata: {
+          employeeName: request.userName,
+          leaveType: request.leaveTypeName,
+          numberOfDays: request.numberOfDays,
+          startDate: request.startDate,
+          endDate: request.endDate,
+        },
+      };
+      return createTaskNotification(notificationInput);
+    });
+
+    await Promise.all(notificationPromises);
+    logger.info('Created leave approval notifications', {
+      requestId,
+      approverCount: approverIds.length,
+    });
   } catch (error) {
     logger.error('Failed to submit leave request', { error, requestId, userId });
     if (error instanceof Error) {
@@ -252,16 +273,33 @@ export async function approveLeaveRequest(
       request.fiscalYear
     );
 
-    // TODO: Complete all approver task notifications once flow module is ready
-    // await completeTaskNotifications('HR_LEAVE_REQUEST', requestId);
+    // Complete all approver task notifications
+    await completeTaskNotificationsByEntity('HR_LEAVE_REQUEST', requestId, approverId);
 
-    // TODO: Create notification for employee once flow module is ready
-    // await createTaskNotification({
-    //   userId: request.userId,
-    //   category: 'LEAVE_APPROVED',
-    //   ...
-    // });
-    // TODO: Notifications pending flow module integration
+    // Create notification for employee
+    const employeeNotification: CreateTaskNotificationInput = {
+      type: 'informational',
+      category: 'LEAVE_APPROVED',
+      userId: request.userId,
+      assignedBy: approverId,
+      assignedByName: approverName,
+      title: 'Leave Request Approved',
+      message: `Your ${request.leaveTypeName} request for ${request.numberOfDays} day(s) has been approved by ${approverName}`,
+      priority: 'MEDIUM',
+      entityType: 'HR_LEAVE_REQUEST',
+      entityId: requestId,
+      linkUrl: `/hr/leaves/${requestId}`,
+      metadata: {
+        approverName,
+        leaveType: request.leaveTypeName,
+        numberOfDays: request.numberOfDays,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        remarks,
+      },
+    };
+    await createTaskNotification(employeeNotification);
+    logger.info('Created leave approved notification', { requestId, employeeId: request.userId });
   } catch (error) {
     logger.error('Failed to approve leave request', { error, requestId, approverId });
     if (error instanceof Error) {
@@ -334,16 +372,33 @@ export async function rejectLeaveRequest(
       request.fiscalYear
     );
 
-    // TODO: Complete all approver task notifications once flow module is ready
-    // await completeTaskNotifications('HR_LEAVE_REQUEST', requestId);
+    // Complete all approver task notifications
+    await completeTaskNotificationsByEntity('HR_LEAVE_REQUEST', requestId, approverId);
 
-    // TODO: Create notification for employee once flow module is ready
-    // await createTaskNotification({
-    //   userId: request.userId,
-    //   category: 'LEAVE_REJECTED',
-    //   ...
-    // });
-    // TODO: Notifications pending flow module integration
+    // Create notification for employee
+    const employeeNotification: CreateTaskNotificationInput = {
+      type: 'informational',
+      category: 'LEAVE_REJECTED',
+      userId: request.userId,
+      assignedBy: approverId,
+      assignedByName: approverName,
+      title: 'Leave Request Rejected',
+      message: `Your ${request.leaveTypeName} request for ${request.numberOfDays} day(s) has been rejected by ${approverName}. Reason: ${rejectionReason}`,
+      priority: 'HIGH',
+      entityType: 'HR_LEAVE_REQUEST',
+      entityId: requestId,
+      linkUrl: `/hr/leaves/${requestId}`,
+      metadata: {
+        approverName,
+        leaveType: request.leaveTypeName,
+        numberOfDays: request.numberOfDays,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        rejectionReason,
+      },
+    };
+    await createTaskNotification(employeeNotification);
+    logger.info('Created leave rejected notification', { requestId, employeeId: request.userId });
   } catch (error) {
     logger.error('Failed to reject leave request', { error, requestId, approverId });
     if (error instanceof Error) {
@@ -401,7 +456,7 @@ export async function cancelLeaveRequest(
       updatedBy: userId,
     });
 
-    // If was pending, remove pending leave days
+    // If was pending, remove pending leave days and complete approver notifications
     if (request.status === 'PENDING_APPROVAL') {
       await removePendingLeave(
         request.userId,
@@ -411,10 +466,11 @@ export async function cancelLeaveRequest(
         request.fiscalYear
       );
 
-      // TODO: Complete all approver task notifications once flow module is ready
-      // await completeTaskNotifications('HR_LEAVE_REQUEST', requestId);
+      // Complete all approver task notifications since request is cancelled
+      await completeTaskNotificationsByEntity('HR_LEAVE_REQUEST', requestId, userId);
     }
-    // Leave request cancelled successfully
+
+    logger.info('Leave request cancelled successfully', { requestId, userId });
   } catch (error) {
     logger.error('Failed to cancel leave request', { error, requestId, userId });
     if (error instanceof Error) {
@@ -423,5 +479,3 @@ export async function cancelLeaveRequest(
     throw new Error('Failed to cancel leave request');
   }
 }
-
-// formatDate helper removed - was only used for task notifications which are currently disabled

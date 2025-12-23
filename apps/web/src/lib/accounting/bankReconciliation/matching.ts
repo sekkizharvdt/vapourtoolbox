@@ -1,7 +1,8 @@
 /**
  * Bank Reconciliation Matching Logic
  *
- * Core matching algorithms and manual matching operations
+ * Core matching algorithms and manual matching operations.
+ * Uses the advanced matching engine from autoMatching/ for scoring.
  */
 
 import {
@@ -17,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
+import { calculateEnhancedMatchScore, DEFAULT_MATCHING_CONFIG } from '../autoMatching';
 
 const logger = createLogger({ context: 'bankReconciliation/matching' });
 import type {
@@ -80,78 +82,28 @@ function extractMatchFields(txn: unknown): AccountingTransactionMatchFields {
 
 /**
  * Calculate match score between bank transaction and accounting transaction
- * Returns a score from 0-100 indicating match quality
+ * Returns a score from 0-100 indicating match quality.
+ *
+ * This function delegates to calculateEnhancedMatchScore from the autoMatching
+ * module, which provides configurable weights and detailed scoring. This wrapper
+ * maintains backward compatibility with the simpler return type.
+ *
+ * For advanced usage with configurable weights and detailed score breakdown,
+ * use calculateEnhancedMatchScore directly from '../autoMatching'.
  */
 export function calculateMatchScore(
   bankTxn: BankTransaction,
   accountingTxn: unknown
 ): { score: number; reasons: string[] } {
-  let score = 0;
-  const reasons: string[] = [];
   const accTxn = extractMatchFields(accountingTxn);
 
-  // Amount match (40 points)
-  const bankAmount = bankTxn.debitAmount || bankTxn.creditAmount;
-  const accAmount = accTxn.amount || accTxn.totalAmount || 0;
-  if (Math.abs(bankAmount - accAmount) < 0.01) {
-    score += 40;
-    reasons.push('Exact amount match');
-  } else if (Math.abs(bankAmount - accAmount) < bankAmount * 0.05) {
-    score += 20;
-    reasons.push('Close amount match (within 5%)');
-  }
+  // Use the enhanced scoring engine for consistent matching logic
+  const result = calculateEnhancedMatchScore(bankTxn, accTxn, DEFAULT_MATCHING_CONFIG);
 
-  // Date match (30 points)
-  if (accTxn.date) {
-    const bankDate = bankTxn.transactionDate.toDate();
-    const accDate = accTxn.date.toDate();
-    const daysDiff = Math.abs((bankDate.getTime() - accDate.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (daysDiff === 0) {
-      score += 30;
-      reasons.push('Same date');
-    } else if (daysDiff <= 2) {
-      score += 20;
-      reasons.push('Date within 2 days');
-    } else if (daysDiff <= 7) {
-      score += 10;
-      reasons.push('Date within 7 days');
-    }
-  }
-
-  // Reference/Cheque number match (20 points)
-  if (bankTxn.chequeNumber && accTxn.chequeNumber) {
-    if (bankTxn.chequeNumber === accTxn.chequeNumber) {
-      score += 20;
-      reasons.push('Cheque number match');
-    }
-  }
-
-  if (bankTxn.reference && accTxn.reference) {
-    if (
-      bankTxn.reference.toLowerCase().includes(accTxn.reference.toLowerCase()) ||
-      accTxn.reference.toLowerCase().includes(bankTxn.reference.toLowerCase())
-    ) {
-      score += 15;
-      reasons.push('Reference match');
-    }
-  }
-
-  // Description match (10 points)
-  if (accTxn.description) {
-    const bankDesc = bankTxn.description.toLowerCase();
-    const accDesc = accTxn.description.toLowerCase();
-    if (
-      bankDesc.includes(accDesc) ||
-      accDesc.includes(bankDesc) ||
-      bankDesc.split(' ').some((word) => accDesc.includes(word))
-    ) {
-      score += 10;
-      reasons.push('Description similarity');
-    }
-  }
-
-  return { score, reasons };
+  return {
+    score: result.score,
+    reasons: result.reasons,
+  };
 }
 
 /**

@@ -5,7 +5,13 @@
  * addressing common type mismatches between TypeScript and Firebase's type system.
  */
 
-import { Timestamp, serverTimestamp } from 'firebase/firestore';
+import {
+  Timestamp,
+  serverTimestamp,
+  getDocs,
+  type Query,
+  type DocumentData,
+} from 'firebase/firestore';
 
 /**
  * Converts a date input (string or Date) to a Firestore Timestamp
@@ -227,4 +233,101 @@ export function docToTypedWithDates<T extends { id: string }>(
   }
 
   return result as T;
+}
+
+// ============================================================================
+// QUERY UTILITIES
+// ============================================================================
+
+/**
+ * Execute a Firestore query and map results to typed objects.
+ *
+ * This utility reduces boilerplate for the common pattern:
+ * ```
+ * const snapshot = await getDocs(query);
+ * const items = snapshot.docs.map(doc => docToTyped<T>(doc.id, doc.data()));
+ * ```
+ *
+ * @param firestoreQuery - Firestore Query object
+ * @returns Promise resolving to array of typed documents
+ *
+ * @example
+ * const materials = await queryAndMap<Material>(
+ *   query(collection(db, 'materials'), where('isActive', '==', true))
+ * );
+ */
+export async function queryAndMap<T extends { id: string }>(
+  firestoreQuery: Query<DocumentData>
+): Promise<T[]> {
+  const snapshot = await getDocs(firestoreQuery);
+  return snapshot.docs.map((doc) => docToTyped<T>(doc.id, doc.data()));
+}
+
+/**
+ * Execute a Firestore query and map results with timestamp-to-Date conversion.
+ *
+ * Use this variant when your TypeScript type expects Date objects
+ * instead of Firestore Timestamps.
+ *
+ * @param firestoreQuery - Firestore Query object
+ * @returns Promise resolving to array of typed documents with dates converted
+ *
+ * @example
+ * const transactions = await queryAndMapWithDates<Transaction>(
+ *   query(collection(db, 'transactions'), where('status', '==', 'PENDING'))
+ * );
+ */
+export async function queryAndMapWithDates<T extends { id: string }>(
+  firestoreQuery: Query<DocumentData>
+): Promise<T[]> {
+  const snapshot = await getDocs(firestoreQuery);
+  return snapshot.docs.map((doc) => docToTypedWithDates<T>(doc.id, doc.data()));
+}
+
+/**
+ * Result type for paginated queries
+ */
+export interface PaginatedResult<T> {
+  items: T[];
+  lastDocId: string | null;
+  hasMore: boolean;
+}
+
+/**
+ * Execute a Firestore query with pagination support.
+ *
+ * This utility handles the common pagination pattern:
+ * - Fetches pageSize + 1 to determine if more results exist
+ * - Returns hasMore flag and lastDocId for cursor-based pagination
+ *
+ * @param firestoreQuery - Firestore Query (should NOT include limit)
+ * @param pageSize - Number of items per page
+ * @returns Promise resolving to paginated result
+ *
+ * @example
+ * const result = await queryAndMapPaginated<Material>(
+ *   query(collection(db, 'materials'), orderBy('createdAt', 'desc')),
+ *   50
+ * );
+ * // result.items - array of materials (max 50)
+ * // result.hasMore - true if more pages exist
+ * // result.lastDocId - use for cursor-based pagination
+ */
+export async function queryAndMapPaginated<T extends { id: string }>(
+  firestoreQuery: Query<DocumentData>,
+  pageSize: number
+): Promise<PaginatedResult<T>> {
+  const snapshot = await getDocs(firestoreQuery);
+  let items = snapshot.docs.map((doc) => docToTyped<T>(doc.id, doc.data()));
+
+  const hasMore = items.length > pageSize;
+  if (hasMore) {
+    items = items.slice(0, pageSize);
+  }
+
+  return {
+    items,
+    lastDocId: items.length > 0 ? (items[items.length - 1]?.id ?? null) : null,
+    hasMore,
+  };
 }
