@@ -357,6 +357,38 @@
       ]
     },
     {
+      "collectionGroup": "purchaseRequestAttachments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "purchaseRequestId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "uploadedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "purchaseRequestAttachments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "purchaseRequestId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "purchaseRequestItemId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "uploadedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "rfqItems",
       "queryScope": "COLLECTION",
       "fields": [

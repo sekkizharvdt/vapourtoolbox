@@ -126,6 +126,63 @@ export interface PurchaseRequestItem {
 }
 
 // ============================================================================
+// PURCHASE REQUEST ATTACHMENT TYPES
+// ============================================================================
+
+/**
+ * Attachment type for Purchase Request documents
+ */
+export type PurchaseRequestAttachmentType =
+  | 'TDS' // Technical Data Sheet
+  | 'TECHNICAL_SPEC' // Technical Specification
+  | 'DATASHEET' // Manufacturer Data Sheet
+  | 'DRAWING' // Engineering Drawing
+  | 'CERTIFICATE' // Quality/Test Certificate
+  | 'OTHER'; // Other documents
+
+/**
+ * Labels for attachment types
+ */
+export const PR_ATTACHMENT_TYPE_LABELS: Record<PurchaseRequestAttachmentType, string> = {
+  TDS: 'Technical Data Sheet',
+  TECHNICAL_SPEC: 'Technical Specification',
+  DATASHEET: 'Manufacturer Data Sheet',
+  DRAWING: 'Engineering Drawing',
+  CERTIFICATE: 'Quality/Test Certificate',
+  OTHER: 'Other Document',
+};
+
+/**
+ * Attachment document for a Purchase Request
+ *
+ * Attachments can be at PR level (general documents) or linked to specific line items.
+ * These attachments are carried forward to RFQs when the PR is converted.
+ */
+export interface PurchaseRequestAttachment {
+  id: string;
+
+  // Parent reference
+  purchaseRequestId: string;
+  purchaseRequestItemId?: string; // Optional: if linked to specific line item
+
+  // File details
+  fileName: string;
+  fileUrl: string; // gs:// URL
+  storagePath: string; // Full path in Storage
+  fileSize: number; // Bytes
+  mimeType: string;
+
+  // Classification
+  attachmentType: PurchaseRequestAttachmentType;
+  description?: string; // Optional description/notes
+
+  // Metadata
+  uploadedBy: string;
+  uploadedByName: string;
+  uploadedAt: Timestamp;
+}
+
+// ============================================================================
 // RFQ (REQUEST FOR QUOTATION) TYPES
 // ============================================================================
 

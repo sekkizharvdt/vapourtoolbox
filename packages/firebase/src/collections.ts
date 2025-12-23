@@ -63,6 +63,7 @@ export const COLLECTIONS = {
   // Procurement
   PURCHASE_REQUESTS: 'purchaseRequests',
   PURCHASE_REQUEST_ITEMS: 'purchaseRequestItems',
+  PURCHASE_REQUEST_ATTACHMENTS: 'purchaseRequestAttachments',
   RFQS: 'rfqs',
   RFQ_ITEMS: 'rfqItems',
   RFQ_TERMS_TEMPLATES: 'rfqTermsTemplates', // Reusable terms & conditions

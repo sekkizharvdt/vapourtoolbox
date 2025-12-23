@@ -47,5 +47,14 @@ export {
 // Export query helpers
 export { getPendingApprovals, getUnderReviewPRs, getApprovedPRs } from './queries';
 
+// Export attachment operations
+export {
+  uploadPRAttachment,
+  deletePRAttachment,
+  getPRAttachments,
+  getPRItemAttachments,
+  getAttachmentDownloadUrl,
+} from './attachments';
+
 // Note: Utility functions (generatePRNumber, validateProjectBudget) are internal
 // and not exported from the public API

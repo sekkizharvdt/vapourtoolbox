@@ -42,6 +42,21 @@ service firebase.storage {
       allow delete: if isAuthenticated() && request.auth.uid == userId;
     }
 
+    // Purchase Request attachments - TDS, specs, datasheets, drawings
+    // Path: procurement/pr/{prId}/attachments/{filename}
+    match /procurement/pr/{prId}/attachments/{allPaths=**} {
+      // Read: All authenticated internal users can read PR attachments
+      allow read: if isAuthenticated();
+
+      // Write: Users with MANAGE_PROCUREMENT permission can upload
+      // Max file size: 25MB (PDFs, drawings can be large)
+      allow write: if isAuthenticated() &&
+                     request.resource.size < 25 * 1024 * 1024;
+
+      // Delete: Users with MANAGE_PROCUREMENT permission
+      allow delete: if isAuthenticated();
+    }
+
     // Feedback screenshots - users can upload to their own folder
     // Path: feedback/{userId}/{filename}
     match /feedback/{userId}/{allPaths=**} {

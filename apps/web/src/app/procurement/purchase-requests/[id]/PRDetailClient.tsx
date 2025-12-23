@@ -27,11 +27,25 @@ import {
   Breadcrumbs,
   Link,
 } from '@mui/material';
-import { Home as HomeIcon, Edit as EditIcon } from '@mui/icons-material';
-import type { PurchaseRequest, PurchaseRequestItem, RFQ } from '@vapour/types';
-import { getPurchaseRequestById, getPurchaseRequestItems } from '@/lib/procurement/purchaseRequest';
+import {
+  Home as HomeIcon,
+  Edit as EditIcon,
+  AttachFile as AttachFileIcon,
+} from '@mui/icons-material';
+import type {
+  PurchaseRequest,
+  PurchaseRequestItem,
+  PurchaseRequestAttachment,
+  RFQ,
+} from '@vapour/types';
+import {
+  getPurchaseRequestById,
+  getPurchaseRequestItems,
+  getPRAttachments,
+} from '@/lib/procurement/purchaseRequest';
 import { findRFQsByPurchaseRequestId } from '@/lib/procurement/rfq/queries';
 import { formatDate } from '@/lib/utils/formatters';
+import PRAttachmentUpload from '@/components/procurement/PRAttachmentUpload';
 
 export default function PRDetailPage() {
   const pathname = usePathname();
@@ -40,6 +54,7 @@ export default function PRDetailPage() {
   const [loading, setLoading] = useState(true);
   const [pr, setPr] = useState<PurchaseRequest | null>(null);
   const [items, setItems] = useState<PurchaseRequestItem[]>([]);
+  const [attachments, setAttachments] = useState<PurchaseRequestAttachment[]>([]);
   const [linkedRFQ, setLinkedRFQ] = useState<RFQ | null>(null);
   const [error, setError] = useState<string>('');
   const [prId, setPrId] = useState<string | null>(null);
@@ -67,9 +82,10 @@ export default function PRDetailPage() {
     setLoading(true);
     setError('');
     try {
-      const [prData, itemsData] = await Promise.all([
+      const [prData, itemsData, attachmentsData] = await Promise.all([
         getPurchaseRequestById(prId),
         getPurchaseRequestItems(prId),
+        getPRAttachments(prId),
       ]);
 
       if (!prData) {
@@ -79,6 +95,7 @@ export default function PRDetailPage() {
 
       setPr(prData);
       setItems(itemsData);
+      setAttachments(attachmentsData);
 
       // If PR was converted to RFQ, try to find the linked RFQ
       if (prData.status === 'CONVERTED_TO_RFQ') {
@@ -429,6 +446,31 @@ export default function PRDetailPage() {
               </TableBody>
             </Table>
           </TableContainer>
+        </Paper>
+
+        {/* Attachments Section */}
+        <Paper sx={{ p: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+            <AttachFileIcon color="action" />
+            <Typography variant="h6">Attachments ({attachments.length})</Typography>
+          </Stack>
+          <Divider sx={{ mb: 2 }} />
+
+          {prId && (
+            <PRAttachmentUpload
+              prId={prId}
+              attachments={attachments}
+              onAttachmentsChange={setAttachments}
+              disabled={pr.status === 'CONVERTED_TO_RFQ'}
+            />
+          )}
+
+          {attachments.length === 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+              No attachments uploaded yet. Add technical specs, datasheets, or drawings to support
+              this purchase request.
+            </Typography>
+          )}
         </Paper>
 
         {/* Audit Trail */}

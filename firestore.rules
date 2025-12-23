@@ -438,6 +438,20 @@ service cloud.firestore {
       allow delete: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
     }
 
+    match /purchaseRequestAttachments/{attachmentId} {
+      // PR attachments: TDS, technical specs, datasheets, drawings
+      // These are linked to PRs and optionally to specific line items
+
+      // Read: All internal users can view PR attachments
+      allow read: if isInternalUser();
+
+      // Create/Update: Users with MANAGE_PROCUREMENT permission
+      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+
+      // Delete: Users with MANAGE_PROCUREMENT permission
+      allow delete: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+    }
+
     match /rfqs/{rfqId} {
       // Read: Internal users OR external CLIENT_PM for their projects
       // RFQs can span multiple projects, so we check if ANY of the user's assigned projects match
