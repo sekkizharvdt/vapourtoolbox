@@ -10,11 +10,11 @@ import {
   doc,
   getDoc,
   getDocs,
-  updateDoc,
   query,
   where,
   Timestamp,
   writeBatch,
+  runTransaction,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -200,6 +200,9 @@ export async function initializeUserLeaveBalances(
 /**
  * Update leave balance when a leave request status changes
  * Called internally by the leave approval workflow
+ *
+ * SECURITY: Uses Firestore transaction to prevent race conditions
+ * when multiple leave requests are processed concurrently.
  */
 export async function updateLeaveBalance(
   balanceId: string,
@@ -213,29 +216,41 @@ export async function updateLeaveBalance(
 
   try {
     const docRef = doc(db, COLLECTIONS.HR_LEAVE_BALANCES, balanceId);
-    const balanceSnap = await getDoc(docRef);
 
-    if (!balanceSnap.exists()) {
-      throw new Error('Leave balance not found');
-    }
+    // Use transaction to ensure atomic read-modify-write
+    await runTransaction(db, async (transaction) => {
+      const balanceSnap = await transaction.get(docRef);
 
-    const currentBalance = balanceSnap.data() as LeaveBalance;
+      if (!balanceSnap.exists()) {
+        throw new Error('Leave balance not found');
+      }
 
-    // Calculate new values
-    const newUsed = updates.used ?? currentBalance.used;
-    const newPending = updates.pending ?? currentBalance.pending;
-    const newAvailable =
-      currentBalance.entitled + currentBalance.carryForward - newUsed - newPending;
+      const currentBalance = balanceSnap.data() as LeaveBalance;
 
-    await updateDoc(docRef, {
-      used: newUsed,
-      pending: newPending,
-      available: newAvailable,
-      updatedAt: Timestamp.now(),
-      updatedBy: userId,
+      // Calculate new values
+      const newUsed = updates.used ?? currentBalance.used;
+      const newPending = updates.pending ?? currentBalance.pending;
+      const newAvailable =
+        currentBalance.entitled + currentBalance.carryForward - newUsed - newPending;
+
+      // Validate available balance doesn't go negative
+      if (newAvailable < 0) {
+        throw new Error('Insufficient leave balance');
+      }
+
+      transaction.update(docRef, {
+        used: newUsed,
+        pending: newPending,
+        available: newAvailable,
+        updatedAt: Timestamp.now(),
+        updatedBy: userId,
+      });
     });
   } catch (error) {
     logger.error('Failed to update leave balance', { error, balanceId, updates });
+    if (error instanceof Error && error.message === 'Insufficient leave balance') {
+      throw error;
+    }
     throw new Error('Failed to update leave balance');
   }
 }

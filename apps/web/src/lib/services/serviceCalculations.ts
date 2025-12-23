@@ -256,6 +256,223 @@ function calculatePerUnit(
 }
 
 /**
+ * Safe expression parser for custom formulas
+ *
+ * Supports:
+ * - Numbers (integers and decimals)
+ * - Variables: materialCost, fabricationCost, quantity, total
+ * - Operators: +, -, *, /, (, )
+ * - Functions: min, max, abs, round, ceil, floor
+ *
+ * This is a secure alternative to new Function() that prevents code injection.
+ */
+function safeEvaluateExpression(expression: string, variables: Record<string, number>): number {
+  // Tokenize the expression
+  const tokens = tokenize(expression);
+
+  // Parse and evaluate using recursive descent parser
+  let pos = 0;
+
+  function peek(): string | undefined {
+    return tokens[pos];
+  }
+
+  function consume(): string {
+    const token = tokens[pos++];
+    if (token === undefined) {
+      throw new Error('Unexpected end of expression');
+    }
+    return token;
+  }
+
+  function parseExpression(): number {
+    return parseAddSub();
+  }
+
+  function parseAddSub(): number {
+    let left = parseMulDiv();
+
+    while (peek() === '+' || peek() === '-') {
+      const op = consume();
+      const right = parseMulDiv();
+      left = op === '+' ? left + right : left - right;
+    }
+
+    return left;
+  }
+
+  function parseMulDiv(): number {
+    let left = parseUnary();
+
+    while (peek() === '*' || peek() === '/') {
+      const op = consume();
+      const right = parseUnary();
+      if (op === '/' && right === 0) {
+        throw new Error('Division by zero');
+      }
+      left = op === '*' ? left * right : left / right;
+    }
+
+    return left;
+  }
+
+  function parseUnary(): number {
+    if (peek() === '-') {
+      consume();
+      return -parsePrimary();
+    }
+    if (peek() === '+') {
+      consume();
+      return parsePrimary();
+    }
+    return parsePrimary();
+  }
+
+  function parsePrimary(): number {
+    const token = peek();
+
+    if (token === undefined) {
+      throw new Error('Unexpected end of expression');
+    }
+
+    // Parentheses
+    if (token === '(') {
+      consume();
+      const result = parseExpression();
+      if (consume() !== ')') {
+        throw new Error('Missing closing parenthesis');
+      }
+      return result;
+    }
+
+    // Number
+    if (/^[\d.]+$/.test(token)) {
+      consume();
+      const num = parseFloat(token);
+      if (isNaN(num)) {
+        throw new Error(`Invalid number: ${token}`);
+      }
+      return num;
+    }
+
+    // Function call
+    if (/^(min|max|abs|round|ceil|floor)$/.test(token)) {
+      const funcName = consume();
+      if (consume() !== '(') {
+        throw new Error(`Expected '(' after function ${funcName}`);
+      }
+
+      const args: number[] = [parseExpression()];
+      while (peek() === ',') {
+        consume();
+        args.push(parseExpression());
+      }
+
+      if (consume() !== ')') {
+        throw new Error(`Missing closing parenthesis for function ${funcName}`);
+      }
+
+      // Ensure we have at least one argument for single-arg functions
+      const firstArg = args[0];
+      if (firstArg === undefined) {
+        throw new Error(`Function ${funcName} requires at least one argument`);
+      }
+
+      switch (funcName) {
+        case 'min':
+          return Math.min(...args);
+        case 'max':
+          return Math.max(...args);
+        case 'abs':
+          return Math.abs(firstArg);
+        case 'round':
+          return Math.round(firstArg);
+        case 'ceil':
+          return Math.ceil(firstArg);
+        case 'floor':
+          return Math.floor(firstArg);
+        default:
+          throw new Error(`Unknown function: ${funcName}`);
+      }
+    }
+
+    // Variable
+    if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(token)) {
+      consume();
+      if (!(token in variables)) {
+        throw new Error(`Unknown variable: ${token}`);
+      }
+      return variables[token] as number;
+    }
+
+    throw new Error(`Unexpected token: ${token}`);
+  }
+
+  const result = parseExpression();
+
+  if (pos < tokens.length) {
+    throw new Error(`Unexpected token: ${tokens[pos]}`);
+  }
+
+  return result;
+}
+
+/**
+ * Tokenize expression into tokens
+ */
+function tokenize(expression: string): string[] {
+  const tokens: string[] = [];
+  let i = 0;
+
+  while (i < expression.length) {
+    const char = expression[i]!; // Safe: checked i < expression.length
+
+    // Skip whitespace
+    if (/\s/.test(char)) {
+      i++;
+      continue;
+    }
+
+    // Operators and parentheses
+    if ('+-*/(),'.includes(char)) {
+      tokens.push(char);
+      i++;
+      continue;
+    }
+
+    // Numbers (including decimals)
+    if (/[\d.]/.test(char)) {
+      let num = '';
+      while (i < expression.length) {
+        const c = expression[i]!; // Safe: checked i < expression.length
+        if (!/[\d.]/.test(c)) break;
+        num += c;
+        i++;
+      }
+      tokens.push(num);
+      continue;
+    }
+
+    // Identifiers (variables and function names)
+    if (/[a-zA-Z_]/.test(char)) {
+      let id = '';
+      while (i < expression.length) {
+        const c = expression[i]!; // Safe: checked i < expression.length
+        if (!/[a-zA-Z0-9_]/.test(c)) break;
+        id += c;
+        i++;
+      }
+      tokens.push(id);
+      continue;
+    }
+
+    throw new Error(`Invalid character in expression: ${char}`);
+  }
+
+  return tokens;
+}
+
+/**
  * Evaluate custom formula
  *
  * Supported variables:
@@ -268,6 +485,8 @@ function calculatePerUnit(
  * - "materialCost * 0.05 + fabricationCost * 0.03"
  * - "total * 0.10"
  * - "quantity * 100" (flat fee per quantity)
+ *
+ * Security: Uses a safe expression parser instead of new Function() to prevent code injection.
  */
 function evaluateCustomFormula(
   formula: string,
@@ -290,35 +509,18 @@ function evaluateCustomFormula(
   try {
     const total = materialCost + fabricationCost;
 
-    // Create safe evaluation context
-    const context = {
+    // Create variable context for safe evaluation
+    const variables: Record<string, number> = {
       materialCost,
       fabricationCost,
       quantity,
       total,
-      // Mathematical functions
-      Math,
-      min: Math.min,
-      max: Math.max,
-      abs: Math.abs,
-      round: Math.round,
-      ceil: Math.ceil,
-      floor: Math.floor,
     };
 
-    // Replace variable names in formula
-    let evaluableFormula = formula;
-    for (const [key, value] of Object.entries(context)) {
-      if (typeof value === 'number') {
-        evaluableFormula = evaluableFormula.replace(new RegExp(`\\b${key}\\b`, 'g'), String(value));
-      }
-    }
+    // Evaluate using safe expression parser (no code injection possible)
+    const result = safeEvaluateExpression(formula, variables);
 
-    // Evaluate (note: using Function for simple math expressions)
-    // In production, consider using a proper expression parser for security
-    const result = new Function(`return ${evaluableFormula}`)();
-
-    if (typeof result !== 'number' || isNaN(result)) {
+    if (typeof result !== 'number' || isNaN(result) || !isFinite(result)) {
       throw new Error('Formula did not evaluate to a valid number');
     }
 

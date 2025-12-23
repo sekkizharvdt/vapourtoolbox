@@ -33,6 +33,24 @@ import type {
 
 const logger = createLogger({ context: 'taskNotificationService' });
 
+// ============================================================================
+// RESULT TYPES
+// ============================================================================
+
+/**
+ * Result type for operations that can fail
+ * Distinguishes between "not found" (success with null) and "error" (failure)
+ */
+export type TaskNotificationResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string };
+
+/**
+ * Result type for count operations
+ * Returns -1 for errors to distinguish from legitimate 0 count
+ */
+export type CountResult = { success: true; count: number } | { success: false; error: string };
+
 /**
  * Convert Firestore DocumentData to TaskNotification with proper type safety
  */
@@ -239,16 +257,15 @@ export async function getTaskNotificationById(
 }
 
 /**
- * Find task notification by entity
- * Useful for auto-completion logic (e.g., find "Review PR-001" task when PR is approved)
- * Status can be a single value or an array of values to match
+ * Find task notification by entity (with Result type for proper error handling)
+ * Use this version when you need to distinguish between "not found" and "query error"
  */
-export async function findTaskNotificationByEntity(
+export async function findTaskNotificationByEntitySafe(
   entityType: string,
   entityId: string,
   category?: string,
   status?: TaskNotificationStatus | TaskNotificationStatus[]
-): Promise<TaskNotification | null> {
+): Promise<TaskNotificationResult<TaskNotification | null>> {
   const { db } = getFirebase();
 
   try {
@@ -275,15 +292,37 @@ export async function findTaskNotificationByEntity(
     const snapshot = await getDocs(q);
 
     if (snapshot.empty || !snapshot.docs[0]) {
-      return null;
+      return { success: true, data: null }; // Explicitly: not found is success with null
     }
 
     const docData = snapshot.docs[0];
-    return docToTaskNotification(docData.id, docData.data());
+    return { success: true, data: docToTaskNotification(docData.id, docData.data()) };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to find task notification by entity', { error, entityType, entityId });
+    return { success: false, error: errorMessage }; // Explicitly: query error is failure
+  }
+}
+
+/**
+ * Find task notification by entity
+ * Useful for auto-completion logic (e.g., find "Review PR-001" task when PR is approved)
+ * Status can be a single value or an array of values to match
+ *
+ * @deprecated Use findTaskNotificationByEntitySafe for better error handling
+ */
+export async function findTaskNotificationByEntity(
+  entityType: string,
+  entityId: string,
+  category?: string,
+  status?: TaskNotificationStatus | TaskNotificationStatus[]
+): Promise<TaskNotification | null> {
+  const result = await findTaskNotificationByEntitySafe(entityType, entityId, category, status);
+  if (!result.success) {
+    // For backwards compatibility, return null on error (but now it's explicit)
     return null;
   }
+  return result.data;
 }
 
 // ============================================================================
@@ -515,9 +554,10 @@ export async function updateTaskDuration(
 // ============================================================================
 
 /**
- * Get count of unread task notifications
+ * Get count of unread task notifications (with Result type for proper error handling)
+ * Use this version when you need to distinguish between "0 tasks" and "query error"
  */
-export async function getUnreadCount(userId: string): Promise<number> {
+export async function getUnreadCountSafe(userId: string): Promise<CountResult> {
   const { db } = getFirebase();
 
   try {
@@ -528,17 +568,28 @@ export async function getUnreadCount(userId: string): Promise<number> {
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.size;
+    return { success: true, count: snapshot.size };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to get unread count', { error, userId });
-    return 0;
+    return { success: false, error: errorMessage };
   }
 }
 
 /**
- * Get count of pending actionable task notifications
+ * Get count of unread task notifications
+ * @deprecated Use getUnreadCountSafe for better error handling
  */
-export async function getPendingActionCount(userId: string): Promise<number> {
+export async function getUnreadCount(userId: string): Promise<number> {
+  const result = await getUnreadCountSafe(userId);
+  return result.success ? result.count : 0;
+}
+
+/**
+ * Get count of pending actionable task notifications (with Result type for proper error handling)
+ * Use this version when you need to distinguish between "0 tasks" and "query error"
+ */
+export async function getPendingActionCountSafe(userId: string): Promise<CountResult> {
   const { db } = getFirebase();
 
   try {
@@ -550,11 +601,21 @@ export async function getPendingActionCount(userId: string): Promise<number> {
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.size;
+    return { success: true, count: snapshot.size };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to get pending action count', { error, userId });
-    return 0;
+    return { success: false, error: errorMessage };
   }
+}
+
+/**
+ * Get count of pending actionable task notifications
+ * @deprecated Use getPendingActionCountSafe for better error handling
+ */
+export async function getPendingActionCount(userId: string): Promise<number> {
+  const result = await getPendingActionCountSafe(userId);
+  return result.success ? result.count : 0;
 }
 
 /**

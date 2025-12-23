@@ -7,7 +7,6 @@
 import {
   doc,
   getDoc,
-  updateDoc,
   Timestamp,
   query,
   collection,
@@ -37,6 +36,9 @@ const logger = createLogger({ context: 'paymentHelpers' });
  * - UNPAID: No payments received
  * - PARTIALLY_PAID: Some payment received, but not full amount
  * - PAID: Full amount received
+ *
+ * SECURITY: Uses Firestore transaction to prevent race conditions
+ * when multiple payments are processed concurrently for the same invoice.
  */
 export async function updateTransactionStatusAfterPayment(
   db: Firestore,
@@ -45,31 +47,35 @@ export async function updateTransactionStatusAfterPayment(
 ): Promise<void> {
   try {
     const transactionRef = doc(db, COLLECTIONS.TRANSACTIONS, transactionId);
-    const transactionDoc = await getDoc(transactionRef);
 
-    if (!transactionDoc.exists()) {
-      logger.error('Transaction not found when updating status after payment', { transactionId });
-      return;
-    }
+    // Use transaction to ensure atomic read-modify-write
+    await runTransaction(db, async (transaction) => {
+      const transactionDoc = await transaction.get(transactionRef);
 
-    const transactionData = transactionDoc.data();
-    const totalAmount = transactionData.totalAmount || 0;
-    const previouslyPaid = transactionData.amountPaid || 0;
-    const newTotalPaid = previouslyPaid + paidAmount;
+      if (!transactionDoc.exists()) {
+        logger.error('Transaction not found when updating status after payment', { transactionId });
+        throw new Error(`Transaction ${transactionId} not found`);
+      }
 
-    let newStatus: TransactionStatus;
-    if (newTotalPaid >= totalAmount) {
-      newStatus = 'PAID';
-    } else if (newTotalPaid > 0) {
-      newStatus = 'PARTIALLY_PAID';
-    } else {
-      newStatus = 'UNPAID';
-    }
+      const transactionData = transactionDoc.data();
+      const totalAmount = transactionData.totalAmount || 0;
+      const previouslyPaid = transactionData.amountPaid || 0;
+      const newTotalPaid = previouslyPaid + paidAmount;
 
-    await updateDoc(transactionRef, {
-      status: newStatus,
-      amountPaid: newTotalPaid,
-      updatedAt: Timestamp.now(),
+      let newStatus: TransactionStatus;
+      if (newTotalPaid >= totalAmount) {
+        newStatus = 'PAID';
+      } else if (newTotalPaid > 0) {
+        newStatus = 'PARTIALLY_PAID';
+      } else {
+        newStatus = 'UNPAID';
+      }
+
+      transaction.update(transactionRef, {
+        status: newStatus,
+        amountPaid: newTotalPaid,
+        updatedAt: Timestamp.now(),
+      });
     });
   } catch (error) {
     logger.error('Error updating transaction status after payment', {

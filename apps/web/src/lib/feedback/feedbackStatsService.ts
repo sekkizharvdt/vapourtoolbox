@@ -27,47 +27,96 @@ const logger = createLogger({ context: 'feedbackStatsService' });
 /**
  * Get aggregated feedback statistics
  *
- * Calculates counts by type, module, status, and severity.
- * Uses parallel queries for performance.
+ * Calculates counts by type, status, and severity using efficient count queries.
+ * Uses parallel getCountFromServer queries instead of loading all documents.
+ *
+ * PERFORMANCE: This avoids loading all feedback documents into memory.
+ * For module breakdown (which has dynamic values), we still need to query documents
+ * but with a limit to prevent memory issues at scale.
  */
 export async function getFeedbackStats(db: Firestore): Promise<FeedbackStats> {
   try {
     const feedbackRef = collection(db, 'feedback');
 
-    // Get all feedback to calculate stats
-    const snapshot = await getDocs(feedbackRef);
-
-    const stats: FeedbackStats = {
-      total: 0,
-      byType: { bug: 0, feature: 0, general: 0 },
-      byModule: {},
-      byStatus: { new: 0, in_progress: 0, resolved: 0, closed: 0, wont_fix: 0 },
-      bySeverity: {},
+    // Define all count queries
+    const typeQueries = {
+      bug: query(feedbackRef, where('type', '==', 'bug')),
+      feature: query(feedbackRef, where('type', '==', 'feature')),
+      general: query(feedbackRef, where('type', '==', 'general')),
     };
 
-    snapshot.forEach((doc) => {
-      const data = doc.data() as FeedbackItem;
-      stats.total++;
+    const statusQueries = {
+      new: query(feedbackRef, where('status', '==', 'new')),
+      in_progress: query(feedbackRef, where('status', '==', 'in_progress')),
+      resolved: query(feedbackRef, where('status', '==', 'resolved')),
+      closed: query(feedbackRef, where('status', '==', 'closed')),
+      wont_fix: query(feedbackRef, where('status', '==', 'wont_fix')),
+    };
 
-      // Count by type
-      if (data.type && stats.byType[data.type] !== undefined) {
-        stats.byType[data.type]++;
-      }
+    const severityQueries = {
+      critical: query(feedbackRef, where('type', '==', 'bug'), where('severity', '==', 'critical')),
+      major: query(feedbackRef, where('type', '==', 'bug'), where('severity', '==', 'major')),
+      minor: query(feedbackRef, where('type', '==', 'bug'), where('severity', '==', 'minor')),
+      cosmetic: query(feedbackRef, where('type', '==', 'bug'), where('severity', '==', 'cosmetic')),
+    };
 
-      // Count by module (handle older records without module)
-      const feedbackModule = data.module || 'other';
-      stats.byModule[feedbackModule] = (stats.byModule[feedbackModule] || 0) + 1;
+    // Run all count queries in parallel
+    const [
+      totalCount,
+      bugCount,
+      featureCount,
+      generalCount,
+      newCount,
+      inProgressCount,
+      resolvedCount,
+      closedCount,
+      wontFixCount,
+      criticalCount,
+      majorCount,
+      minorCount,
+      cosmeticCount,
+    ] = await Promise.all([
+      getCountFromServer(query(feedbackRef)),
+      getCountFromServer(typeQueries.bug),
+      getCountFromServer(typeQueries.feature),
+      getCountFromServer(typeQueries.general),
+      getCountFromServer(statusQueries.new),
+      getCountFromServer(statusQueries.in_progress),
+      getCountFromServer(statusQueries.resolved),
+      getCountFromServer(statusQueries.closed),
+      getCountFromServer(statusQueries.wont_fix),
+      getCountFromServer(severityQueries.critical),
+      getCountFromServer(severityQueries.major),
+      getCountFromServer(severityQueries.minor),
+      getCountFromServer(severityQueries.cosmetic),
+    ]);
 
-      // Count by status
-      if (data.status && stats.byStatus[data.status] !== undefined) {
-        stats.byStatus[data.status]++;
-      }
+    // For module breakdown, we need to query documents but with pagination
+    // Use a reasonable limit to prevent loading too many documents
+    const moduleStats = await getModuleBreakdown(db, 1000);
 
-      // Count by severity (only for bugs)
-      if (data.type === 'bug' && data.severity) {
-        stats.bySeverity[data.severity] = (stats.bySeverity[data.severity] || 0) + 1;
-      }
-    });
+    const stats: FeedbackStats = {
+      total: totalCount.data().count,
+      byType: {
+        bug: bugCount.data().count,
+        feature: featureCount.data().count,
+        general: generalCount.data().count,
+      },
+      byModule: moduleStats,
+      byStatus: {
+        new: newCount.data().count,
+        in_progress: inProgressCount.data().count,
+        resolved: resolvedCount.data().count,
+        closed: closedCount.data().count,
+        wont_fix: wontFixCount.data().count,
+      },
+      bySeverity: {
+        critical: criticalCount.data().count,
+        major: majorCount.data().count,
+        minor: minorCount.data().count,
+        cosmetic: cosmeticCount.data().count,
+      },
+    };
 
     logger.info('Calculated feedback stats', { total: stats.total });
     return stats;
@@ -75,6 +124,32 @@ export async function getFeedbackStats(db: Firestore): Promise<FeedbackStats> {
     logger.error('Error getting feedback stats', { error });
     throw error;
   }
+}
+
+/**
+ * Get module breakdown with pagination to prevent loading all documents
+ * @param maxDocs - Maximum number of documents to scan for module breakdown
+ */
+async function getModuleBreakdown(
+  db: Firestore,
+  maxDocs: number = 1000
+): Promise<Record<FeedbackModule | string, number>> {
+  const { limit: firestoreLimit, orderBy } = await import('firebase/firestore');
+  const feedbackRef = collection(db, 'feedback');
+
+  // Query with limit to prevent unbounded reads
+  const q = query(feedbackRef, orderBy('createdAt', 'desc'), firestoreLimit(maxDocs));
+  const snapshot = await getDocs(q);
+
+  const byModule: Record<string, number> = {};
+
+  snapshot.forEach((doc) => {
+    const data = doc.data() as FeedbackItem;
+    const feedbackModule = data.module || 'other';
+    byModule[feedbackModule] = (byModule[feedbackModule] || 0) + 1;
+  });
+
+  return byModule;
 }
 
 /**
