@@ -16,99 +16,19 @@
  * The auth.setup.ts must run first to create the test user.
  */
 
-import { test, expect, Page, BrowserContext } from '@playwright/test';
-import { signInForTest, isTestUserReady } from './auth.helpers';
+import { test, expect } from '@playwright/test';
+import { isTestUserReady } from './auth.helpers';
 
 // Test configuration
 const TEST_TIMEOUT = 30000;
 
-// Shared authenticated state - sign in once, reuse across tests
-let sharedContext: BrowserContext | null = null;
-let sharedPage: Page | null = null;
-let isAuthenticated = false;
-
-/**
- * Navigate to entities page using authenticated shared page
- * Returns the shared page if authenticated, otherwise returns false
- */
-async function getAuthenticatedPage(): Promise<Page | null> {
-  if (!isAuthenticated || !sharedPage) {
-    return null;
-  }
-
-  await sharedPage.goto('/entities');
-  await sharedPage.waitForLoadState('domcontentloaded');
-
-  // Quick check - wait for page subtitle
-  const pageReady = await sharedPage
-    .getByText(/Manage vendors, customers, and business partners/i)
-    .waitFor({ state: 'visible', timeout: 5000 })
-    .then(() => true)
-    .catch(() => false);
-
-  if (!pageReady) return null;
-
-  // Wait for table to load (either entities or empty state)
-  // This ensures Firestore data has been fetched
-  await sharedPage
-    .locator('table, [data-testid="empty-state"]')
-    .or(sharedPage.getByText(/No entities yet/i))
-    .or(sharedPage.getByText(/E2E Test/i)) // Our test entity names contain this
-    .first()
-    .waitFor({ state: 'visible', timeout: 10000 })
-    .catch(() => {
-      console.log('  [getAuthenticatedPage] Timeout waiting for table/empty state');
-    });
-
-  return sharedPage;
-}
-
-/**
- * Quick navigation to entities page - for use after already authenticated
- */
-async function quickNavigateToEntities(page: Page): Promise<void> {
-  await page.goto('/entities');
-  await page.waitForLoadState('domcontentloaded');
-  // Wait for the page subtitle to appear (unique identifier)
-  await page
-    .getByText(/Manage vendors, customers, and business partners/i)
-    .waitFor({ state: 'visible', timeout: 10000 });
-}
-
 test.describe('Entities Module', () => {
-  // Sign in once before all tests in this describe block
-  test.beforeAll(async ({ browser }) => {
-    console.log('  [beforeAll] Setting up shared authenticated session...');
-
+  // Check if test user is ready before each test
+  test.beforeEach(async () => {
     const testUserReady = await isTestUserReady();
     if (!testUserReady) {
-      console.log('  [beforeAll] Test user not ready - tests will be skipped');
-      return;
+      test.skip(true, 'Test user not ready - skipping test');
     }
-
-    // Create a persistent context
-    sharedContext = await browser.newContext();
-    sharedPage = await sharedContext.newPage();
-
-    // Sign in once
-    isAuthenticated = await signInForTest(sharedPage);
-    console.log(`  [beforeAll] Authentication result: ${isAuthenticated}`);
-
-    if (isAuthenticated) {
-      // Navigate to entities page to warm up
-      await sharedPage.goto('/entities');
-      await sharedPage.waitForLoadState('domcontentloaded');
-      console.log('  [beforeAll] Shared session ready');
-    }
-  });
-
-  test.afterAll(async () => {
-    console.log('  [afterAll] Cleaning up shared session...');
-    if (sharedPage) await sharedPage.close();
-    if (sharedContext) await sharedContext.close();
-    sharedPage = null;
-    sharedContext = null;
-    isAuthenticated = false;
   });
 
   test.describe('Page Navigation', () => {
@@ -131,45 +51,49 @@ test.describe('Entities Module', () => {
       ).toBeVisible({ timeout: 15000 });
     });
 
-    test('should display entities page when authenticated', async () => {
-      if (!isAuthenticated || !sharedPage) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display entities page when authenticated', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
 
-      await quickNavigateToEntities(sharedPage);
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Check for page header - use .first() because "Entity Management" appears in both sidebar and page title
-      await expect(sharedPage.getByText(/Entity Management/i).first()).toBeVisible();
+      await expect(page.getByText(/Entity Management/i).first()).toBeVisible();
       await expect(
-        sharedPage.getByText(/Manage vendors, customers, and business partners/i)
+        page.getByText(/Manage vendors, customers, and business partners/i)
       ).toBeVisible();
     });
 
-    test('should display stats cards when authenticated', async () => {
-      if (!isAuthenticated || !sharedPage) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display stats cards when authenticated', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
 
-      await quickNavigateToEntities(sharedPage);
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Stats cards should be visible
-      await expect(sharedPage.getByText(/Total Entities/i)).toBeVisible();
-      await expect(sharedPage.getByText(/^Active$/i)).toBeVisible();
-      await expect(sharedPage.getByText(/^Archived$/i)).toBeVisible();
-      await expect(sharedPage.getByText(/^Vendors$/i)).toBeVisible();
-      await expect(sharedPage.getByText(/^Customers$/i)).toBeVisible();
+      await expect(page.getByText(/Total Entities/i)).toBeVisible();
+      await expect(page.getByText(/^Active$/i)).toBeVisible();
+      await expect(page.getByText(/^Archived$/i)).toBeVisible();
+      await expect(page.getByText(/^Vendors$/i)).toBeVisible();
+      await expect(page.getByText(/^Customers$/i)).toBeVisible();
     });
   });
 
   test.describe('Filtering & Search', () => {
-    test('should display filter controls', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display filter controls', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Search field should be visible
       await expect(page.getByPlaceholder(/Search entities/i)).toBeVisible();
@@ -181,12 +105,14 @@ test.describe('Entities Module', () => {
       await expect(page.getByText(/All Roles/i).first()).toBeVisible();
     });
 
-    test('should filter by status', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should filter by status', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Click status dropdown - use text content to find the MUI Select
       await page
@@ -206,12 +132,14 @@ test.describe('Entities Module', () => {
       await page.waitForTimeout(500);
     });
 
-    test('should filter by role', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should filter by role', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Click role dropdown - use text content to find the MUI Select
       await page
@@ -231,12 +159,14 @@ test.describe('Entities Module', () => {
       await page.waitForTimeout(500);
     });
 
-    test('should search by entity name', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should search by entity name', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Type in search field
       await page.getByPlaceholder(/Search entities/i).fill('Test');
@@ -248,12 +178,14 @@ test.describe('Entities Module', () => {
       await expect(page.getByText(/Entity Management/i).first()).toBeVisible();
     });
 
-    test('should clear filters', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should clear filters', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Apply some filters
       await page.getByPlaceholder(/Search entities/i).fill('Test');
@@ -275,12 +207,14 @@ test.describe('Entities Module', () => {
   });
 
   test.describe('Table Interactions', () => {
-    test('should display table headers or empty state', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display table headers or empty state', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Check if there are entities (table visible) or empty state
       const hasTable = await page
@@ -306,12 +240,14 @@ test.describe('Entities Module', () => {
       }
     });
 
-    test('should sort by name when entities exist', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should sort by name when entities exist', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Skip if no entities
       const hasEmptyState = await page
@@ -331,12 +267,14 @@ test.describe('Entities Module', () => {
       }
     });
 
-    test('should display pagination when entities exist', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display pagination when entities exist', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Skip if no entities - pagination may not show with empty table
       const hasEmptyState = await page
@@ -358,12 +296,14 @@ test.describe('Entities Module', () => {
   });
 
   test.describe('Create Entity Flow', () => {
-    test('should show New Entity button for authorized users', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should show New Entity button for authorized users', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Button may or may not be visible based on permissions
       const newButton = page.getByRole('button', { name: /New Entity/i });
@@ -377,12 +317,14 @@ test.describe('Entities Module', () => {
       }
     });
 
-    test('should open create entity dialog', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should open create entity dialog', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       const newButton = page.getByRole('button', { name: /New Entity/i });
       const hasPermission = await newButton.isVisible().catch(() => false);
@@ -399,12 +341,14 @@ test.describe('Entities Module', () => {
       await expect(page.getByText(/Create New Entity/i)).toBeVisible();
     });
 
-    test('should display all form fields in create dialog', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display all form fields in create dialog', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       const newButton = page.getByRole('button', { name: /New Entity/i });
       const hasPermission = await newButton.isVisible().catch(() => false);
@@ -427,12 +371,14 @@ test.describe('Entities Module', () => {
       await expect(dialog.getByText(/Contact Persons/i).first()).toBeVisible();
     });
 
-    test('should close dialog on cancel', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should close dialog on cancel', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       const newButton = page.getByRole('button', { name: /New Entity/i });
       const hasPermission = await newButton.isVisible().catch(() => false);
@@ -454,12 +400,14 @@ test.describe('Entities Module', () => {
   });
 
   test.describe('View Entity Flow', () => {
-    test('should open view entity dialog when clicking View Details', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should open view entity dialog when clicking View Details', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Find and click View Details button on first row
       const viewButton = page.getByRole('button', { name: /View Details/i }).first();
@@ -476,12 +424,14 @@ test.describe('Entities Module', () => {
       await expect(page.getByRole('dialog')).toBeVisible();
     });
 
-    test('should display entity details in view dialog', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display entity details in view dialog', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       const viewButton = page.getByRole('button', { name: /View Details/i }).first();
       const hasEntities = await viewButton.isVisible().catch(() => false);
@@ -498,12 +448,14 @@ test.describe('Entities Module', () => {
       await expect(page.getByText(/Basic Information/i)).toBeVisible();
     });
 
-    test('should close view dialog', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should close view dialog', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       const viewButton = page.getByRole('button', { name: /View Details/i }).first();
       const hasEntities = await viewButton.isVisible().catch(() => false);
@@ -525,12 +477,14 @@ test.describe('Entities Module', () => {
   });
 
   test.describe('Edit Entity Flow', () => {
-    test('should open edit entity dialog', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should open edit entity dialog', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Find Edit button on first row
       const editButton = page.getByRole('button', { name: /Edit Entity/i }).first();
@@ -548,12 +502,14 @@ test.describe('Entities Module', () => {
       await expect(page.getByText(/Edit Entity/i)).toBeVisible();
     });
 
-    test('should pre-populate entity data in edit dialog', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should pre-populate entity data in edit dialog', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       const editButton = page.getByRole('button', { name: /Edit Entity/i }).first();
       const hasPermission = await editButton.isVisible().catch(() => false);
@@ -574,12 +530,14 @@ test.describe('Entities Module', () => {
   });
 
   test.describe('Archive Entity Flow', () => {
-    test('should open archive dialog', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should open archive dialog', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Find Archive button on first row
       const archiveButton = page.getByRole('button', { name: /Archive Entity/i }).first();
@@ -597,12 +555,14 @@ test.describe('Entities Module', () => {
       await expect(page.getByText(/Are you sure you want to archive/i)).toBeVisible();
     });
 
-    test('should require reason for archiving', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should require reason for archiving', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       const archiveButton = page.getByRole('button', { name: /Archive Entity/i }).first();
       const hasPermission = await archiveButton.isVisible().catch(() => false);
@@ -626,12 +586,14 @@ test.describe('Entities Module', () => {
       await expect(submitButton).not.toBeDisabled();
     });
 
-    test('should close archive dialog on cancel', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should close archive dialog on cancel', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       const archiveButton = page.getByRole('button', { name: /Archive Entity/i }).first();
       const hasPermission = await archiveButton.isVisible().catch(() => false);
@@ -653,12 +615,14 @@ test.describe('Entities Module', () => {
   });
 
   test.describe('Unarchive Entity Flow', () => {
-    test('should show unarchive button for archived entities', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should show unarchive button for archived entities', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Filter to archived entities - use text content to find MUI Select
       await page
@@ -681,12 +645,14 @@ test.describe('Entities Module', () => {
       await expect(unarchiveButton).toBeVisible();
     });
 
-    test('should open unarchive dialog', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should open unarchive dialog', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Filter to archived entities - use text content to find MUI Select
       await page
@@ -715,16 +681,15 @@ test.describe('Entities Module', () => {
   });
 
   test.describe('Responsive Design', () => {
-    test('should work on mobile viewport', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
-
+    test('should work on mobile viewport', async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 667 });
-      await page.reload();
+      await page.goto('/entities');
       await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // On mobile, sidebar is collapsed/hidden, so check for main content instead
       // Use the unique page subtitle which is always visible in the main content area
@@ -734,16 +699,15 @@ test.describe('Entities Module', () => {
       await expect(page.getByText(/Total Entities/i)).toBeVisible();
     });
 
-    test('should work on tablet viewport', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
-
+    test('should work on tablet viewport', async ({ page }) => {
       await page.setViewportSize({ width: 768, height: 1024 });
-      await page.reload();
+      await page.goto('/entities');
       await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // On tablet, sidebar may be collapsed, so check for main content
       // Use the unique page subtitle which is always visible
@@ -755,12 +719,14 @@ test.describe('Entities Module', () => {
   });
 
   test.describe('Empty State', () => {
-    test('should show empty state or table when no entities match filter', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should show empty state or table when no entities match filter', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Search for something that doesn't exist
       await page.getByPlaceholder(/Search entities/i).fill('ZZZZZZZZNONEXISTENT');
@@ -776,24 +742,28 @@ test.describe('Entities Module', () => {
   });
 
   test.describe('Accessibility', () => {
-    test('should have proper form labels', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should have proper form labels', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Filter dropdowns should be visible - use text content since MUI Select doesn't use standard labels
       await expect(page.getByText(/All Status/i).first()).toBeVisible();
       await expect(page.getByText(/All Roles/i).first()).toBeVisible();
     });
 
-    test('should be keyboard navigable', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should be keyboard navigable', async ({ page }) => {
+      await page.goto('/entities');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for page subtitle to appear
+      await page
+        .getByText(/Manage vendors, customers, and business partners/i)
+        .waitFor({ state: 'visible', timeout: 10000 });
 
       // Tab through the filters
       await page.keyboard.press('Tab');

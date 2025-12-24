@@ -15,71 +15,18 @@
  * Note: These tests require authentication via Firebase emulator.
  */
 
-import { test, expect, Page, BrowserContext } from '@playwright/test';
-import { signInForTest, isTestUserReady } from './auth.helpers';
+import { test, expect } from '@playwright/test';
+import { isTestUserReady } from './auth.helpers';
 
 // Test configuration
 const TEST_TIMEOUT = 30000;
 
-// Shared authenticated state
-let sharedContext: BrowserContext | null = null;
-let sharedPage: Page | null = null;
-let isAuthenticated = false;
-
-/**
- * Navigate to materials page using authenticated shared page
- */
-async function getAuthenticatedPage(): Promise<Page | null> {
-  if (!isAuthenticated || !sharedPage) {
-    return null;
-  }
-
-  await sharedPage.goto('/materials');
-  await sharedPage.waitForLoadState('domcontentloaded');
-
-  // Wait for page to load
-  const pageReady = await sharedPage
-    .getByText(/Materials|Material Management/i)
-    .first()
-    .waitFor({ state: 'visible', timeout: 5000 })
-    .then(() => true)
-    .catch(() => false);
-
-  if (!pageReady) return null;
-
-  return sharedPage;
-}
-
 test.describe('Materials Module', () => {
-  test.beforeAll(async ({ browser }) => {
-    console.log('  [beforeAll] Setting up shared authenticated session...');
-
+  test.beforeEach(async () => {
     const testUserReady = await isTestUserReady();
     if (!testUserReady) {
-      console.log('  [beforeAll] Test user not ready - tests will be skipped');
-      return;
+      test.skip(true, 'Test user not ready - Firebase emulator may not be running');
     }
-
-    sharedContext = await browser.newContext();
-    sharedPage = await sharedContext.newPage();
-
-    isAuthenticated = await signInForTest(sharedPage);
-    console.log(`  [beforeAll] Authentication result: ${isAuthenticated}`);
-
-    if (isAuthenticated) {
-      await sharedPage.goto('/materials');
-      await sharedPage.waitForLoadState('domcontentloaded');
-      console.log('  [beforeAll] Shared session ready');
-    }
-  });
-
-  test.afterAll(async () => {
-    console.log('  [afterAll] Cleaning up shared session...');
-    if (sharedPage) await sharedPage.close();
-    if (sharedContext) await sharedContext.close();
-    sharedPage = null;
-    sharedContext = null;
-    isAuthenticated = false;
   });
 
   test.describe('Page Navigation', () => {
@@ -99,27 +46,19 @@ test.describe('Materials Module', () => {
       ).toBeVisible({ timeout: 15000 });
     });
 
-    test('should display materials page when authenticated', async () => {
-      if (!isAuthenticated || !sharedPage) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
-
-      await sharedPage.goto('/materials');
-      await sharedPage.waitForLoadState('domcontentloaded');
+    test('should display materials page when authenticated', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       // Check for page header
-      await expect(sharedPage.getByText(/Materials|Material Management/i).first()).toBeVisible();
+      await expect(page.getByText(/Materials|Material Management/i).first()).toBeVisible();
     });
   });
 
   test.describe('Material Categories', () => {
-    test('should display category tabs or navigation', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display category tabs or navigation', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       // Check for category links/tabs
       const hasCategories = await page
@@ -131,12 +70,9 @@ test.describe('Materials Module', () => {
       expect(hasCategories).toBe(true);
     });
 
-    test('should navigate to Pipes category', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should navigate to Pipes category', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       // Click on Pipes
       await page.getByText(/Pipes/i).first().click();
@@ -152,12 +88,9 @@ test.describe('Materials Module', () => {
       expect(hasPipesContent).toBe(true);
     });
 
-    test('should navigate to Plates category', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should navigate to Plates category', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       // Click on Plates
       await page
@@ -176,12 +109,9 @@ test.describe('Materials Module', () => {
       expect(hasPlatesContent).toBe(true);
     });
 
-    test('should navigate to Fittings category', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should navigate to Fittings category', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       // Click on Fittings
       await page
@@ -200,12 +130,9 @@ test.describe('Materials Module', () => {
       expect(hasFittingsContent).toBe(true);
     });
 
-    test('should navigate to Flanges category', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should navigate to Flanges category', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       // Click on Flanges
       await page
@@ -226,12 +153,9 @@ test.describe('Materials Module', () => {
   });
 
   test.describe('Materials List View', () => {
-    test('should display materials table or empty state', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display materials table or empty state', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       // Check for table or empty state
       const hasTable = await page
@@ -246,12 +170,9 @@ test.describe('Materials Module', () => {
       expect(hasTable || hasEmptyState).toBe(true);
     });
 
-    test('should display search/filter controls', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display search/filter controls', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       // Look for search controls
       const hasSearch = await page
@@ -262,12 +183,9 @@ test.describe('Materials Module', () => {
       expect(hasSearch).toBe(true);
     });
 
-    test('should filter materials by search term', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should filter materials by search term', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       // Type in search
       const searchInput = page.getByPlaceholder(/Search|Filter/i);
@@ -282,12 +200,9 @@ test.describe('Materials Module', () => {
   });
 
   test.describe('Create Material Flow', () => {
-    test('should show Add Material button for authorized users', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should show Add Material button for authorized users', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       // Look for create button
       const createButton = page.getByRole('button', { name: /Add|New|Create/i }).first();
@@ -300,12 +215,9 @@ test.describe('Materials Module', () => {
       }
     });
 
-    test('should open create material dialog', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should open create material dialog', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       const createButton = page.getByRole('button', { name: /Add|New|Create/i }).first();
       const hasPermission = await createButton.isVisible().catch(() => false);
@@ -323,12 +235,9 @@ test.describe('Materials Module', () => {
       ).toBeVisible({ timeout: 5000 });
     });
 
-    test('should display form fields in create dialog', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display form fields in create dialog', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       const createButton = page.getByRole('button', { name: /Add|New|Create/i }).first();
       const hasPermission = await createButton.isVisible().catch(() => false);
@@ -361,12 +270,9 @@ test.describe('Materials Module', () => {
       expect(hasGrade || hasSize || hasPrice).toBe(true);
     });
 
-    test('should close dialog on cancel', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should close dialog on cancel', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       const createButton = page.getByRole('button', { name: /Add|New|Create/i }).first();
       const hasPermission = await createButton.isVisible().catch(() => false);
@@ -388,13 +294,7 @@ test.describe('Materials Module', () => {
   });
 
   test.describe('Material Detail View', () => {
-    test('should open material detail on click', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
-
+    test('should open material detail on click', async ({ page }) => {
       // Navigate to a specific category with materials
       await page.goto('/materials/pipes');
       await page.waitForLoadState('domcontentloaded');
@@ -430,12 +330,9 @@ test.describe('Materials Module', () => {
   });
 
   test.describe('Price Management', () => {
-    test('should display price information', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display price information', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       // Look for price-related elements
       const hasPriceColumn = await page
@@ -447,13 +344,7 @@ test.describe('Materials Module', () => {
       expect(hasPriceColumn).toBe(true);
     });
 
-    test('should show price update option in detail view', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
-
+    test('should show price update option in detail view', async ({ page }) => {
       // Navigate to pipes
       await page.goto('/materials/pipes');
       await page.waitForLoadState('domcontentloaded');
@@ -492,12 +383,9 @@ test.describe('Materials Module', () => {
   });
 
   test.describe('Material Properties', () => {
-    test('should display material specifications', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display material specifications', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       // Check for material specification columns in table
       const hasSpecs = await page
@@ -509,12 +397,9 @@ test.describe('Materials Module', () => {
       expect(hasSpecs).toBe(true);
     });
 
-    test('should show material type indicators', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should show material type indicators', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       // Check for material type indicators (Stainless Steel, Carbon Steel, etc.)
       const hasTypes = await page
@@ -528,30 +413,18 @@ test.describe('Materials Module', () => {
   });
 
   test.describe('Responsive Design', () => {
-    test('should work on mobile viewport', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
-
+    test('should work on mobile viewport', async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 667 });
-      await page.reload();
+      await page.goto('/materials');
       await page.waitForLoadState('domcontentloaded');
 
       // Should still show materials content
       await expect(page.getByText(/Materials|Material/i).first()).toBeVisible();
     });
 
-    test('should work on tablet viewport', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
-
+    test('should work on tablet viewport', async ({ page }) => {
       await page.setViewportSize({ width: 768, height: 1024 });
-      await page.reload();
+      await page.goto('/materials');
       await page.waitForLoadState('domcontentloaded');
 
       await expect(page.getByText(/Materials|Material/i).first()).toBeVisible();
@@ -559,23 +432,17 @@ test.describe('Materials Module', () => {
   });
 
   test.describe('Accessibility', () => {
-    test('should have proper heading structure', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should have proper heading structure', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       const headings = await page.locator('h1, h2, h3, h4, h5, h6').all();
       expect(headings.length).toBeGreaterThan(0);
     });
 
-    test('should be keyboard navigable', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should be keyboard navigable', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       // Tab through the page
       await page.keyboard.press('Tab');
@@ -585,12 +452,9 @@ test.describe('Materials Module', () => {
       expect(focusedElement).toBeTruthy();
     });
 
-    test('should have accessible table headers', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should have accessible table headers', async ({ page }) => {
+      await page.goto('/materials');
+      await page.waitForLoadState('domcontentloaded');
 
       const hasTable = await page
         .locator('table')

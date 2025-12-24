@@ -54,6 +54,7 @@ interface AuthStatus {
   ready: boolean;
   email: string;
   password: string;
+  customToken?: string;
   timestamp: number;
 }
 
@@ -100,10 +101,10 @@ function initFirebaseAdmin() {
 }
 
 /**
- * Create a test user in Firebase Auth Emulator and set custom claims
- * Deletes existing user first to ensure password is correct
+ * Create a test user in Firebase Auth Emulator and generate a custom token
+ * Returns the custom token for sign-in, or null on failure
  */
-async function setupTestUser(): Promise<boolean> {
+async function setupTestUser(): Promise<{ success: boolean; customToken?: string }> {
   try {
     initFirebaseAdmin();
     const auth = admin.auth();
@@ -112,7 +113,7 @@ async function setupTestUser(): Promise<boolean> {
     let userRecord: admin.auth.UserRecord;
 
     // Step 1: Create or Get User
-    // Always delete and recreate to ensure password is correct
+    // Always delete and recreate to ensure clean state
     try {
       const existingUser = await auth.getUserByEmail(TEST_USER.email);
       await auth.deleteUser(existingUser.uid);
@@ -121,7 +122,7 @@ async function setupTestUser(): Promise<boolean> {
       // User doesn't exist, that's fine
     }
 
-    // Create fresh user with known password
+    // Create fresh user
     userRecord = await auth.createUser({
       email: TEST_USER.email,
       password: TEST_USER.password,
@@ -156,14 +157,19 @@ async function setupTestUser(): Promise<boolean> {
         updatedAt: admin.firestore.Timestamp.fromDate(now),
       },
       { merge: true }
-    ); // Merge to avoid overwriting if exists
+    );
 
     console.log('  Created/Updated user document in Firestore');
 
-    return true;
+    // Step 4: Create a custom token for sign-in
+    // This is more reliable than email/password sign-in with emulator
+    const customToken = await auth.createCustomToken(userId, TEST_USER_CLAIMS);
+    console.log('  Created custom token for authentication');
+
+    return { success: true, customToken };
   } catch (error) {
     console.error('  Error setting up test user:', error);
-    return false;
+    return { success: false };
   }
 }
 
@@ -294,11 +300,11 @@ setup('authenticate', async ({ browser }) => {
       const userSetup = await setupTestUser();
 
       // Seed test entities for E2E tests
-      if (userSetup) {
+      if (userSetup.success) {
         await seedTestEntities();
       }
 
-      if (userSetup) {
+      if (userSetup.success && userSetup.customToken) {
         // Navigate to the app
         await page.goto('/login');
         await page.waitForLoadState('networkidle');
@@ -316,60 +322,32 @@ setup('authenticate', async ({ browser }) => {
             console.log('  Auth did not finish loading in time');
           });
 
-        // Try to sign in using email/password (requires Email/Password provider enabled in Firebase Console)
-        // This is the most reliable method when the provider is enabled
-        const signInResult = await page.evaluate(
-          async (creds) => {
-            const win = window as Window & {
-              __e2eSignIn?: (email: string, password: string) => Promise<void>;
+        // Sign in using custom token (more reliable than email/password with emulator)
+        const signInResult = await page.evaluate(async (token) => {
+          const win = window as Window & {
+            __e2eSignInWithToken?: (token: string) => Promise<void>;
+          };
+
+          if (!win.__e2eSignInWithToken) {
+            return {
+              success: false,
+              error:
+                'E2E custom token sign-in method not available. Is NEXT_PUBLIC_USE_EMULATOR=true?',
             };
+          }
 
-            if (!win.__e2eSignIn) {
-              return {
-                success: false,
-                error: 'E2E sign-in method not available. Is NEXT_PUBLIC_USE_EMULATOR=true?',
-              };
-            }
-
-            try {
-              await win.__e2eSignIn(creds.email, creds.password);
-              return { success: true };
-            } catch (error) {
-              return { success: false, error: String(error) };
-            }
-          },
-          { email: TEST_USER.email, password: TEST_USER.password }
-        );
+          try {
+            await win.__e2eSignInWithToken(token);
+            return { success: true };
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        }, userSetup.customToken);
 
         if (signInResult.success) {
-          console.log('  Signed in via email/password');
+          console.log('  Signed in via custom token');
 
-          // Force token refresh to pick up the new claims set by Admin SDK
-          console.log('  Forcing token refresh to get claims...');
-          const refreshResult = await page.evaluate(async () => {
-            // Use the exposed __e2eForceTokenRefresh method
-            const win = window as Window & {
-              __e2eForceTokenRefresh?: () => Promise<void>;
-            };
-
-            if (!win.__e2eForceTokenRefresh) {
-              return { success: false, error: '__e2eForceTokenRefresh not available' };
-            }
-
-            try {
-              await win.__e2eForceTokenRefresh();
-              return { success: true };
-            } catch (e) {
-              return { success: false, error: String(e) };
-            }
-          });
-
-          console.log(
-            '  Token refresh result:',
-            refreshResult.success ? 'success' : refreshResult.error
-          );
-
-          // Wait for full auth state (user + claims) not just loading
+          // Wait for full auth state (user + claims)
           console.log('  Waiting for full auth state (user + claims)...');
           const authStateReady = await page
             .waitForFunction(
@@ -445,11 +423,25 @@ setup('authenticate', async ({ browser }) => {
   await context.storageState({ path: STORAGE_STATE_PATH });
   await context.close();
 
+  // Generate a fresh custom token for other tests to use
+  let customTokenForTests: string | undefined;
+  if (isAuthenticated) {
+    try {
+      initFirebaseAdmin();
+      const auth = admin.auth();
+      const user = await auth.getUserByEmail(TEST_USER.email);
+      customTokenForTests = await auth.createCustomToken(user.uid, TEST_USER_CLAIMS);
+    } catch {
+      console.log('  Could not generate custom token for tests');
+    }
+  }
+
   // Write auth status file for test coordination
   await writeAuthStatus({
     ready: isAuthenticated,
     email: TEST_USER.email,
     password: TEST_USER.password,
+    customToken: customTokenForTests,
     timestamp: Date.now(),
   });
 

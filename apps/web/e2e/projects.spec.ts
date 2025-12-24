@@ -13,73 +13,21 @@
  * Run with: pnpm test:e2e --grep "Projects"
  *
  * Note: These tests require authentication via Firebase emulator.
+ * The chromium project uses storageState which provides authenticated sessions.
  */
 
-import { test, expect, Page, BrowserContext } from '@playwright/test';
-import { signInForTest, isTestUserReady } from './auth.helpers';
+import { test, expect } from '@playwright/test';
+import { isTestUserReady } from './auth.helpers';
 
 // Test configuration
 const TEST_TIMEOUT = 30000;
 
-// Shared authenticated state
-let sharedContext: BrowserContext | null = null;
-let sharedPage: Page | null = null;
-let isAuthenticated = false;
-
-/**
- * Navigate to projects page using authenticated shared page
- */
-async function getAuthenticatedPage(): Promise<Page | null> {
-  if (!isAuthenticated || !sharedPage) {
-    return null;
-  }
-
-  await sharedPage.goto('/projects');
-  await sharedPage.waitForLoadState('domcontentloaded');
-
-  // Wait for page to load
-  const pageReady = await sharedPage
-    .getByText(/Projects|Project List/i)
-    .first()
-    .waitFor({ state: 'visible', timeout: 5000 })
-    .then(() => true)
-    .catch(() => false);
-
-  if (!pageReady) return null;
-
-  return sharedPage;
-}
-
 test.describe('Projects Module', () => {
-  test.beforeAll(async ({ browser }) => {
-    console.log('  [beforeAll] Setting up shared authenticated session...');
-
+  test.beforeEach(async () => {
     const testUserReady = await isTestUserReady();
     if (!testUserReady) {
-      console.log('  [beforeAll] Test user not ready - tests will be skipped');
-      return;
+      console.log('  Test user not ready - authenticated tests will be skipped');
     }
-
-    sharedContext = await browser.newContext();
-    sharedPage = await sharedContext.newPage();
-
-    isAuthenticated = await signInForTest(sharedPage);
-    console.log(`  [beforeAll] Authentication result: ${isAuthenticated}`);
-
-    if (isAuthenticated) {
-      await sharedPage.goto('/projects');
-      await sharedPage.waitForLoadState('domcontentloaded');
-      console.log('  [beforeAll] Shared session ready');
-    }
-  });
-
-  test.afterAll(async () => {
-    console.log('  [afterAll] Cleaning up shared session...');
-    if (sharedPage) await sharedPage.close();
-    if (sharedContext) await sharedContext.close();
-    sharedPage = null;
-    sharedContext = null;
-    isAuthenticated = false;
   });
 
   test.describe('Page Navigation', () => {
@@ -122,10 +70,9 @@ test.describe('Projects Module', () => {
   });
 
   test.describe('Projects List View (Authenticated)', () => {
-    test('should display projects table or empty state when authenticated', async () => {
-      const page = await getAuthenticatedPage();
-
-      if (!page) {
+    test('should display projects table or empty state when authenticated', async ({ page }) => {
+      const testUserReady = await isTestUserReady();
+      if (!testUserReady) {
         console.log('  Skipping: Not authenticated');
         return;
       }
@@ -143,10 +90,9 @@ test.describe('Projects Module', () => {
       ).toBeVisible({ timeout: 10000 });
     });
 
-    test('should have search/filter capability', async () => {
-      const page = await getAuthenticatedPage();
-
-      if (!page) {
+    test('should have search/filter capability', async ({ page }) => {
+      const testUserReady = await isTestUserReady();
+      if (!testUserReady) {
         console.log('  Skipping: Not authenticated');
         return;
       }
@@ -156,7 +102,9 @@ test.describe('Projects Module', () => {
 
       // Look for search input or filter controls
       const hasSearchOrFilter = await page
-        .locator('input[placeholder*="search" i], input[placeholder*="filter" i], button:has-text("Filter")')
+        .locator(
+          'input[placeholder*="search" i], input[placeholder*="filter" i], button:has-text("Filter")'
+        )
         .first()
         .isVisible()
         .catch(() => false);
@@ -165,10 +113,9 @@ test.describe('Projects Module', () => {
       console.log(`  Search/filter available: ${hasSearchOrFilter}`);
     });
 
-    test('should have create project button', async () => {
-      const page = await getAuthenticatedPage();
-
-      if (!page) {
+    test('should have create project button', async ({ page }) => {
+      const testUserReady = await isTestUserReady();
+      if (!testUserReady) {
         console.log('  Skipping: Not authenticated');
         return;
       }
@@ -222,10 +169,9 @@ test.describe('Projects Module', () => {
   });
 
   test.describe('Project Charter Sections (Authenticated)', () => {
-    test('should display charter sections when viewing a project', async () => {
-      const page = await getAuthenticatedPage();
-
-      if (!page) {
+    test('should display charter sections when viewing a project', async ({ page }) => {
+      const testUserReady = await isTestUserReady();
+      if (!testUserReady) {
         console.log('  Skipping: Not authenticated');
         return;
       }
@@ -243,20 +189,30 @@ test.describe('Projects Module', () => {
 
       if (isCharterPage) {
         // Verify charter section headers exist
-        const hasObjectives = await page.getByText(/Objectives/i).isVisible().catch(() => false);
-        const hasScope = await page.getByText(/Scope/i).isVisible().catch(() => false);
-        const hasBudget = await page.getByText(/Budget/i).isVisible().catch(() => false);
+        const hasObjectives = await page
+          .getByText(/Objectives/i)
+          .isVisible()
+          .catch(() => false);
+        const hasScope = await page
+          .getByText(/Scope/i)
+          .isVisible()
+          .catch(() => false);
+        const hasBudget = await page
+          .getByText(/Budget/i)
+          .isVisible()
+          .catch(() => false);
 
-        console.log(`  Charter sections visible: objectives=${hasObjectives}, scope=${hasScope}, budget=${hasBudget}`);
+        console.log(
+          `  Charter sections visible: objectives=${hasObjectives}, scope=${hasScope}, budget=${hasBudget}`
+        );
       } else {
         console.log('  Project charter not found or not accessible');
       }
     });
 
-    test('should display procurement items section in charter', async () => {
-      const page = await getAuthenticatedPage();
-
-      if (!page) {
+    test('should display procurement items section in charter', async ({ page }) => {
+      const testUserReady = await isTestUserReady();
+      if (!testUserReady) {
         console.log('  Skipping: Not authenticated');
         return;
       }
@@ -274,10 +230,9 @@ test.describe('Projects Module', () => {
       console.log(`  Procurement section visible: ${hasProcurementSection}`);
     });
 
-    test('should display document requirements section in charter', async () => {
-      const page = await getAuthenticatedPage();
-
-      if (!page) {
+    test('should display document requirements section in charter', async ({ page }) => {
+      const testUserReady = await isTestUserReady();
+      if (!testUserReady) {
         console.log('  Skipping: Not authenticated');
         return;
       }
@@ -381,7 +336,9 @@ test.describe('Projects Module', () => {
       expect(unexpectedErrors).toHaveLength(0);
     });
 
-    test('should have navigation breadcrumbs or back button on project detail', async ({ page }) => {
+    test('should have navigation breadcrumbs or back button on project detail', async ({
+      page,
+    }) => {
       await page.goto('/projects/test-project-id');
       await page.waitForLoadState('networkidle');
 
@@ -399,10 +356,9 @@ test.describe('Projects Module', () => {
   });
 
   test.describe('Project Status Display', () => {
-    test('should show project status indicator', async () => {
-      const page = await getAuthenticatedPage();
-
-      if (!page) {
+    test('should show project status indicator', async ({ page }) => {
+      const testUserReady = await isTestUserReady();
+      if (!testUserReady) {
         console.log('  Skipping: Not authenticated');
         return;
       }
@@ -423,11 +379,17 @@ test.describe('Projects Module', () => {
 });
 
 test.describe('Project Charter Workflow', () => {
-  test.describe('Charter Actions (Authenticated)', () => {
-    test('should have charter submit button when in draft status', async () => {
-      const page = await getAuthenticatedPage();
+  test.beforeEach(async () => {
+    const testUserReady = await isTestUserReady();
+    if (!testUserReady) {
+      console.log('  Test user not ready - authenticated tests will be skipped');
+    }
+  });
 
-      if (!page) {
+  test.describe('Charter Actions (Authenticated)', () => {
+    test('should have charter submit button when in draft status', async ({ page }) => {
+      const testUserReady = await isTestUserReady();
+      if (!testUserReady) {
         console.log('  Skipping: Not authenticated');
         return;
       }
@@ -447,10 +409,9 @@ test.describe('Project Charter Workflow', () => {
       console.log(`  Submit action visible: ${hasSubmitAction}`);
     });
 
-    test('should have add procurement item action', async () => {
-      const page = await getAuthenticatedPage();
-
-      if (!page) {
+    test('should have add procurement item action', async ({ page }) => {
+      const testUserReady = await isTestUserReady();
+      if (!testUserReady) {
         console.log('  Skipping: Not authenticated');
         return;
       }
@@ -470,10 +431,9 @@ test.describe('Project Charter Workflow', () => {
       console.log(`  Add procurement action visible: ${hasAddAction}`);
     });
 
-    test('should have add document requirement action', async () => {
-      const page = await getAuthenticatedPage();
-
-      if (!page) {
+    test('should have add document requirement action', async ({ page }) => {
+      const testUserReady = await isTestUserReady();
+      if (!testUserReady) {
         console.log('  Skipping: Not authenticated');
         return;
       }

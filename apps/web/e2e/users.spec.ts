@@ -17,114 +17,43 @@
  * The test user must have MANAGE_USERS permission.
  */
 
-import { test, expect, Page, BrowserContext } from '@playwright/test';
-import { signInForTest, isTestUserReady } from './auth.helpers';
+import { test, expect } from '@playwright/test';
+import { isTestUserReady } from './auth.helpers';
 
 // Test configuration
 const TEST_TIMEOUT = 30000;
 
-// Shared authenticated state
-let sharedContext: BrowserContext | null = null;
-let sharedPage: Page | null = null;
-let isAuthenticated = false;
-
-/**
- * Navigate to users page using authenticated shared page
- */
-async function getAuthenticatedPage(): Promise<Page | null> {
-  if (!isAuthenticated || !sharedPage) {
-    return null;
-  }
-
-  await sharedPage.goto('/admin/users');
-  await sharedPage.waitForLoadState('domcontentloaded');
-
-  // Wait for page subtitle
-  const pageReady = await sharedPage
-    .getByText(/Manage users, permissions, and module access/i)
-    .waitFor({ state: 'visible', timeout: 5000 })
-    .then(() => true)
-    .catch(() => false);
-
-  if (!pageReady) return null;
-
-  // Wait for table to load
-  await sharedPage
-    .locator('table')
-    .or(sharedPage.getByText(/No users found/i))
-    .first()
-    .waitFor({ state: 'visible', timeout: 10000 })
-    .catch(() => {
-      console.log('  [getAuthenticatedPage] Timeout waiting for table');
-    });
-
-  return sharedPage;
-}
-
 test.describe('User Management', () => {
-  // Sign in once before all tests
-  test.beforeAll(async ({ browser }) => {
-    console.log('  [beforeAll] Setting up shared authenticated session...');
-
+  // Check if test user is ready before each test
+  test.beforeEach(async () => {
     const testUserReady = await isTestUserReady();
     if (!testUserReady) {
-      console.log('  [beforeAll] Test user not ready - tests will be skipped');
-      return;
-    }
-
-    sharedContext = await browser.newContext();
-    sharedPage = await sharedContext.newPage();
-
-    isAuthenticated = await signInForTest(sharedPage);
-    console.log(`  [beforeAll] Authentication result: ${isAuthenticated}`);
-
-    if (isAuthenticated) {
-      await sharedPage.goto('/admin/users');
-      await sharedPage.waitForLoadState('domcontentloaded');
-      console.log('  [beforeAll] Initial navigation complete');
-    }
-  });
-
-  test.afterAll(async () => {
-    if (sharedContext) {
-      await sharedContext.close();
-      sharedContext = null;
-      sharedPage = null;
-      isAuthenticated = false;
+      test.skip(true, 'Test user not ready - skipping test');
     }
   });
 
   test.describe('Page Navigation', () => {
-    test('should navigate to user management page', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should navigate to user management page', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       // Verify page title
       await expect(page.getByText('User Management')).toBeVisible({ timeout: TEST_TIMEOUT });
       await expect(page.getByText(/Manage users, permissions, and module access/i)).toBeVisible();
     });
 
-    test('should display page header with action buttons', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should display page header with action buttons', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       // Check for action buttons
       await expect(page.getByRole('button', { name: /Permission Matrix/i })).toBeVisible();
       await expect(page.getByRole('button', { name: /Invite User/i })).toBeVisible();
     });
 
-    test('should navigate to Permission Matrix page', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should navigate to Permission Matrix page', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       // Click Permission Matrix button
       await page.getByRole('button', { name: /Permission Matrix/i }).click();
@@ -140,12 +69,9 @@ test.describe('User Management', () => {
   });
 
   test.describe('Users Table', () => {
-    test('should display users table with columns', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should display users table with columns', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       // Check for table headers
       await expect(page.getByRole('columnheader', { name: 'User' })).toBeVisible();
@@ -155,12 +81,9 @@ test.describe('User Management', () => {
       await expect(page.getByRole('columnheader', { name: 'Actions' })).toBeVisible();
     });
 
-    test('should display current test user in the table', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should display current test user in the table', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       // Look for the test user email (created by auth.setup.ts)
       await expect(page.getByText('e2e-test@vapourdesal.com')).toBeVisible({
@@ -168,35 +91,26 @@ test.describe('User Management', () => {
       });
     });
 
-    test('should display open modules info alert', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should display open modules info alert', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       await expect(page.getByText(/Open to all users:/i)).toBeVisible();
     });
   });
 
   test.describe('Search and Filtering', () => {
-    test('should have search input', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should have search input', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       const searchInput = page.getByPlaceholder(/Search by name or email/i);
       await expect(searchInput).toBeVisible();
     });
 
-    test('should filter users by search term', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should filter users by search term', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       const searchInput = page.getByPlaceholder(/Search by name or email/i);
 
@@ -211,12 +125,9 @@ test.describe('User Management', () => {
       await searchInput.fill('');
     });
 
-    test('should filter users by status', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should filter users by status', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       // Find status filter
       const statusFilter = page
@@ -243,12 +154,9 @@ test.describe('User Management', () => {
   });
 
   test.describe('Edit User Dialog', () => {
-    test('should open edit dialog when clicking Edit button', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should open edit dialog when clicking Edit button', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       // Find the first Edit button
       const editButton = page
@@ -267,12 +175,9 @@ test.describe('User Management', () => {
       await expect(page.getByText('Edit User')).toBeVisible();
     });
 
-    test('should display user form fields in edit dialog', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should display user form fields in edit dialog', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       // Open edit dialog
       const editButton = page
@@ -294,12 +199,9 @@ test.describe('User Management', () => {
       await expect(page.getByRole('dialog')).not.toBeVisible();
     });
 
-    test('should display permission checkboxes in edit dialog', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should display permission checkboxes in edit dialog', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       // Open edit dialog
       const editButton = page
@@ -322,12 +224,9 @@ test.describe('User Management', () => {
       await page.getByRole('button', { name: /Cancel/i }).click();
     });
 
-    test('should display quick action buttons in edit dialog', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should display quick action buttons in edit dialog', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       // Open edit dialog
       const editButton = page
@@ -348,12 +247,9 @@ test.describe('User Management', () => {
   });
 
   test.describe('Module Access Display', () => {
-    test('should display module access chips for users', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should display module access chips for users', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       // Check for Full Access chip (test user has full permissions)
       // or module access chips
@@ -367,12 +263,9 @@ test.describe('User Management', () => {
       expect(hasAccess || hasNoAccess).toBeTruthy();
     });
 
-    test('should display legend for module access chips', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should display legend for module access chips', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       await expect(page.getByText('Legend:')).toBeVisible();
       await expect(page.getByText('Manage')).toBeVisible();
@@ -381,12 +274,9 @@ test.describe('User Management', () => {
   });
 
   test.describe('Pagination', () => {
-    test('should display pagination controls', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should display pagination controls', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       // Check for pagination
       const pagination = page
@@ -398,12 +288,9 @@ test.describe('User Management', () => {
   });
 
   test.describe('Accessibility', () => {
-    test('should have accessible table structure', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should have accessible table structure', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       // Check for table role
       await expect(page.getByRole('table')).toBeVisible();
@@ -413,12 +300,9 @@ test.describe('User Management', () => {
       await expect(page.locator('tbody')).toBeVisible();
     });
 
-    test('should have accessible dialog when opened', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'User not authenticated');
-        return;
-      }
+    test('should have accessible dialog when opened', async ({ page }) => {
+      await page.goto('/admin/users');
+      await page.waitForLoadState('domcontentloaded');
 
       // Open edit dialog
       const editButton = page
@@ -440,19 +324,12 @@ test.describe('User Management', () => {
   });
 
   test.describe('Error Handling', () => {
-    test('should handle unauthorized access gracefully', async () => {
-      if (!sharedPage) {
-        test.skip(true, 'Page not available');
-        return;
-      }
-
-      // Note: This test verifies the page doesn't crash when accessed
-      // The actual authorization is handled by the admin layout
-      const page = sharedPage;
-
+    test('should handle unauthorized access gracefully', async ({ page }) => {
       await page.goto('/admin/users');
       await page.waitForLoadState('domcontentloaded');
 
+      // Note: This test verifies the page doesn't crash when accessed
+      // The actual authorization is handled by the admin layout
       // Page should not show error state if user has permission
       // If user doesn't have permission, should redirect or show unauthorized
       const hasUserManagement = await page

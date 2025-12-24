@@ -12,74 +12,22 @@
  *
  * Run with: pnpm test:e2e --grep "BOM"
  *
- * Note: These tests require authentication via Firebase emulator.
+ * Note: These tests use the authenticated storage state from playwright.config.ts.
+ * Authentication is handled via the chromium project's storageState configuration.
  */
 
-import { test, expect, Page, BrowserContext } from '@playwright/test';
-import { signInForTest, isTestUserReady } from './auth.helpers';
+import { test, expect } from '@playwright/test';
+import { isTestUserReady } from './auth.helpers';
 
 // Test configuration
 const TEST_TIMEOUT = 30000;
 
-// Shared authenticated state
-let sharedContext: BrowserContext | null = null;
-let sharedPage: Page | null = null;
-let isAuthenticated = false;
-
-/**
- * Navigate to estimation/BOM page using authenticated shared page
- */
-async function getAuthenticatedPage(): Promise<Page | null> {
-  if (!isAuthenticated || !sharedPage) {
-    return null;
-  }
-
-  await sharedPage.goto('/estimation');
-  await sharedPage.waitForLoadState('domcontentloaded');
-
-  // Wait for page to load
-  const pageReady = await sharedPage
-    .getByText(/Estimation|Bill of Materials|BOM/i)
-    .first()
-    .waitFor({ state: 'visible', timeout: 5000 })
-    .then(() => true)
-    .catch(() => false);
-
-  if (!pageReady) return null;
-
-  return sharedPage;
-}
-
 test.describe('BOM/Estimation Module', () => {
-  test.beforeAll(async ({ browser }) => {
-    console.log('  [beforeAll] Setting up shared authenticated session...');
-
+  test.beforeEach(async () => {
     const testUserReady = await isTestUserReady();
     if (!testUserReady) {
-      console.log('  [beforeAll] Test user not ready - tests will be skipped');
-      return;
+      test.skip(true, 'Test user not ready');
     }
-
-    sharedContext = await browser.newContext();
-    sharedPage = await sharedContext.newPage();
-
-    isAuthenticated = await signInForTest(sharedPage);
-    console.log(`  [beforeAll] Authentication result: ${isAuthenticated}`);
-
-    if (isAuthenticated) {
-      await sharedPage.goto('/estimation');
-      await sharedPage.waitForLoadState('domcontentloaded');
-      console.log('  [beforeAll] Shared session ready');
-    }
-  });
-
-  test.afterAll(async () => {
-    console.log('  [afterAll] Cleaning up shared session...');
-    if (sharedPage) await sharedPage.close();
-    if (sharedContext) await sharedContext.close();
-    sharedPage = null;
-    sharedContext = null;
-    isAuthenticated = false;
   });
 
   test.describe('Page Navigation', () => {
@@ -99,27 +47,19 @@ test.describe('BOM/Estimation Module', () => {
       ).toBeVisible({ timeout: 15000 });
     });
 
-    test('should display BOM list when authenticated', async () => {
-      if (!isAuthenticated || !sharedPage) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
-
-      await sharedPage.goto('/estimation');
-      await sharedPage.waitForLoadState('domcontentloaded');
+    test('should display BOM list when authenticated', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       // Check for page header
-      await expect(sharedPage.getByText(/Estimation|Bill of Materials|BOM/i).first()).toBeVisible();
+      await expect(page.getByText(/Estimation|Bill of Materials|BOM/i).first()).toBeVisible();
     });
   });
 
   test.describe('BOM List View', () => {
-    test('should display BOM table or empty state', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display BOM table or empty state', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       // Check for table or empty state
       const hasTable = await page
@@ -134,12 +74,9 @@ test.describe('BOM/Estimation Module', () => {
       expect(hasTable || hasEmptyState).toBe(true);
     });
 
-    test('should display search/filter controls', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display search/filter controls', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       // Look for search or filter controls
       const hasSearch = await page
@@ -156,12 +93,9 @@ test.describe('BOM/Estimation Module', () => {
       expect(hasSearch || hasFilter).toBe(true);
     });
 
-    test('should show New BOM button for authorized users', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should show New BOM button for authorized users', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       // Look for create button
       const createButton = page.getByRole('button', { name: /New BOM|Create|Add/i });
@@ -176,12 +110,9 @@ test.describe('BOM/Estimation Module', () => {
   });
 
   test.describe('Create BOM Flow', () => {
-    test('should open create BOM dialog', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should open create BOM dialog', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       const createButton = page.getByRole('button', { name: /New BOM|Create/i });
       const hasPermission = await createButton.isVisible().catch(() => false);
@@ -199,12 +130,9 @@ test.describe('BOM/Estimation Module', () => {
       ).toBeVisible({ timeout: 5000 });
     });
 
-    test('should display required form fields', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display required form fields', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       const createButton = page.getByRole('button', { name: /New BOM|Create/i });
       const hasPermission = await createButton.isVisible().catch(() => false);
@@ -231,12 +159,9 @@ test.describe('BOM/Estimation Module', () => {
       expect(hasNameField || hasProjectField).toBe(true);
     });
 
-    test('should close dialog on cancel', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should close dialog on cancel', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       const createButton = page.getByRole('button', { name: /New BOM|Create/i });
       const hasPermission = await createButton.isVisible().catch(() => false);
@@ -258,12 +183,9 @@ test.describe('BOM/Estimation Module', () => {
   });
 
   test.describe('BOM Detail View', () => {
-    test('should navigate to BOM detail page when clicking on BOM', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should navigate to BOM detail page when clicking on BOM', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       // Find a BOM row to click
       const bomRow = page.locator('table tbody tr').first();
@@ -296,12 +218,9 @@ test.describe('BOM/Estimation Module', () => {
       expect(hasDetailView).toBe(true);
     });
 
-    test('should display BOM items section', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display BOM items section', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       // Navigate to first BOM
       const bomRow = page.locator('table tbody tr').first();
@@ -333,12 +252,9 @@ test.describe('BOM/Estimation Module', () => {
   });
 
   test.describe('BOM Cost Calculation', () => {
-    test('should display cost summary section', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display cost summary section', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       // Navigate to first BOM
       const bomRow = page.locator('table tbody tr').first();
@@ -368,12 +284,9 @@ test.describe('BOM/Estimation Module', () => {
       expect(hasCostSection).toBe(true);
     });
 
-    test('should show calculate/recalculate button', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should show calculate/recalculate button', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       // Navigate to first BOM
       const bomRow = page.locator('table tbody tr').first();
@@ -404,12 +317,9 @@ test.describe('BOM/Estimation Module', () => {
   });
 
   test.describe('BOM Status Workflow', () => {
-    test('should display status badge', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should display status badge', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       // Check for status indicators in the list
       const hasStatusBadge = await page
@@ -421,12 +331,9 @@ test.describe('BOM/Estimation Module', () => {
       expect(hasStatusBadge).toBe(true);
     });
 
-    test('should show status transition button for authorized users', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should show status transition button for authorized users', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       // Navigate to first BOM
       const bomRow = page.locator('table tbody tr').first();
@@ -462,12 +369,9 @@ test.describe('BOM/Estimation Module', () => {
   });
 
   test.describe('Add BOM Items', () => {
-    test('should show Add Item button in BOM detail', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should show Add Item button in BOM detail', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       // Navigate to first BOM
       const bomRow = page.locator('table tbody tr').first();
@@ -496,12 +400,9 @@ test.describe('BOM/Estimation Module', () => {
       }
     });
 
-    test('should open add item dialog', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should open add item dialog', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       // Navigate to first BOM
       const bomRow = page.locator('table tbody tr').first();
@@ -539,30 +440,18 @@ test.describe('BOM/Estimation Module', () => {
   });
 
   test.describe('Responsive Design', () => {
-    test('should work on mobile viewport', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
-
+    test('should work on mobile viewport', async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 667 });
-      await page.reload();
+      await page.goto('/estimation');
       await page.waitForLoadState('domcontentloaded');
 
       // Should still show estimation content
       await expect(page.getByText(/Estimation|Bill of Materials|BOM/i).first()).toBeVisible();
     });
 
-    test('should work on tablet viewport', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
-
+    test('should work on tablet viewport', async ({ page }) => {
       await page.setViewportSize({ width: 768, height: 1024 });
-      await page.reload();
+      await page.goto('/estimation');
       await page.waitForLoadState('domcontentloaded');
 
       await expect(page.getByText(/Estimation|Bill of Materials|BOM/i).first()).toBeVisible();
@@ -570,23 +459,17 @@ test.describe('BOM/Estimation Module', () => {
   });
 
   test.describe('Accessibility', () => {
-    test('should have proper heading structure', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should have proper heading structure', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       const headings = await page.locator('h1, h2, h3, h4, h5, h6').all();
       expect(headings.length).toBeGreaterThan(0);
     });
 
-    test('should be keyboard navigable', async () => {
-      const page = await getAuthenticatedPage();
-      if (!page) {
-        test.skip(true, 'Requires authentication - test user not ready');
-        return;
-      }
+    test('should be keyboard navigable', async ({ page }) => {
+      await page.goto('/estimation');
+      await page.waitForLoadState('domcontentloaded');
 
       // Tab through the page
       await page.keyboard.press('Tab');

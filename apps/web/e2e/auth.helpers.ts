@@ -14,6 +14,7 @@ interface AuthStatus {
   ready: boolean;
   email: string;
   password: string;
+  customToken?: string;
   timestamp: number;
 }
 
@@ -39,17 +40,19 @@ export async function isTestUserReady(): Promise<boolean> {
 }
 
 /**
- * Sign in for a test page
+ * Sign in for a test page using custom token
  * Call this at the start of each test that needs authentication
  */
 export async function signInForTest(page: Page): Promise<boolean> {
   console.log(`  [signInForTest] Starting sign-in process...`);
 
   const status = await readAuthStatus();
-  console.log(`  [signInForTest] Auth status: ready=${status?.ready}`);
+  console.log(
+    `  [signInForTest] Auth status: ready=${status?.ready}, hasToken=${!!status?.customToken}`
+  );
 
-  if (!status?.ready) {
-    console.log(`  [signInForTest] Status not ready - returning false`);
+  if (!status?.ready || !status?.customToken) {
+    console.log(`  [signInForTest] Status not ready or no token - returning false`);
     return false;
   }
 
@@ -74,27 +77,24 @@ export async function signInForTest(page: Page): Promise<boolean> {
 
   console.log(`  [signInForTest] Auth loading wait result: ${authLoadingResult}`);
 
-  // Sign in using the E2E method
-  console.log(`  [signInForTest] Calling __e2eSignIn...`);
-  const signInResult = await page.evaluate(
-    async (creds) => {
-      const win = window as Window & {
-        __e2eSignIn?: (email: string, password: string) => Promise<void>;
-      };
+  // Sign in using custom token (more reliable than email/password)
+  console.log(`  [signInForTest] Calling __e2eSignInWithToken...`);
+  const signInResult = await page.evaluate(async (token) => {
+    const win = window as Window & {
+      __e2eSignInWithToken?: (token: string) => Promise<void>;
+    };
 
-      if (!win.__e2eSignIn) {
-        return { success: false, error: 'E2E sign-in method not available' };
-      }
+    if (!win.__e2eSignInWithToken) {
+      return { success: false, error: 'E2E custom token sign-in method not available' };
+    }
 
-      try {
-        await win.__e2eSignIn(creds.email, creds.password);
-        return { success: true };
-      } catch (error) {
-        return { success: false, error: String(error) };
-      }
-    },
-    { email: status.email, password: status.password }
-  );
+    try {
+      await win.__e2eSignInWithToken(token);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }, status.customToken);
 
   console.log(
     `  [signInForTest] Sign-in result: success=${signInResult.success}, error=${signInResult.success ? 'none' : signInResult.error}`
