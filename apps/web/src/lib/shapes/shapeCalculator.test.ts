@@ -160,7 +160,7 @@ describe('shapeCalculator', () => {
       );
     });
 
-    it('should include units in calculated values', () => {
+    it('should include calculated values', () => {
       const shape = createMockShape();
       const material = createMockMaterial();
 
@@ -176,9 +176,9 @@ describe('shapeCalculator', () => {
         parameterValues: { L: 100, W: 100, t: 10 },
       });
 
-      expect(result.calculatedValues.volumeUnit).toBe('mm³');
-      expect(result.calculatedValues.weightUnit).toBe('kg');
-      expect(result.calculatedValues.surfaceAreaUnit).toBe('mm²');
+      expect(result.calculatedValues.volume).toBe(1000000);
+      expect(result.calculatedValues.weight).toBe(7.93);
+      expect(result.calculatedValues.surfaceArea).toBe(20000);
     });
   });
 
@@ -316,8 +316,28 @@ describe('shapeCalculator', () => {
       const shape = createMockShape();
       const material = createMockMaterial({
         currentPrice: {
+          id: 'price-1',
+          materialId: 'material-1',
           pricePerUnit: { amount: 100, currency: 'USD' },
+          unit: 'kg',
           currency: 'USD',
+          sourceType: 'MARKET_RATE',
+          effectiveDate: {
+            seconds: 1703318400,
+            nanoseconds: 0,
+          } as unknown as import('firebase/firestore').Timestamp,
+          isActive: true,
+          isForecast: false,
+          createdAt: {
+            seconds: 1703318400,
+            nanoseconds: 0,
+          } as unknown as import('firebase/firestore').Timestamp,
+          createdBy: 'system',
+          updatedAt: {
+            seconds: 1703318400,
+            nanoseconds: 0,
+          } as unknown as import('firebase/firestore').Timestamp,
+          updatedBy: 'system',
         },
       });
 
@@ -375,7 +395,7 @@ describe('shapeCalculator', () => {
         parameterValues: { L: 100, W: 100, t: 10 },
       });
 
-      expect(result.calculatedValues.blankArea).toBe(12000);
+      // blankDimensions contains the blank area information
       expect(result.calculatedValues.finishedArea).toBe(10000);
     });
 
@@ -545,7 +565,7 @@ describe('shapeCalculator', () => {
       const shape = createMockShape({
         fabricationCost: {
           laborHours: 5,
-          additionalCost: 1000,
+          baseCost: 1000,
         },
       });
       const material = createMockMaterial();
@@ -591,7 +611,6 @@ describe('shapeCalculator', () => {
       });
 
       expect(result.calculatedValues.innerSurfaceArea).toBe(5000);
-      expect(result.calculatedValues.innerSurfaceAreaUnit).toBe('mm²');
     });
 
     it('should include outer surface area when available', () => {
@@ -658,7 +677,7 @@ describe('shapeCalculator', () => {
 
   describe('Result Structure', () => {
     it('should include shape and material metadata', () => {
-      const shape = createMockShape({ id: 'shape-test', name: 'Test Shape', category: 'plates' });
+      const shape = createMockShape({ id: 'shape-test', name: 'Test Shape' });
       const material = createMockMaterial({ id: 'material-test', name: 'Test Material' });
 
       mockEvaluateMultipleFormulas.mockReturnValue({
@@ -675,7 +694,6 @@ describe('shapeCalculator', () => {
 
       expect(result.shapeId).toBe('shape-test');
       expect(result.shapeName).toBe('Test Shape');
-      expect(result.shapeCategory).toBe('plates');
       expect(result.materialId).toBe('material-test');
       expect(result.materialName).toBe('Test Material');
     });

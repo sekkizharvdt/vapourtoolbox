@@ -106,7 +106,7 @@ describe('shapeData', () => {
       const shapes = getShapesByCategory('tubes');
 
       expect(shapes).toHaveLength(1);
-      expect(shapes[0].name).toBe('Straight Tube');
+      expect(shapes[0]?.name).toBe('Straight Tube');
     });
 
     it('should return shapes for vessels category', () => {
@@ -121,14 +121,14 @@ describe('shapeData', () => {
       const shapes = getShapesByCategory('heatExchangers');
 
       expect(shapes).toHaveLength(1);
-      expect(shapes[0].name).toBe('Tube Bundle');
+      expect(shapes[0]?.name).toBe('Tube Bundle');
     });
 
     it('should return shapes for nozzles category', () => {
       const shapes = getShapesByCategory('nozzles');
 
       expect(shapes).toHaveLength(1);
-      expect(shapes[0].name).toBe('Nozzle Assembly');
+      expect(shapes[0]?.name).toBe('Nozzle Assembly');
     });
 
     it('should return empty array for invalid category', () => {
@@ -153,15 +153,15 @@ describe('shapeData', () => {
     it('should generate correct ID format', () => {
       const shapes = getShapesByCategory('plates');
 
-      expect(shapes[0].id).toBe('shape-plates-0');
-      expect(shapes[1].id).toBe('shape-plates-1');
+      expect(shapes[0]?.id).toBe('shape-plates-0');
+      expect(shapes[1]?.id).toBe('shape-plates-1');
     });
 
     it('should generate correct shape code format', () => {
       const shapes = getShapesByCategory('plates');
 
-      expect(shapes[0].shapeCode).toBe('SHP-PLATES-001');
-      expect(shapes[1].shapeCode).toBe('SHP-PLATES-002');
+      expect(shapes[0]?.shapeCode).toBe('SHP-PLATES-001');
+      expect(shapes[1]?.shapeCode).toBe('SHP-PLATES-002');
     });
 
     it('should set system as creator', () => {
@@ -238,10 +238,10 @@ describe('shapeData', () => {
     });
 
     it('should return correct shape for each valid index', () => {
-      mockShapes.forEach((_, index) => {
+      mockShapes.forEach((mockShape, index) => {
         const shape = getShapeById(`shape-global-${index}`);
         expect(shape).toBeDefined();
-        expect(shape?.name).toBe(mockShapes[index].name);
+        expect(shape?.name).toBe(mockShape.name);
       });
     });
   });

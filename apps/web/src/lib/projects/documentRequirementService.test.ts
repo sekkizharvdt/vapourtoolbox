@@ -67,11 +67,11 @@ describe('Document Requirement Service', () => {
 
   describe('addDocumentRequirement', () => {
     const newRequirementData = {
-      name: 'Material Test Certificate',
+      documentType: 'Material Test Certificate',
       description: 'MTC for all raw materials',
-      documentCategory: 'TECHNICAL',
+      documentCategory: 'SPECIFICATION' as const,
       isRequired: true,
-      dueDate: new Date('2024-03-01'),
+      priority: 'HIGH' as const,
     };
 
     it('should add a document requirement to project', async () => {
@@ -118,7 +118,7 @@ describe('Document Requirement Service', () => {
           documentRequirements: expect.arrayContaining([
             expect.objectContaining({
               status: 'NOT_SUBMITTED',
-              name: 'Material Test Certificate',
+              documentType: 'Material Test Certificate',
             }),
           ]),
         })
@@ -128,10 +128,12 @@ describe('Document Requirement Service', () => {
     it('should append to existing requirements', async () => {
       const existingReq: DocumentRequirement = {
         id: 'DOC-existing',
-        name: 'Existing Doc',
+        documentType: 'Existing Doc',
+        description: 'Existing document description',
         status: 'SUBMITTED',
-        documentCategory: 'COMMERCIAL',
+        documentCategory: 'CONTRACT',
         isRequired: true,
+        priority: 'MEDIUM',
       };
 
       const mockProject: Partial<Project> = {
@@ -152,7 +154,7 @@ describe('Document Requirement Service', () => {
         expect.objectContaining({
           documentRequirements: expect.arrayContaining([
             expect.objectContaining({ id: 'DOC-existing' }),
-            expect.objectContaining({ name: 'Material Test Certificate' }),
+            expect.objectContaining({ documentType: 'Material Test Certificate' }),
           ]),
         })
       );
@@ -195,10 +197,12 @@ describe('Document Requirement Service', () => {
     it('should update requirement by ID', async () => {
       const existingReq: DocumentRequirement = {
         id: 'DOC-001',
-        name: 'Original Name',
+        documentType: 'Original Name',
+        description: 'Original description',
         status: 'NOT_SUBMITTED',
-        documentCategory: 'TECHNICAL',
+        documentCategory: 'SPECIFICATION',
         isRequired: true,
+        priority: 'MEDIUM',
       };
 
       const mockProject: Partial<Project> = {
@@ -212,7 +216,12 @@ describe('Document Requirement Service', () => {
       });
       mockUpdateDoc.mockResolvedValue(undefined);
 
-      await updateDocumentRequirement(projectId, 'DOC-001', { name: 'Updated Name' }, userId);
+      await updateDocumentRequirement(
+        projectId,
+        'DOC-001',
+        { documentType: 'Updated Name' },
+        userId
+      );
 
       expect(mockUpdateDoc).toHaveBeenCalledWith(
         expect.anything(),
@@ -220,7 +229,7 @@ describe('Document Requirement Service', () => {
           documentRequirements: expect.arrayContaining([
             expect.objectContaining({
               id: 'DOC-001',
-              name: 'Updated Name',
+              documentType: 'Updated Name',
             }),
           ]),
         })
@@ -229,8 +238,24 @@ describe('Document Requirement Service', () => {
 
     it('should not modify other requirements when updating one', async () => {
       const requirements: DocumentRequirement[] = [
-        { id: 'DOC-001', name: 'Req 1', status: 'NOT_SUBMITTED', documentCategory: 'TECHNICAL', isRequired: true },
-        { id: 'DOC-002', name: 'Req 2', status: 'SUBMITTED', documentCategory: 'COMMERCIAL', isRequired: false },
+        {
+          id: 'DOC-001',
+          documentType: 'Req 1',
+          description: 'Req 1 description',
+          status: 'NOT_SUBMITTED',
+          documentCategory: 'SPECIFICATION',
+          isRequired: true,
+          priority: 'HIGH',
+        },
+        {
+          id: 'DOC-002',
+          documentType: 'Req 2',
+          description: 'Req 2 description',
+          status: 'SUBMITTED',
+          documentCategory: 'CONTRACT',
+          isRequired: false,
+          priority: 'MEDIUM',
+        },
       ];
 
       const mockProject: Partial<Project> = {
@@ -250,7 +275,7 @@ describe('Document Requirement Service', () => {
         expect.anything(),
         expect.objectContaining({
           documentRequirements: expect.arrayContaining([
-            expect.objectContaining({ id: 'DOC-002', name: 'Req 2' }),
+            expect.objectContaining({ id: 'DOC-002', documentType: 'Req 2' }),
           ]),
         })
       );
@@ -262,7 +287,7 @@ describe('Document Requirement Service', () => {
       });
 
       await expect(
-        updateDocumentRequirement(projectId, 'DOC-001', { name: 'Updated' }, userId)
+        updateDocumentRequirement(projectId, 'DOC-001', { documentType: 'Updated' }, userId)
       ).rejects.toThrow('Failed to update document requirement');
     });
   });
@@ -270,8 +295,24 @@ describe('Document Requirement Service', () => {
   describe('deleteDocumentRequirement', () => {
     it('should remove requirement by ID', async () => {
       const requirements: DocumentRequirement[] = [
-        { id: 'DOC-001', name: 'Req 1', status: 'NOT_SUBMITTED', documentCategory: 'TECHNICAL', isRequired: true },
-        { id: 'DOC-002', name: 'Req 2', status: 'NOT_SUBMITTED', documentCategory: 'COMMERCIAL', isRequired: true },
+        {
+          id: 'DOC-001',
+          documentType: 'Req 1',
+          description: 'Req 1 description',
+          status: 'NOT_SUBMITTED',
+          documentCategory: 'SPECIFICATION',
+          isRequired: true,
+          priority: 'HIGH',
+        },
+        {
+          id: 'DOC-002',
+          documentType: 'Req 2',
+          description: 'Req 2 description',
+          status: 'NOT_SUBMITTED',
+          documentCategory: 'CONTRACT',
+          isRequired: true,
+          priority: 'MEDIUM',
+        },
       ];
 
       const mockProject: Partial<Project> = {
@@ -287,7 +328,9 @@ describe('Document Requirement Service', () => {
 
       await deleteDocumentRequirement(projectId, 'DOC-001', userId);
 
-      const updateCall = mockUpdateDoc.mock.calls[0][1] as { documentRequirements: DocumentRequirement[] };
+      const updateCall = mockUpdateDoc.mock.calls[0][1] as {
+        documentRequirements: DocumentRequirement[];
+      };
       expect(updateCall.documentRequirements).toHaveLength(1);
       expect(updateCall.documentRequirements[0]?.id).toBe('DOC-002');
     });
@@ -309,7 +352,15 @@ describe('Document Requirement Service', () => {
 
     it('should link document and update status to SUBMITTED', async () => {
       const requirements: DocumentRequirement[] = [
-        { id: 'DOC-001', name: 'Req 1', status: 'NOT_SUBMITTED', documentCategory: 'TECHNICAL', isRequired: true },
+        {
+          id: 'DOC-001',
+          documentType: 'Req 1',
+          description: 'Req 1 description',
+          status: 'NOT_SUBMITTED',
+          documentCategory: 'SPECIFICATION',
+          isRequired: true,
+          priority: 'HIGH',
+        },
       ];
 
       const mockProject: Partial<Project> = {
@@ -342,8 +393,24 @@ describe('Document Requirement Service', () => {
 
     it('should not modify other requirements when linking', async () => {
       const requirements: DocumentRequirement[] = [
-        { id: 'DOC-001', name: 'Req 1', status: 'NOT_SUBMITTED', documentCategory: 'TECHNICAL', isRequired: true },
-        { id: 'DOC-002', name: 'Req 2', status: 'NOT_SUBMITTED', documentCategory: 'COMMERCIAL', isRequired: true },
+        {
+          id: 'DOC-001',
+          documentType: 'Req 1',
+          description: 'Req 1 description',
+          status: 'NOT_SUBMITTED',
+          documentCategory: 'SPECIFICATION',
+          isRequired: true,
+          priority: 'HIGH',
+        },
+        {
+          id: 'DOC-002',
+          documentType: 'Req 2',
+          description: 'Req 2 description',
+          status: 'NOT_SUBMITTED',
+          documentCategory: 'CONTRACT',
+          isRequired: true,
+          priority: 'MEDIUM',
+        },
       ];
 
       const mockProject: Partial<Project> = {
@@ -359,7 +426,9 @@ describe('Document Requirement Service', () => {
 
       await linkDocumentToRequirement(projectId, 'DOC-001', documentId, userId);
 
-      const updateCall = mockUpdateDoc.mock.calls[0][1] as { documentRequirements: DocumentRequirement[] };
+      const updateCall = mockUpdateDoc.mock.calls[0][1] as {
+        documentRequirements: DocumentRequirement[];
+      };
       const req2 = updateCall.documentRequirements.find((r) => r.id === 'DOC-002');
       expect(req2?.status).toBe('NOT_SUBMITTED');
       expect(req2?.linkedDocumentId).toBeUndefined();
@@ -381,10 +450,12 @@ describe('Document Requirement Service', () => {
       const requirements: DocumentRequirement[] = [
         {
           id: 'DOC-001',
-          name: 'Req 1',
+          documentType: 'Req 1',
+          description: 'Req 1 description',
           status: 'SUBMITTED',
-          documentCategory: 'TECHNICAL',
+          documentCategory: 'SPECIFICATION',
           isRequired: true,
+          priority: 'HIGH',
           linkedDocumentId: 'doc-123',
         },
       ];
@@ -419,10 +490,12 @@ describe('Document Requirement Service', () => {
       const requirements: DocumentRequirement[] = [
         {
           id: 'DOC-001',
-          name: 'Req 1',
+          documentType: 'Req 1',
+          description: 'Req 1 description',
           status: 'SUBMITTED',
-          documentCategory: 'TECHNICAL',
+          documentCategory: 'SPECIFICATION',
           isRequired: true,
+          priority: 'HIGH',
           linkedDocumentId: 'doc-123',
         },
       ];
@@ -467,10 +540,42 @@ describe('Document Requirement Service', () => {
   describe('findMatchingRequirements', () => {
     it('should return requirements matching category and NOT_SUBMITTED status', async () => {
       const requirements: DocumentRequirement[] = [
-        { id: 'DOC-001', name: 'Tech Doc 1', status: 'NOT_SUBMITTED', documentCategory: 'TECHNICAL', isRequired: true },
-        { id: 'DOC-002', name: 'Tech Doc 2', status: 'NOT_SUBMITTED', documentCategory: 'TECHNICAL', isRequired: true },
-        { id: 'DOC-003', name: 'Commercial Doc', status: 'NOT_SUBMITTED', documentCategory: 'COMMERCIAL', isRequired: true },
-        { id: 'DOC-004', name: 'Submitted Tech', status: 'SUBMITTED', documentCategory: 'TECHNICAL', isRequired: true },
+        {
+          id: 'DOC-001',
+          documentType: 'Tech Doc 1',
+          description: 'Tech Doc 1 description',
+          status: 'NOT_SUBMITTED',
+          documentCategory: 'SPECIFICATION',
+          isRequired: true,
+          priority: 'HIGH',
+        },
+        {
+          id: 'DOC-002',
+          documentType: 'Tech Doc 2',
+          description: 'Tech Doc 2 description',
+          status: 'NOT_SUBMITTED',
+          documentCategory: 'SPECIFICATION',
+          isRequired: true,
+          priority: 'HIGH',
+        },
+        {
+          id: 'DOC-003',
+          documentType: 'Commercial Doc',
+          description: 'Commercial Doc description',
+          status: 'NOT_SUBMITTED',
+          documentCategory: 'CONTRACT',
+          isRequired: true,
+          priority: 'MEDIUM',
+        },
+        {
+          id: 'DOC-004',
+          documentType: 'Submitted Tech',
+          description: 'Submitted Tech description',
+          status: 'SUBMITTED',
+          documentCategory: 'SPECIFICATION',
+          isRequired: true,
+          priority: 'HIGH',
+        },
       ];
 
       const mockProject: Partial<Project> = {
@@ -483,7 +588,7 @@ describe('Document Requirement Service', () => {
         data: () => mockProject,
       });
 
-      const result = await findMatchingRequirements(projectId, 'TECHNICAL');
+      const result = await findMatchingRequirements(projectId, 'SPECIFICATION');
 
       expect(result).toHaveLength(2);
       expect(result.map((r) => r.id)).toEqual(['DOC-001', 'DOC-002']);
@@ -491,13 +596,23 @@ describe('Document Requirement Service', () => {
 
     it('should exclude requirements with linkedDocumentId', async () => {
       const requirements: DocumentRequirement[] = [
-        { id: 'DOC-001', name: 'Unlinked', status: 'NOT_SUBMITTED', documentCategory: 'TECHNICAL', isRequired: true },
+        {
+          id: 'DOC-001',
+          documentType: 'Unlinked',
+          description: 'Unlinked description',
+          status: 'NOT_SUBMITTED',
+          documentCategory: 'SPECIFICATION',
+          isRequired: true,
+          priority: 'HIGH',
+        },
         {
           id: 'DOC-002',
-          name: 'Linked',
+          documentType: 'Linked',
+          description: 'Linked description',
           status: 'NOT_SUBMITTED',
-          documentCategory: 'TECHNICAL',
+          documentCategory: 'SPECIFICATION',
           isRequired: true,
+          priority: 'HIGH',
           linkedDocumentId: 'doc-existing',
         },
       ];
@@ -512,7 +627,7 @@ describe('Document Requirement Service', () => {
         data: () => mockProject,
       });
 
-      const result = await findMatchingRequirements(projectId, 'TECHNICAL');
+      const result = await findMatchingRequirements(projectId, 'SPECIFICATION');
 
       expect(result).toHaveLength(1);
       expect(result[0]?.id).toBe('DOC-001');
@@ -520,7 +635,15 @@ describe('Document Requirement Service', () => {
 
     it('should return empty array when no matching requirements', async () => {
       const requirements: DocumentRequirement[] = [
-        { id: 'DOC-001', name: 'Commercial Doc', status: 'NOT_SUBMITTED', documentCategory: 'COMMERCIAL', isRequired: true },
+        {
+          id: 'DOC-001',
+          documentType: 'Commercial Doc',
+          description: 'Commercial Doc description',
+          status: 'NOT_SUBMITTED',
+          documentCategory: 'CONTRACT',
+          isRequired: true,
+          priority: 'MEDIUM',
+        },
       ];
 
       const mockProject: Partial<Project> = {
@@ -533,7 +656,7 @@ describe('Document Requirement Service', () => {
         data: () => mockProject,
       });
 
-      const result = await findMatchingRequirements(projectId, 'TECHNICAL');
+      const result = await findMatchingRequirements(projectId, 'SPECIFICATION');
 
       expect(result).toHaveLength(0);
     });
@@ -543,7 +666,7 @@ describe('Document Requirement Service', () => {
         exists: () => false,
       });
 
-      const result = await findMatchingRequirements(projectId, 'TECHNICAL');
+      const result = await findMatchingRequirements(projectId, 'SPECIFICATION');
 
       expect(result).toHaveLength(0);
     });
@@ -559,7 +682,7 @@ describe('Document Requirement Service', () => {
         data: () => mockProject,
       });
 
-      const result = await findMatchingRequirements(projectId, 'TECHNICAL');
+      const result = await findMatchingRequirements(projectId, 'SPECIFICATION');
 
       expect(result).toHaveLength(0);
     });
@@ -567,7 +690,7 @@ describe('Document Requirement Service', () => {
     it('should handle errors gracefully', async () => {
       mockGetDoc.mockRejectedValue(new Error('Firestore error'));
 
-      const result = await findMatchingRequirements(projectId, 'TECHNICAL');
+      const result = await findMatchingRequirements(projectId, 'SPECIFICATION');
 
       expect(result).toHaveLength(0);
     });
@@ -576,7 +699,15 @@ describe('Document Requirement Service', () => {
   describe('Edge Cases', () => {
     it('should handle concurrent updates by re-reading project data', async () => {
       const requirements: DocumentRequirement[] = [
-        { id: 'DOC-001', name: 'Req 1', status: 'NOT_SUBMITTED', documentCategory: 'TECHNICAL', isRequired: true },
+        {
+          id: 'DOC-001',
+          documentType: 'Req 1',
+          description: 'Req 1 description',
+          status: 'NOT_SUBMITTED',
+          documentCategory: 'SPECIFICATION',
+          isRequired: true,
+          priority: 'HIGH',
+        },
       ];
 
       const mockProject: Partial<Project> = {
@@ -612,9 +743,11 @@ describe('Document Requirement Service', () => {
       await addDocumentRequirement(
         projectId,
         {
-          name: 'Test Doc <script>alert("xss")</script>',
-          documentCategory: 'TECHNICAL',
+          documentType: 'Test Doc <script>alert("xss")</script>',
+          description: 'Test description',
+          documentCategory: 'SPECIFICATION',
           isRequired: true,
+          priority: 'HIGH',
         },
         userId
       );
@@ -624,7 +757,7 @@ describe('Document Requirement Service', () => {
         expect.objectContaining({
           documentRequirements: expect.arrayContaining([
             expect.objectContaining({
-              name: 'Test Doc <script>alert("xss")</script>',
+              documentType: 'Test Doc <script>alert("xss")</script>',
             }),
           ]),
         })

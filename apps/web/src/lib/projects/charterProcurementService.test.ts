@@ -5,7 +5,7 @@
  * and creating Purchase Requests from charter items.
  */
 
-import type { ProcurementItem, Project } from '@vapour/types';
+import type { ProcurementItem, Project, CurrencyCode } from '@vapour/types';
 
 // Mock crypto for ID generation
 const mockRandomUUID = jest.fn(() => 'mock-uuid-1234567890');
@@ -93,10 +93,9 @@ describe('Charter Procurement Service', () => {
       category: 'EQUIPMENT' as const,
       quantity: 2,
       unit: 'NOS',
-      estimatedUnitPrice: { amount: 50000, currency: 'INR' },
-      estimatedTotalPrice: { amount: 100000, currency: 'INR' },
+      estimatedUnitPrice: { amount: 50000, currency: 'INR' as CurrencyCode },
+      estimatedTotalPrice: { amount: 100000, currency: 'INR' as CurrencyCode },
       priority: 'HIGH' as const,
-      requiredByDate: new Date('2024-06-01'),
     };
 
     it('should add a procurement item to project', async () => {
@@ -154,10 +153,12 @@ describe('Charter Procurement Service', () => {
       const existingItem: ProcurementItem = {
         id: 'PROC-existing',
         itemName: 'Existing Item',
+        description: 'Existing item description',
         status: 'PR_DRAFTED',
-        category: 'MATERIAL',
+        category: 'RAW_MATERIAL',
         quantity: 1,
         unit: 'NOS',
+        priority: 'MEDIUM',
       };
 
       const mockProject: Partial<Project> = {
@@ -222,10 +223,12 @@ describe('Charter Procurement Service', () => {
       const existingItem: ProcurementItem = {
         id: 'PROC-001',
         itemName: 'Original Name',
+        description: 'Original item description',
         status: 'PLANNING',
         category: 'EQUIPMENT',
         quantity: 1,
         unit: 'NOS',
+        priority: 'MEDIUM',
       };
 
       const mockProject: Partial<Project> = {
@@ -256,8 +259,26 @@ describe('Charter Procurement Service', () => {
 
     it('should not modify other items when updating one', async () => {
       const items: ProcurementItem[] = [
-        { id: 'PROC-001', itemName: 'Item 1', status: 'PLANNING', category: 'EQUIPMENT', quantity: 1, unit: 'NOS' },
-        { id: 'PROC-002', itemName: 'Item 2', status: 'PR_DRAFTED', category: 'MATERIAL', quantity: 2, unit: 'KG' },
+        {
+          id: 'PROC-001',
+          itemName: 'Item 1',
+          description: 'Item 1 description',
+          status: 'PLANNING',
+          category: 'EQUIPMENT',
+          quantity: 1,
+          unit: 'NOS',
+          priority: 'HIGH',
+        },
+        {
+          id: 'PROC-002',
+          itemName: 'Item 2',
+          description: 'Item 2 description',
+          status: 'PR_DRAFTED',
+          category: 'RAW_MATERIAL',
+          quantity: 2,
+          unit: 'KG',
+          priority: 'MEDIUM',
+        },
       ];
 
       const mockProject: Partial<Project> = {
@@ -297,8 +318,26 @@ describe('Charter Procurement Service', () => {
   describe('deleteProcurementItem', () => {
     it('should remove procurement item by ID', async () => {
       const items: ProcurementItem[] = [
-        { id: 'PROC-001', itemName: 'Item 1', status: 'PLANNING', category: 'EQUIPMENT', quantity: 1, unit: 'NOS' },
-        { id: 'PROC-002', itemName: 'Item 2', status: 'PLANNING', category: 'MATERIAL', quantity: 1, unit: 'NOS' },
+        {
+          id: 'PROC-001',
+          itemName: 'Item 1',
+          description: 'Item 1 description',
+          status: 'PLANNING',
+          category: 'EQUIPMENT',
+          quantity: 1,
+          unit: 'NOS',
+          priority: 'HIGH',
+        },
+        {
+          id: 'PROC-002',
+          itemName: 'Item 2',
+          description: 'Item 2 description',
+          status: 'PLANNING',
+          category: 'RAW_MATERIAL',
+          quantity: 1,
+          unit: 'NOS',
+          priority: 'MEDIUM',
+        },
       ];
 
       const mockProject: Partial<Project> = {
@@ -342,10 +381,13 @@ describe('Charter Procurement Service', () => {
       quantity: 2,
       unit: 'NOS',
       status: 'PLANNING',
-      estimatedUnitPrice: { amount: 50000, currency: 'INR' },
-      estimatedTotalPrice: { amount: 100000, currency: 'INR' },
+      estimatedUnitPrice: { amount: 50000, currency: 'INR' as CurrencyCode },
+      estimatedTotalPrice: { amount: 100000, currency: 'INR' as CurrencyCode },
       priority: 'HIGH',
-      requiredByDate: new Date('2024-06-01'),
+      requiredByDate: {
+        seconds: 1717200000,
+        nanoseconds: 0,
+      } as unknown as import('firebase/firestore').Timestamp,
       technicalSpecs: 'Actuator: Electric, Fail position: Closed',
     };
 
@@ -430,8 +472,10 @@ describe('Charter Procurement Service', () => {
       const itemWithTimestamp: ProcurementItem = {
         ...charterItem,
         requiredByDate: {
+          seconds: 1717200000,
+          nanoseconds: 0,
           toDate: () => new Date('2024-06-01'),
-        } as unknown as Date,
+        } as unknown as import('firebase/firestore').Timestamp,
       };
 
       const mockProject: Partial<Project> = {
@@ -452,7 +496,7 @@ describe('Charter Procurement Service', () => {
     it('should handle item with string requiredByDate', async () => {
       const itemWithString: ProcurementItem = {
         ...charterItem,
-        requiredByDate: '2024-06-01' as unknown as Date,
+        requiredByDate: '2024-06-01' as unknown as import('firebase/firestore').Timestamp,
       };
 
       const mockProject: Partial<Project> = {
@@ -522,18 +566,22 @@ describe('Charter Procurement Service', () => {
       {
         id: 'PROC-001',
         itemName: 'Item 1',
+        description: 'Item 1 description',
         status: 'PLANNING',
         category: 'EQUIPMENT',
         quantity: 1,
         unit: 'NOS',
+        priority: 'HIGH',
       },
       {
         id: 'PROC-002',
         itemName: 'Item 2',
+        description: 'Item 2 description',
         status: 'PLANNING',
-        category: 'MATERIAL',
+        category: 'RAW_MATERIAL',
         quantity: 2,
         unit: 'KG',
+        priority: 'MEDIUM',
       },
     ];
 
@@ -619,7 +667,16 @@ describe('Charter Procurement Service', () => {
   describe('syncProcurementItemStatus', () => {
     it('should update item status to RFQ_ISSUED with linked RFQ ID', async () => {
       const items: ProcurementItem[] = [
-        { id: 'PROC-001', itemName: 'Item 1', status: 'PR_DRAFTED', category: 'EQUIPMENT', quantity: 1, unit: 'NOS' },
+        {
+          id: 'PROC-001',
+          itemName: 'Item 1',
+          description: 'Item 1 description',
+          status: 'PR_DRAFTED',
+          category: 'EQUIPMENT',
+          quantity: 1,
+          unit: 'NOS',
+          priority: 'HIGH',
+        },
       ];
 
       const mockProject: Partial<Project> = {
@@ -651,7 +708,16 @@ describe('Charter Procurement Service', () => {
 
     it('should update item status to PO_PLACED with linked PO ID', async () => {
       const items: ProcurementItem[] = [
-        { id: 'PROC-001', itemName: 'Item 1', status: 'RFQ_ISSUED', category: 'EQUIPMENT', quantity: 1, unit: 'NOS' },
+        {
+          id: 'PROC-001',
+          itemName: 'Item 1',
+          description: 'Item 1 description',
+          status: 'RFQ_ISSUED',
+          category: 'EQUIPMENT',
+          quantity: 1,
+          unit: 'NOS',
+          priority: 'HIGH',
+        },
       ];
 
       const mockProject: Partial<Project> = {
@@ -683,8 +749,26 @@ describe('Charter Procurement Service', () => {
 
     it('should not modify other items when syncing status', async () => {
       const items: ProcurementItem[] = [
-        { id: 'PROC-001', itemName: 'Item 1', status: 'PLANNING', category: 'EQUIPMENT', quantity: 1, unit: 'NOS' },
-        { id: 'PROC-002', itemName: 'Item 2', status: 'PR_DRAFTED', category: 'MATERIAL', quantity: 2, unit: 'KG' },
+        {
+          id: 'PROC-001',
+          itemName: 'Item 1',
+          description: 'Item 1 description',
+          status: 'PLANNING',
+          category: 'EQUIPMENT',
+          quantity: 1,
+          unit: 'NOS',
+          priority: 'HIGH',
+        },
+        {
+          id: 'PROC-002',
+          itemName: 'Item 2',
+          description: 'Item 2 description',
+          status: 'PR_DRAFTED',
+          category: 'RAW_MATERIAL',
+          quantity: 2,
+          unit: 'KG',
+          priority: 'MEDIUM',
+        },
       ];
 
       const mockProject: Partial<Project> = {
@@ -710,9 +794,9 @@ describe('Charter Procurement Service', () => {
         exists: () => false,
       });
 
-      await expect(
-        syncProcurementItemStatus(projectId, 'PROC-001', 'RFQ_ISSUED')
-      ).rejects.toThrow('Failed to sync procurement item status');
+      await expect(syncProcurementItemStatus(projectId, 'PROC-001', 'RFQ_ISSUED')).rejects.toThrow(
+        'Failed to sync procurement item status'
+      );
     });
   });
 });
