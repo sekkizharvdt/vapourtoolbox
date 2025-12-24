@@ -17,17 +17,23 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { isTestUserReady } from './auth.helpers';
+import { isTestUserReady, signInForTest } from './auth.helpers';
 
 // Test configuration
 const TEST_TIMEOUT = 30000;
 
 test.describe('Entities Module', () => {
-  // Check if test user is ready before each test
-  test.beforeEach(async () => {
+  // Sign in before each test that requires authentication
+  test.beforeEach(async ({ page }) => {
     const testUserReady = await isTestUserReady();
     if (!testUserReady) {
       test.skip(true, 'Test user not ready - skipping test');
+      return;
+    }
+    // Sign in for this test
+    const signedIn = await signInForTest(page);
+    if (!signedIn) {
+      test.skip(true, 'Could not sign in - skipping test');
     }
   });
 

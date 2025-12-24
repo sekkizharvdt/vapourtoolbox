@@ -17,16 +17,21 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { isTestUserReady } from './auth.helpers';
+import { isTestUserReady, signInForTest } from './auth.helpers';
 
 // Test configuration
 const TEST_TIMEOUT = 30000;
 
 test.describe('BOM/Estimation Module', () => {
-  test.beforeEach(async () => {
+  test.beforeEach(async ({ page }) => {
     const testUserReady = await isTestUserReady();
     if (!testUserReady) {
       test.skip(true, 'Test user not ready');
+      return;
+    }
+    const signedIn = await signInForTest(page);
+    if (!signedIn) {
+      test.skip(true, 'Could not sign in');
     }
   });
 

@@ -17,16 +17,21 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { isTestUserReady } from './auth.helpers';
+import { isTestUserReady, signInForTest } from './auth.helpers';
 
 // Test configuration
 const TEST_TIMEOUT = 30000;
 
 test.describe('Projects Module', () => {
-  test.beforeEach(async () => {
+  test.beforeEach(async ({ page }) => {
     const testUserReady = await isTestUserReady();
     if (!testUserReady) {
-      console.log('  Test user not ready - authenticated tests will be skipped');
+      test.skip(true, 'Test user not ready');
+      return;
+    }
+    const signedIn = await signInForTest(page);
+    if (!signedIn) {
+      test.skip(true, 'Could not sign in');
     }
   });
 
@@ -379,10 +384,15 @@ test.describe('Projects Module', () => {
 });
 
 test.describe('Project Charter Workflow', () => {
-  test.beforeEach(async () => {
+  test.beforeEach(async ({ page }) => {
     const testUserReady = await isTestUserReady();
     if (!testUserReady) {
-      console.log('  Test user not ready - authenticated tests will be skipped');
+      test.skip(true, 'Test user not ready');
+      return;
+    }
+    const signedIn = await signInForTest(page);
+    if (!signedIn) {
+      test.skip(true, 'Could not sign in');
     }
   });
 
