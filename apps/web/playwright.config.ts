@@ -33,9 +33,9 @@ export default defineConfig({
   // Retry on CI only
   retries: process.env.CI ? 2 : 0,
 
-  // Limit workers to prevent WSL memory exhaustion
-  // WSL has limited memory - too many browser instances cause disconnects
-  workers: 1,
+  // Limit workers based on environment
+  // CI has more resources, WSL has limited memory
+  workers: process.env.CI ? 4 : 1,
 
   // Reporter to use
   reporter: [['html', { outputFolder: 'playwright-report' }], ['list']],
