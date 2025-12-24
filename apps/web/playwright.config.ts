@@ -61,6 +61,26 @@ export default defineConfig({
     {
       name: 'setup',
       testMatch: /auth\.setup\.ts/,
+      use: {
+        // WSL-optimized browser launch options
+        launchOptions: {
+          args: [
+            '--disable-gpu',
+            '--disable-dev-shm-usage', // Prevents /dev/shm memory issues in WSL
+            '--disable-software-rasterizer',
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-extensions',
+            '--disable-background-networking',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding',
+            '--single-process', // Run in single process to reduce memory
+            '--js-flags=--max-old-space-size=512', // Limit V8 heap to 512MB
+            '--disable-features=IsolateOrigins,site-per-process', // Reduce process isolation overhead
+          ],
+        },
+      },
     },
 
     // Main test project - uses authenticated state
@@ -70,6 +90,24 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         // Use authenticated state from setup
         storageState: STORAGE_STATE_PATH,
+        // WSL-optimized browser launch options
+        launchOptions: {
+          args: [
+            '--disable-gpu',
+            '--disable-dev-shm-usage',
+            '--disable-software-rasterizer',
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-extensions',
+            '--disable-background-networking',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding',
+            '--single-process',
+            '--js-flags=--max-old-space-size=512', // Limit V8 heap to 512MB
+            '--disable-features=IsolateOrigins,site-per-process', // Reduce process isolation overhead
+          ],
+        },
       },
       dependencies: ['setup'],
     },
@@ -93,11 +131,14 @@ export default defineConfig({
   ],
 
   // Run your local dev server before starting the tests
-  // IMPORTANT: For local development, start the dev server manually BEFORE running tests:
-  //   NEXT_PUBLIC_USE_EMULATOR=true pnpm dev --port 3001
-  // This prevents Playwright from spawning additional processes that can crash WSL
+  // The webServer starts with emulator environment variables when NEXT_PUBLIC_USE_EMULATOR=true
+  // For local development, you can also start the dev server manually BEFORE running tests:
+  //   NEXT_PUBLIC_USE_EMULATOR=true NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL=http://127.0.0.1:9099 pnpm dev --port 3001
   webServer: {
-    command: 'pnpm dev --port 3001',
+    command:
+      process.env.NEXT_PUBLIC_USE_EMULATOR === 'true'
+        ? 'NEXT_PUBLIC_USE_EMULATOR=true NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_URL=http://127.0.0.1:9099 NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_URL=127.0.0.1:8080 pnpm dev --port 3001'
+        : 'pnpm dev --port 3001',
     url: 'http://localhost:3001',
     reuseExistingServer: true, // Always reuse to prevent spawning new processes
     timeout: 120 * 1000, // 2 minutes to start
