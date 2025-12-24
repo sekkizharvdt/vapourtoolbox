@@ -51,7 +51,7 @@ import {
 } from './auditLogService';
 
 describe('auditLogService', () => {
-  const mockDb = { id: 'mock-db' };
+  const mockDb = { id: 'mock-db' } as unknown as import('firebase/firestore').Firestore;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -149,9 +149,11 @@ describe('auditLogService', () => {
       entityId: 'user-456',
       actorId: 'admin-123',
       actorEmail: 'admin@example.com',
+      actorName: 'Admin User',
       severity: 'INFO' as AuditSeverity,
       description: 'User account created',
       timestamp: { seconds: 1703318400, nanoseconds: 0 } as unknown as AuditLog['timestamp'],
+      success: true,
     };
 
     beforeEach(() => {
@@ -195,7 +197,7 @@ describe('auditLogService', () => {
     it('should include all audit log fields', async () => {
       const fullAuditLog: Omit<AuditLog, 'id'> = {
         ...mockAuditLogData,
-        fieldChanges: [{ field: 'email', oldValue: 'old@test.com', newValue: 'new@test.com' }],
+        changes: [{ field: 'email', oldValue: 'old@test.com', newValue: 'new@test.com' }],
         metadata: { browser: 'Chrome', ip: '192.168.1.1' },
         errorMessage: undefined,
       };
@@ -210,7 +212,7 @@ describe('auditLogService', () => {
 
       expect(result).toMatchObject({
         id: 'audit-full',
-        fieldChanges: [{ field: 'email', oldValue: 'old@test.com', newValue: 'new@test.com' }],
+        changes: [{ field: 'email', oldValue: 'old@test.com', newValue: 'new@test.com' }],
         metadata: { browser: 'Chrome', ip: '192.168.1.1' },
       });
     });

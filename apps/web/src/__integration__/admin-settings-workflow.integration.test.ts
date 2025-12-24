@@ -63,28 +63,36 @@ describe('Admin Settings & Entity Management Workflow Integration Tests', () => 
           // Ignore cleanup errors
         }
       }
-      await cleanupTestData(db);
+      await cleanupTestData();
     }
   });
 
   // Helper to create test entity
   const createTestEntity = async (data: Partial<BusinessEntity>): Promise<BusinessEntity> => {
     const now = FirestoreTimestamp.now();
-    const entityData: Omit<BusinessEntity, 'id'> = {
+    const entityData = {
       name: data.name || 'Test Entity',
       nameNormalized: (data.name || 'Test Entity').toLowerCase(),
       code: data.code || `TEST-${Date.now()}`,
       roles: data.roles || ['VENDOR'],
-      status: data.status || 'ACTIVE',
       isActive: data.isActive !== undefined ? data.isActive : true,
       isDeleted: data.isDeleted || false,
-      address: data.address || { street: '123 Test St', city: 'Test City', country: 'India' },
+      contactPerson: data.contactPerson || 'Test Contact',
+      email: data.email || 'test@example.com',
+      phone: data.phone || '+91-1234567890',
+      billingAddress: data.billingAddress || {
+        line1: '123 Test St',
+        city: 'Test City',
+        state: 'Test State',
+        postalCode: '123456',
+        country: 'India',
+      },
       createdAt: now as unknown as Timestamp,
       updatedAt: now as unknown as Timestamp,
       createdBy: 'integration-test',
       updatedBy: 'integration-test',
       ...data,
-    };
+    } as Omit<BusinessEntity, 'id'>;
 
     const docRef = await addDoc(collection(db, COLLECTIONS.ENTITIES), entityData);
     testEntityIds.push(docRef.id);
@@ -102,7 +110,7 @@ describe('Admin Settings & Entity Management Workflow Integration Tests', () => 
         name: 'ABC Steel Suppliers',
         code: 'ABC-001',
         roles: ['VENDOR'],
-        status: 'ACTIVE',
+        isActive: true,
         contactPerson: 'John Doe',
         email: 'john@abcsteel.com',
         phone: '+91-1234567890',
@@ -124,7 +132,7 @@ describe('Admin Settings & Entity Management Workflow Integration Tests', () => 
         name: 'XYZ Industries',
         code: 'XYZ-001',
         roles: ['CUSTOMER'],
-        status: 'ACTIVE',
+        isActive: true,
         contactPerson: 'Jane Smith',
         email: 'jane@xyzindustries.com',
       });
@@ -139,7 +147,7 @@ describe('Admin Settings & Entity Management Workflow Integration Tests', () => 
         name: 'Dual Role Company',
         code: 'DUAL-001',
         roles: ['VENDOR', 'CUSTOMER'],
-        status: 'ACTIVE',
+        isActive: true,
       });
 
       expect(entity.roles).toContain('VENDOR');
@@ -347,7 +355,6 @@ describe('Admin Settings & Entity Management Workflow Integration Tests', () => 
         name: 'Lifecycle Test Entity',
         code: `LIFECYCLE-${Date.now()}`,
         roles: ['VENDOR'],
-        status: 'ACTIVE',
         isActive: true,
       });
       expect(entity.id).toBeDefined();
@@ -385,7 +392,6 @@ describe('Admin Settings & Entity Management Workflow Integration Tests', () => 
         doc(db, COLLECTIONS.ENTITIES, entity.id),
         {
           isActive: false,
-          status: 'INACTIVE',
           updatedAt: FirestoreTimestamp.now(),
         },
         { merge: true }
@@ -393,7 +399,6 @@ describe('Admin Settings & Entity Management Workflow Integration Tests', () => 
 
       docSnap = await getDoc(doc(db, COLLECTIONS.ENTITIES, entity.id));
       expect(docSnap.data()?.isActive).toBe(false);
-      expect(docSnap.data()?.status).toBe('INACTIVE');
 
       // 5. Soft delete
       await setDoc(

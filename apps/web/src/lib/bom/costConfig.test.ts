@@ -7,7 +7,12 @@
 /* eslint-disable @typescript-eslint/consistent-type-assertions, @typescript-eslint/no-unused-vars */
 
 import type { Firestore, Timestamp } from 'firebase/firestore';
-import type { CreateCostConfigurationInput } from '@vapour/types';
+import type {
+  CreateCostConfigurationInput,
+  LaborRates,
+  FabricationRates,
+  OverheadConfig,
+} from '@vapour/types';
 
 // Mock firebase/firestore
 const mockCollection = jest.fn();
@@ -94,6 +99,19 @@ describe('Cost Configuration Service', () => {
       entityId: 'entity-456',
       name: 'Standard Config',
       description: 'Default cost configuration',
+      overhead: {
+        enabled: true,
+        ratePercent: 10,
+        applicableTo: 'FABRICATION',
+      },
+      contingency: {
+        enabled: true,
+        ratePercent: 5,
+      },
+      profit: {
+        enabled: true,
+        ratePercent: 15,
+      },
     };
 
     it('should create cost configuration with defaults', async () => {
@@ -109,19 +127,19 @@ describe('Cost Configuration Service', () => {
       expect(result.updatedBy).toBe(userId);
     });
 
-    it('should use default overhead config when not provided', async () => {
+    it('should use provided overhead config', async () => {
       mockAddDoc.mockResolvedValue({ id: 'config-new' });
 
       const result = await createCostConfiguration(mockDb, createInput, userId);
 
       expect(result.overhead).toEqual({
         enabled: true,
-        ratePercent: 15,
-        applicableTo: 'ALL',
+        ratePercent: 10,
+        applicableTo: 'FABRICATION',
       });
     });
 
-    it('should use default contingency config when not provided', async () => {
+    it('should use provided contingency config', async () => {
       mockAddDoc.mockResolvedValue({ id: 'config-new' });
 
       const result = await createCostConfiguration(mockDb, createInput, userId);
@@ -132,24 +150,24 @@ describe('Cost Configuration Service', () => {
       });
     });
 
-    it('should use default profit config when not provided', async () => {
+    it('should use provided profit config', async () => {
       mockAddDoc.mockResolvedValue({ id: 'config-new' });
 
       const result = await createCostConfiguration(mockDb, createInput, userId);
 
       expect(result.profit).toEqual({
         enabled: true,
-        ratePercent: 10,
+        ratePercent: 15,
       });
     });
 
-    it('should use provided overhead config', async () => {
+    it('should use custom overhead config when different from input', async () => {
       mockAddDoc.mockResolvedValue({ id: 'config-new' });
 
-      const customOverhead = {
+      const customOverhead: OverheadConfig = {
         enabled: true,
         ratePercent: 20,
-        applicableTo: 'MATERIAL' as const,
+        applicableTo: 'MATERIAL',
       };
 
       const result = await createCostConfiguration(
@@ -185,8 +203,20 @@ describe('Cost Configuration Service', () => {
     it('should include labor and fabrication rates when provided', async () => {
       mockAddDoc.mockResolvedValue({ id: 'config-new' });
 
-      const laborRates = { skilled: 500, unskilled: 250 };
-      const fabricationRates = { cutting: 10, welding: 20 };
+      const laborRates: LaborRates = {
+        engineerHourlyRate: { amount: 500, currency: 'INR' },
+        draftsmanHourlyRate: { amount: 300, currency: 'INR' },
+        fitterHourlyRate: { amount: 250, currency: 'INR' },
+        welderHourlyRate: { amount: 350, currency: 'INR' },
+        supervisorHourlyRate: { amount: 400, currency: 'INR' },
+      };
+      const fabricationRates: FabricationRates = {
+        cuttingRatePerMeter: { amount: 10, currency: 'INR' },
+        weldingRatePerMeter: { amount: 20, currency: 'INR' },
+        formingRatePerSqMeter: { amount: 30, currency: 'INR' },
+        machiningRatePerHour: { amount: 100, currency: 'INR' },
+        assemblyRatePerUnit: { amount: 50, currency: 'INR' },
+      };
 
       const result = await createCostConfiguration(
         mockDb,
@@ -365,7 +395,7 @@ describe('Cost Configuration Service', () => {
 
       await updateCostConfiguration(mockDb, 'config-123', { name: 'Only Name' }, userId);
 
-      const updateCall = mockUpdateDoc.mock.calls[0][1];
+      const updateCall = mockUpdateDoc.mock.calls[0]?.[1];
       expect(updateCall).not.toHaveProperty('overhead');
       expect(updateCall).not.toHaveProperty('contingency');
       expect(updateCall).not.toHaveProperty('profit');
@@ -389,8 +419,8 @@ describe('Cost Configuration Service', () => {
       const result = await listCostConfigurations(mockDb, entityId);
 
       expect(result).toHaveLength(2);
-      expect(result[0].id).toBe('config-1');
-      expect(result[1].id).toBe('config-2');
+      expect(result[0]?.id).toBe('config-1');
+      expect(result[1]?.id).toBe('config-2');
     });
 
     it('should filter by entityId', async () => {

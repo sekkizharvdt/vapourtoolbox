@@ -7,7 +7,9 @@
 
 /* eslint-disable @typescript-eslint/consistent-type-assertions, @typescript-eslint/no-explicit-any */
 
-import type { BOMItem, Material, Shape } from '@vapour/types';
+import type { BOMItem, Material, Shape, ShapeParameter, MaterialPrice } from '@vapour/types';
+import { ServiceCategory, ServiceCalculationMethod } from '@vapour/types';
+import type { Firestore, Timestamp } from 'firebase/firestore';
 
 // Mock firebase/firestore
 const mockGetDoc = jest.fn();
@@ -43,7 +45,7 @@ jest.mock('@vapour/logger', () => ({
 }));
 
 jest.mock('../firebase/typeHelpers', () => ({
-  docToTyped: <T>(id: string, data: unknown): T => ({ id, ...data }) as T,
+  docToTyped: <T>(id: string, data: unknown): T => ({ id, ...(data as object) }) as T,
 }));
 
 // Mock shape calculator
@@ -87,16 +89,42 @@ describe('BOM Calculations', () => {
       ...overrides,
     }) as BOMItem;
 
+  const createMockMaterialPrice = (overrides: Partial<MaterialPrice> = {}): MaterialPrice => ({
+    id: 'price-1',
+    materialId: 'material-123',
+    pricePerUnit: { amount: 100, currency: 'INR' },
+    unit: 'kg',
+    currency: 'INR',
+    sourceType: 'MARKET_RATE',
+    effectiveDate: { seconds: 1703318400, nanoseconds: 0 } as unknown as Timestamp,
+    isActive: true,
+    isForecast: false,
+    createdAt: { seconds: 1703318400, nanoseconds: 0 } as unknown as Timestamp,
+    createdBy: 'system',
+    updatedAt: { seconds: 1703318400, nanoseconds: 0 } as unknown as Timestamp,
+    updatedBy: 'system',
+    ...overrides,
+  });
+
   const createMockMaterial = (overrides: Partial<Material> = {}): Material =>
     ({
       id: 'material-123',
       name: 'Test Material',
       category: 'PLATES_STAINLESS_STEEL',
-      currentPrice: {
-        pricePerUnit: { amount: 100, currency: 'INR' },
-      },
+      currentPrice: createMockMaterialPrice(),
       ...overrides,
     }) as Material;
+
+  const createMockShapeParameter = (overrides: Partial<ShapeParameter> = {}): ShapeParameter => ({
+    name: 'L',
+    label: 'Length',
+    unit: 'mm',
+    dataType: 'NUMBER',
+    order: 0,
+    required: true,
+    usedInFormulas: ['volume', 'weight'],
+    ...overrides,
+  });
 
   const createMockShape = (overrides: Partial<Shape> = {}): Shape =>
     ({
@@ -104,9 +132,9 @@ describe('BOM Calculations', () => {
       name: 'Rectangular Plate',
       category: 'PLATE_RECTANGULAR',
       parameters: [
-        { name: 'L', label: 'Length', unit: 'mm', type: 'NUMBER', required: true },
-        { name: 'W', label: 'Width', unit: 'mm', type: 'NUMBER', required: true },
-        { name: 't', label: 'Thickness', unit: 'mm', type: 'NUMBER', required: true },
+        createMockShapeParameter({ name: 'L', label: 'Length', order: 0 }),
+        createMockShapeParameter({ name: 'W', label: 'Width', order: 1 }),
+        createMockShapeParameter({ name: 't', label: 'Thickness', order: 2 }),
       ],
       ...overrides,
     }) as Shape;
@@ -191,7 +219,10 @@ describe('BOM Calculations', () => {
 
     it('should use INR as default currency when not specified', async () => {
       const material = createMockMaterial({
-        currentPrice: { pricePerUnit: { amount: 50, currency: undefined as any } },
+        currentPrice: createMockMaterialPrice({
+          // Test with malformed data - currency might be undefined at runtime
+          pricePerUnit: { amount: 50, currency: undefined as unknown as 'INR' },
+        }),
       });
       const item = createMockBOMItem({
         component: { type: 'BOUGHT_OUT', materialId: 'material-123' },
@@ -210,7 +241,7 @@ describe('BOM Calculations', () => {
 
     it('should handle zero price material', async () => {
       const material = createMockMaterial({
-        currentPrice: { pricePerUnit: { amount: 0, currency: 'INR' } },
+        currentPrice: createMockMaterialPrice({ pricePerUnit: { amount: 0, currency: 'INR' } }),
       });
       const item = createMockBOMItem({
         quantity: 10,
@@ -233,7 +264,17 @@ describe('BOM Calculations', () => {
       const item = createMockBOMItem({
         quantity: 2,
         component: { type: 'BOUGHT_OUT', materialId: 'material-123' },
-        services: [{ serviceId: 'svc-1', enabled: true }],
+        services: [
+          {
+            serviceId: 'svc-1',
+            serviceName: 'Test Service',
+            serviceCategory: ServiceCategory.ENGINEERING,
+            calculationMethod: ServiceCalculationMethod.FIXED_AMOUNT,
+            isManualOverride: false,
+            addedBy: 'test-user',
+            addedAt: { seconds: 1703318400, nanoseconds: 0 } as unknown as Timestamp,
+          },
+        ],
       });
 
       mockGetDoc.mockResolvedValue({
@@ -506,8 +547,8 @@ describe('BOM Calculations', () => {
     it('should validate required parameters', async () => {
       const shape = createMockShape({
         parameters: [
-          { name: 'L', label: 'Length', required: true },
-          { name: 'W', label: 'Width', required: true },
+          createMockShapeParameter({ name: 'L', label: 'Length', required: true }),
+          createMockShapeParameter({ name: 'W', label: 'Width', required: true }),
         ],
       });
 
@@ -524,7 +565,7 @@ describe('BOM Calculations', () => {
 
     it('should validate minimum values', async () => {
       const shape = createMockShape({
-        parameters: [{ name: 'L', label: 'Length', minValue: 10 }],
+        parameters: [createMockShapeParameter({ name: 'L', label: 'Length', minValue: 10 })],
       });
 
       mockGetDoc.mockResolvedValue({
@@ -540,7 +581,7 @@ describe('BOM Calculations', () => {
 
     it('should validate maximum values', async () => {
       const shape = createMockShape({
-        parameters: [{ name: 'L', label: 'Length', maxValue: 1000 }],
+        parameters: [createMockShapeParameter({ name: 'L', label: 'Length', maxValue: 1000 })],
       });
 
       mockGetDoc.mockResolvedValue({
@@ -557,8 +598,20 @@ describe('BOM Calculations', () => {
     it('should return valid when all constraints satisfied', async () => {
       const shape = createMockShape({
         parameters: [
-          { name: 'L', label: 'Length', required: true, minValue: 10, maxValue: 1000 },
-          { name: 'W', label: 'Width', required: true, minValue: 5, maxValue: 500 },
+          createMockShapeParameter({
+            name: 'L',
+            label: 'Length',
+            required: true,
+            minValue: 10,
+            maxValue: 1000,
+          }),
+          createMockShapeParameter({
+            name: 'W',
+            label: 'Width',
+            required: true,
+            minValue: 5,
+            maxValue: 500,
+          }),
         ],
       });
 
@@ -585,8 +638,8 @@ describe('BOM Calculations', () => {
     it('should allow optional parameters to be missing', async () => {
       const shape = createMockShape({
         parameters: [
-          { name: 'L', label: 'Length', required: true },
-          { name: 'note', label: 'Note', required: false },
+          createMockShapeParameter({ name: 'L', label: 'Length', required: true }),
+          createMockShapeParameter({ name: 'note', label: 'Note', required: false }),
         ],
       });
 

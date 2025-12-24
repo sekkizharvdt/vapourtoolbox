@@ -5,6 +5,8 @@
  * by aggregating accounting transactions.
  */
 
+import type { Firestore } from 'firebase/firestore';
+
 // Mock firebase/firestore
 const mockCollection = jest.fn();
 const mockQuery = jest.fn();
@@ -40,7 +42,7 @@ import {
 } from './budgetCalculationService';
 
 describe('Budget Calculation Service', () => {
-  const mockDb = { id: 'mock-db' };
+  const mockDb = { id: 'mock-db' } as unknown as Firestore;
   const projectId = 'project-123';
 
   beforeEach(() => {
@@ -199,11 +201,7 @@ describe('Budget Calculation Service', () => {
         'VENDOR_PAYMENT',
         'EXPENSE_CLAIM',
       ]);
-      expect(mockWhere).toHaveBeenCalledWith('status', 'in', [
-        'POSTED',
-        'PAID',
-        'PARTIALLY_PAID',
-      ]);
+      expect(mockWhere).toHaveBeenCalledWith('status', 'in', ['POSTED', 'PAID', 'PARTIALLY_PAID']);
     });
 
     it('should throw error on Firestore failure', async () => {

@@ -64,7 +64,7 @@ jest.mock('@vapour/types', () => ({
 }));
 
 jest.mock('../firebase/typeHelpers', () => ({
-  docToTyped: <T>(id: string, data: unknown): T => ({ id, ...data }) as T,
+  docToTyped: <T>(id: string, data: unknown): T => ({ id, ...(data as object) }) as T,
 }));
 
 // Import after mocks

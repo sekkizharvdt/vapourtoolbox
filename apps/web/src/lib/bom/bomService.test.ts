@@ -8,7 +8,8 @@
 /* eslint-disable @typescript-eslint/consistent-type-assertions, @typescript-eslint/no-unused-vars */
 
 import type { Firestore, Timestamp } from 'firebase/firestore';
-import type { BOMCategory, BOMStatus, CreateBOMInput } from '@vapour/types';
+import type { BOMCategory, BOMStatus, CreateBOMInput, CreateBOMItemInput } from '@vapour/types';
+import { BOMItemType } from '@vapour/types';
 
 // Mock firebase/firestore
 const mockCollection = jest.fn();
@@ -62,7 +63,7 @@ jest.mock('@vapour/logger', () => ({
 }));
 
 jest.mock('../firebase/typeHelpers', () => ({
-  docToTyped: <T>(id: string, data: unknown): T => ({ id, ...data }) as T,
+  docToTyped: <T>(id: string, data: unknown): T => ({ id, ...(data as object) }) as T,
 }));
 
 jest.mock('./costConfig', () => ({
@@ -401,12 +402,12 @@ describe('BOM Service', () => {
   });
 
   describe('addBOMItem', () => {
-    const mockItemInput = {
+    const mockItemInput: CreateBOMItemInput = {
       name: 'Test Item',
       description: 'Item description',
       quantity: 5,
       unit: 'pcs',
-      itemType: 'MATERIAL' as const,
+      itemType: BOMItemType.MATERIAL,
     };
 
     beforeEach(() => {
@@ -459,7 +460,7 @@ describe('BOM Service', () => {
         }),
       };
 
-      mockGetDoc.mockImplementation((ref) => {
+      mockGetDoc.mockImplementation(() => {
         // Return parent item for parentItemId lookup
         return Promise.resolve(parentDoc);
       });

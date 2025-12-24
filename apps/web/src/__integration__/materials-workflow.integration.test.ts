@@ -293,12 +293,15 @@ describe('Materials Workflow Integration', () => {
 
     // Fetch all and filter client-side (simulating search)
     const snapshot = await getDocs(collection(db, COLLECTIONS.MATERIALS));
-    const allMaterials = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const allMaterials: { id: string; name?: string }[] = snapshot.docs.map((d) => ({
+      id: d.id,
+      ...(d.data() as object),
+    }));
 
     // Search for "Stainless"
     const searchTerm = 'stainless';
     const results = allMaterials.filter((m) =>
-      (m.name as string).toLowerCase().includes(searchTerm.toLowerCase())
+      (m.name ?? '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     expect(results.length).toBe(2);
@@ -560,7 +563,7 @@ describe('Materials Workflow Integration', () => {
     );
     const boughtOut = await getDocs(boQuery);
     expect(boughtOut.size).toBe(1);
-    expect(boughtOut.docs[0].data().name).toBe('Gate Valve 2"');
+    expect(boughtOut.docs[0]?.data().name).toBe('Gate Valve 2"');
 
     // eslint-disable-next-line no-console
     console.log('\n✅ Complete materials workflow verified successfully!\n');

@@ -112,12 +112,12 @@ describe('Bought-Out Helpers', () => {
         expect(isBoughtOutCategory(MaterialCategory.PLATES_CARBON_STEEL)).toBe(false);
       });
 
-      it('should return false for PIPES_STAINLESS_STEEL', () => {
-        expect(isBoughtOutCategory(MaterialCategory.PIPES_STAINLESS_STEEL)).toBe(false);
+      it('should return false for PIPES_STAINLESS_304L', () => {
+        expect(isBoughtOutCategory(MaterialCategory.PIPES_STAINLESS_304L)).toBe(false);
       });
 
-      it('should return false for FITTINGS_STAINLESS_STEEL', () => {
-        expect(isBoughtOutCategory(MaterialCategory.FITTINGS_STAINLESS_STEEL)).toBe(false);
+      it('should return false for FITTINGS_BUTT_WELD', () => {
+        expect(isBoughtOutCategory(MaterialCategory.FITTINGS_BUTT_WELD)).toBe(false);
       });
     });
   });
@@ -241,12 +241,8 @@ describe('Bought-Out Helpers', () => {
       expect(isBoughtOutType('RAW_MATERIAL')).toBe(false);
     });
 
-    it('should return false for SEMI_FINISHED', () => {
-      expect(isBoughtOutType('SEMI_FINISHED')).toBe(false);
-    });
-
-    it('should return false for FINISHED_GOODS', () => {
-      expect(isBoughtOutType('FINISHED_GOODS')).toBe(false);
+    it('should return false for CONSUMABLE', () => {
+      expect(isBoughtOutType('CONSUMABLE')).toBe(false);
     });
   });
 
@@ -356,8 +352,8 @@ describe('Bought-Out Helpers', () => {
         expect(getBoughtOutTypeGroup(MaterialCategory.PIPES_CARBON_STEEL)).toBeNull();
       });
 
-      it('should return null for FITTINGS_STAINLESS_STEEL', () => {
-        expect(getBoughtOutTypeGroup(MaterialCategory.FITTINGS_STAINLESS_STEEL)).toBeNull();
+      it('should return null for FITTINGS_BUTT_WELD', () => {
+        expect(getBoughtOutTypeGroup(MaterialCategory.FITTINGS_BUTT_WELD)).toBeNull();
       });
     });
   });
@@ -393,10 +389,10 @@ describe('Bought-Out Helpers', () => {
     it('type group counts should match category counts', () => {
       const byType = getBoughtOutCategoriesByType();
       const totalByType =
-        byType.Valves.length +
-        byType.Pumps.length +
-        byType.Instruments.length +
-        byType.Other.length;
+        (byType.Valves?.length ?? 0) +
+        (byType.Pumps?.length ?? 0) +
+        (byType.Instruments?.length ?? 0) +
+        (byType.Other?.length ?? 0);
 
       expect(totalByType).toBe(getAllBoughtOutCategories().length);
     });

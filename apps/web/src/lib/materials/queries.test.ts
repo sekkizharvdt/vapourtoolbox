@@ -42,7 +42,7 @@ jest.mock('@vapour/logger', () => ({
 }));
 
 jest.mock('../firebase/typeHelpers', () => ({
-  docToTyped: <T>(id: string, data: unknown): T => ({ id, ...data }) as T,
+  docToTyped: <T>(id: string, data: unknown): T => ({ id, ...(data as object) }) as T,
 }));
 
 // Import after mocks
@@ -130,12 +130,12 @@ describe('Material Querying & Search', () => {
       mockGetDocs.mockResolvedValue({ docs: [], size: 0 });
 
       await queryMaterials(mockDb, {
-        materialTypes: ['RAW_MATERIAL', 'SEMI_FINISHED'] as MaterialType[],
+        materialTypes: ['RAW_MATERIAL', 'BOUGHT_OUT_COMPONENT'] as MaterialType[],
       });
 
       expect(mockWhere).toHaveBeenCalledWith('materialType', 'in', [
         'RAW_MATERIAL',
-        'SEMI_FINISHED',
+        'BOUGHT_OUT_COMPONENT',
       ]);
     });
 
@@ -266,7 +266,7 @@ describe('Material Querying & Search', () => {
       const result = await searchMaterials(mockDb, 'fabrication');
 
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('m1');
+      expect(result[0]?.id).toBe('m1');
     });
 
     it('should search materials by material code', async () => {
@@ -282,7 +282,7 @@ describe('Material Querying & Search', () => {
       const result = await searchMaterials(mockDb, 'SS-304');
 
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('m1');
+      expect(result[0]?.id).toBe('m1');
     });
 
     it('should search materials by custom code', async () => {
@@ -298,7 +298,7 @@ describe('Material Querying & Search', () => {
       const result = await searchMaterials(mockDb, 'CUSTOM-001');
 
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('m1');
+      expect(result[0]?.id).toBe('m1');
     });
 
     it('should search materials by tags', async () => {
@@ -314,7 +314,7 @@ describe('Material Querying & Search', () => {
       const result = await searchMaterials(mockDb, 'corrosion');
 
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('m1');
+      expect(result[0]?.id).toBe('m1');
     });
 
     it('should be case insensitive', async () => {

@@ -46,35 +46,36 @@ describe('systemStatusService', () => {
 
   describe('getSystemStatus', () => {
     const mockSystemStatus: SystemStatusResponse = {
-      lastUpdated: {
-        seconds: 1703318400,
-        nanoseconds: 0,
-      } as unknown as SystemStatusResponse['lastUpdated'],
-      audit: {
-        summary: {
-          total: 10,
-          high: 0,
-          moderate: 3,
-          low: 7,
+      generatedAt: '2024-12-23T10:00:00Z',
+      runtime: {
+        node: {
+          current: '20.10.0',
+          recommended: '20.10.0',
         },
-        vulnerabilities: [],
-      },
-      outdated: {
-        summary: {
-          total: 5,
-          major: 1,
-          minor: 2,
-          patch: 2,
+        pnpm: {
+          current: '8.15.0',
+          recommended: '8.15.0',
         },
-        packages: [],
       },
-      build: {
-        status: 'success',
-        lastBuildTime: {
-          seconds: 1703318400,
-          nanoseconds: 0,
-        } as unknown as SystemStatusResponse['build']['lastBuildTime'],
+      workspaces: [
+        {
+          name: '@vapour/web',
+          path: 'apps/web',
+          version: '1.0.0',
+          dependencyCount: 100,
+        },
+      ],
+      vulnerabilities: {
+        critical: 0,
+        high: 0,
+        moderate: 3,
+        low: 7,
+        info: 0,
+        total: 10,
+        details: [],
       },
+      outdatedPackages: [],
+      totalDependencies: 500,
     };
 
     it('should return system status when document exists', async () => {
@@ -116,23 +117,24 @@ describe('systemStatusService', () => {
       expect(mockDoc).toHaveBeenCalledWith(expect.anything(), 'systemStatus', 'current');
     });
 
-    it('should return full audit information', async () => {
+    it('should return full vulnerability information', async () => {
       const statusWithVulnerabilities: SystemStatusResponse = {
         ...mockSystemStatus,
-        audit: {
-          summary: {
-            total: 2,
-            high: 1,
-            moderate: 1,
-            low: 0,
-          },
-          vulnerabilities: [
+        vulnerabilities: {
+          critical: 0,
+          high: 1,
+          moderate: 1,
+          low: 0,
+          info: 0,
+          total: 2,
+          details: [
             {
-              name: 'lodash',
+              id: 'VULN-001',
+              package: 'lodash',
               severity: 'high',
               title: 'Prototype Pollution',
-              path: 'lodash',
-              fixAvailable: true,
+              vulnerableVersions: '<4.17.21',
+              patchedVersions: '>=4.17.21',
             },
           ],
         },
@@ -145,31 +147,25 @@ describe('systemStatusService', () => {
 
       const result = await getSystemStatus();
 
-      expect(result?.audit.vulnerabilities).toHaveLength(1);
-      expect(result?.audit.vulnerabilities[0].name).toBe('lodash');
-      expect(result?.audit.vulnerabilities[0].severity).toBe('high');
+      expect(result?.vulnerabilities.details).toHaveLength(1);
+      expect(result?.vulnerabilities.details?.[0]?.package).toBe('lodash');
+      expect(result?.vulnerabilities.details?.[0]?.severity).toBe('high');
     });
 
     it('should return full outdated packages information', async () => {
       const statusWithOutdated: SystemStatusResponse = {
         ...mockSystemStatus,
-        outdated: {
-          summary: {
-            total: 2,
-            major: 1,
-            minor: 1,
-            patch: 0,
+        outdatedPackages: [
+          {
+            name: 'react',
+            current: '17.0.2',
+            wanted: '17.0.2',
+            latest: '18.2.0',
+            workspace: '@vapour/web',
+            updateType: 'major',
+            isSecurityUpdate: false,
           },
-          packages: [
-            {
-              name: 'react',
-              current: '17.0.2',
-              wanted: '17.0.2',
-              latest: '18.2.0',
-              type: 'major',
-            },
-          ],
-        },
+        ],
       };
 
       mockGetDoc.mockResolvedValue({
@@ -179,33 +175,40 @@ describe('systemStatusService', () => {
 
       const result = await getSystemStatus();
 
-      expect(result?.outdated.packages).toHaveLength(1);
-      expect(result?.outdated.packages[0].name).toBe('react');
-      expect(result?.outdated.packages[0].type).toBe('major');
+      expect(result?.outdatedPackages).toHaveLength(1);
+      expect(result?.outdatedPackages?.[0]?.name).toBe('react');
+      expect(result?.outdatedPackages?.[0]?.updateType).toBe('major');
     });
 
-    it('should return build status information', async () => {
-      const statusWithBuild: SystemStatusResponse = {
+    it('should return workspace information', async () => {
+      const statusWithWorkspaces: SystemStatusResponse = {
         ...mockSystemStatus,
-        build: {
-          status: 'failed',
-          lastBuildTime: {
-            seconds: 1703318400,
-            nanoseconds: 0,
-          } as unknown as SystemStatusResponse['build']['lastBuildTime'],
-          error: 'TypeScript compilation failed',
-        },
+        workspaces: [
+          {
+            name: '@vapour/web',
+            path: 'apps/web',
+            version: '1.0.0',
+            dependencyCount: 100,
+          },
+          {
+            name: '@vapour/types',
+            path: 'packages/types',
+            version: '1.0.0',
+            dependencyCount: 10,
+          },
+        ],
       };
 
       mockGetDoc.mockResolvedValue({
         exists: () => true,
-        data: () => statusWithBuild,
+        data: () => statusWithWorkspaces,
       });
 
       const result = await getSystemStatus();
 
-      expect(result?.build.status).toBe('failed');
-      expect(result?.build.error).toBe('TypeScript compilation failed');
+      expect(result?.workspaces).toHaveLength(2);
+      expect(result?.workspaces?.[0]?.name).toBe('@vapour/web');
+      expect(result?.workspaces?.[1]?.name).toBe('@vapour/types');
     });
   });
 });
