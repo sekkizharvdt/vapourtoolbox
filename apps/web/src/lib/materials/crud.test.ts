@@ -7,7 +7,13 @@
 /* eslint-disable @typescript-eslint/consistent-type-assertions, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 
 import type { Firestore } from 'firebase/firestore';
-import type { MaterialCategory } from '@vapour/types';
+import type { Material, MaterialCategory, MaterialType } from '@vapour/types';
+
+// Input type for createMaterial - material data without audit fields
+type CreateMaterialInput = Omit<
+  Material,
+  'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
+>;
 
 // Mock firebase/firestore
 const mockCollection = jest.fn();
@@ -86,23 +92,33 @@ describe('Material CRUD Operations', () => {
   });
 
   describe('createMaterial', () => {
-    const baseMaterialData = {
+    const baseMaterialData: CreateMaterialInput = {
       name: 'Stainless Steel 304 Plate',
       description: 'SS 304 plate for general fabrication',
       category: 'PLATES_STAINLESS_STEEL' as MaterialCategory,
-      materialType: 'RAW_MATERIAL' as const,
-      baseUnit: 'kg' as const,
+      materialType: 'RAW_MATERIAL' as MaterialType,
+      baseUnit: 'kg',
+      materialCode: '', // Will be auto-generated
       specification: {
         grade: '304',
         standard: 'ASTM A240',
       },
+      properties: {},
+      hasVariants: false,
+      preferredVendors: [],
+      priceHistory: [],
+      trackInventory: false,
+      isActive: true,
+      isStandard: false,
+      tags: [],
+      certifications: [],
     };
 
     it('should create material with generated code', async () => {
       mockGetDocs.mockResolvedValue({ empty: true });
       mockAddDoc.mockResolvedValue({ id: 'new-material-id' });
 
-      const result = await createMaterial(mockDb, baseMaterialData as any, userId);
+      const result = await createMaterial(mockDb, baseMaterialData, userId);
 
       expect(result.id).toBe('new-material-id');
       expect(result.materialCode).toBe('PL-SS-304');
@@ -112,27 +128,29 @@ describe('Material CRUD Operations', () => {
     });
 
     it('should use provided material code if specified', async () => {
-      const dataWithCode = {
+      const dataWithCode: CreateMaterialInput = {
         ...baseMaterialData,
         materialCode: 'CUSTOM-001',
       };
 
       mockAddDoc.mockResolvedValue({ id: 'new-material-id' });
 
-      const result = await createMaterial(mockDb, dataWithCode as any, userId);
+      const result = await createMaterial(mockDb, dataWithCode, userId);
 
       expect(result.materialCode).toBe('CUSTOM-001');
     });
 
     it('should throw error when grade is missing for code generation', async () => {
-      const dataWithoutGrade = {
+      const dataWithoutGrade: CreateMaterialInput = {
         ...baseMaterialData,
+        materialCode: '', // Force code generation
         specification: {
           standard: 'ASTM A240',
+          // grade intentionally missing
         },
       };
 
-      await expect(createMaterial(mockDb, dataWithoutGrade as any, userId)).rejects.toThrow(
+      await expect(createMaterial(mockDb, dataWithoutGrade, userId)).rejects.toThrow(
         'Material grade is required for code generation'
       );
     });
@@ -143,7 +161,7 @@ describe('Material CRUD Operations', () => {
         docs: [{ id: 'existing-material' }],
       });
 
-      await expect(createMaterial(mockDb, baseMaterialData as any, userId)).rejects.toThrow(
+      await expect(createMaterial(mockDb, baseMaterialData, userId)).rejects.toThrow(
         'Material code PL-SS-304 already exists'
       );
     });
@@ -152,7 +170,7 @@ describe('Material CRUD Operations', () => {
       mockGetDocs.mockResolvedValue({ empty: true });
       mockAddDoc.mockResolvedValue({ id: 'new-material-id' });
 
-      const result = await createMaterial(mockDb, baseMaterialData as any, userId);
+      const result = await createMaterial(mockDb, baseMaterialData, userId);
 
       expect(result.priceHistory).toEqual([]);
       expect(result.preferredVendors).toEqual([]);
@@ -164,7 +182,7 @@ describe('Material CRUD Operations', () => {
       mockGetDocs.mockResolvedValue({ empty: true });
       mockAddDoc.mockResolvedValue({ id: 'new-material-id' });
 
-      const result = await createMaterial(mockDb, baseMaterialData as any, userId);
+      const result = await createMaterial(mockDb, baseMaterialData, userId);
 
       expect(result.isActive).toBe(true);
       expect(result.isStandard).toBe(false);
@@ -172,7 +190,7 @@ describe('Material CRUD Operations', () => {
     });
 
     it('should preserve provided arrays', async () => {
-      const dataWithArrays = {
+      const dataWithArrays: CreateMaterialInput = {
         ...baseMaterialData,
         preferredVendors: ['vendor-1', 'vendor-2'],
         tags: ['stainless', 'plate'],
@@ -182,7 +200,7 @@ describe('Material CRUD Operations', () => {
       mockGetDocs.mockResolvedValue({ empty: true });
       mockAddDoc.mockResolvedValue({ id: 'new-material-id' });
 
-      const result = await createMaterial(mockDb, dataWithArrays as any, userId);
+      const result = await createMaterial(mockDb, dataWithArrays, userId);
 
       expect(result.preferredVendors).toEqual(['vendor-1', 'vendor-2']);
       expect(result.tags).toEqual(['stainless', 'plate']);
@@ -190,8 +208,9 @@ describe('Material CRUD Operations', () => {
     });
 
     it('should normalize grade for code generation', async () => {
-      const dataWithSpacedGrade = {
+      const dataWithSpacedGrade: CreateMaterialInput = {
         ...baseMaterialData,
+        materialCode: '', // Force code generation
         specification: {
           grade: '304 L',
           standard: 'ASTM A240',
@@ -201,7 +220,7 @@ describe('Material CRUD Operations', () => {
       mockGetDocs.mockResolvedValue({ empty: true });
       mockAddDoc.mockResolvedValue({ id: 'new-material-id' });
 
-      const result = await createMaterial(mockDb, dataWithSpacedGrade as any, userId);
+      const result = await createMaterial(mockDb, dataWithSpacedGrade, userId);
 
       expect(result.materialCode).toBe('PL-SS-304L');
     });
@@ -210,19 +229,20 @@ describe('Material CRUD Operations', () => {
       mockGetDocs.mockResolvedValue({ empty: true });
       mockAddDoc.mockResolvedValue({ id: 'new-material-id' });
 
-      const result = await createMaterial(mockDb, baseMaterialData as any, userId);
+      const result = await createMaterial(mockDb, baseMaterialData, userId);
 
       expect(result.createdAt).toEqual(mockTimestamp);
       expect(result.updatedAt).toEqual(mockTimestamp);
     });
 
     it('should throw error for unsupported category', async () => {
-      const unsupportedCategory = {
+      const unsupportedCategory: CreateMaterialInput = {
         ...baseMaterialData,
+        materialCode: '', // Force code generation
         category: 'UNKNOWN_CATEGORY' as MaterialCategory,
       };
 
-      await expect(createMaterial(mockDb, unsupportedCategory as any, userId)).rejects.toThrow(
+      await expect(createMaterial(mockDb, unsupportedCategory, userId)).rejects.toThrow(
         'Material code generation not supported for category'
       );
     });

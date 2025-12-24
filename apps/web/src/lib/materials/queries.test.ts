@@ -7,7 +7,7 @@
 /* eslint-disable @typescript-eslint/consistent-type-assertions, @typescript-eslint/no-explicit-any */
 
 import type { Firestore } from 'firebase/firestore';
-import type { Material, MaterialCategory, MaterialType } from '@vapour/types';
+import type { Material, MaterialCategory, MaterialType, MaterialSortField } from '@vapour/types';
 
 // Mock firebase/firestore
 const mockCollection = jest.fn();
@@ -159,7 +159,7 @@ describe('Material Querying & Search', () => {
       mockGetDocs.mockResolvedValue({ docs: [], size: 0 });
 
       await queryMaterials(mockDb, {
-        sortField: 'name' as any,
+        sortField: 'name' as MaterialSortField,
         sortDirection: 'asc',
       });
 
