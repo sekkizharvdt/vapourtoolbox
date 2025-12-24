@@ -5,8 +5,8 @@
  * Tests run against local emulators, not production.
  */
 
-import { initializeApp, getApps, deleteApp } from 'firebase/app';
-import { getFirestore, connectFirestoreEmulator, Firestore } from 'firebase/firestore';
+import { initializeApp, getApps, deleteApp, FirebaseApp } from 'firebase/app';
+import { getFirestore, connectFirestoreEmulator, Firestore, terminate } from 'firebase/firestore';
 import { getAuth, connectAuthEmulator, Auth } from 'firebase/auth';
 
 // Emulator configuration
@@ -31,6 +31,7 @@ const TEST_FIREBASE_CONFIG = {
   appId: '1:123456789:web:abcdef',
 };
 
+let testApp: FirebaseApp | null = null;
 let testDb: Firestore | null = null;
 let testAuth: Auth | null = null;
 let isEmulatorConnected = false;
@@ -49,9 +50,9 @@ export function initializeTestFirebase(): { db: Firestore; auth: Auth } {
   });
 
   // Initialize test app
-  const app = initializeApp(TEST_FIREBASE_CONFIG, 'integration-test');
-  testDb = getFirestore(app);
-  testAuth = getAuth(app);
+  testApp = initializeApp(TEST_FIREBASE_CONFIG, 'integration-test');
+  testDb = getFirestore(testApp);
+  testAuth = getAuth(testApp);
 
   // Connect to emulators (only once)
   if (!isEmulatorConnected) {
@@ -121,5 +122,30 @@ export async function checkEmulatorsRunning(): Promise<boolean> {
     return response.ok;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Cleanup Firebase connections after tests
+ * Call this in afterAll to properly close connections and allow Jest to exit
+ */
+export async function cleanupTestFirebase(): Promise<void> {
+  try {
+    // Terminate Firestore connections
+    if (testDb) {
+      await terminate(testDb);
+      testDb = null;
+    }
+
+    // Delete the Firebase app
+    if (testApp) {
+      await deleteApp(testApp);
+      testApp = null;
+    }
+
+    testAuth = null;
+    isEmulatorConnected = false;
+  } catch (error) {
+    console.warn('Error during Firebase cleanup:', error);
   }
 }

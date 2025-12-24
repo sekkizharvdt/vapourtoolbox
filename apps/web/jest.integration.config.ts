@@ -45,6 +45,9 @@ const config: Config = {
 
   // Verbose output
   verbose: true,
+
+  // Force exit after tests complete (Firebase keeps connections open)
+  forceExit: true,
 };
 
 export default config;
