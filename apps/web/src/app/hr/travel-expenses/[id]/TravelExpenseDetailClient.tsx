@@ -25,6 +25,7 @@ import {
   DialogActions,
   TextField,
   MenuItem,
+  Tooltip,
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
@@ -37,6 +38,8 @@ import {
   Restaurant,
   LocalTaxi,
   Receipt,
+  AttachFile as AttachIcon,
+  Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,6 +50,7 @@ import {
   useTravelExpenseReport,
   useAddExpenseItem,
   useRemoveExpenseItem,
+  useUpdateExpenseItemReceipt,
   TRAVEL_EXPENSE_STATUS_COLORS,
   TRAVEL_EXPENSE_STATUS_LABELS,
   EXPENSE_CATEGORY_LABELS,
@@ -56,6 +60,7 @@ import {
   formatExpenseAmount,
   formatTripDateRange,
 } from '@/lib/hr';
+import { ReceiptUploader, type ReceiptAttachment } from '@/components/hr/travelExpenses';
 import type { TravelExpenseCategory } from '@vapour/types';
 
 // Icon map for categories
@@ -80,9 +85,11 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
   const { data: report, isLoading, error, refetch } = useTravelExpenseReport(reportId);
   const addItemMutation = useAddExpenseItem();
   const removeItemMutation = useRemoveExpenseItem();
+  const updateReceiptMutation = useUpdateExpenseItemReceipt();
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
+  const [uploadItemId, setUploadItemId] = useState<string | null>(null);
 
   // Add item form state
   const [newItem, setNewItem] = useState({
@@ -94,6 +101,9 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
     fromLocation: '',
     toLocation: '',
   });
+
+  // Receipt upload for new item
+  const [newItemReceipt, setNewItemReceipt] = useState<ReceiptAttachment | null>(null);
 
   const isDraft = report?.status === 'DRAFT';
   const isOwner = report?.employeeId === user?.uid;
@@ -122,6 +132,9 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
           toLocation: newItem.toLocation.trim() || undefined,
         },
         userId: user.uid,
+        receiptAttachmentId: newItemReceipt?.id,
+        receiptFileName: newItemReceipt?.name,
+        receiptUrl: newItemReceipt?.url,
       });
 
       setAddDialogOpen(false);
@@ -134,9 +147,32 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
         fromLocation: '',
         toLocation: '',
       });
+      setNewItemReceipt(null);
       refetch();
     } catch (err) {
       console.error('Failed to add item:', err);
+    }
+  };
+
+  const handleReceiptUpload = async (itemId: string, receipt: ReceiptAttachment | null) => {
+    if (!user || !receipt) {
+      setUploadItemId(null);
+      return;
+    }
+
+    try {
+      await updateReceiptMutation.mutateAsync({
+        reportId,
+        itemId,
+        receiptAttachmentId: receipt.id,
+        receiptFileName: receipt.name,
+        receiptUrl: receipt.url,
+        userId: user.uid,
+      });
+      setUploadItemId(null);
+      refetch();
+    } catch (err) {
+      console.error('Failed to upload receipt:', err);
     }
   };
 
@@ -278,6 +314,7 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
                       <TableCell>Description</TableCell>
                       <TableCell>Date</TableCell>
                       <TableCell>Vendor</TableCell>
+                      <TableCell align="center">Receipt</TableCell>
                       <TableCell align="right">Amount</TableCell>
                       {canEdit && <TableCell align="center">Actions</TableCell>}
                     </TableRow>
@@ -305,6 +342,33 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
                         <TableCell>{formatExpenseDate(item.expenseDate.toDate())}</TableCell>
                         <TableCell>
                           <Typography variant="body2">{item.vendorName || '-'}</Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          {item.hasReceipt && item.receiptUrl ? (
+                            <Tooltip title={item.receiptFileName || 'View Receipt'}>
+                              <IconButton
+                                size="small"
+                                color="success"
+                                onClick={() => window.open(item.receiptUrl, '_blank')}
+                              >
+                                <ViewIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          ) : canEdit ? (
+                            <Tooltip title="Upload Receipt">
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={() => setUploadItemId(item.id)}
+                              >
+                                <AttachIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">
+                              -
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell align="right">
                           <Typography variant="body2" fontWeight="medium">
@@ -467,6 +531,18 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
                   </Grid>
                 </>
               )}
+
+              {/* Receipt Upload */}
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Receipt (Optional)
+                </Typography>
+                <ReceiptUploader
+                  receipt={newItemReceipt}
+                  onChange={setNewItemReceipt}
+                  storagePath={`hr/travel-expenses/${reportId}/receipts/`}
+                />
+              </Grid>
             </Grid>
           </DialogContent>
           <DialogActions>
@@ -504,6 +580,27 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
             >
               {removeItemMutation.isPending ? 'Deleting...' : 'Delete'}
             </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Upload Receipt Dialog */}
+        <Dialog open={!!uploadItemId} onClose={() => setUploadItemId(null)} maxWidth="sm" fullWidth>
+          <DialogTitle>Upload Receipt</DialogTitle>
+          <DialogContent>
+            <Box sx={{ pt: 2 }}>
+              <ReceiptUploader
+                receipt={null}
+                onChange={(receipt) => {
+                  if (uploadItemId && receipt) {
+                    handleReceiptUpload(uploadItemId, receipt);
+                  }
+                }}
+                storagePath={`hr/travel-expenses/${reportId}/receipts/`}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setUploadItemId(null)}>Cancel</Button>
           </DialogActions>
         </Dialog>
       </Box>
