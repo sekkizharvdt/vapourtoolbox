@@ -5,3 +5,4 @@
  */
 
 export * from './leave';
+export * from './travelExpense';

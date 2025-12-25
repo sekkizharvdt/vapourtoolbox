@@ -44,8 +44,10 @@ export {
   leaveBalanceKeys,
   leaveRequestKeys,
   hrStatsKeys,
+  travelExpenseKeys,
   type LeaveRequestFilters,
   type LeaveBalanceFilters,
+  type TravelExpenseFilters,
 } from './hr';
 
 // Accounting-related query keys

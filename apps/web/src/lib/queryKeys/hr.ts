@@ -7,7 +7,7 @@
  * @see https://tanstack.com/query/latest/docs/react/guides/query-keys
  */
 
-import { LeaveRequestStatus, LeaveTypeCode } from '@vapour/types';
+import { LeaveRequestStatus, LeaveTypeCode, TravelExpenseStatus } from '@vapour/types';
 
 export interface LeaveRequestFilters {
   status?: LeaveRequestStatus;
@@ -78,4 +78,34 @@ export const hrStatsKeys = {
   pendingApprovalCount: () => [...hrStatsKeys.all, 'pendingApprovalCount'] as const,
   myLeaveStats: (fiscalYear?: number) =>
     [...hrStatsKeys.all, 'myLeaveStats', fiscalYear ?? 'current'] as const,
+};
+
+/**
+ * Travel Expense query key filters
+ */
+export interface TravelExpenseFilters {
+  employeeId?: string;
+  status?: TravelExpenseStatus | TravelExpenseStatus[];
+  projectId?: string;
+  costCentreId?: string;
+  tripStartDateFrom?: string;
+  tripStartDateTo?: string;
+}
+
+/**
+ * Travel Expense query keys
+ */
+export const travelExpenseKeys = {
+  all: ['travelExpenses'] as const,
+  lists: () => [...travelExpenseKeys.all, 'list'] as const,
+  list: (filters?: TravelExpenseFilters) => [...travelExpenseKeys.lists(), filters ?? {}] as const,
+  details: () => [...travelExpenseKeys.all, 'detail'] as const,
+  detail: (id: string) => [...travelExpenseKeys.details(), id] as const,
+  myReports: (filters?: Omit<TravelExpenseFilters, 'employeeId'>) =>
+    [...travelExpenseKeys.all, 'myReports', filters ?? {}] as const,
+  pendingApproval: (approverId?: string) =>
+    [...travelExpenseKeys.all, 'pendingApproval', approverId ?? 'current'] as const,
+  byProject: (projectId: string) => [...travelExpenseKeys.all, 'byProject', projectId] as const,
+  byCostCentre: (costCentreId: string) =>
+    [...travelExpenseKeys.all, 'byCostCentre', costCentreId] as const,
 };
