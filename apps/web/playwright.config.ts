@@ -45,6 +45,10 @@ export default defineConfig({
     // Base URL to use in actions like `await page.goto('/')`
     baseURL: 'http://localhost:3001',
 
+    // Navigation timeout - increased to handle slow first-page compilation
+    // Next.js dev server compiles pages on-demand, which can take 20-30s for the first request
+    navigationTimeout: 60 * 1000, // 60 seconds for page.goto()
+
     // Collect trace when retrying the failed test
     trace: 'on-first-retry',
 
@@ -62,22 +66,13 @@ export default defineConfig({
       name: 'setup',
       testMatch: /auth\.setup\.ts/,
       use: {
-        // WSL-optimized browser launch options
+        // Browser launch options for stability
         launchOptions: {
           args: [
             '--disable-gpu',
-            '--disable-dev-shm-usage', // Prevents /dev/shm memory issues in WSL
-            '--disable-software-rasterizer',
+            '--disable-dev-shm-usage', // Prevents /dev/shm memory issues
             '--no-sandbox',
             '--disable-setuid-sandbox',
-            '--disable-extensions',
-            '--disable-background-networking',
-            '--disable-background-timer-throttling',
-            '--disable-backgrounding-occluded-windows',
-            '--disable-renderer-backgrounding',
-            '--single-process', // Run in single process to reduce memory
-            '--js-flags=--max-old-space-size=512', // Limit V8 heap to 512MB
-            '--disable-features=IsolateOrigins,site-per-process', // Reduce process isolation overhead
           ],
         },
       },
@@ -90,22 +85,13 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         // Use authenticated state from setup
         storageState: STORAGE_STATE_PATH,
-        // WSL-optimized browser launch options
+        // Browser launch options for stability
         launchOptions: {
           args: [
             '--disable-gpu',
             '--disable-dev-shm-usage',
-            '--disable-software-rasterizer',
             '--no-sandbox',
             '--disable-setuid-sandbox',
-            '--disable-extensions',
-            '--disable-background-networking',
-            '--disable-background-timer-throttling',
-            '--disable-backgrounding-occluded-windows',
-            '--disable-renderer-backgrounding',
-            '--single-process',
-            '--js-flags=--max-old-space-size=512', // Limit V8 heap to 512MB
-            '--disable-features=IsolateOrigins,site-per-process', // Reduce process isolation overhead
           ],
         },
       },

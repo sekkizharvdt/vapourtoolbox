@@ -16,11 +16,32 @@
  * The auth.setup.ts must run first to create the test user.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 import { isTestUserReady, signInForTest } from './auth.helpers';
 
 // Test configuration
 const TEST_TIMEOUT = 30000;
+
+/**
+ * Helper to navigate to entities page and wait for data to load
+ */
+async function goToEntitiesPageAndWaitForLoad(page: Page) {
+  await page.goto('/entities');
+  await page.waitForLoadState('domcontentloaded');
+  // Wait for page subtitle to appear
+  await page
+    .getByText(/Manage vendors, customers, and business partners/i)
+    .waitFor({ state: 'visible', timeout: TEST_TIMEOUT });
+  // Wait for either table rows to appear OR "No entities yet" empty state
+  await Promise.race([
+    page.getByRole('row').nth(1).waitFor({ state: 'visible', timeout: TEST_TIMEOUT }), // First data row
+    page.getByText(/No entities yet/i).waitFor({ state: 'visible', timeout: TEST_TIMEOUT }),
+  ]).catch(() => {
+    // If neither appears in time, continue anyway - the page subtitle is visible
+  });
+  // Small delay to ensure React has finished rendering
+  await page.waitForTimeout(500);
+}
 
 test.describe('Entities Module', () => {
   // Sign in before each test that requires authentication
@@ -39,10 +60,10 @@ test.describe('Entities Module', () => {
 
   test.describe('Page Navigation', () => {
     test('should load the entities page or redirect to login', async ({ page }) => {
-      test.setTimeout(TEST_TIMEOUT);
+      test.setTimeout(60000); // Extend timeout for this test
 
       await page.goto('/entities');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Should show either entities page, access denied, loading state, or login page
       // The page should never be completely blank anymore
@@ -54,7 +75,7 @@ test.describe('Entities Module', () => {
           .or(page.getByText(/Verifying permissions/i))
           .or(page.getByText(/Loading authentication/i))
           .or(page.getByRole('button', { name: /sign in with google/i }))
-      ).toBeVisible({ timeout: 15000 });
+      ).toBeVisible({ timeout: 30000 });
     });
 
     test('should display entities page when authenticated', async ({ page }) => {
@@ -407,13 +428,7 @@ test.describe('Entities Module', () => {
 
   test.describe('View Entity Flow', () => {
     test('should open view entity dialog when clicking View Details', async ({ page }) => {
-      await page.goto('/entities');
-      await page.waitForLoadState('domcontentloaded');
-
-      // Wait for page subtitle to appear
-      await page
-        .getByText(/Manage vendors, customers, and business partners/i)
-        .waitFor({ state: 'visible', timeout: 10000 });
+      await goToEntitiesPageAndWaitForLoad(page);
 
       // Find and click View Details button on first row
       const viewButton = page.getByRole('button', { name: /View Details/i }).first();
@@ -431,13 +446,7 @@ test.describe('Entities Module', () => {
     });
 
     test('should display entity details in view dialog', async ({ page }) => {
-      await page.goto('/entities');
-      await page.waitForLoadState('domcontentloaded');
-
-      // Wait for page subtitle to appear
-      await page
-        .getByText(/Manage vendors, customers, and business partners/i)
-        .waitFor({ state: 'visible', timeout: 10000 });
+      await goToEntitiesPageAndWaitForLoad(page);
 
       const viewButton = page.getByRole('button', { name: /View Details/i }).first();
       const hasEntities = await viewButton.isVisible().catch(() => false);
@@ -455,13 +464,7 @@ test.describe('Entities Module', () => {
     });
 
     test('should close view dialog', async ({ page }) => {
-      await page.goto('/entities');
-      await page.waitForLoadState('domcontentloaded');
-
-      // Wait for page subtitle to appear
-      await page
-        .getByText(/Manage vendors, customers, and business partners/i)
-        .waitFor({ state: 'visible', timeout: 10000 });
+      await goToEntitiesPageAndWaitForLoad(page);
 
       const viewButton = page.getByRole('button', { name: /View Details/i }).first();
       const hasEntities = await viewButton.isVisible().catch(() => false);
@@ -484,13 +487,7 @@ test.describe('Entities Module', () => {
 
   test.describe('Edit Entity Flow', () => {
     test('should open edit entity dialog', async ({ page }) => {
-      await page.goto('/entities');
-      await page.waitForLoadState('domcontentloaded');
-
-      // Wait for page subtitle to appear
-      await page
-        .getByText(/Manage vendors, customers, and business partners/i)
-        .waitFor({ state: 'visible', timeout: 10000 });
+      await goToEntitiesPageAndWaitForLoad(page);
 
       // Find Edit button on first row
       const editButton = page.getByRole('button', { name: /Edit Entity/i }).first();
@@ -509,13 +506,7 @@ test.describe('Entities Module', () => {
     });
 
     test('should pre-populate entity data in edit dialog', async ({ page }) => {
-      await page.goto('/entities');
-      await page.waitForLoadState('domcontentloaded');
-
-      // Wait for page subtitle to appear
-      await page
-        .getByText(/Manage vendors, customers, and business partners/i)
-        .waitFor({ state: 'visible', timeout: 10000 });
+      await goToEntitiesPageAndWaitForLoad(page);
 
       const editButton = page.getByRole('button', { name: /Edit Entity/i }).first();
       const hasPermission = await editButton.isVisible().catch(() => false);
@@ -537,13 +528,7 @@ test.describe('Entities Module', () => {
 
   test.describe('Archive Entity Flow', () => {
     test('should open archive dialog', async ({ page }) => {
-      await page.goto('/entities');
-      await page.waitForLoadState('domcontentloaded');
-
-      // Wait for page subtitle to appear
-      await page
-        .getByText(/Manage vendors, customers, and business partners/i)
-        .waitFor({ state: 'visible', timeout: 10000 });
+      await goToEntitiesPageAndWaitForLoad(page);
 
       // Find Archive button on first row
       const archiveButton = page.getByRole('button', { name: /Archive Entity/i }).first();
@@ -562,13 +547,7 @@ test.describe('Entities Module', () => {
     });
 
     test('should require reason for archiving', async ({ page }) => {
-      await page.goto('/entities');
-      await page.waitForLoadState('domcontentloaded');
-
-      // Wait for page subtitle to appear
-      await page
-        .getByText(/Manage vendors, customers, and business partners/i)
-        .waitFor({ state: 'visible', timeout: 10000 });
+      await goToEntitiesPageAndWaitForLoad(page);
 
       const archiveButton = page.getByRole('button', { name: /Archive Entity/i }).first();
       const hasPermission = await archiveButton.isVisible().catch(() => false);
@@ -593,13 +572,7 @@ test.describe('Entities Module', () => {
     });
 
     test('should close archive dialog on cancel', async ({ page }) => {
-      await page.goto('/entities');
-      await page.waitForLoadState('domcontentloaded');
-
-      // Wait for page subtitle to appear
-      await page
-        .getByText(/Manage vendors, customers, and business partners/i)
-        .waitFor({ state: 'visible', timeout: 10000 });
+      await goToEntitiesPageAndWaitForLoad(page);
 
       const archiveButton = page.getByRole('button', { name: /Archive Entity/i }).first();
       const hasPermission = await archiveButton.isVisible().catch(() => false);
