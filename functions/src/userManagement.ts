@@ -4,21 +4,7 @@ import type { DocumentSnapshot } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
 import * as admin from 'firebase-admin';
 import { auditUserAction, auditPermissionChange, calculateFieldChanges } from './utils/audit';
-
-/**
- * =====================================================================================
- * IMPORTANT: Permission definitions copied from packages/constants/src/permissions.ts
- * =====================================================================================
- *
- * SINGLE SOURCE OF TRUTH: packages/constants/src/permissions.ts
- *
- * These values MUST be kept in sync with the client application.
- * Any changes to permissions MUST be made in packages/constants first,
- * then copied here.
- *
- * TODO: Set up build process to auto-copy or bundle shared constants
- * =====================================================================================
- */
+import { PERMISSION_FLAGS, hasPermission } from '@vapour/constants';
 
 /**
  * Count active users with full admin permissions (MANAGE_USERS permission)
@@ -40,8 +26,7 @@ async function countActiveAdmins(): Promise<number> {
   snapshot.forEach((doc) => {
     const data = doc.data();
     const permissions = data.permissions || 0;
-    // Check if user has MANAGE_USERS permission (1 << 0 = 1)
-    if ((permissions & PERMISSION_FLAGS.MANAGE_USERS) === PERMISSION_FLAGS.MANAGE_USERS) {
+    if (hasPermission(permissions, PERMISSION_FLAGS.MANAGE_USERS)) {
       count++;
     }
   });
@@ -49,65 +34,9 @@ async function countActiveAdmins(): Promise<number> {
   return count;
 }
 
-// Permission flags - MUST match packages/constants/src/permissions.ts EXACTLY
-const PERMISSION_FLAGS = {
-  // User Management (bits 0-2)
-  MANAGE_USERS: 1 << 0, // 1
-  VIEW_USERS: 1 << 1, // 2
-  MANAGE_ROLES: 1 << 2, // 4
-
-  // Project Management (bits 3-4)
-  MANAGE_PROJECTS: 1 << 3, // 8
-  VIEW_PROJECTS: 1 << 4, // 16
-
-  // Entity Management (bits 5-8)
-  VIEW_ENTITIES: 1 << 5, // 32
-  CREATE_ENTITIES: 1 << 6, // 64
-  EDIT_ENTITIES: 1 << 7, // 128
-  DELETE_ENTITIES: 1 << 8, // 256
-
-  // Company Settings (bit 9)
-  MANAGE_COMPANY_SETTINGS: 1 << 9, // 512
-
-  // Analytics & Reporting (bits 10-11)
-  VIEW_ANALYTICS: 1 << 10, // 1024
-  EXPORT_DATA: 1 << 11, // 2048
-
-  // Time Tracking (bits 12-13)
-  MANAGE_TIME_TRACKING: 1 << 12, // 4096
-  VIEW_TIME_TRACKING: 1 << 13, // 8192
-
-  // Accounting (bits 14-15)
-  MANAGE_ACCOUNTING: 1 << 14, // 16384
-  VIEW_ACCOUNTING: 1 << 15, // 32768
-
-  // Procurement (bits 16-17)
-  MANAGE_PROCUREMENT: 1 << 16, // 65536
-  VIEW_PROCUREMENT: 1 << 17, // 131072
-
-  // Estimation (bits 18-19)
-  MANAGE_ESTIMATION: 1 << 18, // 262144
-  VIEW_ESTIMATION: 1 << 19, // 524288
-
-  // Granular Accounting Permissions (bits 20-26)
-  MANAGE_CHART_OF_ACCOUNTS: 1 << 20, // 1048576 - Create/edit accounts
-  CREATE_TRANSACTIONS: 1 << 21, // 2097152 - Create transactions
-  APPROVE_TRANSACTIONS: 1 << 22, // 4194304 - Approve transactions
-  VIEW_FINANCIAL_REPORTS: 1 << 23, // 8388608 - View P&L, Balance Sheet, etc.
-  MANAGE_COST_CENTRES: 1 << 24, // 16777216 - Manage project cost centres
-  MANAGE_FOREX: 1 << 25, // 33554432 - Manage currency and forex settings
-  RECONCILE_ACCOUNTS: 1 << 26, // 67108864 - Bank reconciliation
-
-  // Document Management (bits 27-30)
-  MANAGE_DOCUMENTS: 1 << 27, // 134217728 - Create/edit master document list, bulk imports
-  SUBMIT_DOCUMENTS: 1 << 28, // 268435456 - Submit documents for review
-  REVIEW_DOCUMENTS: 1 << 29, // 536870912 - Client review/comment (external users)
-  APPROVE_DOCUMENTS: 1 << 30, // 1073741824 - Approve document submissions
-};
-
 // Helper to check if user has admin permissions
 function hasAdminPermission(permissions: number): boolean {
-  return (permissions & PERMISSION_FLAGS.MANAGE_USERS) === PERMISSION_FLAGS.MANAGE_USERS;
+  return hasPermission(permissions, PERMISSION_FLAGS.MANAGE_USERS);
 }
 
 /**

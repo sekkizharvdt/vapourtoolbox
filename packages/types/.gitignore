@@ -1,0 +1,7 @@
+# Build output
+dist/
+
+# Prevent accidental commit of compiled .js files in src/
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
