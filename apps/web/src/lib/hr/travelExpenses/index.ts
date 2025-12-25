@@ -28,6 +28,13 @@ export {
   markTravelExpenseReimbursed,
 } from './travelExpenseApprovalService';
 
+// PDF Report Service
+export {
+  generateTravelExpenseReportPDF,
+  downloadTravelExpenseReportPDF,
+  saveTravelExpenseReportPDF,
+} from './pdfReportService';
+
 // Display Helpers
 export {
   TRAVEL_EXPENSE_STATUS_COLORS,

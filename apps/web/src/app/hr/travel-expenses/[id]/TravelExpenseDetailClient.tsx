@@ -44,6 +44,7 @@ import {
   Check as ApproveIcon,
   Close as RejectIcon,
   Undo as ReturnIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -59,6 +60,7 @@ import {
   useApproveTravelExpenseReport,
   useRejectTravelExpenseReport,
   useReturnTravelExpenseForRevision,
+  downloadTravelExpenseReportPDF,
   TRAVEL_EXPENSE_STATUS_COLORS,
   TRAVEL_EXPENSE_STATUS_LABELS,
   EXPENSE_CATEGORY_LABELS,
@@ -109,6 +111,7 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
   const [rejectionReason, setRejectionReason] = useState('');
   const [returnComments, setReturnComments] = useState('');
   const [approvalComments, setApprovalComments] = useState('');
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   // Add item form state
   const [newItem, setNewItem] = useState({
@@ -285,6 +288,19 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!report) return;
+
+    setIsDownloadingPdf(true);
+    try {
+      await downloadTravelExpenseReportPDF(report);
+    } catch (err) {
+      console.error('Failed to download PDF:', err);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   const showLocationFields =
     newItem.category === 'AIR_TRAVEL' ||
     newItem.category === 'TRAIN_TRAVEL' ||
@@ -338,6 +354,16 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
 
           {/* Action Buttons */}
           <Box sx={{ display: 'flex', gap: 1 }}>
+            {/* PDF Download - always available */}
+            <Button
+              variant="outlined"
+              startIcon={<PdfIcon />}
+              onClick={handleDownloadPdf}
+              disabled={isDownloadingPdf || report.items.length === 0}
+            >
+              {isDownloadingPdf ? 'Generating...' : 'Download PDF'}
+            </Button>
+
             {canSubmit && (
               <Button
                 variant="contained"
