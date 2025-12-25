@@ -6,6 +6,7 @@ import {
   CalendarMonth as CalendarIcon,
   Settings as SettingsIcon,
   History as HistoryIcon,
+  Flight as TravelIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,6 +45,12 @@ export default function HRPage() {
       icon: <LeaveIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/hr/leaves',
       requiresPermission: canApproveLeaves,
+    },
+    {
+      title: 'Travel Expenses',
+      description: 'Submit travel expense reports and track reimbursements',
+      icon: <TravelIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/hr/travel-expenses',
     },
     {
       title: 'Team Calendar',

@@ -176,6 +176,10 @@
         "destination": "/hr/leaves/placeholder.html"
       },
       {
+        "source": "/hr/travel-expenses/*",
+        "destination": "/hr/travel-expenses/placeholder.html"
+      },
+      {
         "source": "/hr/settings/leave-types",
         "destination": "/hr/settings/leave-types.html"
       },
