@@ -445,23 +445,23 @@ export default function UserManagementPage() {
 
       {/* Users Table */}
       <TableContainer component={Paper}>
-        {loading ? (
-          <LoadingState message="Loading users..." variant="table" colSpan={5} />
-        ) : filteredUsers.length === 0 ? (
-          <EmptyState message="No users found" variant="table" colSpan={5} />
-        ) : (
-          <>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>User</TableCell>
-                  <TableCell>Department</TableCell>
-                  <TableCell>Module Access</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>User</TableCell>
+              <TableCell>Department</TableCell>
+              <TableCell>Module Access</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading ? (
+              <LoadingState message="Loading users..." variant="table" colSpan={5} />
+            ) : filteredUsers.length === 0 ? (
+              <EmptyState message="No users found" variant="table" colSpan={5} />
+            ) : (
+              <>
                 {paginatedUsers.map((user) => (
                   <TableRow key={user.uid} hover>
                     <TableCell>
@@ -533,18 +533,20 @@ export default function UserManagementPage() {
                     </TableCell>
                   </TableRow>
                 ))}
-              </TableBody>
-            </Table>
-            <TablePagination
-              rowsPerPageOptions={[10, 25, 50, 100]}
-              component="div"
-              count={filteredUsers.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-            />
-          </>
+              </>
+            )}
+          </TableBody>
+        </Table>
+        {!loading && filteredUsers.length > 0 && (
+          <TablePagination
+            rowsPerPageOptions={[10, 25, 50, 100]}
+            component="div"
+            count={filteredUsers.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
         )}
       </TableContainer>
 

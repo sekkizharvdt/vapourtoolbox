@@ -1,15 +1,23 @@
-'use client';
+import type { Metadata } from 'next';
+import { ClientProviders } from '@/components/ClientProviders';
 
-import { VapourThemeProvider } from '@vapour/ui';
-import { validateFirebaseEnvironment } from '@vapour/firebase';
-import { CSRFProvider } from '@/components/CSRFProvider';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { QueryProvider } from '@/lib/providers/QueryProvider';
+/**
+ * Root Layout (Server Component)
+ *
+ * This is a server component that provides the HTML structure.
+ * All client-side providers are wrapped in ClientProviders to:
+ * 1. Reduce initial bundle compilation time
+ * 2. Enable better streaming and SSR
+ * 3. Follow Next.js 15 App Router best practices
+ */
 
-// Validate Firebase configuration on module load
-// This will throw clear errors if env variables are missing
-validateFirebaseEnvironment();
+export const metadata: Metadata = {
+  title: 'Vapour Toolbox',
+  description: 'Unified VDT Platform - Vapour Desal Technologies',
+  icons: {
+    icon: [{ url: '/favicon.ico' }, { url: '/logo.png', type: 'image/png' }],
+  },
+};
 
 export default function RootLayout({
   children,
@@ -18,22 +26,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <title>Vapour Toolbox</title>
-        <meta name="description" content="Unified VDT Platform - Vapour Desal Technologies" />
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="icon" href="/logo.png" type="image/png" />
-      </head>
       <body style={{ margin: 0 }}>
-        <ErrorBoundary>
-          <CSRFProvider>
-            <AuthProvider>
-              <QueryProvider>
-                <VapourThemeProvider defaultMode="light">{children}</VapourThemeProvider>
-              </QueryProvider>
-            </AuthProvider>
-          </CSRFProvider>
-        </ErrorBoundary>
+        <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
   );

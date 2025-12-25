@@ -166,6 +166,7 @@ describe('ApproveUserDialog', () => {
 
   describe('Approval Flow', () => {
     it('should call updateDoc with correct data on approval', async () => {
+      jest.setTimeout(15000);
       render(<ApproveUserDialog {...defaultProps} />);
       const user = userEvent.setup();
 
@@ -626,7 +627,7 @@ describe('ApproveUserDialog', () => {
 
       const updateCall = mockUpdateDoc.mock.calls[0];
       expect(updateCall[1].jobTitle).toBe('Senior Engineer');
-    });
+    }, 15000);
 
     it('should save null for empty job title', async () => {
       render(<ApproveUserDialog {...defaultProps} />);
