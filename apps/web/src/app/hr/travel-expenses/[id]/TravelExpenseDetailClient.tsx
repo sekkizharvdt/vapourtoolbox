@@ -40,6 +40,10 @@ import {
   Receipt,
   AttachFile as AttachIcon,
   Visibility as ViewIcon,
+  Send as SubmitIcon,
+  Check as ApproveIcon,
+  Close as RejectIcon,
+  Undo as ReturnIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -51,6 +55,10 @@ import {
   useAddExpenseItem,
   useRemoveExpenseItem,
   useUpdateExpenseItemReceipt,
+  useSubmitTravelExpenseReport,
+  useApproveTravelExpenseReport,
+  useRejectTravelExpenseReport,
+  useReturnTravelExpenseForRevision,
   TRAVEL_EXPENSE_STATUS_COLORS,
   TRAVEL_EXPENSE_STATUS_LABELS,
   EXPENSE_CATEGORY_LABELS,
@@ -86,10 +94,21 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
   const addItemMutation = useAddExpenseItem();
   const removeItemMutation = useRemoveExpenseItem();
   const updateReceiptMutation = useUpdateExpenseItemReceipt();
+  const submitMutation = useSubmitTravelExpenseReport();
+  const approveMutation = useApproveTravelExpenseReport();
+  const rejectMutation = useRejectTravelExpenseReport();
+  const returnMutation = useReturnTravelExpenseForRevision();
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [uploadItemId, setUploadItemId] = useState<string | null>(null);
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [returnComments, setReturnComments] = useState('');
+  const [approvalComments, setApprovalComments] = useState('');
 
   // Add item form state
   const [newItem, setNewItem] = useState({
@@ -108,6 +127,10 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
   const isDraft = report?.status === 'DRAFT';
   const isOwner = report?.employeeId === user?.uid;
   const canEdit = isDraft && isOwner;
+  const isApprover = report?.approverIds?.includes(user?.uid || '');
+  const canSubmit = isDraft && isOwner && (report?.items?.length || 0) > 0;
+  const isPendingApproval = report?.status === 'SUBMITTED' || report?.status === 'UNDER_REVIEW';
+  const canApprove = isPendingApproval && isApprover;
 
   const categoryOptions = getExpenseCategoryOptions();
 
@@ -192,6 +215,76 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
     }
   };
 
+  const handleSubmit = async () => {
+    if (!user) return;
+
+    try {
+      await submitMutation.mutateAsync({
+        reportId,
+        userId: user.uid,
+        userName: user.displayName || user.email || 'Unknown',
+      });
+      setSubmitDialogOpen(false);
+      refetch();
+    } catch (err) {
+      console.error('Failed to submit report:', err);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!user) return;
+
+    try {
+      await approveMutation.mutateAsync({
+        reportId,
+        approverId: user.uid,
+        approverName: user.displayName || user.email || 'Unknown',
+        comments: approvalComments.trim() || undefined,
+      });
+      setApproveDialogOpen(false);
+      setApprovalComments('');
+      refetch();
+    } catch (err) {
+      console.error('Failed to approve report:', err);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!user || !rejectionReason.trim()) return;
+
+    try {
+      await rejectMutation.mutateAsync({
+        reportId,
+        approverId: user.uid,
+        approverName: user.displayName || user.email || 'Unknown',
+        rejectionReason: rejectionReason.trim(),
+      });
+      setRejectDialogOpen(false);
+      setRejectionReason('');
+      refetch();
+    } catch (err) {
+      console.error('Failed to reject report:', err);
+    }
+  };
+
+  const handleReturn = async () => {
+    if (!user || !returnComments.trim()) return;
+
+    try {
+      await returnMutation.mutateAsync({
+        reportId,
+        approverId: user.uid,
+        approverName: user.displayName || user.email || 'Unknown',
+        comments: returnComments.trim(),
+      });
+      setReturnDialogOpen(false);
+      setReturnComments('');
+      refetch();
+    } catch (err) {
+      console.error('Failed to return report:', err);
+    }
+  };
+
   const showLocationFields =
     newItem.category === 'AIR_TRAVEL' ||
     newItem.category === 'TRAIN_TRAVEL' ||
@@ -241,6 +334,48 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
             <Typography variant="body1" color="text.secondary">
               {report.tripPurpose}
             </Typography>
+          </Box>
+
+          {/* Action Buttons */}
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {canSubmit && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<SubmitIcon />}
+                onClick={() => setSubmitDialogOpen(true)}
+              >
+                Submit for Approval
+              </Button>
+            )}
+            {canApprove && (
+              <>
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<ApproveIcon />}
+                  onClick={() => setApproveDialogOpen(true)}
+                >
+                  Approve
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="warning"
+                  startIcon={<ReturnIcon />}
+                  onClick={() => setReturnDialogOpen(true)}
+                >
+                  Return
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<RejectIcon />}
+                  onClick={() => setRejectDialogOpen(true)}
+                >
+                  Reject
+                </Button>
+              </>
+            )}
           </Box>
         </Box>
 
@@ -601,6 +736,153 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setUploadItemId(null)}>Cancel</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Submit for Approval Dialog */}
+        <Dialog open={submitDialogOpen} onClose={() => setSubmitDialogOpen(false)}>
+          <DialogTitle>Submit for Approval?</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to submit this travel expense report for approval? You will not
+              be able to edit it after submission.
+            </Typography>
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+              <Typography variant="subtitle2">Total Amount</Typography>
+              <Typography variant="h6" color="primary.main">
+                {formatExpenseAmount(report?.totalAmount || 0, report?.currency || 'INR')}
+              </Typography>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setSubmitDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleSubmit}
+              disabled={submitMutation.isPending}
+            >
+              {submitMutation.isPending ? 'Submitting...' : 'Submit'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Approve Dialog */}
+        <Dialog
+          open={approveDialogOpen}
+          onClose={() => setApproveDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Approve Travel Expense Report</DialogTitle>
+          <DialogContent>
+            <Typography gutterBottom>
+              You are about to approve{' '}
+              <strong>
+                {report?.reportNumber} (
+                {formatExpenseAmount(report?.totalAmount || 0, report?.currency || 'INR')})
+              </strong>
+            </Typography>
+            <TextField
+              label="Comments (Optional)"
+              fullWidth
+              multiline
+              rows={3}
+              value={approvalComments}
+              onChange={(e) => setApprovalComments(e.target.value)}
+              placeholder="Add any comments about this approval..."
+              sx={{ mt: 2 }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setApproveDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={handleApprove}
+              disabled={approveMutation.isPending}
+            >
+              {approveMutation.isPending ? 'Approving...' : 'Approve'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Reject Dialog */}
+        <Dialog
+          open={rejectDialogOpen}
+          onClose={() => setRejectDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Reject Travel Expense Report</DialogTitle>
+          <DialogContent>
+            <Typography color="error" gutterBottom>
+              You are about to reject <strong>{report?.reportNumber}</strong>
+            </Typography>
+            <TextField
+              label="Rejection Reason"
+              fullWidth
+              required
+              multiline
+              rows={3}
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Please provide a reason for rejection..."
+              sx={{ mt: 2 }}
+              error={!rejectionReason.trim()}
+              helperText={!rejectionReason.trim() ? 'Rejection reason is required' : ''}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={handleReject}
+              disabled={rejectMutation.isPending || !rejectionReason.trim()}
+            >
+              {rejectMutation.isPending ? 'Rejecting...' : 'Reject'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Return for Revision Dialog */}
+        <Dialog
+          open={returnDialogOpen}
+          onClose={() => setReturnDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Return for Revision</DialogTitle>
+          <DialogContent>
+            <Typography gutterBottom>
+              Return <strong>{report?.reportNumber}</strong> to the employee for revision. They will
+              be able to edit and resubmit the report.
+            </Typography>
+            <TextField
+              label="Comments"
+              fullWidth
+              required
+              multiline
+              rows={3}
+              value={returnComments}
+              onChange={(e) => setReturnComments(e.target.value)}
+              placeholder="Explain what needs to be revised..."
+              sx={{ mt: 2 }}
+              error={!returnComments.trim()}
+              helperText={!returnComments.trim() ? 'Comments are required' : ''}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setReturnDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              color="warning"
+              onClick={handleReturn}
+              disabled={returnMutation.isPending || !returnComments.trim()}
+            >
+              {returnMutation.isPending ? 'Returning...' : 'Return for Revision'}
+            </Button>
           </DialogActions>
         </Dialog>
       </Box>

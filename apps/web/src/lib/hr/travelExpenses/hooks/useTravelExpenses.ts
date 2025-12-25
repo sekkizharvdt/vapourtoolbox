@@ -21,6 +21,13 @@ import {
   removeExpenseItem,
   updateExpenseItemReceipt,
 } from '../travelExpenseService';
+import {
+  submitTravelExpenseReport,
+  approveTravelExpenseReport,
+  rejectTravelExpenseReport,
+  returnTravelExpenseForRevision,
+  markTravelExpenseReimbursed,
+} from '../travelExpenseApprovalService';
 import type {
   TravelExpenseReport,
   CreateTravelExpenseInput,
@@ -345,4 +352,145 @@ export function useOptimisticTravelExpenseUpdate() {
       queryClient.invalidateQueries({ queryKey: travelExpenseKeys.detail(reportId) });
     },
   };
+}
+
+// ============================================
+// Approval Mutation Hooks
+// ============================================
+
+interface SubmitTravelExpenseParams {
+  reportId: string;
+  userId: string;
+  userName: string;
+}
+
+/**
+ * Hook to submit a travel expense report for approval
+ */
+export function useSubmitTravelExpenseReport() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ reportId, userId, userName }: SubmitTravelExpenseParams) =>
+      submitTravelExpenseReport(reportId, userId, userName),
+    onSuccess: (_, { reportId }) => {
+      queryClient.invalidateQueries({ queryKey: travelExpenseKeys.detail(reportId) });
+      queryClient.invalidateQueries({ queryKey: travelExpenseKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: travelExpenseKeys.myReports() });
+    },
+  });
+}
+
+interface ApproveTravelExpenseParams {
+  reportId: string;
+  approverId: string;
+  approverName: string;
+  approvedAmount?: number;
+  comments?: string;
+}
+
+/**
+ * Hook to approve a travel expense report
+ */
+export function useApproveTravelExpenseReport() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      reportId,
+      approverId,
+      approverName,
+      approvedAmount,
+      comments,
+    }: ApproveTravelExpenseParams) =>
+      approveTravelExpenseReport(reportId, approverId, approverName, approvedAmount, comments),
+    onSuccess: (_, { reportId }) => {
+      queryClient.invalidateQueries({ queryKey: travelExpenseKeys.detail(reportId) });
+      queryClient.invalidateQueries({ queryKey: travelExpenseKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: travelExpenseKeys.pendingApproval() });
+    },
+  });
+}
+
+interface RejectTravelExpenseParams {
+  reportId: string;
+  approverId: string;
+  approverName: string;
+  rejectionReason: string;
+}
+
+/**
+ * Hook to reject a travel expense report
+ */
+export function useRejectTravelExpenseReport() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      reportId,
+      approverId,
+      approverName,
+      rejectionReason,
+    }: RejectTravelExpenseParams) =>
+      rejectTravelExpenseReport(reportId, approverId, approverName, rejectionReason),
+    onSuccess: (_, { reportId }) => {
+      queryClient.invalidateQueries({ queryKey: travelExpenseKeys.detail(reportId) });
+      queryClient.invalidateQueries({ queryKey: travelExpenseKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: travelExpenseKeys.pendingApproval() });
+    },
+  });
+}
+
+interface ReturnForRevisionParams {
+  reportId: string;
+  approverId: string;
+  approverName: string;
+  comments: string;
+}
+
+/**
+ * Hook to return a travel expense report for revision
+ */
+export function useReturnTravelExpenseForRevision() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ reportId, approverId, approverName, comments }: ReturnForRevisionParams) =>
+      returnTravelExpenseForRevision(reportId, approverId, approverName, comments),
+    onSuccess: (_, { reportId }) => {
+      queryClient.invalidateQueries({ queryKey: travelExpenseKeys.detail(reportId) });
+      queryClient.invalidateQueries({ queryKey: travelExpenseKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: travelExpenseKeys.pendingApproval() });
+    },
+  });
+}
+
+interface MarkReimbursedParams {
+  reportId: string;
+  userId: string;
+  userName: string;
+  reimbursedAmount: number;
+  transactionId?: string;
+}
+
+/**
+ * Hook to mark a travel expense report as reimbursed
+ */
+export function useMarkTravelExpenseReimbursed() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      reportId,
+      userId,
+      userName,
+      reimbursedAmount,
+      transactionId,
+    }: MarkReimbursedParams) =>
+      markTravelExpenseReimbursed(reportId, userId, userName, reimbursedAmount, transactionId),
+    onSuccess: (_, { reportId }) => {
+      queryClient.invalidateQueries({ queryKey: travelExpenseKeys.detail(reportId) });
+      queryClient.invalidateQueries({ queryKey: travelExpenseKeys.lists() });
+    },
+  });
 }

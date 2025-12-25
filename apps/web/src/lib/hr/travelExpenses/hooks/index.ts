@@ -19,6 +19,12 @@ export {
   useUpdateExpenseItem,
   useRemoveExpenseItem,
   useUpdateExpenseItemReceipt,
+  // Approval mutation hooks
+  useSubmitTravelExpenseReport,
+  useApproveTravelExpenseReport,
+  useRejectTravelExpenseReport,
+  useReturnTravelExpenseForRevision,
+  useMarkTravelExpenseReimbursed,
   // Helpers
   useOptimisticTravelExpenseUpdate,
 } from './useTravelExpenses';

@@ -19,6 +19,15 @@ export {
   updateExpenseItemReceipt,
 } from './travelExpenseService';
 
+// Approval Service
+export {
+  submitTravelExpenseReport,
+  approveTravelExpenseReport,
+  rejectTravelExpenseReport,
+  returnTravelExpenseForRevision,
+  markTravelExpenseReimbursed,
+} from './travelExpenseApprovalService';
+
 // Display Helpers
 export {
   TRAVEL_EXPENSE_STATUS_COLORS,
@@ -51,5 +60,10 @@ export {
   useUpdateExpenseItem,
   useRemoveExpenseItem,
   useUpdateExpenseItemReceipt,
+  useSubmitTravelExpenseReport,
+  useApproveTravelExpenseReport,
+  useRejectTravelExpenseReport,
+  useReturnTravelExpenseForRevision,
+  useMarkTravelExpenseReimbursed,
   useOptimisticTravelExpenseUpdate,
 } from './hooks';

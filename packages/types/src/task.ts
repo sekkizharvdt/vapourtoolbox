@@ -79,7 +79,13 @@ export type TaskNotificationCategory =
   // HR / Leave Management
   | 'LEAVE_SUBMITTED' // Actionable: Review and approve/reject leave request
   | 'LEAVE_APPROVED' // Informational: Your leave request was approved
-  | 'LEAVE_REJECTED'; // Informational: Your leave request was rejected
+  | 'LEAVE_REJECTED' // Informational: Your leave request was rejected
+  // HR / Travel Expenses
+  | 'TRAVEL_EXPENSE_SUBMITTED' // Actionable: Review and approve/reject travel expense
+  | 'TRAVEL_EXPENSE_APPROVED' // Informational: Your travel expense was approved
+  | 'TRAVEL_EXPENSE_REJECTED' // Informational: Your travel expense was rejected
+  | 'TRAVEL_EXPENSE_RETURNED' // Actionable: Review and revise travel expense
+  | 'TRAVEL_EXPENSE_REIMBURSED'; // Informational: Your travel expense was reimbursed
 
 /**
  * Task Notification Status
