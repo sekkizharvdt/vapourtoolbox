@@ -1292,6 +1292,39 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    /**
+     * HR Travel Expense Reports - Travel reimbursement requests with approval workflow
+     * Uses same permission bits as leave requests:
+     *   VIEW_HR = 4096 (bit 12)
+     *   APPROVE_LEAVES = 16384 (bit 14) - Also used for travel expense approval
+     *   MANAGE_HR_SETTINGS = 8192 (bit 13)
+     */
+    match /hrTravelExpenses/{reportId} {
+      // Read: Own reports OR users with APPROVE_LEAVES permission (approvers)
+      allow read: if isInternalUser() && (
+                     isOwner(resource.data.employeeId) ||
+                     hasPermission2(16384) || // APPROVE_LEAVES
+                     hasPermission2(8192)     // MANAGE_HR_SETTINGS
+                   );
+
+      // Create: Users can create their own travel expense reports
+      allow create: if isInternalUser() &&
+                       isOwner(request.resource.data.employeeId);
+
+      // Update: Own reports (if DRAFT) OR users with APPROVE_LEAVES permission
+      // Users can edit their own draft reports or submit for approval
+      // Approvers can approve/reject/return submitted reports
+      allow update: if isInternalUser() && (
+                       (isOwner(resource.data.employeeId) &&
+                        resource.data.status in ['DRAFT', 'RETURNED']) ||
+                       hasPermission2(16384) || // APPROVE_LEAVES
+                       hasPermission2(8192)     // MANAGE_HR_SETTINGS
+                     );
+
+      // Delete: Super admins only (use status change instead)
+      allow delete: if isSuperAdmin();
+    }
+
     // ============================================
     // System Status (Admin Dashboard)
     // ============================================

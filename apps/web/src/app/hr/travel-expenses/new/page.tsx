@@ -202,9 +202,16 @@ export default function NewTravelExpensePage() {
                 <Autocomplete
                   multiple
                   freeSolo
+                  autoSelect
                   options={COMMON_DESTINATIONS}
                   value={destinations}
                   onChange={(_, newValue) => setDestinations(newValue)}
+                  onBlur={(event) => {
+                    const inputValue = (event.target as HTMLInputElement).value?.trim();
+                    if (inputValue && !destinations.includes(inputValue)) {
+                      setDestinations([...destinations, inputValue]);
+                    }
+                  }}
                   renderTags={(value, getTagProps) =>
                     value.map((option, index) => {
                       const { key, ...tagProps } = getTagProps({ index });
@@ -217,7 +224,7 @@ export default function NewTravelExpensePage() {
                       label="Destinations"
                       required
                       placeholder="Add cities visited"
-                      helperText="Type and press Enter to add custom destinations"
+                      helperText="Type a city and press Enter, or click away to add"
                     />
                   )}
                 />
