@@ -296,7 +296,35 @@ firebase deploy --only storage
 
 **Cause**: Missing environment variable
 
-**Fix**: Set `DOCUMENT_AI_PROCESSOR_ID` in Firebase Functions config
+**Fix**: Set `DOCUMENT_AI_PROCESSOR_ID` in Firebase Functions config via GitHub Secrets:
+
+1. Add `DOCUMENT_AI_EXPENSE_PROCESSOR_ID` and `DOCUMENT_AI_PROCESSOR_ID` to GitHub repository secrets
+2. The CI workflow automatically creates `functions/.env` with these values during deployment
+3. Redeploy via GitHub Actions
+
+### Document AI Region Mismatch
+
+**Symptom**: "Invalid location: 'asia-south1' must match the server deployment 'us'"
+
+**Cause**: Document AI processor was created in a different region than configured in code
+
+**Important**: Document AI is only available in limited regions (`us`, `eu`). When you create a processor in Google Cloud Console, note the region it's created in.
+
+**Fix**: Ensure `DOCUMENT_AI_LOCATION` environment variable matches where your processor was created (default: `us`)
+
+### IAM Permission Denied
+
+**Symptom**: "Permission 'documentai.processors.processOnline' denied on resource"
+
+**Cause**: Cloud Functions service account doesn't have Document AI permissions
+
+**Fix**: Grant `roles/documentai.apiUser` to the Cloud Functions service account:
+
+```bash
+gcloud projects add-iam-policy-binding vapour-toolbox \
+  --member="serviceAccount:vapour-toolbox@appspot.gserviceaccount.com" \
+  --role="roles/documentai.apiUser"
+```
 
 ### Empty Parsing Results
 

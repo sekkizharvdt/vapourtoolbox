@@ -470,6 +470,8 @@ export async function addExpenseItem(
     }
 
     const itemId = generateItemId();
+    // Build the item object, only including fields that have values
+    // Firestore does not accept undefined values
     const newItem: TravelExpenseItem = {
       id: itemId,
       category: input.category,
@@ -478,24 +480,30 @@ export async function addExpenseItem(
       amount: input.amount,
       currency: input.currency || ('INR' as CurrencyCode),
       hasReceipt: !!receiptAttachmentId,
-      receiptAttachmentId,
-      receiptFileName,
-      receiptUrl,
-      vendorName: input.vendorName,
-      invoiceNumber: input.invoiceNumber,
-      // GST fields
-      gstRate: input.gstRate,
-      gstAmount: input.gstAmount,
-      cgstAmount: input.cgstAmount,
-      sgstAmount: input.sgstAmount,
-      igstAmount: input.igstAmount,
-      taxableAmount: input.taxableAmount,
-      vendorGstin: input.vendorGstin,
-      ourGstinUsed: input.ourGstinUsed,
-      // Location fields
-      fromLocation: input.fromLocation,
-      toLocation: input.toLocation,
     };
+
+    // Add optional receipt fields only if they have values
+    if (receiptAttachmentId) newItem.receiptAttachmentId = receiptAttachmentId;
+    if (receiptFileName) newItem.receiptFileName = receiptFileName;
+    if (receiptUrl) newItem.receiptUrl = receiptUrl;
+
+    // Add optional vendor fields only if they have values
+    if (input.vendorName) newItem.vendorName = input.vendorName;
+    if (input.invoiceNumber) newItem.invoiceNumber = input.invoiceNumber;
+
+    // Add GST fields only if they have values
+    if (input.gstRate !== undefined) newItem.gstRate = input.gstRate;
+    if (input.gstAmount !== undefined) newItem.gstAmount = input.gstAmount;
+    if (input.cgstAmount !== undefined) newItem.cgstAmount = input.cgstAmount;
+    if (input.sgstAmount !== undefined) newItem.sgstAmount = input.sgstAmount;
+    if (input.igstAmount !== undefined) newItem.igstAmount = input.igstAmount;
+    if (input.taxableAmount !== undefined) newItem.taxableAmount = input.taxableAmount;
+    if (input.vendorGstin) newItem.vendorGstin = input.vendorGstin;
+    if (input.ourGstinUsed !== undefined) newItem.ourGstinUsed = input.ourGstinUsed;
+
+    // Add location fields only if they have values
+    if (input.fromLocation) newItem.fromLocation = input.fromLocation;
+    if (input.toLocation) newItem.toLocation = input.toLocation;
 
     const updatedItems = [...report.items, newItem];
     const categoryTotals = calculateCategoryTotals(updatedItems);
