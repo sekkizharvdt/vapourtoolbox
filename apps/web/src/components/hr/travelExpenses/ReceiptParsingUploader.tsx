@@ -30,7 +30,7 @@ import {
   Restaurant,
 } from '@mui/icons-material';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import { httpsCallable } from 'firebase/functions';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import { getFirebase } from '@/lib/firebase';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -209,7 +209,10 @@ export function ReceiptParsingUploader({
     setError(null);
 
     try {
-      const { functions } = getFirebase();
+      // Get the app instance and create a functions instance for asia-south1 region
+      // The parseReceiptForExpense function is deployed to asia-south1 for lower latency in India
+      const { app } = getFirebase();
+      const functionsAsiaSouth1 = getFunctions(app, 'asia-south1');
       const parseReceiptFn = httpsCallable<
         {
           fileName: string;
@@ -225,7 +228,7 @@ export function ReceiptParsingUploader({
           attachmentId: string;
           fileName: string;
         }
-      >(functions, 'parseReceiptForExpense');
+      >(functionsAsiaSouth1, 'parseReceiptForExpense');
 
       const result = await parseReceiptFn({
         fileName: receiptData.name,
