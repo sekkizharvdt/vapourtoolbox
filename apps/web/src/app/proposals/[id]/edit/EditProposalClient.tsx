@@ -6,7 +6,8 @@
  * Loads ProposalWizard in edit mode with the proposal ID
  */
 
-import { useParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Box, CircularProgress, Typography } from '@mui/material';
 
@@ -27,11 +28,24 @@ const ProposalWizard = dynamic(
 );
 
 export default function EditProposalClient() {
-  const params = useParams();
-  const proposalId = params.id as string;
+  const pathname = usePathname();
 
-  // Handle placeholder ID for static export
-  if (proposalId === 'placeholder') {
+  // Extract proposalId from pathname for static export compatibility
+  // useParams returns 'placeholder' with static export + Firebase hosting rewrites
+  const [proposalId, setProposalId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (pathname) {
+      const match = pathname.match(/\/proposals\/([^/]+)\/edit/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setProposalId(extractedId);
+      }
+    }
+  }, [pathname]);
+
+  // Show loading while extracting ID
+  if (!proposalId) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
         <CircularProgress size={40} />

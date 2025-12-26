@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Box,
   Paper,
@@ -69,11 +69,24 @@ const RECEIVED_VIA_OPTIONS: { value: EnquirySource; label: string }[] = [
 ];
 
 export default function EditEnquiryClient() {
-  const params = useParams();
+  const pathname = usePathname();
   const router = useRouter();
   const db = useFirestore();
   const { user } = useAuth();
-  const enquiryId = params.id as string;
+
+  // Extract enquiryId from pathname for static export compatibility
+  // useParams returns 'placeholder' with static export + Firebase hosting rewrites
+  const [enquiryId, setEnquiryId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (pathname) {
+      const match = pathname.match(/\/proposals\/enquiries\/([^/]+)\/edit/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setEnquiryId(extractedId);
+      }
+    }
+  }, [pathname]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

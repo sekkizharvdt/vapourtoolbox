@@ -36,7 +36,7 @@ import {
   Cancel as CancelIcon,
   Send as SubmitIcon,
 } from '@mui/icons-material';
-import { useParams, useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { canApproveLeaves } from '@vapour/constants';
 import {
@@ -59,10 +59,23 @@ const formatDate = formatLeaveDate;
 const formatDateTime = formatLeaveDateTime;
 
 export default function LeaveDetailClient() {
-  const params = useParams();
+  const pathname = usePathname();
   const router = useRouter();
   const { user, claims } = useAuth();
-  const requestId = params.id as string;
+
+  // Extract requestId from pathname for static export compatibility
+  // useParams returns 'placeholder' with static export + Firebase hosting rewrites
+  const [requestId, setRequestId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (pathname) {
+      const match = pathname.match(/\/hr\/leaves\/([^/]+)(?:\/|$)/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setRequestId(extractedId);
+      }
+    }
+  }, [pathname]);
 
   const [request, setRequest] = useState<LeaveRequest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,6 +97,8 @@ export default function LeaveDetailClient() {
     isOwner && (request?.status === 'DRAFT' || request?.status === 'PENDING_APPROVAL');
 
   const loadData = async () => {
+    if (!requestId) return;
+
     setLoading(true);
     setError(null);
 
@@ -99,7 +114,9 @@ export default function LeaveDetailClient() {
   };
 
   useEffect(() => {
-    loadData();
+    if (requestId) {
+      loadData();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestId]);
 
