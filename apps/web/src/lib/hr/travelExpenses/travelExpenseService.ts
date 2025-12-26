@@ -187,20 +187,47 @@ export async function getTravelExpenseReport(
 ): Promise<TravelExpenseReport | null> {
   const { db } = getFirebase();
 
+  logger.info('Fetching travel expense report', { reportId });
+
   try {
     const docRef = doc(db, COLLECTIONS.HR_TRAVEL_EXPENSES, reportId);
+    logger.debug('Document reference created', { path: docRef.path });
+
     const docSnap = await getDoc(docRef);
+    logger.debug('Document snapshot retrieved', {
+      exists: docSnap.exists(),
+      id: docSnap.id,
+    });
 
     if (!docSnap.exists()) {
+      logger.warn('Travel expense report not found', { reportId });
       return null;
     }
 
+    const data = docSnap.data();
+    logger.debug('Document data', { employeeId: data?.employeeId, status: data?.status });
+
     return {
       id: docSnap.id,
-      ...(docSnap.data() as Omit<TravelExpenseReport, 'id'>),
+      ...(data as Omit<TravelExpenseReport, 'id'>),
     };
   } catch (error) {
-    logger.error('Failed to get travel expense report', { reportId, error });
+    logger.error('Failed to get travel expense report', {
+      reportId,
+      error,
+      errorCode: (error as { code?: string })?.code,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    // Check for permission denied error
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorCode = (error as { code?: string })?.code;
+    if (
+      errorMessage.includes('permission') ||
+      errorMessage.includes('PERMISSION_DENIED') ||
+      errorCode === 'permission-denied'
+    ) {
+      throw new Error('You do not have permission to view this report');
+    }
     throw new Error('Failed to get travel expense report');
   }
 }
