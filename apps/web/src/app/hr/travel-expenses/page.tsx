@@ -108,6 +108,7 @@ export default function TravelExpensesPage() {
               <TableRow>
                 <TableCell>Report #</TableCell>
                 <TableCell>Trip Purpose</TableCell>
+                <TableCell>Project</TableCell>
                 <TableCell>Destinations</TableCell>
                 <TableCell>Duration</TableCell>
                 <TableCell align="right">Amount</TableCell>
@@ -118,7 +119,7 @@ export default function TravelExpensesPage() {
             <TableBody>
               {reports.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell colSpan={8} align="center">
                     <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
                       No travel expense reports found.
                       {tab === 'all' && (
@@ -146,6 +147,16 @@ export default function TravelExpensesPage() {
                     <TableCell>
                       <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
                         {report.tripPurpose}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        sx={{ maxWidth: 150 }}
+                        color={report.projectName ? 'text.primary' : 'text.secondary'}
+                      >
+                        {report.projectName || '—'}
                       </Typography>
                     </TableCell>
                     <TableCell>
