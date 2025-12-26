@@ -20,6 +20,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useCreateTravelExpenseReport } from '@/lib/hr';
+import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 
 // Common Indian cities for autocomplete
 const COMMON_DESTINATIONS = [
@@ -56,6 +57,8 @@ export default function NewTravelExpensePage() {
   const [tripStartDate, setTripStartDate] = useState<Date | null>(null);
   const [tripEndDate, setTripEndDate] = useState<Date | null>(null);
   const [destinations, setDestinations] = useState<string[]>([]);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState<string | undefined>(undefined);
   const [notes, setNotes] = useState('');
 
   const isFormValid = tripPurpose.trim() && tripStartDate && tripEndDate && destinations.length > 0;
@@ -90,6 +93,8 @@ export default function NewTravelExpensePage() {
           tripStartDate,
           tripEndDate,
           destinations,
+          projectId: projectId || undefined,
+          projectName: projectName || undefined,
           notes: notes.trim() || undefined,
         },
         employeeId: user.uid,
@@ -140,6 +145,20 @@ export default function NewTravelExpensePage() {
                   onChange={(e) => setTripPurpose(e.target.value)}
                   placeholder="e.g., Client meeting at XYZ Corp, Site visit for Project ABC"
                   helperText="Describe the business purpose of this trip"
+                />
+              </Grid>
+
+              {/* Project / Cost Centre */}
+              <Grid size={{ xs: 12 }}>
+                <ProjectSelector
+                  value={projectId}
+                  onChange={(id, name) => {
+                    setProjectId(id);
+                    setProjectName(name);
+                  }}
+                  label="Project / Cost Centre"
+                  helperText="Select the project or cost centre to charge this expense to (optional)"
+                  includeCostCentres={true}
                 />
               </Grid>
 
