@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Typography,
   Box,
@@ -46,7 +46,7 @@ import {
   Undo as ReturnIcon,
   PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -86,11 +86,22 @@ const CATEGORY_ICONS: Record<TravelExpenseCategory, React.ReactElement> = {
 
 export default function TravelExpenseDetailClient() {
   const router = useRouter();
-  const params = useParams();
+  const pathname = usePathname();
   const { user } = useAuth();
 
-  // Get reportId from URL params (useParams) to handle static export correctly
-  const reportId = params.id as string;
+  // Extract reportId from pathname for static export compatibility
+  // useParams returns 'placeholder' with static export + Firebase hosting rewrites
+  const [reportId, setReportId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (pathname) {
+      const match = pathname.match(/\/hr\/travel-expenses\/([^/]+)(?:\/|$)/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setReportId(extractedId);
+      }
+    }
+  }, [pathname]);
 
   const { data: report, isLoading, error, refetch } = useTravelExpenseReport(reportId);
   const addItemMutation = useAddExpenseItem();
@@ -138,7 +149,7 @@ export default function TravelExpenseDetailClient() {
   const categoryOptions = getExpenseCategoryOptions();
 
   const handleAddItem = async () => {
-    if (!user || !report) return;
+    if (!user || !report || !reportId) return;
 
     const amount = parseFloat(newItem.amount);
     if (isNaN(amount) || amount <= 0) {
@@ -181,7 +192,7 @@ export default function TravelExpenseDetailClient() {
   };
 
   const handleReceiptUpload = async (itemId: string, receipt: ReceiptAttachment | null) => {
-    if (!user || !receipt) {
+    if (!user || !receipt || !reportId) {
       setUploadItemId(null);
       return;
     }
@@ -203,7 +214,7 @@ export default function TravelExpenseDetailClient() {
   };
 
   const handleDeleteItem = async () => {
-    if (!user || !deleteItemId) return;
+    if (!user || !deleteItemId || !reportId) return;
 
     try {
       await removeItemMutation.mutateAsync({
@@ -219,7 +230,7 @@ export default function TravelExpenseDetailClient() {
   };
 
   const handleSubmit = async () => {
-    if (!user) return;
+    if (!user || !reportId) return;
 
     try {
       await submitMutation.mutateAsync({
@@ -235,7 +246,7 @@ export default function TravelExpenseDetailClient() {
   };
 
   const handleApprove = async () => {
-    if (!user) return;
+    if (!user || !reportId) return;
 
     try {
       await approveMutation.mutateAsync({
@@ -253,7 +264,7 @@ export default function TravelExpenseDetailClient() {
   };
 
   const handleReject = async () => {
-    if (!user || !rejectionReason.trim()) return;
+    if (!user || !reportId || !rejectionReason.trim()) return;
 
     try {
       await rejectMutation.mutateAsync({
@@ -271,7 +282,7 @@ export default function TravelExpenseDetailClient() {
   };
 
   const handleReturn = async () => {
-    if (!user || !returnComments.trim()) return;
+    if (!user || !reportId || !returnComments.trim()) return;
 
     try {
       await returnMutation.mutateAsync({
