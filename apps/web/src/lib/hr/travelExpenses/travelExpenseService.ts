@@ -131,20 +131,16 @@ export async function createTravelExpenseReport(
     const reportNumber = await generateReportNumber();
     const reportRef = doc(collection(db, COLLECTIONS.HR_TRAVEL_EXPENSES));
 
-    const reportData: Omit<TravelExpenseReport, 'id'> = {
+    // Build report data, excluding undefined values (Firestore doesn't accept undefined)
+    const reportData: Record<string, unknown> = {
       reportNumber,
       tripPurpose: input.tripPurpose,
       tripStartDate: Timestamp.fromDate(input.tripStartDate),
       tripEndDate: Timestamp.fromDate(input.tripEndDate),
       destinations: input.destinations,
-      projectId: input.projectId,
-      projectName: input.projectName,
-      costCentreId: input.costCentreId,
-      costCentreName: input.costCentreName,
       employeeId,
       employeeName,
       employeeEmail,
-      department,
       items: [],
       categoryTotals: {},
       totalAmount: 0,
@@ -153,10 +149,17 @@ export async function createTravelExpenseReport(
       status: 'DRAFT' as TravelExpenseStatus,
       approverIds: [],
       approvalHistory: [],
-      notes: input.notes,
       createdAt: now,
       updatedAt: now,
     };
+
+    // Only add optional fields if they have values
+    if (input.projectId) reportData.projectId = input.projectId;
+    if (input.projectName) reportData.projectName = input.projectName;
+    if (input.costCentreId) reportData.costCentreId = input.costCentreId;
+    if (input.costCentreName) reportData.costCentreName = input.costCentreName;
+    if (department) reportData.department = department;
+    if (input.notes) reportData.notes = input.notes;
 
     await setDoc(reportRef, reportData);
 
