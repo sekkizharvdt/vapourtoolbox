@@ -118,7 +118,7 @@ export async function getSuggestedMatches(
     const bankTransactions = await getUnmatchedBankTransactions(db, statementId);
 
     // Get statement to fetch account and date range
-    const statementDoc = await getDoc(doc(db, 'bankStatements', statementId));
+    const statementDoc = await getDoc(doc(db, COLLECTIONS.BANK_STATEMENTS, statementId));
     if (!statementDoc.exists()) {
       throw new Error('Bank statement not found');
     }
@@ -186,7 +186,7 @@ export async function matchTransactions(
     const now = Timestamp.now();
 
     // Create reconciliation match record
-    const matchRef = doc(collection(db, 'reconciliationMatches'));
+    const matchRef = doc(collection(db, COLLECTIONS.RECONCILIATION_MATCHES));
     const matchData: Omit<ReconciliationMatch, 'id'> = {
       statementId: '', // Will be set from bank transaction
       accountId: '', // Will be set from bank transaction
@@ -202,7 +202,7 @@ export async function matchTransactions(
     batch.set(matchRef, matchData);
 
     // Update bank transaction as reconciled
-    const bankTxnRef = doc(db, 'bankTransactions', input.bankTransactionId);
+    const bankTxnRef = doc(db, COLLECTIONS.BANK_TRANSACTIONS, input.bankTransactionId);
     batch.update(bankTxnRef, {
       isReconciled: true,
       reconciledWith: input.accountingTransactionId,
@@ -235,7 +235,7 @@ export async function matchTransactions(
 export async function unmatchTransaction(db: Firestore, bankTransactionId: string): Promise<void> {
   try {
     // Get bank transaction to find accounting transaction ID
-    const bankTxnDoc = await getDoc(doc(db, 'bankTransactions', bankTransactionId));
+    const bankTxnDoc = await getDoc(doc(db, COLLECTIONS.BANK_TRANSACTIONS, bankTransactionId));
     if (!bankTxnDoc.exists()) {
       throw new Error('Bank transaction not found');
     }
@@ -250,7 +250,7 @@ export async function unmatchTransaction(db: Firestore, bankTransactionId: strin
     const batch = writeBatch(db);
 
     // Update bank transaction
-    batch.update(doc(db, 'bankTransactions', bankTransactionId), {
+    batch.update(doc(db, COLLECTIONS.BANK_TRANSACTIONS, bankTransactionId), {
       isReconciled: false,
       reconciledWith: null,
       reconciledAt: null,
@@ -269,7 +269,7 @@ export async function unmatchTransaction(db: Firestore, bankTransactionId: strin
     });
 
     // Delete reconciliation match record
-    const matchesRef = collection(db, 'reconciliationMatches');
+    const matchesRef = collection(db, COLLECTIONS.RECONCILIATION_MATCHES);
     const q = query(matchesRef, where('bankTransactionId', '==', bankTransactionId));
     const snapshot = await getDocs(q);
     snapshot.forEach((doc) => {
@@ -299,7 +299,7 @@ export async function matchMultipleTransactions(
 
     // Create reconciliation match records for each accounting transaction
     for (const accTxnId of accountingTransactionIds) {
-      const matchRef = doc(collection(db, 'reconciliationMatches'));
+      const matchRef = doc(collection(db, COLLECTIONS.RECONCILIATION_MATCHES));
       const matchData: Omit<ReconciliationMatch, 'id'> = {
         statementId: '', // Will be set from bank transaction
         accountId: '', // Will be set from bank transaction
@@ -326,7 +326,7 @@ export async function matchMultipleTransactions(
     }
 
     // Update bank transaction as reconciled with multiple matches
-    const bankTxnRef = doc(db, 'bankTransactions', bankTransactionId);
+    const bankTxnRef = doc(db, COLLECTIONS.BANK_TRANSACTIONS, bankTransactionId);
     batch.update(bankTxnRef, {
       isReconciled: true,
       reconciledWith: accountingTransactionIds.join(','), // Store multiple IDs

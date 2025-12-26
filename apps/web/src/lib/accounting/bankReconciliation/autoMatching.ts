@@ -6,6 +6,7 @@
  */
 
 import { doc, getDoc, updateDoc, Timestamp, type Firestore } from 'firebase/firestore';
+import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { BankStatement, BankStatementStatus } from '@vapour/types';
 import {
@@ -38,7 +39,7 @@ export async function getEnhancedSuggestedMatches(
     const bankTransactions = await getUnmatchedBankTransactions(db, statementId);
 
     // Get statement to fetch account and date range
-    const statementDoc = await getDoc(doc(db, 'bankStatements', statementId));
+    const statementDoc = await getDoc(doc(db, COLLECTIONS.BANK_STATEMENTS, statementId));
     if (!statementDoc.exists()) {
       throw new Error('Bank statement not found');
     }
@@ -90,7 +91,7 @@ export async function getEnhancedMatchStatistics(
   try {
     const bankTransactions = await getUnmatchedBankTransactions(db, statementId);
 
-    const statementDoc = await getDoc(doc(db, 'bankStatements', statementId));
+    const statementDoc = await getDoc(doc(db, COLLECTIONS.BANK_STATEMENTS, statementId));
     if (!statementDoc.exists()) {
       throw new Error('Bank statement not found');
     }
@@ -141,7 +142,7 @@ export async function autoMatchTransactions(
   try {
     const bankTransactions = await getUnmatchedBankTransactions(db, statementId);
 
-    const statementDoc = await getDoc(doc(db, 'bankStatements', statementId));
+    const statementDoc = await getDoc(doc(db, COLLECTIONS.BANK_STATEMENTS, statementId));
     if (!statementDoc.exists()) {
       throw new Error('Bank statement not found');
     }
@@ -194,7 +195,7 @@ export async function autoMatchTransactions(
 
     // Update statement status if there were matches
     if (matched > 0) {
-      await updateDoc(doc(db, 'bankStatements', statementId), {
+      await updateDoc(doc(db, COLLECTIONS.BANK_STATEMENTS, statementId), {
         status: 'IN_PROGRESS' as BankStatementStatus,
         updatedAt: Timestamp.now(),
       });
@@ -219,7 +220,7 @@ export async function getMultiTransactionMatches(
   try {
     const bankTransactions = await getUnmatchedBankTransactions(db, statementId);
 
-    const statementDoc = await getDoc(doc(db, 'bankStatements', statementId));
+    const statementDoc = await getDoc(doc(db, COLLECTIONS.BANK_STATEMENTS, statementId));
     if (!statementDoc.exists()) {
       throw new Error('Bank statement not found');
     }

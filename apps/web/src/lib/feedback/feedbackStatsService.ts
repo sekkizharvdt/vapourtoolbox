@@ -13,6 +13,7 @@ import {
   getCountFromServer,
   type Firestore,
 } from 'firebase/firestore';
+import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type {
   FeedbackItem,
@@ -36,7 +37,7 @@ const logger = createLogger({ context: 'feedbackStatsService' });
  */
 export async function getFeedbackStats(db: Firestore): Promise<FeedbackStats> {
   try {
-    const feedbackRef = collection(db, 'feedback');
+    const feedbackRef = collection(db, COLLECTIONS.FEEDBACK);
 
     // Define all count queries
     const typeQueries = {
@@ -135,7 +136,7 @@ async function getModuleBreakdown(
   maxDocs: number = 1000
 ): Promise<Record<FeedbackModule | string, number>> {
   const { limit: firestoreLimit, orderBy } = await import('firebase/firestore');
-  const feedbackRef = collection(db, 'feedback');
+  const feedbackRef = collection(db, COLLECTIONS.FEEDBACK);
 
   // Query with limit to prevent unbounded reads
   const q = query(feedbackRef, orderBy('createdAt', 'desc'), firestoreLimit(maxDocs));
@@ -160,7 +161,7 @@ export async function getFeedbackCountByStatus(
   status: FeedbackStatus
 ): Promise<number> {
   try {
-    const feedbackRef = collection(db, 'feedback');
+    const feedbackRef = collection(db, COLLECTIONS.FEEDBACK);
     const q = query(feedbackRef, where('status', '==', status));
     const snapshot = await getCountFromServer(q);
     return snapshot.data().count;
@@ -178,7 +179,7 @@ export async function getFeedbackByModule(
   module: FeedbackModule
 ): Promise<FeedbackItem[]> {
   try {
-    const feedbackRef = collection(db, 'feedback');
+    const feedbackRef = collection(db, COLLECTIONS.FEEDBACK);
     const q = query(feedbackRef, where('module', '==', module));
     const snapshot = await getDocs(q);
 
@@ -203,7 +204,7 @@ export async function getFeedbackByType(
   type: FeedbackType
 ): Promise<FeedbackItem[]> {
   try {
-    const feedbackRef = collection(db, 'feedback');
+    const feedbackRef = collection(db, COLLECTIONS.FEEDBACK);
     const q = query(feedbackRef, where('type', '==', type));
     const snapshot = await getDocs(q);
 
@@ -225,7 +226,7 @@ export async function getFeedbackByType(
  */
 export async function getOpenFeedbackCount(db: Firestore): Promise<number> {
   try {
-    const feedbackRef = collection(db, 'feedback');
+    const feedbackRef = collection(db, COLLECTIONS.FEEDBACK);
 
     // Run parallel queries for 'new' and 'in_progress'
     const [newCount, inProgressCount] = await Promise.all([
@@ -245,7 +246,7 @@ export async function getOpenFeedbackCount(db: Firestore): Promise<number> {
  */
 export async function getHighPriorityBugCount(db: Firestore): Promise<number> {
   try {
-    const feedbackRef = collection(db, 'feedback');
+    const feedbackRef = collection(db, COLLECTIONS.FEEDBACK);
 
     // Run parallel queries for critical and major severity
     const [criticalCount, majorCount] = await Promise.all([

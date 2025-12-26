@@ -17,6 +17,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { createLogger } from '@vapour/logger';
+import { COLLECTIONS } from '@vapour/firebase';
 import type {
   BankStatement,
   BankTransaction,
@@ -37,7 +38,7 @@ export async function getReconciliationStats(
 ): Promise<ReconciliationStats> {
   try {
     // Get all bank transactions
-    const bankTxnsRef = collection(db, 'bankTransactions');
+    const bankTxnsRef = collection(db, COLLECTIONS.BANK_TRANSACTIONS);
     const bankQ = query(bankTxnsRef, where('statementId', '==', statementId));
     const bankSnapshot = await getDocs(bankQ);
 
@@ -59,7 +60,7 @@ export async function getReconciliationStats(
     });
 
     // Get statement for accounting transactions
-    const statementDoc = await getDoc(doc(db, 'bankStatements', statementId));
+    const statementDoc = await getDoc(doc(db, COLLECTIONS.BANK_STATEMENTS, statementId));
     if (!statementDoc.exists()) {
       throw new Error('Bank statement not found');
     }
@@ -104,7 +105,7 @@ export async function generateReconciliationReport(
 ): Promise<ReconciliationReport> {
   try {
     const stats = await getReconciliationStats(db, statementId);
-    const statementDoc = await getDoc(doc(db, 'bankStatements', statementId));
+    const statementDoc = await getDoc(doc(db, COLLECTIONS.BANK_STATEMENTS, statementId));
 
     if (!statementDoc.exists()) {
       throw new Error('Bank statement not found');
@@ -139,7 +140,7 @@ export async function generateReconciliationReport(
     };
 
     // Save report to database
-    await addDoc(collection(db, 'reconciliationReports'), report);
+    await addDoc(collection(db, COLLECTIONS.RECONCILIATION_REPORTS), report);
 
     return report;
   } catch (error) {
@@ -166,7 +167,7 @@ export async function markStatementAsReconciled(
       );
     }
 
-    await updateDoc(doc(db, 'bankStatements', statementId), {
+    await updateDoc(doc(db, COLLECTIONS.BANK_STATEMENTS, statementId), {
       status: 'RECONCILED' as BankStatementStatus,
       reconciledAt: Timestamp.now(),
       reconciledBy: userId,

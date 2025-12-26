@@ -7,6 +7,7 @@
  */
 
 import { doc, updateDoc, getDoc, Timestamp, arrayUnion, type Firestore } from 'firebase/firestore';
+import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
@@ -106,7 +107,7 @@ export async function addFollowUpToFeedback(
   userName: string
 ): Promise<void> {
   try {
-    const feedbackRef = doc(db, 'feedback', feedbackId);
+    const feedbackRef = doc(db, COLLECTIONS.FEEDBACK, feedbackId);
     const feedbackSnap = await getDoc(feedbackRef);
 
     if (!feedbackSnap.exists()) {
@@ -153,7 +154,7 @@ export async function closeFeedbackFromTask(
   userName: string
 ): Promise<void> {
   try {
-    const feedbackRef = doc(db, 'feedback', feedbackId);
+    const feedbackRef = doc(db, COLLECTIONS.FEEDBACK, feedbackId);
     const feedbackSnap = await getDoc(feedbackRef);
 
     if (!feedbackSnap.exists()) {
@@ -186,7 +187,7 @@ export async function getFeedbackById(
   feedbackId: string
 ): Promise<FeedbackDocument | null> {
   try {
-    const feedbackRef = doc(db, 'feedback', feedbackId);
+    const feedbackRef = doc(db, COLLECTIONS.FEEDBACK, feedbackId);
     const feedbackSnap = await getDoc(feedbackRef);
 
     if (!feedbackSnap.exists()) {

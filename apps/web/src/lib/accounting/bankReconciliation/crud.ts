@@ -37,7 +37,7 @@ export async function createBankStatement(
       updatedAt: now,
     };
 
-    const docRef = await addDoc(collection(db, 'bankStatements'), statement);
+    const docRef = await addDoc(collection(db, COLLECTIONS.BANK_STATEMENTS), statement);
     return docRef.id;
   } catch (error) {
     throw new Error(
@@ -59,7 +59,7 @@ export async function addBankTransactions(
     const now = Timestamp.now();
 
     transactions.forEach((txn) => {
-      const txnRef = doc(collection(db, 'bankTransactions'));
+      const txnRef = doc(collection(db, COLLECTIONS.BANK_TRANSACTIONS));
       batch.set(txnRef, {
         ...txn,
         statementId,
@@ -139,7 +139,7 @@ export async function getUnmatchedBankTransactions(
   db: Firestore,
   statementId: string
 ): Promise<BankTransaction[]> {
-  const transactionsRef = collection(db, 'bankTransactions');
+  const transactionsRef = collection(db, COLLECTIONS.BANK_TRANSACTIONS);
   const q = query(
     transactionsRef,
     where('statementId', '==', statementId),
