@@ -46,7 +46,7 @@ import {
   Undo as ReturnIcon,
   PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -84,13 +84,13 @@ const CATEGORY_ICONS: Record<TravelExpenseCategory, React.ReactElement> = {
   OTHER: <Receipt fontSize="small" />,
 };
 
-interface TravelExpenseDetailClientProps {
-  reportId: string;
-}
-
-export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDetailClientProps) {
+export default function TravelExpenseDetailClient() {
   const router = useRouter();
+  const params = useParams();
   const { user } = useAuth();
+
+  // Get reportId from URL params (useParams) to handle static export correctly
+  const reportId = params.id as string;
 
   const { data: report, isLoading, error, refetch } = useTravelExpenseReport(reportId);
   const addItemMutation = useAddExpenseItem();
