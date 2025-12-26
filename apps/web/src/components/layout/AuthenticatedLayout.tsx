@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { DashboardAppBar } from '@/components/dashboard/AppBar';
 import { MobileBottomNav } from '@/components/layout/BottomNavigation';
+import { AppFooter } from '@/components/layout/AppFooter';
 import { SessionTimeoutModal } from '@/components/auth/SessionTimeoutModal';
 import { useCommandPalette } from '@/components/common/useCommandPalette';
 import { KeyboardShortcutsProvider } from '@/hooks/useKeyboardShortcuts';
@@ -162,8 +163,8 @@ export function AuthenticatedLayout({
             component="main"
             sx={{
               flexGrow: 1,
-              p: noPadding ? 0 : 3,
-              pb: { xs: noPadding ? 7 : 10, md: noPadding ? 0 : 3 }, // Extra padding on mobile for bottom nav
+              display: 'flex',
+              flexDirection: 'column',
               width: { xs: '100%', md: `calc(100% - ${sidebarWidth}px)` },
               ml: { xs: 0, md: `${sidebarWidth}px` },
               minHeight: '100vh',
@@ -176,7 +177,16 @@ export function AuthenticatedLayout({
             }}
           >
             <Toolbar /> {/* Spacer for AppBar */}
-            {children}
+            <Box
+              sx={{
+                flexGrow: 1,
+                p: noPadding ? 0 : 3,
+                pb: { xs: noPadding ? 7 : 10, md: noPadding ? 0 : 3 }, // Extra padding on mobile for bottom nav
+              }}
+            >
+              {children}
+            </Box>
+            <AppFooter />
           </Box>
 
           {/* Mobile Bottom Navigation */}

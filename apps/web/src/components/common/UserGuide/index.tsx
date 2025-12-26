@@ -18,8 +18,10 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import PeopleIcon from '@mui/icons-material/People';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
+import HistoryIcon from '@mui/icons-material/History';
 
 import type { GuideSection } from './types';
 import { GettingStartedSection } from './GettingStartedSection';
@@ -29,8 +31,10 @@ import { FlowSection } from './FlowSection';
 import { DocumentsSection } from './DocumentsSection';
 import { MaterialsSection } from './MaterialsSection';
 import { AccountingSection } from './AccountingSection';
+import { HRSection } from './HRSection';
 import { KeyboardShortcutsSection } from './KeyboardShortcutsSection';
 import { TipsSection } from './TipsSection';
+import { ChangelogSection } from './ChangelogSection';
 
 // Re-export types and helpers for external use
 export type { GuideSection } from './types';
@@ -90,6 +94,12 @@ export function UserGuide() {
       content: <AccountingSection />,
     },
     {
+      id: 'hr',
+      title: 'HR (Leaves & Expenses)',
+      icon: <PeopleIcon />,
+      content: <HRSection />,
+    },
+    {
       id: 'shortcuts',
       title: 'Keyboard Shortcuts',
       icon: <KeyboardIcon />,
@@ -100,6 +110,12 @@ export function UserGuide() {
       title: 'Tips & Best Practices',
       icon: <LightbulbIcon />,
       content: <TipsSection />,
+    },
+    {
+      id: 'changelog',
+      title: 'Changelog & Updates',
+      icon: <HistoryIcon />,
+      content: <ChangelogSection />,
     },
   ];
 
