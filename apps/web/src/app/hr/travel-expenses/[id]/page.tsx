@@ -1,11 +1,11 @@
 import TravelExpenseDetailClient from './TravelExpenseDetailClient';
+import { use } from 'react';
 
-interface PageProps {
-  params: Promise<{ id: string }>;
+export function generateStaticParams() {
+  return [{ id: 'placeholder' }];
 }
 
-export default async function TravelExpenseDetailPage({ params }: PageProps) {
-  const { id } = await params;
-
-  return <TravelExpenseDetailClient reportId={id} />;
+export default function TravelExpenseDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  return <TravelExpenseDetailClient key={id} reportId={id} />;
 }
