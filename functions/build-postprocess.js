@@ -73,10 +73,21 @@ if (fs.existsSync(templatesSrc)) {
   console.log('⚠️  PDF templates directory not found - skipping');
 }
 
-// Rewrite @vapour/* imports to relative paths
-console.log('📦 Rewriting @vapour/* imports...');
-rewriteVapourImports(libDir);
-console.log('✅ @vapour/* imports rewritten');
+// Clean up packages directory if it exists (from previous builds)
+const packagesDir = path.join(libDir, 'packages');
+if (fs.existsSync(packagesDir)) {
+  console.log('🧹 Cleaning up packages directory...');
+  fs.rmSync(packagesDir, { recursive: true, force: true });
+  console.log('✅ Packages directory removed');
+}
+
+// Clean up scripts directory if it exists (duplicate of seed-data)
+const scriptsDir = path.join(libDir, 'scripts');
+if (fs.existsSync(scriptsDir)) {
+  console.log('🧹 Cleaning up scripts directory...');
+  fs.rmSync(scriptsDir, { recursive: true, force: true });
+  console.log('✅ Scripts directory removed');
+}
 
 /**
  * Recursively copy directory contents
@@ -103,62 +114,3 @@ function copyRecursive(src, dest) {
   }
 }
 
-/**
- * Rewrite @vapour/* imports to relative paths in compiled JS files
- * This is needed because Firebase Functions doesn't have access to the monorepo's
- * workspace packages at runtime.
- */
-function rewriteVapourImports(dir) {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-
-    if (entry.isDirectory()) {
-      // Don't process the packages directory itself
-      if (entry.name !== 'packages') {
-        rewriteVapourImports(fullPath);
-      }
-    } else if (entry.name.endsWith('.js')) {
-      let content = fs.readFileSync(fullPath, 'utf8');
-      let modified = false;
-
-      // Calculate relative path from current file to lib/packages
-      const relativeToLib = path.relative(path.dirname(fullPath), libDir);
-      const packagesPath = path.join(relativeToLib, 'packages');
-
-      // Rewrite @vapour/constants to relative path
-      if (content.includes('@vapour/constants')) {
-        let relativePath = path.posix.join(packagesPath, 'constants', 'src');
-        // Ensure it starts with ./ for proper relative resolution
-        if (!relativePath.startsWith('.')) {
-          relativePath = './' + relativePath;
-        }
-        content = content.replace(
-          /require\("@vapour\/constants"\)/g,
-          `require("${relativePath}")`
-        );
-        modified = true;
-      }
-
-      // Rewrite @vapour/types to relative path (if used)
-      if (content.includes('@vapour/types')) {
-        let relativePath = path.posix.join(packagesPath, 'types', 'src');
-        // Ensure it starts with ./ for proper relative resolution
-        if (!relativePath.startsWith('.')) {
-          relativePath = './' + relativePath;
-        }
-        content = content.replace(
-          /require\("@vapour\/types"\)/g,
-          `require("${relativePath}")`
-        );
-        modified = true;
-      }
-
-      if (modified) {
-        fs.writeFileSync(fullPath, content);
-        console.log(`  Rewrote imports in: ${path.relative(libDir, fullPath)}`);
-      }
-    }
-  }
-}

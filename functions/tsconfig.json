@@ -18,6 +18,5 @@
     }
   },
   "compileOnSave": true,
-  "include": ["src", "../scripts/seed-data/*.json", "../packages/constants/src/**/*.ts"],
-  "exclude": ["../packages/constants/src/**/*.test.ts"]
+  "include": ["src", "../scripts/seed-data/*.json"]
 }
