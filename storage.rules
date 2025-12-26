@@ -73,6 +73,23 @@ service firebase.storage {
                      request.resource.contentType.matches('image/.*');
     }
 
+    // HR Travel Expense Receipts
+    // Path: hr/travel-expenses/{reportId}/receipts/{filename}
+    match /hr/travel-expenses/{reportId}/receipts/{allPaths=**} {
+      // Read: Authenticated users can read (owner check done at Firestore level)
+      allow read: if isAuthenticated();
+
+      // Write: Authenticated users can upload receipts
+      // Max file size: 5MB, allowed types: PDF, images
+      allow write: if isAuthenticated() &&
+                     request.resource.size < 5 * 1024 * 1024 &&
+                     (request.resource.contentType.matches('image/.*') ||
+                      request.resource.contentType == 'application/pdf');
+
+      // Delete: Authenticated users can delete
+      allow delete: if isAuthenticated();
+    }
+
     // Default deny for all other paths
     match /{allPaths=**} {
       allow read, write: if false;

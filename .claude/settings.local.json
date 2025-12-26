@@ -413,7 +413,8 @@
       "Bash(if [ ! -f \"$dir/README.md\" ])",
       "Bash(timeout 15 node:*)",
       "Bash(tsc:*)",
-      "Bash(node build-postprocess.js:*)"
+      "Bash(node build-postprocess.js:*)",
+      "Bash(119 * 100 / 891 \")"
     ],
     "deny": [],
     "ask": []

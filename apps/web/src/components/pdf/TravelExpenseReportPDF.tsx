@@ -223,12 +223,10 @@ const styles = StyleSheet.create({
 });
 
 const CATEGORY_LABELS: Record<TravelExpenseCategory, string> = {
-  AIR_TRAVEL: 'Air Travel',
-  TRAIN_TRAVEL: 'Train Travel',
-  ROAD_TRAVEL: 'Road Travel',
-  HOTEL: 'Hotel',
-  FOOD: 'Food & Meals',
+  TRAVEL: 'Travel',
+  ACCOMMODATION: 'Accommodation',
   LOCAL_CONVEYANCE: 'Local Conveyance',
+  FOOD: 'Food & Meals',
   OTHER: 'Other',
 };
 

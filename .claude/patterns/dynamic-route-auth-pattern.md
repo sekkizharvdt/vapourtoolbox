@@ -18,6 +18,43 @@ When implementing dynamic routes with static export:
 - Page shows app-level loading spinner (not component spinner) indefinitely
 - Console shows: `[Firebase] initializeFirebase called` but no errors
 - Works on some pages but not others
+- **Critical**: Console shows `id: 'placeholder'` instead of actual document ID
+
+## ⚠️ CRITICAL: useParams vs usePathname
+
+**NEVER use `useParams()` to get dynamic route IDs with static export + Firebase hosting rewrites.**
+
+With Next.js static export (`output: 'export'`) and Firebase hosting rewrites, `useParams()` returns the statically generated placeholder value, NOT the actual URL ID.
+
+```typescript
+// ❌ WRONG - Returns 'placeholder' with static export
+import { useParams } from 'next/navigation';
+const params = useParams();
+const id = params.id; // 'placeholder' - NOT the actual ID!
+
+// ✅ CORRECT - Use usePathname and extract via regex
+import { usePathname } from 'next/navigation';
+const pathname = usePathname();
+
+useEffect(() => {
+  if (pathname) {
+    const match = pathname.match(/\/your-route\/([^/]+)(?:\/|$)/);
+    const extractedId = match?.[1];
+    if (extractedId && extractedId !== 'placeholder') {
+      setEntityId(extractedId);
+    }
+  }
+}, [pathname]);
+```
+
+### Why This Happens
+
+1. `next.config.ts` has `output: 'export'` for static generation
+2. `generateStaticParams()` returns `[{ id: 'placeholder' }]`
+3. Build creates `/your-route/placeholder.html`
+4. Firebase `firebase.json` rewrites `/your-route/*` → `/your-route/placeholder.html`
+5. `useParams()` returns the static params (`{ id: 'placeholder' }`)
+6. But `usePathname()` returns the actual browser URL path
 
 ## The Solution
 

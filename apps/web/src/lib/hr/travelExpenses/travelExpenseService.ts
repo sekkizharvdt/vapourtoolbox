@@ -483,10 +483,16 @@ export async function addExpenseItem(
       receiptUrl,
       vendorName: input.vendorName,
       invoiceNumber: input.invoiceNumber,
+      // GST fields
       gstRate: input.gstRate,
       gstAmount: input.gstAmount,
+      cgstAmount: input.cgstAmount,
+      sgstAmount: input.sgstAmount,
+      igstAmount: input.igstAmount,
+      taxableAmount: input.taxableAmount,
       vendorGstin: input.vendorGstin,
       ourGstinUsed: input.ourGstinUsed,
+      // Location fields
       fromLocation: input.fromLocation,
       toLocation: input.toLocation,
     };
@@ -564,12 +570,19 @@ export async function updateExpenseItem(
       vendorName: updates.vendorName !== undefined ? updates.vendorName : existingItem.vendorName,
       invoiceNumber:
         updates.invoiceNumber !== undefined ? updates.invoiceNumber : existingItem.invoiceNumber,
+      // GST fields
       gstRate: updates.gstRate !== undefined ? updates.gstRate : existingItem.gstRate,
       gstAmount: updates.gstAmount !== undefined ? updates.gstAmount : existingItem.gstAmount,
+      cgstAmount: updates.cgstAmount !== undefined ? updates.cgstAmount : existingItem.cgstAmount,
+      sgstAmount: updates.sgstAmount !== undefined ? updates.sgstAmount : existingItem.sgstAmount,
+      igstAmount: updates.igstAmount !== undefined ? updates.igstAmount : existingItem.igstAmount,
+      taxableAmount:
+        updates.taxableAmount !== undefined ? updates.taxableAmount : existingItem.taxableAmount,
       vendorGstin:
         updates.vendorGstin !== undefined ? updates.vendorGstin : existingItem.vendorGstin,
       ourGstinUsed:
         updates.ourGstinUsed !== undefined ? updates.ourGstinUsed : existingItem.ourGstinUsed,
+      // Location fields
       fromLocation:
         updates.fromLocation !== undefined ? updates.fromLocation : existingItem.fromLocation,
       toLocation: updates.toLocation !== undefined ? updates.toLocation : existingItem.toLocation,

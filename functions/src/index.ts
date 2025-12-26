@@ -73,3 +73,6 @@ export { parseDocumentForPR } from './documentParsing';
 
 // Import denormalization sync functions (keeps denormalized data fresh)
 export { onUserNameChange, onEntityNameChange, onProjectNameChange } from './denormalizationSync';
+
+// Import receipt parsing functions (for travel expenses)
+export { parseReceiptForExpense } from './receiptParsing/parseReceipt';

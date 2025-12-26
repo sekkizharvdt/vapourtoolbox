@@ -5,3 +5,8 @@
  */
 
 export { ReceiptUploader, type ReceiptAttachment } from './ReceiptUploader';
+export {
+  ReceiptParsingUploader,
+  type ParsedExpenseData,
+  type ReceiptAttachment as ParsedReceiptAttachment,
+} from './ReceiptParsingUploader';

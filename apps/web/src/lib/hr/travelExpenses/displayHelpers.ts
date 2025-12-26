@@ -58,12 +58,10 @@ export function getTravelExpenseStatusDisplay(status: TravelExpenseStatus): {
  * Human-readable labels for expense categories
  */
 export const EXPENSE_CATEGORY_LABELS: Record<TravelExpenseCategory, string> = {
-  AIR_TRAVEL: 'Air Travel',
-  TRAIN_TRAVEL: 'Train Travel',
-  ROAD_TRAVEL: 'Road Travel',
-  HOTEL: 'Hotel / Stay',
-  FOOD: 'Food & Meals',
+  TRAVEL: 'Travel',
+  ACCOMMODATION: 'Accommodation',
   LOCAL_CONVEYANCE: 'Local Conveyance',
+  FOOD: 'Food & Meals',
   OTHER: 'Other',
 };
 
@@ -74,12 +72,10 @@ export const EXPENSE_CATEGORY_COLORS: Record<
   TravelExpenseCategory,
   'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info' | 'default'
 > = {
-  AIR_TRAVEL: 'primary',
-  TRAIN_TRAVEL: 'success',
-  ROAD_TRAVEL: 'warning',
-  HOTEL: 'secondary',
-  FOOD: 'error',
+  TRAVEL: 'primary',
+  ACCOMMODATION: 'secondary',
   LOCAL_CONVEYANCE: 'info',
+  FOOD: 'warning',
   OTHER: 'default',
 };
 
@@ -87,12 +83,10 @@ export const EXPENSE_CATEGORY_COLORS: Record<
  * Material UI icon names for expense categories (use with MUI Icon component)
  */
 export const EXPENSE_CATEGORY_ICONS: Record<TravelExpenseCategory, string> = {
-  AIR_TRAVEL: 'Flight',
-  TRAIN_TRAVEL: 'Train',
-  ROAD_TRAVEL: 'DirectionsCar',
-  HOTEL: 'Hotel',
-  FOOD: 'Restaurant',
+  TRAVEL: 'Flight',
+  ACCOMMODATION: 'Hotel',
   LOCAL_CONVEYANCE: 'LocalTaxi',
+  FOOD: 'Restaurant',
   OTHER: 'Receipt',
 };
 

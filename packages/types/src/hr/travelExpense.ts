@@ -15,13 +15,11 @@ import { CurrencyCode, TimestampFields } from '../common';
  * Travel expense category codes
  */
 export type TravelExpenseCategory =
-  | 'AIR_TRAVEL'
-  | 'TRAIN_TRAVEL'
-  | 'ROAD_TRAVEL' // Bus, taxi, cab for intercity
-  | 'HOTEL'
-  | 'FOOD'
-  | 'LOCAL_CONVEYANCE' // Auto, metro, local taxi
-  | 'OTHER';
+  | 'TRAVEL' // Air, train, bus for intercity travel
+  | 'ACCOMMODATION' // Hotel, lodging
+  | 'LOCAL_CONVEYANCE' // Auto, metro, local taxi, cab
+  | 'FOOD' // Meals, refreshments
+  | 'OTHER'; // Miscellaneous expenses
 
 // ============================================
 // Expense Item
@@ -49,10 +47,14 @@ export interface TravelExpenseItem {
   invoiceNumber?: string;
 
   // GST (for Indian compliance)
-  gstRate?: number;
-  gstAmount?: number;
+  gstRate?: number; // Total GST rate (e.g., 18)
+  gstAmount?: number; // Total GST amount
+  cgstAmount?: number; // CGST amount (intra-state)
+  sgstAmount?: number; // SGST amount (intra-state)
+  igstAmount?: number; // IGST amount (inter-state)
   vendorGstin?: string; // Vendor's GSTIN if applicable
-  ourGstinUsed?: boolean; // Whether our GSTIN was provided
+  ourGstinUsed?: boolean; // Whether company GSTIN was provided on receipt
+  taxableAmount?: number; // Amount before GST
 
   // For travel categories
   fromLocation?: string;
@@ -77,6 +79,10 @@ export interface TravelExpenseItemInput {
   invoiceNumber?: string;
   gstRate?: number;
   gstAmount?: number;
+  cgstAmount?: number;
+  sgstAmount?: number;
+  igstAmount?: number;
+  taxableAmount?: number;
   vendorGstin?: string;
   ourGstinUsed?: boolean;
   fromLocation?: string;
@@ -244,19 +250,41 @@ export interface ParsedReceiptData {
   invoiceNumber?: string;
   transactionDate?: Date;
   totalAmount?: number;
+  taxableAmount?: number;
   currency?: CurrencyCode;
+
+  // GST breakdown
   gstAmount?: number;
   gstRate?: number;
+  cgstAmount?: number;
+  cgstRate?: number;
+  sgstAmount?: number;
+  sgstRate?: number;
+  igstAmount?: number;
+  igstRate?: number;
+
+  // GSTIN
   vendorGstin?: string;
+  companyGstinFound?: boolean; // True if company's GSTIN was found on receipt
+  companyGstinOnReceipt?: string; // The GSTIN found (for verification)
+
+  // Line items
   lineItems?: {
     description: string;
     quantity?: number;
     unitPrice?: number;
     amount: number;
+    gstRate?: number;
   }[];
+
+  // Categorization
   suggestedCategory?: TravelExpenseCategory;
-  confidence: number; // 0-1 confidence score
+  categoryConfidence?: number;
+
+  // Metadata
+  confidence: number; // 0-1 overall confidence score
   rawText?: string; // For debugging
+  processingTimeMs?: number;
 }
 
 /**
