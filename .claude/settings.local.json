@@ -421,7 +421,18 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat\\(ci\\): add Document AI processor ID env vars to deployment workflow\n\n- Create functions/.env during CI with processor IDs from GitHub secrets\n- Add .env to functions/.gitignore\n\nRequired GitHub secrets:\n- DOCUMENT_AI_EXPENSE_PROCESSOR_ID: 6099347af4c38879\n- DOCUMENT_AI_PROCESSOR_ID: 139dee9b585ce9e9\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git push:*)",
       "Bash(npx firebase functions:log --only parseReceiptForExpense)",
-      "Bash(npx firebase functions:log:*)"
+      "Bash(npx firebase functions:log:*)",
+      "Bash(firebase login:*)",
+      "Bash(npm install:*)",
+      "Bash(gcloud:*)",
+      "Bash(bash:*)",
+      "Bash(export PATH=\"$HOME/google-cloud-sdk/bin:$PATH\")",
+      "Bash($HOME/google-cloud-sdk/bin/gcloud --version)",
+      "Bash($HOME/google-cloud-sdk/bin/gcloud auth login:*)",
+      "Bash($HOME/google-cloud-sdk/bin/gcloud config set project vapour-toolbox)",
+      "Bash($HOME/google-cloud-sdk/bin/gcloud logging read:*)",
+      "Bash($HOME/google-cloud-sdk/bin/gcloud documentai processors list:*)",
+      "Bash($HOME/google-cloud-sdk/bin/gcloud components install alpha -q)"
     ],
     "deny": [],
     "ask": []
