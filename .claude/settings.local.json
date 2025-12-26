@@ -406,7 +406,14 @@
       "Bash(\"e2e/materials.spec.ts:391\" )",
       "Bash(\"e2e/materials.spec.ts:413\" )",
       "Bash(pnpm --filter @vapour/web exec tsc:*)",
-      "Bash(pnpm --filter @vapour/types type-check:*)"
+      "Bash(pnpm --filter @vapour/types type-check:*)",
+      "Bash(for dir in accounting documents hr procurement projects proposals)",
+      "Bash(do echo \"=== $dir ===\" ls /workspaces/vapourtoolbox/apps/web/src/lib/$dir/*.ts)",
+      "Bash(for dir in /workspaces/vapourtoolbox/apps/web/src/lib/*/)",
+      "Bash(if [ ! -f \"$dir/README.md\" ])",
+      "Bash(timeout 15 node:*)",
+      "Bash(tsc:*)",
+      "Bash(node build-postprocess.js:*)"
     ],
     "deny": [],
     "ask": []

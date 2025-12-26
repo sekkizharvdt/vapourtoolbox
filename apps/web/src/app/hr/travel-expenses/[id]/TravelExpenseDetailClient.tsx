@@ -315,13 +315,27 @@ export default function TravelExpenseDetailClient({ reportId }: TravelExpenseDet
     );
   }
 
-  if (error || !report) {
+  if (error) {
     return (
       <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
         <Alert severity="error">
-          Failed to load travel expense report.{' '}
+          Failed to load travel expense report:{' '}
+          {error instanceof Error ? error.message : 'Unknown error'}.{' '}
           <Button size="small" onClick={() => router.back()}>
             Go Back
+          </Button>
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (!report) {
+    return (
+      <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
+        <Alert severity="warning">
+          Travel expense report not found. It may have been deleted.{' '}
+          <Button size="small" onClick={() => router.push('/hr/travel-expenses')}>
+            View All Reports
           </Button>
         </Alert>
       </Box>
