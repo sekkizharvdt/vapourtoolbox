@@ -414,7 +414,14 @@
       "Bash(timeout 15 node:*)",
       "Bash(tsc:*)",
       "Bash(node build-postprocess.js:*)",
-      "Bash(119 * 100 / 891 \")"
+      "Bash(119 * 100 / 891 \")",
+      "Bash(for file in /workspaces/vapourtoolbox/apps/web/src/hooks/*.ts /workspaces/vapourtoolbox/apps/web/src/hooks/*.tsx)",
+      "Bash(do [ -f \"$file\" ])",
+      "Bash(GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa.json npx firebase-tools:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat\\(ci\\): add Document AI processor ID env vars to deployment workflow\n\n- Create functions/.env during CI with processor IDs from GitHub secrets\n- Add .env to functions/.gitignore\n\nRequired GitHub secrets:\n- DOCUMENT_AI_EXPENSE_PROCESSOR_ID: 6099347af4c38879\n- DOCUMENT_AI_PROCESSOR_ID: 139dee9b585ce9e9\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(npx firebase functions:log --only parseReceiptForExpense)",
+      "Bash(npx firebase functions:log:*)"
     ],
     "deny": [],
     "ask": []

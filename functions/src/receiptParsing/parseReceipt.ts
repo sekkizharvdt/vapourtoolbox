@@ -361,7 +361,9 @@ async function processReceiptWithDocumentAI(
     throw new HttpsError('failed-precondition', 'Document AI processor not configured');
   }
 
-  const processorName = `projects/${projectId}/locations/us/processors/${processorId}`;
+  // Document AI processors are in asia-south1 region (same as Cloud Function)
+  const processorLocation = process.env.DOCUMENT_AI_LOCATION || 'asia-south1';
+  const processorName = `projects/${projectId}/locations/${processorLocation}/processors/${processorId}`;
 
   // Process document
   const request = {
