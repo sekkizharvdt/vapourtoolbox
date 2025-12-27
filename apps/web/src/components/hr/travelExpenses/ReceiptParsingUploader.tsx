@@ -10,7 +10,6 @@ import {
   Paper,
   Chip,
   CircularProgress,
-  Divider,
   Grid,
   TextField,
   MenuItem,
@@ -585,83 +584,10 @@ export function ReceiptParsingUploader({
             />
           </Grid>
 
-          {/* GST Details */}
-          <Grid size={{ xs: 12 }}>
-            <Divider sx={{ my: 1 }}>
-              <Typography variant="caption" color="text.secondary">
-                GST Details (Optional)
-              </Typography>
-            </Divider>
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 4 }}>
+          {/* GST Amount - simplified single field */}
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
-              label="GST Rate (%)"
-              fullWidth
-              type="number"
-              value={formData.gstRate || ''}
-              onChange={(e) =>
-                setFormData({ ...formData, gstRate: parseFloat(e.target.value) || undefined })
-              }
-              inputProps={{ min: 0, max: 28, step: 0.5 }}
-            />
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField
-              label="CGST Amount"
-              fullWidth
-              type="number"
-              value={formData.cgstAmount || ''}
-              onChange={(e) =>
-                setFormData({ ...formData, cgstAmount: parseFloat(e.target.value) || undefined })
-              }
-              inputProps={{ min: 0, step: 0.01 }}
-            />
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField
-              label="SGST Amount"
-              fullWidth
-              type="number"
-              value={formData.sgstAmount || ''}
-              onChange={(e) =>
-                setFormData({ ...formData, sgstAmount: parseFloat(e.target.value) || undefined })
-              }
-              inputProps={{ min: 0, step: 0.01 }}
-            />
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField
-              label="IGST Amount"
-              fullWidth
-              type="number"
-              value={formData.igstAmount || ''}
-              onChange={(e) =>
-                setFormData({ ...formData, igstAmount: parseFloat(e.target.value) || undefined })
-              }
-              inputProps={{ min: 0, step: 0.01 }}
-            />
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField
-              label="Taxable Amount"
-              fullWidth
-              type="number"
-              value={formData.taxableAmount || ''}
-              onChange={(e) =>
-                setFormData({ ...formData, taxableAmount: parseFloat(e.target.value) || undefined })
-              }
-              inputProps={{ min: 0, step: 0.01 }}
-            />
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField
-              label="Total GST Amount"
+              label="GST Amount (if any)"
               fullWidth
               type="number"
               value={formData.gstAmount || ''}
@@ -669,25 +595,40 @@ export function ReceiptParsingUploader({
                 setFormData({ ...formData, gstAmount: parseFloat(e.target.value) || undefined })
               }
               inputProps={{ min: 0, step: 0.01 }}
+              helperText="Total GST charged on receipt (CGST+SGST or IGST)"
             />
           </Grid>
         </Grid>
 
         {/* Summary */}
         <Paper variant="outlined" sx={{ p: 2, mt: 3, bgcolor: 'grey.50' }}>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 6 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid size={{ xs: 4 }}>
               <Typography variant="caption" color="text.secondary">
                 Total Amount
               </Typography>
               <Typography variant="h6">{formatExpenseAmount(formData.amount || 0)}</Typography>
             </Grid>
-            <Grid size={{ xs: 6 }}>
+            <Grid size={{ xs: 4 }}>
               <Typography variant="caption" color="text.secondary">
                 GST Amount
               </Typography>
               <Typography variant="body1">
-                {formatExpenseAmount(formData.gstAmount || 0)}
+                {formData.gstAmount ? formatExpenseAmount(formData.gstAmount) : '-'}
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 4 }}>
+              <Typography variant="caption" color="text.secondary">
+                Our GST on Bill
+              </Typography>
+              <Typography variant="body1">
+                {parsedData?.companyGstinFound ? (
+                  <Chip icon={<VerifiedIcon />} label="Yes" size="small" color="success" />
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No
+                  </Typography>
+                )}
               </Typography>
             </Grid>
           </Grid>

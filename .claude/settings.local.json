@@ -432,7 +432,8 @@
       "Bash($HOME/google-cloud-sdk/bin/gcloud config set project vapour-toolbox)",
       "Bash($HOME/google-cloud-sdk/bin/gcloud logging read:*)",
       "Bash($HOME/google-cloud-sdk/bin/gcloud documentai processors list:*)",
-      "Bash($HOME/google-cloud-sdk/bin/gcloud components install alpha -q)"
+      "Bash($HOME/google-cloud-sdk/bin/gcloud components install alpha -q)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nrefactor\\(hr\\): simplify GST input fields in receipt uploader\n\nReduced the GST section from 6 fields \\(GST Rate, CGST, SGST, IGST,\nTaxable Amount, Total GST\\) to a single \"GST Amount\" field with\nhelper text.\n\nThe complex GST breakdown is still parsed from receipts and stored,\nbut users only need to enter the total GST amount manually if needed.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ],
     "deny": [],
     "ask": []
