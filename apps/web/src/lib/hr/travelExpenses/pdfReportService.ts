@@ -2,6 +2,7 @@
  * Travel Expense PDF Report Service
  *
  * Generates and downloads PDF reports for travel expenses.
+ * Supports including attached receipts in the PDF.
  */
 
 import { pdf } from '@react-pdf/renderer';
@@ -11,29 +12,121 @@ import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import { TravelExpenseReportPDF } from '@/components/pdf/TravelExpenseReportPDF';
+import type { ReceiptImageData } from '@/components/pdf/TravelExpenseReportPDF';
 import type { TravelExpenseReport } from '@vapour/types';
+import { fetchAllReceipts } from './receiptUtils';
+import { mergePdfWithReceipts } from './pdfMergeUtils';
 
 const logger = createLogger({ context: 'pdfReportService' });
 
 /**
+ * Options for PDF generation
+ */
+export interface GeneratePDFOptions {
+  companyName?: string;
+  showSignatures?: boolean;
+  includeReceipts?: boolean;
+}
+
+/**
  * Generate PDF blob for a travel expense report
+ *
+ * @param report - The travel expense report
+ * @param options - Generation options including whether to include receipts
+ * @returns PDF blob
  */
 export async function generateTravelExpenseReportPDF(
   report: TravelExpenseReport,
-  options?: {
-    companyName?: string;
-    showSignatures?: boolean;
-  }
+  options?: GeneratePDFOptions
 ): Promise<Blob> {
+  const { companyName, showSignatures = true, includeReceipts = true } = options || {};
+
   try {
+    // Check if we need to include receipts
+    const hasReceipts = report.items.some((item) => item.hasReceipt && item.receiptUrl);
+
+    if (!includeReceipts || !hasReceipts) {
+      // Original behavior - just generate summary
+      const document = TravelExpenseReportPDF({
+        report,
+        companyName,
+        showSignatures,
+      });
+      return pdf(document).toBlob();
+    }
+
+    // Fetch all receipts
+    logger.info('Generating PDF with receipts', { reportId: report.id });
+    const { imageReceipts, pdfReceipts, errors } = await fetchAllReceipts(report);
+
+    // Log any fetch errors
+    if (errors.length > 0) {
+      logger.warn('Some receipts could not be fetched', {
+        reportId: report.id,
+        errorCount: errors.length,
+        errors,
+      });
+    }
+
+    // Convert image receipts to the format expected by the PDF component
+    const receiptImages: ReceiptImageData[] = imageReceipts.map((r) => ({
+      itemId: r.itemId,
+      description: r.description,
+      amount: r.amount,
+      category: r.category,
+      expenseDate: r.expenseDate,
+      vendorName: r.vendorName,
+      fileName: r.fileName,
+      imageDataUri: r.dataUri!,
+    }));
+
+    // Generate summary PDF with embedded image receipts
     const document = TravelExpenseReportPDF({
       report,
-      companyName: options?.companyName,
-      showSignatures: options?.showSignatures ?? true,
+      companyName,
+      showSignatures,
+      receiptImages,
     });
 
-    const blob = await pdf(document).toBlob();
-    return blob;
+    const summaryBlob = await pdf(document).toBlob();
+
+    // If no PDF receipts, return the summary with embedded images
+    if (pdfReceipts.length === 0) {
+      logger.info('Generated PDF with image receipts', {
+        reportId: report.id,
+        imageReceiptCount: imageReceipts.length,
+      });
+      return summaryBlob;
+    }
+
+    // Merge with PDF receipts
+    const summaryBytes = new Uint8Array(await summaryBlob.arrayBuffer());
+    const mergedBytes = await mergePdfWithReceipts(
+      summaryBytes,
+      pdfReceipts.map((r) => ({
+        itemId: r.itemId,
+        description: r.description,
+        amount: r.amount,
+        category: r.category,
+        expenseDate: r.expenseDate,
+        vendorName: r.vendorName,
+        fileName: r.fileName,
+        pdfBytes: r.pdfBytes!,
+      }))
+    );
+
+    logger.info('Generated PDF with all receipts', {
+      reportId: report.id,
+      imageReceiptCount: imageReceipts.length,
+      pdfReceiptCount: pdfReceipts.length,
+    });
+
+    // Convert Uint8Array to ArrayBuffer for Blob constructor
+    const arrayBuffer = mergedBytes.buffer.slice(
+      mergedBytes.byteOffset,
+      mergedBytes.byteOffset + mergedBytes.byteLength
+    ) as ArrayBuffer;
+    return new Blob([arrayBuffer], { type: 'application/pdf' });
   } catch (error) {
     logger.error('Failed to generate PDF', { reportId: report.id, error });
     throw new Error('Failed to generate PDF report');
@@ -42,16 +135,19 @@ export async function generateTravelExpenseReportPDF(
 
 /**
  * Download PDF report directly to browser
+ *
+ * By default, includes all attached receipts in the PDF.
  */
 export async function downloadTravelExpenseReportPDF(
   report: TravelExpenseReport,
-  options?: {
-    companyName?: string;
-    showSignatures?: boolean;
-  }
+  options?: GeneratePDFOptions
 ): Promise<void> {
   try {
-    const blob = await generateTravelExpenseReportPDF(report, options);
+    // Default to including receipts
+    const blob = await generateTravelExpenseReportPDF(report, {
+      includeReceipts: true,
+      ...options,
+    });
 
     // Create download link
     const url = URL.createObjectURL(blob);
@@ -63,7 +159,12 @@ export async function downloadTravelExpenseReportPDF(
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    logger.info('Downloaded travel expense PDF', { reportId: report.id });
+    const receiptCount = report.items.filter((i) => i.hasReceipt).length;
+    logger.info('Downloaded travel expense PDF', {
+      reportId: report.id,
+      includesReceipts: options?.includeReceipts !== false,
+      receiptCount,
+    });
   } catch (error) {
     logger.error('Failed to download PDF', { reportId: report.id, error });
     throw new Error('Failed to download PDF report');
@@ -72,14 +173,13 @@ export async function downloadTravelExpenseReportPDF(
 
 /**
  * Save PDF report to Firebase Storage and update report with URL
+ *
+ * By default, includes all attached receipts in the PDF.
  */
 export async function saveTravelExpenseReportPDF(
   report: TravelExpenseReport,
   userId: string,
-  options?: {
-    companyName?: string;
-    showSignatures?: boolean;
-  }
+  options?: GeneratePDFOptions
 ): Promise<string> {
   const { db, storage } = getFirebase();
 

@@ -34,6 +34,15 @@ export {
   downloadTravelExpenseReportPDF,
   saveTravelExpenseReportPDF,
 } from './pdfReportService';
+export type { GeneratePDFOptions } from './pdfReportService';
+
+// Receipt Utilities
+export { fetchAllReceipts } from './receiptUtils';
+export type { ReceiptData, FetchedReceipts } from './receiptUtils';
+
+// PDF Merge Utilities
+export { mergePdfWithReceipts } from './pdfMergeUtils';
+export type { PdfReceiptData } from './pdfMergeUtils';
 
 // Display Helpers
 export {

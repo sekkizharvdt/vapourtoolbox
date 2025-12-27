@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import type { TravelExpenseReport, TravelExpenseCategory } from '@vapour/types';
 import { format } from 'date-fns';
 
@@ -220,6 +220,53 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     color: '#666',
   },
+  // Receipt page styles
+  receiptPage: {
+    padding: 30,
+  },
+  receiptPageHeader: {
+    marginBottom: 15,
+    paddingBottom: 10,
+    borderBottom: '1pt solid #e0e0e0',
+  },
+  receiptTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1976d2',
+    marginBottom: 5,
+  },
+  receiptSubtitle: {
+    fontSize: 10,
+    color: '#666',
+    marginBottom: 10,
+  },
+  receiptMetaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+  },
+  receiptMetaItem: {
+    width: '50%',
+    marginBottom: 6,
+  },
+  receiptMetaLabel: {
+    fontSize: 8,
+    color: '#666',
+  },
+  receiptMetaValue: {
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  receiptImageContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  receiptImage: {
+    maxWidth: '100%',
+    maxHeight: 680,
+    objectFit: 'contain',
+  },
 });
 
 const CATEGORY_LABELS: Record<TravelExpenseCategory, string> = {
@@ -230,16 +277,32 @@ const CATEGORY_LABELS: Record<TravelExpenseCategory, string> = {
   OTHER: 'Other',
 };
 
+/**
+ * Receipt image data for embedding in PDF
+ */
+export interface ReceiptImageData {
+  itemId: string;
+  description: string;
+  amount: number;
+  category: TravelExpenseCategory;
+  expenseDate: Date;
+  vendorName?: string;
+  fileName: string;
+  imageDataUri: string;
+}
+
 interface TravelExpenseReportPDFProps {
   report: TravelExpenseReport;
   companyName?: string;
   showSignatures?: boolean;
+  receiptImages?: ReceiptImageData[];
 }
 
 export const TravelExpenseReportPDF = ({
   report,
   companyName = 'Vapour Desal Technologies',
   showSignatures = true,
+  receiptImages = [],
 }: TravelExpenseReportPDFProps) => {
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('en-IN', {
@@ -490,6 +553,57 @@ export const TravelExpenseReportPDF = ({
           </Text>
         </View>
       </Page>
+
+      {/* Receipt Image Pages */}
+      {receiptImages.map((receipt, index) => (
+        <Page key={receipt.itemId} size="A4" style={styles.receiptPage}>
+          {/* Receipt Header */}
+          <View style={styles.receiptPageHeader}>
+            <Text style={styles.receiptTitle}>RECEIPT ATTACHMENT</Text>
+            <Text style={styles.receiptSubtitle}>
+              Receipt {index + 1} of {receiptImages.length}
+            </Text>
+
+            {/* Receipt Metadata */}
+            <View style={styles.receiptMetaGrid}>
+              <View style={styles.receiptMetaItem}>
+                <Text style={styles.receiptMetaLabel}>Description</Text>
+                <Text style={styles.receiptMetaValue}>{receipt.description}</Text>
+              </View>
+              <View style={styles.receiptMetaItem}>
+                <Text style={styles.receiptMetaLabel}>Amount</Text>
+                <Text style={styles.receiptMetaValue}>{formatCurrency(receipt.amount)}</Text>
+              </View>
+              <View style={styles.receiptMetaItem}>
+                <Text style={styles.receiptMetaLabel}>Category</Text>
+                <Text style={styles.receiptMetaValue}>{CATEGORY_LABELS[receipt.category]}</Text>
+              </View>
+              <View style={styles.receiptMetaItem}>
+                <Text style={styles.receiptMetaLabel}>Date</Text>
+                <Text style={styles.receiptMetaValue}>
+                  {format(receipt.expenseDate, 'dd MMM yyyy')}
+                </Text>
+              </View>
+              {receipt.vendorName && (
+                <View style={styles.receiptMetaItem}>
+                  <Text style={styles.receiptMetaLabel}>Vendor</Text>
+                  <Text style={styles.receiptMetaValue}>{receipt.vendorName}</Text>
+                </View>
+              )}
+              <View style={styles.receiptMetaItem}>
+                <Text style={styles.receiptMetaLabel}>File</Text>
+                <Text style={styles.receiptMetaValue}>{receipt.fileName}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Receipt Image */}
+          <View style={styles.receiptImageContainer}>
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image doesn't support alt */}
+            <Image src={receipt.imageDataUri} style={styles.receiptImage} />
+          </View>
+        </Page>
+      ))}
     </Document>
   );
 };
