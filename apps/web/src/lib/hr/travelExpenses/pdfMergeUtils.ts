@@ -169,10 +169,39 @@ export async function mergePdfWithReceipts(
       // Add separator page with metadata
       await addSeparatorPage(mergedPdf, receipt, receiptNumber, pdfReceipts.length);
 
-      // Load and copy receipt PDF pages
-      const receiptDoc = await PDFDocument.load(receipt.pdfBytes, {
-        ignoreEncryption: true,
-      });
+      // Load and copy receipt PDF pages with multiple fallback options
+      // Some PDFs (especially from mobile apps/scanners) have non-standard features
+      let receiptDoc: PDFDocument;
+      try {
+        // First attempt: standard loading with encryption ignored
+        receiptDoc = await PDFDocument.load(receipt.pdfBytes, {
+          ignoreEncryption: true,
+        });
+      } catch (loadError) {
+        logger.debug('First PDF load attempt failed, trying permissive options', {
+          fileName: receipt.fileName,
+          error: loadError instanceof Error ? loadError.message : String(loadError),
+        });
+        try {
+          // Second attempt: ignore invalid objects (helps with malformed PDFs)
+          receiptDoc = await PDFDocument.load(receipt.pdfBytes, {
+            ignoreEncryption: true,
+            throwOnInvalidObject: false,
+          });
+        } catch (secondError) {
+          // Third attempt: all permissive options
+          logger.debug('Second PDF load attempt failed, trying all permissive options', {
+            fileName: receipt.fileName,
+            error: secondError instanceof Error ? secondError.message : String(secondError),
+          });
+          receiptDoc = await PDFDocument.load(receipt.pdfBytes, {
+            ignoreEncryption: true,
+            throwOnInvalidObject: false,
+            updateMetadata: false,
+          });
+        }
+      }
+
       const receiptPages = await mergedPdf.copyPages(receiptDoc, receiptDoc.getPageIndices());
       receiptPages.forEach((page) => mergedPdf.addPage(page));
 
@@ -183,13 +212,15 @@ export async function mergePdfWithReceipts(
       });
     } catch (error) {
       // If a PDF is corrupted, add an error page instead
+      const errorMessage = error instanceof Error ? error.message : String(error);
       logger.warn('Failed to merge PDF receipt', {
         itemId: receipt.itemId,
         fileName: receipt.fileName,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
+        pdfBytesLength: receipt.pdfBytes.length,
       });
 
-      // Add error page
+      // Add error page with more details
       const errorPage = mergedPdf.addPage([595.28, 841.89]);
       const font = await mergedPdf.embedFont(StandardFonts.Helvetica);
       const { height } = errorPage.getSize();
@@ -202,13 +233,32 @@ export async function mergePdfWithReceipts(
         color: rgb(0.776, 0.157, 0.157), // #c62828
       });
 
-      errorPage.drawText('The original file may be corrupted or password-protected.', {
+      errorPage.drawText('The original file could not be merged into this document.', {
         x: 50,
         y: height - 130,
         size: 10,
         font,
         color: rgb(0.4, 0.4, 0.4),
       });
+
+      errorPage.drawText('Possible reasons: unsupported PDF features, encryption, or corruption.', {
+        x: 50,
+        y: height - 150,
+        size: 10,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+
+      errorPage.drawText(
+        'You can view the original receipt separately using the View Receipt button.',
+        {
+          x: 50,
+          y: height - 180,
+          size: 10,
+          font,
+          color: rgb(0.4, 0.4, 0.4),
+        }
+      );
     }
   }
 
