@@ -332,6 +332,31 @@ export async function removePendingLeave(
 }
 
 /**
+ * Get all leave balances for a fiscal year (admin view)
+ */
+export async function getAllLeaveBalances(fiscalYear?: number): Promise<LeaveBalance[]> {
+  const { db } = getFirebase();
+  const year = fiscalYear ?? getCurrentFiscalYear();
+
+  try {
+    const q = query(collection(db, COLLECTIONS.HR_LEAVE_BALANCES), where('fiscalYear', '==', year));
+
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((docSnapshot) => {
+      const data: LeaveBalance = {
+        id: docSnapshot.id,
+        ...(docSnapshot.data() as Omit<LeaveBalance, 'id'>),
+      };
+      return data;
+    });
+  } catch (error) {
+    logger.error('Failed to get all leave balances', { error, fiscalYear: year });
+    throw new Error('Failed to get leave balances');
+  }
+}
+
+/**
  * Get team leave balances (for managers/approvers)
  */
 export async function getTeamLeaveBalances(

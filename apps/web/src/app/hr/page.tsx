@@ -8,6 +8,7 @@ import {
   History as HistoryIcon,
   Flight as TravelIcon,
   Celebration as HolidayIcon,
+  Assessment as SummaryIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -72,6 +73,13 @@ export default function HRPage() {
       icon: <HolidayIcon sx={{ fontSize: 48, color: 'warning.main' }} />,
       path: '/hr/settings/holidays',
       requiresPermission: canManageHRSettings,
+    },
+    {
+      title: 'Leave Summary',
+      description: 'View leave balances and usage for all employees',
+      icon: <SummaryIcon sx={{ fontSize: 48, color: 'info.main' }} />,
+      path: '/hr/settings/leave-summary',
+      requiresPermission: canApproveLeaves,
     },
   ];
 

@@ -28,6 +28,7 @@ export {
   confirmPendingLeave,
   removePendingLeave,
   getTeamLeaveBalances,
+  getAllLeaveBalances,
 } from './leaveBalanceService';
 
 // Leave Request Service
