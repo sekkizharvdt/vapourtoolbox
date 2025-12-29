@@ -6,3 +6,4 @@
 
 export * from './leave';
 export * from './travelExpense';
+export * from './holiday';

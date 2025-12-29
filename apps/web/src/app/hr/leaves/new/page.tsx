@@ -27,6 +27,10 @@ import {
   submitLeaveRequest,
   calculateLeaveDays,
   getCurrentFiscalYear,
+  isRecurringHoliday,
+  DEFAULT_RECURRING_CONFIG,
+  getAllHolidaysInRange,
+  type HolidayInfo,
 } from '@/lib/hr';
 import type { LeaveType, LeaveBalance } from '@vapour/types';
 
@@ -36,9 +40,11 @@ export default function NewLeaveRequestPage() {
 
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
+  const [companyHolidays, setCompanyHolidays] = useState<HolidayInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [excludedHolidays, setExcludedHolidays] = useState<HolidayInfo[]>([]);
 
   // Form state
   const [leaveTypeId, setLeaveTypeId] = useState('');
@@ -64,13 +70,19 @@ export default function NewLeaveRequestPage() {
 
     setLoading(true);
     try {
-      const [typesData, balancesData] = await Promise.all([
+      // Load leave types, balances, and company holidays for the next year
+      const today = new Date();
+      const nextYear = new Date(today.getFullYear() + 1, 11, 31);
+
+      const [typesData, balancesData, holidaysData] = await Promise.all([
         getLeaveTypes(),
         getUserLeaveBalances(user.uid, fiscalYear),
+        getAllHolidaysInRange(today, nextYear),
       ]);
 
       setLeaveTypes(typesData);
       setBalances(balancesData);
+      setCompanyHolidays(holidaysData.filter((h) => !h.isRecurring));
 
       // Pre-select first leave type
       if (typesData.length > 0 && !leaveTypeId && typesData[0]) {
@@ -103,6 +115,69 @@ export default function NewLeaveRequestPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate]);
+
+  // Calculate excluded holidays when date range changes
+  useEffect(() => {
+    if (startDate && endDate) {
+      const holidays: HolidayInfo[] = [];
+      const current = new Date(startDate);
+      current.setHours(0, 0, 0, 0);
+
+      const end = new Date(endDate);
+      end.setHours(0, 0, 0, 0);
+
+      while (current <= end) {
+        // Check recurring holidays
+        if (isRecurringHoliday(current, DEFAULT_RECURRING_CONFIG)) {
+          const dayOfWeek = current.getDay();
+          const dayOfMonth = current.getDate();
+          let label = 'Sunday';
+          if (dayOfWeek === 6) {
+            if (dayOfMonth <= 7) label = '1st Saturday';
+            else if (dayOfMonth >= 15 && dayOfMonth <= 21) label = '3rd Saturday';
+          }
+          holidays.push({
+            date: new Date(current),
+            name: label,
+            type: 'RECURRING',
+            isRecurring: true,
+          });
+        } else {
+          // Check company holidays
+          const dateKey = current.toISOString().split('T')[0];
+          const companyHoliday = companyHolidays.find(
+            (h) => h.date.toISOString().split('T')[0] === dateKey
+          );
+          if (companyHoliday) {
+            holidays.push(companyHoliday);
+          }
+        }
+        current.setDate(current.getDate() + 1);
+      }
+
+      setExcludedHolidays(holidays);
+    } else {
+      setExcludedHolidays([]);
+    }
+  }, [startDate, endDate, companyHolidays]);
+
+  // Function to determine if a date should be disabled
+  const shouldDisableDate = (day: Date | { toDate(): Date }): boolean => {
+    // Handle both Date and Dayjs objects
+    const date = 'toDate' in day ? day.toDate() : day;
+
+    // Check recurring holidays (Sundays, 1st/3rd Saturdays)
+    if (isRecurringHoliday(date, DEFAULT_RECURRING_CONFIG)) {
+      return true;
+    }
+
+    // Check company holidays
+    const dateKey = date.toISOString().split('T')[0];
+    const isCompanyHoliday = companyHolidays.some(
+      (h) => h.date.toISOString().split('T')[0] === dateKey
+    );
+    return isCompanyHoliday;
+  };
 
   const handleSave = async (submitForApproval = false) => {
     if (!user || !selectedLeaveType || !startDate || !endDate) {
@@ -214,10 +289,12 @@ export default function NewLeaveRequestPage() {
                       setEndDate(date);
                     }
                   }}
+                  shouldDisableDate={shouldDisableDate}
                   slotProps={{
                     textField: {
                       fullWidth: true,
                       required: true,
+                      helperText: 'Sundays and 1st/3rd Saturdays are disabled',
                     },
                   }}
                   minDate={new Date()}
@@ -228,6 +305,7 @@ export default function NewLeaveRequestPage() {
                   label="End Date"
                   value={endDate}
                   onChange={(newValue) => setEndDate(newValue as Date | null)}
+                  shouldDisableDate={shouldDisableDate}
                   slotProps={{
                     textField: {
                       fullWidth: true,
@@ -275,13 +353,23 @@ export default function NewLeaveRequestPage() {
               {startDate && endDate && (
                 <Grid size={{ xs: 12 }}>
                   <Alert severity="info">
-                    Total Leave Days: <strong>{calculatedDays}</strong>
-                    {isHalfDay && ' (Half Day)'}
-                    {selectedBalance && calculatedDays > selectedBalance.available && (
-                      <Typography variant="body2" color="error" component="span" sx={{ ml: 2 }}>
-                        Exceeds available balance!
+                    <Box>
+                      <Typography component="span">
+                        Total Leave Days: <strong>{calculatedDays}</strong>
+                        {isHalfDay && ' (Half Day)'}
                       </Typography>
-                    )}
+                      {excludedHolidays.length > 0 && (
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                          {excludedHolidays.length} holiday{excludedHolidays.length > 1 ? 's' : ''}{' '}
+                          excluded: {excludedHolidays.map((h) => h.name).join(', ')}
+                        </Typography>
+                      )}
+                      {selectedBalance && calculatedDays > selectedBalance.available && (
+                        <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
+                          Exceeds available balance!
+                        </Typography>
+                      )}
+                    </Box>
                   </Alert>
                 </Grid>
               )}

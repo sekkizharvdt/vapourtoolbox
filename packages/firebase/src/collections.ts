@@ -31,6 +31,7 @@ export const COLLECTIONS = {
   HR_LEAVE_BALANCES: 'hrLeaveBalances', // Employee leave balance per fiscal year
   HR_LEAVE_REQUESTS: 'hrLeaveRequests', // Leave requests with approval workflow
   HR_TRAVEL_EXPENSES: 'hrTravelExpenses', // Travel expense reports with approval workflow
+  HR_HOLIDAYS: 'hrHolidays', // Company holidays (Diwali, Pongal, etc.)
 
   // Slack-like Task Channels (Phase A-C)
   PROJECT_CHANNELS: 'projectChannels', // Custom channels per project

@@ -25,6 +25,12 @@ import { createLogger } from '@vapour/logger';
 import type { LeaveRequest, LeaveRequestStatus, LeaveTypeCode } from '@vapour/types';
 import { getUserLeaveBalanceByType } from './leaveBalanceService';
 import { getLeaveTypeByCode } from './leaveTypeService';
+import {
+  isRecurringHoliday,
+  DEFAULT_RECURRING_CONFIG,
+  getCompanyHolidaysInRange,
+  type HolidayInfo,
+} from '../holidays';
 
 const logger = createLogger({ context: 'leaveRequestService' });
 
@@ -56,13 +62,15 @@ export interface ListLeaveRequestsFilters {
 
 /**
  * Calculate number of leave days between two dates
- * Excludes weekends by default
+ * Excludes holidays (Sundays, 1st/3rd Saturdays, company holidays)
+ *
+ * @deprecated Use calculateLeaveDaysAsync for accurate holiday-aware calculation
  */
 export function calculateLeaveDays(
   startDate: Date,
   endDate: Date,
   isHalfDay = false,
-  excludeWeekends = true
+  _excludeWeekends = true // Kept for backward compatibility, now uses holiday config
 ): number {
   if (isHalfDay) {
     return 0.5;
@@ -76,15 +84,120 @@ export function calculateLeaveDays(
   end.setHours(0, 0, 0, 0);
 
   while (current <= end) {
-    const dayOfWeek = current.getDay();
-    // 0 = Sunday, 6 = Saturday
-    if (!excludeWeekends || (dayOfWeek !== 0 && dayOfWeek !== 6)) {
+    // Check recurring holidays (Sundays, 1st/3rd Saturdays)
+    if (!isRecurringHoliday(current, DEFAULT_RECURRING_CONFIG)) {
       days++;
     }
     current.setDate(current.getDate() + 1);
   }
 
   return days;
+}
+
+/**
+ * Calculate number of leave days between two dates (async version)
+ * Excludes all holidays: Sundays, 1st/3rd Saturdays, and company holidays
+ */
+export async function calculateLeaveDaysAsync(
+  startDate: Date,
+  endDate: Date,
+  isHalfDay = false
+): Promise<{ days: number; excludedHolidays: HolidayInfo[] }> {
+  if (isHalfDay) {
+    return { days: 0.5, excludedHolidays: [] };
+  }
+
+  // Get company holidays in the date range
+  const companyHolidays = await getCompanyHolidaysInRange(startDate, endDate);
+  const companyHolidayDates = new Set(
+    companyHolidays.map((h) => h.date.toDate().toISOString().split('T')[0])
+  );
+
+  let days = 0;
+  const excludedHolidays: HolidayInfo[] = [];
+  const current = new Date(startDate);
+  current.setHours(0, 0, 0, 0);
+
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
+
+  while (current <= end) {
+    const dateKey = current.toISOString().split('T')[0] ?? '';
+
+    // Check recurring holidays (Sundays, 1st/3rd Saturdays)
+    if (isRecurringHoliday(current, DEFAULT_RECURRING_CONFIG)) {
+      const dayOfWeek = current.getDay();
+      const dayOfMonth = current.getDate();
+      let label = 'Sunday';
+      if (dayOfWeek === 6) {
+        if (dayOfMonth <= 7) label = '1st Saturday';
+        else if (dayOfMonth >= 15 && dayOfMonth <= 21) label = '3rd Saturday';
+      }
+      excludedHolidays.push({
+        date: new Date(current),
+        name: label,
+        type: 'RECURRING',
+        isRecurring: true,
+      });
+    } else if (companyHolidayDates.has(dateKey)) {
+      // Company holiday
+      const holiday = companyHolidays.find(
+        (h) => h.date.toDate().toISOString().split('T')[0] === dateKey
+      );
+      if (holiday) {
+        excludedHolidays.push({
+          date: holiday.date.toDate(),
+          name: holiday.name,
+          type: holiday.type,
+          isRecurring: false,
+          holidayId: holiday.id,
+          description: holiday.description,
+          color: holiday.color,
+        });
+      }
+    } else {
+      // Working day
+      days++;
+    }
+
+    current.setDate(current.getDate() + 1);
+  }
+
+  return { days, excludedHolidays };
+}
+
+/**
+ * Validate leave dates don't start or end on holidays
+ */
+export async function validateLeaveDates(
+  startDate: Date,
+  endDate: Date
+): Promise<{ valid: boolean; errors: string[] }> {
+  const errors: string[] = [];
+
+  // Check if start date is a holiday
+  if (isRecurringHoliday(startDate, DEFAULT_RECURRING_CONFIG)) {
+    errors.push('Start date falls on a holiday (weekend)');
+  } else {
+    const companyHolidays = await getCompanyHolidaysInRange(startDate, startDate);
+    if (companyHolidays.length > 0) {
+      errors.push(`Start date falls on a company holiday: ${companyHolidays[0]?.name}`);
+    }
+  }
+
+  // Check if end date is a holiday (only if different from start)
+  if (startDate.getTime() !== endDate.getTime()) {
+    if (isRecurringHoliday(endDate, DEFAULT_RECURRING_CONFIG)) {
+      errors.push('End date falls on a holiday (weekend)');
+    } else {
+      const companyHolidays = await getCompanyHolidaysInRange(endDate, endDate);
+      if (companyHolidays.length > 0) {
+        errors.push(`End date falls on a company holiday: ${companyHolidays[0]?.name}`);
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
 }
 
 /**

@@ -1293,6 +1293,21 @@ service cloud.firestore {
     }
 
     /**
+     * HR Holidays - Company holidays (Diwali, Pongal, etc.)
+     * Used for leave calendar and leave request validation
+     */
+    match /hrHolidays/{holidayId} {
+      // Read: All internal users (needed for leave forms and calendar)
+      allow read: if isInternalUser();
+
+      // Create/Update: Only users with MANAGE_HR_SETTINGS permission
+      allow create, update: if isInternalUser() && hasPermission2(8192); // MANAGE_HR_SETTINGS
+
+      // Delete: Super admins only (prefer soft delete via isActive = false)
+      allow delete: if isSuperAdmin();
+    }
+
+    /**
      * HR Travel Expense Reports - Travel reimbursement requests with approval workflow
      * Uses same permission bits as leave requests:
      *   VIEW_HR = 4096 (bit 12)

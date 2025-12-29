@@ -33,6 +33,8 @@ export {
 // Leave Request Service
 export {
   calculateLeaveDays,
+  calculateLeaveDaysAsync,
+  validateLeaveDates,
   createLeaveRequest,
   getLeaveRequestById,
   listLeaveRequests,

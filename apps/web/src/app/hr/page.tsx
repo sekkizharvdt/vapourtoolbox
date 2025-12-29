@@ -7,6 +7,7 @@ import {
   Settings as SettingsIcon,
   History as HistoryIcon,
   Flight as TravelIcon,
+  Celebration as HolidayIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -63,6 +64,13 @@ export default function HRPage() {
       description: 'Configure leave types, quotas, and policies',
       icon: <SettingsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/hr/settings/leave-types',
+      requiresPermission: canManageHRSettings,
+    },
+    {
+      title: 'Holiday Settings',
+      description: 'Manage company holidays (Diwali, Pongal, etc.)',
+      icon: <HolidayIcon sx={{ fontSize: 48, color: 'warning.main' }} />,
+      path: '/hr/settings/holidays',
       requiresPermission: canManageHRSettings,
     },
   ];

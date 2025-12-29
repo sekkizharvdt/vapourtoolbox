@@ -7,6 +7,7 @@
  * ```typescript
  * import { createLeaveRequest, getLeaveTypes } from '@/lib/hr';
  * import { createTravelExpenseReport, addExpenseItem } from '@/lib/hr';
+ * import { isHoliday, getAllHolidaysInRange } from '@/lib/hr';
  * ```
  */
 
@@ -15,3 +16,6 @@ export * from './leaves';
 
 // Travel Expense Management
 export * from './travelExpenses';
+
+// Holiday Management
+export * from './holidays';
