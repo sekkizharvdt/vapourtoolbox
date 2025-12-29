@@ -29,7 +29,7 @@ const logger = createLogger({ context: 'travelExpenseApprovalService' });
 
 // Fallback approvers if Firestore config is not set up
 // To configure: create document hrConfig/travelExpenseSettings with { expenseApprovers: ['email1', 'email2'] }
-const DEFAULT_EXPENSE_APPROVERS = ['revathi@vapourdesal.com', 'sekkizhar@vapourdesal.com'];
+const DEFAULT_EXPENSE_APPROVERS = ['revathi@vapourdesal.com'];
 
 /**
  * HR Config document structure
@@ -149,11 +149,14 @@ export async function submitTravelExpenseReport(
       throw new Error('Cannot submit a report with no expense items');
     }
 
-    // Get approver user IDs
-    const approverIds = await getApproverUserIds();
+    // Get approver user IDs, excluding the submitter (can't approve own report)
+    const allApproverIds = await getApproverUserIds();
+    const approverIds = allApproverIds.filter((id) => id !== userId);
 
     if (approverIds.length === 0) {
-      throw new Error('No approvers configured. Please contact HR.');
+      throw new Error(
+        'No approvers available. You cannot approve your own expense report. Please contact HR.'
+      );
     }
 
     const now = Timestamp.now();
@@ -243,6 +246,11 @@ export async function approveTravelExpenseReport(
 
     if (!report.approverIds?.includes(approverId)) {
       throw new Error('You are not authorized to approve this report');
+    }
+
+    // Prevent self-approval
+    if (report.employeeId === approverId) {
+      throw new Error('You cannot approve your own expense report');
     }
 
     const now = Timestamp.now();
@@ -339,6 +347,11 @@ export async function rejectTravelExpenseReport(
       throw new Error('You are not authorized to reject this report');
     }
 
+    // Prevent self-rejection
+    if (report.employeeId === approverId) {
+      throw new Error('You cannot reject your own expense report');
+    }
+
     const now = Timestamp.now();
 
     // Create approval history record
@@ -428,6 +441,11 @@ export async function returnTravelExpenseForRevision(
 
     if (!report.approverIds?.includes(approverId)) {
       throw new Error('You are not authorized to return this report');
+    }
+
+    // Prevent self-return
+    if (report.employeeId === approverId) {
+      throw new Error('You cannot return your own expense report');
     }
 
     const now = Timestamp.now();

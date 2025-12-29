@@ -148,7 +148,8 @@ export default function TravelExpenseDetailClient() {
   const isApprover = report?.approverIds?.includes(user?.uid || '');
   const canSubmit = isDraft && isOwner && (report?.items?.length || 0) > 0;
   const isPendingApproval = report?.status === 'SUBMITTED' || report?.status === 'UNDER_REVIEW';
-  const canApprove = isPendingApproval && isApprover;
+  // Approvers cannot approve their own reports
+  const canApprove = isPendingApproval && isApprover && !isOwner;
 
   const categoryOptions = getExpenseCategoryOptions();
 
