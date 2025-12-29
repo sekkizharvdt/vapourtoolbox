@@ -19,6 +19,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingBottom: 10,
     borderBottom: '2pt solid #1976d2',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 50,
+    height: 50,
+    marginRight: 12,
+  },
+  headerText: {
+    flex: 1,
   },
   companyName: {
     fontSize: 16,
@@ -296,6 +306,7 @@ interface TravelExpenseReportPDFProps {
   companyName?: string;
   showSignatures?: boolean;
   receiptImages?: ReceiptImageData[];
+  logoDataUri?: string;
 }
 
 export const TravelExpenseReportPDF = ({
@@ -303,6 +314,7 @@ export const TravelExpenseReportPDF = ({
   companyName = 'Vapour Desal Technologies',
   showSignatures = true,
   receiptImages = [],
+  logoDataUri,
 }: TravelExpenseReportPDFProps) => {
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('en-IN', {
@@ -356,8 +368,14 @@ export const TravelExpenseReportPDF = ({
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.companyName}>{companyName}</Text>
-          <Text style={styles.companyTagline}>Innovative Desalination & Process Solutions</Text>
+          {logoDataUri && (
+            /* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image doesn't support alt */
+            <Image src={logoDataUri} style={styles.logo} />
+          )}
+          <View style={styles.headerText}>
+            <Text style={styles.companyName}>{companyName}</Text>
+            <Text style={styles.companyTagline}>Innovative Desalination & Process Solutions</Text>
+          </View>
         </View>
 
         {/* Report Title */}

@@ -19,6 +19,43 @@ import { mergePdfWithReceipts } from './pdfMergeUtils';
 
 const logger = createLogger({ context: 'pdfReportService' });
 
+// Cache the logo data URI to avoid repeated fetches
+let cachedLogoDataUri: string | null = null;
+
+/**
+ * Fetch the company logo as a base64 data URI
+ */
+async function fetchLogoAsDataUri(): Promise<string | undefined> {
+  if (cachedLogoDataUri) {
+    return cachedLogoDataUri;
+  }
+
+  try {
+    const response = await fetch('/logo.png');
+    if (!response.ok) {
+      logger.warn('Failed to fetch logo', { status: response.status });
+      return undefined;
+    }
+
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        cachedLogoDataUri = reader.result as string;
+        resolve(cachedLogoDataUri);
+      };
+      reader.onerror = () => {
+        logger.warn('Failed to read logo as data URI');
+        resolve(undefined);
+      };
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    logger.warn('Error fetching logo', { error });
+    return undefined;
+  }
+}
+
 /**
  * Options for PDF generation
  */
@@ -26,6 +63,7 @@ export interface GeneratePDFOptions {
   companyName?: string;
   showSignatures?: boolean;
   includeReceipts?: boolean;
+  logoDataUri?: string;
 }
 
 /**
@@ -39,9 +77,12 @@ export async function generateTravelExpenseReportPDF(
   report: TravelExpenseReport,
   options?: GeneratePDFOptions
 ): Promise<Blob> {
-  const { companyName, showSignatures = true, includeReceipts = true } = options || {};
+  const { companyName, showSignatures = true, includeReceipts = true, logoDataUri } = options || {};
 
   try {
+    // Fetch logo if not provided
+    const logo = logoDataUri ?? (await fetchLogoAsDataUri());
+
     // Check if we need to include receipts
     const hasReceipts = report.items.some((item) => item.hasReceipt && item.receiptUrl);
 
@@ -51,6 +92,7 @@ export async function generateTravelExpenseReportPDF(
         report,
         companyName,
         showSignatures,
+        logoDataUri: logo,
       });
       return pdf(document).toBlob();
     }
@@ -86,6 +128,7 @@ export async function generateTravelExpenseReportPDF(
       companyName,
       showSignatures,
       receiptImages,
+      logoDataUri: logo,
     });
 
     const summaryBlob = await pdf(document).toBlob();
