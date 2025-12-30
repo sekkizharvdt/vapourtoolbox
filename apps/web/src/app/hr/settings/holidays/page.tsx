@@ -35,6 +35,8 @@ import {
   ContentCopy as CopyIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageHRSettings } from '@vapour/constants';
 import {
@@ -433,14 +435,18 @@ export default function HolidaySettingsPage() {
               />
             </Grid>
             <Grid size={{ xs: 6 }}>
-              <DatePicker
-                label="Date"
-                value={formData.date}
-                onChange={(newValue) => setFormData({ ...formData, date: newValue as Date | null })}
-                slotProps={{
-                  textField: { fullWidth: true, required: true },
-                }}
-              />
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Date"
+                  value={formData.date}
+                  onChange={(newValue) =>
+                    setFormData({ ...formData, date: newValue as Date | null })
+                  }
+                  slotProps={{
+                    textField: { fullWidth: true, required: true },
+                  }}
+                />
+              </LocalizationProvider>
             </Grid>
             <Grid size={{ xs: 6 }}>
               <TextField

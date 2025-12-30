@@ -8,6 +8,7 @@
  * import { createLeaveRequest, getLeaveTypes } from '@/lib/hr';
  * import { createTravelExpenseReport, addExpenseItem } from '@/lib/hr';
  * import { isHoliday, getAllHolidaysInRange } from '@/lib/hr';
+ * import { getAllEmployees, getEmployeeById } from '@/lib/hr';
  * ```
  */
 
@@ -19,3 +20,6 @@ export * from './travelExpenses';
 
 // Holiday Management
 export * from './holidays';
+
+// Employee Management
+export * from './employees';

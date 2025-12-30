@@ -3,6 +3,7 @@
 import { Timestamp } from 'firebase/firestore';
 import { Department } from './core';
 import { UserStatus, TimestampFields } from './common';
+import type { HRProfile } from './hr/employee';
 
 /**
  * Firebase Custom Claims structure
@@ -58,23 +59,7 @@ export interface User extends TimestampFields {
   lastLoginAt?: Timestamp;
 
   // HR Profile (extended employee information)
-  hrProfile?: {
-    employeeId?: string; // Employee ID (e.g., VDT-001)
-    dateOfJoining?: Timestamp;
-    reportingManagerId?: string; // Manager's UID for hierarchy
-    probationEndDate?: Timestamp;
-    emergencyContact?: {
-      name: string;
-      relationship: string;
-      phone: string;
-    };
-    bankDetails?: {
-      accountNumber: string;
-      bankName: string;
-      ifscCode: string;
-      accountHolderName: string;
-    };
-  };
+  hrProfile?: HRProfile;
 }
 
 /**

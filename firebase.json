@@ -184,6 +184,10 @@
         "destination": "/hr/settings/leave-types.html"
       },
       {
+        "source": "/hr/employees/*",
+        "destination": "/hr/employees/placeholder.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

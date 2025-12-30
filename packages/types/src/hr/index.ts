@@ -7,3 +7,4 @@
 export * from './leave';
 export * from './travelExpense';
 export * from './holiday';
+export * from './employee';

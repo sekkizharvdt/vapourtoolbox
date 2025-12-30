@@ -9,6 +9,7 @@ import {
   Flight as TravelIcon,
   Celebration as HolidayIcon,
   Assessment as SummaryIcon,
+  People as PeopleIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -80,6 +81,12 @@ export default function HRPage() {
       icon: <SummaryIcon sx={{ fontSize: 48, color: 'info.main' }} />,
       path: '/hr/settings/leave-summary',
       requiresPermission: canApproveLeaves,
+    },
+    {
+      title: 'Employee Directory',
+      description: 'View employee details, emergency contacts, and blood groups',
+      icon: <PeopleIcon sx={{ fontSize: 48, color: 'success.main' }} />,
+      path: '/hr/employees',
     },
   ];
 
