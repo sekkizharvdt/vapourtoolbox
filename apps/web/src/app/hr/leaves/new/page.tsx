@@ -13,8 +13,10 @@ import {
   FormControlLabel,
   Switch,
   MenuItem,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
-import { ArrowBack as BackIcon, Save as SaveIcon, Send as SubmitIcon } from '@mui/icons-material';
+import { Save as SaveIcon, Send as SubmitIcon, Home as HomeIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -236,10 +238,34 @@ export default function NewLeaveRequestPage() {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Box sx={{ maxWidth: 'md', mx: 'auto' }}>
-        <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button startIcon={<BackIcon />} onClick={() => router.back()}>
-            Back
-          </Button>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/hr"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/hr');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            HR
+          </Link>
+          <Link
+            color="inherit"
+            href="/hr/leaves/my-leaves"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/hr/leaves/my-leaves');
+            }}
+            sx={{ cursor: 'pointer' }}
+          >
+            My Leaves
+          </Link>
+          <Typography color="text.primary">New Leave Request</Typography>
+        </Breadcrumbs>
+
+        <Box sx={{ mb: 4 }}>
           <Typography variant="h5" component="h1">
             Apply for Leave
           </Typography>

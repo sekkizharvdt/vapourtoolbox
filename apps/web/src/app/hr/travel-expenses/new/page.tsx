@@ -12,8 +12,10 @@ import {
   TextField,
   Autocomplete,
   Chip,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
-import { ArrowBack as BackIcon, Save as SaveIcon } from '@mui/icons-material';
+import { Save as SaveIcon, Home as HomeIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -113,10 +115,34 @@ export default function NewTravelExpensePage() {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Box sx={{ maxWidth: 'md', mx: 'auto' }}>
-        <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button startIcon={<BackIcon />} onClick={() => router.back()}>
-            Back
-          </Button>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/hr"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/hr');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            HR
+          </Link>
+          <Link
+            color="inherit"
+            href="/hr/travel-expenses"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/hr/travel-expenses');
+            }}
+            sx={{ cursor: 'pointer' }}
+          >
+            Travel Expenses
+          </Link>
+          <Typography color="text.primary">New Report</Typography>
+        </Breadcrumbs>
+
+        <Box sx={{ mb: 4 }}>
           <Typography variant="h5" component="h1">
             New Travel Expense Report
           </Typography>

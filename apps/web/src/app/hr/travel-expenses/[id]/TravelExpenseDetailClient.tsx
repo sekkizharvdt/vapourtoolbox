@@ -26,9 +26,10 @@ import {
   TextField,
   MenuItem,
   Tooltip,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
-  ArrowBack as BackIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
   Flight,
@@ -45,6 +46,7 @@ import {
   PictureAsPdf as PdfIcon,
   AutoAwesome as ParseIcon,
   CheckCircle as VerifiedIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -414,11 +416,35 @@ export default function TravelExpenseDetailClient() {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/hr"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/hr');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            HR
+          </Link>
+          <Link
+            color="inherit"
+            href="/hr/travel-expenses"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/hr/travel-expenses');
+            }}
+            sx={{ cursor: 'pointer' }}
+          >
+            Travel Expenses
+          </Link>
+          <Typography color="text.primary">{report.reportNumber}</Typography>
+        </Breadcrumbs>
+
         {/* Header */}
         <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-          <Button startIcon={<BackIcon />} onClick={() => router.push('/hr/travel-expenses')}>
-            Back
-          </Button>
           <Box sx={{ flex: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
               <Typography variant="h5" component="h1">

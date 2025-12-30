@@ -15,9 +15,10 @@ import {
   IconButton,
   Divider,
   Button,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
-  ArrowBack as BackIcon,
   Phone as PhoneIcon,
   Email as EmailIcon,
   Bloodtype as BloodIcon,
@@ -27,6 +28,7 @@ import {
   Emergency as EmergencyIcon,
   AccountBalance as BankIcon,
   Edit as EditIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewHR, canManageHRSettings } from '@vapour/constants';
@@ -129,12 +131,8 @@ export default function EmployeeDetailClient() {
   if (loading) {
     return (
       <Box>
-        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <IconButton onClick={() => router.back()}>
-            <BackIcon />
-          </IconButton>
-          <Skeleton variant="text" width={300} height={40} />
-        </Box>
+        <Skeleton variant="text" width={200} height={24} sx={{ mb: 2 }} />
+        <Skeleton variant="text" width={300} height={40} sx={{ mb: 3 }} />
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 4 }}>
             <Skeleton variant="rectangular" height={300} />
@@ -150,12 +148,35 @@ export default function EmployeeDetailClient() {
   if (error || !employee) {
     return (
       <Box>
-        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <IconButton onClick={() => router.back()}>
-            <BackIcon />
-          </IconButton>
-          <Typography variant="h4">Employee Profile</Typography>
-        </Box>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/hr"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/hr');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            HR
+          </Link>
+          <Link
+            color="inherit"
+            href="/hr/employees"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/hr/employees');
+            }}
+            sx={{ cursor: 'pointer' }}
+          >
+            Employee Directory
+          </Link>
+          <Typography color="text.primary">Not Found</Typography>
+        </Breadcrumbs>
+        <Typography variant="h4" sx={{ mb: 2 }}>
+          Employee Profile
+        </Typography>
         <Alert severity="error">{error || 'Employee not found.'}</Alert>
       </Box>
     );
@@ -165,14 +186,36 @@ export default function EmployeeDetailClient() {
 
   return (
     <Box>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/hr"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/hr');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          HR
+        </Link>
+        <Link
+          color="inherit"
+          href="/hr/employees"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/hr/employees');
+          }}
+          sx={{ cursor: 'pointer' }}
+        >
+          Employee Directory
+        </Link>
+        <Typography color="text.primary">{employee.displayName}</Typography>
+      </Breadcrumbs>
+
       {/* Header */}
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <IconButton onClick={() => router.push('/hr/employees')}>
-            <BackIcon />
-          </IconButton>
-          <Typography variant="h4">Employee Profile</Typography>
-        </Box>
+        <Typography variant="h4">Employee Profile</Typography>
         {canEdit && (
           <Button variant="outlined" startIcon={<EditIcon />} disabled>
             Edit Profile

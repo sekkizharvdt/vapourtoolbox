@@ -18,8 +18,10 @@ import {
   Tabs,
   Tab,
   Button,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
-import { Refresh as RefreshIcon } from '@mui/icons-material';
+import { Refresh as RefreshIcon, Home as HomeIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { canApproveLeaves } from '@vapour/constants';
@@ -99,6 +101,22 @@ export default function LeaveRequestsPage() {
 
   return (
     <>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/hr"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/hr');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          HR
+        </Link>
+        <Typography color="text.primary">Leave Requests</Typography>
+      </Breadcrumbs>
+
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
           <Typography variant="h4" component="h1" gutterBottom>

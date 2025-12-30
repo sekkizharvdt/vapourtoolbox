@@ -26,6 +26,8 @@ import {
   CardContent,
   Tooltip,
   MenuItem,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -33,7 +35,9 @@ import {
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
   ContentCopy as CopyIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -84,6 +88,7 @@ const defaultFormData: FormData = {
 };
 
 export default function HolidaySettingsPage() {
+  const router = useRouter();
   const { user, claims } = useAuth();
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [loading, setLoading] = useState(true);
@@ -244,6 +249,22 @@ export default function HolidaySettingsPage() {
 
   return (
     <Box>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/hr"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/hr');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          HR
+        </Link>
+        <Typography color="text.primary">Holidays</Typography>
+      </Breadcrumbs>
+
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
           <Typography variant="h4" component="h1" gutterBottom>
