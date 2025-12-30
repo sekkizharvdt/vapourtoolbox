@@ -317,11 +317,13 @@ export const TravelExpenseReportPDF = ({
   logoDataUri,
 }: TravelExpenseReportPDFProps) => {
   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
+    // Use plain number format with manual Rs. prefix
+    // Intl.NumberFormat currency symbol (₹) doesn't render in Helvetica font
+    const formatted = new Intl.NumberFormat('en-IN', {
       minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(amount);
+    return `Rs. ${formatted}`;
   };
 
   const formatDateValue = (date: Date | { toDate: () => Date }): string => {
@@ -572,50 +574,9 @@ export const TravelExpenseReportPDF = ({
         </View>
       </Page>
 
-      {/* Receipt Image Pages */}
-      {receiptImages.map((receipt, index) => (
+      {/* Receipt Image Pages - directly embed images without cover page */}
+      {receiptImages.map((receipt) => (
         <Page key={receipt.itemId} size="A4" style={styles.receiptPage}>
-          {/* Receipt Header */}
-          <View style={styles.receiptPageHeader}>
-            <Text style={styles.receiptTitle}>RECEIPT ATTACHMENT</Text>
-            <Text style={styles.receiptSubtitle}>
-              Receipt {index + 1} of {receiptImages.length}
-            </Text>
-
-            {/* Receipt Metadata */}
-            <View style={styles.receiptMetaGrid}>
-              <View style={styles.receiptMetaItem}>
-                <Text style={styles.receiptMetaLabel}>Description</Text>
-                <Text style={styles.receiptMetaValue}>{receipt.description}</Text>
-              </View>
-              <View style={styles.receiptMetaItem}>
-                <Text style={styles.receiptMetaLabel}>Amount</Text>
-                <Text style={styles.receiptMetaValue}>{formatCurrency(receipt.amount)}</Text>
-              </View>
-              <View style={styles.receiptMetaItem}>
-                <Text style={styles.receiptMetaLabel}>Category</Text>
-                <Text style={styles.receiptMetaValue}>{CATEGORY_LABELS[receipt.category]}</Text>
-              </View>
-              <View style={styles.receiptMetaItem}>
-                <Text style={styles.receiptMetaLabel}>Date</Text>
-                <Text style={styles.receiptMetaValue}>
-                  {format(receipt.expenseDate, 'dd MMM yyyy')}
-                </Text>
-              </View>
-              {receipt.vendorName && (
-                <View style={styles.receiptMetaItem}>
-                  <Text style={styles.receiptMetaLabel}>Vendor</Text>
-                  <Text style={styles.receiptMetaValue}>{receipt.vendorName}</Text>
-                </View>
-              )}
-              <View style={styles.receiptMetaItem}>
-                <Text style={styles.receiptMetaLabel}>File</Text>
-                <Text style={styles.receiptMetaValue}>{receipt.fileName}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Receipt Image */}
           <View style={styles.receiptImageContainer}>
             {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image doesn't support alt */}
             <Image src={receipt.imageDataUri} style={styles.receiptImage} />
