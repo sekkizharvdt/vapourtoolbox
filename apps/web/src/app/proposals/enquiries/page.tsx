@@ -52,6 +52,9 @@ import type { Enquiry, EnquiryStatus, EnquiryUrgency } from '@vapour/types';
 import { ENQUIRY_STATUS_LABELS, ENQUIRY_URGENCY_LABELS } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
 
+// Fallback entity ID for users without multi-entity claims
+const FALLBACK_ENTITY_ID = 'default-entity';
+
 // Dynamically import to avoid SSR issues with date pickers
 const CreateEnquiryDialog = dynamic(
   () =>
@@ -102,8 +105,8 @@ export default function EnquiriesPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    const entityId = claims?.entityId;
-    if (!db || !entityId) return;
+    const entityId = claims?.entityId || FALLBACK_ENTITY_ID;
+    if (!db) return;
 
     const fetchEnquiries = async () => {
       try {
