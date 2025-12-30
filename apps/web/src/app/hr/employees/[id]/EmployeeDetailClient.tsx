@@ -58,10 +58,16 @@ export default function EmployeeDetailClient() {
   const permissions2 = claims?.permissions2 ?? 0;
   const hasAccess = canViewHR(permissions2);
   const canEdit = canManageHRSettings(permissions2);
+  const claimsLoaded = claims !== undefined;
 
   useEffect(() => {
     const loadEmployee = async () => {
-      if (!hasAccess || !employeeId) return;
+      // Wait for claims to load before checking access
+      if (!claimsLoaded) return;
+      if (!hasAccess || !employeeId) {
+        setLoading(false);
+        return;
+      }
 
       setLoading(true);
       setError(null);
@@ -69,20 +75,23 @@ export default function EmployeeDetailClient() {
       try {
         const data = await getEmployeeById(employeeId);
         if (!data) {
-          setError('Employee not found.');
+          setError(
+            `Employee not found. The user with ID "${employeeId}" may not exist in the system.`
+          );
         } else {
           setEmployee(data);
         }
       } catch (err) {
         console.error('Failed to load employee:', err);
-        setError('Failed to load employee profile. Please try again.');
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        setError(`Failed to load employee profile: ${errorMessage}`);
       } finally {
         setLoading(false);
       }
     };
 
     loadEmployee();
-  }, [employeeId, hasAccess]);
+  }, [employeeId, hasAccess, claimsLoaded]);
 
   const formatDate = (timestamp: { toDate: () => Date } | undefined) => {
     if (!timestamp) return '-';
