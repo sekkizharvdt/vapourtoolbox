@@ -2,7 +2,7 @@
   "mcpServers": {
     "firebase-feedback": {
       "command": "node",
-      "args": ["/home/sekki/projects/VDT-Unified/mcp-servers/firebase-feedback/index.js"]
+      "args": ["/workspaces/vapourtoolbox/mcp-servers/firebase-feedback/index.js"]
     }
   }
 }

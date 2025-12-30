@@ -34,16 +34,19 @@ import {
   Save as SaveIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
+  AttachFile as AttachFileIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
-import type { PurchaseRequest } from '@vapour/types';
+import type { PurchaseRequest, PurchaseRequestAttachment } from '@vapour/types';
 import {
   getPurchaseRequestById,
   getPurchaseRequestItems,
+  getPRAttachments,
   submitPurchaseRequestForApproval,
 } from '@/lib/procurement/purchaseRequest';
+import PRAttachmentUpload from '@/components/procurement/PRAttachmentUpload';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { doc, collection, Timestamp, writeBatch } from 'firebase/firestore';
@@ -87,6 +90,7 @@ export default function EditPRPage() {
   });
 
   const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
+  const [attachments, setAttachments] = useState<PurchaseRequestAttachment[]>([]);
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -111,9 +115,10 @@ export default function EditPRPage() {
     setLoading(true);
     setError(null);
     try {
-      const [prData, itemsData] = await Promise.all([
+      const [prData, itemsData, attachmentsData] = await Promise.all([
         getPurchaseRequestById(prId),
         getPurchaseRequestItems(prId),
+        getPRAttachments(prId),
       ]);
 
       if (!prData) {
@@ -155,6 +160,9 @@ export default function EditPRPage() {
           estimatedUnitCost: item.estimatedUnitCost || 0,
         }))
       );
+
+      // Populate attachments
+      setAttachments(attachmentsData);
     } catch (err) {
       console.error('[EditPRPage] Error loading PR:', err);
       setError('Failed to load Purchase Request');
@@ -698,6 +706,35 @@ export default function EditPRPage() {
             </Table>
           </TableContainer>
         </Paper>
+
+        {/* Attachments */}
+        {prId && (
+          <Paper sx={{ p: 3 }}>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+              <AttachFileIcon color="action" />
+              <Typography variant="h6">Attachments ({attachments.length})</Typography>
+            </Stack>
+            <Divider sx={{ mb: 2 }} />
+
+            <PRAttachmentUpload
+              prId={prId}
+              attachments={attachments}
+              onAttachmentsChange={setAttachments}
+              disabled={saving}
+            />
+
+            {attachments.length === 0 && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ textAlign: 'center', py: 2 }}
+              >
+                No attachments uploaded yet. Add technical specs, datasheets, or drawings to support
+                this purchase request.
+              </Typography>
+            )}
+          </Paper>
+        )}
       </Stack>
     </Box>
   );

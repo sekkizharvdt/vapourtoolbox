@@ -20,6 +20,10 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   TablePagination,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Visibility as ViewIcon,
@@ -55,6 +59,21 @@ const RecordVendorPaymentDialog = dynamic(
 type PaymentType = 'all' | 'customer' | 'vendor';
 type Payment = CustomerPayment | VendorPayment;
 
+/** Generate month options for the last 12 months */
+function getMonthOptions() {
+  const options: Array<{ value: string; label: string }> = [];
+  const now = new Date();
+
+  for (let i = 0; i < 12; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const label = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+    options.push({ value, label });
+  }
+
+  return options;
+}
+
 export default function PaymentsPage() {
   const { claims } = useAuth();
   const [paymentType, setPaymentType] = useState<PaymentType>('all');
@@ -63,6 +82,8 @@ export default function PaymentsPage() {
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
+  const [filterMonth, setFilterMonth] = useState<string>('ALL');
+  const monthOptions = useMemo(() => getMonthOptions(), []);
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
@@ -121,12 +142,25 @@ export default function PaymentsPage() {
     setEditingPayment(null);
   };
 
-  // Filter payments by type
+  // Filter payments by type and month
   const filteredPayments = payments.filter((payment) => {
-    if (paymentType === 'all') return true;
-    if (paymentType === 'customer') return payment.type === 'CUSTOMER_PAYMENT';
-    if (paymentType === 'vendor') return payment.type === 'VENDOR_PAYMENT';
-    return true;
+    // Filter by type
+    let matchesType = true;
+    if (paymentType === 'customer') matchesType = payment.type === 'CUSTOMER_PAYMENT';
+    else if (paymentType === 'vendor') matchesType = payment.type === 'VENDOR_PAYMENT';
+
+    // Filter by month
+    let matchesMonth = true;
+    if (filterMonth !== 'ALL' && payment.paymentDate) {
+      const paymentDate =
+        typeof (payment.paymentDate as unknown as { toDate?: () => Date }).toDate === 'function'
+          ? (payment.paymentDate as unknown as { toDate: () => Date }).toDate()
+          : new Date(payment.paymentDate as unknown as string | number);
+      const paymentYearMonth = `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}`;
+      matchesMonth = paymentYearMonth === filterMonth;
+    }
+
+    return matchesType && matchesMonth;
   });
 
   const handleChangePage = (_event: unknown, newPage: number) => {
@@ -178,8 +212,8 @@ export default function PaymentsPage() {
         )}
       </Stack>
 
-      {/* Filter Toggle */}
-      <Box sx={{ mb: 2 }}>
+      {/* Filters */}
+      <Stack direction="row" spacing={2} sx={{ mb: 2 }} alignItems="center" flexWrap="wrap">
         <ToggleButtonGroup
           value={paymentType}
           exclusive
@@ -190,7 +224,32 @@ export default function PaymentsPage() {
           <ToggleButton value="customer">Customer Receipts</ToggleButton>
           <ToggleButton value="vendor">Vendor Payments</ToggleButton>
         </ToggleButtonGroup>
-      </Box>
+
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>Month</InputLabel>
+          <Select
+            value={filterMonth}
+            label="Month"
+            onChange={(e) => {
+              setFilterMonth(e.target.value);
+              setPage(0);
+            }}
+          >
+            <MenuItem value="ALL">All Months</MenuItem>
+            {monthOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {filterMonth !== 'ALL' && (
+          <Button size="small" onClick={() => setFilterMonth('ALL')}>
+            Clear Filter
+          </Button>
+        )}
+      </Stack>
 
       <TableContainer component={Paper}>
         <Table>
@@ -212,8 +271,9 @@ export default function PaymentsPage() {
               <TableRow>
                 <TableCell colSpan={9} align="center">
                   <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
-                    No payments found. Click &quot;Customer Receipt&quot; or &quot;Vendor
-                    Payment&quot; to record a payment.
+                    {filterMonth !== 'ALL' || paymentType !== 'all'
+                      ? 'No payments found matching your filters.'
+                      : 'No payments found. Click "Customer Receipt" or "Vendor Payment" to record a payment.'}
                   </Typography>
                 </TableCell>
               </TableRow>

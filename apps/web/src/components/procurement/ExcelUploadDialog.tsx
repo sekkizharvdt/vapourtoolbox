@@ -45,6 +45,7 @@ interface ExcelUploadDialogProps {
 interface ParsedItem {
   lineNumber: number;
   description: string;
+  specification?: string;
   quantity: number;
   unit: string;
   remarks?: string;
@@ -144,13 +145,14 @@ export default function ExcelUploadDialog({
           return String(cell.value);
         };
 
-        // Expected format: LineNumber, Description, Quantity, Unit, EquipmentCode, Remarks
+        // Expected format: LineNumber, Description, Specification, Quantity, Unit, EquipmentCode, Remarks
         const lineNumber = Number(getCellValue(1)) || rowNumber - 1;
         const description = getCellValue(2).trim();
-        const quantity = Number(getCellValue(3)) || 0;
-        const unit = getCellValue(4).trim() || 'EA';
-        const equipmentCode = getCellValue(5).trim() || undefined;
-        const remarks = getCellValue(6).trim() || undefined;
+        const specification = getCellValue(3).trim() || undefined;
+        const quantity = Number(getCellValue(4)) || 0;
+        const unit = getCellValue(5).trim() || 'EA';
+        const equipmentCode = getCellValue(6).trim() || undefined;
+        const remarks = getCellValue(7).trim() || undefined;
 
         // Skip rows without description
         if (!description) return;
@@ -158,6 +160,7 @@ export default function ExcelUploadDialog({
         items.push({
           lineNumber,
           description,
+          specification,
           quantity: quantity > 0 ? quantity : 1,
           unit,
           equipmentCode,
@@ -191,6 +194,7 @@ export default function ExcelUploadDialog({
   const handleImport = () => {
     const items: CreatePurchaseRequestItemInput[] = parsedItems.map((item) => ({
       description: item.description,
+      specification: item.specification,
       quantity: item.quantity,
       unit: item.unit,
       equipmentCode: item.equipmentCode,
@@ -228,10 +232,11 @@ export default function ExcelUploadDialog({
             <ul style={{ marginTop: 8, marginBottom: 0, paddingLeft: 20 }}>
               <li>Column A: Line Number</li>
               <li>Column B: Description</li>
-              <li>Column C: Quantity</li>
-              <li>Column D: Unit</li>
-              <li>Column E: Equipment Code (optional)</li>
-              <li>Column F: Remarks (optional)</li>
+              <li>Column C: Specification (optional)</li>
+              <li>Column D: Quantity</li>
+              <li>Column E: Unit</li>
+              <li>Column F: Equipment Code (optional)</li>
+              <li>Column G: Remarks (optional)</li>
             </ul>
           </Alert>
 
@@ -311,6 +316,7 @@ export default function ExcelUploadDialog({
                     <TableRow>
                       <TableCell>Line #</TableCell>
                       <TableCell>Description</TableCell>
+                      <TableCell>Specification</TableCell>
                       <TableCell>Qty</TableCell>
                       <TableCell>Unit</TableCell>
                       <TableCell>Equipment</TableCell>
@@ -322,6 +328,7 @@ export default function ExcelUploadDialog({
                       <TableRow key={index}>
                         <TableCell>{item.lineNumber}</TableCell>
                         <TableCell>{item.description}</TableCell>
+                        <TableCell>{item.specification || '-'}</TableCell>
                         <TableCell>{item.quantity}</TableCell>
                         <TableCell>{item.unit}</TableCell>
                         <TableCell>{item.equipmentCode || '-'}</TableCell>

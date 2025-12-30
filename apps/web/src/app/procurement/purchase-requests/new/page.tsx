@@ -553,6 +553,14 @@ export default function NewPurchaseRequestPage() {
           </Box>
         </Paper>
 
+        {/* Attachments Info */}
+        <Alert severity="info" icon={<UploadIcon />}>
+          <Typography variant="body2">
+            <strong>Need to attach files?</strong> After saving this purchase request, you can add
+            technical specs, datasheets, drawings, and other attachments from the Edit page.
+          </Typography>
+        </Alert>
+
         {/* Summary/Info Section */}
         <Alert severity="info" icon={<SendIcon />}>
           <Typography variant="body2">
