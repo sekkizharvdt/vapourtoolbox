@@ -54,11 +54,25 @@ export default function EmployeeDetailClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const employeeId = params.id as string;
+  const employeeId =
+    typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
   const permissions2 = claims?.permissions2 ?? 0;
   const hasAccess = canViewHR(permissions2);
   const canEdit = canManageHRSettings(permissions2);
   const claimsLoaded = claims !== undefined;
+
+  // Debug logging - temporarily using console.warn for lint
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[EmployeeDetail] params:',
+    params,
+    'employeeId:',
+    employeeId,
+    'hasAccess:',
+    hasAccess,
+    'claimsLoaded:',
+    claimsLoaded
+  );
 
   useEffect(() => {
     const loadEmployee = async () => {
