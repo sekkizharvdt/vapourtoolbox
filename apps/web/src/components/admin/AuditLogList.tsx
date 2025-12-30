@@ -86,7 +86,18 @@ export function AuditLogList() {
       },
       (err) => {
         console.error('Error fetching audit logs:', err);
-        setError('Failed to load audit logs. Make sure you have admin permissions.');
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        // Check for common Firestore permission errors
+        if (
+          errorMessage.includes('permission-denied') ||
+          errorMessage.includes('PERMISSION_DENIED')
+        ) {
+          setError('Access denied. You do not have permission to view audit logs.');
+        } else if (errorMessage.includes('Missing or insufficient permissions')) {
+          setError('Missing permissions. Please ensure your account has admin access.');
+        } else {
+          setError(`Failed to load audit logs: ${errorMessage}`);
+        }
         setLoading(false);
       }
     );
@@ -170,8 +181,8 @@ export function AuditLogList() {
   };
 
   // Format action for display (replace underscores with spaces)
-  const formatAction = (action: string) => {
-    return action.replace(/_/g, ' ');
+  const formatAction = (action: string | undefined | null) => {
+    return action?.replace(/_/g, ' ') || '';
   };
 
   // Get severity color
@@ -229,7 +240,7 @@ export function AuditLogList() {
               }}
             >
               <MenuItem value="all">All Actions</MenuItem>
-              {Object.entries(ACTION_CATEGORIES).map(([category, actions]) => [
+              {Object.entries(ACTION_CATEGORIES).flatMap(([category, actions]) => [
                 <MenuItem
                   key={`cat-${category}`}
                   disabled
@@ -237,7 +248,7 @@ export function AuditLogList() {
                 >
                   {category}
                 </MenuItem>,
-                ...actions.map((action) => (
+                ...(actions || []).filter(Boolean).map((action) => (
                   <MenuItem key={action} value={action} sx={{ pl: 4 }}>
                     {formatAction(action)}
                   </MenuItem>
@@ -257,7 +268,7 @@ export function AuditLogList() {
               }}
             >
               <MenuItem value="all">All Entity Types</MenuItem>
-              {Object.entries(ENTITY_TYPE_CATEGORIES).map(([category, types]) => [
+              {Object.entries(ENTITY_TYPE_CATEGORIES).flatMap(([category, types]) => [
                 <MenuItem
                   key={`cat-${category}`}
                   disabled
@@ -265,7 +276,7 @@ export function AuditLogList() {
                 >
                   {category}
                 </MenuItem>,
-                ...types.map((type) => (
+                ...(types || []).filter(Boolean).map((type) => (
                   <MenuItem key={type} value={type} sx={{ pl: 4 }}>
                     {type.replace(/_/g, ' ')}
                   </MenuItem>
