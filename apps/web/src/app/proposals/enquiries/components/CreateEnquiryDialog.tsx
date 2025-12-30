@@ -22,7 +22,19 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { Controller, useForm } from 'react-hook-form';
 import { Timestamp } from 'firebase/firestore';
-import type { EnquiryDocument } from '@vapour/types';
+import type { EnquiryDocument, BusinessEntity } from '@vapour/types';
+
+// Contact from BusinessEntity.contacts array
+interface EntityContactInfo {
+  id: string;
+  name: string;
+  designation?: string;
+  email: string;
+  phone: string;
+  mobile?: string;
+  isPrimary: boolean;
+  notes?: string;
+}
 import { useFirestore } from '@/lib/firebase/hooks';
 import { createEnquiry } from '@/lib/enquiry/enquiryService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -74,11 +86,15 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>('');
 
+  // State for entity contacts when a client is selected
+  const [entityContacts, setEntityContacts] = useState<EntityContactInfo[]>([]);
+
   const {
     control,
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
   } = useForm<CreateEnquiryFormValues>({
     mode: 'onBlur',
     defaultValues: {
@@ -149,7 +165,37 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
 
   const handleClose = () => {
     reset();
+    setEntityContacts([]);
     onClose();
+  };
+
+  // Handle entity selection - populate contacts dropdown
+  const handleEntitySelect = (entity: BusinessEntity | null) => {
+    if (entity && entity.contacts && entity.contacts.length > 0) {
+      setEntityContacts(entity.contacts);
+      // Auto-select primary contact if available
+      const primaryContact = entity.contacts.find((c) => c.isPrimary);
+      if (primaryContact) {
+        setValue('clientContactPerson', primaryContact.name);
+        setValue('clientEmail', primaryContact.email);
+        setValue('clientPhone', primaryContact.phone || primaryContact.mobile || '');
+      }
+    } else {
+      setEntityContacts([]);
+      setValue('clientContactPerson', '');
+      setValue('clientEmail', '');
+      setValue('clientPhone', '');
+    }
+  };
+
+  // Handle contact selection from dropdown
+  const handleContactSelect = (contactId: string) => {
+    const contact = entityContacts.find((c) => c.id === contactId);
+    if (contact) {
+      setValue('clientContactPerson', contact.name);
+      setValue('clientEmail', contact.email);
+      setValue('clientPhone', contact.phone || contact.mobile || '');
+    }
   };
 
   return (
@@ -191,6 +237,7 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
                     <EntitySelector
                       value={field.value}
                       onChange={field.onChange}
+                      onEntitySelect={handleEntitySelect}
                       label="Client"
                       required
                       filterByRole="CUSTOMER"
@@ -201,18 +248,81 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
                 />
               </Grid>
 
-              {/* Client Contact Person */}
+              {/* Client Contact Person - Dropdown when contacts available */}
               <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="clientContactPerson"
                   control={control}
+                  render={({ field }) =>
+                    entityContacts.length > 0 ? (
+                      <FormControl fullWidth error={!!errors.clientContactPerson}>
+                        <InputLabel>Contact Person</InputLabel>
+                        <Select
+                          value={entityContacts.find((c) => c.name === field.value)?.id || ''}
+                          onChange={(e) => {
+                            const contactId = e.target.value as string;
+                            if (contactId) {
+                              handleContactSelect(contactId);
+                            }
+                          }}
+                          label="Contact Person"
+                        >
+                          {entityContacts.map((contact) => (
+                            <MenuItem key={contact.id} value={contact.id}>
+                              {contact.name}
+                              {contact.designation && ` (${contact.designation})`}
+                              {contact.isPrimary && ' ⭐'}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        <FormHelperText>
+                          {errors.clientContactPerson?.message ||
+                            'Select a contact from the client'}
+                        </FormHelperText>
+                      </FormControl>
+                    ) : (
+                      <TextField
+                        {...field}
+                        label="Contact Person"
+                        fullWidth
+                        error={!!errors.clientContactPerson}
+                        helperText={errors.clientContactPerson?.message || 'Select a client first'}
+                      />
+                    )
+                  }
+                />
+              </Grid>
+
+              {/* Client Email */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Controller
+                  name="clientEmail"
+                  control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
-                      label="Contact Person"
+                      label="Client Email"
+                      type="email"
                       fullWidth
-                      error={!!errors.clientContactPerson}
-                      helperText={errors.clientContactPerson?.message}
+                      error={!!errors.clientEmail}
+                      helperText={errors.clientEmail?.message || 'Auto-filled from contact'}
+                    />
+                  )}
+                />
+              </Grid>
+
+              {/* Client Phone */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Controller
+                  name="clientPhone"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Client Phone"
+                      fullWidth
+                      error={!!errors.clientPhone}
+                      helperText={errors.clientPhone?.message || 'Auto-filled from contact'}
                     />
                   )}
                 />
