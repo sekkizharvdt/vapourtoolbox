@@ -7,5 +7,5 @@ export function generateStaticParams() {
 
 export default function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  return <EmployeeDetailClient key={id} />;
+  return <EmployeeDetailClient key={id} employeeId={id} />;
 }
