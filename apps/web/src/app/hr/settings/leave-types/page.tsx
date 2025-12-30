@@ -277,20 +277,33 @@ export default function LeaveTypesSettingsPage() {
       }
 
       let created = 0;
+      const errors: string[] = [];
       for (const leaveType of toCreate) {
         try {
           await createLeaveType(leaveType, user.uid);
           created++;
         } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : 'Unknown error';
           console.error(`Failed to create ${leaveType.code}:`, err);
+          errors.push(`${leaveType.code}: ${errorMsg}`);
         }
       }
 
       await loadData();
-      setSeedSuccess(`Successfully created ${created} leave type${created !== 1 ? 's' : ''}.`);
+
+      if (created > 0 && errors.length === 0) {
+        setSeedSuccess(`Successfully created ${created} leave type${created !== 1 ? 's' : ''}.`);
+      } else if (created > 0 && errors.length > 0) {
+        setSeedSuccess(`Created ${created} leave type${created !== 1 ? 's' : ''}.`);
+        setError(`Some leave types failed: ${errors.join(', ')}`);
+      } else if (errors.length > 0) {
+        setError(`Failed to create leave types: ${errors.join(', ')}`);
+      }
     } catch (err) {
       console.error('Failed to seed leave types:', err);
-      setError('Failed to seed default leave types. Please try again.');
+      setError(
+        `Failed to seed default leave types: ${err instanceof Error ? err.message : 'Unknown error'}`
+      );
     } finally {
       setSeeding(false);
     }
