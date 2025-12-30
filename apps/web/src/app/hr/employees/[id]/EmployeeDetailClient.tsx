@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   Typography,
   Box,
@@ -46,16 +46,27 @@ const BLOOD_GROUP_COLORS: Record<string, 'error' | 'warning' | 'info' | 'success
   'O-': 'success',
 };
 
-interface EmployeeDetailClientProps {
-  employeeId: string;
-}
-
-export default function EmployeeDetailClient({ employeeId }: EmployeeDetailClientProps) {
+export default function EmployeeDetailClient() {
   const router = useRouter();
+  const pathname = usePathname();
   const { claims } = useAuth();
   const [employee, setEmployee] = useState<EmployeeDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Extract employeeId from pathname for static export compatibility
+  // useParams/props return 'placeholder' with static export + Firebase hosting rewrites
+  const [employeeId, setEmployeeId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (pathname) {
+      const match = pathname.match(/\/hr\/employees\/([^/]+)(?:\/|$)/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setEmployeeId(extractedId);
+      }
+    }
+  }, [pathname]);
 
   const permissions2 = claims?.permissions2 ?? 0;
   const hasAccess = canViewHR(permissions2);
@@ -64,9 +75,9 @@ export default function EmployeeDetailClient({ employeeId }: EmployeeDetailClien
 
   useEffect(() => {
     const loadEmployee = async () => {
-      // Wait for claims to load before checking access
-      if (!claimsLoaded) return;
-      if (!hasAccess || !employeeId) {
+      // Wait for claims to load and employeeId to be extracted
+      if (!claimsLoaded || !employeeId) return;
+      if (!hasAccess) {
         setLoading(false);
         return;
       }
