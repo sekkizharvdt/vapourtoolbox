@@ -48,6 +48,9 @@ import { ENQUIRY_URGENCY_LABELS, ENQUIRY_PROJECT_TYPE_LABELS } from '@vapour/typ
 import { createEnquiryFormSchema } from '@vapour/validation';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 
+// Fallback entity ID for users without multi-entity claims
+const FALLBACK_ENTITY_ID = 'default-entity';
+
 // Explicit form type definition (instead of z.infer which has cross-package issues)
 interface CreateEnquiryFormValues {
   clientId: string;
@@ -114,9 +117,9 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
   });
 
   const onSubmit = async (data: CreateEnquiryFormValues) => {
-    const entityId = claims?.entityId;
+    const entityId = claims?.entityId || FALLBACK_ENTITY_ID;
 
-    if (!db || !entityId || !user?.uid) {
+    if (!db || !user?.uid) {
       setError('Missing required authentication data. Please ensure you are properly logged in.');
       return;
     }
