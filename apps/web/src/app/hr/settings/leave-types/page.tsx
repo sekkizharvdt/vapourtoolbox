@@ -32,6 +32,7 @@ import {
   Edit as EditIcon,
   Refresh as RefreshIcon,
   Home as HomeIcon,
+  PlaylistAdd as SeedIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -62,6 +63,68 @@ const DEFAULT_COLORS = [
   '#3b82f6', // blue
   '#8b5cf6', // violet
   '#ec4899', // pink
+];
+
+/**
+ * Default leave types to seed when none exist
+ */
+const DEFAULT_LEAVE_TYPES: CreateLeaveTypeInput[] = [
+  {
+    code: 'SICK',
+    name: 'Sick Leave',
+    description: 'Leave for medical reasons or illness',
+    annualQuota: 12,
+    carryForwardAllowed: false,
+    maxCarryForward: 0,
+    isPaid: true,
+    requiresApproval: true,
+    minNoticeDays: 0,
+    maxConsecutiveDays: undefined,
+    allowHalfDay: true,
+    color: '#ef4444',
+  },
+  {
+    code: 'CASUAL',
+    name: 'Casual Leave',
+    description: 'Leave for personal matters or emergencies',
+    annualQuota: 12,
+    carryForwardAllowed: false,
+    maxCarryForward: 0,
+    isPaid: true,
+    requiresApproval: true,
+    minNoticeDays: 1,
+    maxConsecutiveDays: 3,
+    allowHalfDay: true,
+    color: '#3b82f6',
+  },
+  {
+    code: 'EARNED',
+    name: 'Earned Leave',
+    description: 'Privilege leave earned based on service',
+    annualQuota: 15,
+    carryForwardAllowed: true,
+    maxCarryForward: 30,
+    isPaid: true,
+    requiresApproval: true,
+    minNoticeDays: 7,
+    maxConsecutiveDays: undefined,
+    allowHalfDay: false,
+    color: '#22c55e',
+  },
+  {
+    code: 'UNPAID',
+    name: 'Unpaid Leave',
+    description: 'Leave without pay for extended absences',
+    annualQuota: 30,
+    carryForwardAllowed: false,
+    maxCarryForward: 0,
+    isPaid: false,
+    requiresApproval: true,
+    minNoticeDays: 3,
+    maxConsecutiveDays: undefined,
+    allowHalfDay: false,
+    color: '#6b7280',
+  },
 ];
 
 interface FormData {
@@ -104,6 +167,8 @@ export default function LeaveTypesSettingsPage() {
   const [editingType, setEditingType] = useState<LeaveType | null>(null);
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [saving, setSaving] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seedSuccess, setSeedSuccess] = useState<string | null>(null);
 
   const permissions2 = claims?.permissions2 ?? 0;
   const hasManageAccess = canManageHRSettings(permissions2);
@@ -222,6 +287,43 @@ export default function LeaveTypesSettingsPage() {
     }
   };
 
+  const handleSeedDefaults = async () => {
+    if (!user) return;
+
+    setSeeding(true);
+    setError(null);
+    setSeedSuccess(null);
+
+    try {
+      const existingCodes = new Set(leaveTypes.map((t) => t.code));
+      const toCreate = DEFAULT_LEAVE_TYPES.filter((t) => !existingCodes.has(t.code));
+
+      if (toCreate.length === 0) {
+        setSeedSuccess('All default leave types already exist.');
+        setSeeding(false);
+        return;
+      }
+
+      let created = 0;
+      for (const leaveType of toCreate) {
+        try {
+          await createLeaveType(leaveType, user.uid);
+          created++;
+        } catch (err) {
+          console.error(`Failed to create ${leaveType.code}:`, err);
+        }
+      }
+
+      await loadData();
+      setSeedSuccess(`Successfully created ${created} leave type${created !== 1 ? 's' : ''}.`);
+    } catch (err) {
+      console.error('Failed to seed leave types:', err);
+      setError('Failed to seed default leave types. Please try again.');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   if (!hasManageAccess) {
     return (
       <Box>
@@ -278,6 +380,12 @@ export default function LeaveTypesSettingsPage() {
         </Alert>
       )}
 
+      {seedSuccess && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSeedSuccess(null)}>
+          {seedSuccess}
+        </Alert>
+      )}
+
       {loading ? (
         <Skeleton variant="rectangular" height={400} />
       ) : (
@@ -299,9 +407,27 @@ export default function LeaveTypesSettingsPage() {
               {leaveTypes.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} align="center">
-                    <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                      No leave types configured. Click &quot;Add Leave Type&quot; to create one.
-                    </Typography>
+                    <Box sx={{ py: 4 }}>
+                      <Typography variant="body1" color="text.secondary" gutterBottom>
+                        No leave types configured.
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Add leave types manually or seed default types to get started.
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                        <Button
+                          variant="outlined"
+                          startIcon={<SeedIcon />}
+                          onClick={handleSeedDefaults}
+                          disabled={seeding}
+                        >
+                          {seeding ? 'Seeding...' : 'Seed Default Leave Types'}
+                        </Button>
+                        <Button variant="contained" startIcon={<AddIcon />} onClick={handleAdd}>
+                          Add Leave Type
+                        </Button>
+                      </Box>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ) : (
