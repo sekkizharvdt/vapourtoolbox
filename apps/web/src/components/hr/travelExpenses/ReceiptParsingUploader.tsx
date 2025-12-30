@@ -32,8 +32,6 @@ import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebas
 import { httpsCallable, getFunctions } from 'firebase/functions';
 import { getFirebase } from '@/lib/firebase';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import type { TravelExpenseCategory, ParsedReceiptData } from '@vapour/types';
 import { EXPENSE_CATEGORY_LABELS, formatExpenseAmount } from '@/lib/hr';
 
@@ -419,234 +417,231 @@ export function ReceiptParsingUploader({
 
   // Render review/edit step
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box>
-        {error && (
-          <Alert severity="warning" onClose={() => setError(null)} sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+    <Box>
+      {error && (
+        <Alert severity="warning" onClose={() => setError(null)} sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
-        {/* Receipt info */}
-        {receipt && (
-          <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <ReceiptIcon color="success" />
-                <Box>
-                  <Typography variant="body2">{receipt.name}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {formatFileSize(receipt.size)}
-                  </Typography>
-                </Box>
-              </Box>
+      {/* Receipt info */}
+      {receipt && (
+        <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <ReceiptIcon color="success" />
               <Box>
-                <Tooltip title="Preview">
-                  <IconButton onClick={() => window.open(receipt.url, '_blank')}>
-                    <PreviewIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Remove receipt">
-                  <IconButton color="error" onClick={handleDeleteReceipt}>
-                    <DeleteIcon />
-                  </IconButton>
-                </Tooltip>
+                <Typography variant="body2">{receipt.name}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {formatFileSize(receipt.size)}
+                </Typography>
               </Box>
             </Box>
+            <Box>
+              <Tooltip title="Preview">
+                <IconButton onClick={() => window.open(receipt.url, '_blank')}>
+                  <PreviewIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Remove receipt">
+                <IconButton color="error" onClick={handleDeleteReceipt}>
+                  <DeleteIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
 
-            {/* Parsing confidence indicator */}
-            {parsedData && (
-              <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <ParseIcon color="primary" fontSize="small" />
-                  <Typography variant="caption" color="text.secondary">
-                    Parsing confidence: {Math.round((parsedData.confidence || 0) * 100)}%
-                  </Typography>
-                  {parsedData.companyGstinFound && (
-                    <Chip
-                      icon={<VerifiedIcon />}
-                      label="Company GST on receipt"
-                      size="small"
-                      color="success"
-                      variant="outlined"
-                    />
-                  )}
-                </Box>
-              </Box>
-            )}
-          </Paper>
-        )}
-
-        <Typography variant="subtitle2" gutterBottom>
-          Expense Details
+          {/* Parsing confidence indicator */}
           {parsedData && (
-            <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-              (auto-filled from receipt - please review)
-            </Typography>
+            <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <ParseIcon color="primary" fontSize="small" />
+                <Typography variant="caption" color="text.secondary">
+                  Parsing confidence: {Math.round((parsedData.confidence || 0) * 100)}%
+                </Typography>
+                {parsedData.companyGstinFound && (
+                  <Chip
+                    icon={<VerifiedIcon />}
+                    label="Company GST on receipt"
+                    size="small"
+                    color="success"
+                    variant="outlined"
+                  />
+                )}
+              </Box>
+            </Box>
           )}
-        </Typography>
+        </Paper>
+      )}
 
-        <Grid container spacing={2}>
-          {/* Category */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              select
-              label="Category"
-              fullWidth
-              value={formData.category}
-              onChange={(e) =>
-                setFormData({ ...formData, category: e.target.value as TravelExpenseCategory })
-              }
-            >
-              {categoryOptions.map((opt) => (
-                <MenuItem key={opt.value} value={opt.value}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {CATEGORY_ICONS[opt.value]}
-                    {opt.label}
-                  </Box>
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
+      <Typography variant="subtitle2" gutterBottom>
+        Expense Details
+        {parsedData && (
+          <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+            (auto-filled from receipt - please review)
+          </Typography>
+        )}
+      </Typography>
 
-          {/* Date */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <DatePicker
-              label="Expense Date"
-              value={formData.expenseDate}
-              onChange={(date) => {
-                const newDate = date as Date | null;
-                setFormData({ ...formData, expenseDate: newDate || new Date() });
-              }}
-              minDate={tripStartDate}
-              maxDate={tripEndDate}
-              slotProps={{ textField: { fullWidth: true } }}
-            />
-          </Grid>
-
-          {/* Description */}
-          <Grid size={{ xs: 12 }}>
-            <TextField
-              label="Description"
-              fullWidth
-              required
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="e.g., Flight to Mumbai, Hotel stay, Uber ride"
-            />
-          </Grid>
-
-          {/* Amount */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              label="Amount (INR)"
-              fullWidth
-              required
-              type="number"
-              value={formData.amount || ''}
-              onChange={(e) =>
-                setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })
-              }
-              inputProps={{ min: 0, step: 0.01 }}
-            />
-          </Grid>
-
-          {/* Vendor Name */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              label="Vendor Name"
-              fullWidth
-              value={formData.vendorName}
-              onChange={(e) => setFormData({ ...formData, vendorName: e.target.value })}
-              placeholder="e.g., Indigo Airlines"
-            />
-          </Grid>
-
-          {/* Invoice Number */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              label="Invoice/Bill Number"
-              fullWidth
-              value={formData.invoiceNumber}
-              onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
-            />
-          </Grid>
-
-          {/* Vendor GSTIN */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              label="Vendor GSTIN"
-              fullWidth
-              value={formData.vendorGstin}
-              onChange={(e) => setFormData({ ...formData, vendorGstin: e.target.value })}
-              placeholder="e.g., 27AABCU9603R1ZM"
-              inputProps={{ style: { textTransform: 'uppercase' } }}
-            />
-          </Grid>
-
-          {/* GST Amount - simplified single field */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              label="GST Amount (if any)"
-              fullWidth
-              type="number"
-              value={formData.gstAmount || ''}
-              onChange={(e) =>
-                setFormData({ ...formData, gstAmount: parseFloat(e.target.value) || undefined })
-              }
-              inputProps={{ min: 0, step: 0.01 }}
-              helperText="Total GST charged on receipt (CGST+SGST or IGST)"
-            />
-          </Grid>
+      <Grid container spacing={2}>
+        {/* Category */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            select
+            label="Category"
+            fullWidth
+            value={formData.category}
+            onChange={(e) =>
+              setFormData({ ...formData, category: e.target.value as TravelExpenseCategory })
+            }
+          >
+            {categoryOptions.map((opt) => (
+              <MenuItem key={opt.value} value={opt.value}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {CATEGORY_ICONS[opt.value]}
+                  {opt.label}
+                </Box>
+              </MenuItem>
+            ))}
+          </TextField>
         </Grid>
 
-        {/* Summary */}
-        <Paper variant="outlined" sx={{ p: 2, mt: 3, bgcolor: 'grey.50' }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid size={{ xs: 4 }}>
-              <Typography variant="caption" color="text.secondary">
-                Total Amount
-              </Typography>
-              <Typography variant="h6">{formatExpenseAmount(formData.amount || 0)}</Typography>
-            </Grid>
-            <Grid size={{ xs: 4 }}>
-              <Typography variant="caption" color="text.secondary">
-                GST Amount
-              </Typography>
-              <Typography variant="body1">
-                {formData.gstAmount ? formatExpenseAmount(formData.gstAmount) : '-'}
-              </Typography>
-            </Grid>
-            <Grid size={{ xs: 4 }}>
-              <Typography variant="caption" color="text.secondary">
-                Our GST on Bill
-              </Typography>
-              <Typography variant="body1">
-                {parsedData?.companyGstinFound ? (
-                  <Chip icon={<VerifiedIcon />} label="Yes" size="small" color="success" />
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    No
-                  </Typography>
-                )}
-              </Typography>
-            </Grid>
-          </Grid>
-        </Paper>
+        {/* Date */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <DatePicker
+            label="Expense Date"
+            value={formData.expenseDate}
+            onChange={(date) => {
+              const newDate = date as Date | null;
+              setFormData({ ...formData, expenseDate: newDate || new Date() });
+            }}
+            minDate={tripStartDate}
+            maxDate={tripEndDate}
+            format="dd/MM/yyyy"
+            slotProps={{ textField: { fullWidth: true } }}
+          />
+        </Grid>
 
-        {/* Actions */}
-        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-          <Button onClick={onCancel}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleSubmit}
-            disabled={!formData.amount || formData.amount <= 0 || !formData.description?.trim()}
-          >
-            Add Expense
-          </Button>
-        </Box>
+        {/* Description */}
+        <Grid size={{ xs: 12 }}>
+          <TextField
+            label="Description"
+            fullWidth
+            required
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            placeholder="e.g., Flight to Mumbai, Hotel stay, Uber ride"
+          />
+        </Grid>
+
+        {/* Amount */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label="Amount (INR)"
+            fullWidth
+            required
+            type="number"
+            value={formData.amount || ''}
+            onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+            inputProps={{ min: 0, step: 0.01 }}
+          />
+        </Grid>
+
+        {/* Vendor Name */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label="Vendor Name"
+            fullWidth
+            value={formData.vendorName}
+            onChange={(e) => setFormData({ ...formData, vendorName: e.target.value })}
+            placeholder="e.g., Indigo Airlines"
+          />
+        </Grid>
+
+        {/* Invoice Number */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label="Invoice/Bill Number"
+            fullWidth
+            value={formData.invoiceNumber}
+            onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
+          />
+        </Grid>
+
+        {/* Vendor GSTIN */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label="Vendor GSTIN"
+            fullWidth
+            value={formData.vendorGstin}
+            onChange={(e) => setFormData({ ...formData, vendorGstin: e.target.value })}
+            placeholder="e.g., 27AABCU9603R1ZM"
+            inputProps={{ style: { textTransform: 'uppercase' } }}
+          />
+        </Grid>
+
+        {/* GST Amount - simplified single field */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label="GST Amount (if any)"
+            fullWidth
+            type="number"
+            value={formData.gstAmount || ''}
+            onChange={(e) =>
+              setFormData({ ...formData, gstAmount: parseFloat(e.target.value) || undefined })
+            }
+            inputProps={{ min: 0, step: 0.01 }}
+            helperText="Total GST charged on receipt (CGST+SGST or IGST)"
+          />
+        </Grid>
+      </Grid>
+
+      {/* Summary */}
+      <Paper variant="outlined" sx={{ p: 2, mt: 3, bgcolor: 'grey.50' }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid size={{ xs: 4 }}>
+            <Typography variant="caption" color="text.secondary">
+              Total Amount
+            </Typography>
+            <Typography variant="h6">{formatExpenseAmount(formData.amount || 0)}</Typography>
+          </Grid>
+          <Grid size={{ xs: 4 }}>
+            <Typography variant="caption" color="text.secondary">
+              GST Amount
+            </Typography>
+            <Typography variant="body1">
+              {formData.gstAmount ? formatExpenseAmount(formData.gstAmount) : '-'}
+            </Typography>
+          </Grid>
+          <Grid size={{ xs: 4 }}>
+            <Typography variant="caption" color="text.secondary">
+              Our GST on Bill
+            </Typography>
+            <Typography variant="body1">
+              {parsedData?.companyGstinFound ? (
+                <Chip icon={<VerifiedIcon />} label="Yes" size="small" color="success" />
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No
+                </Typography>
+              )}
+            </Typography>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Actions */}
+      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+        <Button onClick={onCancel}>Cancel</Button>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={!formData.amount || formData.amount <= 0 || !formData.description?.trim()}
+        >
+          Add Expense
+        </Button>
       </Box>
-    </LocalizationProvider>
+    </Box>
   );
 }
 

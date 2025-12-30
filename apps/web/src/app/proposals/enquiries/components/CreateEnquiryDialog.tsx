@@ -18,8 +18,6 @@ import {
   FormHelperText,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { Controller, useForm } from 'react-hook-form';
 import { Timestamp } from 'firebase/firestore';
 import type { EnquiryDocument, BusinessEntity } from '@vapour/types';
@@ -333,27 +331,26 @@ export function CreateEnquiryDialog({ open, onClose, onSuccess }: CreateEnquiryD
 
               {/* Received Date */}
               <Grid size={{ xs: 12, md: 6 }}>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <Controller
-                    name="receivedDate"
-                    control={control}
-                    render={({ field }) => (
-                      <DatePicker
-                        label="Received Date"
-                        value={field.value}
-                        onChange={field.onChange}
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                            required: true,
-                            error: !!errors.receivedDate,
-                            helperText: errors.receivedDate?.message,
-                          },
-                        }}
-                      />
-                    )}
-                  />
-                </LocalizationProvider>
+                <Controller
+                  name="receivedDate"
+                  control={control}
+                  render={({ field }) => (
+                    <DatePicker
+                      label="Received Date"
+                      value={field.value}
+                      onChange={field.onChange}
+                      format="dd/MM/yyyy"
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          required: true,
+                          error: !!errors.receivedDate,
+                          helperText: errors.receivedDate?.message,
+                        },
+                      }}
+                    />
+                  )}
+                />
               </Grid>
 
               {/* Urgency */}

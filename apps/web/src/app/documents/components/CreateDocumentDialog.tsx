@@ -23,8 +23,6 @@ import {
   Alert,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import type { DisciplineCode } from '@vapour/types';
 import { createMasterDocument } from '@/lib/documents/masterDocumentService';
 import {
@@ -327,18 +325,17 @@ export default function CreateDocumentDialog({
           </FormControl>
 
           {/* Due Date */}
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <DatePicker
-              label="Due Date"
-              value={dueDate}
-              onChange={(newValue) => setDueDate(newValue as Date | null)}
-              slotProps={{
-                textField: {
-                  fullWidth: true,
-                },
-              }}
-            />
-          </LocalizationProvider>
+          <DatePicker
+            label="Due Date"
+            value={dueDate}
+            onChange={(newValue) => setDueDate(newValue as Date | null)}
+            format="dd/MM/yyyy"
+            slotProps={{
+              textField: {
+                fullWidth: true,
+              },
+            }}
+          />
         </Stack>
       </DialogContent>
       <DialogActions>

@@ -6,10 +6,13 @@
 export const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
 /**
- * Phone number validation (India)
- * Supports: +91XXXXXXXXXX, 91XXXXXXXXXX, XXXXXXXXXX
+ * Phone number validation (International)
+ * Supports:
+ * - Indian: +91XXXXXXXXXX, 91XXXXXXXXXX, XXXXXXXXXX (10 digits starting with 6-9)
+ * - International: +XXXXXXXXXXXX (country code + number, 7-15 digits total)
+ * - Local: 7-15 digits
  */
-export const PHONE_REGEX = /^(\+91|91)?[6-9]\d{9}$/;
+export const PHONE_REGEX = /^(\+\d{1,4})?[\d\s\-]{7,15}$/;
 
 /**
  * GST validation (India)
@@ -60,8 +63,7 @@ export const TEXT_REGEX = /^[a-zA-Z0-9\s.,;:'"!?@#$%&*()_+\-=\[\]{}<>\/\\|`~]+$/
 /**
  * URL validation
  */
-export const URL_REGEX =
-  /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
+export const URL_REGEX = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
 
 /**
  * Validation helper functions

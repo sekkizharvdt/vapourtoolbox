@@ -51,8 +51,6 @@ import {
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import {
   useTravelExpenseReport,
   useAddExpenseItem,
@@ -414,729 +412,726 @@ export default function TravelExpenseDetailClient() {
   }
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/hr"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/hr');
-            }}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-            HR
-          </Link>
-          <Link
-            color="inherit"
-            href="/hr/travel-expenses"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault();
-              router.push('/hr/travel-expenses');
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            Travel Expenses
-          </Link>
-          <Typography color="text.primary">{report.reportNumber}</Typography>
-        </Breadcrumbs>
+    <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/hr"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/hr');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          HR
+        </Link>
+        <Link
+          color="inherit"
+          href="/hr/travel-expenses"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/hr/travel-expenses');
+          }}
+          sx={{ cursor: 'pointer' }}
+        >
+          Travel Expenses
+        </Link>
+        <Typography color="text.primary">{report.reportNumber}</Typography>
+      </Breadcrumbs>
 
-        {/* Header */}
-        <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-          <Box sx={{ flex: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-              <Typography variant="h5" component="h1">
-                {report.reportNumber}
-              </Typography>
-              <Chip
-                label={TRAVEL_EXPENSE_STATUS_LABELS[report.status]}
-                color={TRAVEL_EXPENSE_STATUS_COLORS[report.status]}
-                size="small"
-              />
-            </Box>
-            <Typography variant="body1" color="text.secondary">
-              {report.tripPurpose}
+      {/* Header */}
+      <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+        <Box sx={{ flex: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+            <Typography variant="h5" component="h1">
+              {report.reportNumber}
             </Typography>
+            <Chip
+              label={TRAVEL_EXPENSE_STATUS_LABELS[report.status]}
+              color={TRAVEL_EXPENSE_STATUS_COLORS[report.status]}
+              size="small"
+            />
           </Box>
-
-          {/* Action Buttons */}
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            {/* PDF Download - always available */}
-            <Button
-              variant="outlined"
-              startIcon={<PdfIcon />}
-              onClick={handleDownloadPdf}
-              disabled={isDownloadingPdf || report.items.length === 0}
-            >
-              {isDownloadingPdf ? 'Generating...' : 'Download PDF'}
-            </Button>
-
-            {canSubmit && (
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<SubmitIcon />}
-                onClick={() => setSubmitDialogOpen(true)}
-              >
-                Submit for Approval
-              </Button>
-            )}
-            {canApprove && (
-              <>
-                <Button
-                  variant="contained"
-                  color="success"
-                  startIcon={<ApproveIcon />}
-                  onClick={() => setApproveDialogOpen(true)}
-                >
-                  Approve
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="warning"
-                  startIcon={<ReturnIcon />}
-                  onClick={() => setReturnDialogOpen(true)}
-                >
-                  Return
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="error"
-                  startIcon={<RejectIcon />}
-                  onClick={() => setRejectDialogOpen(true)}
-                >
-                  Reject
-                </Button>
-              </>
-            )}
-          </Box>
+          <Typography variant="body1" color="text.secondary">
+            {report.tripPurpose}
+          </Typography>
         </Box>
 
-        {/* Trip Summary Card */}
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Trip Dates
-                </Typography>
-                <Typography variant="body1">
-                  {formatTripDateRange(report.tripStartDate.toDate(), report.tripEndDate.toDate())}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Destinations
-                </Typography>
-                <Typography variant="body1">{report.destinations.join(', ')}</Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Total Amount
-                </Typography>
-                <Typography variant="h6" color="primary.main">
-                  {formatExpenseAmount(report.totalAmount, report.currency)}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Typography variant="caption" color="text.secondary">
-                  GST Amount
-                </Typography>
-                <Typography variant="body1">
-                  {formatExpenseAmount(report.totalGstAmount, report.currency)}
-                </Typography>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
+        {/* Action Buttons */}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {/* PDF Download - always available */}
+          <Button
+            variant="outlined"
+            startIcon={<PdfIcon />}
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf || report.items.length === 0}
+          >
+            {isDownloadingPdf ? 'Generating...' : 'Download PDF'}
+          </Button>
 
-        {/* Expense Items */}
-        <Card>
-          <CardContent>
-            <Box
-              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
-            >
-              <Typography variant="h6">Expense Items</Typography>
-              {canEdit && (
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={() => setAddDialogOpen(true)}
-                >
-                  Add Expense
-                </Button>
-              )}
-            </Box>
-
-            {report.items.length === 0 ? (
-              <Alert severity="info">
-                No expense items added yet.
-                {canEdit && ' Click "Add Expense" to add your first expense item.'}
-              </Alert>
-            ) : (
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Category</TableCell>
-                      <TableCell>Description</TableCell>
-                      <TableCell>Date</TableCell>
-                      <TableCell>Vendor</TableCell>
-                      <TableCell align="center">Receipt</TableCell>
-                      <TableCell align="right">Amount</TableCell>
-                      {canEdit && <TableCell align="center">Actions</TableCell>}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {report.items.map((item) => (
-                      <TableRow key={item.id} hover>
-                        <TableCell>
-                          <Chip
-                            icon={CATEGORY_ICONS[item.category]}
-                            label={EXPENSE_CATEGORY_LABELS[item.category]}
-                            size="small"
-                            color={EXPENSE_CATEGORY_COLORS[item.category]}
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">{item.description}</Typography>
-                          {item.fromLocation && item.toLocation && (
-                            <Typography variant="caption" color="text.secondary">
-                              {item.fromLocation} → {item.toLocation}
-                            </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell>{formatExpenseDate(item.expenseDate.toDate())}</TableCell>
-                        <TableCell>
-                          <Typography variant="body2">{item.vendorName || '-'}</Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          {item.hasReceipt && item.receiptUrl ? (
-                            <Tooltip title={item.receiptFileName || 'View Receipt'}>
-                              <IconButton
-                                size="small"
-                                color="success"
-                                onClick={() => window.open(item.receiptUrl, '_blank')}
-                              >
-                                <ViewIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          ) : canEdit ? (
-                            <Tooltip title="Upload Receipt">
-                              <IconButton
-                                size="small"
-                                color="primary"
-                                onClick={() => setUploadItemId(item.id)}
-                              >
-                                <AttachIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          ) : (
-                            <Typography variant="caption" color="text.secondary">
-                              -
-                            </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography variant="body2" fontWeight="medium">
-                            {formatExpenseAmount(item.amount, item.currency)}
-                          </Typography>
-                          {item.gstAmount && item.gstAmount > 0 && (
-                            <Tooltip
-                              title={
-                                <Box>
-                                  {item.cgstAmount ? (
-                                    <div>
-                                      CGST: {formatExpenseAmount(item.cgstAmount, item.currency)}
-                                    </div>
-                                  ) : null}
-                                  {item.sgstAmount ? (
-                                    <div>
-                                      SGST: {formatExpenseAmount(item.sgstAmount, item.currency)}
-                                    </div>
-                                  ) : null}
-                                  {item.igstAmount ? (
-                                    <div>
-                                      IGST: {formatExpenseAmount(item.igstAmount, item.currency)}
-                                    </div>
-                                  ) : null}
-                                  {item.taxableAmount ? (
-                                    <div>
-                                      Taxable:{' '}
-                                      {formatExpenseAmount(item.taxableAmount, item.currency)}
-                                    </div>
-                                  ) : null}
-                                  {item.vendorGstin && <div>GSTIN: {item.vendorGstin}</div>}
-                                </Box>
-                              }
-                            >
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                display="block"
-                                sx={{ cursor: 'help' }}
-                              >
-                                GST: {formatExpenseAmount(item.gstAmount, item.currency)}
-                                {item.ourGstinUsed && (
-                                  <VerifiedIcon
-                                    fontSize="inherit"
-                                    color="success"
-                                    sx={{ ml: 0.5, verticalAlign: 'middle' }}
-                                  />
-                                )}
-                              </Typography>
-                            </Tooltip>
-                          )}
-                        </TableCell>
-                        {canEdit && (
-                          <TableCell align="center">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => setDeleteItemId(item.id)}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-
-            {/* Category Totals */}
-            {report.items.length > 0 && (
-              <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Category Summary
-                </Typography>
-                <Grid container spacing={2}>
-                  {(Object.keys(report.categoryTotals) as TravelExpenseCategory[]).map(
-                    (category) => (
-                      <Grid size={{ xs: 6, sm: 4, md: 3 }} key={category}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {CATEGORY_ICONS[category]}
-                          <Box>
-                            <Typography variant="caption" color="text.secondary">
-                              {EXPENSE_CATEGORY_LABELS[category]}
-                            </Typography>
-                            <Typography variant="body2" fontWeight="medium">
-                              {formatExpenseAmount(
-                                report.categoryTotals[category] || 0,
-                                report.currency
-                              )}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </Grid>
-                    )
-                  )}
-                </Grid>
-              </Box>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Add Item Dialog */}
-        <Dialog open={addDialogOpen} onClose={handleCloseAddDialog} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            {addExpenseMode === 'select' && 'Add Expense'}
-            {addExpenseMode === 'receipt' && 'Upload Receipt'}
-            {addExpenseMode === 'manual' && 'Manual Entry'}
-          </DialogTitle>
-          <DialogContent>
-            {/* Mode selection */}
-            {addExpenseMode === 'select' && (
-              <Box sx={{ py: 2 }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Choose how to add your expense:
-                </Typography>
-                <Grid container spacing={2} sx={{ mt: 1 }}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Paper
-                      variant="outlined"
-                      sx={{
-                        p: 3,
-                        textAlign: 'center',
-                        cursor: 'pointer',
-                        '&:hover': { borderColor: 'primary.main', bgcolor: 'primary.50' },
-                      }}
-                      onClick={() => setAddExpenseMode('receipt')}
-                    >
-                      <ParseIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
-                      <Typography variant="subtitle1" gutterBottom>
-                        Upload Receipt
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Auto-extract details using OCR
-                      </Typography>
-                      <Chip label="Recommended" color="primary" size="small" sx={{ mt: 1 }} />
-                    </Paper>
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Paper
-                      variant="outlined"
-                      sx={{
-                        p: 3,
-                        textAlign: 'center',
-                        cursor: 'pointer',
-                        '&:hover': { borderColor: 'primary.main', bgcolor: 'grey.50' },
-                      }}
-                      onClick={() => setAddExpenseMode('manual')}
-                    >
-                      <Receipt sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
-                      <Typography variant="subtitle1" gutterBottom>
-                        Manual Entry
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Enter expense details manually
-                      </Typography>
-                    </Paper>
-                  </Grid>
-                </Grid>
-              </Box>
-            )}
-
-            {/* Receipt upload with OCR parsing */}
-            {addExpenseMode === 'receipt' && reportId && (
-              <Box sx={{ pt: 1 }}>
-                <ReceiptParsingUploader
-                  reportId={reportId}
-                  onExpenseReady={handleParsedExpense}
-                  onCancel={handleCloseAddDialog}
-                  tripStartDate={report?.tripStartDate?.toDate()}
-                  tripEndDate={report?.tripEndDate?.toDate()}
-                />
-              </Box>
-            )}
-
-            {/* Manual entry form */}
-            {addExpenseMode === 'manual' && (
-              <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid size={{ xs: 12 }}>
-                  <TextField
-                    select
-                    label="Category"
-                    fullWidth
-                    value={newItem.category}
-                    onChange={(e) =>
-                      setNewItem({ ...newItem, category: e.target.value as TravelExpenseCategory })
-                    }
-                  >
-                    {categoryOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {CATEGORY_ICONS[option.value]}
-                          {option.label}
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-
-                <Grid size={{ xs: 12 }}>
-                  <TextField
-                    label="Description"
-                    fullWidth
-                    required
-                    value={newItem.description}
-                    onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                    placeholder="e.g., Flight ticket to Mumbai"
-                  />
-                </Grid>
-
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <DatePicker
-                    label="Expense Date"
-                    value={newItem.expenseDate}
-                    onChange={(date) => {
-                      const newDate = date as Date | null;
-                      setNewItem({ ...newItem, expenseDate: newDate || new Date() });
-                    }}
-                    slotProps={{
-                      textField: { fullWidth: true, required: true },
-                    }}
-                  />
-                </Grid>
-
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    label="Amount (INR)"
-                    fullWidth
-                    required
-                    type="number"
-                    value={newItem.amount}
-                    onChange={(e) => setNewItem({ ...newItem, amount: e.target.value })}
-                    inputProps={{ min: 0, step: 0.01 }}
-                  />
-                </Grid>
-
-                <Grid size={{ xs: 12 }}>
-                  <TextField
-                    label="Vendor Name"
-                    fullWidth
-                    value={newItem.vendorName}
-                    onChange={(e) => setNewItem({ ...newItem, vendorName: e.target.value })}
-                    placeholder="e.g., Indigo Airlines, IRCTC, Uber"
-                  />
-                </Grid>
-
-                {showLocationFields && (
-                  <>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        label="From Location"
-                        fullWidth
-                        value={newItem.fromLocation}
-                        onChange={(e) => setNewItem({ ...newItem, fromLocation: e.target.value })}
-                        placeholder="e.g., Chennai"
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        label="To Location"
-                        fullWidth
-                        value={newItem.toLocation}
-                        onChange={(e) => setNewItem({ ...newItem, toLocation: e.target.value })}
-                        placeholder="e.g., Mumbai"
-                      />
-                    </Grid>
-                  </>
-                )}
-
-                {/* Receipt Upload for manual entry */}
-                <Grid size={{ xs: 12 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Receipt (Optional)
-                  </Typography>
-                  <ReceiptUploader
-                    receipt={newItemReceipt}
-                    onChange={setNewItemReceipt}
-                    storagePath={`hr/travel-expenses/${reportId}/receipts/`}
-                  />
-                </Grid>
-              </Grid>
-            )}
-          </DialogContent>
-          {/* Only show actions for select and manual modes */}
-          {(addExpenseMode === 'select' || addExpenseMode === 'manual') && (
-            <DialogActions>
-              {addExpenseMode === 'manual' && (
-                <Button onClick={() => setAddExpenseMode('select')}>Back</Button>
-              )}
-              <Button onClick={handleCloseAddDialog}>Cancel</Button>
-              {addExpenseMode === 'manual' && (
-                <Button
-                  variant="contained"
-                  onClick={handleAddItem}
-                  disabled={
-                    !newItem.description.trim() ||
-                    !newItem.amount ||
-                    parseFloat(newItem.amount) <= 0 ||
-                    addItemMutation.isPending
-                  }
-                >
-                  {addItemMutation.isPending ? 'Adding...' : 'Add Item'}
-                </Button>
-              )}
-            </DialogActions>
-          )}
-        </Dialog>
-
-        {/* Delete Confirmation Dialog */}
-        <Dialog open={!!deleteItemId} onClose={() => setDeleteItemId(null)}>
-          <DialogTitle>Delete Expense Item?</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to delete this expense item? This action cannot be undone.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDeleteItemId(null)}>Cancel</Button>
-            <Button
-              variant="contained"
-              color="error"
-              onClick={handleDeleteItem}
-              disabled={removeItemMutation.isPending}
-            >
-              {removeItemMutation.isPending ? 'Deleting...' : 'Delete'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Upload Receipt Dialog */}
-        <Dialog open={!!uploadItemId} onClose={() => setUploadItemId(null)} maxWidth="sm" fullWidth>
-          <DialogTitle>Upload Receipt</DialogTitle>
-          <DialogContent>
-            <Box sx={{ pt: 2 }}>
-              <ReceiptUploader
-                receipt={null}
-                onChange={(receipt) => {
-                  if (uploadItemId && receipt) {
-                    handleReceiptUpload(uploadItemId, receipt);
-                  }
-                }}
-                storagePath={`hr/travel-expenses/${reportId}/receipts/`}
-              />
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setUploadItemId(null)}>Cancel</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Submit for Approval Dialog */}
-        <Dialog open={submitDialogOpen} onClose={() => setSubmitDialogOpen(false)}>
-          <DialogTitle>Submit for Approval?</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to submit this travel expense report for approval? You will not
-              be able to edit it after submission.
-            </Typography>
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-              <Typography variant="subtitle2">Total Amount</Typography>
-              <Typography variant="h6" color="primary.main">
-                {formatExpenseAmount(report?.totalAmount || 0, report?.currency || 'INR')}
-              </Typography>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setSubmitDialogOpen(false)}>Cancel</Button>
+          {canSubmit && (
             <Button
               variant="contained"
               color="primary"
-              onClick={handleSubmit}
-              disabled={submitMutation.isPending}
+              startIcon={<SubmitIcon />}
+              onClick={() => setSubmitDialogOpen(true)}
             >
-              {submitMutation.isPending ? 'Submitting...' : 'Submit'}
+              Submit for Approval
             </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Approve Dialog */}
-        <Dialog
-          open={approveDialogOpen}
-          onClose={() => setApproveDialogOpen(false)}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>Approve Travel Expense Report</DialogTitle>
-          <DialogContent>
-            <Typography gutterBottom>
-              You are about to approve{' '}
-              <strong>
-                {report?.reportNumber} (
-                {formatExpenseAmount(report?.totalAmount || 0, report?.currency || 'INR')})
-              </strong>
-            </Typography>
-            <TextField
-              label="Comments (Optional)"
-              fullWidth
-              multiline
-              rows={3}
-              value={approvalComments}
-              onChange={(e) => setApprovalComments(e.target.value)}
-              placeholder="Add any comments about this approval..."
-              sx={{ mt: 2 }}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setApproveDialogOpen(false)}>Cancel</Button>
-            <Button
-              variant="contained"
-              color="success"
-              onClick={handleApprove}
-              disabled={approveMutation.isPending}
-            >
-              {approveMutation.isPending ? 'Approving...' : 'Approve'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Reject Dialog */}
-        <Dialog
-          open={rejectDialogOpen}
-          onClose={() => setRejectDialogOpen(false)}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>Reject Travel Expense Report</DialogTitle>
-          <DialogContent>
-            <Typography color="error" gutterBottom>
-              You are about to reject <strong>{report?.reportNumber}</strong>
-            </Typography>
-            <TextField
-              label="Rejection Reason"
-              fullWidth
-              required
-              multiline
-              rows={3}
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              placeholder="Please provide a reason for rejection..."
-              sx={{ mt: 2 }}
-              error={!rejectionReason.trim()}
-              helperText={!rejectionReason.trim() ? 'Rejection reason is required' : ''}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
-            <Button
-              variant="contained"
-              color="error"
-              onClick={handleReject}
-              disabled={rejectMutation.isPending || !rejectionReason.trim()}
-            >
-              {rejectMutation.isPending ? 'Rejecting...' : 'Reject'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Return for Revision Dialog */}
-        <Dialog
-          open={returnDialogOpen}
-          onClose={() => setReturnDialogOpen(false)}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>Return for Revision</DialogTitle>
-          <DialogContent>
-            <Typography gutterBottom>
-              Return <strong>{report?.reportNumber}</strong> to the employee for revision. They will
-              be able to edit and resubmit the report.
-            </Typography>
-            <TextField
-              label="Comments"
-              fullWidth
-              required
-              multiline
-              rows={3}
-              value={returnComments}
-              onChange={(e) => setReturnComments(e.target.value)}
-              placeholder="Explain what needs to be revised..."
-              sx={{ mt: 2 }}
-              error={!returnComments.trim()}
-              helperText={!returnComments.trim() ? 'Comments are required' : ''}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setReturnDialogOpen(false)}>Cancel</Button>
-            <Button
-              variant="contained"
-              color="warning"
-              onClick={handleReturn}
-              disabled={returnMutation.isPending || !returnComments.trim()}
-            >
-              {returnMutation.isPending ? 'Returning...' : 'Return for Revision'}
-            </Button>
-          </DialogActions>
-        </Dialog>
+          )}
+          {canApprove && (
+            <>
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<ApproveIcon />}
+                onClick={() => setApproveDialogOpen(true)}
+              >
+                Approve
+              </Button>
+              <Button
+                variant="outlined"
+                color="warning"
+                startIcon={<ReturnIcon />}
+                onClick={() => setReturnDialogOpen(true)}
+              >
+                Return
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<RejectIcon />}
+                onClick={() => setRejectDialogOpen(true)}
+              >
+                Reject
+              </Button>
+            </>
+          )}
+        </Box>
       </Box>
-    </LocalizationProvider>
+
+      {/* Trip Summary Card */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Typography variant="caption" color="text.secondary">
+                Trip Dates
+              </Typography>
+              <Typography variant="body1">
+                {formatTripDateRange(report.tripStartDate.toDate(), report.tripEndDate.toDate())}
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Typography variant="caption" color="text.secondary">
+                Destinations
+              </Typography>
+              <Typography variant="body1">{report.destinations.join(', ')}</Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Typography variant="caption" color="text.secondary">
+                Total Amount
+              </Typography>
+              <Typography variant="h6" color="primary.main">
+                {formatExpenseAmount(report.totalAmount, report.currency)}
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Typography variant="caption" color="text.secondary">
+                GST Amount
+              </Typography>
+              <Typography variant="body1">
+                {formatExpenseAmount(report.totalGstAmount, report.currency)}
+              </Typography>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      {/* Expense Items */}
+      <Card>
+        <CardContent>
+          <Box
+            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+          >
+            <Typography variant="h6">Expense Items</Typography>
+            {canEdit && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setAddDialogOpen(true)}
+              >
+                Add Expense
+              </Button>
+            )}
+          </Box>
+
+          {report.items.length === 0 ? (
+            <Alert severity="info">
+              No expense items added yet.
+              {canEdit && ' Click "Add Expense" to add your first expense item.'}
+            </Alert>
+          ) : (
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Category</TableCell>
+                    <TableCell>Description</TableCell>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Vendor</TableCell>
+                    <TableCell align="center">Receipt</TableCell>
+                    <TableCell align="right">Amount</TableCell>
+                    {canEdit && <TableCell align="center">Actions</TableCell>}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {report.items.map((item) => (
+                    <TableRow key={item.id} hover>
+                      <TableCell>
+                        <Chip
+                          icon={CATEGORY_ICONS[item.category]}
+                          label={EXPENSE_CATEGORY_LABELS[item.category]}
+                          size="small"
+                          color={EXPENSE_CATEGORY_COLORS[item.category]}
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{item.description}</Typography>
+                        {item.fromLocation && item.toLocation && (
+                          <Typography variant="caption" color="text.secondary">
+                            {item.fromLocation} → {item.toLocation}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>{formatExpenseDate(item.expenseDate.toDate())}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{item.vendorName || '-'}</Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        {item.hasReceipt && item.receiptUrl ? (
+                          <Tooltip title={item.receiptFileName || 'View Receipt'}>
+                            <IconButton
+                              size="small"
+                              color="success"
+                              onClick={() => window.open(item.receiptUrl, '_blank')}
+                            >
+                              <ViewIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        ) : canEdit ? (
+                          <Tooltip title="Upload Receipt">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => setUploadItemId(item.id)}
+                            >
+                              <AttachIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            -
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight="medium">
+                          {formatExpenseAmount(item.amount, item.currency)}
+                        </Typography>
+                        {item.gstAmount && item.gstAmount > 0 && (
+                          <Tooltip
+                            title={
+                              <Box>
+                                {item.cgstAmount ? (
+                                  <div>
+                                    CGST: {formatExpenseAmount(item.cgstAmount, item.currency)}
+                                  </div>
+                                ) : null}
+                                {item.sgstAmount ? (
+                                  <div>
+                                    SGST: {formatExpenseAmount(item.sgstAmount, item.currency)}
+                                  </div>
+                                ) : null}
+                                {item.igstAmount ? (
+                                  <div>
+                                    IGST: {formatExpenseAmount(item.igstAmount, item.currency)}
+                                  </div>
+                                ) : null}
+                                {item.taxableAmount ? (
+                                  <div>
+                                    Taxable:{' '}
+                                    {formatExpenseAmount(item.taxableAmount, item.currency)}
+                                  </div>
+                                ) : null}
+                                {item.vendorGstin && <div>GSTIN: {item.vendorGstin}</div>}
+                              </Box>
+                            }
+                          >
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              display="block"
+                              sx={{ cursor: 'help' }}
+                            >
+                              GST: {formatExpenseAmount(item.gstAmount, item.currency)}
+                              {item.ourGstinUsed && (
+                                <VerifiedIcon
+                                  fontSize="inherit"
+                                  color="success"
+                                  sx={{ ml: 0.5, verticalAlign: 'middle' }}
+                                />
+                              )}
+                            </Typography>
+                          </Tooltip>
+                        )}
+                      </TableCell>
+                      {canEdit && (
+                        <TableCell align="center">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => setDeleteItemId(item.id)}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+
+          {/* Category Totals */}
+          {report.items.length > 0 && (
+            <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Category Summary
+              </Typography>
+              <Grid container spacing={2}>
+                {(Object.keys(report.categoryTotals) as TravelExpenseCategory[]).map((category) => (
+                  <Grid size={{ xs: 6, sm: 4, md: 3 }} key={category}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {CATEGORY_ICONS[category]}
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          {EXPENSE_CATEGORY_LABELS[category]}
+                        </Typography>
+                        <Typography variant="body2" fontWeight="medium">
+                          {formatExpenseAmount(
+                            report.categoryTotals[category] || 0,
+                            report.currency
+                          )}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add Item Dialog */}
+      <Dialog open={addDialogOpen} onClose={handleCloseAddDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {addExpenseMode === 'select' && 'Add Expense'}
+          {addExpenseMode === 'receipt' && 'Upload Receipt'}
+          {addExpenseMode === 'manual' && 'Manual Entry'}
+        </DialogTitle>
+        <DialogContent>
+          {/* Mode selection */}
+          {addExpenseMode === 'select' && (
+            <Box sx={{ py: 2 }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Choose how to add your expense:
+              </Typography>
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Paper
+                    variant="outlined"
+                    sx={{
+                      p: 3,
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      '&:hover': { borderColor: 'primary.main', bgcolor: 'primary.50' },
+                    }}
+                    onClick={() => setAddExpenseMode('receipt')}
+                  >
+                    <ParseIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
+                    <Typography variant="subtitle1" gutterBottom>
+                      Upload Receipt
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Auto-extract details using OCR
+                    </Typography>
+                    <Chip label="Recommended" color="primary" size="small" sx={{ mt: 1 }} />
+                  </Paper>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Paper
+                    variant="outlined"
+                    sx={{
+                      p: 3,
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      '&:hover': { borderColor: 'primary.main', bgcolor: 'grey.50' },
+                    }}
+                    onClick={() => setAddExpenseMode('manual')}
+                  >
+                    <Receipt sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                    <Typography variant="subtitle1" gutterBottom>
+                      Manual Entry
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Enter expense details manually
+                    </Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
+
+          {/* Receipt upload with OCR parsing */}
+          {addExpenseMode === 'receipt' && reportId && (
+            <Box sx={{ pt: 1 }}>
+              <ReceiptParsingUploader
+                reportId={reportId}
+                onExpenseReady={handleParsedExpense}
+                onCancel={handleCloseAddDialog}
+                tripStartDate={report?.tripStartDate?.toDate()}
+                tripEndDate={report?.tripEndDate?.toDate()}
+              />
+            </Box>
+          )}
+
+          {/* Manual entry form */}
+          {addExpenseMode === 'manual' && (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  select
+                  label="Category"
+                  fullWidth
+                  value={newItem.category}
+                  onChange={(e) =>
+                    setNewItem({ ...newItem, category: e.target.value as TravelExpenseCategory })
+                  }
+                >
+                  {categoryOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {CATEGORY_ICONS[option.value]}
+                        {option.label}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  label="Description"
+                  fullWidth
+                  required
+                  value={newItem.description}
+                  onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                  placeholder="e.g., Flight ticket to Mumbai"
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <DatePicker
+                  label="Expense Date"
+                  value={newItem.expenseDate}
+                  onChange={(date) => {
+                    const newDate = date as Date | null;
+                    setNewItem({ ...newItem, expenseDate: newDate || new Date() });
+                  }}
+                  format="dd/MM/yyyy"
+                  slotProps={{
+                    textField: { fullWidth: true, required: true },
+                  }}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="Amount (INR)"
+                  fullWidth
+                  required
+                  type="number"
+                  value={newItem.amount}
+                  onChange={(e) => setNewItem({ ...newItem, amount: e.target.value })}
+                  inputProps={{ min: 0, step: 0.01 }}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  label="Vendor Name"
+                  fullWidth
+                  value={newItem.vendorName}
+                  onChange={(e) => setNewItem({ ...newItem, vendorName: e.target.value })}
+                  placeholder="e.g., Indigo Airlines, IRCTC, Uber"
+                />
+              </Grid>
+
+              {showLocationFields && (
+                <>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      label="From Location"
+                      fullWidth
+                      value={newItem.fromLocation}
+                      onChange={(e) => setNewItem({ ...newItem, fromLocation: e.target.value })}
+                      placeholder="e.g., Chennai"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      label="To Location"
+                      fullWidth
+                      value={newItem.toLocation}
+                      onChange={(e) => setNewItem({ ...newItem, toLocation: e.target.value })}
+                      placeholder="e.g., Mumbai"
+                    />
+                  </Grid>
+                </>
+              )}
+
+              {/* Receipt Upload for manual entry */}
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Receipt (Optional)
+                </Typography>
+                <ReceiptUploader
+                  receipt={newItemReceipt}
+                  onChange={setNewItemReceipt}
+                  storagePath={`hr/travel-expenses/${reportId}/receipts/`}
+                />
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        {/* Only show actions for select and manual modes */}
+        {(addExpenseMode === 'select' || addExpenseMode === 'manual') && (
+          <DialogActions>
+            {addExpenseMode === 'manual' && (
+              <Button onClick={() => setAddExpenseMode('select')}>Back</Button>
+            )}
+            <Button onClick={handleCloseAddDialog}>Cancel</Button>
+            {addExpenseMode === 'manual' && (
+              <Button
+                variant="contained"
+                onClick={handleAddItem}
+                disabled={
+                  !newItem.description.trim() ||
+                  !newItem.amount ||
+                  parseFloat(newItem.amount) <= 0 ||
+                  addItemMutation.isPending
+                }
+              >
+                {addItemMutation.isPending ? 'Adding...' : 'Add Item'}
+              </Button>
+            )}
+          </DialogActions>
+        )}
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteItemId} onClose={() => setDeleteItemId(null)}>
+        <DialogTitle>Delete Expense Item?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete this expense item? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteItemId(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleDeleteItem}
+            disabled={removeItemMutation.isPending}
+          >
+            {removeItemMutation.isPending ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Upload Receipt Dialog */}
+      <Dialog open={!!uploadItemId} onClose={() => setUploadItemId(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Upload Receipt</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <ReceiptUploader
+              receipt={null}
+              onChange={(receipt) => {
+                if (uploadItemId && receipt) {
+                  handleReceiptUpload(uploadItemId, receipt);
+                }
+              }}
+              storagePath={`hr/travel-expenses/${reportId}/receipts/`}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setUploadItemId(null)}>Cancel</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Submit for Approval Dialog */}
+      <Dialog open={submitDialogOpen} onClose={() => setSubmitDialogOpen(false)}>
+        <DialogTitle>Submit for Approval?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to submit this travel expense report for approval? You will not be
+            able to edit it after submission.
+          </Typography>
+          <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+            <Typography variant="subtitle2">Total Amount</Typography>
+            <Typography variant="h6" color="primary.main">
+              {formatExpenseAmount(report?.totalAmount || 0, report?.currency || 'INR')}
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSubmitDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleSubmit}
+            disabled={submitMutation.isPending}
+          >
+            {submitMutation.isPending ? 'Submitting...' : 'Submit'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Approve Dialog */}
+      <Dialog
+        open={approveDialogOpen}
+        onClose={() => setApproveDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Approve Travel Expense Report</DialogTitle>
+        <DialogContent>
+          <Typography gutterBottom>
+            You are about to approve{' '}
+            <strong>
+              {report?.reportNumber} (
+              {formatExpenseAmount(report?.totalAmount || 0, report?.currency || 'INR')})
+            </strong>
+          </Typography>
+          <TextField
+            label="Comments (Optional)"
+            fullWidth
+            multiline
+            rows={3}
+            value={approvalComments}
+            onChange={(e) => setApprovalComments(e.target.value)}
+            placeholder="Add any comments about this approval..."
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setApproveDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleApprove}
+            disabled={approveMutation.isPending}
+          >
+            {approveMutation.isPending ? 'Approving...' : 'Approve'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Reject Dialog */}
+      <Dialog
+        open={rejectDialogOpen}
+        onClose={() => setRejectDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Reject Travel Expense Report</DialogTitle>
+        <DialogContent>
+          <Typography color="error" gutterBottom>
+            You are about to reject <strong>{report?.reportNumber}</strong>
+          </Typography>
+          <TextField
+            label="Rejection Reason"
+            fullWidth
+            required
+            multiline
+            rows={3}
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            placeholder="Please provide a reason for rejection..."
+            sx={{ mt: 2 }}
+            error={!rejectionReason.trim()}
+            helperText={!rejectionReason.trim() ? 'Rejection reason is required' : ''}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleReject}
+            disabled={rejectMutation.isPending || !rejectionReason.trim()}
+          >
+            {rejectMutation.isPending ? 'Rejecting...' : 'Reject'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Return for Revision Dialog */}
+      <Dialog
+        open={returnDialogOpen}
+        onClose={() => setReturnDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Return for Revision</DialogTitle>
+        <DialogContent>
+          <Typography gutterBottom>
+            Return <strong>{report?.reportNumber}</strong> to the employee for revision. They will
+            be able to edit and resubmit the report.
+          </Typography>
+          <TextField
+            label="Comments"
+            fullWidth
+            required
+            multiline
+            rows={3}
+            value={returnComments}
+            onChange={(e) => setReturnComments(e.target.value)}
+            placeholder="Explain what needs to be revised..."
+            sx={{ mt: 2 }}
+            error={!returnComments.trim()}
+            helperText={!returnComments.trim() ? 'Comments are required' : ''}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReturnDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={handleReturn}
+            disabled={returnMutation.isPending || !returnComments.trim()}
+          >
+            {returnMutation.isPending ? 'Returning...' : 'Return for Revision'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }

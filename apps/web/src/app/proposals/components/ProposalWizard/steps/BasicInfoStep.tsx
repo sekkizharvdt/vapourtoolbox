@@ -58,6 +58,7 @@ export function BasicInfoStep() {
                 label="Validity Date"
                 value={field.value}
                 onChange={field.onChange}
+                format="dd/MM/yyyy"
                 slotProps={{ textField: { fullWidth: true } }}
               />
             )}

@@ -14,10 +14,14 @@
  * 3. AuthProvider - Firebase authentication
  * 4. QueryProvider - React Query for data fetching
  * 5. VapourThemeProvider - MUI theme
+ * 6. LocalizationProvider - MUI date pickers with Indian locale (dd/MM/yyyy)
  */
 
 import { VapourThemeProvider } from '@vapour/ui';
 import { validateFirebaseEnvironment } from '@vapour/firebase';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { enIN } from 'date-fns/locale';
 import { CSRFProvider } from '@/components/CSRFProvider';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -33,7 +37,11 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
       <CSRFProvider>
         <AuthProvider>
           <QueryProvider>
-            <VapourThemeProvider defaultMode="light">{children}</VapourThemeProvider>
+            <VapourThemeProvider defaultMode="light">
+              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enIN}>
+                {children}
+              </LocalizationProvider>
+            </VapourThemeProvider>
           </QueryProvider>
         </AuthProvider>
       </CSRFProvider>

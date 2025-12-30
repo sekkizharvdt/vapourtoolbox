@@ -316,6 +316,7 @@ export default function NewLeaveRequestPage() {
                     }
                   }}
                   shouldDisableDate={shouldDisableDate}
+                  format="dd/MM/yyyy"
                   slotProps={{
                     textField: {
                       fullWidth: true,
@@ -332,6 +333,7 @@ export default function NewLeaveRequestPage() {
                   value={endDate}
                   onChange={(newValue) => setEndDate(newValue as Date | null)}
                   shouldDisableDate={shouldDisableDate}
+                  format="dd/MM/yyyy"
                   slotProps={{
                     textField: {
                       fullWidth: true,

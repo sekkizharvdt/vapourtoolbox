@@ -27,8 +27,6 @@ import {
   Link,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { Home as HomeIcon, Save as SaveIcon } from '@mui/icons-material';
 import { Controller, useForm } from 'react-hook-form';
 import { Timestamp } from 'firebase/firestore';
@@ -371,25 +369,24 @@ export default function EditEnquiryClient() {
             </Typography>
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, md: 6 }}>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <Controller
-                    name="receivedDate"
-                    control={control}
-                    render={({ field }) => (
-                      <DatePicker
-                        label="Received Date"
-                        value={field.value}
-                        onChange={field.onChange}
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                            required: true,
-                          },
-                        }}
-                      />
-                    )}
-                  />
-                </LocalizationProvider>
+                <Controller
+                  name="receivedDate"
+                  control={control}
+                  render={({ field }) => (
+                    <DatePicker
+                      label="Received Date"
+                      value={field.value}
+                      onChange={field.onChange}
+                      format="dd/MM/yyyy"
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          required: true,
+                        },
+                      }}
+                    />
+                  )}
+                />
               </Grid>
 
               <Grid size={{ xs: 12, md: 6 }}>
@@ -525,24 +522,23 @@ export default function EditEnquiryClient() {
               </Grid>
 
               <Grid size={{ xs: 12, md: 6 }}>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <Controller
-                    name="requiredDeliveryDate"
-                    control={control}
-                    render={({ field }) => (
-                      <DatePicker
-                        label="Required Delivery Date"
-                        value={field.value}
-                        onChange={field.onChange}
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                          },
-                        }}
-                      />
-                    )}
-                  />
-                </LocalizationProvider>
+                <Controller
+                  name="requiredDeliveryDate"
+                  control={control}
+                  render={({ field }) => (
+                    <DatePicker
+                      label="Required Delivery Date"
+                      value={field.value}
+                      onChange={field.onChange}
+                      format="dd/MM/yyyy"
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                        },
+                      }}
+                    />
+                  )}
+                />
               </Grid>
             </Grid>
           </Paper>
