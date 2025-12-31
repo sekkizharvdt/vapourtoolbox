@@ -256,15 +256,17 @@ export async function approveTravelExpenseReport(
     const now = Timestamp.now();
     const finalApprovedAmount = approvedAmount ?? report.totalAmount;
 
-    // Create approval history record
-    const approvalRecord: TravelExpenseApprovalRecord = {
-      action: 'APPROVED',
-      userId: approverId,
-      userName: approverName,
-      timestamp: now,
-      comments,
-      approvedAmount: finalApprovedAmount,
-    };
+    // Create approval history record - strip undefined values for Firestore
+    const approvalRecord = Object.fromEntries(
+      Object.entries({
+        action: 'APPROVED',
+        userId: approverId,
+        userName: approverName,
+        timestamp: now,
+        comments,
+        approvedAmount: finalApprovedAmount,
+      } as TravelExpenseApprovalRecord).filter(([, value]) => value !== undefined)
+    );
 
     // Update report
     const docRef = doc(db, COLLECTIONS.HR_TRAVEL_EXPENSES, reportId);
@@ -282,7 +284,16 @@ export async function approveTravelExpenseReport(
     // Complete all approver task notifications
     await completeTaskNotificationsByEntity('HR_TRAVEL_EXPENSE', reportId, approverId);
 
-    // Create notification for employee
+    // Create notification for employee - strip undefined values from metadata
+    const notificationMetadata = Object.fromEntries(
+      Object.entries({
+        approverName,
+        reportNumber: report.reportNumber,
+        totalAmount: report.totalAmount,
+        approvedAmount: finalApprovedAmount,
+        comments,
+      }).filter(([, value]) => value !== undefined)
+    );
     const employeeNotification: CreateTaskNotificationInput = {
       type: 'informational',
       category: 'TRAVEL_EXPENSE_APPROVED',
@@ -295,13 +306,7 @@ export async function approveTravelExpenseReport(
       entityType: 'HR_TRAVEL_EXPENSE',
       entityId: reportId,
       linkUrl: `/hr/travel-expenses/${reportId}`,
-      metadata: {
-        approverName,
-        reportNumber: report.reportNumber,
-        totalAmount: report.totalAmount,
-        approvedAmount: finalApprovedAmount,
-        comments,
-      },
+      metadata: notificationMetadata,
     };
     await createTaskNotification(employeeNotification);
     logger.info('Created travel expense approved notification', {
