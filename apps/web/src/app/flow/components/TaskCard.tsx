@@ -8,14 +8,19 @@
  * - Task title and message
  * - Assignee and timestamp
  * - Priority indicator
- * - Action buttons (Start, View, etc.)
+ * - Action buttons (Complete, View Thread)
+ *
+ * Clicking the card navigates to the action page (linkUrl) where
+ * the actual task work is performed. Tasks auto-complete when
+ * the action is taken on that page.
  */
 
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useCallback } from 'react';
 import {
   Box,
   Card,
   CardContent,
+  CardActionArea,
   Typography,
   Stack,
   Chip,
@@ -24,7 +29,6 @@ import {
   Tooltip,
 } from '@mui/material';
 import {
-  PlayArrow as PlayIcon,
   CheckCircle as CompleteIcon,
   OpenInNew as ViewIcon,
   Comment as CommentIcon,
@@ -34,7 +38,7 @@ import {
 } from '@mui/icons-material';
 import type { TaskNotification, TaskNotificationPriority } from '@vapour/types';
 import { formatDistanceToNow } from 'date-fns';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 // Priority colors
 const priorityColors: Record<
@@ -49,7 +53,6 @@ const priorityColors: Record<
 
 interface TaskCardProps {
   task: TaskNotification;
-  onStart?: (taskId: string) => void;
   onComplete?: (taskId: string) => void;
   onViewThread?: (taskId: string) => void;
   isActive?: boolean;
@@ -58,24 +61,34 @@ interface TaskCardProps {
 
 export const TaskCard = memo(function TaskCard({
   task,
-  onStart,
   onComplete,
   onViewThread,
   isActive = false,
   threadCount = 0,
 }: TaskCardProps) {
+  const router = useRouter();
+
   // Format timestamp
   const timeAgo = useMemo(() => {
     const date = task.createdAt?.toDate?.() || new Date();
     return formatDistanceToNow(date, { addSuffix: true });
   }, [task.createdAt]);
 
-  // Determine if task can be started/completed
-  const canStart = task.type === 'actionable' && task.status === 'pending';
+  // Handle card click - navigate to action page
+  const handleCardClick = useCallback(() => {
+    if (task.linkUrl) {
+      router.push(task.linkUrl);
+    }
+  }, [task.linkUrl, router]);
+
+  // Determine if task can be completed manually (for tasks without auto-completion)
   const canComplete =
-    task.type === 'actionable' && task.status === 'in_progress' && !task.autoCompletable;
+    task.type === 'actionable' &&
+    (task.status === 'pending' || task.status === 'in_progress') &&
+    !task.autoCompletable;
   const isInProgress = task.status === 'in_progress';
   const isCompleted = task.status === 'completed';
+  const hasActionLink = !!task.linkUrl;
 
   // Get status display
   const getStatusChip = () => {
@@ -100,141 +113,156 @@ export const TaskCard = memo(function TaskCard({
         borderColor: isActive ? 'primary.main' : 'divider',
         boxShadow: isActive ? 2 : 0,
         bgcolor: task.read ? 'background.paper' : 'action.hover',
+        cursor: hasActionLink ? 'pointer' : 'default',
         '&:hover': {
           boxShadow: 1,
           borderColor: 'primary.light',
         },
       }}
     >
-      <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-        <Stack spacing={1}>
-          {/* Header: Title + Priority + Status */}
-          <Stack direction="row" alignItems="flex-start" spacing={1}>
-            {/* Priority Flag */}
-            <Tooltip title={`${task.priority} priority`}>
-              <FlagIcon fontSize="small" color={priorityColors[task.priority]} sx={{ mt: 0.3 }} />
-            </Tooltip>
+      <CardActionArea onClick={handleCardClick} disabled={!hasActionLink} sx={{ display: 'block' }}>
+        <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+          <Stack spacing={1}>
+            {/* Header: Title + Priority + Status */}
+            <Stack direction="row" alignItems="flex-start" spacing={1}>
+              {/* Priority Flag */}
+              <Tooltip title={`${task.priority} priority`}>
+                <FlagIcon fontSize="small" color={priorityColors[task.priority]} sx={{ mt: 0.3 }} />
+              </Tooltip>
 
-            {/* Title */}
-            <Box sx={{ flex: 1, minWidth: 0 }}>
+              {/* Title */}
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography
+                  variant="subtitle2"
+                  fontWeight={task.read ? 400 : 600}
+                  sx={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                  }}
+                >
+                  {task.title}
+                </Typography>
+              </Box>
+
+              {/* Status Chip */}
+              {getStatusChip()}
+            </Stack>
+
+            {/* Message preview */}
+            {task.message && (
               <Typography
-                variant="subtitle2"
-                fontWeight={task.read ? 400 : 600}
+                variant="body2"
+                color="text.secondary"
                 sx={{
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   display: '-webkit-box',
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: 'vertical',
+                  pl: 3.5,
                 }}
               >
-                {task.title}
+                {task.message}
               </Typography>
-            </Box>
+            )}
 
-            {/* Status Chip */}
-            {getStatusChip()}
-          </Stack>
-
-          {/* Message preview */}
-          {task.message && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                pl: 3.5,
-              }}
+            {/* Footer: Meta info + Actions */}
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              sx={{ pl: 3.5 }}
             >
-              {task.message}
-            </Typography>
-          )}
+              {/* Meta info */}
+              <Stack direction="row" spacing={2} alignItems="center">
+                {/* Assigned by */}
+                {task.assignedByName && (
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    <PersonIcon fontSize="small" sx={{ color: 'text.secondary', fontSize: 16 }} />
+                    <Typography variant="caption" color="text.secondary">
+                      {task.assignedByName}
+                    </Typography>
+                  </Stack>
+                )}
 
-          {/* Footer: Meta info + Actions */}
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-            sx={{ pl: 3.5 }}
-          >
-            {/* Meta info */}
-            <Stack direction="row" spacing={2} alignItems="center">
-              {/* Assigned by */}
-              {task.assignedByName && (
+                {/* Time */}
                 <Stack direction="row" spacing={0.5} alignItems="center">
-                  <PersonIcon fontSize="small" sx={{ color: 'text.secondary', fontSize: 16 }} />
+                  <ScheduleIcon fontSize="small" sx={{ color: 'text.secondary', fontSize: 16 }} />
                   <Typography variant="caption" color="text.secondary">
-                    {task.assignedByName}
+                    {timeAgo}
                   </Typography>
                 </Stack>
-              )}
 
-              {/* Time */}
-              <Stack direction="row" spacing={0.5} alignItems="center">
-                <ScheduleIcon fontSize="small" sx={{ color: 'text.secondary', fontSize: 16 }} />
-                <Typography variant="caption" color="text.secondary">
-                  {timeAgo}
-                </Typography>
+                {/* Thread count (placeholder for Phase C) */}
+                {threadCount > 0 && (
+                  <Chip
+                    icon={<CommentIcon sx={{ fontSize: 14 }} />}
+                    label={threadCount}
+                    size="small"
+                    variant="outlined"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onViewThread?.(task.id);
+                    }}
+                    sx={{ height: 22 }}
+                  />
+                )}
               </Stack>
 
-              {/* Thread count (placeholder for Phase C) */}
-              {threadCount > 0 && (
-                <Chip
-                  icon={<CommentIcon sx={{ fontSize: 14 }} />}
-                  label={threadCount}
-                  size="small"
-                  variant="outlined"
-                  onClick={() => onViewThread?.(task.id)}
-                  sx={{ height: 22 }}
-                />
-              )}
-            </Stack>
+              {/* Actions */}
+              <Stack direction="row" spacing={0.5}>
+                {/* Take Action - shown for actionable tasks with link */}
+                {hasActionLink && task.type === 'actionable' && !isCompleted && (
+                  <Tooltip title="Click card to take action">
+                    <Chip
+                      label="Action Required"
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      sx={{ height: 24 }}
+                    />
+                  </Tooltip>
+                )}
 
-            {/* Actions */}
-            <Stack direction="row" spacing={0.5}>
-              {/* Start Task */}
-              {canStart && onStart && (
-                <Button
-                  size="small"
-                  variant="contained"
-                  startIcon={<PlayIcon />}
-                  onClick={() => onStart(task.id)}
-                  sx={{ minWidth: 'auto', px: 1.5 }}
-                >
-                  Start
-                </Button>
-              )}
+                {/* Complete Task - only for tasks without auto-completion */}
+                {canComplete && onComplete && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="success"
+                    startIcon={<CompleteIcon />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onComplete(task.id);
+                    }}
+                    sx={{ minWidth: 'auto', px: 1.5 }}
+                  >
+                    Complete
+                  </Button>
+                )}
 
-              {/* Complete Task */}
-              {canComplete && onComplete && (
-                <Button
-                  size="small"
-                  variant="contained"
-                  color="success"
-                  startIcon={<CompleteIcon />}
-                  onClick={() => onComplete(task.id)}
-                  sx={{ minWidth: 'auto', px: 1.5 }}
-                >
-                  Complete
-                </Button>
-              )}
-
-              {/* View Entity Link */}
-              {task.linkUrl && (
-                <Tooltip title="View details">
-                  <IconButton size="small" component={Link} href={task.linkUrl} target="_blank">
-                    <ViewIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
+                {/* Open in new tab */}
+                {hasActionLink && (
+                  <Tooltip title="Open in new tab">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(task.linkUrl, '_blank');
+                      }}
+                    >
+                      <ViewIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Stack>
             </Stack>
           </Stack>
-        </Stack>
-      </CardContent>
+        </CardContent>
+      </CardActionArea>
     </Card>
   );
 });

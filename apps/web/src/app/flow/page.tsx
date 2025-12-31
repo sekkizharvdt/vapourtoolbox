@@ -14,7 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTasksLayout } from './context';
 import { ChannelView } from './components/ChannelView';
 import { TaskThreadPanel, MentionsView } from '@/components/tasks/thread';
-import { startActionableTask, completeActionableTask } from '@/lib/tasks/taskNotificationService';
+import { completeActionableTask } from '@/lib/tasks/taskNotificationService';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { TaskNotification, User, TaskMention } from '@vapour/types';
@@ -38,9 +38,6 @@ export default function TasksPage() {
 
   // Loading state to prevent race conditions (double-clicks)
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
-
-  // Track active task (task being worked on)
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
   // Thread panel state (Phase C)
   const [selectedTaskForThread, setSelectedTaskForThread] = useState<TaskNotification | null>(null);
@@ -112,42 +109,21 @@ export default function TasksPage() {
   }, [selectedView, selectedWorkspaceId, tasks, tasksByWorkspace]);
 
   // Handlers - with race condition protection
-  const handleStartTask = useCallback(
-    async (taskId: string) => {
-      if (!userId || actionInProgress) return;
-
-      setActionInProgress(taskId);
-      try {
-        // Start the task (marks as in_progress)
-        await startActionableTask(taskId, userId);
-        setActiveTaskId(taskId);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to start task');
-      } finally {
-        setActionInProgress(null);
-      }
-    },
-    [userId, actionInProgress]
-  );
-
   const handleCompleteTask = useCallback(
     async (taskId: string) => {
       if (!userId || actionInProgress) return;
 
       setActionInProgress(taskId);
       try {
-        // Complete the task
+        // Complete the task manually (for tasks without auto-completion)
         await completeActionableTask(taskId, userId, false);
-        if (activeTaskId === taskId) {
-          setActiveTaskId(null);
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to complete task');
       } finally {
         setActionInProgress(null);
       }
     },
-    [userId, activeTaskId, actionInProgress]
+    [userId, actionInProgress]
   );
 
   const handleViewThread = useCallback(
@@ -207,10 +183,8 @@ export default function TasksPage() {
           tasks={currentTasks}
           isLoading={isLoading}
           error={error}
-          onStartTask={handleStartTask}
           onCompleteTask={handleCompleteTask}
           onViewThread={handleViewThread}
-          activeTaskId={activeTaskId || undefined}
           onToggleSidebar={onToggleSidebar}
           showSidebarToggle={showSidebarToggle}
         />

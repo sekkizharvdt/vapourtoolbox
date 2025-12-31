@@ -24,7 +24,6 @@ interface ChannelViewProps {
   tasks: TaskNotification[];
   isLoading?: boolean;
   error?: string | null;
-  onStartTask: (taskId: string) => void;
   onCompleteTask: (taskId: string) => void;
   onViewThread?: (taskId: string) => void;
   activeTaskId?: string;
@@ -39,7 +38,6 @@ export const ChannelView = memo(function ChannelView({
   tasks,
   isLoading = false,
   error = null,
-  onStartTask,
   onCompleteTask,
   onViewThread,
   activeTaskId,
@@ -159,7 +157,6 @@ export const ChannelView = memo(function ChannelView({
               <TaskCard
                 key={task.id}
                 task={task}
-                onStart={onStartTask}
                 onComplete={onCompleteTask}
                 onViewThread={onViewThread}
                 isActive={task.id === activeTaskId}
