@@ -210,7 +210,12 @@ export async function createGoodsReceipt(
           createdAt: now,
           updatedAt: now,
         };
-        transaction.set(grRef, grData);
+
+        // Remove undefined values before sending to Firestore (Firestore doesn't accept undefined)
+        const cleanedGrData = Object.fromEntries(
+          Object.entries(grData).filter(([, value]) => value !== undefined)
+        );
+        transaction.set(grRef, cleanedGrData);
 
         // Create GR items and update PO items atomically
         input.items.forEach((item, index) => {
@@ -242,7 +247,11 @@ export async function createGoodsReceipt(
             createdAt: now,
             updatedAt: now,
           };
-          transaction.set(grItemRef, grItemData);
+          // Remove undefined values before sending to Firestore
+          const cleanedGrItemData = Object.fromEntries(
+            Object.entries(grItemData).filter(([, value]) => value !== undefined)
+          );
+          transaction.set(grItemRef, cleanedGrItemData);
 
           // Update PO item quantities (using current values from transaction read)
           if (poItemDoc?.exists()) {
