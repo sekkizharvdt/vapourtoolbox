@@ -127,7 +127,12 @@ export async function createEnquiry(
       updatedBy: userId,
     };
 
-    const docRef = await addDoc(collection(db, COLLECTIONS.ENQUIRIES), enquiry);
+    // Remove undefined values before sending to Firestore (Firestore doesn't accept undefined)
+    const cleanedEnquiry = Object.fromEntries(
+      Object.entries(enquiry).filter(([, value]) => value !== undefined)
+    );
+
+    const docRef = await addDoc(collection(db, COLLECTIONS.ENQUIRIES), cleanedEnquiry);
 
     logger.info('Enquiry created', { enquiryId: docRef.id, enquiryNumber });
 
