@@ -20,14 +20,15 @@ describe('Leave Display Helpers', () => {
     it('should have all required status colors', () => {
       expect(LEAVE_STATUS_COLORS.DRAFT).toBe('default');
       expect(LEAVE_STATUS_COLORS.PENDING_APPROVAL).toBe('warning');
+      expect(LEAVE_STATUS_COLORS.PARTIALLY_APPROVED).toBe('info');
       expect(LEAVE_STATUS_COLORS.APPROVED).toBe('success');
       expect(LEAVE_STATUS_COLORS.REJECTED).toBe('error');
       expect(LEAVE_STATUS_COLORS.CANCELLED).toBe('info');
     });
 
-    it('should have exactly 5 statuses', () => {
+    it('should have exactly 6 statuses', () => {
       const statusCount = Object.keys(LEAVE_STATUS_COLORS).length;
-      expect(statusCount).toBe(5);
+      expect(statusCount).toBe(6);
     });
   });
 
@@ -35,14 +36,15 @@ describe('Leave Display Helpers', () => {
     it('should have human-readable labels for all statuses', () => {
       expect(LEAVE_STATUS_LABELS.DRAFT).toBe('Draft');
       expect(LEAVE_STATUS_LABELS.PENDING_APPROVAL).toBe('Pending Approval');
+      expect(LEAVE_STATUS_LABELS.PARTIALLY_APPROVED).toBe('Partially Approved');
       expect(LEAVE_STATUS_LABELS.APPROVED).toBe('Approved');
       expect(LEAVE_STATUS_LABELS.REJECTED).toBe('Rejected');
       expect(LEAVE_STATUS_LABELS.CANCELLED).toBe('Cancelled');
     });
 
-    it('should have exactly 5 labels', () => {
+    it('should have exactly 6 labels', () => {
       const labelCount = Object.keys(LEAVE_STATUS_LABELS).length;
-      expect(labelCount).toBe(5);
+      expect(labelCount).toBe(6);
     });
   });
 
@@ -117,6 +119,13 @@ describe('Leave Display Helpers', () => {
 
       expect(display.label).toBe('Pending Approval');
       expect(display.color).toBe('warning');
+    });
+
+    it('should return correct display properties for PARTIALLY_APPROVED status', () => {
+      const display = getLeaveStatusDisplay('PARTIALLY_APPROVED');
+
+      expect(display.label).toBe('Partially Approved');
+      expect(display.color).toBe('info');
     });
 
     it('should return correct display properties for APPROVED status', () => {

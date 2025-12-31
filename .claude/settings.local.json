@@ -460,7 +460,9 @@
       "Bash(firebase login:ci:*)",
       "Bash(gcloud auth application-default print-access-token:*)",
       "Bash(GOOGLE_APPLICATION_CREDENTIALS=/workspaces/vapourtoolbox/mcp-servers/firebase-feedback/service-account-key.json node:*)",
-      "Bash(npm run lint:web:*)"
+      "Bash(npm run lint:web:*)",
+      "Bash(git diff:*)",
+      "Bash(npm test:*)"
     ],
     "deny": [],
     "ask": []
