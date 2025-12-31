@@ -332,7 +332,12 @@ export async function updateProposal(
       updatedBy: userId,
     };
 
-    await updateDoc(doc(db, COLLECTIONS.PROPOSALS, proposalId), updates);
+    // Remove undefined values before sending to Firestore (Firestore doesn't accept undefined)
+    const cleanedUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([, value]) => value !== undefined)
+    );
+
+    await updateDoc(doc(db, COLLECTIONS.PROPOSALS, proposalId), cleanedUpdates);
 
     logger.info('Proposal updated', { proposalId });
   } catch (error) {
@@ -387,8 +392,13 @@ export async function createProposalRevision(
         isLatestRevision: true,
       };
 
+      // Remove undefined values before sending to Firestore (Firestore doesn't accept undefined)
+      const cleanedRevision = Object.fromEntries(
+        Object.entries(newRevision).filter(([, value]) => value !== undefined)
+      );
+
       const docRef = doc(collection(db, COLLECTIONS.PROPOSALS));
-      transaction.set(docRef, newRevision);
+      transaction.set(docRef, cleanedRevision);
 
       return { id: docRef.id, ...newRevision };
     });
