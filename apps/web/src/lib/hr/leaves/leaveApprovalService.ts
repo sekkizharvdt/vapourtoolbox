@@ -420,15 +420,16 @@ export async function approveLeaveRequest(
     const isComplete = newApprovalCount >= approvalFlow.requiredApprovalCount;
     const newStatus = isComplete ? 'APPROVED' : 'PARTIALLY_APPROVED';
 
-    // Create approval history record
+    // Create approval history record - strip undefined values for Firestore
+    const remarksValue = isComplete
+      ? remarks
+      : `${remarks || ''} (Approval ${newApprovalCount}/${approvalFlow.requiredApprovalCount})`.trim();
     const approvalRecord: LeaveApprovalRecord = {
       action: 'APPROVED',
       actorId: approverId,
       actorName: approverName,
       timestamp: now,
-      remarks: isComplete
-        ? remarks
-        : `${remarks || ''} (Approval ${newApprovalCount}/${approvalFlow.requiredApprovalCount})`.trim(),
+      ...(remarksValue ? { remarks: remarksValue } : {}),
     };
 
     // Update approval flow
@@ -472,7 +473,17 @@ export async function approveLeaveRequest(
       // Complete all approver task notifications
       await completeTaskNotificationsByEntity('HR_LEAVE_REQUEST', requestId, approverId);
 
-      // Create final approval notification for employee
+      // Create final approval notification for employee - strip undefined values
+      const approvedMetadata = Object.fromEntries(
+        Object.entries({
+          approverName,
+          leaveType: request.leaveTypeName,
+          numberOfDays: request.numberOfDays,
+          startDate: request.startDate,
+          endDate: request.endDate,
+          remarks,
+        }).filter(([, value]) => value !== undefined)
+      );
       const employeeNotification: CreateTaskNotificationInput = {
         type: 'informational',
         category: 'LEAVE_APPROVED',
@@ -485,14 +496,7 @@ export async function approveLeaveRequest(
         entityType: 'HR_LEAVE_REQUEST',
         entityId: requestId,
         linkUrl: `/hr/leaves/${requestId}`,
-        metadata: {
-          approverName,
-          leaveType: request.leaveTypeName,
-          numberOfDays: request.numberOfDays,
-          startDate: request.startDate,
-          endDate: request.endDate,
-          remarks,
-        },
+        metadata: approvedMetadata,
       };
       await createTaskNotification(employeeNotification);
 
@@ -682,20 +686,20 @@ export async function cancelLeaveRequest(
 
     const now = Timestamp.now();
 
-    // Create approval history record
+    // Create approval history record - strip undefined values for Firestore
     const approvalRecord: LeaveApprovalRecord = {
       action: 'CANCELLED',
       actorId: userId,
       actorName: userName,
       timestamp: now,
-      remarks: cancellationReason,
+      ...(cancellationReason ? { remarks: cancellationReason } : {}),
     };
 
-    // Update request
+    // Update request - strip undefined values
     const docRef = doc(db, COLLECTIONS.HR_LEAVE_REQUESTS, requestId);
     await updateDoc(docRef, {
       status: 'CANCELLED',
-      cancellationReason,
+      ...(cancellationReason ? { cancellationReason } : {}),
       cancelledAt: now,
       approvalHistory: [...request.approvalHistory, approvalRecord],
       updatedAt: now,

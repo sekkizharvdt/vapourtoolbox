@@ -413,6 +413,61 @@ export default function LeaveDetailClient() {
                   </Alert>
                 </>
               )}
+
+              {/* Show approvers info when pending approval */}
+              {['PENDING_APPROVAL', 'PARTIALLY_APPROVED'].includes(request.status) &&
+                approvalFlow && (
+                  <>
+                    <Divider sx={{ my: 2 }} />
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Approval Status
+                    </Typography>
+                    <Alert severity="info" sx={{ mb: 1 }} icon={false}>
+                      <Typography variant="body2">
+                        {isSelfApprovalCase
+                          ? 'Since you are one of the approvers, only 1 approval is required from the other approver.'
+                          : `This request requires approval from ${requiredCount} approver(s).`}
+                      </Typography>
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="body2" fontWeight="medium">
+                          Required Approvers:
+                        </Typography>
+                        {approvalFlow.requiredApprovers.map((email) => {
+                          const hasApproved = approvalFlow.approvals?.some(
+                            (a) => a.approverEmail === email
+                          );
+                          return (
+                            <Box
+                              key={email}
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1,
+                                mt: 0.5,
+                              }}
+                            >
+                              <Chip
+                                size="small"
+                                label={hasApproved ? '✓ Approved' : 'Pending'}
+                                color={hasApproved ? 'success' : 'warning'}
+                                variant={hasApproved ? 'filled' : 'outlined'}
+                              />
+                              <Typography variant="body2">
+                                {email}
+                                {approvalFlow.approvals?.find((a) => a.approverEmail === email)
+                                  ?.approverName &&
+                                  ` (${approvalFlow.approvals.find((a) => a.approverEmail === email)?.approverName})`}
+                              </Typography>
+                            </Box>
+                          );
+                        })}
+                      </Box>
+                      <Typography variant="body2" sx={{ mt: 1 }} color="text.secondary">
+                        Progress: {approvalCount}/{requiredCount} approval(s) received
+                      </Typography>
+                    </Alert>
+                  </>
+                )}
             </CardContent>
           </Card>
         </Grid>
