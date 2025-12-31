@@ -462,7 +462,8 @@
       "Bash(GOOGLE_APPLICATION_CREDENTIALS=/workspaces/vapourtoolbox/mcp-servers/firebase-feedback/service-account-key.json node:*)",
       "Bash(npm run lint:web:*)",
       "Bash(git diff:*)",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix\\(travel-expenses\\): strip undefined values before Firestore writes\n\nFixed the \"Unsupported field value: undefined\" error when approving\ntravel expense reports. The optional comments field was being included\nas undefined in the approval record and notification metadata.\n\nNow strips undefined values using Object.fromEntries/filter pattern\nbefore writing to Firestore, consistent with other services.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ],
     "deny": [],
     "ask": []

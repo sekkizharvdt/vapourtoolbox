@@ -65,7 +65,7 @@ export default function HRPage() {
       title: 'Leave Settings',
       description: 'Configure leave types, quotas, and policies',
       icon: <SettingsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/hr/settings/leave-types',
+      path: '/admin/hr-setup',
       requiresPermission: canManageHRSettings,
     },
     {

@@ -9,13 +9,8 @@
  */
 
 import { useState } from 'react';
-import { Box, Container, Typography, Tabs, Tab, Breadcrumbs, Link } from '@mui/material';
-import {
-  Home as HomeIcon,
-  EventNote as LeaveTypesIcon,
-  AccountBalance as BalancesIcon,
-} from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+import { Box, Typography, Tabs, Tab } from '@mui/material';
+import { EventNote as LeaveTypesIcon, AccountBalance as BalancesIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import LeaveTypesTab from './components/LeaveTypesTab';
@@ -51,7 +46,6 @@ function a11yProps(index: number) {
 }
 
 export default function HRSetupPage() {
-  const router = useRouter();
   const { claims } = useAuth();
   const [tabValue, setTabValue] = useState(0);
 
@@ -64,37 +58,19 @@ export default function HRSetupPage() {
 
   if (!hasAdminAccess) {
     return (
-      <Container maxWidth="xl">
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            HR Setup
-          </Typography>
-          <Typography color="error">
-            You do not have permission to access HR setup. Admin access required.
-          </Typography>
-        </Box>
-      </Container>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          HR Setup
+        </Typography>
+        <Typography color="error">
+          You do not have permission to access HR setup. Admin access required.
+        </Typography>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl">
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/admin"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/admin');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Admin
-        </Link>
-        <Typography color="text.primary">HR Setup</Typography>
-      </Breadcrumbs>
-
+    <>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           HR Setup
@@ -128,6 +104,6 @@ export default function HRSetupPage() {
       <TabPanel value={tabValue} index={1}>
         <LeaveBalancesTab />
       </TabPanel>
-    </Container>
+    </>
   );
 }

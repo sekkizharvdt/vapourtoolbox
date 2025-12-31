@@ -38,6 +38,7 @@ function getBreadcrumbs(pathname: string) {
     'audit-logs': 'Audit Logs',
     seed: 'Seed Data',
     'seed-materials': 'Seed Materials',
+    'hr-setup': 'HR Setup',
   };
 
   // Add subsequent segments
