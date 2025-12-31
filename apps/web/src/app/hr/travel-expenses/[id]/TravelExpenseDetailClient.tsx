@@ -127,6 +127,7 @@ export default function TravelExpenseDetailClient() {
   const [returnComments, setReturnComments] = useState('');
   const [approvalComments, setApprovalComments] = useState('');
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Add item form state
   const [newItem, setNewItem] = useState({
@@ -292,6 +293,7 @@ export default function TravelExpenseDetailClient() {
   const handleSubmit = async () => {
     if (!user || !reportId) return;
 
+    setActionError(null);
     try {
       await submitMutation.mutateAsync({
         reportId,
@@ -302,12 +304,14 @@ export default function TravelExpenseDetailClient() {
       refetch();
     } catch (err) {
       console.error('Failed to submit report:', err);
+      setActionError(err instanceof Error ? err.message : 'Failed to submit report');
     }
   };
 
   const handleApprove = async () => {
     if (!user || !reportId) return;
 
+    setActionError(null);
     try {
       await approveMutation.mutateAsync({
         reportId,
@@ -320,12 +324,15 @@ export default function TravelExpenseDetailClient() {
       refetch();
     } catch (err) {
       console.error('Failed to approve report:', err);
+      setActionError(err instanceof Error ? err.message : 'Failed to approve report');
+      setApproveDialogOpen(false);
     }
   };
 
   const handleReject = async () => {
     if (!user || !reportId || !rejectionReason.trim()) return;
 
+    setActionError(null);
     try {
       await rejectMutation.mutateAsync({
         reportId,
@@ -338,12 +345,15 @@ export default function TravelExpenseDetailClient() {
       refetch();
     } catch (err) {
       console.error('Failed to reject report:', err);
+      setActionError(err instanceof Error ? err.message : 'Failed to reject report');
+      setRejectDialogOpen(false);
     }
   };
 
   const handleReturn = async () => {
     if (!user || !reportId || !returnComments.trim()) return;
 
+    setActionError(null);
     try {
       await returnMutation.mutateAsync({
         reportId,
@@ -356,6 +366,8 @@ export default function TravelExpenseDetailClient() {
       refetch();
     } catch (err) {
       console.error('Failed to return report:', err);
+      setActionError(err instanceof Error ? err.message : 'Failed to return report');
+      setReturnDialogOpen(false);
     }
   };
 
@@ -510,6 +522,13 @@ export default function TravelExpenseDetailClient() {
           )}
         </Box>
       </Box>
+
+      {/* Action Error Alert */}
+      {actionError && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setActionError(null)}>
+          {actionError}
+        </Alert>
+      )}
 
       {/* Trip Summary Card */}
       <Card sx={{ mb: 3 }}>
