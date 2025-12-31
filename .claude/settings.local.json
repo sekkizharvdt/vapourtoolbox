@@ -453,7 +453,13 @@
       "Bash(node scripts/seed-leave-types.js:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfix\\(hr\\): add missing index and improve seed error handling\n\n- Add composite index for hrLeaveTypes \\(code + isActive\\) to support\n  the getLeaveTypeByCode query used during leave type creation\n- Improve seed function to show detailed error messages when creation\n  fails instead of silently failing\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfix\\(hr\\): extract employeeId from pathname for static export\n\nWith static export + Firebase hosting rewrites, the params from\nserver components always return ''placeholder''. Extract the actual\nID from the pathname using usePathname\\(\\) hook instead, similar to\nhow TravelExpenseDetailClient handles this.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(authentication data\" error when creating enquiries. Now uses the\nsame FALLBACK_ENTITY_ID pattern used in the enquiries list page.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(authentication data\" error when creating enquiries. Now uses the\nsame FALLBACK_ENTITY_ID pattern used in the enquiries list page.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(firebase firestore:rules:list:*)",
+      "Bash(node:*)",
+      "Bash(GOOGLE_CLOUD_PROJECT=vapour-toolbox GCLOUD_PROJECT=vapour-toolbox node:*)",
+      "Bash(firebase login:ci:*)",
+      "Bash(gcloud auth application-default print-access-token:*)",
+      "Bash(GOOGLE_APPLICATION_CREDENTIALS=/workspaces/vapourtoolbox/mcp-servers/firebase-feedback/service-account-key.json node:*)"
     ],
     "deny": [],
     "ask": []

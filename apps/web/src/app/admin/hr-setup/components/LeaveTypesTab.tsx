@@ -1,5 +1,12 @@
 'use client';
 
+/**
+ * Leave Types Tab Component
+ *
+ * Manages leave types: CRUD operations, seeding defaults
+ * Admin-only access (used in /admin/hr-setup)
+ */
+
 import { useState, useEffect } from 'react';
 import {
   Typography,
@@ -24,19 +31,14 @@ import {
   FormControlLabel,
   Switch,
   Grid,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Refresh as RefreshIcon,
-  Home as HomeIcon,
   PlaylistAdd as SeedIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { canManageHRSettings } from '@vapour/constants';
 import {
   getLeaveTypes,
   createLeaveType,
@@ -65,9 +67,6 @@ const DEFAULT_COLORS = [
   '#ec4899', // pink
 ];
 
-/**
- * Default leave types to seed when none exist
- */
 const DEFAULT_LEAVE_TYPES: CreateLeaveTypeInput[] = [
   {
     code: 'SICK',
@@ -78,7 +77,7 @@ const DEFAULT_LEAVE_TYPES: CreateLeaveTypeInput[] = [
     maxCarryForward: 0,
     isPaid: true,
     requiresApproval: true,
-    minNoticeDays: 0, // Same day notice allowed
+    minNoticeDays: 0,
     maxConsecutiveDays: undefined,
     allowHalfDay: true,
     color: '#ef4444',
@@ -129,9 +128,8 @@ const defaultFormData: FormData = {
   color: '#3b82f6',
 };
 
-export default function LeaveTypesSettingsPage() {
-  const router = useRouter();
-  const { user, claims } = useAuth();
+export default function LeaveTypesTab() {
+  const { user } = useAuth();
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -141,9 +139,6 @@ export default function LeaveTypesSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [seedSuccess, setSeedSuccess] = useState<string | null>(null);
-
-  const permissions2 = claims?.permissions2 ?? 0;
-  const hasManageAccess = canManageHRSettings(permissions2);
 
   const loadData = async () => {
     setLoading(true);
@@ -197,7 +192,6 @@ export default function LeaveTypesSettingsPage() {
 
     try {
       if (editingType) {
-        // Update existing
         await updateLeaveType(
           editingType.id,
           {
@@ -216,7 +210,6 @@ export default function LeaveTypesSettingsPage() {
           user.uid
         );
       } else {
-        // Create new
         const input: CreateLeaveTypeInput = {
           code: formData.code,
           name:
@@ -309,46 +302,10 @@ export default function LeaveTypesSettingsPage() {
     }
   };
 
-  if (!hasManageAccess) {
-    return (
-      <Box>
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Leave Type Settings
-          </Typography>
-          <Alert severity="error">You do not have permission to manage HR settings.</Alert>
-        </Box>
-      </Box>
-    );
-  }
-
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/hr"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/hr');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          HR
-        </Link>
-        <Typography color="text.primary">Leave Types</Typography>
-      </Breadcrumbs>
-
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Leave Type Settings
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Configure leave types, quotas, and policies
-          </Typography>
-        </Box>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h6">Leave Types Configuration</Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <IconButton onClick={loadData} title="Refresh">
             <RefreshIcon />

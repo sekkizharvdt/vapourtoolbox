@@ -31,6 +31,7 @@ import {
   ArrowForward as ArrowIcon,
   Assessment as AnalyticsIcon,
   Security as SecurityIcon,
+  EventNote as HRIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -195,6 +196,13 @@ export default function AdminDashboardPage() {
       icon: <SecurityIcon sx={{ fontSize: 48, color: 'warning.main' }} />,
       path: '/super-admin/system-status',
     },
+    {
+      id: 'hr-setup',
+      title: 'HR Setup',
+      description: 'Configure leave types, quotas, and manage employee leave balances',
+      icon: <HRIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/admin/hr-setup',
+    },
   ];
 
   return (
@@ -267,7 +275,9 @@ export default function AdminDashboardPage() {
                       ? 'Configure'
                       : card.id === 'system-status'
                         ? 'View Status'
-                        : 'View'}
+                        : card.id === 'hr-setup'
+                          ? 'Setup'
+                          : 'View'}
                 </Button>
               </CardActions>
             </Card>

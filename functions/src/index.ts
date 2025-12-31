@@ -78,4 +78,8 @@ export { onUserNameChange, onEntityNameChange, onProjectNameChange } from './den
 export { parseReceiptForExpense } from './receiptParsing/parseReceipt';
 
 // Import HR functions (leave balance reset)
-export { resetLeaveBalances, manualResetLeaveBalances } from './hr/leaveBalanceReset';
+export {
+  resetLeaveBalances,
+  manualResetLeaveBalances,
+  seedLeaveTypes,
+} from './hr/leaveBalanceReset';

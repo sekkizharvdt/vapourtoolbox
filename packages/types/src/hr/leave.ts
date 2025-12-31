@@ -70,6 +70,7 @@ export interface LeaveBalance extends TimestampFields {
 export type LeaveRequestStatus =
   | 'DRAFT'
   | 'PENDING_APPROVAL'
+  | 'PARTIALLY_APPROVED' // First approver approved, awaiting second
   | 'APPROVED'
   | 'REJECTED'
   | 'CANCELLED';
@@ -88,6 +89,29 @@ export interface LeaveApprovalRecord {
   actorName: string;
   timestamp: Timestamp;
   remarks?: string;
+}
+
+/**
+ * Individual approval entry in the 2-step approval flow
+ */
+export interface ApprovalEntry {
+  approverId: string;
+  approverEmail: string;
+  approverName: string;
+  approvedAt: Timestamp;
+  step: number; // 1 or 2
+}
+
+/**
+ * 2-step approval flow configuration and state
+ */
+export interface ApprovalFlow {
+  requiredApprovers: string[]; // Email addresses of required approvers
+  requiredApprovalCount: number; // 2 for normal, 1 for self-approval case
+  approvals: ApprovalEntry[]; // Approvals received so far
+  currentStep: number; // Current approval step (1 or 2)
+  isComplete: boolean; // Whether all required approvals received
+  isSelfApprovalCase: boolean; // True when applicant is an approver
 }
 
 /**
@@ -116,10 +140,11 @@ export interface LeaveRequest extends TimestampFields {
   attachmentUrls?: string[];
   fiscalYear: number; // Fiscal year the leave belongs to
 
-  // Approval Workflow (parallel - any one can approve)
+  // Approval Workflow (2-step sequential - both approvers must approve)
   status: LeaveRequestStatus;
   approverIds: string[]; // UIDs of designated approvers
-  approvedBy?: string;
+  approvalFlow?: ApprovalFlow; // 2-step approval tracking
+  approvedBy?: string; // Final approver (for backward compatibility)
   approvedByName?: string;
   approvedAt?: Timestamp;
   rejectedBy?: string;

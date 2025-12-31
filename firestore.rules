@@ -885,10 +885,7 @@ service cloud.firestore {
       allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
 
       // Create: Users with MANAGE_ESTIMATION permission
-      // Note: entityId check allows 'default-entity' fallback for users without entityId claim
       allow create: if hasPermission(262144) && isInternalUser() &&
-                       (request.resource.data.entityId == request.auth.token.entityId ||
-                        (request.auth.token.entityId == null && request.resource.data.entityId == 'default-entity')) &&
                        request.resource.data.createdBy == request.auth.uid; // MANAGE_ESTIMATION (bit 18)
 
       // Update: Users with MANAGE_ESTIMATION permission

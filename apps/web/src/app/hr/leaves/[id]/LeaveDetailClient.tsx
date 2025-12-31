@@ -92,9 +92,27 @@ export default function LeaveDetailClient() {
   const hasApproveAccess = canApproveLeaves(permissions2);
   const isOwner = request?.userId === user?.uid;
   const canSubmit = isOwner && request?.status === 'DRAFT';
-  const canApprove = hasApproveAccess && request?.status === 'PENDING_APPROVAL';
+
+  // Check if current user has already approved this request
+  const hasAlreadyApproved = request?.approvalFlow?.approvals?.some(
+    (a) => a.approverId === user?.uid
+  );
+
+  // Can approve if: has permission AND (status is pending OR partially approved) AND hasn't already approved
+  const canApprove =
+    hasApproveAccess &&
+    ['PENDING_APPROVAL', 'PARTIALLY_APPROVED'].includes(request?.status || '') &&
+    !hasAlreadyApproved;
+
+  // Can cancel DRAFT, PENDING_APPROVAL, or PARTIALLY_APPROVED
   const canCancel =
-    isOwner && (request?.status === 'DRAFT' || request?.status === 'PENDING_APPROVAL');
+    isOwner && ['DRAFT', 'PENDING_APPROVAL', 'PARTIALLY_APPROVED'].includes(request?.status || '');
+
+  // Get approval progress info
+  const approvalFlow = request?.approvalFlow;
+  const approvalCount = approvalFlow?.approvals?.length || 0;
+  const requiredCount = approvalFlow?.requiredApprovalCount || 2;
+  const isSelfApprovalCase = approvalFlow?.isSelfApprovalCase || false;
 
   const loadData = async () => {
     if (!requestId) return;
@@ -250,6 +268,22 @@ export default function LeaveDetailClient() {
             {request.requestNumber}
           </Typography>
           <Chip label={STATUS_LABELS[request.status]} color={STATUS_COLORS[request.status]} />
+          {/* Show approval progress for pending/partial statuses */}
+          {['PENDING_APPROVAL', 'PARTIALLY_APPROVED'].includes(request.status) && approvalFlow && (
+            <Chip
+              label={
+                isSelfApprovalCase
+                  ? `${approvalCount}/1 approval`
+                  : `${approvalCount}/${requiredCount} approvals`
+              }
+              size="small"
+              variant="outlined"
+              color={approvalCount > 0 ? 'success' : 'default'}
+            />
+          )}
+          {hasAlreadyApproved && (
+            <Chip label="You approved" size="small" color="success" variant="outlined" />
+          )}
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {canSubmit && (

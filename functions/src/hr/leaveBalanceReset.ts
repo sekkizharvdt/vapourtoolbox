@@ -181,6 +181,110 @@ export const resetLeaveBalances = onSchedule(
 );
 
 /**
+ * Seed leave types (for initial setup)
+ *
+ * Creates default leave types: Sick Leave and Casual Leave
+ * Can be called from the app by admin users
+ */
+export const seedLeaveTypes = onCall(
+  {
+    region: 'asia-south1',
+    cors: true,
+  },
+  async (request) => {
+    // Verify caller has admin permissions
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be authenticated');
+    }
+
+    const permissions = request.auth.token.permissions || 0;
+    const isAdmin = permissions & 1; // MANAGE_USERS permission
+
+    if (!isAdmin) {
+      throw new HttpsError('permission-denied', 'Must have admin permissions to seed leave types');
+    }
+
+    logger.info('Seeding leave types', { triggeredBy: request.auth.uid });
+
+    const LEAVE_TYPES = [
+      {
+        code: 'SICK',
+        name: 'Sick Leave',
+        description: 'Leave for medical reasons or illness',
+        annualQuota: 12,
+        carryForwardAllowed: false,
+        maxCarryForward: 0,
+        isPaid: true,
+        requiresApproval: true,
+        minNoticeDays: 0,
+        maxConsecutiveDays: null,
+        allowHalfDay: true,
+        color: '#ef4444',
+        isActive: true,
+      },
+      {
+        code: 'CASUAL',
+        name: 'Casual Leave',
+        description: 'Leave for personal matters or emergencies',
+        annualQuota: 12,
+        carryForwardAllowed: false,
+        maxCarryForward: 0,
+        isPaid: true,
+        requiresApproval: true,
+        minNoticeDays: 1,
+        maxConsecutiveDays: 3,
+        allowHalfDay: true,
+        color: '#3b82f6',
+        isActive: true,
+      },
+    ];
+
+    try {
+      const now = admin.firestore.Timestamp.now();
+      let created = 0;
+      let skipped = 0;
+
+      for (const leaveType of LEAVE_TYPES) {
+        // Check if leave type already exists
+        const existingQuery = await db
+          .collection(HR_LEAVE_TYPES)
+          .where('code', '==', leaveType.code)
+          .limit(1)
+          .get();
+
+        if (!existingQuery.empty) {
+          logger.info('Leave type already exists, skipping', { code: leaveType.code });
+          skipped++;
+          continue;
+        }
+
+        // Create the leave type
+        await db.collection(HR_LEAVE_TYPES).add({
+          ...leaveType,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: request.auth.uid,
+          updatedBy: request.auth.uid,
+        });
+
+        logger.info('Created leave type', { code: leaveType.code, name: leaveType.name });
+        created++;
+      }
+
+      return {
+        success: true,
+        message: `Leave types seeded successfully`,
+        created,
+        skipped,
+      };
+    } catch (error) {
+      logger.error('Failed to seed leave types', { error });
+      throw new HttpsError('internal', 'Failed to seed leave types');
+    }
+  }
+);
+
+/**
  * Manual trigger for leave balance reset (for testing or manual execution)
  *
  * Can be called with: firebase functions:shell

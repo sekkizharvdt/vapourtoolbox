@@ -15,6 +15,7 @@ export const LEAVE_STATUS_COLORS: Record<
 > = {
   DRAFT: 'default',
   PENDING_APPROVAL: 'warning',
+  PARTIALLY_APPROVED: 'info',
   APPROVED: 'success',
   REJECTED: 'error',
   CANCELLED: 'info',
@@ -26,6 +27,7 @@ export const LEAVE_STATUS_COLORS: Record<
 export const LEAVE_STATUS_LABELS: Record<LeaveRequestStatus, string> = {
   DRAFT: 'Draft',
   PENDING_APPROVAL: 'Pending Approval',
+  PARTIALLY_APPROVED: 'Partially Approved',
   APPROVED: 'Approved',
   REJECTED: 'Rejected',
   CANCELLED: 'Cancelled',
