@@ -35,7 +35,7 @@ const logger = createLogger({ context: 'proposalService' });
 const COLLECTIONS = {
   PROPOSALS: 'proposals',
   ENQUIRIES: 'enquiries',
-  ENTITIES: 'business_entities',
+  ENTITIES: 'entities',
 };
 
 /**
