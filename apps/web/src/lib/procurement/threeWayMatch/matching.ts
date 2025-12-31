@@ -418,8 +418,13 @@ export async function performThreeWayMatch(
       updatedBy: userId,
     };
 
+    // Remove undefined values before sending to Firestore
+    const cleanedMatchData = Object.fromEntries(
+      Object.entries(matchData).filter(([, value]) => value !== undefined)
+    );
+
     // Save to Firestore
-    const matchRef = await addDoc(collection(db, COLLECTIONS.THREE_WAY_MATCHES), matchData);
+    const matchRef = await addDoc(collection(db, COLLECTIONS.THREE_WAY_MATCHES), cleanedMatchData);
 
     // Save line items and discrepancies
     const batch = writeBatch(db);

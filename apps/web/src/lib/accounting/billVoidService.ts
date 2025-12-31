@@ -303,8 +303,13 @@ export async function voidAndRecreateBill(
         updatedBy: userId,
       });
 
+      // Remove undefined values before sending to Firestore
+      const cleanedNewBillData = Object.fromEntries(
+        Object.entries(newBillData).filter(([, value]) => value !== undefined)
+      );
+
       // Create the new bill
-      transaction.set(newBillRef, newBillData);
+      transaction.set(newBillRef, cleanedNewBillData);
 
       return {
         success: true,

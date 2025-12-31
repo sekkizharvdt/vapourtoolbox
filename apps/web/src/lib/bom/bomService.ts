@@ -378,8 +378,13 @@ export async function addBOMItem(
       updatedBy: userId,
     };
 
+    // Remove undefined values before sending to Firestore
+    const cleanedItemData = Object.fromEntries(
+      Object.entries(itemData).filter(([, value]) => value !== undefined)
+    );
+
     const itemsRef = collection(db, COLLECTIONS.BOMS, bomId, COLLECTIONS.BOM_ITEMS);
-    const docRef = await addDoc(itemsRef, itemData);
+    const docRef = await addDoc(itemsRef, cleanedItemData);
 
     logger.info('BOM item added successfully', { id: docRef.id, itemNumber });
 

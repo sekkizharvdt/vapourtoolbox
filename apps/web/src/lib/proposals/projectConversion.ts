@@ -176,8 +176,13 @@ export async function convertProposalToProject(
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
+    // Remove undefined values before sending to Firestore
+    const cleanedProject = Object.fromEntries(
+      Object.entries(newProject).filter(([, value]) => value !== undefined)
+    );
+
     // Add project to Firestore
-    const projectRef = await addDoc(collection(db, COLLECTIONS.PROJECTS), newProject);
+    const projectRef = await addDoc(collection(db, COLLECTIONS.PROJECTS), cleanedProject);
 
     // Update proposal with project link
     const proposalRef = doc(db, COLLECTIONS.PROPOSALS, proposalId);

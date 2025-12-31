@@ -90,8 +90,13 @@ export async function createWorkItem(
     isDeleted: false,
   };
 
+  // Remove undefined values before sending to Firestore
+  const cleanedWorkItem = Object.fromEntries(
+    Object.entries(workItem).filter(([, value]) => value !== undefined)
+  );
+
   const workItemsRef = collection(db, 'projects', request.projectId, 'workItems');
-  const docRef = await addDoc(workItemsRef, workItem);
+  const docRef = await addDoc(workItemsRef, cleanedWorkItem);
 
   return docRef.id;
 }

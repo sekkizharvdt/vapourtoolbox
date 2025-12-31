@@ -70,8 +70,13 @@ export async function createProposalRevision(
       updatedBy: userId,
     };
 
+    // Remove undefined values before sending to Firestore
+    const cleanedRevision = Object.fromEntries(
+      Object.entries(newRevision).filter(([, value]) => value !== undefined)
+    );
+
     // Add new revision document
-    const newRevisionRef = await addDoc(collection(db, COLLECTIONS.PROPOSALS), newRevision);
+    const newRevisionRef = await addDoc(collection(db, COLLECTIONS.PROPOSALS), cleanedRevision);
 
     logger.info('Proposal revision created', {
       originalId: proposalId,

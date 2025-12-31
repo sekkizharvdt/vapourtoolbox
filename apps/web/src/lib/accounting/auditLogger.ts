@@ -125,8 +125,13 @@ export async function logFinancialTransactionEvent(
       timestamp: Timestamp.now(),
     };
 
+    // Remove undefined values before sending to Firestore
+    const cleanedAuditLog = Object.fromEntries(
+      Object.entries(auditLog).filter(([, value]) => value !== undefined)
+    );
+
     // Write to Firestore audit logs collection
-    await addDoc(collection(db, COLLECTIONS.AUDIT_LOGS), auditLog);
+    await addDoc(collection(db, COLLECTIONS.AUDIT_LOGS), cleanedAuditLog);
   } catch (error) {
     // First attempt failed - retry once before falling back
     logger.error('Failed to write audit log - attempting retry', {
@@ -158,7 +163,12 @@ export async function logFinancialTransactionEvent(
         timestamp: Timestamp.now(),
       };
 
-      await addDoc(collection(db, COLLECTIONS.AUDIT_LOGS), retryAuditLog);
+      // Remove undefined values before sending to Firestore
+      const cleanedRetryLog = Object.fromEntries(
+        Object.entries(retryAuditLog).filter(([, value]) => value !== undefined)
+      );
+
+      await addDoc(collection(db, COLLECTIONS.AUDIT_LOGS), cleanedRetryLog);
       logger.info('Audit log written successfully on retry', { entityId, action });
     } catch (retryError) {
       // Retry also failed - write to fallback storage
@@ -478,7 +488,12 @@ export async function syncFallbackAuditLogs(
         },
       };
 
-      await addDoc(collection(db, COLLECTIONS.AUDIT_LOGS), recoveredLog);
+      // Remove undefined values before sending to Firestore
+      const cleanedRecoveredLog = Object.fromEntries(
+        Object.entries(recoveredLog).filter(([, value]) => value !== undefined)
+      );
+
+      await addDoc(collection(db, COLLECTIONS.AUDIT_LOGS), cleanedRecoveredLog);
       synced++;
     } catch {
       // Keep for next sync attempt
