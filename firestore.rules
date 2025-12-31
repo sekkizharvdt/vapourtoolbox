@@ -122,10 +122,9 @@ service cloud.firestore {
     // ============================================
 
     match /entities/{entityId} {
-      // Read: Users with VIEW_ENTITIES permission (32)
-      //       All internal users should have this permission
-      allow read: if hasPermission(32) && // VIEW_ENTITIES
-                     isInternalUser();
+      // Read: All internal users (needed for EntitySelector in Enquiries, PRs, etc.)
+      // Note: VIEW_ENTITIES permission (32) is deprecated for reads - all internal users need entity access
+      allow read: if isInternalUser();
 
       // Create: Users with CREATE_ENTITIES permission (64)
       allow create: if hasPermission(64) && // CREATE_ENTITIES
