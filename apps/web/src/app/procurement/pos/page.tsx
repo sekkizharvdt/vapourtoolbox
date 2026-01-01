@@ -32,6 +32,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Search as SearchIcon } from '@mui/icons-material';
 import { PageHeader, LoadingState, EmptyState, StatCard, FilterBar } from '@vapour/ui';
+import { purchaseOrderListHelp } from '@/lib/help/pageHelpContent';
 import type { PurchaseOrder, PurchaseOrderStatus } from '@vapour/types';
 import { listPOs } from '@/lib/procurement/purchaseOrderService';
 import {
@@ -118,6 +119,7 @@ export default function PurchaseOrdersPage() {
         <PageHeader
           title="Purchase Orders"
           subtitle="Manage purchase orders and track deliveries"
+          help={purchaseOrderListHelp}
           action={
             <Button
               variant="contained"

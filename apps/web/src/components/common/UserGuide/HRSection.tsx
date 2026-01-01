@@ -4,12 +4,14 @@
  * HR Module Section
  *
  * Documentation for Leave Management and Travel Expenses features.
+ * Updated to reflect 2-step approval workflow.
  */
 
 import { Box, Typography, Alert, Divider } from '@mui/material';
 import EventIcon from '@mui/icons-material/Event';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import GroupIcon from '@mui/icons-material/Group';
 import { FeatureCard, StepGuide } from './helpers';
 
 export function HRSection() {
@@ -17,7 +19,7 @@ export function HRSection() {
     <Box>
       <Typography variant="body1" paragraph>
         The HR module helps you manage employee leave requests and travel expense reports with
-        streamlined approval workflows.
+        multi-step approval workflows.
       </Typography>
 
       {/* Leave Management */}
@@ -43,6 +45,11 @@ export function HRSection() {
           title="Balance Tracking"
           description="View your entitled, used, pending, and available leave balance for each type."
         />
+        <FeatureCard
+          icon={<GroupIcon color="primary" />}
+          title="2-Step Approval"
+          description="Leave requests require approval from 2 designated approvers for accountability."
+        />
       </Box>
 
       <Typography variant="subtitle2" gutterBottom>
@@ -51,7 +58,7 @@ export function HRSection() {
       <StepGuide
         steps={[
           {
-            title: 'Navigate to HR → Leaves',
+            title: 'Navigate to HR → My Leaves',
             description: 'Click "New Leave Request" to open the leave application form.',
           },
           {
@@ -62,20 +69,21 @@ export function HRSection() {
           {
             title: 'Add Reason and Submit',
             description:
-              'Provide a reason for your leave and submit. Your manager will receive a notification.',
+              'Provide a reason for your leave and submit. Both designated approvers will receive task notifications.',
           },
           {
-            title: 'Track Status',
+            title: 'Track Approval Progress',
             description:
-              'View your request status in the leave list. You can cancel pending requests if needed.',
+              'View the approval status showing who has approved and who is pending. Status shows "Partially Approved" after the first approval.',
           },
         ]}
       />
 
       <Alert severity="info" sx={{ mt: 2, mb: 3 }}>
         <Typography variant="body2">
-          <strong>Tip:</strong> Check your leave balance before applying. Leave that exceeds your
-          balance may be marked as unpaid or rejected.
+          <strong>2-Step Approval:</strong> Leave requests require 2 approvals to be fully approved.
+          If you are one of the designated approvers, only 1 additional approval is needed. You
+          cannot approve your own leave requests.
         </Typography>
       </Alert>
 
@@ -132,7 +140,7 @@ export function HRSection() {
           {
             title: 'Submit for Approval',
             description:
-              'Review the total and submit. Your manager will approve and process reimbursement.',
+              'Review the total and submit. Approvers receive a task notification in Flow.',
           },
         ]}
       />

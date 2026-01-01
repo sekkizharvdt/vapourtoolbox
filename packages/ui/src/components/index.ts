@@ -9,7 +9,7 @@ export { FormDialog, FormDialogActions, ConfirmDialog } from './dialogs';
 
 // Layout Components
 export { PageHeader } from './PageHeader';
-export type { PageHeaderProps } from './PageHeader';
+export type { PageHeaderProps, PageHelpContent } from './PageHeader';
 
 // State Components
 export { EmptyState } from './EmptyState';

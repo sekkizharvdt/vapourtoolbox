@@ -43,6 +43,7 @@ import {
   StatCard,
   FilterBar,
 } from '@vapour/ui';
+import { invoiceListHelp } from '@/lib/help/pageHelpContent';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, orderBy, doc, Timestamp } from 'firebase/firestore';
@@ -264,6 +265,7 @@ export default function InvoicesPage() {
       <PageHeader
         title="Customer Invoices"
         subtitle="Manage customer invoices and track payments"
+        help={invoiceListHelp}
         action={
           canManage && (
             <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
