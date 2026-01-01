@@ -1229,33 +1229,28 @@ export const MODULE_PERMISSIONS: PermissionModuleDef[] = [
   {
     id: 'hr',
     name: 'HR & Leave Management',
-    description: 'Human resources and leave tracking',
+    description: 'Open to all users for basic functions (My Leaves, Expenses, Calendar, Directory)',
+    // No View permission - HR module is open to all authenticated users
+    // These are admin-only permissions for managing HR settings and approvals
     permissions: [
-      {
-        flag: PERMISSION_FLAGS_2.VIEW_HR,
-        label: 'View',
-        description: 'View HR module and leave balances',
-        category: 'view',
-        field: 'permissions2',
-      },
       {
         flag: PERMISSION_FLAGS_2.MANAGE_HR_SETTINGS,
         label: 'Manage Settings',
-        description: 'Configure leave types and policies',
+        description: 'Configure leave types, policies, and holiday settings',
         category: 'manage',
         field: 'permissions2',
       },
       {
         flag: PERMISSION_FLAGS_2.APPROVE_LEAVES,
         label: 'Approve Leaves',
-        description: 'Approve or reject leave requests',
+        description: 'Approve or reject leave requests from team members',
         category: 'approve',
         field: 'permissions2',
       },
       {
         flag: PERMISSION_FLAGS_2.MANAGE_HR_PROFILES,
         label: 'Manage Profiles',
-        description: 'Edit employee HR profiles',
+        description: 'Edit employee HR profiles and directory information',
         category: 'manage',
         field: 'permissions2',
       },
