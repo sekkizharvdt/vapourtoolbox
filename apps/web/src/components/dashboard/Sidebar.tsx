@@ -150,7 +150,7 @@ const SIDEBAR_CATEGORIES: CategoryConfig[] = [
     label: 'SETUP',
     moduleIds: [
       'entity-management', // Entities - requires VIEW_ENTITIES
-      'hr-management', // HR & Leave - requires VIEW_HR (permissions2)
+      'hr-management', // HR & Leave - open to all users
       'document-management', // Company Documents - SOPs, policies, templates
     ],
   },

@@ -31,9 +31,10 @@ import {
   Home as HomeIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewHR, canManageHRSettings } from '@vapour/constants';
+import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import { getEmployeeById } from '@/lib/hr';
 import type { EmployeeDetail } from '@vapour/types';
+import { EditEmployeeDialog } from './components/EditEmployeeDialog';
 
 const BLOOD_GROUP_COLORS: Record<string, 'error' | 'warning' | 'info' | 'success' | 'default'> = {
   'A+': 'error',
@@ -53,6 +54,7 @@ export default function EmployeeDetailClient() {
   const [employee, setEmployee] = useState<EmployeeDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   // Extract employeeId from pathname for static export compatibility
   // useParams/props return 'placeholder' with static export + Firebase hosting rewrites
@@ -68,19 +70,16 @@ export default function EmployeeDetailClient() {
     }
   }, [pathname]);
 
-  const permissions2 = claims?.permissions2 ?? 0;
-  const hasAccess = canViewHR(permissions2);
-  const canEdit = canManageHRSettings(permissions2);
+  // HR module is open to all - no permission check needed for viewing
+  // Editing requires MANAGE_USERS permission
+  const permissions = claims?.permissions ?? 0;
+  const canEdit = hasPermission(permissions, PERMISSION_FLAGS.MANAGE_USERS);
   const claimsLoaded = claims !== undefined;
 
   useEffect(() => {
     const loadEmployee = async () => {
       // Wait for claims to load and employeeId to be extracted
       if (!claimsLoaded || !employeeId) return;
-      if (!hasAccess) {
-        setLoading(false);
-        return;
-      }
 
       setLoading(true);
       setError(null);
@@ -104,7 +103,7 @@ export default function EmployeeDetailClient() {
     };
 
     loadEmployee();
-  }, [employeeId, hasAccess, claimsLoaded]);
+  }, [employeeId, claimsLoaded]);
 
   const formatDate = (timestamp: { toDate: () => Date } | undefined) => {
     if (!timestamp) return '-';
@@ -138,17 +137,6 @@ export default function EmployeeDetailClient() {
     ].filter(Boolean);
     return parts.join(', ');
   };
-
-  if (!hasAccess) {
-    return (
-      <Box>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Employee Profile
-        </Typography>
-        <Alert severity="error">You do not have permission to view employee profiles.</Alert>
-      </Box>
-    );
-  }
 
   if (loading) {
     return (
@@ -239,11 +227,32 @@ export default function EmployeeDetailClient() {
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="h4">Employee Profile</Typography>
         {canEdit && (
-          <Button variant="outlined" startIcon={<EditIcon />} disabled>
+          <Button
+            variant="outlined"
+            startIcon={<EditIcon />}
+            onClick={() => setEditDialogOpen(true)}
+          >
             Edit Profile
           </Button>
         )}
       </Box>
+
+      {/* Edit Dialog */}
+      {canEdit && employee && (
+        <EditEmployeeDialog
+          open={editDialogOpen}
+          employee={employee}
+          onClose={() => setEditDialogOpen(false)}
+          onSuccess={() => {
+            // Reload employee data after successful edit
+            if (employeeId) {
+              getEmployeeById(employeeId).then((data) => {
+                if (data) setEmployee(data);
+              });
+            }
+          }}
+        />
+      )}
 
       <Grid container spacing={3}>
         {/* Profile Card */}

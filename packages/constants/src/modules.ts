@@ -262,7 +262,9 @@ export const MODULES: Record<string, ModuleDefinition> = {
     color: '#8B5CF6', // Purple
     path: '/hr',
     status: 'active',
-    requiredPermissions2: 4096, // VIEW_HR (PERMISSION_FLAGS_2)
+    // No permission required - HR is open to all for basic functions
+    // (My Leaves, Travel Expenses, Team Calendar, Employee Directory)
+    // Advanced functions check permissions at the page level
     category: 'application',
     priority: 12,
   },

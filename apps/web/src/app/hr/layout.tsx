@@ -1,12 +1,10 @@
 'use client';
 
 import { ModuleLayout } from '@/components/layouts/ModuleLayout';
-import { canViewHR } from '@vapour/constants';
 
 export default function HRLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <ModuleLayout permissionCheck2={canViewHR} moduleName="HR">
-      {children}
-    </ModuleLayout>
-  );
+  // HR module is open to all authenticated users for basic functions
+  // (My Leaves, Travel Expenses, Team Calendar, Employee Directory)
+  // Advanced functions check permissions at the page level
+  return <ModuleLayout moduleName="HR">{children}</ModuleLayout>;
 }

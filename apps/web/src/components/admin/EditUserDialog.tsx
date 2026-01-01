@@ -4,7 +4,9 @@
  * Edit User Dialog
  *
  * Dialog for editing user information and permissions.
- * Uses ALL_PERMISSIONS for a flat list of all permission checkboxes.
+ * Uses MODULE_PERMISSIONS for accordion-based permission editing.
+ * Each module shows its permissions grouped together, with View permission
+ * controlling access to other permissions in that module.
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -28,7 +30,11 @@ import {
   Divider,
   Stack,
   Tooltip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -41,8 +47,9 @@ import {
   OPEN_MODULES,
   getAllPermissions,
   getAllPermissions2,
-  ALL_PERMISSIONS,
-  type PermissionItem,
+  MODULE_PERMISSIONS,
+  type PermissionModuleDef,
+  type PermissionDef,
 } from '@vapour/constants';
 
 interface EditUserDialogProps {
@@ -51,6 +58,15 @@ interface EditUserDialogProps {
   onClose: () => void;
   onSuccess: () => void;
 }
+
+// Identify admin-only modules (user-management, analytics, company-settings, time-tracking)
+const ADMIN_MODULE_IDS = [
+  'user-management',
+  'analytics',
+  'company-settings',
+  'time-tracking',
+  'documents',
+];
 
 export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialogProps) {
   const [loading, setLoading] = useState(false);
@@ -67,9 +83,18 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
   const [permissions, setPermissions] = useState<number>(0);
   const [permissions2, setPermissions2] = useState<number>(0);
 
-  // Split permissions into regular and admin-only
-  const regularPermissions = useMemo(() => ALL_PERMISSIONS.filter((p) => !p.adminOnly), []);
-  const adminPermissions = useMemo(() => ALL_PERMISSIONS.filter((p) => p.adminOnly), []);
+  // Accordion expansion state
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
+
+  // Split modules into regular and admin-only
+  const regularModules = useMemo(
+    () => MODULE_PERMISSIONS.filter((m) => !ADMIN_MODULE_IDS.includes(m.id)),
+    []
+  );
+  const adminModules = useMemo(
+    () => MODULE_PERMISSIONS.filter((m) => ADMIN_MODULE_IDS.includes(m.id)),
+    []
+  );
 
   // Initialize form when user changes
   useEffect(() => {
@@ -84,12 +109,13 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
       setPermissions2(user.permissions2 || 0);
       setSaveSuccess(false);
       setError('');
+      setExpandedModules(new Set());
     }
   }, [user, open]);
 
   // Check if a permission is set
   const hasPermissionCheck = useCallback(
-    (perm: PermissionItem): boolean => {
+    (perm: PermissionDef): boolean => {
       if (perm.field === 'permissions2') {
         return hasPermission2(permissions2, perm.flag);
       }
@@ -99,7 +125,7 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
   );
 
   // Toggle a permission
-  const togglePermissionItem = useCallback((perm: PermissionItem) => {
+  const togglePermission = useCallback((perm: PermissionDef) => {
     if (perm.field === 'permissions2') {
       setPermissions2((prev) => (prev & perm.flag ? prev & ~perm.flag : prev | perm.flag));
     } else {
@@ -107,43 +133,67 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
     }
   }, []);
 
+  // Get the "View" permission for a module (first permission with category 'view')
+  const getViewPermission = useCallback((module: PermissionModuleDef): PermissionDef | null => {
+    return module.permissions.find((p) => p.category === 'view') || null;
+  }, []);
+
+  // Check if module has view access
+  const hasModuleViewAccess = useCallback(
+    (module: PermissionModuleDef): boolean => {
+      const viewPerm = getViewPermission(module);
+      if (!viewPerm) return true; // No view permission means always accessible
+      return hasPermissionCheck(viewPerm);
+    },
+    [getViewPermission, hasPermissionCheck]
+  );
+
+  // Handle accordion expansion
+  const handleAccordionChange = useCallback((moduleId: string, isExpanded: boolean) => {
+    setExpandedModules((prev) => {
+      const next = new Set(prev);
+      if (isExpanded) {
+        next.add(moduleId);
+      } else {
+        next.delete(moduleId);
+      }
+      return next;
+    });
+  }, []);
+
   // Quick actions
   const selectAll = useCallback(() => {
     let newPerms = permissions;
     let newPerms2 = permissions2;
-    regularPermissions.forEach((perm) => {
-      if (perm.field === 'permissions2') {
-        newPerms2 |= perm.flag;
-      } else {
-        newPerms |= perm.flag;
-      }
+    regularModules.forEach((module) => {
+      module.permissions.forEach((perm) => {
+        if (perm.field === 'permissions2') {
+          newPerms2 |= perm.flag;
+        } else {
+          newPerms |= perm.flag;
+        }
+      });
     });
     setPermissions(newPerms);
     setPermissions2(newPerms2);
-  }, [permissions, permissions2, regularPermissions]);
+  }, [permissions, permissions2, regularModules]);
 
   const clearAll = useCallback(() => {
     let newPerms = permissions;
     let newPerms2 = permissions2;
-    // Clear all regular permissions
-    regularPermissions.forEach((perm) => {
-      if (perm.field === 'permissions2') {
-        newPerms2 &= ~perm.flag;
-      } else {
-        newPerms &= ~perm.flag;
-      }
-    });
-    // Also clear admin permissions
-    adminPermissions.forEach((perm) => {
-      if (perm.field === 'permissions2') {
-        newPerms2 &= ~perm.flag;
-      } else {
-        newPerms &= ~perm.flag;
-      }
+    // Clear all module permissions
+    MODULE_PERMISSIONS.forEach((module) => {
+      module.permissions.forEach((perm) => {
+        if (perm.field === 'permissions2') {
+          newPerms2 &= ~perm.flag;
+        } else {
+          newPerms &= ~perm.flag;
+        }
+      });
     });
     setPermissions(newPerms);
     setPermissions2(newPerms2);
-  }, [permissions, permissions2, regularPermissions, adminPermissions]);
+  }, [permissions, permissions2]);
 
   const grantFullAccess = useCallback(() => {
     setPermissions(getAllPermissions());
@@ -206,6 +256,107 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
       setError('');
       onClose();
     }
+  };
+
+  // Render a module accordion with permissions
+  const renderModuleAccordion = (module: PermissionModuleDef) => {
+    const viewPerm = getViewPermission(module);
+    const otherPerms = module.permissions.filter((p) => p !== viewPerm);
+    const hasView = hasModuleViewAccess(module);
+    const isExpanded = expandedModules.has(module.id);
+
+    // Count enabled permissions for summary
+    const enabledCount = module.permissions.filter((p) => hasPermissionCheck(p)).length;
+    const totalCount = module.permissions.length;
+
+    return (
+      <Accordion
+        key={module.id}
+        expanded={isExpanded}
+        onChange={(_, expanded) => handleAccordionChange(module.id, expanded)}
+        sx={{
+          '&:before': { display: 'none' },
+          border: 1,
+          borderColor: 'divider',
+          borderRadius: 1,
+          mb: 1,
+          '&.Mui-expanded': { margin: 0, mb: 1 },
+        }}
+        disableGutters
+      >
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon />}
+          sx={{
+            minHeight: 48,
+            '& .MuiAccordionSummary-content': {
+              alignItems: 'center',
+              gap: 1,
+              my: 0,
+            },
+          }}
+        >
+          {viewPerm && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={hasPermissionCheck(viewPerm)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    togglePermission(viewPerm);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  size="small"
+                />
+              }
+              label=""
+              sx={{ m: 0, mr: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+          <Box sx={{ flexGrow: 1 }}>
+            <Typography variant="body2" fontWeight={500}>
+              {module.name}
+            </Typography>
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+            {enabledCount}/{totalCount}
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails sx={{ pt: 0, pb: 1.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            {module.description}
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pl: 1 }}>
+            {otherPerms.map((perm) => (
+              <Tooltip key={perm.flag} title={perm.description} arrow placement="left">
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={hasPermissionCheck(perm)}
+                      onChange={() => togglePermission(perm)}
+                      size="small"
+                      disabled={!!viewPerm && !hasView}
+                    />
+                  }
+                  label={
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontSize: '0.85rem',
+                        color: viewPerm && !hasView ? 'text.disabled' : 'text.primary',
+                      }}
+                    >
+                      {perm.label}
+                    </Typography>
+                  }
+                  sx={{ m: 0 }}
+                />
+              </Tooltip>
+            ))}
+          </Box>
+        </AccordionDetails>
+      </Accordion>
+    );
   };
 
   if (!user) return null;
@@ -322,7 +473,7 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
               sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}
             >
               <Typography variant="subtitle2" color="text.secondary">
-                Permissions
+                Module Permissions
               </Typography>
               <Stack direction="row" spacing={1}>
                 <Button size="small" variant="text" onClick={selectAll}>
@@ -344,34 +495,9 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
               </Typography>
             </Alert>
 
-            {/* Regular Permissions - Flat checkbox list */}
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: 0.5,
-                mb: 2,
-              }}
-            >
-              {regularPermissions.map((perm) => (
-                <Tooltip key={`${perm.field}-${perm.flag}`} title={perm.description} arrow>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={hasPermissionCheck(perm)}
-                        onChange={() => togglePermissionItem(perm)}
-                        size="small"
-                      />
-                    }
-                    label={
-                      <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                        {perm.label}
-                      </Typography>
-                    }
-                    sx={{ m: 0 }}
-                  />
-                </Tooltip>
-              ))}
+            {/* Regular Module Permissions - Accordion list */}
+            <Box sx={{ mb: 2 }}>
+              {regularModules.map((module) => renderModuleAccordion(module))}
             </Box>
           </Box>
 
@@ -388,33 +514,12 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
 
             <Box
               sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: 0.5,
                 backgroundColor: isAdmin ? 'action.hover' : 'transparent',
                 p: 1,
                 borderRadius: 1,
               }}
             >
-              {adminPermissions.map((perm) => (
-                <Tooltip key={`${perm.field}-${perm.flag}`} title={perm.description} arrow>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={hasPermissionCheck(perm)}
-                        onChange={() => togglePermissionItem(perm)}
-                        size="small"
-                      />
-                    }
-                    label={
-                      <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                        {perm.label}
-                      </Typography>
-                    }
-                    sx={{ m: 0 }}
-                  />
-                </Tooltip>
-              ))}
+              {adminModules.map((module) => renderModuleAccordion(module))}
             </Box>
           </Box>
         </Box>

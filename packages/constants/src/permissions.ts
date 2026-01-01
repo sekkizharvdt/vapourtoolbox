@@ -547,7 +547,7 @@ export const OPEN_MODULES = [
   'Material Database (viewing)',
   'Shape Database (viewing)',
   'Bought Out Items (viewing)',
-  'HR Module (viewing)',
+  'HR Module (My Leaves, Expenses, Calendar, Directory)',
 ] as const;
 
 /**

@@ -13,7 +13,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewHR, canManageHRSettings, canApproveLeaves } from '@vapour/constants';
+import { canManageHRSettings, canApproveLeaves } from '@vapour/constants';
 
 interface HRModule {
   title: string;
@@ -28,12 +28,9 @@ export default function HRPage() {
   const router = useRouter();
   const { claims } = useAuth();
 
-  // Check permissions
+  // HR is open to all users for basic functions
+  // Advanced functions check permissions via requiresPermission
   const permissions2 = claims?.permissions2 ?? 0;
-  const hasViewAccess = canViewHR(permissions2);
-  // Permissions for conditional rendering
-  void canApproveLeaves(permissions2); // Reserved for future use
-  void canManageHRSettings(permissions2); // Reserved for future use
 
   const modules: HRModule[] = [
     {
@@ -95,19 +92,6 @@ export default function HRPage() {
     if (!module.requiresPermission) return true;
     return module.requiresPermission(permissions2);
   });
-
-  if (!hasViewAccess) {
-    return (
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          HR & Leave Management
-        </Typography>
-        <Typography variant="body1" color="error">
-          You do not have permission to access the HR module.
-        </Typography>
-      </Box>
-    );
-  }
 
   return (
     <>
