@@ -4,17 +4,12 @@ import { Typography, Box, Card, CardContent, CardActions, Button, Grid } from '@
 import {
   EventNote as LeaveIcon,
   CalendarMonth as CalendarIcon,
-  Settings as SettingsIcon,
-  History as HistoryIcon,
   Flight as TravelIcon,
   Celebration as HolidayIcon,
-  Assessment as SummaryIcon,
   People as PeopleIcon,
   WorkOutline as OnDutyIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import { canManageHRSettings, canApproveLeaves } from '@vapour/constants';
 
 interface HRModule {
   title: string;
@@ -27,31 +22,19 @@ interface HRModule {
 
 export default function HRPage() {
   const router = useRouter();
-  const { claims } = useAuth();
-
-  // HR is open to all users for basic functions
-  // Advanced functions check permissions via requiresPermission
-  const permissions2 = claims?.permissions2 ?? 0;
 
   const modules: HRModule[] = [
     {
-      title: 'My Leaves',
-      description: 'View your leave balance, history, and apply for new leave',
-      icon: <HistoryIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/hr/leaves/my-leaves',
+      title: 'Leaves',
+      description: 'Manage leave requests, view balances, and track team leave usage',
+      icon: <LeaveIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/hr/leaves',
     },
     {
       title: 'On-Duty Requests',
       description: 'Apply to work on holidays and earn compensatory leave',
       icon: <OnDutyIcon sx={{ fontSize: 48, color: 'secondary.main' }} />,
       path: '/hr/on-duty/my-requests',
-    },
-    {
-      title: 'Leave Requests',
-      description: 'Review and approve/reject team leave requests',
-      icon: <LeaveIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/hr/leaves',
-      requiresPermission: canApproveLeaves,
     },
     {
       title: 'Travel Expenses',
@@ -66,25 +49,10 @@ export default function HRPage() {
       path: '/hr/leaves/calendar',
     },
     {
-      title: 'Leave Settings',
-      description: 'Configure leave types, quotas, and policies',
-      icon: <SettingsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/admin/hr-setup',
-      requiresPermission: canManageHRSettings,
-    },
-    {
-      title: 'Holiday Settings',
-      description: 'Manage company holidays (Diwali, Pongal, etc.)',
+      title: 'Holidays',
+      description: 'View company holidays for the current year',
       icon: <HolidayIcon sx={{ fontSize: 48, color: 'warning.main' }} />,
-      path: '/hr/settings/holidays',
-      requiresPermission: canManageHRSettings,
-    },
-    {
-      title: 'Leave Summary',
-      description: 'View leave balances and usage for all employees',
-      icon: <SummaryIcon sx={{ fontSize: 48, color: 'info.main' }} />,
-      path: '/hr/settings/leave-summary',
-      requiresPermission: canApproveLeaves,
+      path: '/hr/holidays',
     },
     {
       title: 'Employee Directory',
@@ -93,12 +61,6 @@ export default function HRPage() {
       path: '/hr/employees',
     },
   ];
-
-  // Filter modules based on permissions
-  const accessibleModules = modules.filter((module) => {
-    if (!module.requiresPermission) return true;
-    return module.requiresPermission(permissions2);
-  });
 
   return (
     <>
@@ -112,7 +74,7 @@ export default function HRPage() {
       </Box>
 
       <Grid container spacing={3}>
-        {accessibleModules.map((module) => (
+        {modules.map((module) => (
           <Grid size={{ xs: 12, sm: 6, md: 4 }} key={module.path}>
             <Card
               sx={{
