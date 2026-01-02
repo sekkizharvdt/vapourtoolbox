@@ -10,6 +10,8 @@ import {
   WorkOutline as OnDutyIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { canApproveLeaves } from '@vapour/constants';
 
 interface HRModule {
   title: string;
@@ -17,11 +19,14 @@ interface HRModule {
   icon: React.ReactNode;
   path: string;
   comingSoon?: boolean;
-  requiresPermission?: (permissions2: number) => boolean;
+  requiresApproveLeaves?: boolean;
 }
 
 export default function HRPage() {
   const router = useRouter();
+  const { claims } = useAuth();
+  const permissions2 = claims?.permissions2 ?? 0;
+  const hasApproveAccess = canApproveLeaves(permissions2);
 
   const modules: HRModule[] = [
     {
@@ -47,6 +52,7 @@ export default function HRPage() {
       description: 'View team leave calendar and plan resource availability',
       icon: <CalendarIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/hr/leaves/calendar',
+      requiresApproveLeaves: true,
     },
     {
       title: 'Holidays',
@@ -62,6 +68,14 @@ export default function HRPage() {
     },
   ];
 
+  // Filter modules based on user permissions
+  const visibleModules = modules.filter((module) => {
+    if (module.requiresApproveLeaves && !hasApproveAccess) {
+      return false;
+    }
+    return true;
+  });
+
   return (
     <>
       <Box sx={{ mb: 4 }}>
@@ -74,7 +88,7 @@ export default function HRPage() {
       </Box>
 
       <Grid container spacing={3}>
-        {modules.map((module) => (
+        {visibleModules.map((module) => (
           <Grid size={{ xs: 12, sm: 6, md: 4 }} key={module.path}>
             <Card
               sx={{

@@ -57,13 +57,19 @@ export default function LeavesPage() {
         </IconButton>
       </Box>
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={tab} onChange={(_, value) => setTab(value)}>
-          <Tab label="My Leaves" value="my-leaves" />
-          {hasApproveAccess && <Tab label="Team Requests" value="team-requests" />}
-          {hasApproveAccess && <Tab label="Leave Summary" value="summary" />}
-        </Tabs>
-      </Box>
+      {hasApproveAccess ? (
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          <Tabs value={tab} onChange={(_, value) => setTab(value)}>
+            <Tab label="My Leaves" value="my-leaves" />
+            <Tab label="Team Requests" value="team-requests" />
+            <Tab label="Leave Summary" value="summary" />
+          </Tabs>
+        </Box>
+      ) : (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6">My Leaves</Typography>
+        </Box>
+      )}
 
       {tab === 'my-leaves' && <MyLeavesTab key={refreshKey} />}
       {tab === 'team-requests' && hasApproveAccess && <TeamRequestsTab key={refreshKey} />}

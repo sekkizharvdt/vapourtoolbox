@@ -19,9 +19,16 @@ import {
   CardContent,
   Breadcrumbs,
   Link,
+  Button,
 } from '@mui/material';
-import { Refresh as RefreshIcon, Home as HomeIcon } from '@mui/icons-material';
+import {
+  Refresh as RefreshIcon,
+  Home as HomeIcon,
+  Settings as SettingsIcon,
+} from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { canManageHRSettings } from '@vapour/constants';
 import { getHolidaysForYear, DEFAULT_RECURRING_CONFIG } from '@/lib/hr/holidays';
 import type { Holiday, HolidayType } from '@vapour/types';
 import { format } from 'date-fns';
@@ -34,10 +41,14 @@ const HOLIDAY_TYPE_OPTIONS: { value: HolidayType; label: string; color: string }
 
 export default function HolidaysPage() {
   const router = useRouter();
+  const { claims } = useAuth();
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const currentYear = new Date().getFullYear();
+
+  const permissions2 = claims?.permissions2 ?? 0;
+  const hasManageAccess = canManageHRSettings(permissions2);
 
   const loadData = async () => {
     setLoading(true);
@@ -86,9 +97,20 @@ export default function HolidaysPage() {
             View company holidays and recurring weekly offs
           </Typography>
         </Box>
-        <IconButton onClick={loadData} title="Refresh">
-          <RefreshIcon />
-        </IconButton>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {hasManageAccess && (
+            <Button
+              variant="outlined"
+              startIcon={<SettingsIcon />}
+              onClick={() => router.push('/hr/settings/holidays')}
+            >
+              Manage Holidays
+            </Button>
+          )}
+          <IconButton onClick={loadData} title="Refresh">
+            <RefreshIcon />
+          </IconButton>
+        </Box>
       </Box>
 
       {/* Recurring Holidays Info */}
