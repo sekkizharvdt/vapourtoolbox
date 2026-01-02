@@ -36,8 +36,6 @@ import {
   Home as HomeIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import { canViewHR } from '@vapour/constants';
 import { getAllEmployees, getDepartments } from '@/lib/hr';
 import type { EmployeeListItem } from '@vapour/types';
 
@@ -54,16 +52,12 @@ const BLOOD_GROUP_COLORS: Record<string, 'error' | 'warning' | 'info' | 'success
 
 export default function EmployeeDirectoryPage() {
   const router = useRouter();
-  const { claims } = useAuth();
   const [employees, setEmployees] = useState<EmployeeListItem[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
-
-  const permissions2 = claims?.permissions2 ?? 0;
-  const hasAccess = canViewHR(permissions2);
 
   const loadData = async () => {
     setLoading(true);
@@ -85,10 +79,9 @@ export default function EmployeeDirectoryPage() {
   };
 
   useEffect(() => {
-    if (hasAccess) {
-      loadData();
-    }
-  }, [hasAccess]);
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Filter employees
   const filteredEmployees = useMemo(() => {
@@ -144,17 +137,6 @@ export default function EmployeeDirectoryPage() {
       year: 'numeric',
     });
   };
-
-  if (!hasAccess) {
-    return (
-      <Box>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Employee Directory
-        </Typography>
-        <Alert severity="error">You do not have permission to view the employee directory.</Alert>
-      </Box>
-    );
-  }
 
   return (
     <Box>
