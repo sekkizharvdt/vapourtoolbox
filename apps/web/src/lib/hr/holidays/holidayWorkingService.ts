@@ -343,13 +343,6 @@ export async function getHolidayWorkingOverrides(filters: {
   try {
     const constraints: QueryConstraint[] = [];
 
-    if (filters.year) {
-      const startOfYear = new Date(filters.year, 0, 1);
-      const endOfYear = new Date(filters.year, 11, 31, 23, 59, 59);
-      constraints.push(where('holidayDate', '>=', Timestamp.fromDate(startOfYear)));
-      constraints.push(where('holidayDate', '<=', Timestamp.fromDate(endOfYear)));
-    }
-
     if (filters.status) {
       if (Array.isArray(filters.status)) {
         constraints.push(where('status', 'in', filters.status));
@@ -358,15 +351,28 @@ export async function getHolidayWorkingOverrides(filters: {
       }
     }
 
-    constraints.push(orderBy('holidayDate', 'desc'));
+    // Order by createdAt instead of holidayDate to use existing index
+    constraints.push(orderBy('createdAt', 'desc'));
 
     const q = query(collection(db, COLLECTIONS.HR_HOLIDAY_WORKING_OVERRIDES), ...constraints);
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((docSnapshot) => ({
+    let results = snapshot.docs.map((docSnapshot) => ({
       id: docSnapshot.id,
       ...(docSnapshot.data() as Omit<HolidayWorkingOverride, 'id'>),
     }));
+
+    // Filter by year in memory (more efficient than complex Firestore query)
+    if (filters.year) {
+      const startOfYear = new Date(filters.year, 0, 1).getTime();
+      const endOfYear = new Date(filters.year, 11, 31, 23, 59, 59).getTime();
+      results = results.filter((override) => {
+        const holidayTime = override.holidayDate.toDate().getTime();
+        return holidayTime >= startOfYear && holidayTime <= endOfYear;
+      });
+    }
+
+    return results;
   } catch (error) {
     logger.error('Failed to get holiday working overrides', { error, filters });
     throw new Error('Failed to get holiday working overrides');
