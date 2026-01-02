@@ -38,3 +38,13 @@ export {
   countWorkingDays,
   copyHolidaysToYear,
 } from './holidayService';
+
+// Holiday working override service
+export {
+  createHolidayWorkingOverride,
+  processHolidayWorkingOverride,
+  getHolidayWorkingOverrideById,
+  listHolidayWorkingOverrides,
+  getHolidayWorkingHistory,
+  isHolidayConvertedToWorkingDay,
+} from './holidayWorkingService';
