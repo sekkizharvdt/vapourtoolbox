@@ -404,3 +404,98 @@ export async function getTeamLeaveBalances(
     throw new Error('Failed to get team leave balances');
   }
 }
+
+/**
+ * Add comp-off balance to a user
+ * Called when on-duty request is approved or holiday working override is processed
+ */
+export async function addCompOffBalance(
+  userId: string,
+  amount: number,
+  metadata: {
+    source: 'ON_DUTY_REQUEST' | 'HOLIDAY_WORKING';
+    onDutyRequestId?: string;
+    holidayWorkingId?: string;
+    holidayName: string;
+    holidayDate: Date;
+    grantDate: Date;
+    expiryDate: Date;
+    grantedBy: string;
+  }
+): Promise<void> {
+  const fiscalYear = getCurrentFiscalYear();
+  const balance = await getUserLeaveBalanceByType(userId, 'COMP_OFF', fiscalYear);
+
+  if (!balance) {
+    throw new Error(
+      `Comp-off balance not found for user ${userId}. Ensure COMP_OFF leave type exists and balances are initialized.`
+    );
+  }
+
+  // For now, just update the entitled field (which represents earned comp-offs)
+  // In future, we can add metadata field to track individual grants with expiry
+  const { db } = getFirebase();
+  const docRef = doc(db, COLLECTIONS.HR_LEAVE_BALANCES, balance.id);
+
+  await runTransaction(db, async (transaction) => {
+    const balanceSnap = await transaction.get(docRef);
+
+    if (!balanceSnap.exists()) {
+      throw new Error('Comp-off balance not found');
+    }
+
+    const currentBalance = balanceSnap.data() as LeaveBalance;
+    const newEntitled = currentBalance.entitled + amount;
+    const newAvailable =
+      newEntitled + currentBalance.carryForward - currentBalance.used - currentBalance.pending;
+
+    transaction.update(docRef, {
+      entitled: newEntitled,
+      available: newAvailable,
+      updatedAt: Timestamp.now(),
+      updatedBy: metadata.grantedBy,
+    });
+
+    logger.info('Comp-off balance added', {
+      userId,
+      amount,
+      source: metadata.source,
+      newEntitled,
+      newAvailable,
+    });
+  });
+}
+
+/**
+ * Deduct comp-off balance from a user
+ * This is called automatically when a comp-off leave request is approved
+ * via the existing confirmPendingLeave function
+ */
+export async function deductCompOffBalance(
+  userId: string,
+  amount: number,
+  actorUserId: string
+): Promise<void> {
+  // This is handled by confirmPendingLeave when a comp-off leave request is approved
+  // This function exists for explicit deduction if needed (e.g., expiry, revocation)
+  const fiscalYear = getCurrentFiscalYear();
+  const balance = await getUserLeaveBalanceByType(userId, 'COMP_OFF', fiscalYear);
+
+  if (!balance) {
+    throw new Error(`Comp-off balance not found for user ${userId}`);
+  }
+
+  await updateLeaveBalance(
+    balance.id,
+    {
+      used: balance.used + amount,
+    },
+    actorUserId
+  );
+
+  logger.info('Comp-off balance deducted', {
+    userId,
+    amount,
+    actorUserId,
+  });
+}

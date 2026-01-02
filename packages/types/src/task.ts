@@ -80,6 +80,11 @@ export type TaskNotificationCategory =
   | 'LEAVE_SUBMITTED' // Actionable: Review and approve/reject leave request
   | 'LEAVE_APPROVED' // Informational: Your leave request was approved
   | 'LEAVE_REJECTED' // Informational: Your leave request was rejected
+  // HR / On-Duty Requests
+  | 'ON_DUTY_SUBMITTED' // Actionable: Review and approve/reject on-duty request
+  | 'ON_DUTY_APPROVED' // Informational: Your on-duty request was approved
+  | 'ON_DUTY_REJECTED' // Informational: Your on-duty request was rejected
+  | 'ON_DUTY_CANCELLED' // Informational: On-duty request was cancelled
   // HR / Travel Expenses
   | 'TRAVEL_EXPENSE_SUBMITTED' // Actionable: Review and approve/reject travel expense
   | 'TRAVEL_EXPENSE_APPROVED' // Informational: Your travel expense was approved
@@ -455,8 +460,21 @@ export const TASK_CHANNEL_DEFINITIONS: Record<DefaultTaskChannelId, TaskChannel>
     id: 'hr',
     name: 'HR',
     icon: 'Users',
-    description: 'Leave requests, approvals, and HR notifications',
-    categories: ['LEAVE_SUBMITTED', 'LEAVE_APPROVED', 'LEAVE_REJECTED'],
+    description: 'Leave requests, on-duty requests, approvals, and HR notifications',
+    categories: [
+      'LEAVE_SUBMITTED',
+      'LEAVE_APPROVED',
+      'LEAVE_REJECTED',
+      'ON_DUTY_SUBMITTED',
+      'ON_DUTY_APPROVED',
+      'ON_DUTY_REJECTED',
+      'ON_DUTY_CANCELLED',
+      'TRAVEL_EXPENSE_SUBMITTED',
+      'TRAVEL_EXPENSE_APPROVED',
+      'TRAVEL_EXPENSE_REJECTED',
+      'TRAVEL_EXPENSE_RETURNED',
+      'TRAVEL_EXPENSE_REIMBURSED',
+    ],
     isDefault: true,
   },
 };
@@ -488,6 +506,8 @@ export function isApprovalCategory(category: TaskNotificationCategory): boolean 
     'DOCUMENT_INTERNAL_REVIEW',
     'DOCUMENT_COMMENTS_RESOLVED',
     'LEAVE_SUBMITTED',
+    'ON_DUTY_SUBMITTED',
+    'TRAVEL_EXPENSE_SUBMITTED',
   ];
   return approvalCategories.includes(category);
 }

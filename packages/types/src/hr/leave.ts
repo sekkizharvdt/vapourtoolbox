@@ -14,7 +14,14 @@ import { TimestampFields } from '../common';
 /**
  * Leave type codes
  */
-export type LeaveTypeCode = 'SICK' | 'CASUAL' | 'EARNED' | 'UNPAID' | 'MATERNITY' | 'PATERNITY';
+export type LeaveTypeCode =
+  | 'SICK'
+  | 'CASUAL'
+  | 'EARNED'
+  | 'UNPAID'
+  | 'MATERNITY'
+  | 'PATERNITY'
+  | 'COMP_OFF';
 
 /**
  * Leave type configuration (master data)
