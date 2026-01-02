@@ -314,8 +314,8 @@ export default function LeaveCalendarPage() {
                           sx={{
                             height: 20,
                             fontSize: '0.7rem',
-                            backgroundColor: 'success.light',
-                            color: 'success.contrastText',
+                            backgroundColor: 'error.light',
+                            color: 'error.contrastText',
                           }}
                           title={`${leave.userName} - ${leave.leaveTypeName}`}
                         />
@@ -342,7 +342,7 @@ export default function LeaveCalendarPage() {
         <Chip
           size="small"
           label="On Leave"
-          sx={{ backgroundColor: 'success.light', color: 'success.contrastText' }}
+          sx={{ backgroundColor: 'error.light', color: 'error.contrastText' }}
         />
         <Chip
           size="small"
