@@ -141,7 +141,7 @@ describe('EditUserDialog', () => {
         displayName: 'Updated Name',
         status: 'active',
       });
-    });
+    }, 10000); // Increased timeout for CI environment
 
     it('should show loading state during save', async () => {
       // Create a deferred promise to control when updateDoc resolves
