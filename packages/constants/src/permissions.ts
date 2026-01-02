@@ -11,7 +11,8 @@
 export const PERMISSION_FLAGS = {
   // User Management (bits 0-2)
   MANAGE_USERS: 1 << 0, // 1
-  VIEW_USERS: 1 << 1, // 2
+  /** @deprecated User management module is admin-only. Kept for backward compatibility. */
+  VIEW_USERS: 1 << 1, // 2 - DEPRECATED: Admin access requires MANAGE_USERS
   /** @deprecated Role system has been removed. Kept for backward compatibility. */
   MANAGE_ROLES: 1 << 2, // 4 - DEPRECATED: Role system removed
 
@@ -77,7 +78,8 @@ export const PERMISSION_FLAGS = {
  */
 export const PERMISSION_BITS = {
   MANAGE_USERS: 1,
-  VIEW_USERS: 2,
+  /** @deprecated User management module is admin-only. Kept for backward compatibility. */
+  VIEW_USERS: 2, // DEPRECATED
   /** @deprecated Role system has been removed. Kept for backward compatibility. */
   MANAGE_ROLES: 4, // DEPRECATED
   MANAGE_PROJECTS: 8,
@@ -869,24 +871,14 @@ export const MODULE_PERMISSIONS: PermissionModuleDef[] = [
   {
     id: 'user-management',
     name: 'User Management',
-    description: 'Manage users, roles, and permissions',
+    description: 'Manage users and their permissions',
+    // Admin-only module - requires MANAGE_USERS to access /admin section
+    // No View permission - user management requires full admin access
     permissions: [
-      {
-        flag: PERMISSION_FLAGS.VIEW_USERS,
-        label: 'View Users',
-        description: 'View user list and profiles',
-        category: 'view',
-      },
       {
         flag: PERMISSION_FLAGS.MANAGE_USERS,
         label: 'Manage Users',
-        description: 'Create, edit, and deactivate users',
-        category: 'manage',
-      },
-      {
-        flag: PERMISSION_FLAGS.MANAGE_ROLES,
-        label: 'Manage Roles',
-        description: 'Assign roles and modify permissions',
+        description: 'Create, edit, and manage user permissions',
         category: 'manage',
       },
     ],
