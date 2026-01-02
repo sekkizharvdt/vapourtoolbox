@@ -68,6 +68,8 @@ export interface HolidayWorkingOverride extends TimestampFields {
  */
 export interface CreateHolidayWorkingInput {
   holidayId: string;
+  holidayName: string;
+  holidayDate: Date;
   scope: HolidayWorkingScope;
   affectedUserIds: string[]; // Required if scope is SPECIFIC_USERS, ignored if ALL_USERS
   reason?: string;

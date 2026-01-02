@@ -26,6 +26,7 @@ import type {
   HolidayWorkingOverrideFilters,
   CreateHolidayWorkingInput,
   HolidayWorkingUserResult,
+  HolidayWorkingStatus,
 } from '@vapour/types';
 import { grantCompOff } from '../onDuty/compOffService';
 import { getHolidayById } from './holidayService';
@@ -327,6 +328,48 @@ export async function listHolidayWorkingOverrides(
   } catch (error) {
     logger.error('Failed to list holiday working overrides', { error, filters });
     throw new Error('Failed to list holiday working overrides');
+  }
+}
+
+/**
+ * Get holiday working overrides for a year
+ */
+export async function getHolidayWorkingOverrides(filters: {
+  year?: number;
+  status?: HolidayWorkingStatus | HolidayWorkingStatus[];
+}): Promise<HolidayWorkingOverride[]> {
+  const { db } = getFirebase();
+
+  try {
+    const constraints: QueryConstraint[] = [];
+
+    if (filters.year) {
+      const startOfYear = new Date(filters.year, 0, 1);
+      const endOfYear = new Date(filters.year, 11, 31, 23, 59, 59);
+      constraints.push(where('holidayDate', '>=', Timestamp.fromDate(startOfYear)));
+      constraints.push(where('holidayDate', '<=', Timestamp.fromDate(endOfYear)));
+    }
+
+    if (filters.status) {
+      if (Array.isArray(filters.status)) {
+        constraints.push(where('status', 'in', filters.status));
+      } else {
+        constraints.push(where('status', '==', filters.status));
+      }
+    }
+
+    constraints.push(orderBy('holidayDate', 'desc'));
+
+    const q = query(collection(db, COLLECTIONS.HR_HOLIDAY_WORKING_OVERRIDES), ...constraints);
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((docSnapshot) => ({
+      id: docSnapshot.id,
+      ...(docSnapshot.data() as Omit<HolidayWorkingOverride, 'id'>),
+    }));
+  } catch (error) {
+    logger.error('Failed to get holiday working overrides', { error, filters });
+    throw new Error('Failed to get holiday working overrides');
   }
 }
 

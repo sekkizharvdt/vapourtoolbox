@@ -36,6 +36,7 @@ import {
   Refresh as RefreshIcon,
   ContentCopy as CopyIcon,
   Home as HomeIcon,
+  WorkOutline as ConvertIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -49,8 +50,19 @@ import {
   copyHolidaysToYear,
   DEFAULT_RECURRING_CONFIG,
 } from '@/lib/hr/holidays';
-import type { Holiday, HolidayType } from '@vapour/types';
+import {
+  createHolidayWorkingOverride,
+  getHolidayWorkingOverrides,
+} from '@/lib/hr/holidays/holidayWorkingService';
+import type {
+  Holiday,
+  HolidayType,
+  HolidayWorkingOverride,
+  HolidayWorkingScope,
+} from '@vapour/types';
 import { format } from 'date-fns';
+import HolidayWorkingDialog from '@/components/hr/HolidayWorkingDialog';
+import HolidayWorkingHistory from '@/components/hr/HolidayWorkingHistory';
 
 const HOLIDAY_TYPE_OPTIONS: { value: HolidayType; label: string; color: string }[] = [
   { value: 'COMPANY', label: 'Company Holiday', color: '#f97316' },
@@ -100,6 +112,11 @@ export default function HolidaySettingsPage() {
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copyTargetYear, setCopyTargetYear] = useState(new Date().getFullYear() + 1);
 
+  // Holiday working state
+  const [workingDialogOpen, setWorkingDialogOpen] = useState(false);
+  const [selectedHolidayForWorking, setSelectedHolidayForWorking] = useState<Holiday | null>(null);
+  const [workingOverrides, setWorkingOverrides] = useState<HolidayWorkingOverride[]>([]);
+
   const permissions2 = claims?.permissions2 ?? 0;
   const hasManageAccess = canManageHRSettings(permissions2);
 
@@ -108,8 +125,12 @@ export default function HolidaySettingsPage() {
     setError(null);
 
     try {
-      const data = await getHolidaysForYear(selectedYear);
-      setHolidays(data);
+      const [holidaysData, overridesData] = await Promise.all([
+        getHolidaysForYear(selectedYear),
+        getHolidayWorkingOverrides({ year: selectedYear }),
+      ]);
+      setHolidays(holidaysData);
+      setWorkingOverrides(overridesData);
     } catch (err) {
       console.error('Failed to load holidays:', err);
       setError('Failed to load holidays. Please try again.');
@@ -228,6 +249,40 @@ export default function HolidaySettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleConvertToWorking = (holiday: Holiday) => {
+    setSelectedHolidayForWorking(holiday);
+    setWorkingDialogOpen(true);
+  };
+
+  const handleWorkingSubmit = async (data: {
+    scope: HolidayWorkingScope;
+    affectedUserIds: string[];
+    reason: string;
+  }) => {
+    if (!user || !selectedHolidayForWorking) return;
+
+    await createHolidayWorkingOverride(
+      {
+        holidayId: selectedHolidayForWorking.id,
+        holidayName: selectedHolidayForWorking.name,
+        holidayDate: selectedHolidayForWorking.date.toDate(),
+        scope: data.scope,
+        affectedUserIds: data.affectedUserIds,
+        reason: data.reason,
+      },
+      user.uid,
+      user.displayName || 'Admin',
+      user.email || ''
+    );
+
+    setSuccess(
+      `Holiday "${selectedHolidayForWorking.name}" converted to working day. Comp-off will be processed for ${data.scope === 'ALL_USERS' ? 'all users' : `${data.affectedUserIds.length} user(s)`}.`
+    );
+
+    // Reload data to show new override
+    await loadData();
   };
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 1 + i);
@@ -417,6 +472,15 @@ export default function HolidaySettingsPage() {
                         </Typography>
                       </TableCell>
                       <TableCell align="center">
+                        <Tooltip title="Convert to working day">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleConvertToWorking(holiday)}
+                            color="warning"
+                          >
+                            <ConvertIcon />
+                          </IconButton>
+                        </Tooltip>
                         <IconButton size="small" onClick={() => handleEdit(holiday)} title="Edit">
                           <EditIcon />
                         </IconButton>
@@ -561,6 +625,19 @@ export default function HolidaySettingsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Holiday Working Dialog */}
+      <HolidayWorkingDialog
+        open={workingDialogOpen}
+        holiday={selectedHolidayForWorking}
+        onClose={() => setWorkingDialogOpen(false)}
+        onSubmit={handleWorkingSubmit}
+      />
+
+      {/* Holiday Working History */}
+      <Box sx={{ mt: 4 }}>
+        <HolidayWorkingHistory overrides={workingOverrides} loading={loading} />
+      </Box>
     </Box>
   );
 }
