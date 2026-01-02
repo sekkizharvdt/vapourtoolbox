@@ -665,11 +665,11 @@ describe('hasModulePermission', () => {
 
   it('should check permissions2 field correctly', () => {
     const perms = 0;
-    const perms2 = PERMISSION_FLAGS_2.VIEW_HR | PERMISSION_FLAGS_2.APPROVE_LEAVES;
+    const perms2 = PERMISSION_FLAGS_2.MANAGE_HR_SETTINGS | PERMISSION_FLAGS_2.APPROVE_LEAVES;
 
-    expect(hasModulePermission(perms, perms2, 'hr', 'View')).toBe(true);
+    expect(hasModulePermission(perms, perms2, 'hr', 'Manage Settings')).toBe(true);
     expect(hasModulePermission(perms, perms2, 'hr', 'Approve Leaves')).toBe(true);
-    expect(hasModulePermission(perms, 0, 'hr', 'View')).toBe(false);
+    expect(hasModulePermission(perms, 0, 'hr', 'Manage Settings')).toBe(false);
   });
 
   it('should return false for non-existent module', () => {
