@@ -188,6 +188,10 @@
         "destination": "/hr/employees/placeholder.html"
       },
       {
+        "source": "/hr/on-duty/*",
+        "destination": "/hr/on-duty/placeholder.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
