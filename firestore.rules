@@ -593,16 +593,30 @@ service cloud.firestore {
     }
 
     // ============================================
-    // On-Duty Records
+    // On-Duty Records (Holiday Working Requests)
     // ============================================
 
     match /onDutyRecords/{recordId} {
+      // Read: Own records OR users with APPROVE_LEAVES permission (same as leave requests)
       allow read: if isInternalUser() && (
                      isOwner(resource.data.userId) ||
-                     hasPermission(1024) // MANAGE_ON_DUTY
+                     hasPermission2(16384) || // APPROVE_LEAVES
+                     hasPermission2(8192)     // MANAGE_HR_SETTINGS
                    );
 
-      allow create, update: if hasPermission(1024) && isInternalUser(); // MANAGE_ON_DUTY
+      // Create: Users can create their own on-duty requests
+      allow create: if isInternalUser() &&
+                       isOwner(request.resource.data.userId);
+
+      // Update: Own records (if DRAFT or PENDING_APPROVAL) OR users with APPROVE_LEAVES
+      allow update: if isInternalUser() && (
+                       (isOwner(resource.data.userId) &&
+                        resource.data.status in ['DRAFT', 'PENDING_APPROVAL']) ||
+                       hasPermission2(16384) || // APPROVE_LEAVES
+                       hasPermission2(8192)     // MANAGE_HR_SETTINGS
+                     );
+
+      // Delete: Super admins only (use status change instead)
       allow delete: if isSuperAdmin();
     }
 
@@ -1302,6 +1316,22 @@ service cloud.firestore {
       allow create, update: if isInternalUser() && hasPermission2(8192); // MANAGE_HR_SETTINGS
 
       // Delete: Super admins only (prefer soft delete via isActive = false)
+      allow delete: if isSuperAdmin();
+    }
+
+    /**
+     * HR Holiday Working Overrides - Admin marking holidays as working days
+     * Used when admins convert specific holidays to working days for users
+     */
+    match /holidayWorkingOverrides/{overrideId} {
+      // Read: All internal users (needed to check if a holiday is a working day)
+      // Also users with MANAGE_HR_SETTINGS to manage overrides
+      allow read: if isInternalUser();
+
+      // Create/Update: Only users with MANAGE_HR_SETTINGS permission
+      allow create, update: if isInternalUser() && hasPermission2(8192); // MANAGE_HR_SETTINGS
+
+      // Delete: Super admins only
       allow delete: if isSuperAdmin();
     }
 
