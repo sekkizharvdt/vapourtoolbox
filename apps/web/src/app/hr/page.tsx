@@ -10,6 +10,7 @@ import {
   Celebration as HolidayIcon,
   Assessment as SummaryIcon,
   People as PeopleIcon,
+  WorkOutline as OnDutyIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,6 +39,12 @@ export default function HRPage() {
       description: 'View your leave balance, history, and apply for new leave',
       icon: <HistoryIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/hr/leaves/my-leaves',
+    },
+    {
+      title: 'On-Duty Requests',
+      description: 'Apply to work on holidays and earn compensatory leave',
+      icon: <OnDutyIcon sx={{ fontSize: 48, color: 'secondary.main' }} />,
+      path: '/hr/on-duty/my-requests',
     },
     {
       title: 'Leave Requests',

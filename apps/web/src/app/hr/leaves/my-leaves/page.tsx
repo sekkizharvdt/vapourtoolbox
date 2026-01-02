@@ -39,7 +39,9 @@ import {
   LEAVE_STATUS_LABELS,
   formatLeaveDate,
 } from '@/lib/hr';
+import { getCompOffBalance } from '@/lib/hr/onDuty';
 import type { LeaveBalance, LeaveRequest } from '@vapour/types';
+import CompOffBalanceCard from '@/components/hr/CompOffBalanceCard';
 
 // Use shared display helpers from @/lib/hr
 const STATUS_COLORS = LEAVE_STATUS_COLORS;
@@ -51,6 +53,12 @@ export default function MyLeavesPage() {
   const { user } = useAuth();
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  const [compOffBalance, setCompOffBalance] = useState<{
+    entitled: number;
+    used: number;
+    pending: number;
+    available: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,13 +71,15 @@ export default function MyLeavesPage() {
     setError(null);
 
     try {
-      const [balancesData, requestsData] = await Promise.all([
+      const [balancesData, requestsData, compOffData] = await Promise.all([
         getUserLeaveBalances(user.uid, fiscalYear),
         getMyLeaveRequests(user.uid, { fiscalYear, limit: 10 }),
+        getCompOffBalance(user.uid, fiscalYear),
       ]);
 
       setBalances(balancesData);
       setRequests(requestsData);
+      setCompOffBalance(compOffData);
     } catch (err) {
       console.error('Failed to load leave data:', err);
       setError('Failed to load leave data. Please try again.');
@@ -151,6 +161,9 @@ export default function MyLeavesPage() {
           {error}
         </Alert>
       )}
+
+      {/* Comp-Off Balance */}
+      <CompOffBalanceCard balance={compOffBalance} loading={loading} />
 
       {/* Leave Balances */}
       <Typography variant="h6" gutterBottom>
