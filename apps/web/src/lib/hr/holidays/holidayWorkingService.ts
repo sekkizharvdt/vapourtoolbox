@@ -137,13 +137,18 @@ export async function createHolidayWorkingOverride(
       adminUserId,
     });
 
-    // Process asynchronously
-    processHolidayWorkingOverride(overrideRef.id).catch((error) => {
-      logger.error('Failed to process holiday working override in background', {
-        error,
+    // Process synchronously to ensure completion before returning
+    // This ensures the user sees the final status immediately
+    try {
+      await processHolidayWorkingOverride(overrideRef.id);
+    } catch (processError) {
+      logger.error('Failed to process holiday working override', {
+        error: processError,
         overrideId: overrideRef.id,
       });
-    });
+      // The processHolidayWorkingOverride function updates the document status to FAILED
+      // so we don't need to throw here - just log the error
+    }
 
     return {
       overrideId: overrideRef.id,
@@ -183,6 +188,12 @@ export async function processHolidayWorkingOverride(overrideId: string): Promise
       const usersQuery = query(collection(db, COLLECTIONS.USERS), where('isActive', '==', true));
       const usersSnapshot = await getDocs(usersQuery);
 
+      logger.info('Fetched users for holiday working override', {
+        overrideId,
+        totalUsersFound: usersSnapshot.docs.length,
+        scope: override.scope,
+      });
+
       targetUsers = usersSnapshot.docs.map((docSnapshot) => {
         const user = docSnapshot.data() as User;
         return {
@@ -217,6 +228,23 @@ export async function processHolidayWorkingOverride(overrideId: string): Promise
           }
           return false;
         });
+    }
+
+    // Handle case where no users are found
+    if (targetUsers.length === 0) {
+      logger.warn('No active users found for holiday working override', {
+        overrideId,
+        scope: override.scope,
+      });
+
+      await updateDoc(overrideRef, {
+        status: 'FAILED',
+        errorMessage: 'No active users found. Ensure users have isActive=true in the database.',
+        processedAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+
+      return;
     }
 
     // Process each user
