@@ -26,6 +26,8 @@ import {
   Divider,
   Chip,
   CircularProgress,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -35,6 +37,7 @@ import {
   Save as SaveIcon,
   Send as SendIcon,
   Description as DescriptionIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -250,6 +253,34 @@ export default function NewPurchaseRequestPage() {
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
       <Stack spacing={3}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs sx={{ mb: 0 }}>
+          <Link
+            color="inherit"
+            href="/procurement"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Procurement
+          </Link>
+          <Link
+            color="inherit"
+            href="/procurement/purchase-requests"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement/purchase-requests');
+            }}
+            sx={{ cursor: 'pointer' }}
+          >
+            Purchase Requests
+          </Link>
+          <Typography color="text.primary">New</Typography>
+        </Breadcrumbs>
+
         {/* Header */}
         <Stack
           direction="row"

@@ -12,8 +12,15 @@ import {
   MenuItem,
   InputAdornment,
   Autocomplete,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
-import { Search as SearchIcon, Business as BusinessIcon } from '@mui/icons-material';
+import {
+  Search as SearchIcon,
+  Business as BusinessIcon,
+  Home as HomeIcon,
+} from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
@@ -30,6 +37,7 @@ import {
 } from './components';
 
 export default function EntityLedgerPage() {
+  const router = useRouter();
   useAuth();
   const [entities, setEntities] = useState<BusinessEntity[]>([]);
   const [selectedEntity, setSelectedEntity] = useState<BusinessEntity | null>(null);
@@ -217,6 +225,33 @@ export default function EntityLedgerPage() {
 
   return (
     <Box>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/accounting"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Accounting
+        </Link>
+        <Link
+          color="inherit"
+          href="/accounting/reports"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting/reports');
+          }}
+          sx={{ cursor: 'pointer' }}
+        >
+          Reports
+        </Link>
+        <Typography color="text.primary">Entity Ledger</Typography>
+      </Breadcrumbs>
+
       <PageHeader
         title="Entity Ledger"
         subtitle="View financial history and outstanding balances for vendors and customers"

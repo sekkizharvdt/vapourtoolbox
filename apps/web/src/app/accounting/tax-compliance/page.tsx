@@ -17,6 +17,8 @@ import {
   MenuItem,
   ToggleButtonGroup,
   ToggleButton,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Assessment as ReportIcon,
@@ -26,6 +28,7 @@ import {
   Description as FormIcon,
   AccountBalance as TaxIcon,
   ReceiptLong as ChallanIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting } from '@vapour/constants';
@@ -52,11 +55,14 @@ import {
   type TDSChallan,
 } from '@/lib/accounting/tdsReportGenerator';
 
+import { useRouter } from 'next/navigation';
+
 type ComplianceType = 'GST' | 'TDS';
 type GSTTabValue = 'gstr1' | 'gstr3b';
 type TDSTabValue = 'form16a' | 'form26q' | 'challans';
 
 export default function TaxCompliancePage() {
+  const router = useRouter();
   const { claims } = useAuth();
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
 
@@ -237,6 +243,22 @@ export default function TaxCompliancePage() {
   return (
     <>
       <Box sx={{ mb: 4 }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/accounting"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/accounting');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Accounting
+          </Link>
+          <Typography color="text.primary">GST & TDS</Typography>
+        </Breadcrumbs>
+
         <Typography variant="h4" component="h1" gutterBottom>
           GST & TDS Compliance
         </Typography>

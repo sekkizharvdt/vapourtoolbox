@@ -17,8 +17,15 @@ import {
   Alert,
   Stack,
   Grid,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
-import { Search as SearchIcon, Add as AddIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import {
+  Search as SearchIcon,
+  Add as AddIcon,
+  Refresh as RefreshIcon,
+  Home as HomeIcon,
+} from '@mui/icons-material';
 import { PageHeader, LoadingState, EmptyState, StatCard, FilterBar } from '@vapour/ui';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -30,10 +37,12 @@ import { AccountTreeView } from '@/components/accounting/AccountTreeView';
 import { CreateAccountDialog } from '@/components/accounting/CreateAccountDialog';
 import { initializeChartOfAccounts } from '@/lib/initializeChartOfAccounts';
 import { createLogger } from '@vapour/logger';
+import { useRouter } from 'next/navigation';
 
 const logger = createLogger({ context: 'ChartOfAccounts' });
 
 export default function ChartOfAccountsPage() {
+  const router = useRouter();
   const { claims, user } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -252,6 +261,22 @@ export default function ChartOfAccountsPage() {
   return (
     <>
       <Box sx={{ mb: 4 }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/accounting"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/accounting');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Accounting
+          </Link>
+          <Typography color="text.primary">Chart of Accounts</Typography>
+        </Breadcrumbs>
+
         <PageHeader
           title="Chart of Accounts"
           subtitle={`${statistics.totalCount} total • ${statistics.activeCount} active • ${statistics.groupCount} groups • ${statistics.leafCount} accounts`}

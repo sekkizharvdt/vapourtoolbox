@@ -7,9 +7,10 @@
  */
 
 import { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Box, Breadcrumbs, CircularProgress, Link, Typography } from '@mui/material';
+import { Home as HomeIcon } from '@mui/icons-material';
 
 // Dynamic import to avoid SSR issues
 const ProposalWizard = dynamic(
@@ -29,6 +30,7 @@ const ProposalWizard = dynamic(
 
 export default function EditProposalClient() {
   const pathname = usePathname();
+  const router = useRouter();
 
   // Extract proposalId from pathname for static export compatibility
   // useParams returns 'placeholder' with static export + Firebase hosting rewrites
@@ -53,5 +55,24 @@ export default function EditProposalClient() {
     );
   }
 
-  return <ProposalWizard proposalId={proposalId} />;
+  return (
+    <Box sx={{ p: 3 }}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/proposals"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/proposals');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Proposals
+        </Link>
+        <Typography color="text.primary">Edit</Typography>
+      </Breadcrumbs>
+      <ProposalWizard proposalId={proposalId} />
+    </Box>
+  );
 }

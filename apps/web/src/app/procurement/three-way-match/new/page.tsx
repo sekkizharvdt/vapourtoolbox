@@ -20,10 +20,13 @@ import {
   Grid,
   Autocomplete,
   TextField,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   CompareArrows as CompareArrowsIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PurchaseOrder, GoodsReceipt } from '@vapour/types';
@@ -145,6 +148,34 @@ export default function NewThreeWayMatchPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs sx={{ mb: 0 }}>
+          <Link
+            color="inherit"
+            href="/procurement"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Procurement
+          </Link>
+          <Link
+            color="inherit"
+            href="/procurement/three-way-match"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement/three-way-match');
+            }}
+            sx={{ cursor: 'pointer' }}
+          >
+            Three-Way Match
+          </Link>
+          <Typography color="text.primary">New</Typography>
+        </Breadcrumbs>
+
         {/* Header */}
         <Box>
           <Button

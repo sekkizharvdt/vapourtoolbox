@@ -25,6 +25,9 @@ import {
   DialogContent,
   DialogActions,
   CircularProgress,
+  Breadcrumbs,
+  Link,
+  Typography,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -40,6 +43,7 @@ import {
   Send as SendIcon,
   Check as CheckIcon,
   Block as VoidIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import {
   PageHeader,
@@ -69,6 +73,7 @@ import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { getBillAvailableActions } from '@/lib/accounting/billApprovalService';
+import { useRouter } from 'next/navigation';
 
 // Lazy load heavy dialog components
 const CreateBillDialog = dynamic(
@@ -108,6 +113,7 @@ function getMonthOptions() {
 }
 
 export default function BillsPage() {
+  const router = useRouter();
   const { claims, user } = useAuth();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<VendorBill | null>(null);
@@ -328,6 +334,22 @@ export default function BillsPage() {
 
   return (
     <>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/accounting"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Accounting
+        </Link>
+        <Typography color="text.primary">Vendor Bills</Typography>
+      </Breadcrumbs>
+
       <PageHeader
         title="Vendor Bills"
         subtitle="Track vendor bills and manage payments"

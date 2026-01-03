@@ -20,6 +20,9 @@ import {
   Select,
   MenuItem,
   InputAdornment,
+  Breadcrumbs,
+  Link,
+  Typography,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -33,6 +36,7 @@ import {
   Warning as WarningIcon,
   CheckCircle as ApproveIcon,
   AssignmentTurnedIn as SubmitIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import {
   PageHeader,
@@ -55,6 +59,7 @@ import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { SubmitForApprovalDialog } from './components/SubmitForApprovalDialog';
 import { ApproveInvoiceDialog } from './components/ApproveInvoiceDialog';
+import { useRouter } from 'next/navigation';
 
 // Lazy load heavy dialog component
 const CreateInvoiceDialog = dynamic(
@@ -88,6 +93,7 @@ function toDate(value: Date | Timestamp | unknown): Date | null {
 }
 
 export default function InvoicesPage() {
+  const router = useRouter();
   const { claims, user } = useAuth();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<CustomerInvoice | null>(null);
@@ -262,6 +268,22 @@ export default function InvoicesPage() {
 
   return (
     <Box sx={{ py: 4 }}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/accounting"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Accounting
+        </Link>
+        <Typography color="text.primary">Customer Invoices</Typography>
+      </Breadcrumbs>
+
       <PageHeader
         title="Customer Invoices"
         subtitle="Manage customer invoices and track payments"

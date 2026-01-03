@@ -13,8 +13,14 @@ import {
   InputAdornment,
   Alert,
   CircularProgress,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
-import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
+import {
+  ArrowBack as ArrowBackIcon,
+  Save as SaveIcon,
+  Home as HomeIcon,
+} from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
@@ -89,6 +95,22 @@ export default function NewBoughtOutItemPage() {
 
   return (
     <>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/bought-out"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/bought-out');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Bought Out
+        </Link>
+        <Typography color="text.primary">New Item</Typography>
+      </Breadcrumbs>
+
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} variant="outlined">
           Back

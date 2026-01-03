@@ -24,6 +24,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Visibility as ViewIcon,
@@ -31,6 +33,7 @@ import {
   Delete as DeleteIcon,
   Receipt as ReceiptIcon,
   Payment as PaymentIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
@@ -41,6 +44,7 @@ import type { CustomerPayment, VendorPayment } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { formatDate } from '@/lib/utils/formatters';
+import { useRouter } from 'next/navigation';
 
 // Lazy load heavy dialog components
 const RecordCustomerPaymentDialog = dynamic(
@@ -75,6 +79,7 @@ function getMonthOptions() {
 }
 
 export default function PaymentsPage() {
+  const router = useRouter();
   const { claims } = useAuth();
   const [paymentType, setPaymentType] = useState<PaymentType>('all');
   const [customerPaymentDialogOpen, setCustomerPaymentDialogOpen] = useState(false);
@@ -188,6 +193,22 @@ export default function PaymentsPage() {
 
   return (
     <Box sx={{ p: 3 }}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/accounting"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Accounting
+        </Link>
+        <Typography color="text.primary">Payments</Typography>
+      </Breadcrumbs>
+
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4">Payments</Typography>
         {canManage && (

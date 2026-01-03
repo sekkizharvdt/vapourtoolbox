@@ -22,8 +22,14 @@ import {
   Autocomplete,
   FormControlLabel,
   Checkbox,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
-import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
+import {
+  ArrowBack as ArrowBackIcon,
+  Save as SaveIcon,
+  Home as HomeIcon,
+} from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PurchaseOrder } from '@vapour/types';
 import { listPOs } from '@/lib/procurement/purchaseOrderService';
@@ -158,6 +164,34 @@ export default function NewWorkCompletionPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs sx={{ mb: 0 }}>
+          <Link
+            color="inherit"
+            href="/procurement"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Procurement
+          </Link>
+          <Link
+            color="inherit"
+            href="/procurement/work-completion"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement/work-completion');
+            }}
+            sx={{ cursor: 'pointer' }}
+          >
+            Work Completion
+          </Link>
+          <Typography color="text.primary">New</Typography>
+        </Breadcrumbs>
+
         {/* Header */}
         <Box>
           <Button

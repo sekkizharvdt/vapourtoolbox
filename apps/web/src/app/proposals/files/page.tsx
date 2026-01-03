@@ -8,7 +8,9 @@
  */
 
 import { useCallback } from 'react';
-import { Container, Box, Typography } from '@mui/material';
+import { useRouter } from 'next/navigation';
+import { Container, Box, Typography, Breadcrumbs, Link } from '@mui/material';
+import { Home as HomeIcon } from '@mui/icons-material';
 import { PageHeader } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewProposals } from '@vapour/constants';
@@ -16,6 +18,7 @@ import { DocumentBrowser } from '@/components/documents/browser';
 import type { DocumentRecord } from '@vapour/types';
 
 export default function ProposalsFilesPage() {
+  const router = useRouter();
   const { claims } = useAuth();
 
   // Check permissions
@@ -60,6 +63,21 @@ export default function ProposalsFilesPage() {
 
   return (
     <Container maxWidth="xl" sx={{ height: 'calc(100vh - 120px)' }}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/proposals"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/proposals');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Proposals
+        </Link>
+        <Typography color="text.primary">Files</Typography>
+      </Breadcrumbs>
       <Box sx={{ mb: 2 }}>
         <PageHeader
           title="Proposals Files"

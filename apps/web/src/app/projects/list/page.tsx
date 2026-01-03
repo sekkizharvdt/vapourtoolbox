@@ -11,6 +11,7 @@ import { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Box,
+  Breadcrumbs,
   Paper,
   Button,
   TextField,
@@ -23,6 +24,7 @@ import {
   IconButton,
   Tooltip,
   Alert,
+  Link,
   Table,
   TableBody,
   TableCell,
@@ -47,6 +49,7 @@ import {
   Refresh as RefreshIcon,
   Edit as EditIcon,
   Visibility as ViewIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { collection, query, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -212,6 +215,21 @@ export default function ProjectsListPage() {
 
   return (
     <>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/projects"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/projects');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Projects
+        </Link>
+        <Typography color="text.primary">All Projects</Typography>
+      </Breadcrumbs>
       <Box sx={{ mb: 4 }}>
         {/* Header */}
         <PageHeader

@@ -17,7 +17,11 @@ import {
   Select,
   MenuItem,
   SelectChangeEvent,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
+import { Home as HomeIcon } from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
 import { collection, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -55,6 +59,7 @@ interface LedgerLine {
 }
 
 export default function AccountLedgerPage() {
+  const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [ledgerLines, setLedgerLines] = useState<LedgerLine[]>([]);
@@ -175,6 +180,33 @@ export default function AccountLedgerPage() {
 
   return (
     <Box p={3}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/accounting"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Accounting
+        </Link>
+        <Link
+          color="inherit"
+          href="/accounting/reports"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting/reports');
+          }}
+          sx={{ cursor: 'pointer' }}
+        >
+          Reports
+        </Link>
+        <Typography color="text.primary">Account Ledger</Typography>
+      </Breadcrumbs>
+
       <Typography variant="h4" gutterBottom>
         Account Ledger
       </Typography>

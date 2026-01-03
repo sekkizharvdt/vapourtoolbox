@@ -33,8 +33,14 @@ import {
   Checkbox,
   FormControlLabel,
   Chip,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
-import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
+import {
+  ArrowBack as ArrowBackIcon,
+  Save as SaveIcon,
+  Home as HomeIcon,
+} from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PurchaseOrder, ItemCondition } from '@vapour/types';
 import { listPOs, getPOItems } from '@/lib/procurement/purchaseOrderService';
@@ -275,6 +281,34 @@ export default function NewGoodsReceiptPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs sx={{ mb: 0 }}>
+          <Link
+            color="inherit"
+            href="/procurement"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Procurement
+          </Link>
+          <Link
+            color="inherit"
+            href="/procurement/goods-receipts"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement/goods-receipts');
+            }}
+            sx={{ cursor: 'pointer' }}
+          >
+            Goods Receipts
+          </Link>
+          <Typography color="text.primary">New</Typography>
+        </Breadcrumbs>
+
         {/* Header */}
         <Box>
           <Button

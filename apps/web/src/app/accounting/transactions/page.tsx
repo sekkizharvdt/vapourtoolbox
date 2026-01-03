@@ -19,8 +19,14 @@ import {
   Select,
   TablePagination,
   InputAdornment,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
-import { Visibility as ViewIcon, Search as SearchIcon } from '@mui/icons-material';
+import {
+  Visibility as ViewIcon,
+  Search as SearchIcon,
+  Home as HomeIcon,
+} from '@mui/icons-material';
 import {
   PageHeader,
   LoadingState,
@@ -36,8 +42,10 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { BaseTransaction, TransactionType } from '@vapour/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
+import { useRouter } from 'next/navigation';
 
 export default function TransactionsPage() {
+  const router = useRouter();
   // Note: Auth context available but not currently used
   useAuth();
   const [transactions, setTransactions] = useState<BaseTransaction[]>([]);
@@ -139,6 +147,22 @@ export default function TransactionsPage() {
 
   return (
     <Box sx={{ py: 4 }}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/accounting"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Accounting
+        </Link>
+        <Typography color="text.primary">All Transactions</Typography>
+      </Breadcrumbs>
+
       <PageHeader title="All Transactions" subtitle="View and manage all accounting transactions" />
 
       <FilterBar onClear={handleClearFilters}>
@@ -283,7 +307,11 @@ export default function TransactionsPage() {
           Showing {filteredTransactions.length} of {transactions.length} transactions
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Total (INR): {formatCurrency(filteredTransactions.reduce((sum, txn) => sum + (txn.baseAmount || txn.amount), 0), 'INR')}
+          Total (INR):{' '}
+          {formatCurrency(
+            filteredTransactions.reduce((sum, txn) => sum + (txn.baseAmount || txn.amount), 0),
+            'INR'
+          )}
         </Typography>
       </Box>
     </Box>

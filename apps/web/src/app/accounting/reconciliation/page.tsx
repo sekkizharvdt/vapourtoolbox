@@ -23,6 +23,8 @@ import {
   Tabs,
   Tab,
   TablePagination,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import { Grid } from '@mui/material';
 import {
@@ -32,6 +34,7 @@ import {
   Warning as WarningIcon,
   Assessment as AssessmentIcon,
   CloudUpload as ImportIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
@@ -43,10 +46,12 @@ import { CreateBankStatementDialog } from './components/CreateBankStatementDialo
 import { ImportBankStatementDialog } from './components/ImportBankStatementDialog';
 import { ReconciliationWorkspace } from './components/ReconciliationWorkspace';
 import { formatDate } from '@/lib/utils/formatters';
+import { useRouter } from 'next/navigation';
 
 type TabValue = 'statements' | 'reconcile';
 
 export default function BankReconciliationPage() {
+  const router = useRouter();
   const { claims } = useAuth();
   const [statements, setStatements] = useState<BankStatement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,6 +157,22 @@ export default function BankReconciliationPage() {
 
   return (
     <Box sx={{ p: 3 }}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/accounting"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Accounting
+        </Link>
+        <Typography color="text.primary">Bank Reconciliation</Typography>
+      </Breadcrumbs>
+
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4">Bank Reconciliation</Typography>
         {activeTab === 'statements' && (
@@ -273,9 +294,7 @@ export default function BankReconciliationPage() {
                             {statement.bankName} - {statement.accountNumber}
                           </Typography>
                         </TableCell>
-                        <TableCell>
-                          {formatDate(statement.statementDate.toDate())}
-                        </TableCell>
+                        <TableCell>{formatDate(statement.statementDate.toDate())}</TableCell>
                         <TableCell>
                           {formatDate(statement.startDate.toDate())} -{' '}
                           {formatDate(statement.endDate.toDate())}

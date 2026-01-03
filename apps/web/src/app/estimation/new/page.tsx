@@ -11,8 +11,10 @@ import {
   MenuItem,
   CircularProgress,
   Alert,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
-import { ArrowBack as BackIcon, Save as SaveIcon } from '@mui/icons-material';
+import { ArrowBack as BackIcon, Save as SaveIcon, Home as HomeIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { getFirebase } from '@/lib/firebase';
@@ -105,6 +107,21 @@ export default function NewBOMPage() {
 
   return (
     <Container maxWidth="md">
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/estimation"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/estimation');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Estimation
+        </Link>
+        <Typography color="text.primary">New BOM</Typography>
+      </Breadcrumbs>
       <Box sx={{ mb: 4 }}>
         <Button startIcon={<BackIcon />} onClick={handleCancel} sx={{ mb: 2 }}>
           Back to BOMs

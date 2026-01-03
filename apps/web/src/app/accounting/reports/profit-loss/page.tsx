@@ -17,12 +17,16 @@ import {
   Divider,
   CircularProgress,
   Alert,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
   Assessment as AssessmentIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import {
@@ -31,6 +35,7 @@ import {
 } from '@/lib/accounting/reports/profitLoss';
 
 export default function ProfitLossPage() {
+  const router = useRouter();
   const [startDate, setStartDate] = useState<string>(() => {
     // Default to first day of current month
     const now = new Date();
@@ -77,6 +82,33 @@ export default function ProfitLossPage() {
 
   return (
     <Box sx={{ p: 3 }}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/accounting"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Accounting
+        </Link>
+        <Link
+          color="inherit"
+          href="/accounting/reports"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting/reports');
+          }}
+          sx={{ cursor: 'pointer' }}
+        >
+          Reports
+        </Link>
+        <Typography color="text.primary">Profit & Loss</Typography>
+      </Breadcrumbs>
+
       <Stack spacing={3}>
         {/* Header */}
         <Stack direction="row" alignItems="center" spacing={2}>

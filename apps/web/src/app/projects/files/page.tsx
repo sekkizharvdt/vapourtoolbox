@@ -8,8 +8,10 @@
  */
 
 import { useCallback } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Breadcrumbs, Link, Typography } from '@mui/material';
+import { Home as HomeIcon } from '@mui/icons-material';
 import { PageHeader } from '@vapour/ui';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewProjects } from '@vapour/constants';
 import { DocumentBrowser } from '@/components/documents/browser';
@@ -17,6 +19,7 @@ import type { DocumentRecord } from '@vapour/types';
 
 export default function ProjectsFilesPage() {
   const { claims } = useAuth();
+  const router = useRouter();
 
   // Check permissions
   const hasViewAccess = claims?.permissions ? canViewProjects(claims.permissions) : false;
@@ -60,6 +63,21 @@ export default function ProjectsFilesPage() {
 
   return (
     <>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/projects"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/projects');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Projects
+        </Link>
+        <Typography color="text.primary">Files</Typography>
+      </Breadcrumbs>
       <Box sx={{ mb: 2 }}>
         <PageHeader
           title="Projects Files"

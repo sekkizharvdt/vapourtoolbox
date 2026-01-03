@@ -1,6 +1,16 @@
 'use client';
 
-import { Typography, Box, Card, CardContent, CardActions, Button, Grid } from '@mui/material';
+import {
+  Typography,
+  Box,
+  Card,
+  CardContent,
+  CardActions,
+  Button,
+  Grid,
+  Breadcrumbs,
+  Link,
+} from '@mui/material';
 import {
   AccountBalance as BalanceSheetIcon,
   TrendingUp as PLIcon,
@@ -10,6 +20,7 @@ import {
   Assessment as ReportIcon,
   BusinessCenter as ProjectIcon,
   Business as EntityIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -100,6 +111,22 @@ export default function FinancialReportsPage() {
 
   return (
     <>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/accounting"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Accounting
+        </Link>
+        <Typography color="text.primary">Financial Reports</Typography>
+      </Breadcrumbs>
+
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Financial Reports

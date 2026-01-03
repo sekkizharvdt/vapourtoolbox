@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Typography, Box, Paper, Tabs, Tab, Alert } from '@mui/material';
+import { Typography, Box, Paper, Tabs, Tab, Alert, Breadcrumbs, Link } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting, canManageAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
+import { Home as HomeIcon } from '@mui/icons-material';
 import BankSettlementAnalysis from '@/components/accounting/currency/BankSettlementAnalysis';
 import {
   collection,
@@ -25,6 +26,7 @@ import type {
   BaseTransaction,
 } from '@vapour/types';
 import { ExchangeRatesTab, SettingsTab } from './components';
+import { useRouter } from 'next/navigation';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -48,6 +50,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function CurrencyForexPage() {
+  const router = useRouter();
   const { claims, user } = useAuth();
   const [tabValue, setTabValue] = useState(0);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
@@ -260,6 +263,22 @@ export default function CurrencyForexPage() {
   return (
     <>
       <Box sx={{ mb: 4 }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/accounting"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/accounting');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Accounting
+          </Link>
+          <Typography color="text.primary">Currency & Forex</Typography>
+        </Breadcrumbs>
+
         <Typography variant="h4" component="h1" gutterBottom>
           Currency &amp; Forex Management
         </Typography>

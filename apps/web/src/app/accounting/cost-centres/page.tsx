@@ -18,12 +18,15 @@ import {
   TableHead,
   TableRow,
   Paper,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   TrendingUp as UpIcon,
   TrendingDown as DownIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting, canManageAccounting } from '@vapour/constants';
@@ -132,6 +135,22 @@ export default function CostCentresPage() {
   return (
     <>
       <Box sx={{ mb: 4 }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/accounting"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/accounting');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Accounting
+          </Link>
+          <Typography color="text.primary">Cost Centres</Typography>
+        </Breadcrumbs>
+
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>
             <Typography variant="h4" component="h1" gutterBottom>

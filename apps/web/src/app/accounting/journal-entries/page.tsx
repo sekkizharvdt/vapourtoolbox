@@ -17,12 +17,15 @@ import {
   IconButton,
   Tooltip,
   TablePagination,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Visibility as ViewIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
@@ -33,8 +36,10 @@ import type { JournalEntry } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { CreateJournalEntryDialog } from './components/CreateJournalEntryDialog';
 import { formatDate } from '@/lib/utils/formatters';
+import { useRouter } from 'next/navigation';
 
 export default function JournalEntriesPage() {
+  const router = useRouter();
   const { claims } = useAuth();
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,6 +123,22 @@ export default function JournalEntriesPage() {
 
   return (
     <Box sx={{ p: 3 }}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/accounting"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Accounting
+        </Link>
+        <Typography color="text.primary">Journal Entries</Typography>
+      </Breadcrumbs>
+
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4">Journal Entries</Typography>
         {canManage && (

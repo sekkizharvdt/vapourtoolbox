@@ -11,8 +11,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
+  Breadcrumbs,
   Button,
   Container,
+  Link,
   Paper,
   Table,
   TableBody,
@@ -33,6 +35,7 @@ import {
   Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import { Home as HomeIcon } from '@mui/icons-material';
 import EditIcon from '@mui/icons-material/Edit';
 import ViewIcon from '@mui/icons-material/Visibility';
 import { PageHeader, FilterBar, LoadingState, EmptyState, TableActionCell } from '@vapour/ui';
@@ -150,6 +153,21 @@ export default function ProposalListPage() {
 
   return (
     <Container maxWidth="xl">
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/proposals"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/proposals');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Proposals
+        </Link>
+        <Typography color="text.primary">All Proposals</Typography>
+      </Breadcrumbs>
       <Box sx={{ mb: 4 }}>
         <PageHeader
           title="All Proposals"
