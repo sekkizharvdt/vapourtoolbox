@@ -34,9 +34,10 @@ export interface HolidayWorkingOverride extends TimestampFields {
   id: string;
 
   // Holiday Details
-  holidayId: string; // Reference to hrHolidays document
+  holidayId?: string; // Reference to hrHolidays document (optional for ad-hoc dates like Sat/Sun)
   holidayName: string;
   holidayDate: Timestamp;
+  isAdHoc?: boolean; // True if this is an ad-hoc date (Saturday/Sunday), not a declared holiday
 
   // Scope
   scope: HolidayWorkingScope;
@@ -67,12 +68,13 @@ export interface HolidayWorkingOverride extends TimestampFields {
  * Input for creating holiday working override
  */
 export interface CreateHolidayWorkingInput {
-  holidayId: string;
+  holidayId?: string; // Optional for ad-hoc dates (Saturdays/Sundays)
   holidayName: string;
   holidayDate: Date;
   scope: HolidayWorkingScope;
   affectedUserIds: string[]; // Required if scope is SPECIFIC_USERS, ignored if ALL_USERS
   reason?: string;
+  isAdHoc?: boolean; // True if this is an ad-hoc date, not a declared holiday
 }
 
 /**

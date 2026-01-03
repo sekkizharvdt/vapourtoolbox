@@ -37,6 +37,7 @@ const logger = createLogger({ context: 'holidayWorkingService' });
 /**
  * Create holiday working override
  * Converts a holiday to a working day and grants comp-off to affected users
+ * Supports both declared holidays (from hrHolidays) and ad-hoc dates (Saturdays/Sundays)
  */
 export async function createHolidayWorkingOverride(
   input: CreateHolidayWorkingInput,
@@ -47,10 +48,22 @@ export async function createHolidayWorkingOverride(
   const { db } = getFirebase();
 
   try {
-    // Validate holiday exists
-    const holiday = await getHolidayById(input.holidayId);
-    if (!holiday) {
-      throw new Error('Holiday not found');
+    let holidayName = input.holidayName;
+    let holidayDate = Timestamp.fromDate(input.holidayDate);
+
+    // If holidayId is provided, validate it exists (for declared holidays)
+    if (input.holidayId && !input.isAdHoc) {
+      const holiday = await getHolidayById(input.holidayId);
+      if (!holiday) {
+        throw new Error('Holiday not found');
+      }
+      holidayName = holiday.name;
+      holidayDate = holiday.date;
+    }
+
+    // Validate holidayName is provided
+    if (!holidayName) {
+      throw new Error('Holiday name is required');
     }
 
     // Validate scope and affected users
@@ -62,9 +75,10 @@ export async function createHolidayWorkingOverride(
     const overrideRef = doc(collection(db, COLLECTIONS.HR_HOLIDAY_WORKING_OVERRIDES));
 
     const override: Omit<HolidayWorkingOverride, 'id'> = {
-      holidayId: input.holidayId,
-      holidayName: holiday.name,
-      holidayDate: holiday.date,
+      ...(input.holidayId && { holidayId: input.holidayId }),
+      holidayName,
+      holidayDate,
+      isAdHoc: input.isAdHoc || false,
       scope: input.scope,
       affectedUserIds: input.scope === 'SPECIFIC_USERS' ? input.affectedUserIds : [],
       compOffGrantedCount: 0,
@@ -84,6 +98,8 @@ export async function createHolidayWorkingOverride(
     logger.info('Holiday working override created', {
       overrideId: overrideRef.id,
       holidayId: input.holidayId,
+      holidayName,
+      isAdHoc: input.isAdHoc,
       scope: input.scope,
       adminUserId,
     });

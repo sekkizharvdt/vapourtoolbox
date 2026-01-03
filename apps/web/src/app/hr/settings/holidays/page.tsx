@@ -63,6 +63,7 @@ import type {
 import { format } from 'date-fns';
 import HolidayWorkingDialog from '@/components/hr/HolidayWorkingDialog';
 import HolidayWorkingHistory from '@/components/hr/HolidayWorkingHistory';
+import DeclareWorkingDayDialog from '@/components/hr/DeclareWorkingDayDialog';
 
 const HOLIDAY_TYPE_OPTIONS: { value: HolidayType; label: string; color: string }[] = [
   { value: 'COMPANY', label: 'Company Holiday', color: '#f97316' },
@@ -116,6 +117,7 @@ export default function HolidaySettingsPage() {
   const [workingDialogOpen, setWorkingDialogOpen] = useState(false);
   const [selectedHolidayForWorking, setSelectedHolidayForWorking] = useState<Holiday | null>(null);
   const [workingOverrides, setWorkingOverrides] = useState<HolidayWorkingOverride[]>([]);
+  const [declareWorkingDayDialogOpen, setDeclareWorkingDayDialogOpen] = useState(false);
 
   const permissions2 = claims?.permissions2 ?? 0;
   const hasManageAccess = canManageHRSettings(permissions2);
@@ -285,6 +287,37 @@ export default function HolidaySettingsPage() {
     await loadData();
   };
 
+  const handleDeclareWorkingDay = async (data: {
+    date: Date;
+    name: string;
+    scope: HolidayWorkingScope;
+    affectedUserIds: string[];
+    reason: string;
+  }) => {
+    if (!user) return;
+
+    await createHolidayWorkingOverride(
+      {
+        holidayName: data.name,
+        holidayDate: data.date,
+        scope: data.scope,
+        affectedUserIds: data.affectedUserIds,
+        reason: data.reason,
+        isAdHoc: true,
+      },
+      user.uid,
+      user.displayName || 'Admin',
+      user.email || ''
+    );
+
+    setSuccess(
+      `"${data.name}" declared as working day. Comp-off will be processed for ${data.scope === 'ALL_USERS' ? 'all users' : `${data.affectedUserIds.length} user(s)`}.`
+    );
+
+    // Reload data to show new override
+    await loadData();
+  };
+
   const yearOptions = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 1 + i);
 
   if (!hasManageAccess) {
@@ -354,6 +387,14 @@ export default function HolidaySettingsPage() {
               Copy
             </Button>
           </Tooltip>
+          <Button
+            variant="outlined"
+            color="warning"
+            startIcon={<ConvertIcon />}
+            onClick={() => setDeclareWorkingDayDialogOpen(true)}
+          >
+            Declare Working Day
+          </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleAdd}>
             Add Holiday
           </Button>
@@ -638,6 +679,13 @@ export default function HolidaySettingsPage() {
       <Box sx={{ mt: 4 }}>
         <HolidayWorkingHistory overrides={workingOverrides} loading={loading} />
       </Box>
+
+      {/* Declare Working Day Dialog (for Saturdays/Sundays/any date) */}
+      <DeclareWorkingDayDialog
+        open={declareWorkingDayDialogOpen}
+        onClose={() => setDeclareWorkingDayDialogOpen(false)}
+        onSubmit={handleDeclareWorkingDay}
+      />
     </Box>
   );
 }
