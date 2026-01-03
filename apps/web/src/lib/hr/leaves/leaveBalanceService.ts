@@ -25,6 +25,38 @@ import { getLeaveTypes } from './leaveTypeService';
 const logger = createLogger({ context: 'leaveBalanceService' });
 
 /**
+ * Safely transform Firestore data to LeaveBalance with default values
+ * Handles missing or undefined numeric fields to prevent NaN calculations
+ */
+function toLeaveBalance(id: string, data: Record<string, unknown>): LeaveBalance {
+  const entitled = typeof data.entitled === 'number' ? data.entitled : 0;
+  const used = typeof data.used === 'number' ? data.used : 0;
+  const pending = typeof data.pending === 'number' ? data.pending : 0;
+  const carryForward = typeof data.carryForward === 'number' ? data.carryForward : 0;
+
+  // Recalculate available to ensure consistency
+  const available = entitled + carryForward - used - pending;
+
+  return {
+    id,
+    userId: data.userId as string,
+    userName: data.userName as string,
+    userEmail: data.userEmail as string,
+    leaveTypeId: data.leaveTypeId as string,
+    leaveTypeCode: data.leaveTypeCode as LeaveTypeCode,
+    leaveTypeName: data.leaveTypeName as string,
+    fiscalYear: data.fiscalYear as number,
+    entitled,
+    used,
+    pending,
+    available,
+    carryForward,
+    createdAt: data.createdAt as Timestamp,
+    updatedAt: data.updatedAt as Timestamp,
+  };
+}
+
+/**
  * Get current fiscal year (Jan 1 - Dec 31)
  */
 export function getCurrentFiscalYear(): number {
@@ -50,13 +82,9 @@ export async function getUserLeaveBalances(
 
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((docSnapshot) => {
-      const data: LeaveBalance = {
-        id: docSnapshot.id,
-        ...(docSnapshot.data() as Omit<LeaveBalance, 'id'>),
-      };
-      return data;
-    });
+    return snapshot.docs.map((docSnapshot) =>
+      toLeaveBalance(docSnapshot.id, docSnapshot.data() as Record<string, unknown>)
+    );
   } catch (error) {
     logger.error('Failed to get user leave balances', { error, userId, fiscalYear: year });
     throw new Error('Failed to get leave balances');
@@ -77,11 +105,7 @@ export async function getLeaveBalanceById(id: string): Promise<LeaveBalance | nu
       return null;
     }
 
-    const data: LeaveBalance = {
-      id: docSnap.id,
-      ...(docSnap.data() as Omit<LeaveBalance, 'id'>),
-    };
-    return data;
+    return toLeaveBalance(docSnap.id, docSnap.data() as Record<string, unknown>);
   } catch (error) {
     logger.error('Failed to get leave balance by ID', { error, id });
     throw new Error('Failed to get leave balance');
@@ -115,11 +139,7 @@ export async function getUserLeaveBalanceByType(
 
     const balanceDoc = snapshot.docs[0];
     if (!balanceDoc) return null;
-    const data: LeaveBalance = {
-      id: balanceDoc.id,
-      ...(balanceDoc.data() as Omit<LeaveBalance, 'id'>),
-    };
-    return data;
+    return toLeaveBalance(balanceDoc.id, balanceDoc.data() as Record<string, unknown>);
   } catch (error) {
     logger.error('Failed to get user leave balance by type', {
       error,
@@ -343,13 +363,9 @@ export async function getAllLeaveBalances(fiscalYear?: number): Promise<LeaveBal
 
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((docSnapshot) => {
-      const data: LeaveBalance = {
-        id: docSnapshot.id,
-        ...(docSnapshot.data() as Omit<LeaveBalance, 'id'>),
-      };
-      return data;
-    });
+    return snapshot.docs.map((docSnapshot) =>
+      toLeaveBalance(docSnapshot.id, docSnapshot.data() as Record<string, unknown>)
+    );
   } catch (error) {
     logger.error('Failed to get all leave balances', { error, fiscalYear: year });
     throw new Error('Failed to get leave balances');
@@ -386,11 +402,8 @@ export async function getTeamLeaveBalances(
 
       const snapshot = await getDocs(q);
 
-      snapshot.docs.forEach((doc) => {
-        batches.push({
-          id: doc.id,
-          ...doc.data(),
-        } as LeaveBalance);
+      snapshot.docs.forEach((docSnapshot) => {
+        batches.push(toLeaveBalance(docSnapshot.id, docSnapshot.data() as Record<string, unknown>));
       });
     }
 
