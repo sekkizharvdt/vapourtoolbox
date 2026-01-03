@@ -29,8 +29,10 @@ import {
   TablePagination,
   Grid,
   Typography,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
-import { Add as AddIcon, Search as SearchIcon } from '@mui/icons-material';
+import { Add as AddIcon, Search as SearchIcon, Home as HomeIcon } from '@mui/icons-material';
 import { PageHeader, LoadingState, EmptyState, StatCard, FilterBar } from '@vapour/ui';
 import { purchaseOrderListHelp } from '@/lib/help/pageHelpContent';
 import type { PurchaseOrder, PurchaseOrderStatus } from '@vapour/types';
@@ -116,6 +118,22 @@ export default function PurchaseOrdersPage() {
   return (
     <>
       <Box sx={{ mb: 4 }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/procurement"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Procurement
+          </Link>
+          <Typography color="text.primary">Purchase Orders</Typography>
+        </Breadcrumbs>
+
         <PageHeader
           title="Purchase Orders"
           subtitle="Manage purchase orders and track deliveries"

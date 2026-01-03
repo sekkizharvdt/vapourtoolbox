@@ -32,6 +32,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -40,6 +42,7 @@ import {
   Warning as WarningIcon,
   Error as ErrorIcon,
   CompareArrows as CompareArrowsIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import type { ThreeWayMatch, ThreeWayMatchStatus } from '@vapour/types';
 import { listThreeWayMatches } from '@/lib/procurement/threeWayMatch';
@@ -126,6 +129,23 @@ export default function ThreeWayMatchListPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs sx={{ mb: 0 }}>
+          <Link
+            color="inherit"
+            href="/procurement"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Procurement
+          </Link>
+          <Typography color="text.primary">Three-Way Match</Typography>
+        </Breadcrumbs>
+
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box>

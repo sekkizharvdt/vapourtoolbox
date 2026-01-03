@@ -30,11 +30,14 @@ import {
   InputLabel,
   type SelectChangeEvent,
   TablePagination,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Search as SearchIcon,
   FactCheck as InspectionIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import type { GoodsReceipt, GoodsReceiptStatus } from '@vapour/types';
 import { listGoodsReceipts } from '@/lib/procurement/goodsReceiptService';
@@ -114,6 +117,23 @@ export default function GoodsReceiptsPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs sx={{ mb: 0 }}>
+          <Link
+            color="inherit"
+            href="/procurement"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Procurement
+          </Link>
+          <Typography color="text.primary">Goods Receipts</Typography>
+        </Breadcrumbs>
+
         {/* Header */}
         <Box>
           <Stack direction="row" justifyContent="space-between" alignItems="center">

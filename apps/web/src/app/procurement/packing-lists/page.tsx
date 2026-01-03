@@ -30,11 +30,14 @@ import {
   InputLabel,
   type SelectChangeEvent,
   TablePagination,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Search as SearchIcon,
   LocalShipping as ShippingIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import type { PackingList, PackingListStatus } from '@vapour/types';
 import { listPackingLists } from '@/lib/procurement/packingListService';
@@ -113,6 +116,23 @@ export default function PackingListsPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs sx={{ mb: 0 }}>
+          <Link
+            color="inherit"
+            href="/procurement"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Procurement
+          </Link>
+          <Typography color="text.primary">Packing Lists</Typography>
+        </Breadcrumbs>
+
         {/* Header */}
         <Box>
           <Stack direction="row" justifyContent="space-between" alignItems="center">

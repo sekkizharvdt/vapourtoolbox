@@ -30,6 +30,8 @@ import {
   TablePagination,
   Tabs,
   Tab,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -42,6 +44,7 @@ import {
   Cancel as CancelIcon,
   HourglassEmpty as HourglassEmptyIcon,
   Archive as ArchiveIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import { StatCard } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
@@ -262,6 +265,23 @@ export default function PurchaseRequestsPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs sx={{ mb: 0 }}>
+          <Link
+            color="inherit"
+            href="/procurement"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Procurement
+          </Link>
+          <Typography color="text.primary">Purchase Requests</Typography>
+        </Breadcrumbs>
+
         {/* Header */}
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Box>

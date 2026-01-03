@@ -32,6 +32,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -40,6 +42,7 @@ import {
   CheckCircle as CheckCircleIcon,
   HourglassEmpty as HourglassEmptyIcon,
   Cancel as CancelIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import type { PurchaseOrderAmendment } from '@vapour/types';
 import { listAmendments } from '@/lib/procurement/amendment';
@@ -128,6 +131,23 @@ export default function AmendmentsListPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs sx={{ mb: 0 }}>
+          <Link
+            color="inherit"
+            href="/procurement"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Procurement
+          </Link>
+          <Typography color="text.primary">PO Amendments</Typography>
+        </Breadcrumbs>
+
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box>

@@ -28,6 +28,8 @@ import {
   Alert,
   Card,
   CardContent,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -35,6 +37,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   Description as DescriptionIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 import type { WorkCompletionCertificate } from '@vapour/types';
 import { listWCCs } from '@/lib/procurement/workCompletionService';
@@ -111,6 +114,23 @@ export default function WorkCompletionListPage() {
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs sx={{ mb: 0 }}>
+          <Link
+            color="inherit"
+            href="/procurement"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Procurement
+          </Link>
+          <Typography color="text.primary">Work Completion</Typography>
+        </Breadcrumbs>
+
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box>

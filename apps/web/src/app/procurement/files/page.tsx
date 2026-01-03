@@ -8,14 +8,17 @@
  */
 
 import { useCallback } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, Breadcrumbs, Link } from '@mui/material';
+import { Home as HomeIcon } from '@mui/icons-material';
 import { PageHeader } from '@vapour/ui';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewProcurement } from '@vapour/constants';
 import { DocumentBrowser } from '@/components/documents/browser';
 import type { DocumentRecord } from '@vapour/types';
 
 export default function ProcurementFilesPage() {
+  const router = useRouter();
   const { claims } = useAuth();
 
   // Check permissions
@@ -61,6 +64,22 @@ export default function ProcurementFilesPage() {
   return (
     <>
       <Box sx={{ mb: 2 }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/procurement"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push('/procurement');
+            }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Procurement
+          </Link>
+          <Typography color="text.primary">Files</Typography>
+        </Breadcrumbs>
+
         <PageHeader
           title="Procurement Files"
           subtitle="Browse and manage procurement-related documents"
