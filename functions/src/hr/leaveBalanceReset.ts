@@ -42,12 +42,8 @@ export const resetLeaveBalances = onSchedule(
     logger.info('Starting leave balance reset for year', { year: newYear });
 
     try {
-      // Get all active users
-      const usersSnapshot = await db
-        .collection(USERS)
-        .where('isActive', '==', true)
-        .where('status', '==', 'active')
-        .get();
+      // Get all active users - only check isActive, status field may not be set
+      const usersSnapshot = await db.collection(USERS).where('isActive', '==', true).get();
 
       logger.info('Found active users', { count: usersSnapshot.size });
 
@@ -56,24 +52,44 @@ export const resetLeaveBalances = onSchedule(
         return;
       }
 
-      // Get leave types to fetch quotas
+      // Get leave types with their IDs and names
       const leaveTypesSnapshot = await db
         .collection(HR_LEAVE_TYPES)
         .where('isActive', '==', true)
         .get();
 
-      // Build quota map
-      const quotaMap = new Map<string, number>();
+      // Build leave type info map
+      interface LeaveTypeInfo {
+        id: string;
+        name: string;
+        quota: number;
+      }
+      const leaveTypeMap = new Map<string, LeaveTypeInfo>();
       leaveTypesSnapshot.forEach((doc) => {
         const data = doc.data();
-        quotaMap.set(data.code, data.annualQuota || 0);
+        leaveTypeMap.set(data.code, {
+          id: doc.id,
+          name: data.name || data.code,
+          quota: data.annualQuota || 0,
+        });
       });
 
-      // Default quotas if not found in leave types
-      const sickLeaveQuota = quotaMap.get(SICK_LEAVE) || DEFAULT_SICK_LEAVE_QUOTA;
-      const casualLeaveQuota = quotaMap.get(CASUAL_LEAVE) || DEFAULT_CASUAL_LEAVE_QUOTA;
+      // Fallback leave type info if not found
+      const sickLeaveInfo = leaveTypeMap.get(SICK_LEAVE) || {
+        id: 'sick',
+        name: 'Sick Leave',
+        quota: DEFAULT_SICK_LEAVE_QUOTA,
+      };
+      const casualLeaveInfo = leaveTypeMap.get(CASUAL_LEAVE) || {
+        id: 'casual',
+        name: 'Casual Leave',
+        quota: DEFAULT_CASUAL_LEAVE_QUOTA,
+      };
 
-      logger.info('Quotas for new year', { sickLeaveQuota, casualLeaveQuota });
+      logger.info('Quotas for new year', {
+        sickLeaveQuota: sickLeaveInfo.quota,
+        casualLeaveQuota: casualLeaveInfo.quota,
+      });
 
       // Batch write for efficiency
       const batches: admin.firestore.WriteBatch[] = [];
@@ -109,12 +125,15 @@ export const resetLeaveBalances = onSchedule(
           currentBatch.set(sickBalanceRef, {
             userId,
             userName: userData.displayName || userData.email || 'Unknown',
+            userEmail: userData.email || '',
+            leaveTypeId: sickLeaveInfo.id,
             leaveTypeCode: SICK_LEAVE,
+            leaveTypeName: sickLeaveInfo.name,
             fiscalYear: newYear,
-            allocated: sickLeaveQuota,
+            entitled: sickLeaveInfo.quota,
             used: 0,
             pending: 0,
-            available: sickLeaveQuota,
+            available: sickLeaveInfo.quota,
             carryForward: 0, // No carry forward for now
             createdAt: now,
             updatedAt: now,
@@ -128,12 +147,15 @@ export const resetLeaveBalances = onSchedule(
           currentBatch.set(casualBalanceRef, {
             userId,
             userName: userData.displayName || userData.email || 'Unknown',
+            userEmail: userData.email || '',
+            leaveTypeId: casualLeaveInfo.id,
             leaveTypeCode: CASUAL_LEAVE,
+            leaveTypeName: casualLeaveInfo.name,
             fiscalYear: newYear,
-            allocated: casualLeaveQuota,
+            entitled: casualLeaveInfo.quota,
             used: 0,
             pending: 0,
-            available: casualLeaveQuota,
+            available: casualLeaveInfo.quota,
             carryForward: 0,
             createdAt: now,
             updatedAt: now,
@@ -316,101 +338,155 @@ export const manualResetLeaveBalances = onCall(
     logger.info('Manual leave balance reset triggered', { year, triggeredBy: request.auth.uid });
 
     try {
-      // Get all active users
-      const usersSnapshot = await db
-        .collection(USERS)
-        .where('isActive', '==', true)
-        .where('status', '==', 'active')
-        .get();
+      // Get all active users - only check isActive, status field may not be set
+      const usersSnapshot = await db.collection(USERS).where('isActive', '==', true).get();
 
       if (usersSnapshot.empty) {
-        return { success: true, message: 'No active users found', created: 0 };
+        return { success: true, message: 'No active users found', created: 0, skipped: 0 };
       }
 
-      // Get leave types
+      // Get leave types with their IDs and names
       const leaveTypesSnapshot = await db
         .collection(HR_LEAVE_TYPES)
         .where('isActive', '==', true)
         .get();
 
-      const quotaMap = new Map<string, number>();
+      // Build leave type info map
+      interface LeaveTypeInfo {
+        id: string;
+        name: string;
+        quota: number;
+      }
+      const leaveTypeMap = new Map<string, LeaveTypeInfo>();
       leaveTypesSnapshot.forEach((doc) => {
         const data = doc.data();
-        quotaMap.set(data.code, data.annualQuota || 0);
+        leaveTypeMap.set(data.code, {
+          id: doc.id,
+          name: data.name || data.code,
+          quota: data.annualQuota || 0,
+        });
       });
 
-      const sickLeaveQuota = quotaMap.get(SICK_LEAVE) || DEFAULT_SICK_LEAVE_QUOTA;
-      const casualLeaveQuota = quotaMap.get(CASUAL_LEAVE) || DEFAULT_CASUAL_LEAVE_QUOTA;
+      // Fallback leave type info if not found
+      const sickLeaveInfo = leaveTypeMap.get(SICK_LEAVE) || {
+        id: 'sick',
+        name: 'Sick Leave',
+        quota: DEFAULT_SICK_LEAVE_QUOTA,
+      };
+      const casualLeaveInfo = leaveTypeMap.get(CASUAL_LEAVE) || {
+        id: 'casual',
+        name: 'Casual Leave',
+        quota: DEFAULT_CASUAL_LEAVE_QUOTA,
+      };
 
       let created = 0;
       let skipped = 0;
+      let updated = 0;
 
       for (const userDoc of usersSnapshot.docs) {
         const userId = userDoc.id;
         const userData = userDoc.data();
 
         // Check if balance already exists
-        const existingBalance = await db
+        const existingBalanceSnap = await db
           .collection(HR_LEAVE_BALANCES)
           .where('userId', '==', userId)
           .where('fiscalYear', '==', year)
-          .limit(1)
           .get();
 
-        if (!existingBalance.empty) {
+        // Check if existing balances have entitled > 0
+        let hasValidBalances = false;
+        if (!existingBalanceSnap.empty) {
+          hasValidBalances = existingBalanceSnap.docs.some((doc) => {
+            const data = doc.data();
+            return (data.entitled || 0) > 0;
+          });
+        }
+
+        if (hasValidBalances) {
+          // User already has valid balances, skip
           skipped++;
           continue;
         }
 
+        // If existing balances have entitled=0, update them; otherwise create new
         const now = admin.firestore.Timestamp.now();
         const batch = db.batch();
 
-        // Create sick leave balance
-        const sickBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
-        batch.set(sickBalanceRef, {
-          userId,
-          userName: userData.displayName || userData.email || 'Unknown',
-          leaveTypeCode: SICK_LEAVE,
-          fiscalYear: year,
-          allocated: sickLeaveQuota,
-          used: 0,
-          pending: 0,
-          available: sickLeaveQuota,
-          carryForward: 0,
-          createdAt: now,
-          updatedAt: now,
-          createdBy: request.auth.uid,
-          updatedBy: request.auth.uid,
-        });
+        if (!existingBalanceSnap.empty) {
+          // Update existing balances that have entitled=0
+          for (const balDoc of existingBalanceSnap.docs) {
+            const balData = balDoc.data();
+            const leaveInfo =
+              balData.leaveTypeCode === SICK_LEAVE ? sickLeaveInfo : casualLeaveInfo;
 
-        // Create casual leave balance
-        const casualBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
-        batch.set(casualBalanceRef, {
-          userId,
-          userName: userData.displayName || userData.email || 'Unknown',
-          leaveTypeCode: CASUAL_LEAVE,
-          fiscalYear: year,
-          allocated: casualLeaveQuota,
-          used: 0,
-          pending: 0,
-          available: casualLeaveQuota,
-          carryForward: 0,
-          createdAt: now,
-          updatedAt: now,
-          createdBy: request.auth.uid,
-          updatedBy: request.auth.uid,
-        });
+            batch.update(balDoc.ref, {
+              entitled: leaveInfo.quota,
+              available: leaveInfo.quota - (balData.used || 0) - (balData.pending || 0),
+              leaveTypeId: leaveInfo.id,
+              leaveTypeName: leaveInfo.name,
+              userEmail: userData.email || '',
+              updatedAt: now,
+              updatedBy: request.auth.uid,
+            });
+          }
+          await batch.commit();
+          updated++;
+        } else {
+          // Create new balances
+          // Create sick leave balance
+          const sickBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
+          batch.set(sickBalanceRef, {
+            userId,
+            userName: userData.displayName || userData.email || 'Unknown',
+            userEmail: userData.email || '',
+            leaveTypeId: sickLeaveInfo.id,
+            leaveTypeCode: SICK_LEAVE,
+            leaveTypeName: sickLeaveInfo.name,
+            fiscalYear: year,
+            entitled: sickLeaveInfo.quota,
+            used: 0,
+            pending: 0,
+            available: sickLeaveInfo.quota,
+            carryForward: 0,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: request.auth.uid,
+            updatedBy: request.auth.uid,
+          });
 
-        await batch.commit();
-        created++;
+          // Create casual leave balance
+          const casualBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
+          batch.set(casualBalanceRef, {
+            userId,
+            userName: userData.displayName || userData.email || 'Unknown',
+            userEmail: userData.email || '',
+            leaveTypeId: casualLeaveInfo.id,
+            leaveTypeCode: CASUAL_LEAVE,
+            leaveTypeName: casualLeaveInfo.name,
+            fiscalYear: year,
+            entitled: casualLeaveInfo.quota,
+            used: 0,
+            pending: 0,
+            available: casualLeaveInfo.quota,
+            carryForward: 0,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: request.auth.uid,
+            updatedBy: request.auth.uid,
+          });
+
+          await batch.commit();
+          created++;
+        }
       }
 
-      logger.info('Manual leave balance reset completed', { year, created, skipped });
+      logger.info('Manual leave balance reset completed', { year, created, updated, skipped });
 
       return {
         success: true,
         message: `Leave balances reset for year ${year}`,
-        created,
+        created: created + updated,
         skipped,
       };
     } catch (error) {
