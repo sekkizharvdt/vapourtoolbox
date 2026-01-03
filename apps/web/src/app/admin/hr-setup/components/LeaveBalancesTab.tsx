@@ -37,7 +37,7 @@ import {
 import { Refresh as RefreshIcon, PlaylistAdd as InitializeIcon } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { getAllLeaveBalances, getCurrentFiscalYear } from '@/lib/hr/leaves/leaveBalanceService';
@@ -93,11 +93,12 @@ export default function LeaveBalancesTab() {
   const loadActiveUsers = async (): Promise<UserInfo[]> => {
     const { db } = getFirebase();
 
+    // Query only by isActive to match employeeService.getAllEmployees()
+    // The status and userType fields may not be set on all users
     const q = query(
       collection(db, COLLECTIONS.USERS),
       where('isActive', '==', true),
-      where('status', '==', 'active'),
-      where('userType', '==', 'internal')
+      orderBy('displayName', 'asc')
     );
 
     const snapshot = await getDocs(q);

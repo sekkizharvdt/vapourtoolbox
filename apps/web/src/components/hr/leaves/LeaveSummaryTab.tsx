@@ -201,7 +201,16 @@ export default function LeaveSummaryTab() {
                       <Typography variant="body2" color="text.secondary">
                         Available
                       </Typography>
-                      <Typography variant="h5" color="success.main">
+                      <Typography
+                        variant="h5"
+                        color={
+                          (totals[type]?.available ?? 0) > 0
+                            ? 'success.main'
+                            : (totals[type]?.available ?? 0) < 0
+                              ? 'error.main'
+                              : 'text.secondary'
+                        }
+                      >
                         {totals[type]?.available ?? 0}
                       </Typography>
                     </Box>
@@ -309,8 +318,14 @@ export default function LeaveSummaryTab() {
                               <Chip
                                 label={balance.available}
                                 size="small"
-                                color={balance.available > 0 ? 'success' : 'default'}
-                                variant={balance.available > 0 ? 'filled' : 'outlined'}
+                                color={
+                                  balance.available > 0
+                                    ? 'success'
+                                    : balance.available < 0
+                                      ? 'error'
+                                      : 'default'
+                                }
+                                variant={balance.available !== 0 ? 'filled' : 'outlined'}
                                 sx={{ minWidth: 36 }}
                               />
                             ) : (

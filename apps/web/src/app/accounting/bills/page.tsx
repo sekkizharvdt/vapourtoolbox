@@ -196,6 +196,23 @@ export default function BillsPage() {
     });
   }, [bills, searchTerm, filterStatus, filterMonth]);
 
+  // Calculate month-wise totals for filtered bills (Basic Amount and GST)
+  const monthTotals = useMemo(() => {
+    const subtotal = filteredBills.reduce((sum, bill) => sum + (bill.subtotal || 0), 0);
+    const gst = filteredBills.reduce((sum, bill) => sum + (bill.gstDetails?.totalGST || 0), 0);
+    const total = filteredBills.reduce(
+      (sum, bill) => sum + (bill.baseAmount || bill.totalAmount || 0),
+      0
+    );
+    const tds = filteredBills.reduce(
+      (sum, bill) => sum + (bill.tdsDeducted ? bill.tdsAmount || 0 : 0),
+      0
+    );
+    const count = filteredBills.length;
+
+    return { subtotal, gst, total, tds, count };
+  }, [filteredBills]);
+
   const handleCreate = () => {
     setEditingBill(null);
     setCreateDialogOpen(true);
@@ -401,6 +418,64 @@ export default function BillsPage() {
           </Select>
         </FormControl>
       </FilterBar>
+
+      {/* Month/Filter Totals Summary */}
+      {filteredBills.length > 0 && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 3,
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              <Box>
+                <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+                  Bills Count:{' '}
+                </Box>
+                <Box component="span" sx={{ fontWeight: 'medium' }}>
+                  {monthTotals.count}
+                </Box>
+              </Box>
+              <Box>
+                <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+                  Basic Amount:{' '}
+                </Box>
+                <Box component="span" sx={{ fontWeight: 'medium' }}>
+                  {formatCurrency(monthTotals.subtotal, 'INR')}
+                </Box>
+              </Box>
+              <Box>
+                <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+                  GST Total:{' '}
+                </Box>
+                <Box component="span" sx={{ fontWeight: 'medium' }}>
+                  {formatCurrency(monthTotals.gst, 'INR')}
+                </Box>
+              </Box>
+              <Box>
+                <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+                  TDS Total:{' '}
+                </Box>
+                <Box component="span" sx={{ fontWeight: 'medium' }}>
+                  {formatCurrency(monthTotals.tds, 'INR')}
+                </Box>
+              </Box>
+              <Box>
+                <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+                  Grand Total:{' '}
+                </Box>
+                <Box component="span" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                  {formatCurrency(monthTotals.total, 'INR')}
+                </Box>
+              </Box>
+            </Box>
+          </Box>
+        </Paper>
+      )}
 
       <TableContainer component={Paper}>
         <Table>

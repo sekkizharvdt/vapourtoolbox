@@ -290,7 +290,10 @@ export default function CostCentreDetailClient() {
   const billTotals = bills.reduce(
     (acc, bill) => {
       const currency = bill.currency || 'INR';
-      acc[currency] = (acc[currency] || 0) + (bill.amount || 0);
+      // Use totalAmount from VendorBill for accurate total
+      const totalAmount =
+        (bill as unknown as { totalAmount?: number }).totalAmount || bill.amount || 0;
+      acc[currency] = (acc[currency] || 0) + totalAmount;
       return acc;
     },
     {} as Record<string, number>
@@ -305,11 +308,19 @@ export default function CostCentreDetailClient() {
     {} as Record<string, number>
   );
 
-  const vendorPaymentTotals = bills.reduce(
+  // Use outstandingAmount directly from bills for accurate outstanding calculation
+  // This handles cases where payments have been recorded against bills
+  const vendorOutstandingTotals = bills.reduce(
     (acc, bill) => {
       const currency = bill.currency || 'INR';
+      // Use outstandingAmount field which is maintained when payments are recorded
+      const outstanding = (bill as unknown as { outstandingAmount?: number }).outstandingAmount;
+      // If outstandingAmount is available, use it; otherwise calculate from totalAmount - paidAmount
+      const totalAmount =
+        (bill as unknown as { totalAmount?: number }).totalAmount || bill.amount || 0;
       const paidAmount = (bill as unknown as { paidAmount?: number }).paidAmount || 0;
-      acc[currency] = (acc[currency] || 0) + paidAmount;
+      const outstandingValue = outstanding !== undefined ? outstanding : totalAmount - paidAmount;
+      acc[currency] = (acc[currency] || 0) + outstandingValue;
       return acc;
     },
     {} as Record<string, number>
@@ -564,14 +575,7 @@ export default function CostCentreDetailClient() {
                 Outstanding Payable
               </Typography>
               <Typography variant="h5" color="error.main">
-                {formatCurrencyTotals(
-                  Object.fromEntries(
-                    Object.entries(billTotals).map(([currency, total]) => [
-                      currency,
-                      total - (vendorPaymentTotals[currency] || 0),
-                    ])
-                  )
-                )}
+                {formatCurrencyTotals(vendorOutstandingTotals)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 Unpaid vendor bills
