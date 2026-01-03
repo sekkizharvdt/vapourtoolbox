@@ -20,10 +20,12 @@ const HR_LEAVE_TYPES = 'hrLeaveTypes';
 // Leave type codes
 const SICK_LEAVE = 'SICK';
 const CASUAL_LEAVE = 'CASUAL';
+const COMP_OFF = 'COMP_OFF';
 
 // Default quotas
 const DEFAULT_SICK_LEAVE_QUOTA = 12;
 const DEFAULT_CASUAL_LEAVE_QUOTA = 12;
+const DEFAULT_COMP_OFF_QUOTA = 0; // Comp-off starts at 0, earned through working on holidays
 
 /**
  * Scheduled function to reset leave balances on January 1st
@@ -259,6 +261,21 @@ export const seedLeaveTypes = onCall(
         color: '#3b82f6',
         isActive: true,
       },
+      {
+        code: 'COMP_OFF',
+        name: 'Compensatory Off',
+        description: 'Leave earned by working on holidays or weekends',
+        annualQuota: 0, // Starts at 0, earned through working on holidays
+        carryForwardAllowed: false,
+        maxCarryForward: 0,
+        isPaid: true,
+        requiresApproval: true,
+        minNoticeDays: 1,
+        maxConsecutiveDays: null,
+        allowHalfDay: true,
+        color: '#10b981', // green
+        isActive: true,
+      },
     ];
 
     try {
@@ -378,6 +395,11 @@ export const manualResetLeaveBalances = onCall(
         name: 'Casual Leave',
         quota: DEFAULT_CASUAL_LEAVE_QUOTA,
       };
+      const compOffInfo = leaveTypeMap.get(COMP_OFF) || {
+        id: 'comp_off',
+        name: 'Compensatory Off',
+        quota: DEFAULT_COMP_OFF_QUOTA,
+      };
 
       let created = 0;
       let skipped = 0;
@@ -394,29 +416,62 @@ export const manualResetLeaveBalances = onCall(
           .where('fiscalYear', '==', year)
           .get();
 
-        // Check if existing balances have entitled > 0
-        let hasValidBalances = false;
+        // Check if existing balances have entitled > 0 (excluding COMP_OFF which starts at 0)
+        let hasValidSickCasualBalances = false;
+        let hasCompOffBalance = false;
         if (!existingBalanceSnap.empty) {
-          hasValidBalances = existingBalanceSnap.docs.some((doc) => {
+          for (const doc of existingBalanceSnap.docs) {
             const data = doc.data();
-            return (data.entitled || 0) > 0;
-          });
+            if (data.leaveTypeCode === COMP_OFF) {
+              hasCompOffBalance = true;
+            } else if ((data.entitled || 0) > 0) {
+              hasValidSickCasualBalances = true;
+            }
+          }
         }
 
-        if (hasValidBalances) {
-          // User already has valid balances, skip
+        const now = admin.firestore.Timestamp.now();
+        const batch = db.batch();
+
+        // If user has valid SICK/CASUAL balances but no COMP_OFF, just add COMP_OFF
+        if (hasValidSickCasualBalances && !hasCompOffBalance) {
+          const compOffBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
+          batch.set(compOffBalanceRef, {
+            userId,
+            userName: userData.displayName || userData.email || 'Unknown',
+            userEmail: userData.email || '',
+            leaveTypeId: compOffInfo.id,
+            leaveTypeCode: COMP_OFF,
+            leaveTypeName: compOffInfo.name,
+            fiscalYear: year,
+            entitled: compOffInfo.quota,
+            used: 0,
+            pending: 0,
+            available: compOffInfo.quota,
+            carryForward: 0,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: request.auth.uid,
+            updatedBy: request.auth.uid,
+          });
+          await batch.commit();
+          updated++;
+          continue;
+        }
+
+        if (hasValidSickCasualBalances && hasCompOffBalance) {
+          // User already has all valid balances, skip
           skipped++;
           continue;
         }
 
         // If existing balances have entitled=0, update them; otherwise create new
-        const now = admin.firestore.Timestamp.now();
-        const batch = db.batch();
-
-        if (!existingBalanceSnap.empty) {
-          // Update existing balances that have entitled=0
+        if (!existingBalanceSnap.empty && !hasValidSickCasualBalances) {
+          // Update existing SICK/CASUAL balances that have entitled=0
           for (const balDoc of existingBalanceSnap.docs) {
             const balData = balDoc.data();
+            if (balData.leaveTypeCode === COMP_OFF) continue; // Skip comp-off, it's supposed to be 0
+
             const leaveInfo =
               balData.leaveTypeCode === SICK_LEAVE ? sickLeaveInfo : casualLeaveInfo;
 
@@ -430,6 +485,30 @@ export const manualResetLeaveBalances = onCall(
               updatedBy: request.auth.uid,
             });
           }
+
+          // Also create COMP_OFF if it doesn't exist
+          if (!hasCompOffBalance) {
+            const compOffBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
+            batch.set(compOffBalanceRef, {
+              userId,
+              userName: userData.displayName || userData.email || 'Unknown',
+              userEmail: userData.email || '',
+              leaveTypeId: compOffInfo.id,
+              leaveTypeCode: COMP_OFF,
+              leaveTypeName: compOffInfo.name,
+              fiscalYear: year,
+              entitled: compOffInfo.quota,
+              used: 0,
+              pending: 0,
+              available: compOffInfo.quota,
+              carryForward: 0,
+              createdAt: now,
+              updatedAt: now,
+              createdBy: request.auth.uid,
+              updatedBy: request.auth.uid,
+            });
+          }
+
           await batch.commit();
           updated++;
         } else {
@@ -469,6 +548,27 @@ export const manualResetLeaveBalances = onCall(
             used: 0,
             pending: 0,
             available: casualLeaveInfo.quota,
+            carryForward: 0,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: request.auth.uid,
+            updatedBy: request.auth.uid,
+          });
+
+          // Create comp-off balance (starts at 0, earned through working on holidays)
+          const compOffBalanceRef = db.collection(HR_LEAVE_BALANCES).doc();
+          batch.set(compOffBalanceRef, {
+            userId,
+            userName: userData.displayName || userData.email || 'Unknown',
+            userEmail: userData.email || '',
+            leaveTypeId: compOffInfo.id,
+            leaveTypeCode: COMP_OFF,
+            leaveTypeName: compOffInfo.name,
+            fiscalYear: year,
+            entitled: compOffInfo.quota,
+            used: 0,
+            pending: 0,
+            available: compOffInfo.quota,
             carryForward: 0,
             createdAt: now,
             updatedAt: now,
