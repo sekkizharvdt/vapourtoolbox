@@ -29,7 +29,8 @@ import type {
   HolidayWorkingStatus,
 } from '@vapour/types';
 import { grantCompOff } from '../onDuty/compOffService';
-import { getHolidayById } from './holidayService';
+import { getHolidayById, isHoliday } from './holidayService';
+import { isRecurringHoliday, getRecurringHolidayLabel } from './recurringHolidayCalculator';
 import type { User } from '@vapour/types';
 
 const logger = createLogger({ context: 'holidayWorkingService' });
@@ -59,6 +60,38 @@ export async function createHolidayWorkingOverride(
       }
       holidayName = holiday.name;
       holidayDate = holiday.date;
+    }
+
+    // For ad-hoc dates, validate that the date is actually a holiday
+    if (input.isAdHoc) {
+      const dateToCheck = input.holidayDate;
+
+      // First check if it's a recurring holiday (Sunday, 1st/3rd Saturday)
+      const isRecurring = isRecurringHoliday(dateToCheck);
+
+      // Also check if it's a declared company holiday
+      const holidayCheck = await isHoliday(dateToCheck);
+
+      if (!isRecurring && !holidayCheck.isHoliday) {
+        const dayName = dateToCheck.toLocaleDateString('en-US', { weekday: 'long' });
+        const dateStr = dateToCheck.toLocaleDateString('en-US', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        });
+        throw new Error(
+          `${dateStr} (${dayName}) is not a holiday. Only Sundays, 1st/3rd Saturdays, or declared holidays can be converted to working days.`
+        );
+      }
+
+      // Auto-generate holiday name if not provided
+      if (!holidayName) {
+        if (isRecurring) {
+          holidayName = getRecurringHolidayLabel(dateToCheck) || 'Working Day';
+        } else if (holidayCheck.holidayInfo) {
+          holidayName = holidayCheck.holidayInfo.name;
+        }
+      }
     }
 
     // Validate holidayName is provided
@@ -191,7 +224,7 @@ export async function processHolidayWorkingOverride(overrideId: string): Promise
 
     for (const user of targetUsers) {
       try {
-        // Grant comp-off to the user
+        // Grant comp-off to the user (pass user info for auto-initialization if needed)
         await grantCompOff(
           user.userId,
           {
@@ -200,7 +233,8 @@ export async function processHolidayWorkingOverride(overrideId: string): Promise
             holidayName: override.holidayName,
             holidayDate: override.holidayDate.toDate(),
           },
-          override.createdBy
+          override.createdBy,
+          { userName: user.userName, userEmail: user.userEmail }
         );
 
         results.push({

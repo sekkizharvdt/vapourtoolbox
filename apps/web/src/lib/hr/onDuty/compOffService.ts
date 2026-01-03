@@ -5,10 +5,13 @@
  * Comp-offs are earned by working on holidays and can be redeemed as leave.
  */
 
+import { collection, doc, getDocs, setDoc, query, where, Timestamp } from 'firebase/firestore';
 import { createLogger } from '@vapour/logger';
 import type { LeaveTypeCode } from '@vapour/types';
 import { getUserLeaveBalanceByType, getCurrentFiscalYear } from '../leaves/leaveBalanceService';
 import { addYears } from 'date-fns';
+import { getFirebase } from '@/lib/firebase';
+import { COLLECTIONS } from '@vapour/firebase';
 
 const logger = createLogger({ context: 'compOffService' });
 
@@ -26,27 +29,95 @@ export interface CompOffSource {
 }
 
 /**
+ * Auto-initialize COMP_OFF balance for a user if it doesn't exist
+ * This is needed when a new fiscal year starts and balances haven't been reset yet
+ */
+async function ensureCompOffBalanceExists(
+  userId: string,
+  userName: string,
+  userEmail: string,
+  fiscalYear: number
+): Promise<void> {
+  const { db } = getFirebase();
+
+  // Check if balance already exists
+  const existingBalance = await getUserLeaveBalanceByType(userId, COMP_OFF_LEAVE_TYPE, fiscalYear);
+  if (existingBalance) {
+    return; // Balance already exists
+  }
+
+  // Get COMP_OFF leave type info
+  const leaveTypesQuery = query(
+    collection(db, COLLECTIONS.HR_LEAVE_TYPES),
+    where('code', '==', 'COMP_OFF'),
+    where('isActive', '==', true)
+  );
+  const leaveTypesSnapshot = await getDocs(leaveTypesQuery);
+
+  if (leaveTypesSnapshot.empty) {
+    throw new Error('COMP_OFF leave type not found. Please ensure leave types are seeded.');
+  }
+
+  const leaveTypeDoc = leaveTypesSnapshot.docs[0];
+  if (!leaveTypeDoc) {
+    throw new Error('COMP_OFF leave type not found.');
+  }
+
+  const leaveType = leaveTypeDoc.data();
+  const now = Timestamp.now();
+
+  // Create the balance record
+  const balanceRef = doc(collection(db, COLLECTIONS.HR_LEAVE_BALANCES));
+  await setDoc(balanceRef, {
+    userId,
+    userName,
+    userEmail,
+    leaveTypeId: leaveTypeDoc.id,
+    leaveTypeCode: 'COMP_OFF',
+    leaveTypeName: leaveType.name || 'Compensatory Off',
+    fiscalYear,
+    entitled: 0, // Comp-off starts at 0, earned through working holidays
+    used: 0,
+    pending: 0,
+    available: 0,
+    carryForward: 0,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  logger.info('Auto-initialized COMP_OFF balance', { userId, fiscalYear });
+}
+
+/**
  * Grant comp-off to a user
  * Adds 1 day to the user's comp-off balance
  *
  * @param userId - User to grant comp-off to
  * @param source - Source of the comp-off (on-duty request or holiday working)
  * @param grantedBy - User ID of admin/approver granting the comp-off
+ * @param userInfo - Optional user info for auto-initialization
  */
 export async function grantCompOff(
   userId: string,
   source: CompOffSource,
-  grantedBy: string
+  grantedBy: string,
+  userInfo?: { userName: string; userEmail: string }
 ): Promise<void> {
   try {
     const fiscalYear = getCurrentFiscalYear();
 
     // Get current comp-off balance
-    const balance = await getUserLeaveBalanceByType(userId, COMP_OFF_LEAVE_TYPE, fiscalYear);
+    let balance = await getUserLeaveBalanceByType(userId, COMP_OFF_LEAVE_TYPE, fiscalYear);
+
+    // Auto-initialize COMP_OFF balance if it doesn't exist and we have user info
+    if (!balance && userInfo) {
+      await ensureCompOffBalanceExists(userId, userInfo.userName, userInfo.userEmail, fiscalYear);
+      balance = await getUserLeaveBalanceByType(userId, COMP_OFF_LEAVE_TYPE, fiscalYear);
+    }
 
     if (!balance) {
       throw new Error(
-        `Comp-off balance not found for user ${userId}. Ensure COMP_OFF leave type exists and balances are initialized.`
+        `Comp-off balance not found for user ${userId}. Ensure COMP_OFF leave type exists and balances are initialized for fiscal year ${fiscalYear}.`
       );
     }
 
