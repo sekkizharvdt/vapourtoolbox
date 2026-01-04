@@ -326,6 +326,23 @@ export default function CostCentreDetailClient() {
     {} as Record<string, number>
   );
 
+  // Use outstandingAmount directly from invoices for accurate outstanding calculation
+  // This handles cases where payments have been recorded against invoices
+  const customerOutstandingTotals = invoices.reduce(
+    (acc, inv) => {
+      const currency = inv.currency || 'INR';
+      // Use outstandingAmount field which is maintained when payments are recorded
+      const outstanding = (inv as unknown as { outstandingAmount?: number }).outstandingAmount;
+      // If outstandingAmount is available, use it; otherwise calculate from totalAmount - paidAmount
+      const totalAmount = inv.totalAmount || inv.amount || 0;
+      const paidAmount = (inv as unknown as { paidAmount?: number }).paidAmount || 0;
+      const outstandingValue = outstanding !== undefined ? outstanding : totalAmount - paidAmount;
+      acc[currency] = (acc[currency] || 0) + outstandingValue;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
   const formatCurrencyTotals = (totals: Record<string, number>) => {
     const entries = Object.entries(totals);
     if (entries.length === 0) return formatCurrency(0, costCentre?.budgetCurrency || 'INR');
@@ -591,14 +608,7 @@ export default function CostCentreDetailClient() {
                 Outstanding Receivable
               </Typography>
               <Typography variant="h5" color="info.main">
-                {formatCurrencyTotals(
-                  Object.fromEntries(
-                    Object.entries(invoiceTotals).map(([currency, total]) => {
-                      const received = paymentTotals[currency] || 0;
-                      return [currency, Math.max(0, total - received)];
-                    })
-                  )
-                )}
+                {formatCurrencyTotals(customerOutstandingTotals)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 Unpaid customer invoices
