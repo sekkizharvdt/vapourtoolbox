@@ -312,6 +312,9 @@ export async function rejectInvoice(
 
 /**
  * Get available actions based on invoice status and user permissions
+ *
+ * TESTING PHASE: Edit is allowed for DRAFT and PENDING_APPROVAL statuses
+ * TODO: Remove PENDING_APPROVAL from canEdit after testing phase
  */
 export function getInvoiceAvailableActions(
   status: TransactionStatus,
@@ -329,11 +332,14 @@ export function getInvoiceAvailableActions(
   const isApprover =
     isAssignedApprover || (assignedApproverId && assignedApproverId === currentUserId);
 
+  // TESTING PHASE: Allow editing in PENDING_APPROVAL status
+  const editableStatuses: TransactionStatus[] = ['DRAFT', 'PENDING_APPROVAL'];
+
   return {
-    canEdit: canManage && status === 'DRAFT',
+    canEdit: canManage && editableStatuses.includes(status),
     canSubmitForApproval: canManage && status === 'DRAFT',
     canApprove: canManage && status === 'PENDING_APPROVAL' && !!isApprover,
     canReject: canManage && status === 'PENDING_APPROVAL' && !!isApprover,
-    canDelete: canManage && status === 'DRAFT',
+    canDelete: canManage && (status === 'DRAFT' || status === 'PENDING_APPROVAL'),
   };
 }
