@@ -277,11 +277,12 @@ describe('billApprovalService', () => {
         'approver-1'
       );
 
-      expect(result.canEdit).toBe(false);
+      // TESTING PHASE: canEdit and canDelete are true for PENDING_APPROVAL
+      expect(result.canEdit).toBe(true);
       expect(result.canSubmitForApproval).toBe(false);
       expect(result.canApprove).toBe(true);
       expect(result.canReject).toBe(true);
-      expect(result.canDelete).toBe(false);
+      expect(result.canDelete).toBe(true);
       expect(result.canRecordPayment).toBe(false);
     });
 
