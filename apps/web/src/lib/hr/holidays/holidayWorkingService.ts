@@ -185,7 +185,8 @@ export async function processHolidayWorkingOverride(overrideId: string): Promise
 
     if (override.scope === 'ALL_USERS') {
       // Get all active users from the users collection
-      const usersQuery = query(collection(db, COLLECTIONS.USERS), where('isActive', '==', true));
+      // Use status='active' as the primary filter (more commonly set than isActive)
+      const usersQuery = query(collection(db, COLLECTIONS.USERS), where('status', '==', 'active'));
       const usersSnapshot = await getDocs(usersQuery);
 
       logger.info('Fetched users for holiday working override', {
@@ -203,7 +204,7 @@ export async function processHolidayWorkingOverride(overrideId: string): Promise
         };
       });
     } else {
-      // Get specific users
+      // Get specific users - no active filter, admin explicitly selected these users
       const userPromises = override.affectedUserIds.map((userId) =>
         getDoc(doc(db, COLLECTIONS.USERS, userId))
       );
@@ -218,15 +219,6 @@ export async function processHolidayWorkingOverride(overrideId: string): Promise
             userName: user.displayName || 'Unknown User',
             userEmail: user.email || '',
           };
-        })
-        .filter((user) => {
-          // Only include active users
-          const userDoc = userSnapshots.find((s) => s.id === user.userId);
-          if (userDoc?.exists()) {
-            const userData = userDoc.data() as User;
-            return userData.isActive;
-          }
-          return false;
         });
     }
 
@@ -239,7 +231,7 @@ export async function processHolidayWorkingOverride(overrideId: string): Promise
 
       await updateDoc(overrideRef, {
         status: 'FAILED',
-        errorMessage: 'No active users found. Ensure users have isActive=true in the database.',
+        errorMessage: 'No users found. Ensure users have status="active" in the database.',
         processedAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       });
