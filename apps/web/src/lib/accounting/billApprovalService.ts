@@ -9,7 +9,10 @@ import { doc, updateDoc, getDoc, Timestamp, type Firestore } from 'firebase/fire
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { VendorBill, TransactionStatus, TransactionApprovalRecord } from '@vapour/types';
-import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
+import {
+  createTaskNotification,
+  completeTaskNotificationsByEntity,
+} from '@/lib/tasks/taskNotificationService';
 
 const logger = createLogger({ context: 'billApproval' });
 
@@ -141,6 +144,9 @@ export async function approveBill(
       updatedBy: userId,
     });
 
+    // Complete the approval task notification
+    await completeTaskNotificationsByEntity('BILL', billId, userId);
+
     // Notify the submitter that their bill was approved
     const submittedBy = bill.submittedByUserId;
     if (submittedBy) {
@@ -222,6 +228,9 @@ export async function rejectBill(
       updatedAt: Timestamp.now(),
       updatedBy: userId,
     });
+
+    // Complete the approval task notification
+    await completeTaskNotificationsByEntity('BILL', billId, userId);
 
     // Notify the submitter that their bill was rejected
     const submittedBy = bill.submittedByUserId;

@@ -15,6 +15,13 @@
 - [Patterns](development/PATTERNS.md) - Code patterns and conventions
 - [Testing](development/TESTING.md) - Testing strategy
 
+## User Guides
+
+### HR Module
+
+- [HR User Guide](hr/USER-GUIDE.md) - Complete guide for HR activities
+- [Receipt Parsing](hr/receipt-parsing.md) - OCR-based receipt parsing for travel expenses
+
 ## Reviews
 
 - [reviews/](reviews/) - Periodic codebase reviews
