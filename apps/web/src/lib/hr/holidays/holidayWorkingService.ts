@@ -104,6 +104,27 @@ export async function createHolidayWorkingOverride(
       throw new Error('At least one user must be selected for SPECIFIC_USERS scope');
     }
 
+    // Check for existing successful override for the same date
+    const existingOverridesQuery = query(
+      collection(db, COLLECTIONS.HR_HOLIDAY_WORKING_OVERRIDES),
+      where('holidayDate', '==', holidayDate),
+      where('status', '==', 'COMPLETED')
+    );
+    const existingOverrides = await getDocs(existingOverridesQuery);
+
+    if (!existingOverrides.empty) {
+      const existingOverride = existingOverrides.docs[0]?.data();
+      const dateStr = input.holidayDate.toLocaleDateString('en-US', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+      throw new Error(
+        `A working day override already exists for ${dateStr} (${existingOverride?.holidayName || 'Unknown'}). ` +
+          `${existingOverride?.compOffGrantedCount || 0} comp-off(s) were already granted.`
+      );
+    }
+
     // Create override document
     const overrideRef = doc(collection(db, COLLECTIONS.HR_HOLIDAY_WORKING_OVERRIDES));
 
@@ -290,18 +311,20 @@ export async function processHolidayWorkingOverride(overrideId: string): Promise
     const successfulResults = results.filter((r) => r.success);
     const failedResults = results.filter((r) => !r.success);
 
-    await updateDoc(overrideRef, {
+    const updateData: Record<string, unknown> = {
       status: failedResults.length > 0 && successfulResults.length === 0 ? 'FAILED' : 'COMPLETED',
       compOffGrantedCount: successfulResults.length,
       processedUserIds: successfulResults.map((r) => r.userId),
       failedUserIds: failedResults.map((r) => r.userId),
       processedAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
-      errorMessage:
-        failedResults.length > 0
-          ? `Failed to grant comp-off to ${failedResults.length} user(s). Check logs for details.`
-          : undefined,
-    });
+    };
+
+    if (failedResults.length > 0) {
+      updateData.errorMessage = `Failed to grant comp-off to ${failedResults.length} user(s). Check logs for details.`;
+    }
+
+    await updateDoc(overrideRef, updateData);
 
     logger.info('Holiday working override processed', {
       overrideId,
