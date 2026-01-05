@@ -54,6 +54,7 @@ const LEAVE_TYPE_CODES: { value: LeaveTypeCode; label: string }[] = [
   { value: 'UNPAID', label: 'Unpaid Leave' },
   { value: 'MATERNITY', label: 'Maternity Leave' },
   { value: 'PATERNITY', label: 'Paternity Leave' },
+  { value: 'COMP_OFF', label: 'Compensatory Off' },
 ];
 
 const DEFAULT_COLORS = [

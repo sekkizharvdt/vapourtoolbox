@@ -52,10 +52,38 @@ async function ensureCompOffBalanceExists(
     where('code', '==', 'COMP_OFF'),
     where('isActive', '==', true)
   );
-  const leaveTypesSnapshot = await getDocs(leaveTypesQuery);
+  let leaveTypesSnapshot = await getDocs(leaveTypesQuery);
 
+  // Auto-create COMP_OFF leave type if it doesn't exist
   if (leaveTypesSnapshot.empty) {
-    throw new Error('COMP_OFF leave type not found. Please ensure leave types are seeded.');
+    logger.info('COMP_OFF leave type not found, auto-creating...');
+    const createTimestamp = Timestamp.now();
+    const leaveTypeRef = doc(collection(db, COLLECTIONS.HR_LEAVE_TYPES));
+    await setDoc(leaveTypeRef, {
+      code: 'COMP_OFF',
+      name: 'Compensatory Off',
+      description: 'Compensatory leave earned by working on holidays',
+      annualQuota: 0,
+      carryForwardAllowed: true,
+      maxCarryForward: 20,
+      isPaid: true,
+      requiresApproval: true,
+      minNoticeDays: 0,
+      maxConsecutiveDays: 5,
+      allowHalfDay: true,
+      color: '#9C27B0',
+      isActive: true,
+      order: 7,
+      createdAt: createTimestamp,
+      updatedAt: createTimestamp,
+    });
+
+    // Re-query to get the document
+    leaveTypesSnapshot = await getDocs(leaveTypesQuery);
+    if (leaveTypesSnapshot.empty) {
+      throw new Error('Failed to auto-create COMP_OFF leave type');
+    }
+    logger.info('COMP_OFF leave type auto-created successfully');
   }
 
   const leaveTypeDoc = leaveTypesSnapshot.docs[0];
