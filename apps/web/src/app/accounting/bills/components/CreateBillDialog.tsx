@@ -202,11 +202,23 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
         currency: 'INR',
         baseAmount: totalAmount,
         attachments: [],
+        // Payment tracking - preserve existing values on edit, initialize on create
+        paidAmount: editingBill?.paidAmount ?? 0,
+        outstandingAmount: editingBill?.outstandingAmount ?? totalAmount,
+        paymentStatus: editingBill?.paymentStatus ?? 'UNPAID',
       };
 
       if (editingBill?.id) {
-        // Update existing bill
-        await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingBill.id), bill);
+        // Update existing bill - recalculate outstanding if total changed
+        const existingPaidAmount = editingBill.paidAmount ?? 0;
+        const newOutstanding = totalAmount - existingPaidAmount;
+        const updatedBill = {
+          ...bill,
+          outstandingAmount: newOutstanding,
+          paymentStatus:
+            newOutstanding <= 0 ? 'PAID' : existingPaidAmount > 0 ? 'PARTIALLY_PAID' : 'UNPAID',
+        };
+        await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingBill.id), updatedBill);
       } else {
         // Create new bill
         await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), bill);

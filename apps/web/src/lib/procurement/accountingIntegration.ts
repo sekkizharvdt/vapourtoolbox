@@ -222,8 +222,10 @@ export async function createBillFromGoodsReceipt(
       // Amounts
       subtotal,
       totalAmount,
-      amountPaid: 0,
+      amountPaid: 0, // Legacy field name
+      paidAmount: 0, // Standard field name per VendorBill type
       outstandingAmount: totalAmount,
+      paymentStatus: 'UNPAID' as const,
       currency: (purchaseOrder.currency as CurrencyCode) || 'INR',
 
       // Vendor details
