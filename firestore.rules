@@ -1290,12 +1290,12 @@ service cloud.firestore {
       allow create: if isInternalUser() &&
                        isOwner(request.resource.data.userId);
 
-      // Update: Own requests (if DRAFT or PENDING_APPROVAL) OR users with APPROVE_LEAVES
-      // Users can edit their own draft requests or cancel pending ones
+      // Update: Own requests (if DRAFT, PENDING_APPROVAL, or PARTIALLY_APPROVED) OR users with APPROVE_LEAVES
+      // Users can edit their own draft requests or cancel pending/partially approved ones
       // Approvers can approve/reject pending requests
       allow update: if isInternalUser() && (
                        (isOwner(resource.data.userId) &&
-                        resource.data.status in ['DRAFT', 'PENDING_APPROVAL']) ||
+                        resource.data.status in ['DRAFT', 'PENDING_APPROVAL', 'PARTIALLY_APPROVED']) ||
                        hasPermission2(16384) || // APPROVE_LEAVES
                        hasPermission2(8192)     // MANAGE_HR_SETTINGS
                      );
