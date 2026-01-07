@@ -29,6 +29,7 @@ jest.mock('firebase/firestore', () => ({
 // Mock task notification service
 jest.mock('@/lib/tasks/taskNotificationService', () => ({
   createTaskNotification: jest.fn().mockResolvedValue(undefined),
+  completeTaskNotificationsByEntity: jest.fn().mockResolvedValue(0),
 }));
 
 // Mock logger
