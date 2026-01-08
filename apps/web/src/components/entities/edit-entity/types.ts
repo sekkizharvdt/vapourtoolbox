@@ -58,6 +58,10 @@ export interface CreditTermsSectionProps {
   setCreditDays: (value: string) => void;
   creditLimit: string;
   setCreditLimit: (value: string) => void;
+  openingBalance: string;
+  setOpeningBalance: (value: string) => void;
+  openingBalanceType: 'DR' | 'CR';
+  setOpeningBalanceType: (value: 'DR' | 'CR') => void;
   disabled: boolean;
 }
 

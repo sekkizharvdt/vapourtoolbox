@@ -89,6 +89,10 @@ export interface BusinessEntity extends TimestampFields, SoftDeleteFields {
   // Terms
   creditTerms?: CreditTerms;
 
+  // Opening Balance for Accounting
+  openingBalance?: number;
+  openingBalanceType?: 'DR' | 'CR'; // Debit or Credit
+
   // Notes
   notes?: string;
 

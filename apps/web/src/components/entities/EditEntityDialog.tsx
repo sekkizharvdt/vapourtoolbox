@@ -77,6 +77,10 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
   const [creditDays, setCreditDays] = useState('');
   const [creditLimit, setCreditLimit] = useState('');
 
+  // Form state - Opening Balance
+  const [openingBalance, setOpeningBalance] = useState('');
+  const [openingBalanceType, setOpeningBalanceType] = useState<'DR' | 'CR'>('CR');
+
   // Validate PAN in real-time
   const panValidation = useMemo(() => {
     if (!pan || !pan.trim()) {
@@ -189,6 +193,10 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
         setCreditDays('');
         setCreditLimit('');
       }
+
+      // Load opening balance
+      setOpeningBalance(entity.openingBalance?.toString() || '');
+      setOpeningBalanceType(entity.openingBalanceType || 'CR');
     }
   }, [entity]);
 
@@ -358,6 +366,15 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
         updateData.creditTerms = null;
       }
 
+      // Add opening balance
+      if (openingBalance && parseFloat(openingBalance) > 0) {
+        updateData.openingBalance = parseFloat(openingBalance);
+        updateData.openingBalanceType = openingBalanceType;
+      } else {
+        updateData.openingBalance = null;
+        updateData.openingBalanceType = null;
+      }
+
       await updateDoc(entityRef, updateData);
 
       onSuccess();
@@ -460,12 +477,16 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
             />
           </Box>
 
-          {/* Credit Terms */}
+          {/* Credit Terms & Opening Balance */}
           <CreditTermsSection
             creditDays={creditDays}
             setCreditDays={setCreditDays}
             creditLimit={creditLimit}
             setCreditLimit={setCreditLimit}
+            openingBalance={openingBalance}
+            setOpeningBalance={setOpeningBalance}
+            openingBalanceType={openingBalanceType}
+            setOpeningBalanceType={setOpeningBalanceType}
             disabled={loading}
           />
         </Box>

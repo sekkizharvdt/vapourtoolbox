@@ -23,6 +23,9 @@ import {
   Divider,
   FormControlLabel,
   Checkbox,
+  ToggleButtonGroup,
+  ToggleButton,
+  InputAdornment,
 } from '@mui/material';
 import { httpsCallable } from 'firebase/functions';
 import { getFirebase } from '@/lib/firebase';
@@ -82,6 +85,10 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
   // Form state - Credit Terms
   const [creditDays, setCreditDays] = useState('');
   const [creditLimit, setCreditLimit] = useState('');
+
+  // Form state - Opening Balance
+  const [openingBalance, setOpeningBalance] = useState('');
+  const [openingBalanceType, setOpeningBalanceType] = useState<'DR' | 'CR'>('CR');
 
   // Validate PAN in real-time
   const panValidation = useMemo(() => {
@@ -249,6 +256,11 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
                 currency: 'INR',
               }
             : undefined,
+        // Opening balance
+        openingBalance:
+          openingBalance && parseFloat(openingBalance) > 0 ? parseFloat(openingBalance) : undefined,
+        openingBalanceType:
+          openingBalance && parseFloat(openingBalance) > 0 ? openingBalanceType : undefined,
         isActive: true,
       };
 
@@ -575,10 +587,10 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
             />
           </Box>
 
-          {/* Credit Terms */}
+          {/* Credit Terms & Opening Balance */}
           <Box>
             <Typography variant="subtitle2" color="primary" gutterBottom>
-              Credit Terms (Optional)
+              Credit Terms & Opening Balance (Optional)
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -608,6 +620,64 @@ export function CreateEntityDialog({ open, onClose, onSuccess }: CreateEntityDia
                     disabled={loading}
                     inputProps={{ min: 0 }}
                   />
+                </Grid>
+              </Grid>
+
+              {/* Opening Balance Section */}
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Opening Balance from Previous Financial Year
+              </Typography>
+              <Grid container spacing={2} alignItems="flex-start">
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    label="Opening Balance (INR)"
+                    type="number"
+                    value={openingBalance}
+                    onChange={(e) => setOpeningBalance(e.target.value)}
+                    fullWidth
+                    placeholder="e.g., 50000"
+                    helperText="Balance carried forward from previous year"
+                    disabled={loading}
+                    inputProps={{ min: 0 }}
+                    slotProps={{
+                      input: {
+                        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                      },
+                    }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Box>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ mb: 0.5, display: 'block' }}
+                    >
+                      Balance Type
+                    </Typography>
+                    <ToggleButtonGroup
+                      value={openingBalanceType}
+                      exclusive
+                      onChange={(_e, value) => value && setOpeningBalanceType(value)}
+                      disabled={loading}
+                      size="small"
+                      fullWidth
+                    >
+                      <ToggleButton value="DR" sx={{ flex: 1 }}>
+                        Debit (DR)
+                      </ToggleButton>
+                      <ToggleButton value="CR" sx={{ flex: 1 }}>
+                        Credit (CR)
+                      </ToggleButton>
+                    </ToggleButtonGroup>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ mt: 0.5, display: 'block' }}
+                    >
+                      DR = They owe us (advance given) | CR = We owe them (advance received)
+                    </Typography>
+                  </Box>
                 </Grid>
               </Grid>
             </Box>
