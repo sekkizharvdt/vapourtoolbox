@@ -42,6 +42,8 @@ import {
 } from '@mui/icons-material';
 import { usePathname } from 'next/navigation';
 import NextLink from 'next/link';
+import { httpsCallable } from 'firebase/functions';
+import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface Message {
@@ -124,34 +126,38 @@ export function AIHelpWidget() {
           content: msg.content,
         }));
 
-        const response = await fetch('/api/ai-help', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: apiMessages,
-            currentPage: pathname,
-            userEmail: user?.email,
-          }),
+        // Call Firebase Cloud Function
+        const { functions } = getFirebase();
+        const aiHelpFunction = httpsCallable<
+          { messages: { role: string; content: string }[]; currentPage: string; userEmail: string },
+          { message: string; usage?: { input_tokens: number; output_tokens: number } }
+        >(functions, 'aiHelp');
+
+        const result = await aiHelpFunction({
+          messages: apiMessages,
+          currentPage: pathname,
+          userEmail: user?.email || '',
         });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to get response');
-        }
-
-        const data = await response.json();
 
         const assistantMessage: Message = {
           id: `assistant-${Date.now()}`,
           role: 'assistant',
-          content: data.message,
+          content: result.data.message,
           timestamp: new Date(),
         };
 
         setMessages((prev) => [...prev, assistantMessage]);
       } catch (err) {
         console.error('[AIHelpWidget] Error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to get response');
+        // Handle Firebase callable function errors
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+                .replace('Firebase: ', '')
+                .replace(/\(.*\)/, '')
+                .trim()
+            : 'Failed to get response';
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }

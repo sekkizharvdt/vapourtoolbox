@@ -83,3 +83,6 @@ export {
   manualResetLeaveBalances,
   seedLeaveTypes,
 } from './hr/leaveBalanceReset';
+
+// Import AI Help function (beta feature)
+export { aiHelp } from './aiHelp';
