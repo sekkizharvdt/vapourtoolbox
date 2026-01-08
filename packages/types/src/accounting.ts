@@ -221,6 +221,8 @@ export interface LedgerEntry {
   credit: number;
   description?: string;
   costCentreId?: string; // Optional project/cost centre tagging
+  entityId?: string; // Optional vendor/customer reference for entity ledger tracking
+  entityName?: string; // Denormalized for display
 }
 
 /**

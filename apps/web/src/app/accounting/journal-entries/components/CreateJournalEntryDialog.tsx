@@ -23,6 +23,8 @@ import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
+import { EntitySelector } from '@/components/common/forms/EntitySelector';
+import type { BusinessEntity } from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -56,8 +58,24 @@ export function CreateJournalEntryDialog({
   const [projectId, setProjectId] = useState<string | null>(null);
   const [status, setStatus] = useState<TransactionStatus>('DRAFT');
   const [entries, setEntries] = useState<LedgerEntryForm[]>([
-    { accountId: '', debit: 0, credit: 0, description: '', costCentreId: undefined },
-    { accountId: '', debit: 0, credit: 0, description: '', costCentreId: undefined },
+    {
+      accountId: '',
+      debit: 0,
+      credit: 0,
+      description: '',
+      costCentreId: undefined,
+      entityId: undefined,
+      entityName: undefined,
+    },
+    {
+      accountId: '',
+      debit: 0,
+      credit: 0,
+      description: '',
+      costCentreId: undefined,
+      entityId: undefined,
+      entityName: undefined,
+    },
   ]);
 
   // Reset form when dialog opens/closes or editing entry changes
@@ -83,8 +101,24 @@ export function CreateJournalEntryDialog({
         setProjectId(null);
         setStatus('DRAFT');
         setEntries([
-          { accountId: '', debit: 0, credit: 0, description: '', costCentreId: undefined },
-          { accountId: '', debit: 0, credit: 0, description: '', costCentreId: undefined },
+          {
+            accountId: '',
+            debit: 0,
+            credit: 0,
+            description: '',
+            costCentreId: undefined,
+            entityId: undefined,
+            entityName: undefined,
+          },
+          {
+            accountId: '',
+            debit: 0,
+            credit: 0,
+            description: '',
+            costCentreId: undefined,
+            entityId: undefined,
+            entityName: undefined,
+          },
         ]);
       }
       setError('');
@@ -94,8 +128,34 @@ export function CreateJournalEntryDialog({
   const addEntry = () => {
     setEntries([
       ...entries,
-      { accountId: '', debit: 0, credit: 0, description: '', costCentreId: undefined },
+      {
+        accountId: '',
+        debit: 0,
+        credit: 0,
+        description: '',
+        costCentreId: undefined,
+        entityId: undefined,
+        entityName: undefined,
+      },
     ]);
+  };
+
+  // Handle entity selection with name denormalization
+  const handleEntityChange = (
+    index: number,
+    entityId: string | null,
+    entity: BusinessEntity | null
+  ) => {
+    const newEntries = [...entries];
+    const currentEntry = newEntries[index];
+    if (currentEntry) {
+      newEntries[index] = {
+        ...currentEntry,
+        entityId: entityId ?? undefined,
+        entityName: entity?.name ?? undefined,
+      };
+    }
+    setEntries(newEntries);
   };
 
   const removeEntry = (index: number) => {
@@ -270,15 +330,16 @@ export function CreateJournalEntryDialog({
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell width="30%">Account</TableCell>
-                    <TableCell width="25%">Description</TableCell>
-                    <TableCell width="15%" align="right">
+                    <TableCell width="22%">Account</TableCell>
+                    <TableCell width="18%">Entity</TableCell>
+                    <TableCell width="18%">Description</TableCell>
+                    <TableCell width="12%" align="right">
                       Debit
                     </TableCell>
-                    <TableCell width="15%" align="right">
+                    <TableCell width="12%" align="right">
                       Credit
                     </TableCell>
-                    <TableCell width="10%">Project</TableCell>
+                    <TableCell width="13%">Project</TableCell>
                     <TableCell width="5%" align="right">
                       Actions
                     </TableCell>
@@ -294,6 +355,16 @@ export function CreateJournalEntryDialog({
                           label=""
                           required
                           excludeGroups
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <EntitySelector
+                          value={entry.entityId ?? null}
+                          onChange={(entityId) => handleEntityChange(index, entityId, null)}
+                          onEntitySelect={(entity) =>
+                            handleEntityChange(index, entity?.id ?? null, entity)
+                          }
+                          label=""
                         />
                       </TableCell>
                       <TableCell>
@@ -350,7 +421,7 @@ export function CreateJournalEntryDialog({
                     </TableRow>
                   ))}
                   <TableRow>
-                    <TableCell colSpan={2} align="right">
+                    <TableCell colSpan={3} align="right">
                       <Typography variant="subtitle2">Total:</Typography>
                     </TableCell>
                     <TableCell align="right">
