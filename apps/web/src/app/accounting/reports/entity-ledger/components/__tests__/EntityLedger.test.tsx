@@ -320,7 +320,8 @@ describe('TransactionsTable', () => {
       expect(screen.getByText('Type')).toBeInTheDocument();
       expect(screen.getByText('Transaction #')).toBeInTheDocument();
       expect(screen.getByText('Description')).toBeInTheDocument();
-      expect(screen.getByText('Amount')).toBeInTheDocument();
+      expect(screen.getByText('Debit')).toBeInTheDocument();
+      expect(screen.getByText('Credit')).toBeInTheDocument();
       expect(screen.getByText('Outstanding')).toBeInTheDocument();
       expect(screen.getByText('Status')).toBeInTheDocument();
     });
