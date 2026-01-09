@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { listBOMs, deleteBOM } from '@/lib/bom/bomService';
 import { createLogger } from '@vapour/logger';
 import type { BOM, BOMCategory } from '@vapour/types';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 const logger = createLogger({ context: 'EstimationPage' });
 
@@ -48,6 +49,7 @@ export default function EstimationPage() {
   const router = useRouter();
   const { user, claims } = useAuth();
   const { db } = getFirebase();
+  const { confirm } = useConfirmDialog();
 
   // Get entity ID from claims or use fallback
   const entityId = claims?.entityId || FALLBACK_ENTITY_ID;
@@ -94,9 +96,13 @@ export default function EstimationPage() {
   const handleDelete = async (bom: BOM) => {
     if (!db) return;
 
-    if (!confirm(`Are you sure you want to delete "${bom.name}"? This action cannot be undone.`)) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Delete BOM',
+      message: `Are you sure you want to delete "${bom.name}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      confirmColor: 'error',
+    });
+    if (!confirmed) return;
 
     try {
       await deleteBOM(db, bom.id);

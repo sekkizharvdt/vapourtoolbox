@@ -36,6 +36,7 @@ import {
   ListBoughtOutItemsOptions,
 } from '@vapour/types';
 import { listBoughtOutItems, deleteBoughtOutItem } from '@/lib/boughtOut/boughtOutService';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 interface DynamicColumn {
   label: string;
@@ -48,6 +49,7 @@ export default function BoughtOutPage() {
   const router = useRouter();
   const { user, claims } = useAuth();
   const { db } = getFirebase();
+  const { confirm } = useConfirmDialog();
 
   const [items, setItems] = useState<BoughtOutItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,7 +85,13 @@ export default function BoughtOutPage() {
   }, [loadItems]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this item?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Item',
+      message: 'Are you sure you want to delete this item? This action cannot be undone.',
+      confirmText: 'Delete',
+      confirmColor: 'error',
+    });
+    if (!confirmed) return;
     if (!user || !claims) return;
 
     try {

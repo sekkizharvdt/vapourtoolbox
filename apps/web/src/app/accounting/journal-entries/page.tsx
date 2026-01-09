@@ -37,10 +37,12 @@ import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { CreateJournalEntryDialog } from './components/CreateJournalEntryDialog';
 import { formatDate } from '@/lib/utils/formatters';
 import { useRouter } from 'next/navigation';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 export default function JournalEntriesPage() {
   const router = useRouter();
   const { claims } = useAuth();
+  const { confirm } = useConfirmDialog();
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -82,7 +84,13 @@ export default function JournalEntriesPage() {
   };
 
   const handleDelete = async (entryId: string) => {
-    if (!confirm('Are you sure you want to delete this journal entry?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Journal Entry',
+      message: 'Are you sure you want to delete this journal entry? This action cannot be undone.',
+      confirmText: 'Delete',
+      confirmColor: 'error',
+    });
+    if (!confirmed) return;
 
     try {
       const { db } = getFirebase();

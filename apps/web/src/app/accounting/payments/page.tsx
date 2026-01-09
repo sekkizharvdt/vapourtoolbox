@@ -45,6 +45,7 @@ import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { formatDate } from '@/lib/utils/formatters';
 import { useRouter } from 'next/navigation';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 // Lazy load heavy dialog components
 const RecordCustomerPaymentDialog = dynamic(
@@ -81,6 +82,7 @@ function getMonthOptions() {
 export default function PaymentsPage() {
   const router = useRouter();
   const { claims } = useAuth();
+  const { confirm } = useConfirmDialog();
   const [paymentType, setPaymentType] = useState<PaymentType>('all');
   const [customerPaymentDialogOpen, setCustomerPaymentDialogOpen] = useState(false);
   const [vendorPaymentDialogOpen, setVendorPaymentDialogOpen] = useState(false);
@@ -126,7 +128,13 @@ export default function PaymentsPage() {
   };
 
   const handleDelete = async (paymentId: string) => {
-    if (!confirm('Are you sure you want to delete this payment?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Payment',
+      message: 'Are you sure you want to delete this payment? This action cannot be undone.',
+      confirmText: 'Delete',
+      confirmColor: 'error',
+    });
+    if (!confirmed) return;
 
     try {
       const { db } = getFirebase();

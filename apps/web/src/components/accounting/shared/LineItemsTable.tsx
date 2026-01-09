@@ -135,7 +135,7 @@ export function LineItemsTable({
           </TableHead>
           <TableBody>
             {lineItems.map((item, index) => (
-              <TableRow key={index}>
+              <TableRow key={item.id || `line-item-${index}`}>
                 <TableCell>
                   <TextField
                     fullWidth

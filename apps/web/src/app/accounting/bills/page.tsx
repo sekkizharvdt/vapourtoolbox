@@ -74,6 +74,7 @@ import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { getBillAvailableActions } from '@/lib/accounting/billApprovalService';
 import { useRouter } from 'next/navigation';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 // Lazy load heavy dialog components
 const CreateBillDialog = dynamic(
@@ -115,6 +116,7 @@ function getMonthOptions() {
 export default function BillsPage() {
   const router = useRouter();
   const { claims, user } = useAuth();
+  const { confirm } = useConfirmDialog();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<VendorBill | null>(null);
   const [page, setPage] = useState(0);
@@ -230,7 +232,13 @@ export default function BillsPage() {
   };
 
   const handleDelete = async (billId: string) => {
-    if (!confirm('Are you sure you want to delete this bill?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Bill',
+      message: 'Are you sure you want to delete this bill? This action cannot be undone.',
+      confirmText: 'Delete',
+      confirmColor: 'error',
+    });
+    if (!confirmed) return;
 
     try {
       const { db } = getFirebase();

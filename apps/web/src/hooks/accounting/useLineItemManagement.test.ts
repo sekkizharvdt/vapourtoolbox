@@ -15,14 +15,17 @@ describe('useLineItemManagement Hook', () => {
       const { result } = renderHook(() => useLineItemManagement());
 
       expect(result.current.lineItems).toHaveLength(1);
-      expect(result.current.lineItems[0]).toEqual({
-        description: '',
-        quantity: 1,
-        unitPrice: 0,
-        gstRate: 18,
-        amount: 0,
-        hsnCode: '',
-      });
+      expect(result.current.lineItems[0]).toEqual(
+        expect.objectContaining({
+          description: '',
+          quantity: 1,
+          unitPrice: 0,
+          gstRate: 18,
+          amount: 0,
+          hsnCode: '',
+        })
+      );
+      expect(result.current.lineItems[0]?.id).toBeDefined();
     });
 
     it('should initialize with provided initial line items', () => {
@@ -79,14 +82,17 @@ describe('useLineItemManagement Hook', () => {
       });
 
       expect(result.current.lineItems).toHaveLength(2);
-      expect(result.current.lineItems[1]).toEqual({
-        description: '',
-        quantity: 1,
-        unitPrice: 0,
-        gstRate: 18,
-        amount: 0,
-        hsnCode: '',
-      });
+      expect(result.current.lineItems[1]).toEqual(
+        expect.objectContaining({
+          description: '',
+          quantity: 1,
+          unitPrice: 0,
+          gstRate: 18,
+          amount: 0,
+          hsnCode: '',
+        })
+      );
+      expect(result.current.lineItems[1]?.id).toBeDefined();
     });
 
     it('should add multiple line items', () => {
@@ -453,14 +459,17 @@ describe('useLineItemManagement Hook', () => {
       });
 
       expect(result.current.lineItems).toHaveLength(1);
-      expect(result.current.lineItems[0]).toEqual({
-        description: '',
-        quantity: 1,
-        unitPrice: 0,
-        gstRate: 12,
-        amount: 0,
-        hsnCode: '',
-      });
+      expect(result.current.lineItems[0]).toEqual(
+        expect.objectContaining({
+          description: '',
+          quantity: 1,
+          unitPrice: 0,
+          gstRate: 12,
+          amount: 0,
+          hsnCode: '',
+        })
+      );
+      expect(result.current.lineItems[0]?.id).toBeDefined();
     });
   });
 

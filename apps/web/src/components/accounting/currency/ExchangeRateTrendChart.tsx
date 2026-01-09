@@ -60,14 +60,12 @@ const CustomTooltip: React.FC<CustomTooltipData> = ({ active, payload, label }) 
         <Typography variant="body2" color="text.secondary" gutterBottom>
           {label}
         </Typography>
-        {payload.map(
-          (entry: { name: string; value: number | string; color: string }, index: number) => (
-            <Typography key={index} variant="body2" style={{ color: entry.color }}>
-              1 {entry.name} = ₹{' '}
-              {typeof entry.value === 'number' ? entry.value.toFixed(2) : entry.value}
-            </Typography>
-          )
-        )}
+        {payload.map((entry: { name: string; value: number | string; color: string }) => (
+          <Typography key={entry.name} variant="body2" style={{ color: entry.color }}>
+            1 {entry.name} = ₹{' '}
+            {typeof entry.value === 'number' ? entry.value.toFixed(2) : entry.value}
+          </Typography>
+        ))}
       </Paper>
     );
   }

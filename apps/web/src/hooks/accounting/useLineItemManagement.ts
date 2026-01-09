@@ -51,7 +51,19 @@ interface UseLineItemManagementReturn {
   resetLineItems: () => void;
 }
 
+/**
+ * Generate a unique ID for line items
+ * Uses crypto.randomUUID when available, falls back to timestamp-based ID
+ */
+const generateLineItemId = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `li_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+};
+
 const createEmptyLineItem = (gstRate = 18): LineItem => ({
+  id: generateLineItemId(),
   description: '',
   quantity: 1,
   unitPrice: 0,
@@ -67,17 +79,17 @@ const createEmptyLineItem = (gstRate = 18): LineItem => ({
 export function useLineItemManagement(
   options: UseLineItemManagementOptions = {}
 ): UseLineItemManagementReturn {
-  const {
-    initialLineItems,
-    defaultGstRate = 18,
-    minItems = 1,
-    onError,
-  } = options;
+  const { initialLineItems, defaultGstRate = 18, minItems = 1, onError } = options;
 
   const getInitialLineItems = useCallback(() => {
-    return initialLineItems && initialLineItems.length > 0
-      ? initialLineItems
-      : [createEmptyLineItem(defaultGstRate)];
+    if (initialLineItems && initialLineItems.length > 0) {
+      // Ensure all items have IDs (existing items from Firestore may not have them)
+      return initialLineItems.map((item) => ({
+        ...item,
+        id: item.id || generateLineItemId(),
+      }));
+    }
+    return [createEmptyLineItem(defaultGstRate)];
   }, [initialLineItems, defaultGstRate]);
 
   const [lineItems, setLineItems] = useState<LineItem[]>(getInitialLineItems);
@@ -91,7 +103,12 @@ export function useLineItemManagement(
   // Update line items when initialLineItems changes (for editing mode)
   useEffect(() => {
     if (initialLineItems && initialLineItems.length > 0) {
-      setLineItems(initialLineItems);
+      // Ensure all items have IDs
+      const itemsWithIds = initialLineItems.map((item) => ({
+        ...item,
+        id: item.id || generateLineItemId(),
+      }));
+      setLineItems(itemsWithIds);
     } else {
       setLineItems([createEmptyLineItem(defaultGstRate)]);
     }
@@ -113,25 +130,28 @@ export function useLineItemManagement(
     [lineItems.length, minItems, onError]
   );
 
-  const updateLineItem = useCallback((index: number, field: keyof LineItem, value: string | number) => {
-    setLineItems((prev) => {
-      const newLineItems = [...prev];
-      const item = newLineItems[index];
-      if (!item) return prev;
+  const updateLineItem = useCallback(
+    (index: number, field: keyof LineItem, value: string | number) => {
+      setLineItems((prev) => {
+        const newLineItems = [...prev];
+        const item = newLineItems[index];
+        if (!item) return prev;
 
-      newLineItems[index] = { ...item, [field]: value };
+        newLineItems[index] = { ...item, [field]: value };
 
-      // Recalculate amount when quantity or unitPrice changes
-      if (field === 'quantity' || field === 'unitPrice') {
-        const updatedItem = newLineItems[index];
-        if (updatedItem) {
-          updatedItem.amount = (updatedItem.quantity || 0) * (updatedItem.unitPrice || 0);
+        // Recalculate amount when quantity or unitPrice changes
+        if (field === 'quantity' || field === 'unitPrice') {
+          const updatedItem = newLineItems[index];
+          if (updatedItem) {
+            updatedItem.amount = (updatedItem.quantity || 0) * (updatedItem.unitPrice || 0);
+          }
         }
-      }
 
-      return newLineItems;
-    });
-  }, []);
+        return newLineItems;
+      });
+    },
+    []
+  );
 
   const subtotal = useMemo(() => {
     return lineItems.reduce((sum, item) => sum + item.amount, 0);

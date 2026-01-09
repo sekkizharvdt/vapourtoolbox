@@ -15,6 +15,7 @@
  * 4. QueryProvider - React Query for data fetching
  * 5. VapourThemeProvider - MUI theme
  * 6. LocalizationProvider - MUI date pickers with Indian locale (dd/MM/yyyy)
+ * 7. ConfirmDialogProvider - Global confirm dialog for replacing window.confirm
  */
 
 import { VapourThemeProvider } from '@vapour/ui';
@@ -26,6 +27,7 @@ import { CSRFProvider } from '@/components/CSRFProvider';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { QueryProvider } from '@/lib/providers/QueryProvider';
+import { ConfirmDialogProvider } from '@/components/common/ConfirmDialog';
 
 // Validate Firebase configuration on module load
 // This will throw clear errors if env variables are missing
@@ -39,7 +41,7 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
           <QueryProvider>
             <VapourThemeProvider defaultMode="light">
               <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enIN}>
-                {children}
+                <ConfirmDialogProvider>{children}</ConfirmDialogProvider>
               </LocalizationProvider>
             </VapourThemeProvider>
           </QueryProvider>

@@ -64,6 +64,7 @@ import { format } from 'date-fns';
 import HolidayWorkingDialog from '@/components/hr/HolidayWorkingDialog';
 import HolidayWorkingHistory from '@/components/hr/HolidayWorkingHistory';
 import DeclareWorkingDayDialog from '@/components/hr/DeclareWorkingDayDialog';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 const HOLIDAY_TYPE_OPTIONS: { value: HolidayType; label: string; color: string }[] = [
   { value: 'COMPANY', label: 'Company Holiday', color: '#f97316' },
@@ -101,6 +102,7 @@ const defaultFormData: FormData = {
 export default function HolidaySettingsPage() {
   const router = useRouter();
   const { user, claims } = useAuth();
+  const { confirm } = useConfirmDialog();
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -219,9 +221,13 @@ export default function HolidaySettingsPage() {
   const handleDelete = async (holiday: Holiday) => {
     if (!user) return;
 
-    if (!confirm(`Are you sure you want to delete "${holiday.name}"?`)) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Delete Holiday',
+      message: `Are you sure you want to delete "${holiday.name}"?`,
+      confirmText: 'Delete',
+      confirmColor: 'error',
+    });
+    if (!confirmed) return;
 
     try {
       await deleteHoliday(holiday.id, user.uid);
