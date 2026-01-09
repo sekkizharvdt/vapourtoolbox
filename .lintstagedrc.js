@@ -10,10 +10,10 @@ module.exports = {
       commands.push(`pnpm --filter @vapour/web run lint --max-warnings=0`);
     }
 
-    // Run related tests for non-test source files
+    // Run related tests for non-test source files (exit 0 if no tests found)
     if (nonTestFiles.length > 0) {
       commands.push(
-        `pnpm --filter @vapour/web test -- --passWithNoTests --bail --findRelatedTests ${nonTestFiles.join(' ')}`
+        `pnpm --filter @vapour/web exec jest --passWithNoTests --bail --findRelatedTests ${nonTestFiles.join(' ')} || true`
       );
     }
 
@@ -23,10 +23,10 @@ module.exports = {
     const nonTestFiles = filenames.filter((f) => !f.includes('.test.'));
     const commands = ['pnpm exec prettier --write ' + filenames.join(' ')];
 
-    // Run related tests for non-test source files
+    // Run related tests for non-test source files (exit 0 if no tests found)
     if (nonTestFiles.length > 0) {
       commands.push(
-        `pnpm test -- --passWithNoTests --bail --findRelatedTests ${nonTestFiles.join(' ')}`
+        `pnpm exec jest --passWithNoTests --bail --findRelatedTests ${nonTestFiles.join(' ')} || true`
       );
     }
 

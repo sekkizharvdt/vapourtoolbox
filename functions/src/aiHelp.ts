@@ -94,12 +94,21 @@ interface AIHelpRequest {
 export const aiHelp = onCall(
   {
     secrets: [anthropicApiKey],
+    // Allow unauthenticated at Cloud Run level - we check Firebase auth inside the function
+    invoker: 'public',
     // Require authentication
     enforceAppCheck: false,
     // Set reasonable limits
     timeoutSeconds: 60,
     memory: '256MiB',
     region: 'us-central1',
+    // CORS configuration
+    cors: [
+      'https://toolbox.vapourdesal.com',
+      'https://vapour-toolbox.web.app',
+      'https://vapour-toolbox.firebaseapp.com',
+      'http://localhost:3000',
+    ],
   },
   async (request) => {
     // Verify user is authenticated

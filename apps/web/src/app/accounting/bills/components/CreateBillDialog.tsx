@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Grid, Box, Typography, Stack } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { TransactionFormFields } from '@/components/accounting/shared/TransactionFormFields';
@@ -31,20 +31,27 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
   const [error, setError] = useState('');
   const [vendorBillNumber, setVendorBillNumber] = useState('');
 
+  // Memoize initial data to prevent useEffect re-runs on every render
+  const initialFormData = useMemo(
+    () =>
+      editingBill
+        ? {
+            date: editingBill.date,
+            dueDate: editingBill.dueDate,
+            entityId: editingBill.entityId,
+            entityName: editingBill.entityName,
+            description: editingBill.description,
+            reference: editingBill.reference,
+            projectId: editingBill.projectId,
+            status: editingBill.status,
+          }
+        : undefined,
+    [editingBill]
+  );
+
   // Use transaction form hook
   const formState = useTransactionForm({
-    initialData: editingBill
-      ? {
-          date: editingBill.date,
-          dueDate: editingBill.dueDate,
-          entityId: editingBill.entityId,
-          entityName: editingBill.entityName,
-          description: editingBill.description,
-          reference: editingBill.reference,
-          projectId: editingBill.projectId,
-          status: editingBill.status,
-        }
-      : undefined,
+    initialData: initialFormData,
     isOpen: open,
   });
 

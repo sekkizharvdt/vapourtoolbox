@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Grid,
   Box,
@@ -50,20 +50,27 @@ export function CreateInvoiceDialog({
   );
   const [exchangeRate, setExchangeRate] = useState<number>(editingInvoice?.exchangeRate || 1);
 
+  // Memoize initial data to prevent useEffect re-runs on every render
+  const initialFormData = useMemo(
+    () =>
+      editingInvoice
+        ? {
+            date: editingInvoice.date,
+            dueDate: editingInvoice.dueDate,
+            entityId: editingInvoice.entityId,
+            entityName: editingInvoice.entityName,
+            description: editingInvoice.description,
+            reference: editingInvoice.reference,
+            projectId: editingInvoice.projectId,
+            status: editingInvoice.status,
+          }
+        : undefined,
+    [editingInvoice]
+  );
+
   // Use transaction form hook
   const formState = useTransactionForm({
-    initialData: editingInvoice
-      ? {
-          date: editingInvoice.date,
-          dueDate: editingInvoice.dueDate,
-          entityId: editingInvoice.entityId,
-          entityName: editingInvoice.entityName,
-          description: editingInvoice.description,
-          reference: editingInvoice.reference,
-          projectId: editingInvoice.projectId,
-          status: editingInvoice.status,
-        }
-      : undefined,
+    initialData: initialFormData,
     isOpen: open,
   });
 
