@@ -30,10 +30,12 @@ export interface ActionItem {
     | 'proposal_review'
     | 'po_approval'
     | 'pr_approval'
+    | 'bill_approval'
     | 'invoice_pending'
     | 'document_review'
     | 'mention'
-    | 'rfq_response';
+    | 'rfq_response'
+    | 'leave_approval';
   title: string;
   description?: string;
   priority: 'urgent' | 'high' | 'medium' | 'low';
@@ -207,6 +209,59 @@ export async function getActionItems(userId: string): Promise<ActionItem[]> {
       logger.warn('Failed to fetch pending proposals', { error: err });
     }
 
+    // 6. Get pending bill approvals (for approvers)
+    const pendingBillsQuery = query(
+      collection(db, 'vendorBills'),
+      where('status', '==', 'PENDING_APPROVAL'),
+      where('assignedApproverId', '==', userId),
+      limit(3)
+    );
+
+    try {
+      const billsSnapshot = await getDocs(pendingBillsQuery);
+      billsSnapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        items.push({
+          id: doc.id,
+          type: 'bill_approval',
+          title: `Approve Bill ${data.billNumber}`,
+          description: `${data.entityName} - ₹${data.total?.toLocaleString('en-IN') || ''}`,
+          priority: 'high',
+          dueDate: data.dueDate?.toDate(),
+          link: `/accounting/bills/${doc.id}`,
+          metadata: { billNumber: data.billNumber },
+        });
+      });
+    } catch (err) {
+      logger.warn('Failed to fetch pending bills', { error: err });
+    }
+
+    // 7. Get pending leave approvals (for approvers/managers)
+    const pendingLeavesQuery = query(
+      collection(db, 'leaveRequests'),
+      where('status', '==', 'PENDING'),
+      where('approverId', '==', userId),
+      limit(3)
+    );
+
+    try {
+      const leavesSnapshot = await getDocs(pendingLeavesQuery);
+      leavesSnapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        items.push({
+          id: doc.id,
+          type: 'leave_approval',
+          title: `Approve Leave: ${data.employeeName || 'Employee'}`,
+          description: `${data.leaveType} - ${data.days} day(s)`,
+          priority: 'medium',
+          link: `/hr/leaves/${doc.id}`,
+          metadata: { leaveType: data.leaveType },
+        });
+      });
+    } catch (err) {
+      logger.warn('Failed to fetch pending leaves', { error: err });
+    }
+
     // Sort by priority
     const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
     items.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
@@ -252,7 +307,7 @@ export async function getDashboardSummary(userId: string): Promise<DashboardSumm
       logger.warn('Failed to count tasks today', { error: err });
     }
 
-    // Pending approvals (POs + PRs)
+    // Pending approvals (POs + PRs + Bills + Leaves)
     try {
       const pendingPOsQuery = query(
         collection(db, 'purchaseOrders'),
@@ -268,7 +323,25 @@ export async function getDashboardSummary(userId: string): Promise<DashboardSumm
       );
       const pendingPRsSnapshot = await getCountFromServer(pendingPRsQuery);
 
-      summary.pendingApprovals = pendingPOsSnapshot.data().count + pendingPRsSnapshot.data().count;
+      const pendingBillsQuery = query(
+        collection(db, 'vendorBills'),
+        where('status', '==', 'PENDING_APPROVAL'),
+        where('assignedApproverId', '==', userId)
+      );
+      const pendingBillsSnapshot = await getCountFromServer(pendingBillsQuery);
+
+      const pendingLeavesQuery = query(
+        collection(db, 'leaveRequests'),
+        where('status', '==', 'PENDING'),
+        where('approverId', '==', userId)
+      );
+      const pendingLeavesSnapshot = await getCountFromServer(pendingLeavesQuery);
+
+      summary.pendingApprovals =
+        pendingPOsSnapshot.data().count +
+        pendingPRsSnapshot.data().count +
+        pendingBillsSnapshot.data().count +
+        pendingLeavesSnapshot.data().count;
     } catch (err) {
       logger.warn('Failed to count pending approvals', { error: err });
     }

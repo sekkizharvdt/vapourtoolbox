@@ -11,6 +11,7 @@ import { useAllModuleStats, getStatsForModule } from '@/lib/hooks/useModuleStats
 export default function DashboardPage() {
   const { user, claims } = useAuth();
   const userPermissions = claims?.permissions || 0;
+  const userPermissions2 = claims?.permissions2 || 0;
 
   // Filter modules based on user permissions, status, and category
   // ONLY show application modules on dashboard (core modules are in sidebar only)
@@ -20,13 +21,23 @@ export default function DashboardPage() {
       // Only show application modules (not core modules)
       if (module.category !== 'application') return false;
 
-      // If no permission required, accessible by all
-      if (module.requiredPermissions === undefined) return true;
+      // Check requiredPermissions (from permissions field)
+      if (module.requiredPermissions !== undefined) {
+        if ((userPermissions & module.requiredPermissions) !== module.requiredPermissions) {
+          return false;
+        }
+      }
 
-      // Check if user has required permissions using bitwise AND
-      return (userPermissions & module.requiredPermissions) === module.requiredPermissions;
+      // Check requiredPermissions2 (from permissions2 field)
+      if (module.requiredPermissions2 !== undefined) {
+        if ((userPermissions2 & module.requiredPermissions2) !== module.requiredPermissions2) {
+          return false;
+        }
+      }
+
+      return true;
     });
-  }, [userPermissions]);
+  }, [userPermissions, userPermissions2]);
 
   // Separate modules by status and sort by priority
   // Use useMemo to prevent unnecessary recalculations

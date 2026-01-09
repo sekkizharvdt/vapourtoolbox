@@ -29,6 +29,7 @@ import WarningIcon from '@mui/icons-material/Warning';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import PeopleIcon from '@mui/icons-material/People';
 import { useActivityDashboard, type ActionItem } from '@/lib/hooks/useActivityDashboard';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -41,10 +42,12 @@ function getActionIcon(type: ActionItem['type']) {
     mention: <AlternateEmailIcon />,
     po_approval: <ShoppingCartIcon />,
     pr_approval: <ReceiptLongIcon />,
+    bill_approval: <ReceiptLongIcon />,
     proposal_review: <DescriptionIcon />,
     invoice_pending: <ReceiptLongIcon />,
     document_review: <DescriptionIcon />,
     rfq_response: <ShoppingCartIcon />,
+    leave_approval: <PeopleIcon />,
   };
   return iconMap[type] || <AssignmentIcon />;
 }
@@ -202,7 +205,12 @@ export function ActivityDashboard() {
         groups.urgent.push(item);
       } else if (item.type === 'task') {
         groups.tasks.push(item);
-      } else if (item.type === 'po_approval' || item.type === 'pr_approval') {
+      } else if (
+        item.type === 'po_approval' ||
+        item.type === 'pr_approval' ||
+        item.type === 'bill_approval' ||
+        item.type === 'leave_approval'
+      ) {
         groups.approvals.push(item);
       } else {
         groups.other.push(item);

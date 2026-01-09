@@ -261,6 +261,56 @@ async function getUserStats(): Promise<ModuleStats> {
 }
 
 /**
+ * Get stats for HR module
+ */
+async function getHRStats(): Promise<ModuleStats> {
+  const { db } = getFirebase();
+
+  try {
+    // Count pending leave requests
+    const pendingLeavesQuery = query(
+      collection(db, 'leaveRequests'),
+      where('status', '==', 'PENDING')
+    );
+    const pendingSnapshot = await getCountFromServer(pendingLeavesQuery);
+
+    return {
+      moduleId: 'hr-management',
+      pendingCount: pendingSnapshot.data().count || 0,
+      label: 'Pending Leaves',
+    };
+  } catch (error) {
+    logger.error('Failed to fetch HR stats', error);
+    return { moduleId: 'hr-management', pendingCount: 0 };
+  }
+}
+
+/**
+ * Get stats for Proposals module
+ */
+async function getProposalStats(): Promise<ModuleStats> {
+  const { db } = getFirebase();
+
+  try {
+    // Count proposals in draft or internal review
+    const pendingProposalsQuery = query(
+      collection(db, 'proposals'),
+      where('status', 'in', ['DRAFT', 'INTERNAL_REVIEW'])
+    );
+    const pendingSnapshot = await getCountFromServer(pendingProposalsQuery);
+
+    return {
+      moduleId: 'proposal-management',
+      pendingCount: pendingSnapshot.data().count || 0,
+      label: 'In Progress',
+    };
+  } catch (error) {
+    logger.error('Failed to fetch proposal stats', error);
+    return { moduleId: 'proposal-management', pendingCount: 0 };
+  }
+}
+
+/**
  * Get stats for all modules
  * Returns stats for modules the user has access to
  */
@@ -293,13 +343,21 @@ export async function getAllModuleStats(accessibleModuleIds: string[]): Promise<
       case 'user-management':
         statsPromises.push(getUserStats());
         break;
-      // Coming soon modules don't have stats yet
+      case 'hr-management':
+        statsPromises.push(getHRStats());
+        break;
+      case 'proposal-management':
+        statsPromises.push(getProposalStats());
+        break;
+      // Modules without stats (reference data / calculators)
       case 'material-database':
+      case 'shape-database':
       case 'bought-out-database':
       case 'thermal-desal':
-      case 'proposal-management':
+      case 'thermal-calcs':
+      case 'process-data':
       case 'company-settings':
-        // No stats for these modules
+        // No stats for these modules - they are reference data or calculators
         break;
     }
   }
@@ -334,6 +392,10 @@ export async function getModuleStats(moduleId: string): Promise<ModuleStats | nu
       return getEntityStats();
     case 'user-management':
       return getUserStats();
+    case 'hr-management':
+      return getHRStats();
+    case 'proposal-management':
+      return getProposalStats();
     default:
       return null;
   }
