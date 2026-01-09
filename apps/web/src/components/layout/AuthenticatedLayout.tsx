@@ -9,6 +9,7 @@ import { MobileBottomNav } from '@/components/layout/BottomNavigation';
 import { AppFooter } from '@/components/layout/AppFooter';
 import { SessionTimeoutModal } from '@/components/auth/SessionTimeoutModal';
 import { useCommandPalette } from '@/components/common/useCommandPalette';
+import { useAIHelp } from '@/components/common/AIHelpWidget/useAIHelp';
 import { KeyboardShortcutsProvider } from '@/hooks/useKeyboardShortcuts';
 import { OnboardingProvider } from '@/components/common/OnboardingTooltip';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,6 +25,11 @@ const CommandPalette = dynamic(
 const KeyboardShortcutsHelp = dynamic(
   () =>
     import('@/components/common/KeyboardShortcutsHelp').then((mod) => mod.KeyboardShortcutsHelp),
+  { ssr: false }
+);
+
+const AIHelpWidget = dynamic(
+  () => import('@/components/common/AIHelpWidget').then((mod) => mod.AIHelpWidget),
   { ssr: false }
 );
 
@@ -62,6 +68,9 @@ export function AuthenticatedLayout({
 
   // Command palette (Cmd+K)
   const commandPalette = useCommandPalette();
+
+  // AI Help dialog
+  const aiHelp = useAIHelp();
 
   // Persist sidebar collapsed state
   useEffect(() => {
@@ -148,6 +157,7 @@ export function AuthenticatedLayout({
             onMenuClick={handleDrawerToggle}
             sidebarWidth={sidebarWidth}
             onCommandPaletteOpen={commandPalette.toggle}
+            onAIHelpOpen={aiHelp.toggle}
           />
 
           <Sidebar
@@ -205,6 +215,9 @@ export function AuthenticatedLayout({
 
           {/* Keyboard Shortcuts Help (Shift+?) */}
           <KeyboardShortcutsHelp />
+
+          {/* AI Help Widget */}
+          <AIHelpWidget open={aiHelp.open} onClose={aiHelp.close} />
         </Box>
       </KeyboardShortcutsProvider>
     </OnboardingProvider>

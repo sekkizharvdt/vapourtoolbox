@@ -20,6 +20,7 @@ import {
   Search as SearchIcon,
   HelpOutline as HelpOutlineIcon,
   Feedback as FeedbackIcon,
+  SmartToy as AIIcon,
 } from '@mui/icons-material';
 import { ThemeToggle } from '@vapour/ui';
 import { useState } from 'react';
@@ -30,12 +31,14 @@ interface DashboardAppBarProps {
   onMenuClick: () => void;
   sidebarWidth: number;
   onCommandPaletteOpen?: () => void;
+  onAIHelpOpen?: () => void;
 }
 
 export function DashboardAppBar({
   onMenuClick,
   sidebarWidth,
   onCommandPaletteOpen,
+  onAIHelpOpen,
 }: DashboardAppBarProps) {
   const router = useRouter();
   const { user, signOut } = useAuth();
@@ -163,6 +166,14 @@ export function DashboardAppBar({
               <HelpOutlineIcon />
             </IconButton>
           </Tooltip>
+
+          {onAIHelpOpen && (
+            <Tooltip title="AI Help (Beta)">
+              <IconButton color="inherit" onClick={onAIHelpOpen} aria-label="AI Help">
+                <AIIcon />
+              </IconButton>
+            </Tooltip>
+          )}
 
           <Tooltip title="Feedback (opens in new tab)">
             <IconButton

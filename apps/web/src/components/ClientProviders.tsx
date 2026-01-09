@@ -15,7 +15,6 @@
  * 4. QueryProvider - React Query for data fetching
  * 5. VapourThemeProvider - MUI theme
  * 6. LocalizationProvider - MUI date pickers with Indian locale (dd/MM/yyyy)
- * 7. AIHelpWidget - Floating AI assistant (beta)
  */
 
 import { VapourThemeProvider } from '@vapour/ui';
@@ -27,7 +26,6 @@ import { CSRFProvider } from '@/components/CSRFProvider';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { QueryProvider } from '@/lib/providers/QueryProvider';
-import { AIHelpWidgetWrapper } from '@/components/common/AIHelpWidget/Wrapper';
 
 // Validate Firebase configuration on module load
 // This will throw clear errors if env variables are missing
@@ -42,7 +40,6 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
             <VapourThemeProvider defaultMode="light">
               <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enIN}>
                 {children}
-                <AIHelpWidgetWrapper />
               </LocalizationProvider>
             </VapourThemeProvider>
           </QueryProvider>
