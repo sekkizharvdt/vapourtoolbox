@@ -45,6 +45,7 @@ export {
   onPurchaseOrderStatusChange,
   onInvoiceStatusChange,
   onPaymentLedgerStatusChange,
+  onVendorBillStatusChange,
   onDocumentStatusChange,
   onDocumentSubmissionCreated,
 } from './taskAutoCompletion';

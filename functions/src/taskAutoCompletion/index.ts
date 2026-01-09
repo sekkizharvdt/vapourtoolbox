@@ -43,5 +43,8 @@ export { onPurchaseOrderStatusChange } from './purchaseOrderAutoComplete';
 // Invoice and Payment auto-completion
 export { onInvoiceStatusChange, onPaymentLedgerStatusChange } from './invoiceAutoComplete';
 
+// Vendor Bill auto-completion
+export { onVendorBillStatusChange } from './vendorBillAutoComplete';
+
 // Document workflow auto-completion
 export { onDocumentStatusChange, onDocumentSubmissionCreated } from './documentAutoComplete';
