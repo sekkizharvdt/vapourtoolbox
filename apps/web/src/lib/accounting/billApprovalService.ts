@@ -277,15 +277,15 @@ export async function rejectBill(
  * TODO: Remove PENDING_APPROVAL from canEdit after testing phase
  *
  * Approval Logic:
- * - Any user with MANAGE_ACCOUNTING permission can approve bills in PENDING_APPROVAL status
- * - The assigned approver check is relaxed to allow managers to approve any pending bill
+ * - Only the assigned approver can approve/reject bills
+ * - User must also have MANAGE_ACCOUNTING permission
  */
 export function getBillAvailableActions(
   status: TransactionStatus,
   canManage: boolean,
-  _isAssignedApprover: boolean,
-  _currentUserId: string,
-  _assignedApproverId?: string
+  isAssignedApprover: boolean,
+  currentUserId: string,
+  assignedApproverId?: string
 ): {
   canEdit: boolean;
   canSubmitForApproval: boolean;
@@ -294,9 +294,10 @@ export function getBillAvailableActions(
   canDelete: boolean;
   canRecordPayment: boolean;
 } {
-  // Allow any manager to approve, not just the assigned approver
-  // This enables flexibility when the assigned approver is unavailable
-  const canApproveOrReject = canManage && status === 'PENDING_APPROVAL';
+  // Only the assigned approver can approve/reject
+  const isApprover =
+    isAssignedApprover || (assignedApproverId && assignedApproverId === currentUserId);
+  const canApproveOrReject = canManage && status === 'PENDING_APPROVAL' && !!isApprover;
 
   // TESTING PHASE: Allow editing in PENDING_APPROVAL status
   const editableStatuses: TransactionStatus[] = ['DRAFT', 'PENDING_APPROVAL'];
