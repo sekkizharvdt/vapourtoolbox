@@ -1,6 +1,8 @@
 module.exports = {
   // Lint and format TypeScript files in our actual project (exclude inputs/ and e2e/)
   'apps/web/**/*.{ts,tsx}': (filenames) => {
+    // Filter out test files - they're handled separately
+    const nonTestFiles = filenames.filter((f) => !f.includes('.test.'));
     const commands = ['pnpm exec prettier --write ' + filenames.join(' ')];
 
     // Only run ESLint on web app files (Next.js lint handles .eslintrc.json correctly)
@@ -8,9 +10,28 @@ module.exports = {
       commands.push(`pnpm --filter @vapour/web run lint --max-warnings=0`);
     }
 
+    // Run related tests for non-test source files
+    if (nonTestFiles.length > 0) {
+      commands.push(
+        `pnpm --filter @vapour/web test -- --passWithNoTests --bail --findRelatedTests ${nonTestFiles.join(' ')}`
+      );
+    }
+
     return commands;
   },
-  'packages/**/*.{ts,tsx}': ['pnpm exec prettier --write'],
+  'packages/**/*.{ts,tsx}': (filenames) => {
+    const nonTestFiles = filenames.filter((f) => !f.includes('.test.'));
+    const commands = ['pnpm exec prettier --write ' + filenames.join(' ')];
+
+    // Run related tests for non-test source files
+    if (nonTestFiles.length > 0) {
+      commands.push(
+        `pnpm test -- --passWithNoTests --bail --findRelatedTests ${nonTestFiles.join(' ')}`
+      );
+    }
+
+    return commands;
+  },
   'functions/**/*.{ts,tsx}': ['pnpm exec prettier --write'],
   'scripts/**/*.js': ['pnpm exec prettier --write'],
 
