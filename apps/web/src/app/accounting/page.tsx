@@ -14,6 +14,7 @@ import {
   Payment as PaymentIcon,
   AccountBalanceWallet as ReconciliationIcon,
   Folder as FolderIcon,
+  Receipt as ReceiptIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -64,6 +65,12 @@ export default function AccountingPage() {
       description: 'Record customer receipts and vendor payments with allocation',
       icon: <PaymentIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/payments',
+    },
+    {
+      title: 'Receipts & Payments',
+      description: 'Monthly cash receipts and payments summary with categorized breakdown',
+      icon: <ReceiptIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/receipts-payments',
     },
     {
       title: 'Bank Reconciliation',
