@@ -25,6 +25,7 @@ interface ProjectSelectorProps {
   value: string | null;
   onChange: (projectId: string | null, projectName?: string) => void;
   label?: string;
+  placeholder?: string;
   required?: boolean;
   disabled?: boolean;
   error?: boolean;
@@ -32,6 +33,7 @@ interface ProjectSelectorProps {
   onlyActive?: boolean;
   /** Include standalone cost centres (ADMINISTRATION, OVERHEAD) in addition to projects */
   includeCostCentres?: boolean;
+  size?: 'small' | 'medium';
 }
 
 /**
@@ -46,12 +48,14 @@ export function ProjectSelector({
   value,
   onChange,
   label = 'Project / Cost Centre',
+  placeholder = 'Search projects...',
   required = false,
   disabled = false,
   error = false,
   helperText,
   onlyActive = true,
   includeCostCentres = true,
+  size = 'small',
 }: ProjectSelectorProps) {
   const [options, setOptions] = useState<ProjectOrCostCentre[]>([]);
   const [loading, setLoading] = useState(true);
@@ -263,6 +267,14 @@ export function ProjectSelector({
       options={options}
       groupBy={(option) => (option.type === 'COST_CENTRE' ? 'Cost Centres' : 'Projects')}
       getOptionLabel={(option) => `${option.code} - ${option.name}`}
+      filterOptions={(opts, { inputValue }) => {
+        const searchTerm = inputValue.toLowerCase();
+        return opts.filter(
+          (option) =>
+            option.code.toLowerCase().includes(searchTerm) ||
+            option.name.toLowerCase().includes(searchTerm)
+        );
+      }}
       renderOption={(props, option) => (
         <li {...props} key={option.id}>
           <Box sx={{ width: '100%' }}>
@@ -309,10 +321,12 @@ export function ProjectSelector({
       renderInput={(params) => (
         <TextField
           {...params}
-          label={label}
+          label={label || undefined}
+          placeholder={!label ? placeholder : undefined}
           required={required}
           error={error || !!loadError}
           helperText={loadError || helperText}
+          size={size}
           InputProps={{
             ...params.InputProps,
             endAdornment: (
@@ -326,7 +340,13 @@ export function ProjectSelector({
       )}
       loading={loading}
       disabled={disabled}
+      size={size}
       isOptionEqualToValue={(option, value) => option.id === value.id}
+      slotProps={{
+        popper: {
+          style: { minWidth: 300 },
+        },
+      }}
     />
   );
 }

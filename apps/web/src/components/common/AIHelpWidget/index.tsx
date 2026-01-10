@@ -28,7 +28,9 @@ import {
   Alert,
   Button,
   Divider,
+  styled,
 } from '@mui/material';
+import ReactMarkdown from 'react-markdown';
 import {
   SmartToy as AIIcon,
   Close as CloseIcon,
@@ -56,6 +58,61 @@ interface QuickAction {
   prompt: string;
   icon: React.ReactNode;
 }
+
+// Styled container for markdown content
+const MarkdownContent = styled(Box)(({ theme }) => ({
+  '& p': {
+    margin: 0,
+    marginBottom: theme.spacing(1),
+    '&:last-child': {
+      marginBottom: 0,
+    },
+  },
+  '& strong': {
+    fontWeight: 600,
+  },
+  '& ul, & ol': {
+    margin: 0,
+    marginBottom: theme.spacing(1),
+    paddingLeft: theme.spacing(2.5),
+  },
+  '& li': {
+    marginBottom: theme.spacing(0.5),
+  },
+  '& code': {
+    backgroundColor: theme.palette.action.hover,
+    padding: '2px 4px',
+    borderRadius: 4,
+    fontSize: '0.875em',
+    fontFamily: 'monospace',
+  },
+  '& pre': {
+    backgroundColor: theme.palette.action.hover,
+    padding: theme.spacing(1),
+    borderRadius: 4,
+    overflow: 'auto',
+    marginBottom: theme.spacing(1),
+    '& code': {
+      backgroundColor: 'transparent',
+      padding: 0,
+    },
+  },
+  '& h1, & h2, & h3, & h4, & h5, & h6': {
+    margin: 0,
+    marginBottom: theme.spacing(0.5),
+    fontWeight: 600,
+  },
+  '& h3': {
+    fontSize: '1rem',
+  },
+  '& h4': {
+    fontSize: '0.9rem',
+  },
+  '& a': {
+    color: theme.palette.primary.main,
+    textDecoration: 'underline',
+  },
+}));
 
 const QUICK_ACTIONS: QuickAction[] = [
   {
@@ -305,9 +362,34 @@ export function AIHelpWidget({ open, onClose }: AIHelpWidgetProps) {
                 borderRadius: 2,
               }}
             >
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                {message.content}
-              </Typography>
+              {message.role === 'assistant' ? (
+                <MarkdownContent>
+                  <ReactMarkdown
+                    components={{
+                      // Use Typography for paragraphs to maintain consistent styling
+                      p: ({ children }) => (
+                        <Typography variant="body2" component="p">
+                          {children}
+                        </Typography>
+                      ),
+                      li: ({ children }) => (
+                        <Typography variant="body2" component="li">
+                          {children}
+                        </Typography>
+                      ),
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                </MarkdownContent>
+              ) : (
+                <Typography
+                  variant="body2"
+                  sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                >
+                  {message.content}
+                </Typography>
+              )}
             </Paper>
           </Box>
         ))}

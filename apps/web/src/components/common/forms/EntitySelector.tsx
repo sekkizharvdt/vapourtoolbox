@@ -20,11 +20,13 @@ interface EntitySelectorProps {
   /** Optional callback that receives the full entity object when selected */
   onEntitySelect?: (entity: BusinessEntity | null) => void;
   label?: string;
+  placeholder?: string;
   required?: boolean;
   disabled?: boolean;
   error?: boolean;
   helperText?: string;
   filterByRole?: EntityRole | EntityRole[];
+  size?: 'small' | 'medium';
 }
 
 /**
@@ -40,11 +42,13 @@ function EntitySelectorComponent({
   onChange,
   onEntitySelect,
   label = 'Entity',
+  placeholder = 'Search entities...',
   required = false,
   disabled = false,
   error = false,
   helperText,
   filterByRole,
+  size = 'small',
 }: EntitySelectorProps) {
   const [entities, setEntities] = useState<BusinessEntity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -173,6 +177,15 @@ function EntitySelectorComponent({
       onChange={handleChange}
       options={entities}
       getOptionLabel={getOptionLabel}
+      filterOptions={(options, { inputValue }) => {
+        const searchTerm = inputValue.toLowerCase();
+        return options.filter(
+          (option) =>
+            option.code.toLowerCase().includes(searchTerm) ||
+            option.name.toLowerCase().includes(searchTerm) ||
+            option.roles.some((role) => role.toLowerCase().includes(searchTerm))
+        );
+      }}
       renderOption={(props, option) => (
         <li {...props} key={option.id}>
           <div style={{ width: '100%' }}>
@@ -195,10 +208,12 @@ function EntitySelectorComponent({
       renderInput={(params) => (
         <TextField
           {...params}
-          label={label}
+          label={label || undefined}
+          placeholder={!label ? placeholder : undefined}
           required={required}
           error={error}
           helperText={helperText}
+          size={size}
           InputProps={{
             ...params.InputProps,
             endAdornment: (
@@ -212,7 +227,13 @@ function EntitySelectorComponent({
       )}
       loading={loading}
       disabled={disabled}
+      size={size}
       isOptionEqualToValue={isOptionEqualToValue}
+      slotProps={{
+        popper: {
+          style: { minWidth: 300 },
+        },
+      }}
     />
   );
 }

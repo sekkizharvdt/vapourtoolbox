@@ -353,6 +353,7 @@ export function CreateJournalEntryDialog({
                           value={entry.accountId}
                           onChange={(accountId) => updateEntry(index, 'accountId', accountId || '')}
                           label=""
+                          placeholder="Search accounts..."
                           required
                           excludeGroups
                         />
@@ -365,6 +366,7 @@ export function CreateJournalEntryDialog({
                             handleEntityChange(index, entity?.id ?? null, entity)
                           }
                           label=""
+                          placeholder="Search entities..."
                         />
                       </TableCell>
                       <TableCell>
@@ -406,6 +408,7 @@ export function CreateJournalEntryDialog({
                             updateEntry(index, 'costCentreId', costCentreId ?? undefined)
                           }
                           label=""
+                          placeholder="Search projects..."
                         />
                       </TableCell>
                       <TableCell align="right">

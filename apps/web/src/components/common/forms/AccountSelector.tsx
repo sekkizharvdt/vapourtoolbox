@@ -11,12 +11,14 @@ interface AccountSelectorProps {
   value: string | null;
   onChange: (accountId: string | null) => void;
   label?: string;
+  placeholder?: string;
   required?: boolean;
   disabled?: boolean;
   error?: boolean;
   helperText?: string;
   filterByType?: AccountType | AccountType[];
   excludeGroups?: boolean;
+  size?: 'small' | 'medium';
 }
 
 /**
@@ -31,12 +33,14 @@ export function AccountSelector({
   value,
   onChange,
   label = 'Account',
+  placeholder = 'Search accounts...',
   required = false,
   disabled = false,
   error = false,
   helperText,
   filterByType,
   excludeGroups = false,
+  size = 'small',
 }: AccountSelectorProps) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,6 +131,15 @@ export function AccountSelector({
       }}
       options={accounts}
       getOptionLabel={(option) => `${option.code} - ${option.name}`}
+      filterOptions={(options, { inputValue }) => {
+        const searchTerm = inputValue.toLowerCase();
+        return options.filter(
+          (option) =>
+            option.code.toLowerCase().includes(searchTerm) ||
+            option.name.toLowerCase().includes(searchTerm) ||
+            (option.accountGroup && option.accountGroup.toLowerCase().includes(searchTerm))
+        );
+      }}
       renderOption={(props, option) => (
         <li {...props} key={option.id}>
           <div>
@@ -144,10 +157,12 @@ export function AccountSelector({
       renderInput={(params) => (
         <TextField
           {...params}
-          label={label}
+          label={label || undefined}
+          placeholder={!label ? placeholder : undefined}
           required={required}
           error={error}
           helperText={helperText}
+          size={size}
           InputProps={{
             ...params.InputProps,
             endAdornment: (
@@ -161,7 +176,13 @@ export function AccountSelector({
       )}
       loading={loading}
       disabled={disabled}
+      size={size}
       isOptionEqualToValue={(option, value) => option.id === value.id}
+      slotProps={{
+        popper: {
+          style: { minWidth: 300 },
+        },
+      }}
     />
   );
 }
