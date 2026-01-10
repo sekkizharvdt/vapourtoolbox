@@ -584,20 +584,6 @@ export default function BillsPage() {
                       // assignedApproverId is in BaseTransaction which VendorBill extends
                       const assignedApproverId = bill.assignedApproverId;
 
-                      // Debug: Log approval info for pending bills
-                      if (bill.status === 'PENDING_APPROVAL') {
-                        // eslint-disable-next-line no-console
-                        console.log('[Bills] Approval check:', {
-                          billId: bill.id,
-                          billNumber: bill.vendorInvoiceNumber || bill.transactionNumber,
-                          status: bill.status,
-                          assignedApproverId,
-                          currentUserId: user?.uid,
-                          isMatch: assignedApproverId === user?.uid,
-                          canManage,
-                        });
-                      }
-
                       const actions = getBillAvailableActions(
                         bill.status,
                         canManage,

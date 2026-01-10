@@ -26,19 +26,13 @@ let emulatorConnected = false;
  */
 export function initializeFirebase() {
   const apps = getApps();
-  // eslint-disable-next-line no-console
-  console.log('[Firebase] initializeFirebase called', { appsLength: apps.length });
 
   if (!apps.length) {
     // Validate and get configuration (will throw if invalid)
     const config = getFirebaseClientConfig();
-    // eslint-disable-next-line no-console
-    console.log('[Firebase] Initializing new app');
     app = initializeApp(config);
   } else {
     // apps[0] is guaranteed to exist since we're in the else branch of !apps.length
-    // eslint-disable-next-line no-console
-    console.log('[Firebase] Using existing app');
     app = apps[0]!;
   }
 
