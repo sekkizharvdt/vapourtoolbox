@@ -2,10 +2,18 @@
 
 import { useState, useEffect, useRef, ReactNode } from 'react';
 import { Box, Toolbar, Typography, Container, CircularProgress } from '@mui/material';
+import dynamic from 'next/dynamic';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { DashboardAppBar } from '@/components/dashboard/AppBar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
+import { useAIHelp } from '@/components/common/AIHelpWidget/useAIHelp';
+
+// Lazy load AIHelpWidget - only loaded when user triggers it
+const AIHelpWidget = dynamic(
+  () => import('@/components/common/AIHelpWidget').then((mod) => mod.AIHelpWidget),
+  { ssr: false }
+);
 
 interface ModuleLayoutProps {
   children: ReactNode;
@@ -82,6 +90,9 @@ export function ModuleLayout({
   const pathname = usePathname();
   const hasRedirected = useRef(false);
   const lastPathname = useRef(pathname);
+
+  // AI Help dialog
+  const aiHelp = useAIHelp();
 
   // Persist sidebar collapsed state
   useEffect(() => {
@@ -230,7 +241,11 @@ export function ModuleLayout({
 
   return (
     <Box sx={{ display: 'flex' }}>
-      <DashboardAppBar onMenuClick={handleDrawerToggle} sidebarWidth={sidebarWidth} />
+      <DashboardAppBar
+        onMenuClick={handleDrawerToggle}
+        sidebarWidth={sidebarWidth}
+        onAIHelpOpen={aiHelp.toggle}
+      />
 
       <Sidebar
         mobileOpen={mobileOpen}
@@ -260,6 +275,9 @@ export function ModuleLayout({
         <Toolbar /> {/* Spacer for AppBar */}
         {children}
       </Box>
+
+      {/* AI Help Widget */}
+      <AIHelpWidget open={aiHelp.open} onClose={aiHelp.close} />
     </Box>
   );
 }
