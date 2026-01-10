@@ -31,7 +31,10 @@ export function TermsStep() {
     formState: { errors },
   } = useFormContext<ProposalFormValues>();
 
-  const { fields, append, remove } = useFieldArray<ProposalFormValues>({
+  // useFieldArray with primitive arrays (string[]) requires 'any' type
+  // react-hook-form's typing expects arrays of objects with 'id' property
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { fields, append, remove } = useFieldArray<any>({
     control,
     name: 'terms.customTerms',
   });
