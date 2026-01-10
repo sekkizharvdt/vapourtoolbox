@@ -12,10 +12,25 @@ export interface ValidationResult {
 }
 
 /**
+ * Extended ledger entry that may have entityId without accountId
+ * The accountId will be resolved from the entity's control account before saving
+ */
+export interface LedgerEntryWithEntity extends Omit<LedgerEntry, 'accountId'> {
+  accountId?: string;
+  entityId?: string;
+  entityName?: string;
+}
+
+/**
  * Validate ledger entries for double-entry bookkeeping
  * Ensures debits = credits and all required fields are present
+ *
+ * Note: Entries can have either accountId OR entityId (for entity-based entries).
+ * When entityId is provided without accountId, the control account will be
+ * resolved based on the entity's role (Customer → Accounts Receivable,
+ * Vendor → Accounts Payable) before saving.
  */
-export function validateLedgerEntries(entries: LedgerEntry[]): ValidationResult {
+export function validateLedgerEntries(entries: LedgerEntryWithEntity[]): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -32,9 +47,12 @@ export function validateLedgerEntries(entries: LedgerEntry[]): ValidationResult 
 
   // Validate each entry
   entries.forEach((entry, index) => {
-    // Check for account ID
-    if (!entry.accountId) {
-      errors.push(`Entry ${index + 1}: Account is required`);
+    // Check for account ID or entity ID (at least one must be present)
+    const hasAccount = !!entry.accountId;
+    const hasEntity = !!entry.entityId;
+
+    if (!hasAccount && !hasEntity) {
+      errors.push(`Entry ${index + 1}: Account or Entity is required`);
     }
 
     // Check that debit or credit (but not both) is specified
@@ -113,12 +131,16 @@ export function calculateBalance(entries: LedgerEntry[]): {
 /**
  * Validate single ledger entry
  */
-export function validateSingleEntry(entry: LedgerEntry): ValidationResult {
+export function validateSingleEntry(entry: LedgerEntryWithEntity): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  if (!entry.accountId) {
-    errors.push('Account is required');
+  // Check for account ID or entity ID (at least one must be present)
+  const hasAccount = !!entry.accountId;
+  const hasEntity = !!entry.entityId;
+
+  if (!hasAccount && !hasEntity) {
+    errors.push('Account or Entity is required');
   }
 
   const hasDebit = entry.debit > 0;

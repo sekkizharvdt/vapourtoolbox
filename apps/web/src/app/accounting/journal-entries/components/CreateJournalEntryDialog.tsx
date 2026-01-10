@@ -31,6 +31,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { JournalEntry, LedgerEntry, TransactionStatus } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { validateLedgerEntries, calculateBalance } from '@/lib/accounting/ledgerValidator';
+import { getEntityControlAccount } from '@/lib/accounting/systemAccountResolver';
 
 interface CreateJournalEntryDialogProps {
   open: boolean;
@@ -41,6 +42,8 @@ interface CreateJournalEntryDialogProps {
 interface LedgerEntryForm extends Omit<LedgerEntry, 'accountName' | 'accountCode'> {
   accountName?: string;
   accountCode?: string;
+  // Store entity roles to resolve control account later
+  entityRoles?: string[];
 }
 
 export function CreateJournalEntryDialog({
@@ -140,7 +143,7 @@ export function CreateJournalEntryDialog({
     ]);
   };
 
-  // Handle entity selection with name denormalization
+  // Handle entity selection with name denormalization and role storage
   const handleEntityChange = (
     index: number,
     entityId: string | null,
@@ -153,6 +156,7 @@ export function CreateJournalEntryDialog({
         ...currentEntry,
         entityId: entityId ?? undefined,
         entityName: entity?.name ?? undefined,
+        entityRoles: entity?.roles ?? undefined,
       };
     }
     setEntries(newEntries);
@@ -193,7 +197,61 @@ export function CreateJournalEntryDialog({
       }
 
       const { db } = getFirebase();
-      const balance = calculateBalance(entries);
+
+      // Resolve control accounts for entries that have entityId but no accountId
+      const resolvedEntries: LedgerEntry[] = await Promise.all(
+        entries.map(async (entry) => {
+          // If entry has accountId, use it as-is
+          if (entry.accountId) {
+            // Remove entityRoles from the final entry (it's just for resolution)
+            const { entityRoles, ...cleanEntry } = entry;
+            void entityRoles; // Intentionally unused - just removing from object
+            const ledgerEntry: LedgerEntry = {
+              accountId: cleanEntry.accountId,
+              accountCode: cleanEntry.accountCode,
+              accountName: cleanEntry.accountName,
+              debit: cleanEntry.debit,
+              credit: cleanEntry.credit,
+              description: cleanEntry.description,
+              costCentreId: cleanEntry.costCentreId,
+              entityId: cleanEntry.entityId,
+              entityName: cleanEntry.entityName,
+            };
+            return ledgerEntry;
+          }
+
+          // If entry has entityId but no accountId, resolve the control account
+          if (entry.entityId && entry.entityRoles && entry.entityRoles.length > 0) {
+            const isDebit = entry.debit > 0;
+            const controlAccount = await getEntityControlAccount(db, entry.entityRoles, isDebit);
+
+            if (!controlAccount) {
+              throw new Error(
+                `Could not determine control account for entity "${entry.entityName}". ` +
+                  `Please select an account manually or ensure the entity has a valid role (Customer/Vendor).`
+              );
+            }
+
+            const ledgerEntry: LedgerEntry = {
+              accountId: controlAccount.accountId,
+              accountCode: controlAccount.accountCode,
+              accountName: controlAccount.accountName,
+              debit: entry.debit,
+              credit: entry.credit,
+              description: entry.description,
+              costCentreId: entry.costCentreId,
+              entityId: entry.entityId,
+              entityName: entry.entityName,
+            };
+            return ledgerEntry;
+          }
+
+          // This shouldn't happen if validation passed, but handle it
+          throw new Error('Entry must have either an Account or an Entity');
+        })
+      );
+
+      const balance = calculateBalance(resolvedEntries);
 
       // Convert string date to Date object then to Timestamp for Firestore
       const journalDate = Timestamp.fromDate(new Date(date));
@@ -206,7 +264,7 @@ export function CreateJournalEntryDialog({
         referenceNumber: reference || undefined,
         projectId: projectId || undefined,
         status,
-        entries,
+        entries: resolvedEntries,
         amount: balance.totalDebits,
         transactionNumber:
           editingEntry?.transactionNumber || (await generateTransactionNumber('JOURNAL_ENTRY')),

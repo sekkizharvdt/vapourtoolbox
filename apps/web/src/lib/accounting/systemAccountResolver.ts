@@ -237,3 +237,70 @@ export function clearSystemAccountsCache(): void {
   cachedAccounts = null;
   cacheTimestamp = 0;
 }
+
+/**
+ * Get the control account for an entity based on its role
+ *
+ * Business logic:
+ * - Customers → Use Accounts Receivable (Trade Receivables)
+ * - Vendors → Use Accounts Payable (Trade Payables)
+ * - BOTH/Partner → Determine based on transaction context (debit/credit)
+ *
+ * @param db - Firestore instance
+ * @param entityRoles - The entity's roles array
+ * @param isDebit - Whether this is a debit entry (helps determine account for dual-role entities)
+ * @returns The control account ID and details
+ */
+export async function getEntityControlAccount(
+  db: Firestore,
+  entityRoles: string[],
+  isDebit: boolean
+): Promise<{
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+} | null> {
+  const accounts = await getSystemAccountIds(db);
+
+  // Determine which control account to use based on entity role and transaction type
+  const isCustomer = entityRoles.includes('CUSTOMER');
+  const isVendor = entityRoles.includes('VENDOR');
+  const isBoth = entityRoles.includes('BOTH') || (isCustomer && isVendor);
+
+  if (isBoth) {
+    // For dual-role entities, use transaction direction to determine account:
+    // - Debit entry = We're owed money = Accounts Receivable
+    // - Credit entry = We owe money = Accounts Payable
+    if (isDebit && accounts.accountsReceivable) {
+      return {
+        accountId: accounts.accountsReceivable,
+        accountCode: '1200',
+        accountName: 'Trade Receivables (Debtors)',
+      };
+    } else if (!isDebit && accounts.accountsPayable) {
+      return {
+        accountId: accounts.accountsPayable,
+        accountCode: '2100',
+        accountName: 'Trade Payables (Creditors)',
+      };
+    }
+  } else if (isCustomer && accounts.accountsReceivable) {
+    // Customers always use Accounts Receivable
+    return {
+      accountId: accounts.accountsReceivable,
+      accountCode: '1200',
+      accountName: 'Trade Receivables (Debtors)',
+    };
+  } else if (isVendor && accounts.accountsPayable) {
+    // Vendors always use Accounts Payable
+    return {
+      accountId: accounts.accountsPayable,
+      accountCode: '2100',
+      accountName: 'Trade Payables (Creditors)',
+    };
+  }
+
+  // Fallback: If we can't determine, return null (validation will catch this)
+  logger.warn('Could not determine control account for entity', { entityRoles, isDebit });
+  return null;
+}

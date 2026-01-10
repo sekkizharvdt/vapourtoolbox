@@ -98,7 +98,7 @@ describe('Ledger Validator', () => {
     });
 
     describe('entry field validation', () => {
-      it('should error when account ID is missing', () => {
+      it('should error when account ID and entity ID are both missing', () => {
         const entries: LedgerEntry[] = [
           { accountId: '', debit: 1000, credit: 0 },
           { accountId: 'acc-002', debit: 0, credit: 1000 },
@@ -106,7 +106,7 @@ describe('Ledger Validator', () => {
         const result = validateLedgerEntries(entries);
 
         expect(result.isValid).toBe(false);
-        expect(result.errors).toContain('Entry 1: Account is required');
+        expect(result.errors).toContain('Entry 1: Account or Entity is required');
       });
 
       it('should error when both debit and credit are zero', () => {
@@ -297,7 +297,7 @@ describe('Ledger Validator', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should error when account ID is missing', () => {
+    it('should error when account ID and entity ID are both missing', () => {
       const entry: LedgerEntry = {
         accountId: '',
         debit: 1000,
@@ -306,7 +306,7 @@ describe('Ledger Validator', () => {
       const result = validateSingleEntry(entry);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Account is required');
+      expect(result.errors).toContain('Account or Entity is required');
     });
 
     it('should error when both debit and credit are zero', () => {
