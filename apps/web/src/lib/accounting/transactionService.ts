@@ -42,6 +42,7 @@ import { createLogger } from '@vapour/logger';
 import { PermissionFlag, type LedgerEntry } from '@vapour/types';
 import { validateLedgerEntries } from './ledgerValidator';
 import { requirePermission, type AuthorizationContext } from '@/lib/auth/authorizationService';
+import { isPeriodOpen } from './fiscalYearService';
 
 // Re-export AuthorizationContext for consumers
 export type { AuthorizationContext } from '@/lib/auth/authorizationService';
@@ -80,12 +81,76 @@ export class UnbalancedEntriesError extends Error {
 }
 
 /**
+ * Error thrown when transaction date falls in a closed/locked period
+ */
+export class ClosedPeriodError extends Error {
+  constructor(
+    message: string,
+    public readonly transactionDate: Date
+  ) {
+    super(message);
+    this.name = 'ClosedPeriodError';
+  }
+}
+
+/**
  * Transaction data with entries
  */
 export interface TransactionWithEntries extends DocumentData {
   entries?: LedgerEntry[];
   type: string;
+  date?: Date | Timestamp;
   [key: string]: unknown;
+}
+
+/**
+ * Options for saving transactions
+ */
+export interface SaveTransactionOptions {
+  /**
+   * Skip period validation (use only for system operations like opening balances)
+   * Default: false
+   */
+  skipPeriodValidation?: boolean;
+}
+
+/**
+ * Validate transaction date falls within an open accounting period
+ *
+ * @param db - Firestore instance
+ * @param transactionDate - Date of the transaction
+ * @throws ClosedPeriodError if period is closed or locked
+ */
+async function validatePeriodIsOpen(
+  db: Firestore,
+  transactionDate: Date | Timestamp | undefined
+): Promise<void> {
+  if (!transactionDate) {
+    // If no date provided, skip validation (will use current date which should be in open period)
+    return;
+  }
+
+  const date = transactionDate instanceof Timestamp ? transactionDate.toDate() : transactionDate;
+
+  try {
+    const isOpen = await isPeriodOpen(db, date);
+
+    if (!isOpen) {
+      logger.warn('Transaction rejected: period is closed', { transactionDate: date });
+      throw new ClosedPeriodError(
+        `Cannot save transaction: The accounting period for ${date.toLocaleDateString()} is closed or locked. Please contact your accountant to reopen the period.`,
+        date
+      );
+    }
+  } catch (error) {
+    // If it's already a ClosedPeriodError, rethrow it
+    if (error instanceof ClosedPeriodError) {
+      throw error;
+    }
+    // For other errors (like no fiscal year found), log and allow transaction
+    // This handles cases where fiscal years haven't been set up yet
+    logger.warn('Period validation skipped - could not determine period status', { error });
+  }
 }
 
 /**
@@ -124,22 +189,26 @@ export function enforceDoubleEntry(entries: LedgerEntry[] | undefined): void {
 }
 
 /**
- * Save a transaction with double-entry validation
+ * Save a transaction with double-entry validation and period validation
  *
  * This is the ONLY sanctioned way to create accounting transactions.
- * It enforces that all entries are balanced before saving.
+ * It enforces that all entries are balanced and the transaction date
+ * falls within an open accounting period before saving.
  *
  * @param db - Firestore instance
  * @param transactionData - Transaction data with entries
  * @param auth - Authorization context (optional for backward compatibility, will be required in future)
+ * @param options - Optional save options (e.g., skip period validation)
  * @returns Created transaction ID
  * @throws UnbalancedEntriesError if entries don't balance
+ * @throws ClosedPeriodError if transaction date is in a closed period
  * @throws AuthorizationError if user lacks CREATE_TRANSACTIONS permission
  */
 export async function saveTransaction(
   db: Firestore,
   transactionData: TransactionWithEntries,
-  auth?: AuthorizationContext
+  auth?: AuthorizationContext,
+  options?: SaveTransactionOptions
 ): Promise<string> {
   // Check permission if auth context provided
   if (auth) {
@@ -149,10 +218,16 @@ export async function saveTransaction(
   // Enforce double-entry before save
   enforceDoubleEntry(transactionData.entries);
 
+  // Validate transaction date is in an open period (unless skipped)
+  if (!options?.skipPeriodValidation) {
+    await validatePeriodIsOpen(db, transactionData.date);
+  }
+
   // Add validation timestamp and creator info
   const dataWithValidation = {
     ...transactionData,
     doubleEntryValidatedAt: Timestamp.now(),
+    periodValidatedAt: options?.skipPeriodValidation ? undefined : Timestamp.now(),
     createdAt: transactionData.createdAt || Timestamp.now(),
     updatedAt: Timestamp.now(),
     ...(auth && { createdBy: auth.userId }),
@@ -160,11 +235,12 @@ export async function saveTransaction(
 
   const docRef = await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), dataWithValidation);
 
-  logger.info('Transaction saved with double-entry validation', {
+  logger.info('Transaction saved with double-entry and period validation', {
     transactionId: docRef.id,
     type: transactionData.type,
     entriesCount: transactionData.entries?.length || 0,
     userId: auth?.userId,
+    periodValidationSkipped: options?.skipPeriodValidation,
   });
 
   return docRef.id;
@@ -264,15 +340,18 @@ export function saveTransactionBatch(
  * @param transactionData - Transaction data with entries
  * @param additionalUpdates - Optional callback to perform additional updates in same transaction
  * @param auth - Authorization context (optional for backward compatibility, will be required in future)
+ * @param options - Optional save options (e.g., skip period validation)
  * @returns Created transaction ID
  * @throws UnbalancedEntriesError if entries don't balance
+ * @throws ClosedPeriodError if transaction date is in a closed period
  * @throws AuthorizationError if user lacks CREATE_TRANSACTIONS permission
  */
 export async function createTransactionWithUpdates(
   db: Firestore,
   transactionData: TransactionWithEntries,
   additionalUpdates?: (transaction: Transaction, txRef: DocumentReference) => void | Promise<void>,
-  auth?: AuthorizationContext
+  auth?: AuthorizationContext,
+  options?: SaveTransactionOptions
 ): Promise<string> {
   // Check permission if auth context provided
   if (auth) {
@@ -281,6 +360,11 @@ export async function createTransactionWithUpdates(
 
   // Pre-validate outside transaction (faster failure)
   enforceDoubleEntry(transactionData.entries);
+
+  // Validate transaction date is in an open period (unless skipped)
+  if (!options?.skipPeriodValidation) {
+    await validatePeriodIsOpen(db, transactionData.date);
+  }
 
   const transactionId = await runTransaction(db, async (firestoreTransaction) => {
     // Create transaction document (skip auth check here since we already checked above)
@@ -298,6 +382,7 @@ export async function createTransactionWithUpdates(
     transactionId,
     type: transactionData.type,
     userId: auth?.userId,
+    periodValidationSkipped: options?.skipPeriodValidation,
   });
 
   return transactionId;

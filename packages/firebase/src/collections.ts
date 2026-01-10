@@ -51,6 +51,7 @@ export const COLLECTIONS = {
   ACCOUNTING_PERIODS: 'accountingPeriods',
   YEAR_END_CLOSING_ENTRIES: 'yearEndClosingEntries',
   PERIOD_LOCK_AUDIT: 'periodLockAudit',
+  INTERPROJECT_LOANS: 'interprojectLoans',
 
   // Bank Reconciliation
   BANK_STATEMENTS: 'bankStatements',
