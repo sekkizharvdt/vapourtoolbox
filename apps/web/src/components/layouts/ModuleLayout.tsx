@@ -8,10 +8,23 @@ import { DashboardAppBar } from '@/components/dashboard/AppBar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAIHelp } from '@/components/common/AIHelpWidget/useAIHelp';
+import { useCommandPalette } from '@/components/common/useCommandPalette';
+import { KeyboardShortcutsProvider } from '@/hooks/useKeyboardShortcuts';
 
-// Lazy load AIHelpWidget - only loaded when user triggers it
+// Lazy load modal components - only loaded when user triggers them
 const AIHelpWidget = dynamic(
   () => import('@/components/common/AIHelpWidget').then((mod) => mod.AIHelpWidget),
+  { ssr: false }
+);
+
+const CommandPalette = dynamic(
+  () => import('@/components/common/CommandPalette').then((mod) => mod.CommandPalette),
+  { ssr: false }
+);
+
+const KeyboardShortcutsHelp = dynamic(
+  () =>
+    import('@/components/common/KeyboardShortcutsHelp').then((mod) => mod.KeyboardShortcutsHelp),
   { ssr: false }
 );
 
@@ -90,6 +103,9 @@ export function ModuleLayout({
   const pathname = usePathname();
   const hasRedirected = useRef(false);
   const lastPathname = useRef(pathname);
+
+  // Command palette (Cmd+K)
+  const commandPalette = useCommandPalette();
 
   // AI Help dialog
   const aiHelp = useAIHelp();
@@ -240,44 +256,53 @@ export function ModuleLayout({
   const sidebarWidth = sidebarCollapsed ? 80 : 240;
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      <DashboardAppBar
-        onMenuClick={handleDrawerToggle}
-        sidebarWidth={sidebarWidth}
-        onAIHelpOpen={aiHelp.toggle}
-      />
+    <KeyboardShortcutsProvider>
+      <Box sx={{ display: 'flex' }}>
+        <DashboardAppBar
+          onMenuClick={handleDrawerToggle}
+          sidebarWidth={sidebarWidth}
+          onCommandPaletteOpen={commandPalette.toggle}
+          onAIHelpOpen={aiHelp.toggle}
+        />
 
-      <Sidebar
-        mobileOpen={mobileOpen}
-        onMobileClose={handleDrawerToggle}
-        userPermissions={userPermissions}
-        userPermissions2={userPermissions2}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={handleSidebarToggle}
-      />
+        <Sidebar
+          mobileOpen={mobileOpen}
+          onMobileClose={handleDrawerToggle}
+          userPermissions={userPermissions}
+          userPermissions2={userPermissions2}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={handleSidebarToggle}
+        />
 
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          width: { xs: '100%', md: `calc(100% - ${sidebarWidth}px)` },
-          ml: { xs: 0, md: `${sidebarWidth}px` },
-          minHeight: '100vh',
-          bgcolor: 'background.default',
-          transition: (theme) =>
-            theme.transitions.create(['margin', 'width'], {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.enteringScreen,
-            }),
-        }}
-      >
-        <Toolbar /> {/* Spacer for AppBar */}
-        {children}
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            p: 3,
+            width: { xs: '100%', md: `calc(100% - ${sidebarWidth}px)` },
+            ml: { xs: 0, md: `${sidebarWidth}px` },
+            minHeight: '100vh',
+            bgcolor: 'background.default',
+            transition: (theme) =>
+              theme.transitions.create(['margin', 'width'], {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.enteringScreen,
+              }),
+          }}
+        >
+          <Toolbar /> {/* Spacer for AppBar */}
+          {children}
+        </Box>
+
+        {/* Command Palette (Cmd+K) */}
+        <CommandPalette open={commandPalette.open} onClose={commandPalette.close} />
+
+        {/* Keyboard Shortcuts Help (Shift+?) */}
+        <KeyboardShortcutsHelp />
+
+        {/* AI Help Widget */}
+        <AIHelpWidget open={aiHelp.open} onClose={aiHelp.close} />
       </Box>
-
-      {/* AI Help Widget */}
-      <AIHelpWidget open={aiHelp.open} onClose={aiHelp.close} />
-    </Box>
+    </KeyboardShortcutsProvider>
   );
 }
