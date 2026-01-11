@@ -254,11 +254,35 @@ const userName = user?.name ?? 'Unknown';
 #### Services/Helpers
 
 - **camelCase:** `purchaseRequestService.ts`
-- **Suffixes:** `*Service.ts`, `*Helper.ts`, `*Validator.ts`, `*Calculator.ts`
-- **Examples:**
-  - `glEntryGenerator.ts` (generates GL entries)
-  - `paymentHelpers.ts` (payment operations)
-  - `gstCalculator.ts` (GST calculations)
+- **Suffixes:** `*Service.ts`, `*Helpers.ts`, `*Validator.ts`, `*Calculator.ts`
+
+**When to use each suffix:**
+
+| Suffix           | Purpose                                                       | Example                   |
+| ---------------- | ------------------------------------------------------------- | ------------------------- |
+| `*Service.ts`    | Firestore CRUD operations (create, read, update, delete)      | `purchaseOrderService.ts` |
+| `*Helpers.ts`    | Pure functions, transformations, formatting (no DB calls)     | `paymentHelpers.ts`       |
+| `*Calculator.ts` | Mathematical/financial calculations                           | `gstCalculator.ts`        |
+| `*Generator.ts`  | Creates complex objects (GL entries, documents)               | `glEntryGenerator.ts`     |
+| `*Validator.ts`  | Validation logic (prefer Zod schemas in `@vapour/validation`) | `invoiceValidator.ts`     |
+
+**Examples:**
+
+```typescript
+// purchaseOrderService.ts - Firestore operations
+export async function createPurchaseOrder(data: PurchaseOrderInput): Promise<string> {
+  const { db } = getFirebase();
+  const docRef = await addDoc(collection(db, COLLECTIONS.PURCHASE_ORDERS), data);
+  return docRef.id;
+}
+
+// paymentHelpers.ts - Pure functions, no DB
+export function calculatePaymentStatus(paid: number, total: number): PaymentStatus {
+  if (paid >= total) return 'FULLY_PAID';
+  if (paid > 0) return 'PARTIALLY_PAID';
+  return 'UNPAID';
+}
+```
 
 #### Type Definitions
 
@@ -268,10 +292,144 @@ const userName = user?.name ?? 'Unknown';
 
 #### Test Files
 
-- **Pattern:** `{number}-{description}.spec.ts`
-- **Examples:**
-  - `01-homepage.spec.ts`
-  - `07-accounting-journal-entries.spec.ts`
+- **Pattern:** `{number}-{description}.spec.ts` for E2E tests
+- **Pattern:** `*.test.ts` for unit tests (co-located with source)
+- **Location preference:** Co-locate unit tests with source files
+
+**E2E Tests (Playwright):**
+
+```
+apps/web/tests/
+├── 01-homepage.spec.ts
+├── 07-accounting-journal-entries.spec.ts
+└── ...
+```
+
+**Unit Tests (Vitest):**
+
+```
+lib/accounting/
+├── glEntryGenerator.ts
+├── glEntryGenerator.test.ts    ← Co-located
+├── helpers/
+│   ├── index.ts
+│   └── calculations.test.ts    ← Co-located
+└── __tests__/                  ← Also acceptable
+    └── integration.test.ts
+```
+
+---
+
+### Date & Timestamp Handling
+
+**Rule:** Use JavaScript `Date` at boundaries, Firebase `Timestamp` in Firestore.
+
+| Context             | Type        | Example                                    |
+| ------------------- | ----------- | ------------------------------------------ |
+| Form inputs         | `Date`      | `<DatePicker value={date} />`              |
+| React state         | `Date`      | `const [date, setDate] = useState<Date>()` |
+| Firestore documents | `Timestamp` | `createdAt: Timestamp.now()`               |
+| Display formatting  | `Date`      | `formatDate(timestamp.toDate())`           |
+
+**Conversion helpers:**
+
+```typescript
+import { Timestamp } from 'firebase/firestore';
+
+// Date → Timestamp (before saving to Firestore)
+const timestamp = Timestamp.fromDate(date);
+
+// Timestamp → Date (after reading from Firestore)
+const date = timestamp.toDate();
+
+// Safe conversion (handles both)
+function toDate(value: Date | Timestamp): Date {
+  return value instanceof Timestamp ? value.toDate() : value;
+}
+```
+
+**Common pattern in services:**
+
+```typescript
+// When creating documents
+export async function createRecord(data: RecordInput): Promise<string> {
+  const docData = {
+    ...data,
+    date: Timestamp.fromDate(data.date), // Convert Date → Timestamp
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  };
+  // ...
+}
+
+// When reading documents
+export function mapDocument(doc: DocumentSnapshot): Record {
+  const data = doc.data();
+  return {
+    id: doc.id,
+    ...data,
+    date: data.date.toDate(), // Convert Timestamp → Date
+    createdAt: data.createdAt.toDate(),
+  } as Record;
+}
+```
+
+---
+
+### Form Validation with Zod
+
+**Standard:** Use Zod schemas from `@vapour/validation` for all form validation.
+
+**Schema location:** `packages/validation/src/`
+
+```typescript
+// packages/validation/src/accounting.ts
+import { z } from 'zod';
+
+export const journalEntrySchema = z
+  .object({
+    date: z.date(),
+    description: z.string().min(1, 'Description is required'),
+    lineItems: z
+      .array(
+        z.object({
+          accountId: z.string().min(1, 'Account is required'),
+          debit: z.number().min(0),
+          credit: z.number().min(0),
+        })
+      )
+      .min(2, 'At least 2 line items required'),
+  })
+  .refine(
+    (data) => {
+      const totalDebit = data.lineItems.reduce((sum, item) => sum + item.debit, 0);
+      const totalCredit = data.lineItems.reduce((sum, item) => sum + item.credit, 0);
+      return Math.abs(totalDebit - totalCredit) < 0.01;
+    },
+    { message: 'Debits must equal credits' }
+  );
+
+export type JournalEntryInput = z.infer<typeof journalEntrySchema>;
+```
+
+**Usage in components:**
+
+```typescript
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { journalEntrySchema, JournalEntryInput } from '@vapour/validation';
+
+const form = useForm<JournalEntryInput>({
+  resolver: zodResolver(journalEntrySchema),
+  defaultValues: {
+    date: new Date(),
+    description: '',
+    lineItems: [],
+  },
+});
+```
+
+---
 
 ### Component Structure
 
