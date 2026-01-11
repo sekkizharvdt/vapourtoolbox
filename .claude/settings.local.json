@@ -9,7 +9,6 @@
       "Bash(pnpm --filter @vapour/web type-check:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push)",
       "Bash(cat:*)",
       "Bash(pnpm --filter @vapour/firebase build:*)",
       "Bash(firebase firestore:rules:*)",
@@ -419,7 +418,6 @@
       "Bash(do [ -f \"$file\" ])",
       "Bash(GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa.json npx firebase-tools:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat\\(ci\\): add Document AI processor ID env vars to deployment workflow\n\n- Create functions/.env during CI with processor IDs from GitHub secrets\n- Add .env to functions/.gitignore\n\nRequired GitHub secrets:\n- DOCUMENT_AI_EXPENSE_PROCESSOR_ID: 6099347af4c38879\n- DOCUMENT_AI_PROCESSOR_ID: 139dee9b585ce9e9\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git push:*)",
       "Bash(npx firebase functions:log --only parseReceiptForExpense)",
       "Bash(npx firebase functions:log:*)",
       "Bash(firebase login:*)",
@@ -493,7 +491,13 @@
       "mcp__firebase-feedback__get_feedback",
       "Bash(pnpm --filter @vapour/web exec jest:*)",
       "Bash(gcloud run services add-iam-policy-binding:*)",
-      "Bash(pnpm run:*)"
+      "Bash(pnpm run:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm --filter @vapour/web lint:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat\\(accounting\\): allow journal entries with Entity-only line items\n\nPreviously, journal entries required an Account for every line item.\nNow users can select just an Entity \\(Customer/Vendor\\) without explicitly\nselecting an Account - the control account is auto-resolved:\n\n- Customer entities → Trade Receivables \\(Debtors\\) account\n- Vendor entities → Trade Payables \\(Creditors\\) account  \n- Dual-role entities → Based on debit/credit direction\n\nChanges:\n- Update ledgerValidator to accept entityId OR accountId\n- Add getEntityControlAccount\\(\\) to systemAccountResolver\n- Update CreateJournalEntryDialog to resolve control accounts on save\n- Store entity roles in form state for account resolution\n\nResolves feedback from Revathi SP about journal entry flexibility.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat\\(accounting\\): allow journal entries with Entity-only line items\n\nPreviously, journal entries required an Account for every line item.\nNow users can select just an Entity \\(Customer/Vendor\\) without explicitly\nselecting an Account - the control account is auto-resolved:\n\n- Customer entities → Trade Receivables \\(Debtors\\) account\n- Vendor entities → Trade Payables \\(Creditors\\) account  \n- Dual-role entities → Based on debit/credit direction\n\nChanges:\n- Update ledgerValidator to accept entityId OR accountId\n- Add getEntityControlAccount\\(\\) to systemAccountResolver\n- Update CreateJournalEntryDialog to resolve control accounts on save\n- Store entity roles in form state for account resolution\n- Update tests for new validation messages\n\nResolves feedback from Revathi SP about journal entry flexibility.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npx tsc:*)",
+      "Bash(pnpm lint:web:*)"
     ],
     "deny": [],
     "ask": []

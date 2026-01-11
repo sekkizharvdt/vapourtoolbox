@@ -30,6 +30,36 @@ import { Dialog } from '@radix-ui/react-dialog'; // Radix
 
 ---
 
+## ⚠️ Data Fetching: React Query vs Firestore Listeners
+
+This project uses **both** patterns. Choose based on data freshness needs:
+
+| Pattern                  | When to Use                                            | Example                          |
+| ------------------------ | ------------------------------------------------------ | -------------------------------- |
+| **React Query**          | Paginated lists, search results, one-time fetches      | Cost centres list, entity search |
+| **Firestore onSnapshot** | Real-time dashboards, live updates, collaborative data | Transactions, approvals          |
+
+```typescript
+// ✅ React Query for list pages (with query key factory)
+import { useQuery } from '@tanstack/react-query';
+import { accountingKeys } from '@/lib/queryKeys/accounting';
+
+const { data } = useQuery({
+  queryKey: accountingKeys.transactions.list(filters),
+  queryFn: () => getTransactions(db, filters),
+});
+
+// ✅ Firestore listener for real-time (with cleanup)
+useEffect(() => {
+  const unsubscribe = onSnapshot(query, (snapshot) => {
+    setData(snapshot.docs.map((doc) => docToTyped(doc.id, doc.data())));
+  });
+  return () => unsubscribe(); // ALWAYS cleanup
+}, []);
+```
+
+---
+
 ## Table of Contents
 
 1. [Project Overview](#project-overview)
@@ -750,6 +780,77 @@ firebase deploy --only functions:onUserCreated
 
 ---
 
+## Custom Hooks & Query Keys
+
+### Query Keys Factory Pattern
+
+All query keys are centralized in `@/lib/queryKeys/`. Use these instead of inline arrays:
+
+```typescript
+// ✅ CORRECT - Use query key factory
+import { accountingKeys } from '@/lib/queryKeys/accounting';
+
+const { data } = useQuery({
+  queryKey: accountingKeys.transactions.list({ status: 'POSTED' }),
+  queryFn: fetchTransactions,
+});
+
+// When invalidating:
+queryClient.invalidateQueries({ queryKey: accountingKeys.transactions.all });
+
+// ❌ WRONG - Inline query keys
+const { data } = useQuery({
+  queryKey: ['transactions', 'list', { status: 'POSTED' }], // Don't do this
+  queryFn: fetchTransactions,
+});
+```
+
+### Custom Hooks (in `@/hooks/`)
+
+| Hook                    | Purpose                                             |
+| ----------------------- | --------------------------------------------------- |
+| `useFirestoreQuery<T>`  | Real-time Firestore listener with automatic cleanup |
+| `useTransactionForm`    | Form state for bills/invoices with line items       |
+| `useLineItemManagement` | Add/remove/update line items in forms               |
+| `useGSTCalculation`     | GST computation (CGST/SGST/IGST)                    |
+| `useTDSCalculation`     | TDS computation by section                          |
+| `useLocalStorage`       | Persist state to localStorage                       |
+| `useKeyboardShortcuts`  | Register keyboard shortcuts                         |
+
+```typescript
+// Example: useFirestoreQuery eliminates boilerplate
+import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
+
+const accountsQuery = useMemo(
+  () => query(collection(db, COLLECTIONS.ACCOUNTS), where('isActive', '==', true)),
+  [db]
+);
+const { data: accounts, loading, error } = useFirestoreQuery<Account>(accountsQuery);
+```
+
+### ConfirmDialog Pattern
+
+Use the global confirm dialog for destructive actions:
+
+```typescript
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+
+const { confirmDialog } = useConfirmDialog();
+
+const handleDelete = async () => {
+  const confirmed = await confirmDialog({
+    title: 'Delete Invoice',
+    message: 'This action cannot be undone.',
+    confirmColor: 'error',
+  });
+  if (confirmed) {
+    await deleteInvoice(id);
+  }
+};
+```
+
+---
+
 ## Permission System Guide
 
 ### Bitwise Permissions
@@ -930,6 +1031,15 @@ try {
 ---
 
 ## Git Workflow & Commits
+
+### ⚠️ IMPORTANT: Commit vs Push
+
+**Commit locally, but DO NOT push unless explicitly requested.**
+
+- ✅ `git commit` - Always allowed, do this freely
+- ❌ `git push` - Only when user says "push", "push to remote", or similar
+
+This prevents wasting GitHub Actions minutes on intermediate fixes. Wait for user confirmation before pushing.
 
 ### Branching Strategy
 
