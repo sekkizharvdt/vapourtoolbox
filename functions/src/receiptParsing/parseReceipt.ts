@@ -251,31 +251,72 @@ function extractGSTInfo(text: string): {
 // Amount Extraction
 // ============================================
 
+// Prioritized patterns - "grand total" and "amount paid" come first
 const TOTAL_AMOUNT_PATTERNS = [
-  /(?:total|grand\s*total|net\s*amount|amount\s*payable|bill\s*amount)\s*:?\s*₹?\s*([\d,]+\.?\d*)/i,
+  // High priority - final amounts
+  /(?:grand\s*total|amount\s*paid|final\s*amount|total\s*payable)\s*:?\s*₹?\s*([\d,]+\.?\d*)/i,
+  /(?:you\s*paid|paid\s*amount|payment)\s*:?\s*₹?\s*([\d,]+\.?\d*)/i,
+  // Medium priority - general totals
+  /(?:total|net\s*amount|amount\s*payable|bill\s*amount)\s*:?\s*₹?\s*([\d,]+\.?\d*)/i,
   /₹\s*([\d,]+\.?\d*)\s*(?:total|only)/i,
+  // Low priority - currency amounts (fallback)
   /(?:rs\.?|inr)\s*([\d,]+\.?\d*)/i,
+];
+
+// Patterns for amounts to EXCLUDE (sub-totals, pre-tax)
+const EXCLUDE_AMOUNT_PATTERNS = [
+  /(?:sub\s*total|subtotal|base\s*amount|taxable\s*value|before\s*tax)\s*:?\s*₹?\s*([\d,]+\.?\d*)/i,
 ];
 
 function extractAmounts(text: string): { totalAmount?: number; taxableAmount?: number } {
   let totalAmount: number | undefined;
   let taxableAmount: number | undefined;
+  const excludedAmounts = new Set<number>();
 
-  // Find total amount
-  for (const pattern of TOTAL_AMOUNT_PATTERNS) {
+  // First, identify amounts to exclude (sub-totals)
+  for (const pattern of EXCLUDE_AMOUNT_PATTERNS) {
     const match = text.match(pattern);
     if (match) {
       const amount = parseFloat(match[1].replace(/,/g, ''));
-      if (amount > 0 && (!totalAmount || amount > totalAmount)) {
-        totalAmount = amount;
+      if (amount > 0) {
+        excludedAmounts.add(amount);
+        taxableAmount = amount; // This is likely the taxable amount
       }
     }
   }
 
-  // Find taxable amount
-  const taxableMatch = text.match(/(?:taxable|sub\s*total|base)\s*:?\s*₹?\s*([\d,]+\.?\d*)/i);
-  if (taxableMatch) {
-    taxableAmount = parseFloat(taxableMatch[1].replace(/,/g, ''));
+  // Find total amount using prioritized patterns
+  for (const pattern of TOTAL_AMOUNT_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) {
+      const amount = parseFloat(match[1].replace(/,/g, ''));
+      // Only accept if positive and not in excluded list
+      if (amount > 0 && !excludedAmounts.has(amount)) {
+        totalAmount = amount;
+        break; // Use first match from prioritized list
+      }
+    }
+  }
+
+  // If no total found but we have taxable amount, look for it differently
+  if (!totalAmount && taxableAmount) {
+    // Try to find any amount larger than taxable (likely includes tax)
+    const allAmounts = text.match(/₹?\s*([\d,]+\.?\d*)/g) || [];
+    for (const amountStr of allAmounts) {
+      const amount = parseFloat(amountStr.replace(/[₹,\s]/g, ''));
+      if (amount > taxableAmount && !excludedAmounts.has(amount)) {
+        totalAmount = amount;
+        break;
+      }
+    }
+  }
+
+  // Fallback: if still no taxable amount, try to extract it
+  if (!taxableAmount) {
+    const taxableMatch = text.match(/(?:taxable|sub\s*total|base)\s*:?\s*₹?\s*([\d,]+\.?\d*)/i);
+    if (taxableMatch) {
+      taxableAmount = parseFloat(taxableMatch[1].replace(/,/g, ''));
+    }
   }
 
   return { totalAmount, taxableAmount };
@@ -285,31 +326,150 @@ function extractAmounts(text: string): { totalAmount?: number; taxableAmount?: n
 // Invoice/Receipt Details
 // ============================================
 
+// Known vendor patterns for better extraction
+const VENDOR_SPECIFIC_PATTERNS: Record<
+  string,
+  { invoicePatterns: RegExp[]; vendorName: string; category: string }
+> = {
+  uber: {
+    invoicePatterns: [
+      /trip\s*(?:id|#)\s*:?\s*([A-Za-z0-9\-]+)/i,
+      /uber\s*(?:trip|ride)\s*(?:id|#)?\s*:?\s*([A-Za-z0-9\-]+)/i,
+    ],
+    vendorName: 'Uber',
+    category: 'LOCAL_CONVEYANCE',
+  },
+  ola: {
+    invoicePatterns: [
+      /(?:crn|booking\s*id|ride\s*id)\s*:?\s*([A-Za-z0-9\-]+)/i,
+      /ola\s*(?:booking|ride)\s*:?\s*([A-Za-z0-9\-]+)/i,
+    ],
+    vendorName: 'Ola',
+    category: 'LOCAL_CONVEYANCE',
+  },
+  indigo: {
+    invoicePatterns: [
+      /pnr\s*:?\s*([A-Z0-9]{6})/i,
+      /booking\s*(?:ref|reference)\s*:?\s*([A-Z0-9]+)/i,
+    ],
+    vendorName: 'IndiGo',
+    category: 'TRAVEL',
+  },
+  spicejet: {
+    invoicePatterns: [
+      /pnr\s*:?\s*([A-Z0-9]{6})/i,
+      /booking\s*(?:ref|reference)\s*:?\s*([A-Z0-9]+)/i,
+    ],
+    vendorName: 'SpiceJet',
+    category: 'TRAVEL',
+  },
+  airindia: {
+    invoicePatterns: [/pnr\s*:?\s*([A-Z0-9]{6})/i, /ticket\s*(?:no|number)\s*:?\s*([0-9\-]+)/i],
+    vendorName: 'Air India',
+    category: 'TRAVEL',
+  },
+  vistara: {
+    invoicePatterns: [
+      /pnr\s*:?\s*([A-Z0-9]{6})/i,
+      /booking\s*(?:ref|reference)\s*:?\s*([A-Z0-9]+)/i,
+    ],
+    vendorName: 'Vistara',
+    category: 'TRAVEL',
+  },
+  irctc: {
+    invoicePatterns: [/pnr\s*:?\s*(\d{10})/i, /ticket\s*(?:no|number)\s*:?\s*(\d+)/i],
+    vendorName: 'IRCTC',
+    category: 'TRAVEL',
+  },
+  oyo: {
+    invoicePatterns: [
+      /(?:booking\s*id|confirmation)\s*:?\s*([A-Z0-9]+)/i,
+      /oyo\s*(?:booking|id)\s*:?\s*([A-Z0-9]+)/i,
+    ],
+    vendorName: 'OYO',
+    category: 'ACCOMMODATION',
+  },
+  makemytrip: {
+    invoicePatterns: [/booking\s*id\s*:?\s*([A-Z0-9]+)/i, /trip\s*id\s*:?\s*([A-Z0-9]+)/i],
+    vendorName: 'MakeMyTrip',
+    category: 'TRAVEL',
+  },
+  swiggy: {
+    invoicePatterns: [/order\s*(?:id|#)\s*:?\s*([A-Za-z0-9\-]+)/i],
+    vendorName: 'Swiggy',
+    category: 'FOOD',
+  },
+  zomato: {
+    invoicePatterns: [/order\s*(?:id|#)\s*:?\s*([A-Za-z0-9\-]+)/i],
+    vendorName: 'Zomato',
+    category: 'FOOD',
+  },
+};
+
 function extractInvoiceDetails(text: string): {
   invoiceNumber?: string;
   transactionDate?: string;
   vendorName?: string;
+  detectedVendorType?: string;
 } {
   const result: ReturnType<typeof extractInvoiceDetails> = {};
+  const lowerText = text.toLowerCase();
 
-  // Invoice number patterns
-  const invoicePatterns = [
-    /(?:invoice|bill|receipt)\s*(?:no\.?|number|#)\s*:?\s*([A-Z0-9\-\/]+)/i,
-    /(?:inv|rcpt)\s*:?\s*([A-Z0-9\-\/]+)/i,
-  ];
-  for (const pattern of invoicePatterns) {
-    const match = text.match(pattern);
-    if (match) {
-      result.invoiceNumber = match[1].trim();
+  // First, try to detect known vendors
+  for (const [vendorKey, config] of Object.entries(VENDOR_SPECIFIC_PATTERNS)) {
+    if (lowerText.includes(vendorKey)) {
+      result.vendorName = config.vendorName;
+      result.detectedVendorType = vendorKey;
+
+      // Use vendor-specific invoice patterns
+      for (const pattern of config.invoicePatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          result.invoiceNumber = match[1].trim().toUpperCase();
+          break;
+        }
+      }
       break;
     }
   }
 
-  // Date patterns
+  // If no vendor-specific match, use generic patterns
+  if (!result.invoiceNumber) {
+    const invoicePatterns = [
+      // Airline/Train PNR
+      /pnr\s*(?:no\.?|number|#)?\s*:?\s*([A-Z0-9]{6,10})/i,
+      // Hotel/Booking confirmation
+      /(?:confirmation|booking)\s*(?:no\.?|number|#|id)?\s*:?\s*([A-Z0-9\-]+)/i,
+      // Standard invoice
+      /(?:invoice|bill|receipt)\s*(?:no\.?|number|#)\s*:?\s*([A-Z0-9\-\/]+)/i,
+      /(?:inv|rcpt)\s*:?\s*([A-Z0-9\-\/]+)/i,
+      // Trip/Order ID
+      /(?:trip|order|ride)\s*(?:id|#)\s*:?\s*([A-Za-z0-9\-]+)/i,
+      // Folio (hotels)
+      /folio\s*(?:no\.?|number|#)?\s*:?\s*([A-Z0-9\-]+)/i,
+      // Ticket number
+      /ticket\s*(?:no\.?|number|#)\s*:?\s*([0-9\-]+)/i,
+    ];
+    for (const pattern of invoicePatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        result.invoiceNumber = match[1].trim();
+        break;
+      }
+    }
+  }
+
+  // Date patterns - expanded for more formats
   const datePatterns = [
-    /(?:date|dated)\s*:?\s*(\d{1,2}[\-\/]\d{1,2}[\-\/]\d{2,4})/i,
+    // Explicit date labels
+    /(?:date|dated|trip\s*date|check[\-\s]?in|booking\s*date)\s*:?\s*(\d{1,2}[\-\/\.]\d{1,2}[\-\/\.]\d{2,4})/i,
+    // Month name formats
+    /(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s,]+\d{2,4})/i,
+    /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})[\s,]+(\d{2,4})/i,
+    // ISO format
+    /(\d{4}[\-\/]\d{2}[\-\/]\d{2})/,
+    // Generic date
     /(\d{1,2}[\-\/]\d{1,2}[\-\/]\d{2,4})/,
-    /(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{2,4})/i,
   ];
   for (const pattern of datePatterns) {
     const match = text.match(pattern);
@@ -319,20 +479,23 @@ function extractInvoiceDetails(text: string): {
     }
   }
 
-  // Vendor name - usually in first few lines
-  const lines = text.split('\n').filter((l) => l.trim());
-  if (lines.length > 0) {
-    // Skip common headers like "TAX INVOICE", "RECEIPT"
-    for (let i = 0; i < Math.min(5, lines.length); i++) {
-      const line = lines[i].trim();
-      if (
-        line.length > 3 &&
-        line.length < 100 &&
-        !/^(tax|invoice|receipt|bill|gst|cash)/i.test(line) &&
-        !/^\d/.test(line)
-      ) {
-        result.vendorName = line;
-        break;
+  // If no vendor detected yet, extract from first lines
+  if (!result.vendorName) {
+    const lines = text.split('\n').filter((l) => l.trim());
+    if (lines.length > 0) {
+      // Skip common headers like "TAX INVOICE", "RECEIPT"
+      for (let i = 0; i < Math.min(5, lines.length); i++) {
+        const line = lines[i].trim();
+        if (
+          line.length > 3 &&
+          line.length < 100 &&
+          !/^(tax|invoice|receipt|bill|gst|cash|original|duplicate)/i.test(line) &&
+          !/^\d/.test(line) &&
+          !/^(date|gstin|address)/i.test(line)
+        ) {
+          result.vendorName = line;
+          break;
+        }
       }
     }
   }
@@ -343,6 +506,106 @@ function extractInvoiceDetails(text: string): {
 // ============================================
 // Main Processing Function
 // ============================================
+
+/**
+ * Parse currency string to number
+ */
+function parseCurrency(value: string): number | undefined {
+  if (!value) return undefined;
+  // Remove currency symbols, spaces, and commas
+  const cleaned = value.replace(/[₹$,\s]/g, '').trim();
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? undefined : num;
+}
+
+/**
+ * Extract data from Document AI entities (for custom-trained processors)
+ */
+function extractFromEntities(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  entities: any[]
+): Partial<ParsedReceiptData> {
+  const result: Partial<ParsedReceiptData> = {};
+
+  for (const entity of entities) {
+    const value = entity.mentionText || '';
+    const confidence = entity.confidence || 0;
+    const type = entity.type || '';
+
+    // Only use high-confidence extractions
+    if (confidence < 0.6) continue;
+
+    switch (type) {
+      case 'total_amount':
+      case 'grand_total':
+      case 'amount_paid':
+        result.totalAmount = parseCurrency(value);
+        break;
+
+      case 'taxable_amount':
+      case 'sub_total':
+      case 'base_amount':
+        result.taxableAmount = parseCurrency(value);
+        break;
+
+      case 'invoice_number':
+      case 'receipt_number':
+      case 'trip_id':
+      case 'pnr_number':
+      case 'booking_reference':
+      case 'order_id':
+        result.invoiceNumber = value.trim();
+        break;
+
+      case 'vendor_name':
+      case 'supplier_name':
+      case 'merchant_name':
+        result.vendorName = value.trim();
+        break;
+
+      case 'transaction_date':
+      case 'invoice_date':
+      case 'receipt_date':
+        result.transactionDate = value.trim();
+        break;
+
+      case 'cgst_amount':
+        result.cgstAmount = parseCurrency(value);
+        break;
+
+      case 'sgst_amount':
+        result.sgstAmount = parseCurrency(value);
+        break;
+
+      case 'igst_amount':
+        result.igstAmount = parseCurrency(value);
+        break;
+
+      case 'gst_rate':
+      case 'tax_rate':
+        result.gstRate = parseFloat(value.replace(/[%\s]/g, ''));
+        break;
+
+      case 'vendor_gstin':
+      case 'supplier_gstin':
+        result.vendorGstin = value.toUpperCase().trim();
+        break;
+
+      case 'buyer_gstin':
+      case 'customer_gstin':
+        // This would be company's GSTIN - handled separately
+        break;
+    }
+  }
+
+  // Calculate total GST if components are available
+  if (result.cgstAmount || result.sgstAmount || result.igstAmount) {
+    result.gstAmount =
+      (result.cgstAmount || 0) + (result.sgstAmount || 0) + (result.igstAmount || 0);
+  }
+
+  return result;
+}
 
 async function processReceiptWithDocumentAI(
   fileContent: Buffer,
@@ -363,7 +626,12 @@ async function processReceiptWithDocumentAI(
 
   // Document AI processors are in US region (Document AI only available in limited regions)
   const processorLocation = process.env.DOCUMENT_AI_LOCATION || 'us';
-  const processorName = `projects/${projectId}/locations/${processorLocation}/processors/${processorId}`;
+  const processorVersion = process.env.DOCUMENT_AI_EXPENSE_PROCESSOR_VERSION;
+
+  // Use specific version if configured, otherwise use default
+  const processorName = processorVersion
+    ? `projects/${projectId}/locations/${processorLocation}/processors/${processorId}/processorVersions/${processorVersion}`
+    : `projects/${projectId}/locations/${processorLocation}/processors/${processorId}`;
 
   // Process document
   const request = {
@@ -374,7 +642,11 @@ async function processReceiptWithDocumentAI(
     },
   };
 
-  logger.info('Processing receipt with Document AI', { processorName, mimeType });
+  logger.info('Processing receipt with Document AI', {
+    processorName,
+    mimeType,
+    hasVersion: !!processorVersion,
+  });
 
   const [result] = await client.processDocument(request);
   const document = result.document;
@@ -384,13 +656,36 @@ async function processReceiptWithDocumentAI(
   }
 
   const fullText = document.text;
-  logger.info('Receipt text extracted', { textLength: fullText.length });
+  logger.info('Receipt text extracted', {
+    textLength: fullText.length,
+    entityCount: document.entities?.length || 0,
+  });
 
-  // Extract all information
+  // First, try to extract from Document AI entities (custom-trained processors)
+  let entityData: Partial<ParsedReceiptData> = {};
+  if (document.entities && document.entities.length > 0) {
+    entityData = extractFromEntities(document.entities);
+    logger.info('Extracted from Document AI entities', {
+      hasTotal: !!entityData.totalAmount,
+      hasVendor: !!entityData.vendorName,
+      hasInvoice: !!entityData.invoiceNumber,
+    });
+  }
+
+  // Fall back to regex extraction for any missing fields
   const invoiceDetails = extractInvoiceDetails(fullText);
   const amounts = extractAmounts(fullText);
   const gstInfo = extractGSTInfo(fullText);
   const categoryInfo = detectCategory(fullText);
+
+  // Use vendor-specific category if detected
+  let suggestedCategory = categoryInfo.category;
+  if (
+    invoiceDetails.detectedVendorType &&
+    VENDOR_SPECIFIC_PATTERNS[invoiceDetails.detectedVendorType]
+  ) {
+    suggestedCategory = VENDOR_SPECIFIC_PATTERNS[invoiceDetails.detectedVendorType].category;
+  }
 
   // Check for company GSTIN
   let companyGstinFound = false;
@@ -410,28 +705,49 @@ async function processReceiptWithDocumentAI(
     }
   }
 
+  // Merge entity data with regex data (entity data takes precedence)
+  const finalTotalAmount = entityData.totalAmount ?? amounts.totalAmount;
+  const finalTaxableAmount = entityData.taxableAmount ?? amounts.taxableAmount;
+  const finalVendorName = entityData.vendorName ?? invoiceDetails.vendorName;
+  const finalInvoiceNumber = entityData.invoiceNumber ?? invoiceDetails.invoiceNumber;
+  const finalTransactionDate = entityData.transactionDate ?? invoiceDetails.transactionDate;
+
   // Calculate confidence based on what was extracted
   let confidence = 0;
-  if (amounts.totalAmount) confidence += 0.3;
-  if (invoiceDetails.vendorName) confidence += 0.2;
-  if (invoiceDetails.invoiceNumber) confidence += 0.1;
-  if (invoiceDetails.transactionDate) confidence += 0.1;
-  if (gstInfo.gstAmount || gstInfo.vendorGstin) confidence += 0.2;
-  if (categoryInfo.category !== 'OTHER') confidence += 0.1;
+  if (finalTotalAmount) confidence += 0.3;
+  if (finalVendorName) confidence += 0.2;
+  if (finalInvoiceNumber) confidence += 0.1;
+  if (finalTransactionDate) confidence += 0.1;
+  if (gstInfo.gstAmount || gstInfo.vendorGstin || entityData.gstAmount) confidence += 0.2;
+  if (suggestedCategory !== 'OTHER') confidence += 0.1;
+
+  // Boost confidence if using entity extraction
+  if (Object.keys(entityData).length > 2) {
+    confidence = Math.min(confidence + 0.1, 1.0);
+  }
 
   const processingTimeMs = Date.now() - startTime;
 
   return {
-    vendorName: invoiceDetails.vendorName,
-    invoiceNumber: invoiceDetails.invoiceNumber,
-    transactionDate: invoiceDetails.transactionDate,
-    totalAmount: amounts.totalAmount,
-    taxableAmount: amounts.taxableAmount,
+    vendorName: finalVendorName,
+    invoiceNumber: finalInvoiceNumber,
+    transactionDate: finalTransactionDate,
+    totalAmount: finalTotalAmount,
+    taxableAmount: finalTaxableAmount,
     currency: 'INR',
-    ...gstInfo,
+    // GST info: prefer entity data, fall back to regex
+    gstAmount: entityData.gstAmount ?? gstInfo.gstAmount,
+    gstRate: entityData.gstRate ?? gstInfo.gstRate,
+    cgstAmount: entityData.cgstAmount ?? gstInfo.cgstAmount,
+    cgstRate: gstInfo.cgstRate,
+    sgstAmount: entityData.sgstAmount ?? gstInfo.sgstAmount,
+    sgstRate: gstInfo.sgstRate,
+    igstAmount: entityData.igstAmount ?? gstInfo.igstAmount,
+    igstRate: gstInfo.igstRate,
+    vendorGstin: entityData.vendorGstin ?? gstInfo.vendorGstin,
     companyGstinFound,
     companyGstinOnReceipt,
-    suggestedCategory: categoryInfo.category,
+    suggestedCategory,
     categoryConfidence: categoryInfo.confidence,
     confidence,
     rawText: fullText.substring(0, 2000), // Truncate for storage
