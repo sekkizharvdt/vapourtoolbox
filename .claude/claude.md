@@ -3,7 +3,30 @@
 **Project:** Vapour Toolbox - Unified Business Management Platform
 **Company:** Vapour Desal Technologies Private Limited
 **Version:** Phase 2 Complete - Active Development
-**Last Updated:** 2025-01-05
+**Last Updated:** 2026-01-11
+
+---
+
+## ⚠️ CRITICAL: UI Framework
+
+**This project uses Material UI (MUI) v7 - NOT shadcn/ui, Radix, or Tailwind UI.**
+
+Before creating any new UI component or page:
+
+1. Check existing pages in the same module for patterns
+2. Import from `@mui/material` and `@mui/icons-material`
+3. Use MUI's Grid v7 syntax: `<Grid size={{ xs: 12, md: 6 }}>`
+4. Use MUI Dialog, not custom modal components
+
+```typescript
+// ✅ CORRECT - Use MUI components
+import { Button, Dialog, TextField, Card } from '@mui/material';
+import { Add as AddIcon } from '@mui/icons-material';
+
+// ❌ WRONG - These don't exist in this project
+import { Button } from '@/components/ui/button'; // shadcn
+import { Dialog } from '@radix-ui/react-dialog'; // Radix
+```
 
 ---
 

@@ -1,9 +1,29 @@
 {
-  "extends": [
-    "next/core-web-vitals",
-    "../../.eslintrc.json"
-  ],
+  "extends": ["next/core-web-vitals", "../../.eslintrc.json"],
   "rules": {
-    "@typescript-eslint/no-explicit-any": "error"
+    "@typescript-eslint/no-explicit-any": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["@/components/ui/*"],
+            "message": "This project uses MUI, not shadcn/ui. Import from '@mui/material' instead."
+          },
+          {
+            "group": ["@radix-ui/*"],
+            "message": "This project uses MUI, not Radix UI. Import from '@mui/material' instead."
+          },
+          {
+            "group": ["lucide-react"],
+            "message": "This project uses MUI icons. Import from '@mui/icons-material' instead."
+          },
+          {
+            "group": ["sonner", "react-hot-toast"],
+            "message": "This project uses MUI Snackbar for notifications. Import from '@mui/material' instead."
+          }
+        ]
+      }
+    ]
   }
 }
