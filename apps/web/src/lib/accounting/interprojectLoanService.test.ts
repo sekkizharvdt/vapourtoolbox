@@ -66,7 +66,10 @@ jest.mock('@vapour/logger', () => ({
 
 // Mock type helpers
 jest.mock('@/lib/firebase/typeHelpers', () => ({
-  docToTyped: <T>(id: string, data: unknown): T => ({ ...data, id }) as T,
+  docToTyped: <T>(id: string, data: unknown): T => {
+    const result = { ...data, id };
+    return result as T;
+  },
 }));
 
 import {
@@ -74,7 +77,6 @@ import {
   getInterprojectLoan,
   recordRepayment,
   generateRepaymentSchedule,
-  InterprojectLoanError,
 } from './interprojectLoanService';
 import type { Firestore } from 'firebase/firestore';
 
@@ -373,25 +375,11 @@ describe('interprojectLoanService', () => {
         ],
       });
 
-      const lendingProject = createMockCostCentre({ id: 'cc-1', name: 'Project Alpha' });
-      const borrowingProject = createMockCostCentre({ id: 'cc-2', name: 'Project Beta' });
-
-      mockGetDoc
-        .mockResolvedValueOnce({
-          exists: () => true,
-          id: 'loan-1',
-          data: () => mockLoan,
-        })
-        .mockResolvedValueOnce({
-          exists: () => true,
-          id: 'cc-1',
-          data: () => lendingProject,
-        })
-        .mockResolvedValueOnce({
-          exists: () => true,
-          id: 'cc-2',
-          data: () => borrowingProject,
-        });
+      mockGetDoc.mockResolvedValueOnce({
+        exists: () => true,
+        id: 'loan-1',
+        data: () => mockLoan,
+      });
 
       mockRunTransaction.mockImplementation(async (_db, callback) => {
         const mockTransaction = {
@@ -429,31 +417,17 @@ describe('interprojectLoanService', () => {
         ],
       });
 
-      const lendingProject = createMockCostCentre({ id: 'cc-1', name: 'Project Alpha' });
-      const borrowingProject = createMockCostCentre({ id: 'cc-2', name: 'Project Beta' });
-
-      mockGetDoc
-        .mockResolvedValueOnce({
-          exists: () => true,
-          id: 'loan-1',
-          data: () => mockLoan,
-        })
-        .mockResolvedValueOnce({
-          exists: () => true,
-          id: 'cc-1',
-          data: () => lendingProject,
-        })
-        .mockResolvedValueOnce({
-          exists: () => true,
-          id: 'cc-2',
-          data: () => borrowingProject,
-        });
+      mockGetDoc.mockResolvedValueOnce({
+        exists: () => true,
+        id: 'loan-1',
+        data: () => mockLoan,
+      });
 
       let updatedStatus: string | undefined;
       mockRunTransaction.mockImplementation(async (_db, callback) => {
         const mockTransaction = {
           set: jest.fn(),
-          update: jest.fn((ref, data) => {
+          update: jest.fn((_ref, data) => {
             if (data.status) {
               updatedStatus = data.status;
             }

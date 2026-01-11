@@ -21,8 +21,6 @@ import {
   getDocs,
   getDoc,
   doc,
-  addDoc,
-  updateDoc,
   runTransaction,
   orderBy,
   Timestamp,
@@ -492,7 +490,7 @@ export async function recordRepayment(
   db: Firestore,
   input: RecordRepaymentInput
 ): Promise<InterprojectLoanResult> {
-  const { loanId, repaymentDate, principalAmount, interestAmount, notes, userId, userName } = input;
+  const { loanId, repaymentDate, principalAmount, interestAmount, userId, userName } = input;
 
   try {
     const loan = await getInterprojectLoan(db, loanId);
@@ -510,12 +508,6 @@ export async function recordRepayment(
     }
 
     const totalPayment = principalAmount + interestAmount;
-
-    // Get project names for journal entry description
-    const [lendingProject, borrowingProject] = await Promise.all([
-      getCostCentre(db, loan.lendingProjectId),
-      getCostCentre(db, loan.borrowingProjectId),
-    ]);
 
     const journalEntryNumber = await generateTransactionNumber('JOURNAL_ENTRY');
 

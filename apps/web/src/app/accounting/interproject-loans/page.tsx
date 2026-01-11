@@ -13,6 +13,7 @@ import {
 } from '@/lib/accounting/interprojectLoanService';
 import { getDocs, collection, query, where } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type { InterprojectLoan, CostCentre } from '@vapour/types';
 import { formatCurrency } from '@/lib/utils/formatters';
 import { Button } from '@/components/ui/button';
@@ -96,7 +97,7 @@ export default function InterprojectLoansPage() {
       const snapshot = await getDocs(
         query(collection(db, COLLECTIONS.COST_CENTRES), where('isActive', '==', true))
       );
-      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as CostCentre));
+      return snapshot.docs.map((doc) => docToTyped<CostCentre>(doc.id, doc.data()));
     },
     enabled: !!db,
   });

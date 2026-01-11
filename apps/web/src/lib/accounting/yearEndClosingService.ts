@@ -21,8 +21,6 @@ import {
   getDocs,
   getDoc,
   doc,
-  addDoc,
-  updateDoc,
   runTransaction,
   Timestamp,
   type Firestore,

@@ -65,7 +65,10 @@ jest.mock('@vapour/logger', () => ({
 
 // Mock type helpers
 jest.mock('@/lib/firebase/typeHelpers', () => ({
-  docToTyped: <T>(id: string, data: unknown): T => ({ ...data, id }) as T,
+  docToTyped: <T>(id: string, data: unknown): T => {
+    const result = { ...data, id };
+    return result as T;
+  },
 }));
 
 import {
@@ -457,29 +460,29 @@ describe('yearEndClosingService', () => {
     });
 
     it('returns error when closing entry is already reversed', async () => {
+      const closingEntryData: YearEndClosingEntry = {
+        id: 'closing-1',
+        fiscalYearId: 'fy-2024-25',
+        fiscalYearName: 'FY 2024-25',
+        status: 'REVERSED',
+        closingDate: new Date(),
+        retainedEarningsAccountId: 'acc-retained',
+        revenueAccounts: [],
+        expenseAccounts: [],
+        totalRevenue: 0,
+        totalExpenses: 0,
+        netIncome: 0,
+        journalEntryId: 'je-1',
+        journalEntryNumber: 'JE-001',
+        preparedBy: 'user-1',
+        createdAt: new Date(),
+        createdBy: 'user-1',
+        updatedAt: new Date(),
+      };
       mockGetDoc.mockResolvedValue({
         exists: () => true,
         id: 'closing-1',
-        data: () =>
-          ({
-            id: 'closing-1',
-            fiscalYearId: 'fy-2024-25',
-            fiscalYearName: 'FY 2024-25',
-            status: 'REVERSED',
-            closingDate: new Date(),
-            retainedEarningsAccountId: 'acc-retained',
-            revenueAccounts: [],
-            expenseAccounts: [],
-            totalRevenue: 0,
-            totalExpenses: 0,
-            netIncome: 0,
-            journalEntryId: 'je-1',
-            journalEntryNumber: 'JE-001',
-            preparedBy: 'user-1',
-            createdAt: new Date(),
-            createdBy: 'user-1',
-            updatedAt: new Date(),
-          }) as YearEndClosingEntry,
+        data: () => closingEntryData,
       });
 
       const result = await reverseYearEndClosing(
