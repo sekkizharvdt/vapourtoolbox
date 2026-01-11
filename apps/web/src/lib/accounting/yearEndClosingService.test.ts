@@ -66,7 +66,8 @@ jest.mock('@vapour/logger', () => ({
 // Mock type helpers
 jest.mock('@/lib/firebase/typeHelpers', () => ({
   docToTyped: <T>(id: string, data: unknown): T => {
-    const result = { ...data, id };
+    const dataObj = data as Record<string, unknown>;
+    const result = { ...dataObj, id };
     return result as T;
   },
 }));
@@ -180,7 +181,10 @@ describe('yearEndClosingService', () => {
         .mockResolvedValueOnce({
           docs: [
             { id: 'period-1', data: () => createMockPeriod({ status: 'OPEN', name: 'Apr 2024' }) },
-            { id: 'period-2', data: () => createMockPeriod({ status: 'CLOSED', name: 'May 2024' }) },
+            {
+              id: 'period-2',
+              data: () => createMockPeriod({ status: 'CLOSED', name: 'May 2024' }),
+            },
           ],
         })
         .mockResolvedValueOnce({ docs: [], empty: true }) // code query

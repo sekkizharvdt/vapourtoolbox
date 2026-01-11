@@ -141,7 +141,7 @@ async function findRetainedEarningsAccount(db: Firestore): Promise<Account | nul
   for (const docSnapshot of equitySnapshot.docs) {
     const account = docSnapshot.data() as Account;
     if (account.name.toLowerCase().includes('retained') && account.isActive) {
-      return docToTyped<Account>(docSnapshot.id, account);
+      return docToTyped<Account>(docSnapshot.id, docSnapshot.data());
     }
   }
 
@@ -151,9 +151,7 @@ async function findRetainedEarningsAccount(db: Firestore): Promise<Account | nul
 /**
  * Get all accounts that need to be closed (INCOME and EXPENSE with non-zero balance)
  */
-async function getAccountsToClose(
-  db: Firestore
-): Promise<{
+async function getAccountsToClose(db: Firestore): Promise<{
   revenueAccounts: ClosedAccountBalance[];
   expenseAccounts: ClosedAccountBalance[];
   totalRevenue: number;
@@ -661,7 +659,10 @@ export async function reverseYearEndClosing(
       return { success: false, error: 'Year-end closing entry not found' };
     }
 
-    const closingEntry = docToTyped<YearEndClosingEntry>(closingEntryDoc.id, closingEntryDoc.data());
+    const closingEntry = docToTyped<YearEndClosingEntry>(
+      closingEntryDoc.id,
+      closingEntryDoc.data()
+    );
 
     if (closingEntry.status === 'REVERSED') {
       return { success: false, error: 'Year-end closing entry has already been reversed' };

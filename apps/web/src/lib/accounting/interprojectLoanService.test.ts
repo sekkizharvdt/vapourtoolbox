@@ -67,7 +67,8 @@ jest.mock('@vapour/logger', () => ({
 // Mock type helpers
 jest.mock('@/lib/firebase/typeHelpers', () => ({
   docToTyped: <T>(id: string, data: unknown): T => {
-    const result = { ...data, id };
+    const dataObj = data as Record<string, unknown>;
+    const result = { ...dataObj, id };
     return result as T;
   },
 }));
@@ -141,7 +142,7 @@ describe('interprojectLoanService', () => {
       // Should generate approximately 12-13 monthly payments depending on date math
       expect(schedule.length).toBeGreaterThanOrEqual(12);
       expect(schedule.length).toBeLessThanOrEqual(13);
-      expect(schedule[0].status).toBe('PENDING');
+      expect(schedule[0]?.status).toBe('PENDING');
 
       // Each month should have principal payment
       const totalPrincipal = schedule.reduce((sum, s) => sum + s.principalAmount, 0);
@@ -174,7 +175,7 @@ describe('interprojectLoanService', () => {
       );
 
       expect(schedule.length).toBe(1);
-      expect(schedule[0].principalAmount).toBe(100000);
+      expect(schedule[0]?.principalAmount).toBe(100000);
     });
 
     it('calculates compound interest correctly', () => {
@@ -197,7 +198,9 @@ describe('interprojectLoanService', () => {
       );
 
       // Compound interest should be higher than simple interest
-      expect(compoundSchedule[0].interestAmount).toBeGreaterThan(simpleSchedule[0].interestAmount);
+      expect(compoundSchedule[0]?.interestAmount).toBeGreaterThan(
+        simpleSchedule[0]?.interestAmount ?? 0
+      );
     });
   });
 
@@ -462,7 +465,7 @@ describe('interprojectLoanService', () => {
       );
 
       // Should be approximately 10,000-11,000 (may vary due to day count calculation)
-      const interest = schedule[0].interestAmount;
+      const interest = schedule[0]?.interestAmount ?? 0;
       expect(interest).toBeGreaterThan(9500);
       expect(interest).toBeLessThan(11500);
     });
@@ -486,7 +489,7 @@ describe('interprojectLoanService', () => {
         'BULLET'
       );
 
-      expect(compound[0].interestAmount).toBeGreaterThan(simple[0].interestAmount);
+      expect(compound[0]?.interestAmount).toBeGreaterThan(simple[0]?.interestAmount ?? 0);
     });
   });
 });

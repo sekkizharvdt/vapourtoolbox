@@ -21,6 +21,7 @@ import {
   getDocs,
   getDoc,
   doc,
+  updateDoc,
   runTransaction,
   orderBy,
   Timestamp,
@@ -112,22 +113,14 @@ async function generateLoanNumber(): Promise<string> {
 /**
  * Calculate simple interest
  */
-function calculateSimpleInterest(
-  principal: number,
-  annualRate: number,
-  days: number
-): number {
+function calculateSimpleInterest(principal: number, annualRate: number, days: number): number {
   return (principal * annualRate * days) / (100 * 365);
 }
 
 /**
  * Calculate compound interest (monthly compounding)
  */
-function calculateCompoundInterest(
-  principal: number,
-  annualRate: number,
-  months: number
-): number {
+function calculateCompoundInterest(principal: number, annualRate: number, months: number): number {
   const monthlyRate = annualRate / 100 / 12;
   const amount = principal * Math.pow(1 + monthlyRate, months);
   return amount - principal;
@@ -197,7 +190,8 @@ export function generateRepaymentSchedule(
     }
 
     // For bullet payment, principal is only paid at maturity
-    const principalPayment = frequency === 'BULLET' && i < numberOfPayments - 1 ? 0 : principalPerPayment;
+    const principalPayment =
+      frequency === 'BULLET' && i < numberOfPayments - 1 ? 0 : principalPerPayment;
 
     schedule.push({
       dueDate,
@@ -444,10 +438,7 @@ export async function getInterprojectLoans(
   db: Firestore,
   filters?: LoanListFilters
 ): Promise<InterprojectLoan[]> {
-  let q = query(
-    collection(db, COLLECTIONS.INTERPROJECT_LOANS),
-    orderBy('createdAt', 'desc')
-  );
+  let q = query(collection(db, COLLECTIONS.INTERPROJECT_LOANS), orderBy('createdAt', 'desc'));
 
   if (filters?.status) {
     q = query(q, where('status', '==', filters.status));
@@ -504,7 +495,10 @@ export async function recordRepayment(
     }
 
     if (loan.status === 'WRITTEN_OFF') {
-      throw new InterprojectLoanError('Cannot record payment on written-off loan', 'LOAN_WRITTEN_OFF');
+      throw new InterprojectLoanError(
+        'Cannot record payment on written-off loan',
+        'LOAN_WRITTEN_OFF'
+      );
     }
 
     const totalPayment = principalAmount + interestAmount;

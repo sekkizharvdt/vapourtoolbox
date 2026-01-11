@@ -1,9 +1,54 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/lib/auth/AuthContext';
-import { useFirestoreDb } from '@/lib/firebase/FirestoreProvider';
+import {
+  Box,
+  Button,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+  Chip,
+  Stack,
+  IconButton,
+  Tooltip,
+  Card,
+  CardContent,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Breadcrumbs,
+  Link,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Alert,
+  LinearProgress,
+  Snackbar,
+} from '@mui/material';
+import { Grid } from '@mui/material';
+import {
+  Add as AddIcon,
+  Payment as PaymentIcon,
+  Home as HomeIcon,
+  AccountBalance as LoanIcon,
+} from '@mui/icons-material';
+import { useAuth } from '@/contexts/AuthContext';
+import { getFirebase } from '@/lib/firebase';
+import { getDocs, collection, query, where } from 'firebase/firestore';
+import { COLLECTIONS } from '@vapour/firebase';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
+import type { InterprojectLoan, CostCentre } from '@vapour/types';
+import { formatCurrency } from '@/lib/utils/formatters';
+import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import {
   getInterprojectLoans,
   createInterprojectLoan,
@@ -11,73 +56,48 @@ import {
   type CreateInterprojectLoanInput,
   type RecordRepaymentInput,
 } from '@/lib/accounting/interprojectLoanService';
-import { getDocs, collection, query, where } from 'firebase/firestore';
-import { COLLECTIONS } from '@vapour/firebase';
-import { docToTyped } from '@/lib/firebase/typeHelpers';
-import type { InterprojectLoan, CostCentre } from '@vapour/types';
-import { formatCurrency } from '@/lib/utils/formatters';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Plus } from 'lucide-react';
-import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
+
+interface NotificationState {
+  open: boolean;
+  message: string;
+  severity: 'success' | 'error' | 'info' | 'warning';
+}
 
 export default function InterprojectLoansPage() {
-  const { user } = useAuth();
-  const db = useFirestoreDb();
+  const router = useRouter();
+  const { claims, user } = useAuth();
   const queryClient = useQueryClient();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isRepaymentDialogOpen, setIsRepaymentDialogOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<InterprojectLoan | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [notification, setNotification] = useState<NotificationState>({
+    open: false,
+    message: '',
+    severity: 'info',
+  });
+
+  const showNotification = (message: string, severity: NotificationState['severity']) => {
+    setNotification({ open: true, message, severity });
+  };
 
   // Form state for new loan
-  const [newLoan, setNewLoan] = useState<{
-    lendingProjectId: string;
-    borrowingProjectId: string;
-    principalAmount: string;
-    interestRate: string;
-    interestCalculationMethod: 'SIMPLE' | 'COMPOUND';
-    startDate: string;
-    maturityDate: string;
-    repaymentFrequency: 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUALLY' | 'ANNUALLY' | 'BULLET';
-    notes: string;
-  }>({
+  const [newLoan, setNewLoan] = useState({
     lendingProjectId: '',
     borrowingProjectId: '',
     principalAmount: '',
     interestRate: '',
-    interestCalculationMethod: 'SIMPLE',
+    interestCalculationMethod: 'SIMPLE' as 'SIMPLE' | 'COMPOUND',
     startDate: new Date().toISOString().split('T')[0] || '',
     maturityDate: '',
-    repaymentFrequency: 'MONTHLY',
+    repaymentFrequency: 'MONTHLY' as
+      | 'MONTHLY'
+      | 'QUARTERLY'
+      | 'SEMI_ANNUALLY'
+      | 'ANNUALLY'
+      | 'BULLET',
     notes: '',
   });
 
@@ -85,9 +105,12 @@ export default function InterprojectLoansPage() {
   const [repayment, setRepayment] = useState({
     principalAmount: '',
     interestAmount: '',
-    repaymentDate: new Date().toISOString().split('T')[0],
+    repaymentDate: new Date().toISOString().split('T')[0] || '',
     notes: '',
   });
+
+  const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
+  const { db } = getFirebase();
 
   // Fetch cost centres (projects)
   const { data: costCentres = [] } = useQuery({
@@ -103,25 +126,33 @@ export default function InterprojectLoansPage() {
   });
 
   // Fetch loans
-  const { data: loans = [], isLoading } = useQuery({
+  const {
+    data: loans = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['interprojectLoans', statusFilter],
     queryFn: async () => {
       if (!db) return [];
-      const filters = statusFilter !== 'all' ? { status: statusFilter as InterprojectLoan['status'] } : undefined;
+      const filters =
+        statusFilter !== 'all' ? { status: statusFilter as InterprojectLoan['status'] } : undefined;
       return getInterprojectLoans(db, filters);
     },
     enabled: !!db,
   });
 
   // Calculate summary
-  const summary = {
-    totalLoans: loans.length,
-    activeLoans: loans.filter((l) => ['ACTIVE', 'PARTIALLY_REPAID'].includes(l.status)).length,
-    totalPrincipal: loans.reduce((sum, l) => sum + l.principalAmount, 0),
-    totalOutstanding: loans
-      .filter((l) => ['ACTIVE', 'PARTIALLY_REPAID'].includes(l.status))
-      .reduce((sum, l) => sum + l.remainingPrincipal, 0),
-  };
+  const summary = useMemo(
+    () => ({
+      totalLoans: loans.length,
+      activeLoans: loans.filter((l) => ['ACTIVE', 'PARTIALLY_REPAID'].includes(l.status)).length,
+      totalPrincipal: loans.reduce((sum, l) => sum + l.principalAmount, 0),
+      totalOutstanding: loans
+        .filter((l) => ['ACTIVE', 'PARTIALLY_REPAID'].includes(l.status))
+        .reduce((sum, l) => sum + l.remainingPrincipal, 0),
+    }),
+    [loans]
+  );
 
   // Create loan mutation
   const createLoanMutation = useMutation({
@@ -131,16 +162,16 @@ export default function InterprojectLoansPage() {
     },
     onSuccess: (result) => {
       if (result.success) {
-        toast.success(`Loan ${result.loanNumber} created successfully`);
+        showNotification(`Loan ${result.loanNumber} created successfully`, 'success');
         queryClient.invalidateQueries({ queryKey: ['interprojectLoans'] });
         setIsCreateDialogOpen(false);
         resetNewLoanForm();
       } else {
-        toast.error(result.error || 'Failed to create loan');
+        showNotification(result.error || 'Failed to create loan', 'error');
       }
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to create loan');
+      showNotification(error instanceof Error ? error.message : 'Failed to create loan', 'error');
     },
   });
 
@@ -152,17 +183,20 @@ export default function InterprojectLoansPage() {
     },
     onSuccess: (result) => {
       if (result.success) {
-        toast.success('Repayment recorded successfully');
+        showNotification('Repayment recorded successfully', 'success');
         queryClient.invalidateQueries({ queryKey: ['interprojectLoans'] });
         setIsRepaymentDialogOpen(false);
         setSelectedLoan(null);
         resetRepaymentForm();
       } else {
-        toast.error(result.error || 'Failed to record repayment');
+        showNotification(result.error || 'Failed to record repayment', 'error');
       }
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to record repayment');
+      showNotification(
+        error instanceof Error ? error.message : 'Failed to record repayment',
+        'error'
+      );
     },
   });
 
@@ -184,7 +218,7 @@ export default function InterprojectLoansPage() {
     setRepayment({
       principalAmount: '',
       interestAmount: '',
-      repaymentDate: new Date().toISOString().split('T')[0],
+      repaymentDate: new Date().toISOString().split('T')[0] || '',
       notes: '',
     });
   };
@@ -221,16 +255,17 @@ export default function InterprojectLoansPage() {
     });
   };
 
-  const getStatusBadge = (status: InterprojectLoan['status']) => {
-    const variants: Record<InterprojectLoan['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      ACTIVE: 'default',
-      PARTIALLY_REPAID: 'secondary',
-      FULLY_REPAID: 'outline',
-      DEFAULTED: 'destructive',
-      WRITTEN_OFF: 'destructive',
-    };
+  const getStatusChip = (status: InterprojectLoan['status']) => {
+    const colors: Record<InterprojectLoan['status'], 'default' | 'primary' | 'success' | 'error'> =
+      {
+        ACTIVE: 'primary',
+        PARTIALLY_REPAID: 'default',
+        FULLY_REPAID: 'success',
+        DEFAULTED: 'error',
+        WRITTEN_OFF: 'error',
+      };
 
-    return <Badge variant={variants[status]}>{status.replace('_', ' ')}</Badge>;
+    return <Chip label={status.replace('_', ' ')} color={colors[status]} size="small" />;
   };
 
   const getProjectName = (projectId: string) => {
@@ -238,386 +273,449 @@ export default function InterprojectLoansPage() {
     return project?.name || projectId;
   };
 
+  if (error) {
+    return (
+      <Box p={3}>
+        <Alert severity="error">Error loading interproject loans: {String(error)}</Alert>
+      </Box>
+    );
+  }
+
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <Box>
+      {/* Breadcrumbs */}
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          component="button"
+          underline="hover"
+          color="inherit"
+          onClick={() => router.push('/accounting')}
+          sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+        >
+          <HomeIcon fontSize="small" />
+          Accounting
+        </Link>
+        <Typography color="text.primary">Interproject Loans</Typography>
+      </Breadcrumbs>
+
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Interproject Loans</h1>
-          <p className="text-muted-foreground">
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Interproject Loans
+          </Typography>
+          <Typography color="text.secondary">
             Manage loans between projects with automatic journal entries
-          </p>
-        </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Loan
-        </Button>
-      </div>
+          </Typography>
+        </Box>
+        {canManage && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setIsCreateDialogOpen(true)}
+          >
+            New Loan
+          </Button>
+        )}
+      </Box>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Loans</CardDescription>
-            <CardTitle className="text-2xl">{summary.totalLoans}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Active Loans</CardDescription>
-            <CardTitle className="text-2xl">{summary.activeLoans}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Principal</CardDescription>
-            <CardTitle className="text-2xl">{formatCurrency(summary.totalPrincipal)}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Outstanding Balance</CardDescription>
-            <CardTitle className="text-2xl">{formatCurrency(summary.totalOutstanding)}</CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent>
+              <Typography color="text.secondary" variant="body2">
+                Total Loans
+              </Typography>
+              <Typography variant="h4">{summary.totalLoans}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent>
+              <Typography color="text.secondary" variant="body2">
+                Active Loans
+              </Typography>
+              <Typography variant="h4">{summary.activeLoans}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent>
+              <Typography color="text.secondary" variant="body2">
+                Total Principal
+              </Typography>
+              <Typography variant="h5">{formatCurrency(summary.totalPrincipal)}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent>
+              <Typography color="text.secondary" variant="body2">
+                Outstanding Balance
+              </Typography>
+              <Typography variant="h5">{formatCurrency(summary.totalOutstanding)}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       {/* Filters */}
-      <div className="flex gap-4 items-center">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="ACTIVE">Active</SelectItem>
-            <SelectItem value="PARTIALLY_REPAID">Partially Repaid</SelectItem>
-            <SelectItem value="FULLY_REPAID">Fully Repaid</SelectItem>
-            <SelectItem value="DEFAULTED">Defaulted</SelectItem>
-            <SelectItem value="WRITTEN_OFF">Written Off</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={statusFilter}
+            label="Status"
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <MenuItem value="all">All Statuses</MenuItem>
+            <MenuItem value="ACTIVE">Active</MenuItem>
+            <MenuItem value="PARTIALLY_REPAID">Partially Repaid</MenuItem>
+            <MenuItem value="FULLY_REPAID">Fully Repaid</MenuItem>
+            <MenuItem value="DEFAULTED">Defaulted</MenuItem>
+            <MenuItem value="WRITTEN_OFF">Written Off</MenuItem>
+          </Select>
+        </FormControl>
+      </Stack>
 
       {/* Loans Table */}
-      <Card>
-        <CardContent className="pt-6">
-          {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading loans...</div>
-          ) : loans.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No interproject loans found. Create your first loan to get started.
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Loan #</TableHead>
-                  <TableHead>Lender</TableHead>
-                  <TableHead>Borrower</TableHead>
-                  <TableHead className="text-right">Principal</TableHead>
-                  <TableHead className="text-right">Outstanding</TableHead>
-                  <TableHead>Interest</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Maturity</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loans.map((loan) => (
-                  <TableRow key={loan.id}>
-                    <TableCell className="font-medium">{loan.loanNumber}</TableCell>
-                    <TableCell>{getProjectName(loan.lendingProjectId)}</TableCell>
-                    <TableCell>{getProjectName(loan.borrowingProjectId)}</TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(loan.principalAmount)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(loan.remainingPrincipal)}
-                    </TableCell>
-                    <TableCell>
-                      {loan.interestRate}% {loan.interestCalculationMethod}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(loan.status)}</TableCell>
-                    <TableCell>
-                      {new Date(loan.maturityDate).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      {['ACTIVE', 'PARTIALLY_REPAID'].includes(loan.status) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
+      <TableContainer component={Paper}>
+        {isLoading && <LinearProgress />}
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Loan #</TableCell>
+              <TableCell>Lender</TableCell>
+              <TableCell>Borrower</TableCell>
+              <TableCell align="right">Principal</TableCell>
+              <TableCell align="right">Outstanding</TableCell>
+              <TableCell>Interest</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Maturity</TableCell>
+              <TableCell align="center">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loans.length === 0 && !isLoading ? (
+              <TableRow>
+                <TableCell colSpan={9} align="center">
+                  <Box py={4}>
+                    <LoanIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+                    <Typography color="text.secondary">
+                      No interproject loans found. Create your first loan to get started.
+                    </Typography>
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ) : (
+              loans.map((loan) => (
+                <TableRow key={loan.id}>
+                  <TableCell>
+                    <Typography fontWeight="medium">{loan.loanNumber}</Typography>
+                  </TableCell>
+                  <TableCell>{getProjectName(loan.lendingProjectId)}</TableCell>
+                  <TableCell>{getProjectName(loan.borrowingProjectId)}</TableCell>
+                  <TableCell align="right">{formatCurrency(loan.principalAmount)}</TableCell>
+                  <TableCell align="right">{formatCurrency(loan.remainingPrincipal)}</TableCell>
+                  <TableCell>
+                    {loan.interestRate}% {loan.interestCalculationMethod}
+                  </TableCell>
+                  <TableCell>{getStatusChip(loan.status)}</TableCell>
+                  <TableCell>
+                    {loan.maturityDate instanceof Date
+                      ? loan.maturityDate.toLocaleDateString()
+                      : new Date(loan.maturityDate).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell align="center">
+                    {canManage && ['ACTIVE', 'PARTIALLY_REPAID'].includes(loan.status) && (
+                      <Tooltip title="Record Payment">
+                        <IconButton
+                          size="small"
                           onClick={() => {
                             setSelectedLoan(loan);
                             setIsRepaymentDialogOpen(true);
                           }}
                         >
-                          Record Payment
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                          <PaymentIcon />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       {/* Create Loan Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Create Interproject Loan</DialogTitle>
-            <DialogDescription>
-              Create a new loan between two projects. Journal entries will be generated automatically.
-            </DialogDescription>
-          </DialogHeader>
+      <Dialog
+        open={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Create Interproject Loan</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Create a new loan between two projects. Journal entries will be generated automatically.
+          </Typography>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Lending Project</Label>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Lending Project</InputLabel>
                 <Select
                   value={newLoan.lendingProjectId}
-                  onValueChange={(v) => setNewLoan({ ...newLoan, lendingProjectId: v })}
+                  label="Lending Project"
+                  onChange={(e) => setNewLoan({ ...newLoan, lendingProjectId: e.target.value })}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {costCentres.map((cc) => (
-                      <SelectItem key={cc.id} value={cc.id}>
-                        {cc.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                  {costCentres.map((cc) => (
+                    <MenuItem key={cc.id} value={cc.id}>
+                      {cc.name}
+                    </MenuItem>
+                  ))}
                 </Select>
-              </div>
-              <div>
-                <Label>Borrowing Project</Label>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Borrowing Project</InputLabel>
                 <Select
                   value={newLoan.borrowingProjectId}
-                  onValueChange={(v) => setNewLoan({ ...newLoan, borrowingProjectId: v })}
+                  label="Borrowing Project"
+                  onChange={(e) => setNewLoan({ ...newLoan, borrowingProjectId: e.target.value })}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {costCentres
-                      .filter((cc) => cc.id !== newLoan.lendingProjectId)
-                      .map((cc) => (
-                        <SelectItem key={cc.id} value={cc.id}>
-                          {cc.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
+                  {costCentres
+                    .filter((cc) => cc.id !== newLoan.lendingProjectId)
+                    .map((cc) => (
+                      <MenuItem key={cc.id} value={cc.id}>
+                        {cc.name}
+                      </MenuItem>
+                    ))}
                 </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Principal Amount</Label>
-                <Input
-                  type="number"
-                  value={newLoan.principalAmount}
-                  onChange={(e) => setNewLoan({ ...newLoan, principalAmount: e.target.value })}
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <Label>Interest Rate (%)</Label>
-                <Input
-                  type="number"
-                  value={newLoan.interestRate}
-                  onChange={(e) => setNewLoan({ ...newLoan, interestRate: e.target.value })}
-                  placeholder="10"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Interest Method</Label>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                margin="normal"
+                label="Principal Amount"
+                type="number"
+                value={newLoan.principalAmount}
+                onChange={(e) => setNewLoan({ ...newLoan, principalAmount: e.target.value })}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                margin="normal"
+                label="Interest Rate (%)"
+                type="number"
+                value={newLoan.interestRate}
+                onChange={(e) => setNewLoan({ ...newLoan, interestRate: e.target.value })}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Interest Method</InputLabel>
                 <Select
                   value={newLoan.interestCalculationMethod}
-                  onValueChange={(v) =>
+                  label="Interest Method"
+                  onChange={(e) =>
                     setNewLoan({
                       ...newLoan,
-                      interestCalculationMethod: v as 'SIMPLE' | 'COMPOUND',
+                      interestCalculationMethod: e.target.value as 'SIMPLE' | 'COMPOUND',
                     })
                   }
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SIMPLE">Simple Interest</SelectItem>
-                    <SelectItem value="COMPOUND">Compound Interest</SelectItem>
-                  </SelectContent>
+                  <MenuItem value="SIMPLE">Simple Interest</MenuItem>
+                  <MenuItem value="COMPOUND">Compound Interest</MenuItem>
                 </Select>
-              </div>
-              <div>
-                <Label>Repayment Frequency</Label>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Repayment Frequency</InputLabel>
                 <Select
                   value={newLoan.repaymentFrequency}
-                  onValueChange={(v) =>
+                  label="Repayment Frequency"
+                  onChange={(e) =>
                     setNewLoan({
                       ...newLoan,
-                      repaymentFrequency: v as typeof newLoan.repaymentFrequency,
+                      repaymentFrequency: e.target.value as typeof newLoan.repaymentFrequency,
                     })
                   }
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MONTHLY">Monthly</SelectItem>
-                    <SelectItem value="QUARTERLY">Quarterly</SelectItem>
-                    <SelectItem value="SEMI_ANNUALLY">Semi-Annually</SelectItem>
-                    <SelectItem value="ANNUALLY">Annually</SelectItem>
-                    <SelectItem value="BULLET">Bullet (At Maturity)</SelectItem>
-                  </SelectContent>
+                  <MenuItem value="MONTHLY">Monthly</MenuItem>
+                  <MenuItem value="QUARTERLY">Quarterly</MenuItem>
+                  <MenuItem value="SEMI_ANNUALLY">Semi-Annually</MenuItem>
+                  <MenuItem value="ANNUALLY">Annually</MenuItem>
+                  <MenuItem value="BULLET">Bullet (At Maturity)</MenuItem>
                 </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Start Date</Label>
-                <Input
-                  type="date"
-                  value={newLoan.startDate}
-                  onChange={(e) => setNewLoan({ ...newLoan, startDate: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Maturity Date</Label>
-                <Input
-                  type="date"
-                  value={newLoan.maturityDate}
-                  onChange={(e) => setNewLoan({ ...newLoan, maturityDate: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label>Notes (Optional)</Label>
-              <Textarea
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                margin="normal"
+                label="Start Date"
+                type="date"
+                value={newLoan.startDate}
+                onChange={(e) => setNewLoan({ ...newLoan, startDate: e.target.value })}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                margin="normal"
+                label="Maturity Date"
+                type="date"
+                value={newLoan.maturityDate}
+                onChange={(e) => setNewLoan({ ...newLoan, maturityDate: e.target.value })}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth
+                margin="normal"
+                label="Notes (Optional)"
+                multiline
+                rows={2}
                 value={newLoan.notes}
                 onChange={(e) => setNewLoan({ ...newLoan, notes: e.target.value })}
-                placeholder="Add any notes about this loan..."
               />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateLoan}
-              disabled={
-                createLoanMutation.isPending ||
-                !newLoan.lendingProjectId ||
-                !newLoan.borrowingProjectId ||
-                !newLoan.principalAmount ||
-                !newLoan.interestRate ||
-                !newLoan.maturityDate
-              }
-            >
-              {createLoanMutation.isPending ? 'Creating...' : 'Create Loan'}
-            </Button>
-          </DialogFooter>
+            </Grid>
+          </Grid>
         </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateLoan}
+            disabled={
+              createLoanMutation.isPending ||
+              !newLoan.lendingProjectId ||
+              !newLoan.borrowingProjectId ||
+              !newLoan.principalAmount ||
+              !newLoan.interestRate ||
+              !newLoan.maturityDate
+            }
+          >
+            {createLoanMutation.isPending ? 'Creating...' : 'Create Loan'}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Record Repayment Dialog */}
-      <Dialog open={isRepaymentDialogOpen} onOpenChange={setIsRepaymentDialogOpen}>
+      <Dialog
+        open={isRepaymentDialogOpen}
+        onClose={() => {
+          setIsRepaymentDialogOpen(false);
+          setSelectedLoan(null);
+          resetRepaymentForm();
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Record Repayment</DialogTitle>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Record Repayment</DialogTitle>
-            <DialogDescription>
-              {selectedLoan && (
-                <>
-                  Recording payment for loan {selectedLoan.loanNumber}. Outstanding balance:{' '}
-                  {formatCurrency(selectedLoan.remainingPrincipal)}
-                </>
-              )}
-            </DialogDescription>
-          </DialogHeader>
+          {selectedLoan && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Recording payment for loan {selectedLoan.loanNumber}. Outstanding balance:{' '}
+              {formatCurrency(selectedLoan.remainingPrincipal)}
+            </Alert>
+          )}
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Principal Payment</Label>
-                <Input
-                  type="number"
-                  value={repayment.principalAmount}
-                  onChange={(e) =>
-                    setRepayment({ ...repayment, principalAmount: e.target.value })
-                  }
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <Label>Interest Payment</Label>
-                <Input
-                  type="number"
-                  value={repayment.interestAmount}
-                  onChange={(e) =>
-                    setRepayment({ ...repayment, interestAmount: e.target.value })
-                  }
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label>Payment Date</Label>
-              <Input
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                margin="normal"
+                label="Principal Payment"
+                type="number"
+                value={repayment.principalAmount}
+                onChange={(e) => setRepayment({ ...repayment, principalAmount: e.target.value })}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                margin="normal"
+                label="Interest Payment"
+                type="number"
+                value={repayment.interestAmount}
+                onChange={(e) => setRepayment({ ...repayment, interestAmount: e.target.value })}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth
+                margin="normal"
+                label="Payment Date"
                 type="date"
                 value={repayment.repaymentDate}
-                onChange={(e) =>
-                  setRepayment({ ...repayment, repaymentDate: e.target.value })
-                }
+                onChange={(e) => setRepayment({ ...repayment, repaymentDate: e.target.value })}
+                slotProps={{ inputLabel: { shrink: true } }}
               />
-            </div>
-
-            <div>
-              <Label>Notes (Optional)</Label>
-              <Textarea
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth
+                margin="normal"
+                label="Notes (Optional)"
+                multiline
+                rows={2}
                 value={repayment.notes}
                 onChange={(e) => setRepayment({ ...repayment, notes: e.target.value })}
-                placeholder="Add any notes about this payment..."
               />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsRepaymentDialogOpen(false);
-                setSelectedLoan(null);
-                resetRepaymentForm();
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleRecordRepayment}
-              disabled={
-                recordRepaymentMutation.isPending ||
-                (!repayment.principalAmount && !repayment.interestAmount)
-              }
-            >
-              {recordRepaymentMutation.isPending ? 'Recording...' : 'Record Payment'}
-            </Button>
-          </DialogFooter>
+            </Grid>
+          </Grid>
         </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setIsRepaymentDialogOpen(false);
+              setSelectedLoan(null);
+              resetRepaymentForm();
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleRecordRepayment}
+            disabled={
+              recordRepaymentMutation.isPending ||
+              (!repayment.principalAmount && !repayment.interestAmount)
+            }
+          >
+            {recordRepaymentMutation.isPending ? 'Recording...' : 'Record Payment'}
+          </Button>
+        </DialogActions>
       </Dialog>
-    </div>
+
+      {/* Notification Snackbar */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={() => setNotification({ ...notification, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setNotification({ ...notification, open: false })}
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 }
