@@ -32,7 +32,6 @@ import {
   TextField,
   Alert,
   LinearProgress,
-  Snackbar,
 } from '@mui/material';
 import { Grid } from '@mui/material';
 import {
@@ -57,31 +56,18 @@ import {
   type RecordRepaymentInput,
 } from '@/lib/accounting/interprojectLoanService';
 import { useRouter } from 'next/navigation';
-
-interface NotificationState {
-  open: boolean;
-  message: string;
-  severity: 'success' | 'error' | 'info' | 'warning';
-}
+import { useToast } from '@/components/common/Toast';
 
 export default function InterprojectLoansPage() {
   const router = useRouter();
   const { claims, user } = useAuth();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isRepaymentDialogOpen, setIsRepaymentDialogOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<InterprojectLoan | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [notification, setNotification] = useState<NotificationState>({
-    open: false,
-    message: '',
-    severity: 'info',
-  });
-
-  const showNotification = (message: string, severity: NotificationState['severity']) => {
-    setNotification({ open: true, message, severity });
-  };
 
   // Form state for new loan
   const [newLoan, setNewLoan] = useState({
@@ -162,16 +148,16 @@ export default function InterprojectLoansPage() {
     },
     onSuccess: (result) => {
       if (result.success) {
-        showNotification(`Loan ${result.loanNumber} created successfully`, 'success');
+        toast.success(`Loan ${result.loanNumber} created successfully`);
         queryClient.invalidateQueries({ queryKey: ['interprojectLoans'] });
         setIsCreateDialogOpen(false);
         resetNewLoanForm();
       } else {
-        showNotification(result.error || 'Failed to create loan', 'error');
+        toast.error(result.error || 'Failed to create loan');
       }
     },
     onError: (error) => {
-      showNotification(error instanceof Error ? error.message : 'Failed to create loan', 'error');
+      toast.error(error instanceof Error ? error.message : 'Failed to create loan');
     },
   });
 
@@ -183,20 +169,17 @@ export default function InterprojectLoansPage() {
     },
     onSuccess: (result) => {
       if (result.success) {
-        showNotification('Repayment recorded successfully', 'success');
+        toast.success('Repayment recorded successfully');
         queryClient.invalidateQueries({ queryKey: ['interprojectLoans'] });
         setIsRepaymentDialogOpen(false);
         setSelectedLoan(null);
         resetRepaymentForm();
       } else {
-        showNotification(result.error || 'Failed to record repayment', 'error');
+        toast.error(result.error || 'Failed to record repayment');
       }
     },
     onError: (error) => {
-      showNotification(
-        error instanceof Error ? error.message : 'Failed to record repayment',
-        'error'
-      );
+      toast.error(error instanceof Error ? error.message : 'Failed to record repayment');
     },
   });
 
@@ -700,22 +683,6 @@ export default function InterprojectLoansPage() {
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Notification Snackbar */}
-      <Snackbar
-        open={notification.open}
-        autoHideDuration={6000}
-        onClose={() => setNotification({ ...notification, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert
-          onClose={() => setNotification({ ...notification, open: false })}
-          severity={notification.severity}
-          sx={{ width: '100%' }}
-        >
-          {notification.message}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }

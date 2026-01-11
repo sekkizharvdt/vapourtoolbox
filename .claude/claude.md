@@ -993,10 +993,10 @@ Use the global confirm dialog for destructive actions:
 ```typescript
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
-const { confirmDialog } = useConfirmDialog();
+const { confirm } = useConfirmDialog();
 
 const handleDelete = async () => {
-  const confirmed = await confirmDialog({
+  const confirmed = await confirm({
     title: 'Delete Invoice',
     message: 'This action cannot be undone.',
     confirmColor: 'error',
@@ -1005,6 +1005,51 @@ const handleDelete = async () => {
     await deleteInvoice(id);
   }
 };
+```
+
+### Toast Pattern (Ephemeral Notifications)
+
+Use the global toast for success/error feedback after operations:
+
+```typescript
+import { useToast } from '@/components/common/Toast';
+
+const { toast } = useToast();
+
+// After successful operation
+toast.success('Invoice created successfully');
+
+// After error
+toast.error('Failed to save changes');
+
+// Other severities
+toast.info('Processing...');
+toast.warning('This action cannot be undone');
+
+// With custom options (duration in ms)
+toast.success('Saved!', { duration: 3000 });
+```
+
+**Toast vs NotificationCenter:**
+
+| System                 | Purpose                    | Storage               | When to Use                        |
+| ---------------------- | -------------------------- | --------------------- | ---------------------------------- |
+| **Toast**              | Ephemeral UI feedback      | None (auto-dismisses) | Form submissions, CRUD operations  |
+| **NotificationCenter** | Persistent activity alerts | Firestore             | Approvals, mentions, system events |
+
+**Usage in mutations:**
+
+```typescript
+const createMutation = useMutation({
+  mutationFn: createInvoice,
+  onSuccess: () => {
+    toast.success('Invoice created successfully');
+    queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+  },
+  onError: (error) => {
+    toast.error(error instanceof Error ? error.message : 'Failed to create invoice');
+  },
+});
 ```
 
 ---

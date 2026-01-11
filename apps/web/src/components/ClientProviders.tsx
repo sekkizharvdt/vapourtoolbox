@@ -16,6 +16,7 @@
  * 5. VapourThemeProvider - MUI theme
  * 6. LocalizationProvider - MUI date pickers with Indian locale (dd/MM/yyyy)
  * 7. ConfirmDialogProvider - Global confirm dialog for replacing window.confirm
+ * 8. ToastProvider - Global toast notifications for ephemeral UI feedback
  */
 
 import { VapourThemeProvider } from '@vapour/ui';
@@ -28,6 +29,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { QueryProvider } from '@/lib/providers/QueryProvider';
 import { ConfirmDialogProvider } from '@/components/common/ConfirmDialog';
+import { ToastProvider } from '@/components/common/Toast';
 
 // Validate Firebase configuration on module load
 // This will throw clear errors if env variables are missing
@@ -41,7 +43,9 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
           <QueryProvider>
             <VapourThemeProvider defaultMode="light">
               <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enIN}>
-                <ConfirmDialogProvider>{children}</ConfirmDialogProvider>
+                <ConfirmDialogProvider>
+                  <ToastProvider>{children}</ToastProvider>
+                </ConfirmDialogProvider>
               </LocalizationProvider>
             </VapourThemeProvider>
           </QueryProvider>
