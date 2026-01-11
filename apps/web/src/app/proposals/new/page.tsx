@@ -3,8 +3,6 @@
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Box, Typography, Breadcrumbs, Link as MuiLink, CircularProgress } from '@mui/material';
-import { LocalizationProvider } from '@mui/x-date-pickers';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
@@ -20,11 +18,8 @@ function NewProposalContent() {
   const searchParams = useSearchParams();
   const enquiryId = searchParams.get('enquiryId');
 
-  return (
-    <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <ProposalWizard initialEnquiryId={enquiryId || undefined} />
-    </LocalizationProvider>
-  );
+  // Uses global LocalizationProvider with AdapterDateFns from ClientProviders
+  return <ProposalWizard initialEnquiryId={enquiryId || undefined} />;
 }
 
 export default function NewProposalPage() {

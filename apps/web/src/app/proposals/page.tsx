@@ -54,10 +54,9 @@ export default function ProposalsPage() {
     },
     {
       title: 'Scope Matrix',
-      description: 'Define scope of work and supply for proposals',
+      description: 'Define scope of services, supply, and exclusions',
       icon: <GridViewIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/proposals/scope-matrix',
-      comingSoon: true,
     },
     {
       title: 'Estimation',

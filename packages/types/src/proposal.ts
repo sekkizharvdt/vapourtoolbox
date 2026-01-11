@@ -6,6 +6,118 @@
 import { Timestamp } from 'firebase/firestore';
 import { TimestampFields, Money, CurrencyCode } from './common';
 
+// ============================================================================
+// Scope Matrix Types
+// ============================================================================
+
+/**
+ * Scope Item Type
+ * Defines the three categories of scope items in a proposal
+ */
+export type ScopeItemType = 'SERVICE' | 'SUPPLY' | 'EXCLUSION';
+
+/**
+ * Scope Item Type Labels
+ */
+export const SCOPE_ITEM_TYPE_LABELS: Record<ScopeItemType, string> = {
+  SERVICE: 'Service',
+  SUPPLY: 'Supply',
+  EXCLUSION: 'Exclusion',
+};
+
+/**
+ * Project Phase
+ * Defines the phases of an EPC/manufacturing project lifecycle
+ */
+export type ProjectPhase =
+  | 'ENGINEERING'
+  | 'PROCUREMENT'
+  | 'MANUFACTURING'
+  | 'LOGISTICS'
+  | 'SITE'
+  | 'COMMISSIONING'
+  | 'DOCUMENTATION';
+
+/**
+ * Project Phase Labels
+ */
+export const PROJECT_PHASE_LABELS: Record<ProjectPhase, string> = {
+  ENGINEERING: 'Engineering',
+  PROCUREMENT: 'Procurement',
+  MANUFACTURING: 'Manufacturing',
+  LOGISTICS: 'Logistics',
+  SITE: 'Site',
+  COMMISSIONING: 'Commissioning',
+  DOCUMENTATION: 'Documentation',
+};
+
+/**
+ * Project Phase Order (for sorting)
+ */
+export const PROJECT_PHASE_ORDER: ProjectPhase[] = [
+  'ENGINEERING',
+  'PROCUREMENT',
+  'MANUFACTURING',
+  'LOGISTICS',
+  'SITE',
+  'COMMISSIONING',
+  'DOCUMENTATION',
+];
+
+/**
+ * Scope Item
+ * Individual item in the scope matrix (service, supply, or exclusion)
+ * Note: No costing fields - estimation is done in a separate module
+ */
+export interface ScopeItem {
+  id: string;
+  itemNumber: string; // Hierarchical: "1.1", "1.2", "2.1"
+  type: ScopeItemType; // SERVICE, SUPPLY, or EXCLUSION
+
+  // Basic information
+  name: string;
+  description: string;
+
+  // Phase grouping (optional for exclusions)
+  phase?: ProjectPhase;
+
+  // For SUPPLY items
+  quantity?: number;
+  unit?: string; // nos, kg, m, lot, etc.
+
+  // For SERVICE items
+  deliverable?: string; // What output is produced
+
+  // Relationships
+  dependsOn?: string[]; // IDs of items this depends on
+  relatedItems?: string[]; // IDs of related service/supply items
+
+  // Display order within phase
+  order: number;
+
+  // Optional notes
+  notes?: string;
+}
+
+/**
+ * Scope Matrix
+ * Complete scope definition for a proposal
+ */
+export interface ScopeMatrix {
+  services: ScopeItem[];
+  supply: ScopeItem[];
+  exclusions: ScopeItem[];
+
+  // Metadata
+  lastUpdatedAt?: Timestamp;
+  lastUpdatedBy?: string;
+  isComplete?: boolean; // Flag to mark scope as "iron-clad"
+}
+
+// ============================================================================
+// Proposal Status & Workflow Types
+// ============================================================================
+
 /**
  * Proposal Status
  */
@@ -294,8 +406,11 @@ export interface Proposal extends TimestampFields {
   // Scope of Work
   scopeOfWork: ScopeOfWork;
 
-  // Scope of Supply
+  // Scope of Supply (legacy - being replaced by scopeMatrix)
   scopeOfSupply: ProposalLineItem[];
+
+  // Scope Matrix (new structured scope definition)
+  scopeMatrix?: ScopeMatrix;
 
   // Delivery & Timeline
   deliveryPeriod: DeliveryPeriod;
@@ -366,6 +481,7 @@ export interface UpdateProposalInput {
   validityDate?: Timestamp;
   scopeOfWork?: Partial<ScopeOfWork>;
   scopeOfSupply?: ProposalLineItem[];
+  scopeMatrix?: ScopeMatrix;
   deliveryPeriod?: Partial<DeliveryPeriod>;
   pricing?: Partial<Pricing>;
   terms?: Partial<TermsAndConditions>;
