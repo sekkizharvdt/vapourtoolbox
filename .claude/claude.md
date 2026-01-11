@@ -73,7 +73,8 @@ useEffect(() => {
 9. [Git Workflow & Commits](#git-workflow--commits)
 10. [Pre-commit Hooks & CI/CD](#pre-commit-hooks--cicd)
 11. [Common Pitfalls & Solutions](#common-pitfalls--solutions)
-12. [Priority Guidelines](#priority-guidelines)
+12. [Future Standardization Tasks](#future-standardization-tasks)
+13. [Priority Guidelines](#priority-guidelines)
 
 ---
 
@@ -1149,6 +1150,34 @@ const [loading, setLoading] = useState(false)
     <CircularProgress />
   </Box>
 )}
+```
+
+**LoadingButton Component:**
+
+For buttons with loading states, use the `LoadingButton` component:
+
+```typescript
+import { LoadingButton } from '@/components/common/LoadingButton';
+
+// Basic usage
+<LoadingButton loading={mutation.isPending}>
+  Save
+</LoadingButton>
+
+// With loading text
+<LoadingButton loading={isSubmitting} loadingText="Saving...">
+  Save Invoice
+</LoadingButton>
+
+// With variant and color
+<LoadingButton
+  loading={mutation.isPending}
+  loadingText="Creating..."
+  variant="contained"
+  color="primary"
+>
+  Create
+</LoadingButton>
 ```
 
 ---
@@ -2310,6 +2339,46 @@ Status Filter:
 
 **When to Apply:**
 When building systems with phased rollouts or when all features won't be implemented simultaneously.
+
+---
+
+## Future Standardization Tasks
+
+The following standardization tasks have been identified but deferred for future implementation due to their scope:
+
+### 1. Migrate `console.error` to `createLogger` (402 files)
+
+**Current State:** ~402 files use `console.error` directly instead of `createLogger` from `@vapour/logger`.
+
+**Standard:** Use `createLogger` for all error logging (see [Error Handling Pattern](#error-handling-pattern)).
+
+**Approach when implementing:**
+
+- Prioritize by module (start with accounting module)
+- Test thoroughly after each batch
+- Run `grep -r "console.error" apps/web/src` to find remaining instances
+
+### 2. Standardize Loading State Variable Names
+
+**Current State:** ~60% use `loading`, ~40% use `isLoading` for manual state.
+
+**Standard:** Use `loading` for manual state, `isLoading` from React Query (see [Loading State Patterns](#loading-state-patterns)).
+
+**Approach when implementing:**
+
+- Low priority - cosmetic consistency
+- Update during related feature work, not as bulk migration
+
+### 3. Adopt LoadingButton Across Forms
+
+**Current State:** Forms use inline `{loading ? 'Saving...' : 'Save'}` pattern.
+
+**Standard:** Use `LoadingButton` component (see [LoadingButton Component](#loadingbutton-component)).
+
+**Approach when implementing:**
+
+- Update during related feature work
+- New forms should use LoadingButton from the start
 
 ---
 
