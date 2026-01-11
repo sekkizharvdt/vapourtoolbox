@@ -1052,6 +1052,161 @@ const createMutation = useMutation({
 });
 ```
 
+### Error Handling Pattern
+
+**Standard:** Use `createLogger` from `@vapour/logger`, not `console.error`.
+
+**For Services/Libraries:**
+
+```typescript
+import { createLogger } from '@vapour/logger';
+
+const logger = createLogger({ context: 'invoiceService' });
+
+export async function createInvoice(data: InvoiceInput): Promise<string> {
+  try {
+    const docRef = await addDoc(collection(db, COLLECTIONS.INVOICES), data);
+    return docRef.id;
+  } catch (error) {
+    logger.error('Failed to create invoice', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+```
+
+**For Components (with user feedback):**
+
+```typescript
+import { createLogger } from '@vapour/logger';
+import { useToast } from '@/components/common/Toast';
+import { getErrorMessage } from '@/lib/utils/errorHandling';
+
+const logger = createLogger({ context: 'CreateInvoiceDialog' });
+
+const handleSave = async () => {
+  try {
+    await createInvoice(data);
+    toast.success('Invoice created successfully');
+    onClose();
+  } catch (error) {
+    const message = getErrorMessage(error);
+    logger.error('Save failed', { error: message });
+    toast.error(message);
+  }
+};
+```
+
+**Error Handling Utilities** (`@/lib/utils/errorHandling`):
+
+| Function                         | Purpose                                                |
+| -------------------------------- | ------------------------------------------------------ |
+| `getErrorMessage(error)`         | Extract message from unknown error type                |
+| `withErrorHandling(fn, context)` | Wrap async function with logging                       |
+| `tryOperation(fn)`               | Returns `{ success, data, error }` instead of throwing |
+
+---
+
+### Loading State Patterns
+
+**Naming Convention:**
+
+```typescript
+// React Query (use what it provides)
+const { data, isLoading, error } = useQuery(...)
+const mutation = useMutation(...) // mutation.isPending
+
+// Manual state (use 'loading')
+const [loading, setLoading] = useState(false)
+```
+
+**UI Component Selection:**
+
+| Context           | Component             | Code Example                                                |
+| ----------------- | --------------------- | ----------------------------------------------------------- |
+| Initial page load | `<Skeleton>`          | `<Skeleton variant="rectangular" height={200} />`           |
+| Dialog submission | `<CircularProgress>`  | Centered spinner while saving                               |
+| File uploads      | `<LinearProgress>`    | `<LinearProgress variant="determinate" value={progress} />` |
+| Buttons           | Text change + disable | `{loading ? 'Saving...' : 'Save'}`                          |
+
+**Button Pattern:**
+
+```typescript
+<Button
+  onClick={handleSubmit}
+  disabled={loading || !isFormValid}
+>
+  {loading ? 'Saving...' : 'Save'}
+</Button>
+```
+
+**Dialog Loading:**
+
+```typescript
+{loading && (
+  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+    <CircularProgress />
+  </Box>
+)}
+```
+
+---
+
+### Service Return Patterns
+
+Choose based on operation complexity:
+
+| Pattern            | When to Use                             | Example Services                                   |
+| ------------------ | --------------------------------------- | -------------------------------------------------- |
+| **Result Object**  | Multi-step workflows, multiple entities | `interprojectLoanService`, `yearEndClosingService` |
+| **Error Throwing** | Simple CRUD, single entity              | `costCentreService`, `fiscalYearService`           |
+
+**Result Object Pattern** (for complex operations):
+
+```typescript
+interface ServiceResult<T = void> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+export async function createLoan(input: LoanInput): Promise<ServiceResult<{ loanId: string }>> {
+  try {
+    // Multiple Firestore operations in transaction
+    return { success: true, data: { loanId: result.id } };
+  } catch (error) {
+    logger.error('createLoan failed', { error });
+    return { success: false, error: error.message };
+  }
+}
+
+// Usage in component:
+const result = await createLoan(data);
+if (result.success) {
+  toast.success('Loan created');
+} else {
+  toast.error(result.error);
+}
+```
+
+**Error Throwing Pattern** (for simple operations):
+
+```typescript
+export async function getCostCentre(id: string): Promise<CostCentre | null> {
+  const docRef = doc(db, COLLECTIONS.COST_CENTRES, id);
+  const snapshot = await getDoc(docRef);
+  return snapshot.exists() ? docToTyped<CostCentre>(snapshot.id, snapshot.data()) : null;
+}
+
+// Usage with try-catch:
+try {
+  const costCentre = await getCostCentre(id);
+} catch (error) {
+  toast.error('Failed to load cost centre');
+}
+```
+
 ---
 
 ## Permission System Guide
