@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Scope Matrix Editor Page
  *
@@ -7,15 +5,8 @@
  * This is linked from the Scope Matrix list and proposal detail pages.
  */
 
-import { use } from 'react';
-import { Suspense } from 'react';
-import {
-  Box,
-  Typography,
-  Breadcrumbs,
-  Link as MuiLink,
-  CircularProgress,
-} from '@mui/material';
+import { use, Suspense } from 'react';
+import { Box, Typography, Breadcrumbs, Link as MuiLink, CircularProgress } from '@mui/material';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
@@ -31,6 +22,12 @@ const ScopeMatrixEditor = dynamic(
     ),
   }
 );
+
+// For static export, we need to provide at least one path
+// Client-side component will parse actual ID from URL
+export function generateStaticParams() {
+  return [{ id: 'placeholder' }];
+}
 
 interface PageProps {
   params: Promise<{ id: string }>;
