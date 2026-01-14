@@ -24,6 +24,7 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
+import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type {
   RecurringTransaction,
   RecurringTransactionType,
@@ -164,10 +165,7 @@ export async function getRecurringTransaction(
     return null;
   }
 
-  return {
-    id: snapshot.id,
-    ...snapshot.data(),
-  } as RecurringTransaction;
+  return docToTyped<RecurringTransaction>(snapshot.id, snapshot.data());
 }
 
 /**
