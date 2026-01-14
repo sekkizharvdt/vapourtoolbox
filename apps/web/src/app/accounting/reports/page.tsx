@@ -21,6 +21,7 @@ import {
   BusinessCenter as ProjectIcon,
   Business as EntityIcon,
   Home as HomeIcon,
+  Payments as ReceiptsPaymentsIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -84,6 +85,12 @@ export default function FinancialReportsPage() {
       description: 'Project-wise income, expenses, and budget analysis',
       icon: <ProjectIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/reports/project-financial',
+    },
+    {
+      title: 'Receipts & Payments',
+      description: 'Monthly cash receipts and payments with categorized breakdowns',
+      icon: <ReceiptsPaymentsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/reports/receipts-payments',
     },
     {
       title: 'Custom Reports',

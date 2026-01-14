@@ -162,6 +162,17 @@ export default function ReceiptsPaymentsPage() {
           <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
           Accounting
         </Link>
+        <Link
+          color="inherit"
+          href="/accounting/reports"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting/reports');
+          }}
+          sx={{ cursor: 'pointer' }}
+        >
+          Financial Reports
+        </Link>
         <Typography color="text.primary">Receipts & Payments</Typography>
       </Breadcrumbs>
 
