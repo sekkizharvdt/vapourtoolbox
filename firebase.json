@@ -28,6 +28,10 @@
         "destination": "/accounting/cost-centres/placeholder.html"
       },
       {
+        "source": "/accounting/recurring/*",
+        "destination": "/accounting/recurring/placeholder.html"
+      },
+      {
         "source": "/bought-out/*",
         "destination": "/bought-out/placeholder.html"
       },
