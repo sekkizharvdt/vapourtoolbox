@@ -53,6 +53,10 @@ export const COLLECTIONS = {
   PERIOD_LOCK_AUDIT: 'periodLockAudit',
   INTERPROJECT_LOANS: 'interprojectLoans',
 
+  // Recurring Transactions
+  RECURRING_TRANSACTIONS: 'recurringTransactions',
+  RECURRING_OCCURRENCES: 'recurringOccurrences',
+
   // Bank Reconciliation
   BANK_STATEMENTS: 'bankStatements',
   BANK_TRANSACTIONS: 'bankTransactions',

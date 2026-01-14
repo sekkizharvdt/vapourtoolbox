@@ -13,6 +13,7 @@ A new sub-module for the Accounting team to plan future payments based on expect
 1. **Cash Flow Forecasting**
    - View projected cash inflows (from customer invoices due)
    - View projected cash outflows (vendor bills due)
+   - **Include recurring transactions** (salaries, subscriptions, rent, etc.)
    - Net cash position forecast over time
 
 2. **Payment Prioritization**
@@ -28,6 +29,12 @@ A new sub-module for the Accounting team to plan future payments based on expect
 4. **Scenario Planning**
    - "What-if" analysis for payment timing
    - Impact of delayed receipts on cash position
+
+5. **Recurring Transaction Management** ⚠️ **NEW REQUIREMENT**
+   - Monthly salary provisioning (from employee data)
+   - Recurring vendor bills (software subscriptions, rent, utilities)
+   - Recurring customer invoices (retainer contracts, maintenance)
+   - Scheduled journal entries (depreciation, amortization)
 
 ---
 
@@ -253,6 +260,7 @@ export interface ForecastOptions {
   // What to include
   includeOverdue: boolean;
   includeDraft: boolean; // Include draft invoices/bills
+  includeRecurring: boolean; // Include recurring transactions
 
   // Confidence adjustments
   applyConfidenceWeighting: boolean;
@@ -262,6 +270,201 @@ export interface ForecastOptions {
   entityIds?: string[]; // Filter to specific customers/vendors
   projectIds?: string[]; // Filter to specific projects
   minAmount?: number;
+}
+
+// ============================================
+// RECURRING TRANSACTIONS (New Feature Required)
+// ============================================
+
+/**
+ * Frequency for recurring transactions
+ */
+export type RecurrenceFrequency =
+  | 'DAILY'
+  | 'WEEKLY'
+  | 'BIWEEKLY'
+  | 'MONTHLY'
+  | 'QUARTERLY'
+  | 'YEARLY';
+
+/**
+ * Type of recurring transaction
+ */
+export type RecurringTransactionType =
+  | 'SALARY'           // Employee salaries
+  | 'VENDOR_BILL'      // Recurring vendor bills (rent, subscriptions)
+  | 'CUSTOMER_INVOICE' // Recurring customer invoices (retainers)
+  | 'JOURNAL_ENTRY';   // Recurring journal entries (depreciation)
+
+/**
+ * Recurring transaction template
+ */
+export interface RecurringTransaction {
+  id: string;
+
+  // Template info
+  name: string;
+  description?: string;
+  type: RecurringTransactionType;
+  isActive: boolean;
+
+  // Schedule
+  frequency: RecurrenceFrequency;
+  startDate: Timestamp;
+  endDate?: Timestamp;           // Optional end date
+  nextOccurrence: Timestamp;     // Next scheduled date
+  dayOfMonth?: number;           // For MONTHLY: 1-31, use 0 for last day
+  dayOfWeek?: number;            // For WEEKLY: 0-6 (Sun-Sat)
+
+  // Financial
+  amount: Money;
+  currency: string;
+
+  // For SALARY type
+  employeeIds?: string[];        // Which employees (empty = all active)
+
+  // For VENDOR_BILL type
+  vendorId?: string;
+  expenseAccountId?: string;     // Default expense account
+
+  // For CUSTOMER_INVOICE type
+  customerId?: string;
+  revenueAccountId?: string;     // Default revenue account
+
+  // For JOURNAL_ENTRY type
+  journalTemplate?: {
+    debitAccountId: string;
+    creditAccountId: string;
+    narration: string;
+  };
+
+  // Auto-generation settings
+  autoGenerate: boolean;         // Auto-create or just notify
+  daysBeforeToGenerate: number;  // Generate N days before due
+  requiresApproval: boolean;     // Needs approval before posting
+
+  // Audit
+  createdBy: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  lastGeneratedAt?: Timestamp;
+}
+
+/**
+ * Generated occurrence from a recurring transaction
+ */
+export interface RecurringOccurrence {
+  id: string;
+  recurringTransactionId: string;
+
+  // Scheduled info
+  scheduledDate: Timestamp;
+  amount: Money;
+
+  // Status
+  status: 'PENDING' | 'GENERATED' | 'SKIPPED' | 'MODIFIED';
+
+  // Generated transaction reference
+  generatedTransactionId?: string;
+  generatedTransactionType?: 'INVOICE' | 'BILL' | 'JOURNAL_ENTRY' | 'SALARY_PAYMENT';
+
+  // Modifications
+  modifiedAmount?: Money;
+  modifiedDate?: Timestamp;
+  skipReason?: string;
+
+  // Audit
+  processedAt?: Timestamp;
+  processedBy?: string;
+}
+```
+
+---
+
+## Recurring Transactions (Prerequisite Feature)
+
+⚠️ **IMPORTANT**: The accounting module currently has **NO recurring transaction capabilities**. This must be built before Payment Planning can provide accurate forecasts.
+
+### Current Gap Analysis
+
+| Feature | Status | Impact |
+|---------|--------|--------|
+| Recurring Invoices | ❌ Missing | Cannot forecast retainer income |
+| Recurring Bills | ❌ Missing | Cannot forecast subscriptions, rent |
+| Salary Provisioning | ❌ Missing | Cannot forecast monthly payroll |
+| Scheduled Journal Entries | ❌ Missing | Cannot auto-post depreciation |
+
+### What Exists
+
+- **Employee bank details** in HR module (can be used for salary payments)
+- **Invoice/Bill creation** (manual only)
+- **Journal entry creation** (manual only)
+
+### Recurring Transactions UI
+
+**New Pages:**
+```
+/accounting/recurring/
+├── page.tsx                    # List all recurring transactions
+├── new/page.tsx               # Create new recurring transaction
+├── [id]/page.tsx              # View/edit recurring transaction
+└── upcoming/page.tsx          # View upcoming occurrences
+```
+
+**Hub Page Features:**
+1. **All Recurring Transactions** - Grid view with filters by type
+2. **Upcoming This Month** - Calendar showing what's due
+3. **Quick Actions** - Create salary template, subscription, etc.
+
+### Salary Provisioning Workflow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SALARY PROVISIONING                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  1. Setup (One-time)                                         │
+│     └─ Create recurring transaction type=SALARY              │
+│     └─ Select employees or "All Active"                      │
+│     └─ Set frequency=MONTHLY, dayOfMonth=25                  │
+│                                                              │
+│  2. Monthly Generation (Auto or Manual)                      │
+│     └─ System generates individual salary entries            │
+│     └─ Each entry linked to employee                         │
+│     └─ Amounts pulled from employee salary data              │
+│                                                              │
+│  3. Approval & Payment                                       │
+│     └─ HR/Finance reviews generated entries                  │
+│     └─ Adjust for leaves, bonuses, deductions                │
+│     └─ Approve and process bank payments                     │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Integration with Payment Planning
+
+Once recurring transactions exist:
+
+```typescript
+async function generateCashFlowForecast(db, options) {
+  // 1. Get outstanding invoices (one-time)
+  const invoices = await getOutstandingInvoices(db);
+
+  // 2. Get outstanding bills (one-time)
+  const bills = await getOutstandingBills(db);
+
+  // 3. Get future recurring occurrences (NEW)
+  const recurringItems = await getUpcomingRecurringTransactions(
+    db,
+    options.startDate,
+    options.endDate
+  );
+
+  // 4. Merge all into forecast timeline
+  const allItems = [...invoices, ...bills, ...recurringItems];
+
+  // 5. Generate daily/weekly projections
+  return buildForecast(allItems, options);
 }
 ```
 
@@ -534,6 +737,22 @@ paymentSchedules/
 
 ## Implementation Phases
 
+### Phase 0: Recurring Transactions (Prerequisite) ⚠️ BUILD FIRST
+- [ ] Create `recurringTransaction.ts` types
+- [ ] Create Firestore collection `recurringTransactions`
+- [ ] Implement `recurringTransactionService.ts`
+- [ ] Build recurring transactions hub page
+- [ ] Create/edit recurring transaction form
+- [ ] View upcoming occurrences calendar
+- [ ] Manual occurrence generation
+- [ ] Auto-generation scheduler (background job)
+
+### Phase 0.5: Salary Provisioning
+- [ ] Create salary recurring template
+- [ ] Link to employee HR data
+- [ ] Generate monthly salary entries
+- [ ] Integration with payment execution
+
 ### Phase 1: Core Forecast (MVP)
 - [ ] Create `paymentPlanning.ts` types
 - [ ] Implement `paymentPlanningService.ts`
@@ -541,6 +760,7 @@ paymentSchedules/
 - [ ] Build basic forecast chart (30-day view)
 - [ ] Outstanding invoices table
 - [ ] Outstanding bills table
+- [ ] **Include recurring transactions in forecast**
 
 ### Phase 2: Enhanced Analytics
 - [ ] Entity payment metrics calculation
@@ -567,6 +787,8 @@ paymentSchedules/
 
 ## Questions to Resolve
 
+### Payment Planning Questions
+
 1. **Minimum Safe Balance**: Should users be able to set a minimum cash balance threshold for alerts?
 
 2. **Payment Approval Threshold**: What amount should require approval before scheduling?
@@ -583,25 +805,63 @@ paymentSchedules/
 
 6. **Multi-Currency**: How to handle forecasts with multiple currencies?
 
+### Recurring Transaction Questions
+
+7. **Auto-generation timing**: How many days before due date should transactions be auto-generated?
+   - Suggestion: Configurable per recurring transaction (default: 5 days)
+
+8. **Salary source data**: Where should salary amounts come from?
+   - Option A: Store in recurring transaction template (simple)
+   - Option B: Pull from HR employee records (requires integration)
+   - Suggestion: Option B for accuracy, with override capability
+
+9. **Approval workflow**: Who approves auto-generated recurring transactions?
+   - Suggestion: Same approval rules as manual transactions of that type
+
+10. **Skip/modify occurrences**: Should users be able to skip or modify individual occurrences without affecting the template?
+    - Suggestion: Yes, with audit trail
+
+11. **End date handling**: What happens when a recurring transaction reaches its end date?
+    - Option A: Auto-deactivate
+    - Option B: Notify and wait for user action
+    - Suggestion: Auto-deactivate with notification
+
+12. **Variable amounts**: How to handle recurring transactions with variable amounts (e.g., utility bills)?
+    - Suggestion: Use estimated amount, allow modification before posting
+
 ---
 
 ## Files to Create
 
 ### Types Package
+- `packages/types/src/recurringTransaction.ts` **(Phase 0)**
 - `packages/types/src/paymentPlanning.ts`
 - Update `packages/types/src/index.ts` (export new types)
 
 ### Web App - Services
+- `apps/web/src/lib/accounting/recurringTransactionService.ts` **(Phase 0)**
 - `apps/web/src/lib/accounting/paymentPlanningService.ts`
 
-### Web App - Pages
+### Web App - Recurring Transactions Pages (Phase 0)
+- `apps/web/src/app/accounting/recurring/page.tsx`
+- `apps/web/src/app/accounting/recurring/new/page.tsx`
+- `apps/web/src/app/accounting/recurring/[id]/page.tsx`
+- `apps/web/src/app/accounting/recurring/upcoming/page.tsx`
+
+### Web App - Recurring Transactions Components (Phase 0)
+- `apps/web/src/app/accounting/recurring/components/RecurringTransactionForm.tsx`
+- `apps/web/src/app/accounting/recurring/components/RecurringTransactionList.tsx`
+- `apps/web/src/app/accounting/recurring/components/UpcomingOccurrencesCalendar.tsx`
+- `apps/web/src/app/accounting/recurring/components/SalaryTemplateWizard.tsx`
+
+### Web App - Payment Planning Pages
 - `apps/web/src/app/accounting/payment-planning/page.tsx`
 - `apps/web/src/app/accounting/payment-planning/forecast/page.tsx`
 - `apps/web/src/app/accounting/payment-planning/receivables/page.tsx`
 - `apps/web/src/app/accounting/payment-planning/payables/page.tsx`
 - `apps/web/src/app/accounting/payment-planning/schedule/page.tsx`
 
-### Web App - Components
+### Web App - Payment Planning Components
 - `apps/web/src/app/accounting/payment-planning/components/CashFlowChart.tsx`
 - `apps/web/src/app/accounting/payment-planning/components/ForecastSummaryCards.tsx`
 - `apps/web/src/app/accounting/payment-planning/components/OutstandingInvoicesTable.tsx`
@@ -609,12 +869,36 @@ paymentSchedules/
 - `apps/web/src/app/accounting/payment-planning/components/PaymentScheduleCalendar.tsx`
 
 ### Firestore
+- Add `recurringTransactions` collection
+- Add `recurringOccurrences` subcollection
 - Add indexes to `firestore.indexes.json`
 
 ### Accounting Hub
-- Update `apps/web/src/app/accounting/page.tsx` (add Payment Planning card)
+- Update `apps/web/src/app/accounting/page.tsx` (add Recurring Transactions and Payment Planning cards)
 
 ---
 
 *Document created: 2026-01-14*
 *Last updated: 2026-01-14*
+
+---
+
+## Summary
+
+**Key Finding**: The accounting module currently has **NO recurring transaction capabilities**. Before accurate cash flow forecasting can be implemented, we need to build:
+
+1. **Recurring Transactions Module** (Phase 0)
+   - Templates for recurring invoices, bills, and journal entries
+   - Occurrence scheduling and auto-generation
+   - Manual override and skip capabilities
+
+2. **Salary Provisioning** (Phase 0.5)
+   - Integration with HR employee data
+   - Monthly salary entry generation
+   - Bank payment processing
+
+Only after these foundational features exist can the Payment Planning module provide accurate forecasts that include:
+- Outstanding one-time invoices/bills
+- **Recurring subscriptions and rent**
+- **Monthly payroll obligations**
+- Scheduled journal entries (depreciation, etc.)

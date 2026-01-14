@@ -14,6 +14,7 @@ import {
   Payment as PaymentIcon,
   AccountBalanceWallet as ReconciliationIcon,
   Folder as FolderIcon,
+  Repeat as RecurringIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -70,6 +71,12 @@ export default function AccountingPage() {
       description: 'Match bank statements with accounting records and reconcile balances',
       icon: <ReconciliationIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/reconciliation',
+    },
+    {
+      title: 'Recurring Transactions',
+      description: 'Manage recurring invoices, bills, salaries, and journal entries',
+      icon: <RecurringIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/recurring',
     },
     {
       title: 'All Transactions',
