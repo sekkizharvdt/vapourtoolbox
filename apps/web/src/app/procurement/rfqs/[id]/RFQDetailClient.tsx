@@ -39,6 +39,8 @@ import {
   CheckCircle as CheckCircleIcon,
   PictureAsPdf as PdfIcon,
   Home as HomeIcon,
+  Upload as UploadIcon,
+  Compare as CompareIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RFQ, RFQItem } from '@vapour/types';
@@ -57,6 +59,14 @@ import {
 } from '@/lib/procurement/rfqHelpers';
 import { formatDate } from '@/lib/utils/formatters';
 import GenerateRFQPDFDialog from '@/components/procurement/GenerateRFQPDFDialog';
+import UploadOfferDialog from '@/components/procurement/UploadOfferDialog';
+
+/**
+ * Check if RFQ can receive offers (ISSUED or OFFERS_RECEIVED status)
+ */
+function canReceiveOffers(rfq: RFQ): boolean {
+  return rfq.status === 'ISSUED' || rfq.status === 'OFFERS_RECEIVED';
+}
 
 export default function RFQDetailPage() {
   const pathname = usePathname();
@@ -74,6 +84,7 @@ export default function RFQDetailPage() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
+  const [uploadOfferDialogOpen, setUploadOfferDialogOpen] = useState(false);
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -236,6 +247,25 @@ export default function RFQDetailPage() {
                 onClick={() => setIssueDialogOpen(true)}
               >
                 Issue RFQ
+              </Button>
+            )}
+            {canReceiveOffers(rfq) && (
+              <Button
+                variant="contained"
+                color="secondary"
+                startIcon={<UploadIcon />}
+                onClick={() => setUploadOfferDialogOpen(true)}
+              >
+                Upload Offer
+              </Button>
+            )}
+            {rfq.offersReceived > 0 && (
+              <Button
+                variant="outlined"
+                startIcon={<CompareIcon />}
+                onClick={() => router.push(`/procurement/rfqs/${rfq.id}/offers`)}
+              >
+                Compare Offers ({rfq.offersReceived})
               </Button>
             )}
             {canCompleteRFQ(rfq) && (
@@ -554,6 +584,18 @@ export default function RFQDetailPage() {
         onClose={() => setPdfDialogOpen(false)}
         rfq={rfq}
         onSuccess={() => loadRFQ()}
+      />
+
+      {/* Upload Offer Dialog */}
+      <UploadOfferDialog
+        open={uploadOfferDialogOpen}
+        onClose={() => setUploadOfferDialogOpen(false)}
+        rfq={rfq}
+        rfqItems={items}
+        onSuccess={() => {
+          setUploadOfferDialogOpen(false);
+          loadRFQ();
+        }}
       />
     </Box>
   );

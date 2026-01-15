@@ -1,0 +1,898 @@
+'use client';
+
+/**
+ * Upload Offer Dialog
+ *
+ * Upload and optionally parse vendor offer documents (PDF/DOC)
+ * using Google Cloud Document AI to extract structured pricing data.
+ */
+
+import { useState, useMemo } from 'react';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Box,
+  Typography,
+  Alert,
+  LinearProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Stack,
+  IconButton,
+  Chip,
+  TextField,
+  Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  InputAdornment,
+} from '@mui/material';
+import {
+  CloudUpload as CloudUploadIcon,
+  Close as CloseIcon,
+  CheckCircle as CheckCircleIcon,
+  Description as DescriptionIcon,
+  ExpandMore as ExpandMoreIcon,
+  AutoAwesome as AutoAwesomeIcon,
+  Link as LinkIcon,
+  LinkOff as LinkOffIcon,
+} from '@mui/icons-material';
+import { httpsCallable } from 'firebase/functions';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getFirebase } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
+import { useCreateOffer, type CreateOfferInput, type CreateOfferItemInput } from '@/lib/procurement/offer';
+import type { RFQ, RFQItem } from '@vapour/types';
+import type { OfferParsingResult, ParsedOfferItem } from '@vapour/types';
+
+interface UploadOfferDialogProps {
+  open: boolean;
+  onClose: () => void;
+  rfq: RFQ;
+  rfqItems: RFQItem[];
+  onSuccess?: (offerId: string) => void;
+}
+
+interface OfferItemData {
+  rfqItemId: string;
+  rfqItemDescription: string;
+  rfqItemQuantity: number;
+  rfqItemUnit: string;
+  description: string;
+  quotedQuantity: number;
+  unit: string;
+  unitPrice: number;
+  gstRate: number;
+  deliveryPeriod: string;
+  makeModel: string;
+  meetsSpec: boolean;
+  deviations: string;
+  vendorNotes: string;
+  matchConfidence?: number;
+  isMatched: boolean;
+}
+
+export default function UploadOfferDialog({
+  open,
+  onClose,
+  rfq,
+  rfqItems,
+  onSuccess,
+}: UploadOfferDialogProps) {
+  const { user } = useAuth();
+  const createOfferMutation = useCreateOffer();
+
+  // Form state
+  const [selectedVendorIndex, setSelectedVendorIndex] = useState<number | ''>('');
+  const [file, setFile] = useState<File | null>(null);
+  const [fileUrl, setFileUrl] = useState<string>('');
+
+  // Parsing state
+  const [uploading, setUploading] = useState(false);
+  const [parsing, setParsing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [parseResult, setParseResult] = useState<OfferParsingResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Parsed header data
+  const [vendorOfferNumber, setVendorOfferNumber] = useState('');
+  const [vendorOfferDate, setVendorOfferDate] = useState('');
+  const [validityDate, setValidityDate] = useState('');
+  const [paymentTerms, setPaymentTerms] = useState('');
+  const [deliveryTerms, setDeliveryTerms] = useState('');
+  const [warrantyTerms, setWarrantyTerms] = useState('');
+
+  // Offer items
+  const [offerItems, setOfferItems] = useState<OfferItemData[]>([]);
+
+  // Creating state
+  const [creating, setCreating] = useState(false);
+
+  // Initialize offer items from RFQ items
+  const initializeOfferItems = () => {
+    const items: OfferItemData[] = rfqItems.map((rfqItem) => ({
+      rfqItemId: rfqItem.id,
+      rfqItemDescription: rfqItem.description,
+      rfqItemQuantity: rfqItem.quantity,
+      rfqItemUnit: rfqItem.unit,
+      description: rfqItem.description,
+      quotedQuantity: rfqItem.quantity,
+      unit: rfqItem.unit,
+      unitPrice: 0,
+      gstRate: 18, // Default GST
+      deliveryPeriod: '',
+      makeModel: '',
+      meetsSpec: true,
+      deviations: '',
+      vendorNotes: '',
+      isMatched: false,
+    }));
+    setOfferItems(items);
+  };
+
+  // Calculate totals
+  const totals = useMemo(() => {
+    let subtotal = 0;
+    let taxAmount = 0;
+
+    offerItems.forEach((item) => {
+      const lineAmount = item.unitPrice * item.quotedQuantity;
+      const lineTax = (lineAmount * item.gstRate) / 100;
+      subtotal += lineAmount;
+      taxAmount += lineTax;
+    });
+
+    return {
+      subtotal,
+      taxAmount,
+      totalAmount: subtotal + taxAmount,
+    };
+  }, [offerItems]);
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile) return;
+
+    // Validate file type
+    const validTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    if (!validTypes.includes(selectedFile.type)) {
+      setError('Please upload a PDF or Word document (.pdf, .doc, .docx)');
+      return;
+    }
+
+    // Validate file size (max 20MB)
+    if (selectedFile.size > 20 * 1024 * 1024) {
+      setError('File size exceeds 20MB limit');
+      return;
+    }
+
+    setFile(selectedFile);
+    setError(null);
+
+    // Upload file to get URL (needed for offer creation)
+    if (!user) return;
+
+    setUploading(true);
+    setProgress(10);
+
+    try {
+      const { storage } = getFirebase();
+      const timestamp = Date.now();
+      const storagePath = `offers/${rfq.id}/${timestamp}_${selectedFile.name}`;
+      const storageRef = ref(storage, storagePath);
+
+      setProgress(30);
+      await uploadBytes(storageRef, selectedFile);
+      setProgress(50);
+
+      const url = await getDownloadURL(storageRef);
+      setFileUrl(url);
+      setProgress(100);
+
+      // Initialize items if not already done
+      if (offerItems.length === 0) {
+        initializeOfferItems();
+      }
+    } catch (err) {
+      console.error('[UploadOfferDialog] Upload error:', err);
+      setError('Failed to upload file');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleParseFile = async () => {
+    if (!file || !user || selectedVendorIndex === '') return;
+
+    const vendorId = rfq.vendorIds[selectedVendorIndex] ?? '';
+    const vendorName = rfq.vendorNames[selectedVendorIndex] ?? '';
+
+    if (!vendorId || !vendorName) {
+      setError('Invalid vendor selection');
+      return;
+    }
+
+    setParsing(true);
+    setProgress(10);
+    setError(null);
+
+    try {
+      const { storage, functions } = getFirebase();
+
+      // Get storage path from URL or re-upload
+      let storagePath = '';
+      if (fileUrl) {
+        // Extract path from URL
+        const urlObj = new URL(fileUrl);
+        storagePath = decodeURIComponent(urlObj.pathname.split('/o/')[1]?.split('?')[0] || '');
+      }
+
+      if (!storagePath) {
+        // Re-upload if needed
+        const timestamp = Date.now();
+        storagePath = `offers/${rfq.id}/${timestamp}_${file.name}`;
+        const storageRef = ref(storage, storagePath);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        setFileUrl(url);
+      }
+
+      setProgress(40);
+
+      // Prepare RFQ items for matching
+      const rfqItemsForParsing = rfqItems.map((item) => ({
+        id: item.id,
+        lineNumber: item.lineNumber,
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+      }));
+
+      // Call Cloud Function to parse
+      const parseOfferFn = httpsCallable<
+        {
+          fileName: string;
+          storagePath: string;
+          mimeType: string;
+          fileSize: number;
+          rfqId: string;
+          rfqNumber: string;
+          vendorId: string;
+          vendorName: string;
+          rfqItems: typeof rfqItemsForParsing;
+        },
+        OfferParsingResult
+      >(functions, 'parseOfferDocument');
+
+      setProgress(60);
+      const result = await parseOfferFn({
+        fileName: file.name,
+        storagePath,
+        mimeType: file.type,
+        fileSize: file.size,
+        rfqId: rfq.id,
+        rfqNumber: rfq.number,
+        vendorId,
+        vendorName,
+        rfqItems: rfqItemsForParsing,
+      });
+
+      setProgress(100);
+
+      if (result.data.success) {
+        setParseResult(result.data);
+        applyParsedData(result.data);
+      } else {
+        setError('Document parsing failed. You can still enter data manually.');
+      }
+    } catch (err) {
+      console.error('[UploadOfferDialog] Parse error:', err);
+      setError(
+        err instanceof Error
+          ? `Parsing failed: ${err.message}. You can still enter data manually.`
+          : 'Failed to parse document. You can still enter data manually.'
+      );
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const applyParsedData = (result: OfferParsingResult) => {
+    // Apply header data
+    if (result.header) {
+      if (result.header.vendorOfferNumber) setVendorOfferNumber(result.header.vendorOfferNumber);
+      if (result.header.vendorOfferDate) setVendorOfferDate(result.header.vendorOfferDate);
+      if (result.header.validityDate) setValidityDate(result.header.validityDate);
+      if (result.header.paymentTerms) setPaymentTerms(result.header.paymentTerms);
+      if (result.header.deliveryTerms) setDeliveryTerms(result.header.deliveryTerms);
+      if (result.header.warrantyTerms) setWarrantyTerms(result.header.warrantyTerms);
+    }
+
+    // Apply parsed items to offer items
+    const updatedItems = [...offerItems];
+
+    result.items.forEach((parsedItem: ParsedOfferItem) => {
+      if (parsedItem.matchedRfqItemId) {
+        const index = updatedItems.findIndex((item) => item.rfqItemId === parsedItem.matchedRfqItemId);
+        const existingItem = updatedItems[index];
+        if (index !== -1 && existingItem) {
+          updatedItems[index] = {
+            ...existingItem,
+            description: parsedItem.description || existingItem.description,
+            quotedQuantity: parsedItem.quantity || existingItem.quotedQuantity,
+            unit: parsedItem.unit || existingItem.unit,
+            unitPrice: parsedItem.unitPrice || 0,
+            gstRate: parsedItem.gstRate || 18,
+            deliveryPeriod: parsedItem.deliveryPeriod || '',
+            makeModel: parsedItem.makeModel || '',
+            meetsSpec: parsedItem.meetsSpec ?? true,
+            deviations: parsedItem.deviations || '',
+            vendorNotes: parsedItem.vendorNotes || '',
+            matchConfidence: parsedItem.matchConfidence,
+            isMatched: true,
+          };
+        }
+      }
+    });
+
+    setOfferItems(updatedItems);
+  };
+
+  const handleItemChange = (
+    index: number,
+    field: keyof OfferItemData,
+    value: string | number | boolean
+  ) => {
+    setOfferItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item;
+        return { ...item, [field]: value };
+      })
+    );
+  };
+
+  const handleCreateOffer = async () => {
+    if (!user || selectedVendorIndex === '' || !fileUrl) {
+      setError('Please select a vendor and upload a file');
+      return;
+    }
+
+    // Validate all items have prices
+    const hasValidPrices = offerItems.every((item) => item.unitPrice > 0);
+    if (!hasValidPrices) {
+      setError('Please enter unit prices for all items');
+      return;
+    }
+
+    setCreating(true);
+    setError(null);
+
+    try {
+      const vendorId = rfq.vendorIds[selectedVendorIndex] ?? '';
+      const vendorName = rfq.vendorNames[selectedVendorIndex] ?? '';
+
+      if (!vendorId || !vendorName) {
+        setError('Invalid vendor selection');
+        setCreating(false);
+        return;
+      }
+
+      const offerInput: CreateOfferInput = {
+        rfqId: rfq.id,
+        rfqNumber: rfq.number,
+        vendorId,
+        vendorName,
+        offerFileUrl: fileUrl,
+        vendorOfferNumber: vendorOfferNumber || undefined,
+        vendorOfferDate: vendorOfferDate ? new Date(vendorOfferDate) : undefined,
+        validityDate: validityDate ? new Date(validityDate) : undefined,
+        paymentTerms: paymentTerms || undefined,
+        deliveryTerms: deliveryTerms || undefined,
+        warrantyTerms: warrantyTerms || undefined,
+        subtotal: totals.subtotal,
+        taxAmount: totals.taxAmount,
+        totalAmount: totals.totalAmount,
+        currency: 'INR',
+      };
+
+      const itemInputs: CreateOfferItemInput[] = offerItems.map((item) => ({
+        rfqItemId: item.rfqItemId,
+        description: item.description,
+        quotedQuantity: item.quotedQuantity,
+        unit: item.unit,
+        unitPrice: item.unitPrice,
+        gstRate: item.gstRate,
+        deliveryPeriod: item.deliveryPeriod || undefined,
+        makeModel: item.makeModel || undefined,
+        meetsSpec: item.meetsSpec,
+        deviations: item.deviations || undefined,
+        vendorNotes: item.vendorNotes || undefined,
+      }));
+
+      const offerId = await createOfferMutation.mutateAsync({
+        input: offerInput,
+        items: itemInputs,
+        userId: user.uid,
+        userName: user.displayName || user.email || 'Unknown',
+      });
+
+      onSuccess?.(offerId);
+      handleClose();
+    } catch (err) {
+      console.error('[UploadOfferDialog] Create error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create offer');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleClose = () => {
+    setSelectedVendorIndex('');
+    setFile(null);
+    setFileUrl('');
+    setUploading(false);
+    setParsing(false);
+    setProgress(0);
+    setParseResult(null);
+    setError(null);
+    setVendorOfferNumber('');
+    setVendorOfferDate('');
+    setValidityDate('');
+    setPaymentTerms('');
+    setDeliveryTerms('');
+    setWarrantyTerms('');
+    setOfferItems([]);
+    setCreating(false);
+    onClose();
+  };
+
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 0.8) return 'success';
+    if (confidence >= 0.5) return 'warning';
+    return 'error';
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  const canParse = file && selectedVendorIndex !== '' && !parsing && !uploading;
+  const canCreate =
+    selectedVendorIndex !== '' &&
+    fileUrl &&
+    offerItems.length > 0 &&
+    offerItems.every((item) => item.unitPrice > 0) &&
+    !creating;
+
+  return (
+    <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
+      <DialogTitle>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Stack direction="row" spacing={1} alignItems="center">
+            <DescriptionIcon color="primary" />
+            <Typography variant="h6">Upload Vendor Offer</Typography>
+          </Stack>
+          <IconButton size="small" onClick={handleClose} aria-label="Close dialog">
+            <CloseIcon />
+          </IconButton>
+        </Stack>
+      </DialogTitle>
+
+      <DialogContent>
+        <Stack spacing={3}>
+          {/* Vendor Selection */}
+          <FormControl fullWidth required>
+            <InputLabel>Select Vendor</InputLabel>
+            <Select
+              value={selectedVendorIndex}
+              onChange={(e) => {
+                setSelectedVendorIndex(e.target.value as number);
+                if (offerItems.length === 0) {
+                  initializeOfferItems();
+                }
+              }}
+              label="Select Vendor"
+            >
+              {rfq.vendorNames.map((name, index) => (
+                <MenuItem key={rfq.vendorIds[index]} value={index}>
+                  {name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Instructions */}
+          <Alert severity="info">
+            <Typography variant="body2">
+              Upload the vendor&apos;s quotation document (PDF or Word). You can optionally use AI
+              to automatically extract pricing data, or enter it manually.
+            </Typography>
+          </Alert>
+
+          {/* File Upload */}
+          {!file && (
+            <Box
+              sx={{
+                border: '2px dashed',
+                borderColor: 'divider',
+                borderRadius: 2,
+                p: 4,
+                textAlign: 'center',
+                cursor: 'pointer',
+                '&:hover': {
+                  borderColor: 'primary.main',
+                  bgcolor: 'action.hover',
+                },
+              }}
+              component="label"
+            >
+              <input
+                type="file"
+                hidden
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={handleFileSelect}
+              />
+              <CloudUploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="body1" gutterBottom>
+                Click to upload vendor offer document
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Supports .pdf, .doc, .docx files (max 20MB)
+              </Typography>
+            </Box>
+          )}
+
+          {/* Selected File */}
+          {file && (
+            <Paper sx={{ p: 2, bgcolor: 'action.hover' }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <DescriptionIcon color="primary" />
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>
+                      {file.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {(file.size / 1024).toFixed(2)} KB •{' '}
+                      {file.type === 'application/pdf' ? 'PDF' : 'Word Document'}
+                      {fileUrl && ' • Uploaded'}
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Stack direction="row" spacing={1}>
+                  {canParse && !parseResult && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<AutoAwesomeIcon />}
+                      onClick={handleParseFile}
+                    >
+                      Parse with AI
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => {
+                      setFile(null);
+                      setFileUrl('');
+                      setParseResult(null);
+                    }}
+                    size="small"
+                    disabled={uploading || parsing}
+                  >
+                    Remove
+                  </Button>
+                </Stack>
+              </Stack>
+            </Paper>
+          )}
+
+          {/* Progress */}
+          {(uploading || parsing) && (
+            <Box>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                {uploading ? 'Uploading document...' : 'Analyzing document with AI...'}
+              </Typography>
+              <LinearProgress variant="determinate" value={progress} />
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                {progress}% complete
+              </Typography>
+            </Box>
+          )}
+
+          {/* Error */}
+          {error && (
+            <Alert severity="error" onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
+
+          {/* Parse Result Summary */}
+          {parseResult && (
+            <Paper sx={{ p: 2 }}>
+              <Stack spacing={1}>
+                <Typography variant="subtitle2">AI Parse Results</Typography>
+                <Stack direction="row" spacing={2} flexWrap="wrap">
+                  <Chip
+                    icon={<CheckCircleIcon />}
+                    label={`${parseResult.totalItemsFound} items found`}
+                    color="success"
+                    size="small"
+                  />
+                  <Chip
+                    icon={<LinkIcon />}
+                    label={`${parseResult.matchedItems} matched to RFQ`}
+                    color="primary"
+                    size="small"
+                  />
+                  {parseResult.unmatchedItems > 0 && (
+                    <Chip
+                      icon={<LinkOffIcon />}
+                      label={`${parseResult.unmatchedItems} unmatched`}
+                      color="warning"
+                      size="small"
+                    />
+                  )}
+                  <Chip
+                    label={`${parseResult.processingTimeMs}ms`}
+                    variant="outlined"
+                    size="small"
+                  />
+                </Stack>
+
+                {parseResult.warnings && parseResult.warnings.length > 0 && (
+                  <Alert severity="warning" sx={{ mt: 1 }}>
+                    <ul style={{ margin: 0, paddingLeft: 16 }}>
+                      {parseResult.warnings.map((warning, i) => (
+                        <li key={i}>{warning}</li>
+                      ))}
+                    </ul>
+                  </Alert>
+                )}
+              </Stack>
+            </Paper>
+          )}
+
+          {/* Offer Header Details */}
+          {(fileUrl || parseResult) && (
+            <Accordion defaultExpanded={!!parseResult}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1">Offer Details</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Stack spacing={2}>
+                  <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                    <TextField
+                      label="Vendor Offer Number"
+                      value={vendorOfferNumber}
+                      onChange={(e) => setVendorOfferNumber(e.target.value)}
+                      fullWidth
+                      size="small"
+                    />
+                    <TextField
+                      label="Vendor Offer Date"
+                      type="date"
+                      value={vendorOfferDate}
+                      onChange={(e) => setVendorOfferDate(e.target.value)}
+                      fullWidth
+                      size="small"
+                      InputLabelProps={{ shrink: true }}
+                    />
+                    <TextField
+                      label="Validity Date"
+                      type="date"
+                      value={validityDate}
+                      onChange={(e) => setValidityDate(e.target.value)}
+                      fullWidth
+                      size="small"
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Stack>
+                  <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                    <TextField
+                      label="Payment Terms"
+                      value={paymentTerms}
+                      onChange={(e) => setPaymentTerms(e.target.value)}
+                      fullWidth
+                      size="small"
+                      multiline
+                      rows={2}
+                    />
+                    <TextField
+                      label="Delivery Terms"
+                      value={deliveryTerms}
+                      onChange={(e) => setDeliveryTerms(e.target.value)}
+                      fullWidth
+                      size="small"
+                      multiline
+                      rows={2}
+                    />
+                  </Stack>
+                  <TextField
+                    label="Warranty Terms"
+                    value={warrantyTerms}
+                    onChange={(e) => setWarrantyTerms(e.target.value)}
+                    fullWidth
+                    size="small"
+                  />
+                </Stack>
+              </AccordionDetails>
+            </Accordion>
+          )}
+
+          {/* Offer Items Table */}
+          {offerItems.length > 0 && (
+            <Box>
+              <Typography variant="subtitle1" gutterBottom>
+                Line Items ({offerItems.length})
+              </Typography>
+              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+                Enter quoted prices for each RFQ item. Items highlighted have AI-extracted data.
+              </Typography>
+              <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell width={50}>#</TableCell>
+                      <TableCell>Description</TableCell>
+                      <TableCell width={80}>Qty</TableCell>
+                      <TableCell width={80}>Unit</TableCell>
+                      <TableCell width={120}>Unit Price</TableCell>
+                      <TableCell width={80}>GST %</TableCell>
+                      <TableCell width={120}>Amount</TableCell>
+                      <TableCell width={80}>Match</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {offerItems.map((item, index) => {
+                      const lineAmount = item.unitPrice * item.quotedQuantity;
+                      const lineTax = (lineAmount * item.gstRate) / 100;
+                      const lineTotal = lineAmount + lineTax;
+
+                      return (
+                        <TableRow
+                          key={item.rfqItemId}
+                          sx={{
+                            bgcolor: item.isMatched ? 'success.50' : 'inherit',
+                          }}
+                        >
+                          <TableCell>{index + 1}</TableCell>
+                          <TableCell>
+                            <Tooltip title={`RFQ: ${item.rfqItemDescription}`}>
+                              <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
+                                {item.description}
+                              </Typography>
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              type="number"
+                              size="small"
+                              value={item.quotedQuantity}
+                              onChange={(e) =>
+                                handleItemChange(index, 'quotedQuantity', Number(e.target.value))
+                              }
+                              sx={{ width: 70 }}
+                              inputProps={{ min: 0 }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              size="small"
+                              value={item.unit}
+                              onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
+                              sx={{ width: 70 }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              type="number"
+                              size="small"
+                              value={item.unitPrice || ''}
+                              onChange={(e) =>
+                                handleItemChange(index, 'unitPrice', Number(e.target.value))
+                              }
+                              sx={{ width: 110 }}
+                              inputProps={{ min: 0, step: 0.01 }}
+                              InputProps={{
+                                startAdornment: (
+                                  <InputAdornment position="start">₹</InputAdornment>
+                                ),
+                              }}
+                              error={item.unitPrice <= 0}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              type="number"
+                              size="small"
+                              value={item.gstRate}
+                              onChange={(e) =>
+                                handleItemChange(index, 'gstRate', Number(e.target.value))
+                              }
+                              sx={{ width: 70 }}
+                              inputProps={{ min: 0, max: 100 }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {formatCurrency(lineTotal)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            {item.isMatched && item.matchConfidence !== undefined && (
+                              <Chip
+                                size="small"
+                                label={`${Math.round(item.matchConfidence * 100)}%`}
+                                color={getConfidenceColor(item.matchConfidence)}
+                                variant="outlined"
+                              />
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              {/* Totals */}
+              <Paper sx={{ p: 2, mt: 2 }}>
+                <Stack direction="row" justifyContent="flex-end" spacing={4}>
+                  <Box textAlign="right">
+                    <Typography variant="body2" color="text.secondary">
+                      Subtotal
+                    </Typography>
+                    <Typography variant="body1">{formatCurrency(totals.subtotal)}</Typography>
+                  </Box>
+                  <Box textAlign="right">
+                    <Typography variant="body2" color="text.secondary">
+                      GST
+                    </Typography>
+                    <Typography variant="body1">{formatCurrency(totals.taxAmount)}</Typography>
+                  </Box>
+                  <Box textAlign="right">
+                    <Typography variant="body2" color="text.secondary">
+                      Total
+                    </Typography>
+                    <Typography variant="h6">{formatCurrency(totals.totalAmount)}</Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+            </Box>
+          )}
+        </Stack>
+      </DialogContent>
+
+      <DialogActions>
+        <Button onClick={handleClose}>Cancel</Button>
+        <Button
+          variant="contained"
+          onClick={handleCreateOffer}
+          disabled={!canCreate}
+        >
+          {creating ? 'Creating...' : 'Create Offer'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
