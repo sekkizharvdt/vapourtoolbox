@@ -15,6 +15,7 @@ import {
   AccountBalanceWallet as ReconciliationIcon,
   Folder as FolderIcon,
   Repeat as RecurringIcon,
+  CalendarMonth as PlanningIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -77,6 +78,12 @@ export default function AccountingPage() {
       description: 'Manage recurring invoices, bills, salaries, and journal entries',
       icon: <RecurringIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/recurring',
+    },
+    {
+      title: 'Payment Planning',
+      description: 'Cash flow forecasting, expected receipts/payments, and financial planning',
+      icon: <PlanningIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/payment-planning',
     },
     {
       title: 'All Transactions',

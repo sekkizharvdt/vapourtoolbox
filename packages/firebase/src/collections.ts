@@ -57,6 +57,9 @@ export const COLLECTIONS = {
   RECURRING_TRANSACTIONS: 'recurringTransactions',
   RECURRING_OCCURRENCES: 'recurringOccurrences',
 
+  // Payment Planning
+  MANUAL_CASH_FLOW_ITEMS: 'manualCashFlowItems',
+
   // Bank Reconciliation
   BANK_STATEMENTS: 'bankStatements',
   BANK_TRANSACTIONS: 'bankTransactions',
