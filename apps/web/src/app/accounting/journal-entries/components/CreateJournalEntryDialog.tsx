@@ -419,7 +419,9 @@ export function CreateJournalEntryDialog({
                       <TableCell>
                         <EntitySelector
                           value={entry.entityId ?? null}
-                          onChange={(entityId) => handleEntityChange(index, entityId, null)}
+                          onChange={() => {
+                            /* Handled by onEntitySelect */
+                          }}
                           onEntitySelect={(entity) =>
                             handleEntityChange(index, entity?.id ?? null, entity)
                           }

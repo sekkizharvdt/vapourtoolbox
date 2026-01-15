@@ -144,6 +144,10 @@
         "destination": "/projects/placeholder/vendors.html"
       },
       {
+        "source": "/projects/*/files",
+        "destination": "/projects/placeholder/files.html"
+      },
+      {
         "source": "/projects/*",
         "destination": "/projects/placeholder.html"
       },
