@@ -16,6 +16,7 @@ import {
   Folder as FolderIcon,
   Repeat as RecurringIcon,
   CalendarMonth as PlanningIcon,
+  Payments as PaymentBatchIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -84,6 +85,12 @@ export default function AccountingPage() {
       description: 'Cash flow forecasting, expected receipts/payments, and financial planning',
       icon: <PlanningIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/payment-planning',
+    },
+    {
+      title: 'Payment Batches',
+      description: 'Allocate receipts to payments with approval workflow and interproject loan tracking',
+      icon: <PaymentBatchIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/payment-batches',
     },
     {
       title: 'All Transactions',

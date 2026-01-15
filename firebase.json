@@ -32,6 +32,10 @@
         "destination": "/accounting/recurring/placeholder.html"
       },
       {
+        "source": "/accounting/payment-batches/*",
+        "destination": "/accounting/payment-batches/placeholder.html"
+      },
+      {
         "source": "/bought-out/*",
         "destination": "/bought-out/placeholder.html"
       },

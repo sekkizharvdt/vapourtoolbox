@@ -410,6 +410,62 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Recurring Transactions (Accounting Module)
+    // ============================================
+
+    match /recurringTransactions/{recurringId} {
+      // Recurring transaction templates (rent, salaries, subscriptions)
+      // Read: Users with VIEW_ACCOUNTING permission
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+
+      // Create/Update: Users with MANAGE_ACCOUNTING permission
+      allow create, update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+
+      // Delete: Super admins only (prefer soft delete via status = 'CANCELLED')
+      allow delete: if isSuperAdmin();
+    }
+
+    match /recurringOccurrences/{occurrenceId} {
+      // Individual occurrences generated from recurring templates
+      // Read: Users with VIEW_ACCOUNTING permission
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+
+      // Create/Update: Users with MANAGE_ACCOUNTING permission (mark as posted, skipped)
+      allow create, update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
+    // Payment Planning (Cash Flow Management)
+    // ============================================
+
+    match /manualCashFlowItems/{itemId} {
+      // Manual cash flow entries for payment planning (expected receipts/payments)
+      // Read: Users with VIEW_ACCOUNTING permission
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+
+      // Create/Update: Users with MANAGE_ACCOUNTING permission
+      allow create, update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+
+      // Delete: Super admins only (prefer soft delete via status = 'CANCELLED')
+      allow delete: if isSuperAdmin();
+    }
+
+    match /paymentBatches/{batchId} {
+      // Payment batches for fund allocation workflow (receipts → payments approval)
+      // Read: Users with VIEW_ACCOUNTING permission
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+
+      // Create/Update: Users with MANAGE_ACCOUNTING permission
+      allow create, update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+
+      // Delete: Super admins only (prefer soft delete via status = 'CANCELLED')
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================
     // Procurement Collections
     // ============================================
 

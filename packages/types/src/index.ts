@@ -37,3 +37,4 @@ export * from './admin';
 export * from './companyDocuments';
 export * from './recurringTransaction';
 export * from './paymentPlanning';
+export * from './paymentBatch';

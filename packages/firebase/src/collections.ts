@@ -59,6 +59,7 @@ export const COLLECTIONS = {
 
   // Payment Planning
   MANUAL_CASH_FLOW_ITEMS: 'manualCashFlowItems',
+  PAYMENT_BATCHES: 'paymentBatches',
 
   // Bank Reconciliation
   BANK_STATEMENTS: 'bankStatements',
