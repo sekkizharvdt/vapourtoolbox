@@ -21,183 +21,175 @@
         .page {
             position: relative;
             width: 100%;
-        }
-
-        /* Watermark */
-        {{#if watermark}}
-        .watermark {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 100pt;
-            font-weight: bold;
-            color: rgba(200, 200, 200, 0.2);
-            z-index: -1;
-            user-select: none;
-        }
-        {{/if}}
-
-        /* Revision Banner */
-        .revision-banner {
-            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-            border: 2px solid #f59e0b;
-            border-radius: 6px;
-            padding: 12px 16px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .revision-icon {
-            font-size: 20pt;
-            color: #d97706;
-        }
-
-        .revision-content {
-            flex: 1;
-        }
-
-        .revision-title {
-            font-size: 11pt;
-            font-weight: bold;
-            color: #92400e;
-            margin-bottom: 2px;
-        }
-
-        .revision-details {
-            font-size: 9pt;
-            color: #b45309;
+            padding: 0;
         }
 
         /* Header */
         .header {
-            border-bottom: 3px solid #059669;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
+            margin-bottom: 30px;
         }
 
         .header-left {
-            flex: 1;
-        }
-
-        .header-right {
-            text-align: right;
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
         }
 
         .company-logo {
-            max-width: 150px;
-            max-height: 60px;
-            margin-bottom: 10px;
+            width: 60px;
+            height: 60px;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8pt;
+            color: #999;
+        }
+
+        .company-logo img {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .company-info {
+            text-align: left;
         }
 
         .company-name {
-            font-size: 18pt;
-            font-weight: bold;
-            color: #065f46;
-            margin-bottom: 5px;
-        }
-
-        .company-details {
-            font-size: 9pt;
-            color: #666;
-            line-height: 1.5;
-        }
-
-        .rfq-title {
-            font-size: 16pt;
-            font-weight: bold;
-            color: #059669;
-            margin-bottom: 5px;
-        }
-
-        .rfq-number {
-            font-size: 12pt;
+            font-size: 14pt;
             font-weight: bold;
             color: #333;
+            margin-bottom: 3px;
         }
 
-        .rfq-date {
+        .company-address {
             font-size: 9pt;
             color: #666;
+            line-height: 1.4;
         }
 
-        /* Vendor Section */
-        .vendor-section {
-            background-color: #f0fdf4;
-            border: 1px solid #bbf7d0;
-            border-radius: 4px;
-            padding: 15px;
+        .company-gstin {
+            font-size: 9pt;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        /* RFQ Title */
+        .rfq-main-title {
+            text-align: center;
+            font-size: 14pt;
+            font-weight: bold;
+            color: #333;
+            margin: 25px 0 20px 0;
+            text-decoration: underline;
+        }
+
+        /* Info Table - RFQ Details */
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
             margin-bottom: 20px;
+            font-size: 10pt;
         }
 
+        .info-table th,
+        .info-table td {
+            border: 1px solid #333;
+            padding: 8px 10px;
+            text-align: left;
+        }
+
+        .info-table th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .info-table td {
+            text-align: center;
+        }
+
+        /* Section Title */
         .section-title {
             font-size: 11pt;
             font-weight: bold;
-            color: #065f46;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #86efac;
-            padding-bottom: 5px;
+            color: #333;
+            margin: 20px 0 10px 0;
+            text-decoration: underline;
         }
 
-        .vendor-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .info-label {
-            font-weight: bold;
-            color: #64748b;
-        }
-
-        /* RFQ Info Section */
-        .rfq-info {
-            background-color: #ecfdf5;
-            border-left: 4px solid #059669;
-            padding: 15px;
+        /* Vendor Table */
+        .vendor-table {
+            width: 100%;
+            border-collapse: collapse;
             margin-bottom: 20px;
+            font-size: 10pt;
         }
 
-        .rfq-info-title {
-            font-size: 13pt;
-            font-weight: bold;
-            color: #065f46;
-            margin-bottom: 8px;
+        .vendor-table td {
+            border: 1px solid #333;
+            padding: 6px 10px;
         }
 
-        .rfq-details {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            font-size: 9pt;
+        .vendor-table td:first-child {
+            width: 25%;
+            font-weight: normal;
+            background-color: #f9f9f9;
         }
 
-        /* Important Notice Box */
-        .notice-box {
-            background-color: #fef3c7;
-            border: 1px solid #fbbf24;
-            border-radius: 4px;
-            padding: 15px;
+        /* RFQ Details Table */
+        .rfq-details-table {
+            width: 100%;
+            border-collapse: collapse;
             margin-bottom: 20px;
+            font-size: 10pt;
         }
 
-        .notice-title {
+        .rfq-details-table td {
+            border: 1px solid #333;
+            padding: 8px 10px;
+        }
+
+        .rfq-details-table td:first-child {
+            width: 20%;
+            font-weight: normal;
+            background-color: #f9f9f9;
+        }
+
+        /* Submission Deadline */
+        .deadline-box {
+            margin: 20px 0;
+            padding: 12px 15px;
+            background-color: #fff;
+            border: 1px solid #333;
+        }
+
+        .deadline-title {
             font-weight: bold;
-            color: #92400e;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
         }
 
-        .notice-content {
-            font-size: 9pt;
-            color: #78350f;
+        .deadline-text {
+            font-size: 10pt;
+        }
+
+        .deadline-text strong {
+            font-weight: bold;
         }
 
         /* Items Table */
+        .items-section-title {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #333;
+            margin: 20px 0 10px 0;
+            text-decoration: underline;
+        }
+
         .items-table {
             width: 100%;
             border-collapse: collapse;
@@ -205,195 +197,148 @@
             font-size: 9pt;
         }
 
-        .items-table thead {
-            background-color: #065f46;
-            color: white;
-        }
-
         .items-table th {
+            border: 1px solid #333;
             padding: 8px 6px;
-            text-align: left;
+            text-align: center;
             font-weight: bold;
-            border: 1px solid #86efac;
+            background-color: #f5f5f5;
         }
 
         .items-table td {
+            border: 1px solid #333;
             padding: 6px;
-            border: 1px solid #d1fae5;
             vertical-align: top;
         }
 
-        .items-table tbody tr:nth-child(even) {
-            background-color: #f0fdf4;
-        }
-
-        .items-table tbody tr:hover {
-            background-color: #dcfce7;
-        }
-
-        .line-number {
-            font-weight: bold;
-            color: #059669;
+        .items-table .col-sno {
+            width: 6%;
             text-align: center;
         }
 
-        .item-description {
-            font-weight: 500;
+        .items-table .col-description {
+            width: 30%;
         }
 
-        .item-spec {
-            font-size: 8pt;
-            color: #64748b;
-            margin-top: 4px;
+        .items-table .col-specification {
+            width: 24%;
         }
 
-        .drawing-list {
-            font-size: 8pt;
-            color: #059669;
+        .items-table .col-qty {
+            width: 8%;
+            text-align: center;
         }
 
-        /* Instructions Section */
-        .instructions-section {
-            background-color: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 4px;
-            padding: 15px;
+        .items-table .col-unit {
+            width: 8%;
+            text-align: center;
+        }
+
+        .items-table .col-unit-price {
+            width: 12%;
+            text-align: right;
+        }
+
+        .items-table .col-total-price {
+            width: 12%;
+            text-align: right;
+        }
+
+        /* Commercial Terms Table */
+        .commercial-table {
+            width: 100%;
+            border-collapse: collapse;
             margin-bottom: 20px;
+            font-size: 10pt;
         }
 
-        .instructions-list {
-            list-style: none;
-            padding-left: 0;
+        .commercial-table td {
+            border: 1px solid #333;
+            padding: 6px 10px;
         }
 
-        .instructions-list li {
-            padding: 6px 0;
-            padding-left: 20px;
-            position: relative;
+        .commercial-table td:first-child {
+            width: 25%;
+            font-weight: normal;
+            background-color: #f9f9f9;
+        }
+
+        /* Quotation Requirements */
+        .requirements-list {
+            list-style-type: disc;
+            padding-left: 25px;
+            margin-bottom: 20px;
+            font-size: 10pt;
+        }
+
+        .requirements-list li {
+            padding: 4px 0;
             line-height: 1.5;
         }
 
-        .instructions-list li:before {
-            content: "\2022";
-            color: #059669;
-            font-weight: bold;
-            position: absolute;
-            left: 5px;
-        }
-
-        /* Terms Section */
-        .terms-section {
-            margin-bottom: 20px;
-            page-break-inside: avoid;
-        }
-
+        /* General Terms */
         .terms-list {
-            list-style-position: inside;
-            padding-left: 0;
+            list-style-type: decimal;
+            padding-left: 25px;
+            margin-bottom: 20px;
+            font-size: 10pt;
         }
 
         .terms-list li {
-            padding: 4px 0;
+            padding: 3px 0;
             line-height: 1.5;
         }
 
-        /* Vendor Response Section */
-        .response-section {
-            background-color: #fff;
-            border: 2px dashed #059669;
-            border-radius: 6px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .response-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-top: 15px;
-        }
-
-        .response-field {
-            border-bottom: 1px solid #d1d5db;
-            padding: 8px 0;
-        }
-
-        .field-label {
-            font-size: 8pt;
-            color: #6b7280;
-            margin-bottom: 4px;
-        }
-
-        .field-value {
-            min-height: 20px;
-        }
-
-        /* Contact Section */
-        .contact-section {
-            background-color: #f0fdf4;
-            border-radius: 4px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-
-        .contact-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-        }
-
-        /* Footer */
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 2px solid #d1fae5;
-            text-align: center;
-        }
-
-        .signature-block {
-            display: inline-block;
-            text-align: center;
-            margin: 0 40px;
-        }
-
-        .signature-line {
-            border-top: 1px solid #333;
-            margin-top: 60px;
-            padding-top: 8px;
+        /* Vendor Response Table */
+        .response-section-title {
+            font-size: 11pt;
             font-weight: bold;
-            min-width: 200px;
+            color: #333;
+            margin: 25px 0 10px 0;
+            text-decoration: underline;
         }
 
-        .signature-title {
-            font-size: 9pt;
-            color: #64748b;
-            margin-top: 4px;
-        }
-
-        .generated-notice {
-            margin-top: 30px;
-            text-align: center;
-            font-size: 8pt;
-            color: #94a3b8;
-        }
-
-        /* Vendors List (for combined PDF) */
-        .vendors-list-section {
-            background-color: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 4px;
-            padding: 15px;
+        .response-table {
+            width: 100%;
+            border-collapse: collapse;
             margin-bottom: 20px;
+            font-size: 10pt;
         }
 
-        .vendors-list {
-            columns: 2;
-            column-gap: 30px;
+        .response-table td {
+            border: 1px solid #333;
+            padding: 10px;
         }
 
-        .vendors-list li {
-            break-inside: avoid;
-            padding: 4px 0;
+        .response-table td:first-child {
+            width: 35%;
+            background-color: #f9f9f9;
+        }
+
+        .response-table td:last-child {
+            min-height: 25px;
+        }
+
+        /* Contact Table */
+        .contact-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 10pt;
+        }
+
+        .contact-table th {
+            border: 1px solid #333;
+            padding: 8px 10px;
+            text-align: center;
+            font-weight: bold;
+            background-color: #f5f5f5;
+        }
+
+        .contact-table td {
+            border: 1px solid #333;
+            padding: 8px 10px;
+            text-align: center;
         }
 
         /* Page breaks */
@@ -411,341 +356,252 @@
     </style>
 </head>
 <body>
-    {{#if watermark}}
-    <div class="watermark">{{watermark}}</div>
-    {{/if}}
-
     <div class="page">
         <!-- Header -->
         <div class="header">
             <div class="header-left">
-                {{#if company.logoUrl}}
-                <img src="{{company.logoUrl}}" alt="{{company.name}}" class="company-logo">
-                {{/if}}
-                <div class="company-name">{{company.name}}</div>
-                <div class="company-details">
-                    {{#if company.address}}<div>{{company.address}}</div>{{/if}}
-                    {{#if company.phone}}<div>Phone: {{company.phone}}</div>{{/if}}
-                    {{#if company.email}}<div>Email: {{company.email}}</div>{{/if}}
-                    {{#if company.website}}<div>Website: {{company.website}}</div>{{/if}}
-                    {{#if company.gstin}}<div>GSTIN: {{company.gstin}}</div>{{/if}}
+                <div class="company-logo">
+                    {{#if company.logoUrl}}
+                    <img src="{{company.logoUrl}}" alt="Logo">
+                    {{else}}
+                    [ LOGO ]
+                    {{/if}}
                 </div>
-            </div>
-            <div class="header-right">
-                <div class="rfq-title">REQUEST FOR QUOTATION</div>
-                <div class="rfq-number">RFQ #{{rfqNumber}}</div>
-                <div class="rfq-date">Issue Date: {{issueDate}}</div>
-                <div class="rfq-date">Due Date: {{dueDate}}</div>
-                {{#if validityPeriod}}
-                <div class="rfq-date">Quote Validity: {{validityPeriod}}</div>
-                {{/if}}
-            </div>
-        </div>
-
-        <!-- Revision Banner (shown for revisions) -->
-        {{#if isRevision}}
-        <div class="revision-banner">
-            <div class="revision-icon">&#9888;</div>
-            <div class="revision-content">
-                <div class="revision-title">REVISED RFQ - Version {{pdfVersion}}</div>
-                <div class="revision-details">
-                    This is a revised version of RFQ #{{rfqNumber}}.
-                    {{#if revisionNotes}}{{revisionNotes}}{{/if}}
-                    Please ensure you are referencing the latest version.
+                <div class="company-info">
+                    <div class="company-name">{{company.name}}</div>
+                    <div class="company-address">
+                        {{#if company.address}}{{company.address}}{{else}}SP Arcade, D-54, 9A Cross Road,<br>West Thillai Nagar, Tiruchirappalli – 620018{{/if}}
+                    </div>
+                    {{#if company.gstin}}
+                    <div class="company-gstin">GSTIN: {{company.gstin}}</div>
+                    {{/if}}
                 </div>
             </div>
         </div>
-        {{/if}}
 
-        <!-- Vendor Section (Individual) -->
+        <!-- RFQ Title -->
+        <div class="rfq-main-title">REQUEST FOR QUOTATION (RFQ)</div>
+
+        <!-- RFQ Info Table -->
+        <table class="info-table">
+            <tr>
+                <th>RFQ No</th>
+                <th>Issue Date</th>
+                <th>Due Date</th>
+                <th>Quote Validity</th>
+            </tr>
+            <tr>
+                <td>{{rfqNumber}}</td>
+                <td>{{issueDate}}</td>
+                <td>{{dueDate}}</td>
+                <td>{{#if validityPeriod}}{{validityPeriod}}{{else}}30 Days{{/if}}</td>
+            </tr>
+        </table>
+
+        <!-- Vendor Section -->
+        <div class="section-title">TO</div>
         {{#if isIndividualVendor}}
-        <div class="vendor-section">
-            <div class="section-title">TO</div>
-            <div class="vendor-grid">
-                <div>
-                    <div class="info-label">Vendor Name:</div>
-                    <div>{{vendor.name}}</div>
-                </div>
-                {{#if vendor.contactPerson}}
-                <div>
-                    <div class="info-label">Contact Person:</div>
-                    <div>{{vendor.contactPerson}}</div>
-                </div>
-                {{/if}}
-                {{#if vendor.address}}
-                <div>
-                    <div class="info-label">Address:</div>
-                    <div>{{vendor.address}}</div>
-                </div>
-                {{/if}}
-                {{#if vendor.email}}
-                <div>
-                    <div class="info-label">Email:</div>
-                    <div>{{vendor.email}}</div>
-                </div>
-                {{/if}}
-            </div>
-        </div>
+        <table class="vendor-table">
+            <tr>
+                <td>Vendor Name</td>
+                <td>{{vendor.name}}</td>
+            </tr>
+            {{#if vendor.contactPerson}}
+            <tr>
+                <td>Contact Person</td>
+                <td>{{vendor.contactPerson}}</td>
+            </tr>
+            {{/if}}
+            {{#if vendor.email}}
+            <tr>
+                <td>Email</td>
+                <td>{{vendor.email}}</td>
+            </tr>
+            {{/if}}
+            {{#if vendor.address}}
+            <tr>
+                <td>Address</td>
+                <td>{{vendor.address}}</td>
+            </tr>
+            {{/if}}
+        </table>
+        {{else}}
+        <!-- Combined PDF - List all vendors -->
+        <table class="vendor-table">
+            {{#each vendors}}
+            <tr>
+                <td>{{#if @first}}Vendors{{else}}&nbsp;{{/if}}</td>
+                <td>{{this.name}}{{#if this.email}} ({{this.email}}){{/if}}</td>
+            </tr>
+            {{/each}}
+        </table>
         {{/if}}
 
-        <!-- Vendors List (Combined) -->
-        {{#unless isIndividualVendor}}
-        <div class="vendors-list-section">
-            <div class="section-title">VENDORS INVITED</div>
-            <ul class="vendors-list">
-                {{#each vendors}}
-                <li>
-                    <strong>{{this.name}}</strong>
-                    {{#if this.email}} - {{this.email}}{{/if}}
-                </li>
-                {{/each}}
-            </ul>
-        </div>
-        {{/unless}}
-
-        <!-- RFQ Info -->
-        <div class="rfq-info">
-            <div class="rfq-info-title">{{rfq.title}}</div>
-            <div class="rfq-details">
-                {{#if rfq.projectNames.length}}
-                <div><span class="info-label">Project(s):</span> {{#each rfq.projectNames}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</div>
-                {{/if}}
-                {{#if rfq.purchaseRequestNumbers.length}}
-                <div><span class="info-label">PR Ref:</span> {{#each rfq.purchaseRequestNumbers}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</div>
-                {{/if}}
-            </div>
-            {{#if rfq.description}}
-            <div style="margin-top: 10px;">{{rfq.description}}</div>
+        <!-- RFQ Details -->
+        <table class="rfq-details-table">
+            <tr>
+                <td>RFQ Title</td>
+                <td>{{rfq.title}}</td>
+            </tr>
+            {{#if rfq.projectNames.length}}
+            <tr>
+                <td>Project</td>
+                <td>{{#each rfq.projectNames}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</td>
+            </tr>
             {{/if}}
-        </div>
+            {{#if rfq.purchaseRequestNumbers.length}}
+            <tr>
+                <td>PR No</td>
+                <td>{{#each rfq.purchaseRequestNumbers}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</td>
+            </tr>
+            {{/if}}
+        </table>
 
-        <!-- Important Notice -->
-        <div class="notice-box">
-            <div class="notice-title">SUBMISSION DEADLINE</div>
-            <div class="notice-content">
-                Please submit your quotation by <strong>{{dueDate}}</strong>.
-                Late submissions may not be considered. All prices should be valid for a minimum period as specified in the terms below.
+        <!-- Submission Deadline -->
+        <div class="deadline-box">
+            <div class="deadline-title">SUBMISSION DEADLINE</div>
+            <div class="deadline-text">
+                Please submit your quotation by <strong>{{dueDate}}</strong>. Late submissions may not be considered.
+                All prices should be valid for a minimum period as specified in the terms below.
             </div>
         </div>
 
-        <!-- Items Table -->
-        <div class="section-title" style="margin-bottom: 10px;">ITEMS REQUIRED</div>
+        <!-- Items Required -->
+        <div class="items-section-title">ITEMS REQUIRED</div>
         <table class="items-table">
             <thead>
                 <tr>
-                    <th style="width: 6%;">S.No</th>
-                    <th style="width: 35%;">Description</th>
-                    <th style="width: 10%;">Qty</th>
-                    <th style="width: 8%;">Unit</th>
-                    {{#if showEquipmentCodes}}
-                    <th style="width: 12%;">Equipment</th>
-                    {{/if}}
-                    {{#if showDeliveryDates}}
-                    <th style="width: 12%;">Required By</th>
-                    {{/if}}
-                    <th style="width: 17%;">Your Quote</th>
+                    <th class="col-sno">S.No</th>
+                    <th class="col-description">Description</th>
+                    <th class="col-specification">Specification</th>
+                    <th class="col-qty">Qty</th>
+                    <th class="col-unit">Unit</th>
+                    <th class="col-unit-price">Unit Price</th>
+                    <th class="col-total-price">Total Price</th>
                 </tr>
             </thead>
             <tbody>
                 {{#each items}}
                 <tr>
-                    <td class="line-number">{{this.lineNumber}}</td>
-                    <td>
-                        <div class="item-description">{{this.description}}</div>
-                        {{#if ../showItemSpecifications}}
-                        {{#if this.specification}}
-                        <div class="item-spec">Spec: {{this.specification}}</div>
-                        {{/if}}
-                        {{#if this.technicalSpec}}
-                        <div class="item-spec">Tech Spec: {{this.technicalSpec}}</div>
-                        {{/if}}
-                        {{#if this.makeModel}}
-                        <div class="item-spec">Make/Model: {{this.makeModel}}</div>
-                        {{/if}}
-                        {{/if}}
-                        {{#if this.drawingNumbers}}
-                        <div class="drawing-list">Dwg: {{#each this.drawingNumbers}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</div>
-                        {{/if}}
-                        {{#if this.conditions}}
-                        <div class="item-spec" style="color: #b45309;"><strong>Note:</strong> {{this.conditions}}</div>
-                        {{/if}}
+                    <td class="col-sno">{{this.lineNumber}}</td>
+                    <td class="col-description">{{this.description}}</td>
+                    <td class="col-specification">
+                        {{#if this.specification}}{{this.specification}}{{/if}}
+                        {{#if this.technicalSpec}}{{#if this.specification}}<br>{{/if}}{{this.technicalSpec}}{{/if}}
+                        {{#if this.makeModel}}{{#if this.specification}}{{#unless this.technicalSpec}}<br>{{/unless}}{{/if}}{{#if this.technicalSpec}}<br>{{/if}}Make/Model: {{this.makeModel}}{{/if}}
                     </td>
-                    <td style="text-align: center;">{{this.quantity}}</td>
-                    <td style="text-align: center;">{{this.unit}}</td>
-                    {{#if ../showEquipmentCodes}}
-                    <td>{{this.equipmentCode}}</td>
-                    {{/if}}
-                    {{#if ../showDeliveryDates}}
-                    <td>{{this.requiredBy}}</td>
-                    {{/if}}
-                    <td style="background-color: #fff;"></td>
+                    <td class="col-qty">{{this.quantity}}</td>
+                    <td class="col-unit">{{this.unit}}</td>
+                    <td class="col-unit-price"></td>
+                    <td class="col-total-price"></td>
                 </tr>
                 {{/each}}
             </tbody>
         </table>
 
-        <!-- Quotation Instructions -->
-        <div class="instructions-section">
-            <div class="section-title">QUOTATION REQUIREMENTS</div>
-            <ul class="instructions-list">
-                <li>Please quote unit price and total price for each line item</li>
-                <li>Specify delivery period/lead time for each item</li>
-                <li>Mention any deviations from specifications clearly</li>
-                <li>Include all applicable taxes (GST) in the quotation</li>
-                <li>Provide validity period for the quoted prices</li>
-                <li>Attach relevant certificates, test reports, and technical data sheets where applicable</li>
-            </ul>
-        </div>
+        <!-- Commercial Terms -->
+        <div class="section-title">COMMERCIAL TERMS</div>
+        <table class="commercial-table">
+            <tr>
+                <td>Payment Terms</td>
+                <td>{{#if paymentTerms}}{{#each paymentTerms}}{{this}}{{#unless @last}}; {{/unless}}{{/each}}{{else}}As per the vendor{{/if}}</td>
+            </tr>
+            <tr>
+                <td>Delivery Terms</td>
+                <td>{{#if deliveryTerms}}{{#each deliveryTerms}}{{this}}{{#unless @last}}; {{/unless}}{{/each}}{{else}}As per the vendor{{/if}}</td>
+            </tr>
+            <tr>
+                <td>Warranty</td>
+                <td>{{#if warrantyTerms}}{{#each warrantyTerms}}{{this}}{{#unless @last}}; {{/unless}}{{/each}}{{else}}As applicable / NA{{/if}}</td>
+            </tr>
+        </table>
+
+        <!-- Quotation Requirements -->
+        <div class="section-title">QUOTATION REQUIREMENTS</div>
+        <ul class="requirements-list">
+            <li>Quote unit price and total price for each line item</li>
+            <li>Specify delivery period / lead time for each item</li>
+            <li>Mention any deviations from specifications clearly, if any</li>
+            <li>Prices to be inclusive of all applicable taxes (GST)</li>
+            <li>Quotation validity minimum {{#if validityPeriod}}{{validityPeriod}}{{else}}30 days{{/if}}</li>
+            <li>Attach relevant certificates, test reports and technical documents where applicable</li>
+        </ul>
+
+        <!-- General Terms & Conditions -->
+        <div class="section-title">GENERAL TERMS & CONDITIONS</div>
+        <ol class="terms-list">
+            {{#if generalTerms}}
+            {{#each generalTerms}}
+            <li>{{this}}</li>
+            {{/each}}
+            {{else}}
+            <li>All specifications mentioned are minimum requirements.</li>
+            <li>Vendor must provide detailed technical specifications.</li>
+            <li>Prices shall include all applicable taxes unless stated otherwise.</li>
+            {{/if}}
+        </ol>
 
         {{#if customNotes}}
-        <div class="terms-section">
-            <div class="section-title">ADDITIONAL NOTES</div>
-            <p>{{customNotes}}</p>
-        </div>
-        {{/if}}
-
-        <!-- Terms Sections -->
-        {{#if generalTerms}}
-        <div class="terms-section">
-            <div class="section-title">GENERAL TERMS & CONDITIONS</div>
-            <ol class="terms-list">
-                {{#each generalTerms}}
-                <li>{{this}}</li>
-                {{/each}}
-            </ol>
-        </div>
-        {{/if}}
-
-        {{#if paymentTerms}}
-        <div class="terms-section">
-            <div class="section-title">PAYMENT TERMS</div>
-            <ol class="terms-list">
-                {{#each paymentTerms}}
-                <li>{{this}}</li>
-                {{/each}}
-            </ol>
-        </div>
-        {{/if}}
-
-        {{#if deliveryTerms}}
-        <div class="terms-section">
-            <div class="section-title">DELIVERY TERMS</div>
-            <ol class="terms-list">
-                {{#each deliveryTerms}}
-                <li>{{this}}</li>
-                {{/each}}
-            </ol>
-        </div>
-        {{/if}}
-
-        {{#if warrantyTerms}}
-        <div class="terms-section">
-            <div class="section-title">WARRANTY REQUIREMENTS</div>
-            <ol class="terms-list">
-                {{#each warrantyTerms}}
-                <li>{{this}}</li>
-                {{/each}}
-            </ol>
-        </div>
-        {{/if}}
-
-        {{#if complianceTerms}}
-        <div class="terms-section">
-            <div class="section-title">COMPLIANCE REQUIREMENTS</div>
-            <ol class="terms-list">
-                {{#each complianceTerms}}
-                <li>{{this}}</li>
-                {{/each}}
-            </ol>
-        </div>
-        {{/if}}
-
-        {{#if penaltyTerms}}
-        <div class="terms-section">
-            <div class="section-title">PENALTY CLAUSES</div>
-            <ol class="terms-list">
-                {{#each penaltyTerms}}
-                <li>{{this}}</li>
-                {{/each}}
-            </ol>
-        </div>
+        <div class="section-title">ADDITIONAL NOTES</div>
+        <p style="margin-bottom: 20px;">{{customNotes}}</p>
         {{/if}}
 
         <!-- Vendor Response Section -->
-        <div class="response-section">
-            <div class="section-title">VENDOR RESPONSE (To be filled by Vendor)</div>
-            <div class="response-grid">
-                <div class="response-field">
-                    <div class="field-label">Quote Reference Number</div>
-                    <div class="field-value"></div>
-                </div>
-                <div class="response-field">
-                    <div class="field-label">Quote Date</div>
-                    <div class="field-value"></div>
-                </div>
-                <div class="response-field">
-                    <div class="field-label">Quote Validity (Days)</div>
-                    <div class="field-value"></div>
-                </div>
-                <div class="response-field">
-                    <div class="field-label">Delivery Period</div>
-                    <div class="field-value"></div>
-                </div>
-                <div class="response-field">
-                    <div class="field-label">Total Amount (excl. Tax)</div>
-                    <div class="field-value"></div>
-                </div>
-                <div class="response-field">
-                    <div class="field-label">Total Tax (GST)</div>
-                    <div class="field-value"></div>
-                </div>
-                <div class="response-field">
-                    <div class="field-label">Grand Total</div>
-                    <div class="field-value"></div>
-                </div>
-                <div class="response-field">
-                    <div class="field-label">Payment Terms Accepted (Y/N)</div>
-                    <div class="field-value"></div>
-                </div>
-            </div>
-        </div>
+        <div class="response-section-title">VENDOR RESPONSE (To be filled by Vendor)</div>
+        <table class="response-table">
+            <tr>
+                <td>Quote Reference No</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Quote Date</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Quote Validity (Days)</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Delivery Period</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Total Basic Amount</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Total Tax (GST)</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Grand Total</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Payment Terms Accepted (Y/N)</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Remarks (if any)</td>
+                <td></td>
+            </tr>
+        </table>
 
-        <!-- Contact Information -->
-        {{#if contact}}
-        <div class="contact-section">
-            <div class="section-title">FOR QUERIES, PLEASE CONTACT</div>
-            <div class="contact-grid">
-                <div>
-                    <div class="info-label">Name:</div>
-                    <div>{{contact.name}}</div>
-                </div>
-                <div>
-                    <div class="info-label">Email:</div>
-                    <div>{{contact.email}}</div>
-                </div>
-                {{#if contact.phone}}
-                <div>
-                    <div class="info-label">Phone:</div>
-                    <div>{{contact.phone}}</div>
-                </div>
-                {{/if}}
-            </div>
-        </div>
-        {{/if}}
+        <!-- Contact Section -->
+        <div class="section-title">FOR QUERIES, PLEASE CONTACT</div>
+        <table class="contact-table">
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+            </tr>
+            <tr>
+                <td>{{#if contact.name}}{{contact.name}}{{else}}A.Kumaran{{/if}}</td>
+                <td>{{#if contact.email}}{{contact.email}}{{else}}procurement@vapourdesal.com{{/if}}</td>
+                <td>{{#if contact.phone}}{{contact.phone}}{{else}}9786385661{{/if}}</td>
+            </tr>
+        </table>
 
-        <!-- Footer -->
-        <div class="footer">
-            <div class="signature-block">
-                <div class="signature-line">{{company.name}}</div>
-                <div class="signature-title">Authorized Signatory</div>
-            </div>
-        </div>
-
-        <div class="generated-notice">
-            <p>Generated on {{generatedAt}}</p>
-            <p>This is a computer-generated Request for Quotation and does not require a physical signature for validity.</p>
-            <p>Please submit your quotation to the contact email provided above.</p>
-        </div>
     </div>
 </body>
 </html>

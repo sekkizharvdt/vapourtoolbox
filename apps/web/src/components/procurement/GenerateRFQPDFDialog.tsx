@@ -69,11 +69,13 @@ export default function GenerateRFQPDFDialog({
   const [selectedVendorIds, setSelectedVendorIds] = useState<string[]>(rfq.vendorIds);
 
   // Company information
-  const [companyName, setCompanyName] = useState('Vapour Desal Technologies');
-  const [companyAddress, setCompanyAddress] = useState('');
+  const [companyName, setCompanyName] = useState('Vapour Desal Technologies Private Limited');
+  const [companyAddress, setCompanyAddress] = useState(
+    'SP Arcade, D-54, 9A Cross Road, West Thillai Nagar, Tiruchirappalli – 620018'
+  );
   const [companyPhone, setCompanyPhone] = useState('');
   const [companyEmail, setCompanyEmail] = useState('');
-  const [companyGSTIN, setCompanyGSTIN] = useState('');
+  const [companyGSTIN, setCompanyGSTIN] = useState('33AAJCS6943E1ZA');
 
   // Contact person
   const [contactPersonName, setContactPersonName] = useState('');
@@ -83,21 +85,12 @@ export default function GenerateRFQPDFDialog({
   // Terms
   const [useDefaultTerms, setUseDefaultTerms] = useState(true);
   const [generalTerms, setGeneralTerms] = useState<string[]>([
-    'All specifications mentioned in this RFQ are minimum requirements.',
-    'Vendor must provide detailed technical specifications with the quotation.',
-    'Prices should be inclusive of all applicable taxes unless stated otherwise.',
-    'Quotation validity should be minimum 30 days from submission date.',
-    'Any deviations from specifications must be clearly mentioned.',
-    'Vendor must mention lead time for delivery.',
+    'All specifications mentioned are minimum requirements.',
+    'Vendor must provide detailed technical specifications.',
+    'Prices shall include all applicable taxes unless stated otherwise.',
   ]);
-  const [paymentTerms, setPaymentTerms] = useState<string[]>([
-    '30% advance against proforma invoice',
-    '60% before dispatch against submission of test certificates',
-    '10% within 30 days of receipt and acceptance at site',
-  ]);
+  const [paymentTerms, setPaymentTerms] = useState<string[]>([]);
   const [deliveryTerms, setDeliveryTerms] = useState<string[]>([
-    'Delivery location: As mentioned in the RFQ',
-    'Packing should be suitable for long distance transportation',
     'All materials should be properly labeled with PO number and item details',
   ]);
   const [warrantyTerms, setWarrantyTerms] = useState<string[]>([
