@@ -81,6 +81,7 @@ export { onUserNameChange, onEntityNameChange, onProjectNameChange } from './den
 
 // Import receipt parsing functions (for travel expenses)
 export { parseReceiptForExpense } from './receiptParsing/parseReceipt';
+export { compareReceiptParsers } from './receiptParsing/compareReceiptParsers';
 
 // Import HR functions (leave balance reset)
 export {

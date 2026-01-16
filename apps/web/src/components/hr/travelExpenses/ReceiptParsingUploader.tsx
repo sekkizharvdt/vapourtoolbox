@@ -1,5 +1,15 @@
 'use client';
 
+/**
+ * Receipt Parsing Uploader
+ *
+ * Upload and parse travel expense receipts using either:
+ * - Google Document AI
+ * - Claude AI
+ *
+ * Supports side-by-side comparison of both parsers for evaluation.
+ */
+
 import React, { useState, useRef } from 'react';
 import {
   Box,
@@ -15,6 +25,9 @@ import {
   MenuItem,
   IconButton,
   Tooltip,
+  Card,
+  CardContent,
+  Stack,
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
@@ -27,6 +40,8 @@ import {
   Hotel,
   LocalTaxi,
   Restaurant,
+  Compare as CompareIcon,
+  Speed as SpeedIcon,
 } from '@mui/icons-material';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { httpsCallable, getFunctions } from 'firebase/functions';
@@ -65,6 +80,24 @@ export interface ParsedExpenseData {
   receipt: ReceiptAttachment;
 }
 
+interface SingleParserResult {
+  success: boolean;
+  error?: string;
+  data?: ParsedReceiptData;
+  processingTimeMs: number;
+  modelUsed: string;
+}
+
+interface CompareReceiptParsingResult {
+  success: boolean;
+  googleDocumentAI: SingleParserResult;
+  claudeAI: SingleParserResult;
+  sourceFileName: string;
+  sourceFileSize: number;
+  totalProcessingTimeMs: number;
+  attachmentId: string;
+}
+
 interface ReceiptParsingUploaderProps {
   reportId: string;
   onExpenseReady: (data: ParsedExpenseData) => void;
@@ -90,12 +123,14 @@ export function ReceiptParsingUploader({
   tripStartDate,
   tripEndDate,
 }: ReceiptParsingUploaderProps) {
-  const [step, setStep] = useState<'upload' | 'parsing' | 'review'>('upload');
+  const [step, setStep] = useState<'upload' | 'parsing' | 'comparison' | 'review'>('upload');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<ReceiptAttachment | null>(null);
   const [parsedData, setParsedData] = useState<ParsedReceiptData | null>(null);
+  const [compareResult, setCompareResult] = useState<CompareReceiptParsingResult | null>(null);
+  const [selectedParser, setSelectedParser] = useState<'google' | 'claude' | null>(null);
 
   // Editable form state
   const [formData, setFormData] = useState<Partial<ParsedExpenseData>>({
@@ -182,8 +217,8 @@ export function ReceiptParsingUploader({
           setUploading(false);
           setUploadProgress(0);
 
-          // Start parsing
-          await parseReceipt(newReceipt, file.type, file.size);
+          // Start comparison parsing (both AI models)
+          await compareReceipts(newReceipt, file.type, file.size);
 
           if (fileInputRef.current) {
             fileInputRef.current.value = '';
@@ -197,7 +232,7 @@ export function ReceiptParsingUploader({
     }
   };
 
-  const parseReceipt = async (
+  const compareReceipts = async (
     receiptData: ReceiptAttachment,
     mimeType: string,
     fileSize: number
@@ -206,11 +241,9 @@ export function ReceiptParsingUploader({
     setError(null);
 
     try {
-      // Get the app instance and create a functions instance for asia-south1 region
-      // The parseReceiptForExpense function is deployed to asia-south1 for lower latency in India
       const { app } = getFirebase();
       const functionsAsiaSouth1 = getFunctions(app, 'asia-south1');
-      const parseReceiptFn = httpsCallable<
+      const compareReceiptsFn = httpsCallable<
         {
           fileName: string;
           storagePath: string;
@@ -218,16 +251,10 @@ export function ReceiptParsingUploader({
           fileSize: number;
           reportId: string;
         },
-        {
-          success: boolean;
-          data?: ParsedReceiptData;
-          error?: string;
-          attachmentId: string;
-          fileName: string;
-        }
-      >(functionsAsiaSouth1, 'parseReceiptForExpense');
+        CompareReceiptParsingResult
+      >(functionsAsiaSouth1, 'compareReceiptParsers');
 
-      const result = await parseReceiptFn({
+      const result = await compareReceiptsFn({
         fileName: receiptData.name,
         storagePath: receiptData.storagePath,
         mimeType,
@@ -235,38 +262,54 @@ export function ReceiptParsingUploader({
         reportId,
       });
 
-      if (result.data.success && result.data.data) {
-        const parsed = result.data.data;
-        setParsedData(parsed);
-
-        // Populate form with parsed data
-        setFormData({
-          category: (parsed.suggestedCategory as TravelExpenseCategory) || 'OTHER',
-          description: parsed.vendorName || '',
-          expenseDate: parsed.transactionDate ? new Date(parsed.transactionDate) : new Date(),
-          amount: parsed.totalAmount || 0,
-          vendorName: parsed.vendorName || '',
-          invoiceNumber: parsed.invoiceNumber || '',
-          gstRate: parsed.gstRate,
-          gstAmount: parsed.gstAmount,
-          cgstAmount: parsed.cgstAmount,
-          sgstAmount: parsed.sgstAmount,
-          igstAmount: parsed.igstAmount,
-          taxableAmount: parsed.taxableAmount,
-          vendorGstin: parsed.vendorGstin || '',
-        });
-
-        setStep('review');
+      if (result.data.success) {
+        setCompareResult(result.data);
+        setStep('comparison');
       } else {
-        // Parsing failed or returned no data, go to manual entry
-        setError(result.data.error || 'Could not parse receipt. Please enter details manually.');
+        setError('Comparison failed. Please enter details manually.');
         setStep('review');
       }
     } catch (err) {
-      console.error('Error parsing receipt:', err);
+      console.error('Error comparing receipts:', err);
       setError('Receipt parsing failed. Please enter details manually.');
       setStep('review');
     }
+  };
+
+  const applyParsedData = (data: ParsedReceiptData) => {
+    setParsedData(data);
+    setFormData({
+      category: (data.suggestedCategory as TravelExpenseCategory) || 'OTHER',
+      description: data.vendorName || '',
+      expenseDate: data.transactionDate ? new Date(data.transactionDate) : new Date(),
+      amount: data.totalAmount || 0,
+      vendorName: data.vendorName || '',
+      invoiceNumber: data.invoiceNumber || '',
+      gstRate: data.gstRate,
+      gstAmount: data.gstAmount,
+      cgstAmount: data.cgstAmount,
+      sgstAmount: data.sgstAmount,
+      igstAmount: data.igstAmount,
+      taxableAmount: data.taxableAmount,
+      vendorGstin: data.vendorGstin || '',
+    });
+  };
+
+  const handleSelectParser = (parser: 'google' | 'claude') => {
+    if (!compareResult) return;
+
+    setSelectedParser(parser);
+    const result = parser === 'google' ? compareResult.googleDocumentAI : compareResult.claudeAI;
+
+    if (!result.success || !result.data) {
+      setError(
+        `${parser === 'google' ? 'Google' : 'Claude'} parser failed. Please try the other parser or enter data manually.`
+      );
+      return;
+    }
+
+    applyParsedData(result.data);
+    setStep('review');
   };
 
   const handleDeleteReceipt = async () => {
@@ -282,6 +325,8 @@ export function ReceiptParsingUploader({
 
     setReceipt(null);
     setParsedData(null);
+    setCompareResult(null);
+    setSelectedParser(null);
     setFormData({
       category: 'OTHER',
       description: '',
@@ -331,6 +376,303 @@ export function ReceiptParsingUploader({
     label,
   }));
 
+  // Render comparison view
+  const renderComparisonView = () => {
+    if (!compareResult) return null;
+
+    const { googleDocumentAI, claudeAI } = compareResult;
+
+    return (
+      <Box>
+        <Typography variant="h6" gutterBottom>
+          Parser Comparison Results
+        </Typography>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          Both parsers analyzed your receipt. Compare the results below and select which one to use.
+        </Typography>
+
+        <Grid container spacing={2} sx={{ mt: 1 }}>
+          {/* Google Document AI Results */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card
+              sx={{
+                height: '100%',
+                border: selectedParser === 'google' ? 2 : 1,
+                borderColor: selectedParser === 'google' ? 'primary.main' : 'divider',
+              }}
+            >
+              <CardContent>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    Google Document AI
+                  </Typography>
+                  {googleDocumentAI.success ? (
+                    <Chip label="Success" size="small" color="success" />
+                  ) : (
+                    <Chip label="Failed" size="small" color="error" />
+                  )}
+                </Stack>
+
+                {googleDocumentAI.success && googleDocumentAI.data ? (
+                  <>
+                    <Stack spacing={1} sx={{ mb: 2 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Vendor:
+                        </Typography>
+                        <Typography variant="body2">
+                          {googleDocumentAI.data.vendorName || '-'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Amount:
+                        </Typography>
+                        <Typography variant="body2" fontWeight="bold">
+                          {googleDocumentAI.data.totalAmount
+                            ? formatExpenseAmount(googleDocumentAI.data.totalAmount)
+                            : '-'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Date:
+                        </Typography>
+                        <Typography variant="body2">
+                          {googleDocumentAI.data.transactionDate
+                            ? String(googleDocumentAI.data.transactionDate)
+                            : '-'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Invoice #:
+                        </Typography>
+                        <Typography variant="body2">
+                          {googleDocumentAI.data.invoiceNumber || '-'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          GST Amount:
+                        </Typography>
+                        <Typography variant="body2">
+                          {googleDocumentAI.data.gstAmount
+                            ? formatExpenseAmount(googleDocumentAI.data.gstAmount)
+                            : '-'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Category:
+                        </Typography>
+                        <Chip
+                          icon={
+                            CATEGORY_ICONS[
+                              (googleDocumentAI.data.suggestedCategory as TravelExpenseCategory) ||
+                                'OTHER'
+                            ]
+                          }
+                          label={googleDocumentAI.data.suggestedCategory || 'OTHER'}
+                          size="small"
+                        />
+                      </Box>
+                      {googleDocumentAI.data.companyGstinFound && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Company GST:
+                          </Typography>
+                          <Chip
+                            icon={<VerifiedIcon />}
+                            label="Found"
+                            size="small"
+                            color="success"
+                          />
+                        </Box>
+                      )}
+                    </Stack>
+
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                      <SpeedIcon fontSize="small" color="action" />
+                      <Typography variant="caption" color="text.secondary">
+                        {googleDocumentAI.processingTimeMs}ms •{' '}
+                        {Math.round((googleDocumentAI.data.confidence || 0) * 100)}% confidence
+                      </Typography>
+                    </Stack>
+                  </>
+                ) : (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {googleDocumentAI.error || 'Parsing failed'}
+                  </Alert>
+                )}
+
+                <Button
+                  variant={selectedParser === 'google' ? 'contained' : 'outlined'}
+                  fullWidth
+                  onClick={() => handleSelectParser('google')}
+                  disabled={!googleDocumentAI.success}
+                >
+                  Use These Results
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Claude AI Results */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card
+              sx={{
+                height: '100%',
+                border: selectedParser === 'claude' ? 2 : 1,
+                borderColor: selectedParser === 'claude' ? 'primary.main' : 'divider',
+              }}
+            >
+              <CardContent>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    Claude AI
+                  </Typography>
+                  {claudeAI.success ? (
+                    <Chip label="Success" size="small" color="success" />
+                  ) : (
+                    <Chip label="Failed" size="small" color="error" />
+                  )}
+                </Stack>
+
+                {claudeAI.success && claudeAI.data ? (
+                  <>
+                    <Stack spacing={1} sx={{ mb: 2 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Vendor:
+                        </Typography>
+                        <Typography variant="body2">{claudeAI.data.vendorName || '-'}</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Amount:
+                        </Typography>
+                        <Typography variant="body2" fontWeight="bold">
+                          {claudeAI.data.totalAmount
+                            ? formatExpenseAmount(claudeAI.data.totalAmount)
+                            : '-'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Date:
+                        </Typography>
+                        <Typography variant="body2">
+                          {claudeAI.data.transactionDate
+                            ? String(claudeAI.data.transactionDate)
+                            : '-'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Invoice #:
+                        </Typography>
+                        <Typography variant="body2">
+                          {claudeAI.data.invoiceNumber || '-'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          GST Amount:
+                        </Typography>
+                        <Typography variant="body2">
+                          {claudeAI.data.gstAmount
+                            ? formatExpenseAmount(claudeAI.data.gstAmount)
+                            : '-'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Category:
+                        </Typography>
+                        <Chip
+                          icon={
+                            CATEGORY_ICONS[
+                              (claudeAI.data.suggestedCategory as TravelExpenseCategory) || 'OTHER'
+                            ]
+                          }
+                          label={claudeAI.data.suggestedCategory || 'OTHER'}
+                          size="small"
+                        />
+                      </Box>
+                      {claudeAI.data.companyGstinFound && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Company GST:
+                          </Typography>
+                          <Chip
+                            icon={<VerifiedIcon />}
+                            label="Found"
+                            size="small"
+                            color="success"
+                          />
+                        </Box>
+                      )}
+                    </Stack>
+
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                      <SpeedIcon fontSize="small" color="action" />
+                      <Typography variant="caption" color="text.secondary">
+                        {claudeAI.processingTimeMs}ms •{' '}
+                        {Math.round((claudeAI.data.confidence || 0) * 100)}% confidence
+                      </Typography>
+                    </Stack>
+                  </>
+                ) : (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {claudeAI.error || 'Parsing failed'}
+                  </Alert>
+                )}
+
+                <Button
+                  variant={selectedParser === 'claude' ? 'contained' : 'outlined'}
+                  fullWidth
+                  onClick={() => handleSelectParser('claude')}
+                  disabled={!claudeAI.success}
+                >
+                  Use These Results
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Manual entry option */}
+        <Box sx={{ mt: 3, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Neither result looks right?
+          </Typography>
+          <Button
+            variant="text"
+            onClick={() => {
+              setStep('review');
+              setFormData({
+                category: 'OTHER',
+                description: '',
+                expenseDate: new Date(),
+                amount: 0,
+                vendorName: '',
+                invoiceNumber: '',
+              });
+            }}
+          >
+            Enter details manually
+          </Button>
+        </Box>
+
+        {/* Cancel */}
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button onClick={onCancel}>Cancel</Button>
+        </Box>
+      </Box>
+    );
+  };
+
   // Render upload step
   if (step === 'upload') {
     return (
@@ -375,9 +717,12 @@ export function ReceiptParsingUploader({
             <Typography variant="body1" gutterBottom>
               Upload Receipt
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" gutterBottom>
               PDF, JPG, PNG, WebP up to 5MB
             </Typography>
+            <Stack direction="row" spacing={1} justifyContent="center" sx={{ mt: 1 }}>
+              <Chip icon={<CompareIcon />} label="Compares both AI parsers" size="small" />
+            </Stack>
             <Button variant="contained" startIcon={<UploadIcon />} sx={{ mt: 2 }}>
               Choose File
             </Button>
@@ -400,7 +745,7 @@ export function ReceiptParsingUploader({
           Parsing Receipt...
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Extracting vendor, amount, GST and other details
+          Analyzing with both Google Document AI and Claude AI
         </Typography>
         {receipt && (
           <Chip
@@ -413,6 +758,11 @@ export function ReceiptParsingUploader({
         )}
       </Box>
     );
+  }
+
+  // Render comparison step
+  if (step === 'comparison') {
+    return renderComparisonView();
   }
 
   // Render review/edit step
@@ -454,11 +804,19 @@ export function ReceiptParsingUploader({
           {/* Parsing confidence indicator */}
           {parsedData && (
             <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <ParseIcon color="primary" fontSize="small" />
                 <Typography variant="caption" color="text.secondary">
                   Parsing confidence: {Math.round((parsedData.confidence || 0) * 100)}%
                 </Typography>
+                {selectedParser && (
+                  <Chip
+                    label={`Using ${selectedParser === 'google' ? 'Google' : 'Claude'} AI`}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                  />
+                )}
                 {parsedData.companyGstinFound && (
                   <Chip
                     icon={<VerifiedIcon />}
@@ -631,15 +989,24 @@ export function ReceiptParsingUploader({
       </Paper>
 
       {/* Actions */}
-      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-        <Button onClick={onCancel}>Cancel</Button>
+      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
         <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={!formData.amount || formData.amount <= 0 || !formData.description?.trim()}
+          startIcon={<CompareIcon />}
+          onClick={() => setStep('comparison')}
+          disabled={!compareResult}
         >
-          Add Expense
+          Back to Comparison
         </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button onClick={onCancel}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleSubmit}
+            disabled={!formData.amount || formData.amount <= 0 || !formData.description?.trim()}
+          >
+            Add Expense
+          </Button>
+        </Box>
       </Box>
     </Box>
   );
