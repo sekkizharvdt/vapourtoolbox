@@ -3,8 +3,11 @@
 /**
  * Upload Offer Dialog
  *
- * Upload and optionally parse vendor offer documents (PDF/DOC)
- * using Google Cloud Document AI to extract structured pricing data.
+ * Upload and parse vendor offer documents (PDF/DOC) using either:
+ * - Google Document AI
+ * - Claude AI
+ *
+ * Supports side-by-side comparison of both parsers for evaluation.
  */
 
 import { useState, useMemo } from 'react';
@@ -38,6 +41,9 @@ import {
   AccordionSummary,
   AccordionDetails,
   InputAdornment,
+  Grid,
+  Card,
+  CardContent,
 } from '@mui/material';
 import {
   CloudUpload as CloudUploadIcon,
@@ -45,15 +51,20 @@ import {
   CheckCircle as CheckCircleIcon,
   Description as DescriptionIcon,
   ExpandMore as ExpandMoreIcon,
-  AutoAwesome as AutoAwesomeIcon,
   Link as LinkIcon,
   LinkOff as LinkOffIcon,
+  Compare as CompareIcon,
+  Speed as SpeedIcon,
 } from '@mui/icons-material';
 import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCreateOffer, type CreateOfferInput, type CreateOfferItemInput } from '@/lib/procurement/offer';
+import {
+  useCreateOffer,
+  type CreateOfferInput,
+  type CreateOfferItemInput,
+} from '@/lib/procurement/offer';
 import type { RFQ, RFQItem } from '@vapour/types';
 import type { OfferParsingResult, ParsedOfferItem } from '@vapour/types';
 
@@ -84,6 +95,44 @@ interface OfferItemData {
   isMatched: boolean;
 }
 
+interface SingleParserResult {
+  success: boolean;
+  error?: string;
+  header?: {
+    vendorOfferNumber?: string;
+    vendorOfferDate?: string;
+    validityDate?: string;
+    subtotal?: number;
+    taxAmount?: number;
+    totalAmount?: number;
+    currency?: string;
+    paymentTerms?: string;
+    deliveryTerms?: string;
+    warrantyTerms?: string;
+  };
+  items: ParsedOfferItem[];
+  totalItemsFound: number;
+  matchedItems: number;
+  unmatchedItems: number;
+  highConfidenceItems: number;
+  lowConfidenceItems: number;
+  calculatedSubtotal: number;
+  calculatedTax: number;
+  calculatedTotal: number;
+  warnings?: string[];
+  processingTimeMs: number;
+  modelUsed: string;
+}
+
+interface CompareParsingResult {
+  success: boolean;
+  googleDocumentAI: SingleParserResult;
+  claudeAI: SingleParserResult;
+  sourceFileName: string;
+  sourceFileSize: number;
+  totalProcessingTimeMs: number;
+}
+
 export default function UploadOfferDialog({
   open,
   onClose,
@@ -104,7 +153,12 @@ export default function UploadOfferDialog({
   const [parsing, setParsing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [parseResult, setParseResult] = useState<OfferParsingResult | null>(null);
+  const [compareResult, setCompareResult] = useState<CompareParsingResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Comparison view state
+  const [showComparison, setShowComparison] = useState(false);
+  const [selectedParser, setSelectedParser] = useState<'google' | 'claude' | null>(null);
 
   // Parsed header data
   const [vendorOfferNumber, setVendorOfferNumber] = useState('');
@@ -131,7 +185,7 @@ export default function UploadOfferDialog({
       quotedQuantity: rfqItem.quantity,
       unit: rfqItem.unit,
       unitPrice: 0,
-      gstRate: 18, // Default GST
+      gstRate: 18,
       deliveryPeriod: '',
       makeModel: '',
       meetsSpec: true,
@@ -165,7 +219,6 @@ export default function UploadOfferDialog({
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) return;
 
-    // Validate file type
     const validTypes = [
       'application/pdf',
       'application/msword',
@@ -176,7 +229,6 @@ export default function UploadOfferDialog({
       return;
     }
 
-    // Validate file size (max 20MB)
     if (selectedFile.size > 20 * 1024 * 1024) {
       setError('File size exceeds 20MB limit');
       return;
@@ -185,7 +237,6 @@ export default function UploadOfferDialog({
     setFile(selectedFile);
     setError(null);
 
-    // Upload file to get URL (needed for offer creation)
     if (!user) return;
 
     setUploading(true);
@@ -205,7 +256,6 @@ export default function UploadOfferDialog({
       setFileUrl(url);
       setProgress(100);
 
-      // Initialize items if not already done
       if (offerItems.length === 0) {
         initializeOfferItems();
       }
@@ -217,7 +267,7 @@ export default function UploadOfferDialog({
     }
   };
 
-  const handleParseFile = async () => {
+  const handleCompareWithBothParsers = async () => {
     if (!file || !user || selectedVendorIndex === '') return;
 
     const vendorId = rfq.vendorIds[selectedVendorIndex] ?? '';
@@ -231,20 +281,19 @@ export default function UploadOfferDialog({
     setParsing(true);
     setProgress(10);
     setError(null);
+    setShowComparison(true);
+    setCompareResult(null);
 
     try {
       const { storage, functions } = getFirebase();
 
-      // Get storage path from URL or re-upload
       let storagePath = '';
       if (fileUrl) {
-        // Extract path from URL
         const urlObj = new URL(fileUrl);
         storagePath = decodeURIComponent(urlObj.pathname.split('/o/')[1]?.split('?')[0] || '');
       }
 
       if (!storagePath) {
-        // Re-upload if needed
         const timestamp = Date.now();
         storagePath = `offers/${rfq.id}/${timestamp}_${file.name}`;
         const storageRef = ref(storage, storagePath);
@@ -253,9 +302,8 @@ export default function UploadOfferDialog({
         setFileUrl(url);
       }
 
-      setProgress(40);
+      setProgress(30);
 
-      // Prepare RFQ items for matching
       const rfqItemsForParsing = rfqItems.map((item) => ({
         id: item.id,
         lineNumber: item.lineNumber,
@@ -264,8 +312,7 @@ export default function UploadOfferDialog({
         unit: item.unit,
       }));
 
-      // Call Cloud Function to parse
-      const parseOfferFn = httpsCallable<
+      const compareParsersFn = httpsCallable<
         {
           fileName: string;
           storagePath: string;
@@ -277,11 +324,11 @@ export default function UploadOfferDialog({
           vendorName: string;
           rfqItems: typeof rfqItemsForParsing;
         },
-        OfferParsingResult
-      >(functions, 'parseOfferDocument');
+        CompareParsingResult
+      >(functions, 'compareOfferParsers');
 
-      setProgress(60);
-      const result = await parseOfferFn({
+      setProgress(50);
+      const result = await compareParsersFn({
         fileName: file.name,
         storagePath,
         mimeType: file.type,
@@ -294,27 +341,36 @@ export default function UploadOfferDialog({
       });
 
       setProgress(100);
-
-      if (result.data.success) {
-        setParseResult(result.data);
-        applyParsedData(result.data);
-      } else {
-        setError('Document parsing failed. You can still enter data manually.');
-      }
+      setCompareResult(result.data);
     } catch (err) {
-      console.error('[UploadOfferDialog] Parse error:', err);
+      console.error('[UploadOfferDialog] Compare error:', err);
       setError(
-        err instanceof Error
-          ? `Parsing failed: ${err.message}. You can still enter data manually.`
-          : 'Failed to parse document. You can still enter data manually.'
+        err instanceof Error ? `Comparison failed: ${err.message}` : 'Failed to compare parsers'
       );
     } finally {
       setParsing(false);
     }
   };
 
-  const applyParsedData = (result: OfferParsingResult) => {
-    // Apply header data
+  const handleSelectParser = (parser: 'google' | 'claude') => {
+    if (!compareResult) return;
+
+    setSelectedParser(parser);
+    const result = parser === 'google' ? compareResult.googleDocumentAI : compareResult.claudeAI;
+
+    if (!result.success) {
+      setError(
+        `${parser === 'google' ? 'Google' : 'Claude'} parser failed. Please try the other parser or enter data manually.`
+      );
+      return;
+    }
+
+    // Apply the selected parser's results
+    applyParsedData(result);
+    setShowComparison(false);
+  };
+
+  const applyParsedData = (result: SingleParserResult) => {
     if (result.header) {
       if (result.header.vendorOfferNumber) setVendorOfferNumber(result.header.vendorOfferNumber);
       if (result.header.vendorOfferDate) setVendorOfferDate(result.header.vendorOfferDate);
@@ -324,12 +380,13 @@ export default function UploadOfferDialog({
       if (result.header.warrantyTerms) setWarrantyTerms(result.header.warrantyTerms);
     }
 
-    // Apply parsed items to offer items
     const updatedItems = [...offerItems];
 
     result.items.forEach((parsedItem: ParsedOfferItem) => {
       if (parsedItem.matchedRfqItemId) {
-        const index = updatedItems.findIndex((item) => item.rfqItemId === parsedItem.matchedRfqItemId);
+        const index = updatedItems.findIndex(
+          (item) => item.rfqItemId === parsedItem.matchedRfqItemId
+        );
         const existingItem = updatedItems[index];
         if (index !== -1 && existingItem) {
           updatedItems[index] = {
@@ -352,6 +409,26 @@ export default function UploadOfferDialog({
     });
 
     setOfferItems(updatedItems);
+
+    // Also set parse result for UI display
+    setParseResult({
+      success: result.success,
+      header: result.header ? { ...result.header, confidence: 0.8 } : undefined,
+      items: result.items,
+      totalItemsFound: result.totalItemsFound,
+      matchedItems: result.matchedItems,
+      unmatchedItems: result.unmatchedItems,
+      highConfidenceItems: result.highConfidenceItems,
+      lowConfidenceItems: result.lowConfidenceItems,
+      calculatedSubtotal: result.calculatedSubtotal,
+      calculatedTax: result.calculatedTax,
+      calculatedTotal: result.calculatedTotal,
+      warnings: result.warnings,
+      processingTimeMs: result.processingTimeMs,
+      modelUsed: result.modelUsed,
+      sourceFileName: compareResult?.sourceFileName || file?.name || '',
+      sourceFileSize: compareResult?.sourceFileSize || file?.size || 0,
+    });
   };
 
   const handleItemChange = (
@@ -373,7 +450,6 @@ export default function UploadOfferDialog({
       return;
     }
 
-    // Validate all items have prices
     const hasValidPrices = offerItems.every((item) => item.unitPrice > 0);
     if (!hasValidPrices) {
       setError('Please enter unit prices for all items');
@@ -450,6 +526,9 @@ export default function UploadOfferDialog({
     setParsing(false);
     setProgress(0);
     setParseResult(null);
+    setCompareResult(null);
+    setShowComparison(false);
+    setSelectedParser(null);
     setError(null);
     setVendorOfferNumber('');
     setVendorOfferDate('');
@@ -476,13 +555,267 @@ export default function UploadOfferDialog({
     }).format(amount);
   };
 
-  const canParse = file && selectedVendorIndex !== '' && !parsing && !uploading;
+  const canCompare = file && selectedVendorIndex !== '' && !parsing && !uploading;
   const canCreate =
     selectedVendorIndex !== '' &&
     fileUrl &&
     offerItems.length > 0 &&
     offerItems.every((item) => item.unitPrice > 0) &&
     !creating;
+
+  // Render comparison view
+  const renderComparisonView = () => {
+    if (!compareResult) return null;
+
+    const { googleDocumentAI, claudeAI } = compareResult;
+
+    return (
+      <Box sx={{ mt: 2 }}>
+        <Typography variant="h6" gutterBottom>
+          Parser Comparison Results
+        </Typography>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          Both parsers analyzed your document. Compare the results below and select which one to
+          use.
+        </Typography>
+
+        <Grid container spacing={2} sx={{ mt: 1 }}>
+          {/* Google Document AI Results */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card
+              sx={{
+                height: '100%',
+                border: selectedParser === 'google' ? 2 : 1,
+                borderColor: selectedParser === 'google' ? 'primary.main' : 'divider',
+              }}
+            >
+              <CardContent>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    Google Document AI
+                  </Typography>
+                  <Chip
+                    size="small"
+                    color={googleDocumentAI.success ? 'success' : 'error'}
+                    label={googleDocumentAI.success ? 'Success' : 'Failed'}
+                  />
+                </Stack>
+
+                {googleDocumentAI.error ? (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {googleDocumentAI.error}
+                  </Alert>
+                ) : (
+                  <>
+                    <Stack spacing={1} sx={{ mb: 2 }}>
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography variant="body2" color="text.secondary">
+                          Items Found:
+                        </Typography>
+                        <Typography variant="body2" fontWeight={600}>
+                          {googleDocumentAI.totalItemsFound}
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography variant="body2" color="text.secondary">
+                          Matched to RFQ:
+                        </Typography>
+                        <Typography variant="body2" fontWeight={600}>
+                          {googleDocumentAI.matchedItems}
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography variant="body2" color="text.secondary">
+                          Total Amount:
+                        </Typography>
+                        <Typography variant="body2" fontWeight={600}>
+                          {formatCurrency(googleDocumentAI.calculatedTotal)}
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="body2" color="text.secondary">
+                          Processing Time:
+                        </Typography>
+                        <Chip
+                          size="small"
+                          icon={<SpeedIcon />}
+                          label={`${googleDocumentAI.processingTimeMs}ms`}
+                          variant="outlined"
+                        />
+                      </Stack>
+                    </Stack>
+
+                    {googleDocumentAI.warnings && googleDocumentAI.warnings.length > 0 && (
+                      <Alert severity="warning" sx={{ mb: 2 }}>
+                        {googleDocumentAI.warnings.length} warning(s)
+                      </Alert>
+                    )}
+
+                    {/* Preview items */}
+                    {googleDocumentAI.items.length > 0 && (
+                      <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
+                        <Typography variant="caption" color="text.secondary" gutterBottom>
+                          Extracted Items Preview:
+                        </Typography>
+                        {googleDocumentAI.items.slice(0, 5).map((item, idx) => (
+                          <Box
+                            key={idx}
+                            sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1, mb: 0.5 }}
+                          >
+                            <Typography variant="caption" noWrap>
+                              {item.description}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Qty: {item.quantity} | Price: {formatCurrency(item.unitPrice)}
+                            </Typography>
+                          </Box>
+                        ))}
+                        {googleDocumentAI.items.length > 5 && (
+                          <Typography variant="caption" color="text.secondary">
+                            +{googleDocumentAI.items.length - 5} more items...
+                          </Typography>
+                        )}
+                      </Box>
+                    )}
+                  </>
+                )}
+
+                <Button
+                  variant={selectedParser === 'google' ? 'contained' : 'outlined'}
+                  fullWidth
+                  sx={{ mt: 2 }}
+                  onClick={() => handleSelectParser('google')}
+                  disabled={!googleDocumentAI.success}
+                >
+                  {selectedParser === 'google' ? 'Selected' : 'Use These Results'}
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Claude AI Results */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card
+              sx={{
+                height: '100%',
+                border: selectedParser === 'claude' ? 2 : 1,
+                borderColor: selectedParser === 'claude' ? 'secondary.main' : 'divider',
+              }}
+            >
+              <CardContent>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    Claude AI
+                  </Typography>
+                  <Chip
+                    size="small"
+                    color={claudeAI.success ? 'success' : 'error'}
+                    label={claudeAI.success ? 'Success' : 'Failed'}
+                  />
+                </Stack>
+
+                {claudeAI.error ? (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {claudeAI.error}
+                  </Alert>
+                ) : (
+                  <>
+                    <Stack spacing={1} sx={{ mb: 2 }}>
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography variant="body2" color="text.secondary">
+                          Items Found:
+                        </Typography>
+                        <Typography variant="body2" fontWeight={600}>
+                          {claudeAI.totalItemsFound}
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography variant="body2" color="text.secondary">
+                          Matched to RFQ:
+                        </Typography>
+                        <Typography variant="body2" fontWeight={600}>
+                          {claudeAI.matchedItems}
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography variant="body2" color="text.secondary">
+                          Total Amount:
+                        </Typography>
+                        <Typography variant="body2" fontWeight={600}>
+                          {formatCurrency(claudeAI.calculatedTotal)}
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="body2" color="text.secondary">
+                          Processing Time:
+                        </Typography>
+                        <Chip
+                          size="small"
+                          icon={<SpeedIcon />}
+                          label={`${claudeAI.processingTimeMs}ms`}
+                          variant="outlined"
+                        />
+                      </Stack>
+                    </Stack>
+
+                    {claudeAI.warnings && claudeAI.warnings.length > 0 && (
+                      <Alert severity="warning" sx={{ mb: 2 }}>
+                        {claudeAI.warnings.length} warning(s)
+                      </Alert>
+                    )}
+
+                    {/* Preview items */}
+                    {claudeAI.items.length > 0 && (
+                      <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
+                        <Typography variant="caption" color="text.secondary" gutterBottom>
+                          Extracted Items Preview:
+                        </Typography>
+                        {claudeAI.items.slice(0, 5).map((item, idx) => (
+                          <Box
+                            key={idx}
+                            sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1, mb: 0.5 }}
+                          >
+                            <Typography variant="caption" noWrap>
+                              {item.description}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Qty: {item.quantity} | Price: {formatCurrency(item.unitPrice)}
+                            </Typography>
+                          </Box>
+                        ))}
+                        {claudeAI.items.length > 5 && (
+                          <Typography variant="caption" color="text.secondary">
+                            +{claudeAI.items.length - 5} more items...
+                          </Typography>
+                        )}
+                      </Box>
+                    )}
+                  </>
+                )}
+
+                <Button
+                  variant={selectedParser === 'claude' ? 'contained' : 'outlined'}
+                  color="secondary"
+                  fullWidth
+                  sx={{ mt: 2 }}
+                  onClick={() => handleSelectParser('claude')}
+                  disabled={!claudeAI.success}
+                >
+                  {selectedParser === 'claude' ? 'Selected' : 'Use These Results'}
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        <Box sx={{ mt: 2, textAlign: 'center' }}>
+          <Typography variant="caption" color="text.secondary">
+            Total comparison time: {compareResult.totalProcessingTimeMs}ms
+          </Typography>
+        </Box>
+      </Box>
+    );
+  };
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
@@ -524,8 +857,9 @@ export default function UploadOfferDialog({
           {/* Instructions */}
           <Alert severity="info">
             <Typography variant="body2">
-              Upload the vendor&apos;s quotation document (PDF or Word). You can optionally use AI
-              to automatically extract pricing data, or enter it manually.
+              Upload the vendor&apos;s quotation document (PDF or Word). Click &quot;Compare AI
+              Parsers&quot; to analyze the document with both Google Document AI and Claude AI, then
+              choose which results to use.
             </Typography>
           </Alert>
 
@@ -580,14 +914,14 @@ export default function UploadOfferDialog({
                   </Box>
                 </Stack>
                 <Stack direction="row" spacing={1}>
-                  {canParse && !parseResult && (
+                  {canCompare && !showComparison && !parseResult && (
                     <Button
-                      variant="outlined"
+                      variant="contained"
                       size="small"
-                      startIcon={<AutoAwesomeIcon />}
-                      onClick={handleParseFile}
+                      startIcon={<CompareIcon />}
+                      onClick={handleCompareWithBothParsers}
                     >
-                      Parse with AI
+                      Compare AI Parsers
                     </Button>
                   )}
                   <Button
@@ -595,6 +929,8 @@ export default function UploadOfferDialog({
                       setFile(null);
                       setFileUrl('');
                       setParseResult(null);
+                      setCompareResult(null);
+                      setShowComparison(false);
                     }}
                     size="small"
                     disabled={uploading || parsing}
@@ -610,7 +946,7 @@ export default function UploadOfferDialog({
           {(uploading || parsing) && (
             <Box>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                {uploading ? 'Uploading document...' : 'Analyzing document with AI...'}
+                {uploading ? 'Uploading document...' : 'Analyzing document with both AI parsers...'}
               </Typography>
               <LinearProgress variant="determinate" value={progress} />
               <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
@@ -626,11 +962,21 @@ export default function UploadOfferDialog({
             </Alert>
           )}
 
-          {/* Parse Result Summary */}
-          {parseResult && (
+          {/* Comparison View */}
+          {showComparison && compareResult && renderComparisonView()}
+
+          {/* Parse Result Summary (after selection) */}
+          {parseResult && !showComparison && (
             <Paper sx={{ p: 2 }}>
               <Stack spacing={1}>
-                <Typography variant="subtitle2">AI Parse Results</Typography>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="subtitle2">AI Parse Results</Typography>
+                  <Chip
+                    size="small"
+                    label={parseResult.modelUsed}
+                    color={parseResult.modelUsed.includes('Claude') ? 'secondary' : 'primary'}
+                  />
+                </Stack>
                 <Stack direction="row" spacing={2} flexWrap="wrap">
                   <Chip
                     icon={<CheckCircleIcon />}
@@ -673,7 +1019,7 @@ export default function UploadOfferDialog({
           )}
 
           {/* Offer Header Details */}
-          {(fileUrl || parseResult) && (
+          {(fileUrl || parseResult) && !showComparison && (
             <Accordion defaultExpanded={!!parseResult}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography variant="subtitle1">Offer Details</Typography>
@@ -740,7 +1086,7 @@ export default function UploadOfferDialog({
           )}
 
           {/* Offer Items Table */}
-          {offerItems.length > 0 && (
+          {offerItems.length > 0 && !showComparison && (
             <Box>
               <Typography variant="subtitle1" gutterBottom>
                 Line Items ({offerItems.length})
@@ -814,9 +1160,7 @@ export default function UploadOfferDialog({
                               sx={{ width: 110 }}
                               inputProps={{ min: 0, step: 0.01 }}
                               InputProps={{
-                                startAdornment: (
-                                  <InputAdornment position="start">₹</InputAdornment>
-                                ),
+                                startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                               }}
                               error={item.unitPrice <= 0}
                             />
@@ -834,9 +1178,7 @@ export default function UploadOfferDialog({
                             />
                           </TableCell>
                           <TableCell>
-                            <Typography variant="body2">
-                              {formatCurrency(lineTotal)}
-                            </Typography>
+                            <Typography variant="body2">{formatCurrency(lineTotal)}</Typography>
                           </TableCell>
                           <TableCell>
                             {item.isMatched && item.matchConfidence !== undefined && (
@@ -885,11 +1227,7 @@ export default function UploadOfferDialog({
 
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
-        <Button
-          variant="contained"
-          onClick={handleCreateOffer}
-          disabled={!canCreate}
-        >
+        <Button variant="contained" onClick={handleCreateOffer} disabled={!canCreate}>
           {creating ? 'Creating...' : 'Create Offer'}
         </Button>
       </DialogActions>
