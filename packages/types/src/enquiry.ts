@@ -12,11 +12,86 @@ import { TimestampFields, Money } from './common';
 export type EnquiryStatus =
   | 'NEW'
   | 'UNDER_REVIEW'
+  | 'BID_DECISION_PENDING' // Awaiting bid/no-bid decision
+  | 'NO_BID' // Decision made not to bid - terminal state
   | 'PROPOSAL_IN_PROGRESS'
   | 'PROPOSAL_SUBMITTED'
   | 'WON'
   | 'LOST'
   | 'CANCELLED';
+
+/**
+ * Bid Decision Type
+ */
+export type BidDecision = 'BID' | 'NO_BID';
+
+/**
+ * Bid Evaluation Rating
+ */
+export type BidEvaluationRating =
+  | 'STRONG_FIT'
+  | 'MODERATE_FIT'
+  | 'WEAK_FIT'
+  | 'NO_FIT'
+  | 'HIGH'
+  | 'MEDIUM'
+  | 'LOW'
+  | 'UNKNOWN'
+  | 'HIGHLY_VIABLE'
+  | 'VIABLE'
+  | 'MARGINAL'
+  | 'NOT_VIABLE'
+  | 'LOW_RISK'
+  | 'MODERATE_RISK'
+  | 'HIGH_RISK'
+  | 'UNACCEPTABLE_RISK'
+  | 'FULLY_CAPABLE'
+  | 'CAPABLE_WITH_PLANNING'
+  | 'STRETCHED'
+  | 'NOT_CAPABLE';
+
+/**
+ * Bid Evaluation Criteria
+ */
+export interface BidEvaluationCriteria {
+  /** Strategic Alignment - Does this align with our strategy and competencies? */
+  strategicAlignment: {
+    rating: 'STRONG_FIT' | 'MODERATE_FIT' | 'WEAK_FIT' | 'NO_FIT';
+    notes?: string;
+  };
+  /** Win Probability - Do we have a realistic chance of winning? */
+  winProbability: {
+    rating: 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
+    notes?: string;
+  };
+  /** Commercial Viability - Will this deliver acceptable margins? */
+  commercialViability: {
+    rating: 'HIGHLY_VIABLE' | 'VIABLE' | 'MARGINAL' | 'NOT_VIABLE';
+    notes?: string;
+  };
+  /** Risk Exposure - Are the risks manageable? */
+  riskExposure: {
+    rating: 'LOW_RISK' | 'MODERATE_RISK' | 'HIGH_RISK' | 'UNACCEPTABLE_RISK';
+    notes?: string;
+  };
+  /** Capacity and Capability - Do we have the resources? */
+  capacityCapability: {
+    rating: 'FULLY_CAPABLE' | 'CAPABLE_WITH_PLANNING' | 'STRETCHED' | 'NOT_CAPABLE';
+    notes?: string;
+  };
+}
+
+/**
+ * Bid Decision Record
+ */
+export interface BidDecisionRecord {
+  decision: BidDecision;
+  evaluation: BidEvaluationCriteria;
+  rationale: string; // Required summary explaining the decision
+  decidedBy: string; // User ID
+  decidedByName: string; // Denormalized user name
+  decidedAt: Timestamp;
+}
 
 /**
  * Enquiry Source
@@ -58,11 +133,86 @@ export interface EnquiryDocument {
 export const ENQUIRY_STATUS_LABELS: Record<EnquiryStatus, string> = {
   NEW: 'New',
   UNDER_REVIEW: 'Under Review',
+  BID_DECISION_PENDING: 'Bid Decision Pending',
+  NO_BID: 'No Bid',
   PROPOSAL_IN_PROGRESS: 'Proposal In Progress',
   PROPOSAL_SUBMITTED: 'Proposal Submitted',
   WON: 'Won',
   LOST: 'Lost',
   CANCELLED: 'Cancelled',
+};
+
+/**
+ * Bid Decision Labels
+ */
+export const BID_DECISION_LABELS: Record<BidDecision, string> = {
+  BID: 'Bid',
+  NO_BID: 'No Bid',
+};
+
+/**
+ * Strategic Alignment Rating Labels
+ */
+export const STRATEGIC_ALIGNMENT_LABELS: Record<
+  BidEvaluationCriteria['strategicAlignment']['rating'],
+  string
+> = {
+  STRONG_FIT: 'Strong Fit',
+  MODERATE_FIT: 'Moderate Fit',
+  WEAK_FIT: 'Weak Fit',
+  NO_FIT: 'No Fit',
+};
+
+/**
+ * Win Probability Rating Labels
+ */
+export const WIN_PROBABILITY_LABELS: Record<
+  BidEvaluationCriteria['winProbability']['rating'],
+  string
+> = {
+  HIGH: 'High (>60%)',
+  MEDIUM: 'Medium (30-60%)',
+  LOW: 'Low (<30%)',
+  UNKNOWN: 'Unknown',
+};
+
+/**
+ * Commercial Viability Rating Labels
+ */
+export const COMMERCIAL_VIABILITY_LABELS: Record<
+  BidEvaluationCriteria['commercialViability']['rating'],
+  string
+> = {
+  HIGHLY_VIABLE: 'Highly Viable',
+  VIABLE: 'Viable',
+  MARGINAL: 'Marginal',
+  NOT_VIABLE: 'Not Viable',
+};
+
+/**
+ * Risk Exposure Rating Labels
+ */
+export const RISK_EXPOSURE_LABELS: Record<
+  BidEvaluationCriteria['riskExposure']['rating'],
+  string
+> = {
+  LOW_RISK: 'Low Risk',
+  MODERATE_RISK: 'Moderate Risk',
+  HIGH_RISK: 'High Risk',
+  UNACCEPTABLE_RISK: 'Unacceptable Risk',
+};
+
+/**
+ * Capacity Capability Rating Labels
+ */
+export const CAPACITY_CAPABILITY_LABELS: Record<
+  BidEvaluationCriteria['capacityCapability']['rating'],
+  string
+> = {
+  FULLY_CAPABLE: 'Fully Capable',
+  CAPABLE_WITH_PLANNING: 'Capable with Planning',
+  STRETCHED: 'Stretched',
+  NOT_CAPABLE: 'Not Capable',
 };
 
 /**
@@ -147,6 +297,9 @@ export interface Enquiry extends TimestampFields {
   proposalSubmittedAt?: Timestamp;
   outcomeDate?: Timestamp; // When WON/LOST/CANCELLED
   outcomeReason?: string; // Why lost/cancelled
+
+  // Bid Decision
+  bidDecision?: BidDecisionRecord;
 }
 
 /**

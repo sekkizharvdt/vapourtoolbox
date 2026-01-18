@@ -70,6 +70,8 @@ const STATUS_COLORS: Record<
 > = {
   NEW: 'info',
   UNDER_REVIEW: 'primary',
+  BID_DECISION_PENDING: 'warning',
+  NO_BID: 'default',
   PROPOSAL_IN_PROGRESS: 'warning',
   PROPOSAL_SUBMITTED: 'secondary',
   WON: 'success',

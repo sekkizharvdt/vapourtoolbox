@@ -32,6 +32,9 @@ import {
   Business as BusinessIcon,
   CalendarToday as DateIcon,
   Timer as UrgencyIcon,
+  Gavel as BidDecisionIcon,
+  ThumbUp as BidIcon,
+  ThumbDown as NoBidIcon,
 } from '@mui/icons-material';
 import { PageHeader, LoadingState, EmptyState, getStatusColor } from '@vapour/ui';
 import { useFirestore } from '@/lib/firebase/hooks';
@@ -42,8 +45,15 @@ import {
   ENQUIRY_STATUS_LABELS,
   ENQUIRY_URGENCY_LABELS,
   ENQUIRY_PROJECT_TYPE_LABELS,
+  STRATEGIC_ALIGNMENT_LABELS,
+  WIN_PROBABILITY_LABELS,
+  COMMERCIAL_VIABILITY_LABELS,
+  RISK_EXPOSURE_LABELS,
+  CAPACITY_CAPABILITY_LABELS,
+  BID_DECISION_LABELS,
 } from '@vapour/types';
 import { EnquiryDocumentUpload } from '../components/EnquiryDocumentUpload';
+import { BidDecisionDialog } from '../components/BidDecisionDialog';
 import { formatDate } from '@/lib/utils/formatters';
 
 export default function EnquiryDetailClient() {
@@ -58,6 +68,7 @@ export default function EnquiryDetailClient() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [enquiryId, setEnquiryId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [bidDecisionDialogOpen, setBidDecisionDialogOpen] = useState(false);
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -171,16 +182,31 @@ export default function EnquiryDetailClient() {
             >
               Edit
             </Button>
-            <Button
-              variant="contained"
-              startIcon={<ProposalIcon />}
-              disabled={enquiry.status === 'CANCELLED' || enquiry.status === 'LOST'}
-              onClick={() => {
-                router.push(`/proposals/new?enquiryId=${enquiry.id}`);
-              }}
-            >
-              Create Proposal
-            </Button>
+            {/* Show Make Bid Decision for enquiries without a bid decision */}
+            {!enquiry.bidDecision &&
+              !['WON', 'LOST', 'CANCELLED', 'NO_BID'].includes(enquiry.status) && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<BidDecisionIcon />}
+                  onClick={() => setBidDecisionDialogOpen(true)}
+                >
+                  Make Bid Decision
+                </Button>
+              )}
+            {/* Show Create Proposal only after BID decision */}
+            {enquiry.bidDecision?.decision === 'BID' &&
+              !['WON', 'LOST', 'CANCELLED'].includes(enquiry.status) && (
+                <Button
+                  variant="contained"
+                  startIcon={<ProposalIcon />}
+                  onClick={() => {
+                    router.push(`/proposals/new?enquiryId=${enquiry.id}`);
+                  }}
+                >
+                  Create Proposal
+                </Button>
+              )}
             <IconButton onClick={handleMenuOpen}>
               <MoreIcon />
             </IconButton>
@@ -344,7 +370,7 @@ export default function EnquiryDetailClient() {
           </Card>
 
           {/* Key Dates */}
-          <Card>
+          <Card sx={{ mb: 3 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Key Dates
@@ -370,8 +396,120 @@ export default function EnquiryDetailClient() {
               </Box>
             </CardContent>
           </Card>
+
+          {/* Bid Decision Card */}
+          {enquiry.bidDecision && (
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  {enquiry.bidDecision.decision === 'BID' ? (
+                    <BidIcon color="success" />
+                  ) : (
+                    <NoBidIcon color="error" />
+                  )}
+                  <Typography variant="h6">
+                    Bid Decision: {BID_DECISION_LABELS[enquiry.bidDecision.decision]}
+                  </Typography>
+                </Box>
+
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Decided by {enquiry.bidDecision.decidedByName} on{' '}
+                  {formatDate(enquiry.bidDecision.decidedAt)}
+                </Typography>
+
+                <Divider sx={{ my: 2 }} />
+
+                <Typography variant="subtitle2" gutterBottom>
+                  Rationale
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
+                  {enquiry.bidDecision.rationale}
+                </Typography>
+
+                <Divider sx={{ my: 2 }} />
+
+                <Typography variant="subtitle2" gutterBottom>
+                  Evaluation Summary
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Strategic Alignment
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={
+                        STRATEGIC_ALIGNMENT_LABELS[
+                          enquiry.bidDecision.evaluation.strategicAlignment.rating
+                        ]
+                      }
+                    />
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Win Probability
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={
+                        WIN_PROBABILITY_LABELS[enquiry.bidDecision.evaluation.winProbability.rating]
+                      }
+                    />
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Commercial Viability
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={
+                        COMMERCIAL_VIABILITY_LABELS[
+                          enquiry.bidDecision.evaluation.commercialViability.rating
+                        ]
+                      }
+                    />
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Risk Exposure
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={
+                        RISK_EXPOSURE_LABELS[enquiry.bidDecision.evaluation.riskExposure.rating]
+                      }
+                    />
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Capacity & Capability
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={
+                        CAPACITY_CAPABILITY_LABELS[
+                          enquiry.bidDecision.evaluation.capacityCapability.rating
+                        ]
+                      }
+                    />
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          )}
         </Grid>
       </Grid>
+
+      {/* Bid Decision Dialog */}
+      <BidDecisionDialog
+        open={bidDecisionDialogOpen}
+        onClose={() => setBidDecisionDialogOpen(false)}
+        enquiry={enquiry}
+        onSuccess={(updatedEnquiry) => {
+          setEnquiry(updatedEnquiry);
+          setBidDecisionDialogOpen(false);
+        }}
+      />
     </Box>
   );
 }

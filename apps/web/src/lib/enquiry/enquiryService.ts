@@ -27,6 +27,9 @@ import type {
   ListEnquiriesOptions,
   EnquiryStatus,
   EnquiryDocument,
+  BidDecision,
+  BidEvaluationCriteria,
+  BidDecisionRecord,
 } from '@vapour/types';
 import { PermissionFlag } from '@vapour/types';
 import { ref, uploadBytes, getDownloadURL, deleteObject, FirebaseStorage } from 'firebase/storage';
@@ -473,6 +476,116 @@ export async function uploadEnquiryDocument(
     return document;
   } catch (error) {
     logger.error('Error uploading enquiry document', { enquiryId, error });
+    throw error;
+  }
+}
+
+/**
+ * Record bid/no-bid decision for an enquiry
+ *
+ * @param db - Firestore instance
+ * @param enquiryId - Enquiry ID
+ * @param decision - BID or NO_BID
+ * @param evaluation - Evaluation criteria ratings
+ * @param rationale - Decision rationale text
+ * @param userId - User making the decision
+ * @param userName - User's display name (denormalized)
+ * @returns Updated enquiry
+ */
+export async function recordBidDecision(
+  db: Firestore,
+  enquiryId: string,
+  decision: BidDecision,
+  evaluation: BidEvaluationCriteria,
+  rationale: string,
+  userId: string,
+  userName: string
+): Promise<Enquiry> {
+  try {
+    // Get current enquiry
+    const enquiry = await getEnquiryById(db, enquiryId);
+    if (!enquiry) {
+      throw new Error('Enquiry not found');
+    }
+
+    // Validate current status allows bid decision
+    const allowedStatuses: EnquiryStatus[] = ['NEW', 'UNDER_REVIEW', 'BID_DECISION_PENDING'];
+    if (!allowedStatuses.includes(enquiry.status)) {
+      throw new Error(
+        `Cannot record bid decision for enquiry in ${enquiry.status} status. ` +
+          `Allowed statuses: ${allowedStatuses.join(', ')}`
+      );
+    }
+
+    // Clean evaluation to remove undefined notes
+    const cleanedEvaluation: BidEvaluationCriteria = {
+      strategicAlignment: {
+        rating: evaluation.strategicAlignment.rating,
+        ...(evaluation.strategicAlignment.notes && { notes: evaluation.strategicAlignment.notes }),
+      },
+      winProbability: {
+        rating: evaluation.winProbability.rating,
+        ...(evaluation.winProbability.notes && { notes: evaluation.winProbability.notes }),
+      },
+      commercialViability: {
+        rating: evaluation.commercialViability.rating,
+        ...(evaluation.commercialViability.notes && { notes: evaluation.commercialViability.notes }),
+      },
+      riskExposure: {
+        rating: evaluation.riskExposure.rating,
+        ...(evaluation.riskExposure.notes && { notes: evaluation.riskExposure.notes }),
+      },
+      capacityCapability: {
+        rating: evaluation.capacityCapability.rating,
+        ...(evaluation.capacityCapability.notes && { notes: evaluation.capacityCapability.notes }),
+      },
+    };
+
+    const bidDecisionRecord: BidDecisionRecord = {
+      decision,
+      evaluation: cleanedEvaluation,
+      rationale,
+      decidedBy: userId,
+      decidedByName: userName,
+      decidedAt: Timestamp.now(),
+    };
+
+    // Determine new status based on decision
+    const newStatus: EnquiryStatus = decision === 'BID' ? 'PROPOSAL_IN_PROGRESS' : 'NO_BID';
+
+    const updates = {
+      bidDecision: bidDecisionRecord,
+      status: newStatus,
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+      // For NO_BID, also set outcome tracking
+      ...(decision === 'NO_BID' && {
+        outcomeDate: Timestamp.now(),
+        outcomeReason: `No Bid Decision: ${rationale}`,
+      }),
+    };
+
+    await updateDoc(doc(db, COLLECTIONS.ENQUIRIES, enquiryId), updates);
+
+    logger.info('Bid decision recorded', {
+      enquiryId,
+      decision,
+      newStatus,
+      userId,
+    });
+
+    // Return updated enquiry
+    return {
+      ...enquiry,
+      bidDecision: bidDecisionRecord,
+      status: newStatus,
+      ...(decision === 'NO_BID' && {
+        outcomeDate: Timestamp.now(),
+        outcomeReason: `No Bid Decision: ${rationale}`,
+      }),
+    };
+  } catch (error) {
+    logger.error('Error recording bid decision', { enquiryId, decision, error });
     throw error;
   }
 }
