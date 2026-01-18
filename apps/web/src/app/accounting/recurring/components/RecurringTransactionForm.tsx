@@ -42,6 +42,13 @@ interface Account {
   type: string;
 }
 
+interface Employee {
+  id: string;
+  name: string;
+  employeeId?: string;
+  department?: string;
+}
+
 interface RecurringTransactionFormProps {
   initialData?: Partial<RecurringTransactionInput> & { id?: string };
   onSubmit: (data: RecurringTransactionInput) => Promise<void>;
@@ -108,6 +115,7 @@ export default function RecurringTransactionForm({
     currency: initialData?.currency || 'INR',
     vendorId: initialData?.vendorId,
     customerId: initialData?.customerId,
+    employeeIds: initialData?.employeeIds || [],
     expenseAccountId: initialData?.expenseAccountId,
     revenueAccountId: initialData?.revenueAccountId,
     paymentTermDays: initialData?.paymentTermDays || 30,
@@ -118,6 +126,7 @@ export default function RecurringTransactionForm({
 
   const [vendors, setVendors] = useState<Entity[]>([]);
   const [customers, setCustomers] = useState<Entity[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [expenseAccounts, setExpenseAccounts] = useState<Account[]>([]);
   const [revenueAccounts, setRevenueAccounts] = useState<Account[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -128,10 +137,12 @@ export default function RecurringTransactionForm({
       const { db } = getFirebase();
 
       try {
-        // Load vendors
+        // Load vendors - entities with VENDOR role
+        // Using array-contains for roles array, with status filter and name ordering
         const vendorQuery = query(
           collection(db, COLLECTIONS.ENTITIES),
-          where('type', '==', 'VENDOR'),
+          where('roles', 'array-contains', 'VENDOR'),
+          where('status', '==', 'ACTIVE'),
           orderBy('name', 'asc')
         );
         const vendorSnap = await getDocs(vendorQuery);
@@ -143,10 +154,11 @@ export default function RecurringTransactionForm({
           }))
         );
 
-        // Load customers
+        // Load customers - entities with CUSTOMER role
         const customerQuery = query(
           collection(db, COLLECTIONS.ENTITIES),
-          where('type', '==', 'CUSTOMER'),
+          where('roles', 'array-contains', 'CUSTOMER'),
+          where('status', '==', 'ACTIVE'),
           orderBy('name', 'asc')
         );
         const customerSnap = await getDocs(customerQuery);
@@ -188,6 +200,25 @@ export default function RecurringTransactionForm({
             name: doc.data().name,
             type: doc.data().type,
           }))
+        );
+
+        // Load active employees for salary recurring transactions
+        const employeeQuery = query(
+          collection(db, COLLECTIONS.USERS),
+          where('isActive', '==', true),
+          orderBy('displayName', 'asc')
+        );
+        const employeeSnap = await getDocs(employeeQuery);
+        setEmployees(
+          employeeSnap.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              name: data.displayName || data.email,
+              employeeId: data.hrProfile?.employeeId,
+              department: data.department,
+            };
+          })
         );
       } catch (err) {
         console.error('[RecurringForm] Error loading data:', err);
@@ -488,10 +519,51 @@ export default function RecurringTransactionForm({
         )}
 
         {formData.type === 'SALARY' && (
-          <Alert severity="info" sx={{ mb: 3 }}>
-            Salary recurring transactions will generate payment entries for all active employees.
-            The amount field represents the total payroll amount.
-          </Alert>
+          <>
+            <Typography variant="h6" gutterBottom>
+              Employee Details
+            </Typography>
+
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid size={{ xs: 12 }}>
+                <Autocomplete
+                  multiple
+                  options={employees}
+                  getOptionLabel={(option) =>
+                    option.employeeId ? `${option.employeeId} - ${option.name}` : option.name
+                  }
+                  value={employees.filter((e) => formData.employeeIds?.includes(e.id))}
+                  onChange={(_, values) =>
+                    handleChange(
+                      'employeeIds',
+                      values.map((v) => v.id)
+                    )
+                  }
+                  groupBy={(option) => option.department || 'No Department'}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Select Employees"
+                      placeholder="Search employees..."
+                      helperText={
+                        formData.employeeIds?.length
+                          ? `${formData.employeeIds.length} employee(s) selected`
+                          : 'Leave empty to include all active employees'
+                      }
+                    />
+                  )}
+                />
+              </Grid>
+            </Grid>
+
+            <Alert severity="info" sx={{ mb: 3 }}>
+              {formData.employeeIds?.length
+                ? `Salary payments will be generated for ${formData.employeeIds.length} selected employee(s).`
+                : 'No employees selected - salary payments will be generated for all active employees.'}{' '}
+              The amount field can be used for a fixed total or left at 0 for individual salary
+              amounts.
+            </Alert>
+          </>
         )}
 
         {formData.type === 'JOURNAL_ENTRY' && (
