@@ -32,6 +32,7 @@ import type { JournalEntry, LedgerEntry, TransactionStatus } from '@vapour/types
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { validateLedgerEntries, calculateBalance } from '@/lib/accounting/ledgerValidator';
 import { getEntityControlAccount } from '@/lib/accounting/systemAccountResolver';
+import { removeUndefinedValues } from '@/lib/firebase/typeHelpers';
 
 interface CreateJournalEntryDialogProps {
   open: boolean;
@@ -206,7 +207,8 @@ export function CreateJournalEntryDialog({
             // Remove entityRoles from the final entry (it's just for resolution)
             const { entityRoles, ...cleanEntry } = entry;
             void entityRoles; // Intentionally unused - just removing from object
-            const ledgerEntry: LedgerEntry = {
+            // Use removeUndefinedValues to clean undefined fields before Firestore write
+            const ledgerEntry: LedgerEntry = removeUndefinedValues({
               accountId: cleanEntry.accountId,
               accountCode: cleanEntry.accountCode,
               accountName: cleanEntry.accountName,
@@ -216,7 +218,7 @@ export function CreateJournalEntryDialog({
               costCentreId: cleanEntry.costCentreId,
               entityId: cleanEntry.entityId,
               entityName: cleanEntry.entityName,
-            };
+            });
             return ledgerEntry;
           }
 
@@ -232,7 +234,8 @@ export function CreateJournalEntryDialog({
               );
             }
 
-            const ledgerEntry: LedgerEntry = {
+            // Use removeUndefinedValues to clean undefined fields before Firestore write
+            const ledgerEntry: LedgerEntry = removeUndefinedValues({
               accountId: controlAccount.accountId,
               accountCode: controlAccount.accountCode,
               accountName: controlAccount.accountName,
@@ -242,7 +245,7 @@ export function CreateJournalEntryDialog({
               costCentreId: entry.costCentreId,
               entityId: entry.entityId,
               entityName: entry.entityName,
-            };
+            });
             return ledgerEntry;
           }
 
