@@ -223,7 +223,15 @@ export function CreateJournalEntryDialog({
           }
 
           // If entry has entityId but no accountId, resolve the control account
-          if (entry.entityId && entry.entityRoles && entry.entityRoles.length > 0) {
+          if (entry.entityId) {
+            // Check if we have roles to resolve the control account
+            if (!entry.entityRoles || entry.entityRoles.length === 0) {
+              throw new Error(
+                `Entity "${entry.entityName}" has no role assigned. ` +
+                  `Please select an Account manually or ensure the entity has a role (Customer/Vendor).`
+              );
+            }
+
             const isDebit = entry.debit > 0;
             const controlAccount = await getEntityControlAccount(db, entry.entityRoles, isDebit);
 
@@ -249,8 +257,8 @@ export function CreateJournalEntryDialog({
             return ledgerEntry;
           }
 
-          // This shouldn't happen if validation passed, but handle it
-          throw new Error('Entry must have either an Account or an Entity');
+          // Entry has neither accountId nor entityId
+          throw new Error('Each entry must have either an Account or an Entity selected');
         })
       );
 
@@ -259,15 +267,16 @@ export function CreateJournalEntryDialog({
       // Convert string date to Date object then to Timestamp for Firestore
       const journalDate = Timestamp.fromDate(new Date(date));
 
-      const journalEntry = {
+      // Build journal entry object and remove any undefined values
+      const journalEntry = removeUndefinedValues({
         type: 'JOURNAL_ENTRY' as const,
         date: journalDate,
         journalDate: journalDate,
-        description,
-        // Only include referenceNumber if it has a value (Firestore doesn't accept undefined)
-        ...(reference ? { referenceNumber: reference } : {}),
+        description: description || '',
+        // Only include referenceNumber if it has a value
+        referenceNumber: reference || undefined,
         // Only include projectId if it has a value
-        ...(projectId ? { projectId } : {}),
+        projectId: projectId || undefined,
         status,
         entries: resolvedEntries,
         amount: balance.totalDebits,
@@ -280,7 +289,7 @@ export function CreateJournalEntryDialog({
         attachments: [],
         journalType: 'GENERAL',
         isReversed: false,
-      };
+      });
 
       if (editingEntry?.id) {
         // Update existing entry
