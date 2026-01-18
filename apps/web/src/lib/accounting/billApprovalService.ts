@@ -1,20 +1,20 @@
 /**
  * Vendor Bill Approval Workflow Service
  *
- * Manages bill status transitions, approvals, and rejections.
- * Bills must be approved before payment can be made.
+ * Wrapper around the generic transaction approval service for bills.
+ * Maintained for backward compatibility.
+ *
+ * @deprecated Use transactionApprovalService directly for new code.
  */
 
-import { doc, updateDoc, getDoc, Timestamp, type Firestore } from 'firebase/firestore';
-import { COLLECTIONS } from '@vapour/firebase';
-import { createLogger } from '@vapour/logger';
-import type { VendorBill, TransactionStatus, TransactionApprovalRecord } from '@vapour/types';
+import type { Firestore } from 'firebase/firestore';
+import type { TransactionStatus, TransactionApprovalRecord } from '@vapour/types';
 import {
-  createTaskNotification,
-  completeTaskNotificationsByEntity,
-} from '@/lib/tasks/taskNotificationService';
-
-const logger = createLogger({ context: 'billApproval' });
+  submitTransactionForApproval,
+  approveTransaction,
+  rejectTransaction,
+  getTransactionAvailableActions,
+} from './transactionApprovalService';
 
 /**
  * Approval record for audit trail
@@ -37,68 +37,16 @@ export async function submitBillForApproval(
   userName: string,
   comments?: string
 ): Promise<void> {
-  try {
-    const billRef = doc(db, COLLECTIONS.TRANSACTIONS, billId);
-    const billSnap = await getDoc(billRef);
-
-    if (!billSnap.exists()) {
-      throw new Error('Bill not found');
-    }
-
-    const bill = billSnap.data() as VendorBill;
-
-    if (bill.status !== 'DRAFT') {
-      throw new Error(`Cannot submit bill with status: ${bill.status}`);
-    }
-
-    const approvalRecord: BillApprovalRecord = {
-      action: 'SUBMITTED',
-      userId,
-      userName,
-      timestamp: new Date(),
-      ...(comments ? { comments } : {}),
-    };
-
-    await updateDoc(billRef, {
-      status: 'PENDING_APPROVAL' as TransactionStatus,
-      submittedAt: Timestamp.now(),
-      submittedByUserId: userId,
-      submittedByUserName: userName,
-      assignedApproverId: approverId,
-      assignedApproverName: approverName,
-      approvalHistory: [...(bill.approvalHistory || []), approvalRecord],
-      updatedAt: Timestamp.now(),
-      updatedBy: userId,
-    });
-
-    // Create actionable task for the designated approver
-    await createTaskNotification({
-      type: 'actionable',
-      category: 'BILL_SUBMITTED',
-      userId: approverId,
-      assignedBy: userId,
-      assignedByName: userName,
-      title: `Review Bill ${bill.vendorInvoiceNumber || bill.transactionNumber}`,
-      message: comments
-        ? `${userName} submitted bill from ${bill.entityName || 'vendor'} for your review: ${comments}`
-        : `${userName} submitted bill from ${bill.entityName || 'vendor'} for your review`,
-      entityType: 'BILL',
-      entityId: billId,
-      linkUrl: `/accounting/bills`,
-      priority: 'HIGH',
-      autoCompletable: true,
-    });
-
-    logger.info('Bill submitted for approval', {
-      billId,
-      userId,
-      approverId,
-      billNumber: bill.vendorInvoiceNumber || bill.transactionNumber,
-    });
-  } catch (error) {
-    logger.error('Error submitting bill for approval', { billId, error });
-    throw error;
-  }
+  return submitTransactionForApproval(
+    db,
+    'VENDOR_BILL',
+    billId,
+    approverId,
+    approverName,
+    userId,
+    userName,
+    comments
+  );
 }
 
 /**
@@ -113,78 +61,7 @@ export async function approveBill(
   userName: string,
   comments?: string
 ): Promise<void> {
-  try {
-    const billRef = doc(db, COLLECTIONS.TRANSACTIONS, billId);
-    const billSnap = await getDoc(billRef);
-
-    if (!billSnap.exists()) {
-      throw new Error('Bill not found');
-    }
-
-    const bill = billSnap.data() as VendorBill;
-
-    if (bill.status !== 'PENDING_APPROVAL') {
-      throw new Error(`Cannot approve bill with status: ${bill.status}`);
-    }
-
-    const approvalRecord: BillApprovalRecord = {
-      action: 'APPROVED',
-      userId,
-      userName,
-      timestamp: new Date(),
-      ...(comments ? { comments } : {}),
-    };
-
-    await updateDoc(billRef, {
-      status: 'APPROVED' as TransactionStatus,
-      approvedBy: userId,
-      approvedAt: Timestamp.now(),
-      approvalHistory: [...(bill.approvalHistory || []), approvalRecord],
-      updatedAt: Timestamp.now(),
-      updatedBy: userId,
-    });
-
-    // Complete the approval task notification
-    await completeTaskNotificationsByEntity('BILL', billId, userId);
-
-    // Notify the submitter that their bill was approved
-    const submittedBy = bill.submittedByUserId;
-    if (submittedBy) {
-      try {
-        await createTaskNotification({
-          type: 'informational',
-          category: 'BILL_APPROVED',
-          userId: submittedBy,
-          assignedBy: userId,
-          assignedByName: userName,
-          title: `Bill ${bill.vendorInvoiceNumber || bill.transactionNumber} Approved`,
-          message: comments
-            ? `Your bill was approved by ${userName}: ${comments}`
-            : `Your bill from ${bill.entityName || 'vendor'} was approved by ${userName}`,
-          entityType: 'BILL',
-          entityId: billId,
-          linkUrl: `/accounting/bills`,
-          priority: 'MEDIUM',
-        });
-      } catch (notificationError) {
-        // Log but don't fail the approval if notification fails
-        logger.warn('Failed to send approval notification', {
-          billId,
-          submittedBy,
-          notificationError,
-        });
-      }
-    }
-
-    logger.info('Bill approved', {
-      billId,
-      userId,
-      billNumber: bill.vendorInvoiceNumber || bill.transactionNumber,
-    });
-  } catch (error) {
-    logger.error('Error approving bill', { billId, error });
-    throw error;
-  }
+  return approveTransaction(db, 'VENDOR_BILL', billId, userId, userName, comments);
 }
 
 /**
@@ -199,75 +76,7 @@ export async function rejectBill(
   userName: string,
   comments: string
 ): Promise<void> {
-  try {
-    const billRef = doc(db, COLLECTIONS.TRANSACTIONS, billId);
-    const billSnap = await getDoc(billRef);
-
-    if (!billSnap.exists()) {
-      throw new Error('Bill not found');
-    }
-
-    const bill = billSnap.data() as VendorBill;
-
-    if (bill.status !== 'PENDING_APPROVAL') {
-      throw new Error(`Cannot reject bill with status: ${bill.status}`);
-    }
-
-    const approvalRecord: BillApprovalRecord = {
-      action: 'REJECTED',
-      userId,
-      userName,
-      timestamp: new Date(),
-      comments,
-    };
-
-    await updateDoc(billRef, {
-      status: 'DRAFT' as TransactionStatus,
-      rejectionReason: comments,
-      approvalHistory: [...(bill.approvalHistory || []), approvalRecord],
-      updatedAt: Timestamp.now(),
-      updatedBy: userId,
-    });
-
-    // Complete the approval task notification
-    await completeTaskNotificationsByEntity('BILL', billId, userId);
-
-    // Notify the submitter that their bill was rejected
-    const submittedBy = bill.submittedByUserId;
-    if (submittedBy) {
-      try {
-        await createTaskNotification({
-          type: 'informational',
-          category: 'BILL_REJECTED',
-          userId: submittedBy,
-          assignedBy: userId,
-          assignedByName: userName,
-          title: `Bill ${bill.vendorInvoiceNumber || bill.transactionNumber} Rejected`,
-          message: `Your bill was rejected by ${userName}: ${comments}`,
-          entityType: 'BILL',
-          entityId: billId,
-          linkUrl: `/accounting/bills`,
-          priority: 'HIGH',
-        });
-      } catch (notificationError) {
-        // Log but don't fail the rejection if notification fails
-        logger.warn('Failed to send rejection notification', {
-          billId,
-          submittedBy,
-          notificationError,
-        });
-      }
-    }
-
-    logger.info('Bill rejected', {
-      billId,
-      userId,
-      billNumber: bill.vendorInvoiceNumber || bill.transactionNumber,
-    });
-  } catch (error) {
-    logger.error('Error rejecting bill', { billId, error });
-    throw error;
-  }
+  return rejectTransaction(db, 'VENDOR_BILL', billId, userId, userName, comments);
 }
 
 /**
@@ -294,20 +103,12 @@ export function getBillAvailableActions(
   canDelete: boolean;
   canRecordPayment: boolean;
 } {
-  // Only the assigned approver can approve/reject
-  const isApprover =
-    isAssignedApprover || (assignedApproverId && assignedApproverId === currentUserId);
-  const canApproveOrReject = canManage && status === 'PENDING_APPROVAL' && !!isApprover;
-
-  // TESTING PHASE: Allow editing in PENDING_APPROVAL status
-  const editableStatuses: TransactionStatus[] = ['DRAFT', 'PENDING_APPROVAL'];
-
-  return {
-    canEdit: canManage && editableStatuses.includes(status),
-    canSubmitForApproval: canManage && status === 'DRAFT',
-    canApprove: canApproveOrReject,
-    canReject: canApproveOrReject,
-    canDelete: canManage && (status === 'DRAFT' || status === 'PENDING_APPROVAL'),
-    canRecordPayment: canManage && status === 'APPROVED',
-  };
+  return getTransactionAvailableActions(
+    'VENDOR_BILL',
+    status,
+    canManage,
+    isAssignedApprover,
+    currentUserId,
+    assignedApproverId
+  );
 }

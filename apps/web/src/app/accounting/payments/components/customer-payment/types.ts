@@ -1,8 +1,13 @@
 /**
  * Types for Customer Payment Components
+ *
+ * Re-exports centralized payment constants.
  */
 
-import type { CustomerInvoice, PaymentAllocation, PaymentMethod } from '@vapour/types';
+import type { CustomerInvoice, PaymentAllocation } from '@vapour/types';
+
+// Re-export from centralized constants
+export { PAYMENT_METHODS, CURRENCIES } from '@/lib/accounting/paymentConstants';
 
 export interface InvoiceAllocationTableProps {
   outstandingInvoices: CustomerInvoice[];
@@ -13,22 +18,3 @@ export interface InvoiceAllocationTableProps {
   onAutoAllocate: () => void;
   onFillRemaining: (invoiceId: string) => void;
 }
-
-export const PAYMENT_METHODS: PaymentMethod[] = [
-  'BANK_TRANSFER',
-  'UPI',
-  'CREDIT_CARD',
-  'DEBIT_CARD',
-  'CHEQUE',
-  'CASH',
-  'OTHER',
-];
-
-export const CURRENCIES = [
-  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'GBP', symbol: '£', name: 'British Pound' },
-  { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham' },
-  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
-];

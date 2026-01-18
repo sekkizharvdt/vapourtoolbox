@@ -1,8 +1,13 @@
 /**
  * Types for Vendor Payment Components
+ *
+ * Re-exports centralized payment constants.
  */
 
-import type { VendorBill, PaymentAllocation, PaymentMethod } from '@vapour/types';
+import type { VendorBill, PaymentAllocation } from '@vapour/types';
+
+// Re-export from centralized constants
+export { PAYMENT_METHODS, TDS_SECTIONS } from '@/lib/accounting/paymentConstants';
 
 export interface BillAllocationTableProps {
   outstandingBills: VendorBill[];
@@ -34,21 +39,3 @@ export interface OutstandingBillsSummaryProps {
   totalOutstanding: number;
   onPayFullOutstanding: () => void;
 }
-
-export const PAYMENT_METHODS: PaymentMethod[] = [
-  'CASH',
-  'CHEQUE',
-  'BANK_TRANSFER',
-  'UPI',
-  'CREDIT_CARD',
-  'DEBIT_CARD',
-  'OTHER',
-];
-
-export const TDS_SECTIONS = [
-  { code: '194C', name: 'Contractors - 2%', rate: 2 },
-  { code: '194J', name: 'Professional Services - 10%', rate: 10 },
-  { code: '194H', name: 'Commission/Brokerage - 5%', rate: 5 },
-  { code: '194I', name: 'Rent - 10%', rate: 10 },
-  { code: '194A', name: 'Interest (Other than Securities) - 10%', rate: 10 },
-];
