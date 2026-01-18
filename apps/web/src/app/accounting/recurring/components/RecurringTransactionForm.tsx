@@ -138,11 +138,12 @@ export default function RecurringTransactionForm({
 
       try {
         // Load vendors - entities with VENDOR role
-        // Using array-contains for roles array, with status filter and name ordering
+        // Using array-contains for roles array, with isActive filter and name ordering
+        // Note: Using isActive (boolean) not status (string) - matches entity type definition
         const vendorQuery = query(
           collection(db, COLLECTIONS.ENTITIES),
           where('roles', 'array-contains', 'VENDOR'),
-          where('status', '==', 'ACTIVE'),
+          where('isActive', '==', true),
           orderBy('name', 'asc')
         );
         const vendorSnap = await getDocs(vendorQuery);
@@ -158,7 +159,7 @@ export default function RecurringTransactionForm({
         const customerQuery = query(
           collection(db, COLLECTIONS.ENTITIES),
           where('roles', 'array-contains', 'CUSTOMER'),
-          where('status', '==', 'ACTIVE'),
+          where('isActive', '==', true),
           orderBy('name', 'asc')
         );
         const customerSnap = await getDocs(customerQuery);
