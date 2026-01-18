@@ -261,8 +261,10 @@ export function CreateJournalEntryDialog({
         date: journalDate,
         journalDate: journalDate,
         description,
-        referenceNumber: reference || undefined,
-        projectId: projectId || undefined,
+        // Only include referenceNumber if it has a value (Firestore doesn't accept undefined)
+        ...(reference ? { referenceNumber: reference } : {}),
+        // Only include projectId if it has a value
+        ...(projectId ? { projectId } : {}),
         status,
         entries: resolvedEntries,
         amount: balance.totalDebits,

@@ -19,7 +19,7 @@ import {
   startAfter as firestoreStartAfter,
 } from 'firebase/firestore';
 import { createLogger } from '@vapour/logger';
-import { docToTyped } from '@/lib/firebase/typeHelpers';
+import { docToTyped, removeUndefinedValues } from '@/lib/firebase/typeHelpers';
 import type {
   Enquiry,
   CreateEnquiryInput,
@@ -281,11 +281,12 @@ export async function updateEnquiry(
   userId: string
 ): Promise<void> {
   try {
-    const updates: Record<string, unknown> = {
+    // Remove undefined values - Firestore doesn't accept them
+    const updates = removeUndefinedValues({
       ...input,
       updatedAt: Timestamp.now(),
       updatedBy: userId,
-    };
+    });
 
     await updateDoc(doc(db, COLLECTIONS.ENQUIRIES, enquiryId), updates);
 

@@ -7,6 +7,7 @@ import { doc, updateDoc, Timestamp, getDoc, writeBatch, collection } from 'fireb
 import { getFirebase } from '../firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
+import { removeUndefinedValues } from '@/lib/firebase/typeHelpers';
 import type { ProcurementItem, Project } from '@vapour/types';
 
 const logger = createLogger({ context: 'charterProcurementService' });
@@ -36,12 +37,12 @@ export async function addProcurementItem(
     // Generate ID for new item
     const itemId = `PROC-${crypto.randomUUID().slice(0, 8)}`;
 
-    // Create new item with defaults
-    const newItem: ProcurementItem = {
+    // Create new item with defaults - remove undefined values for Firestore
+    const newItem = removeUndefinedValues<ProcurementItem>({
       ...item,
       id: itemId,
       status: 'PLANNING',
-    };
+    });
 
     // Add to array
     const updatedItems = [...currentItems, newItem];
@@ -83,9 +84,9 @@ export async function updateProcurementItem(
     const project = projectSnap.data() as Project;
     const currentItems = project.procurementItems || [];
 
-    // Find and update item
+    // Find and update item - remove undefined values for Firestore
     const updatedItems = currentItems.map((item) =>
-      item.id === itemId ? { ...item, ...updates } : item
+      item.id === itemId ? removeUndefinedValues({ ...item, ...updates }) : item
     );
 
     // Update project

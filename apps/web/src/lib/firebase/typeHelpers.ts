@@ -147,6 +147,28 @@ export function conditionalProps<T extends Record<string, unknown>>(props: T): P
 }
 
 /**
+ * Removes undefined values from an object before sending to Firestore.
+ * Firestore does not accept undefined values in documents.
+ *
+ * @example
+ * const data = removeUndefinedValues({
+ *   name: 'Example',
+ *   description: description || undefined,  // Will be removed if undefined
+ *   projectId: projectId || undefined        // Will be removed if undefined
+ * });
+ * await addDoc(collection, data);
+ */
+export function removeUndefinedValues<T extends object>(obj: T): T {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+  return result as T;
+}
+
+/**
  * Type guard to check if a value is a Firestore Timestamp
  */
 export function isFirestoreTimestamp(value: unknown): value is Timestamp {

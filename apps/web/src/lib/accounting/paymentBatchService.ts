@@ -25,6 +25,7 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
+import { removeUndefinedValues } from '@/lib/firebase/typeHelpers';
 import type {
   PaymentBatch,
   PaymentBatchStatus,
@@ -69,10 +70,7 @@ function calculateBatchTotals(batch: Partial<PaymentBatch>): {
 /**
  * Convert Firestore document to PaymentBatch
  */
-function docToPaymentBatch(
-  docData: Record<string, unknown>,
-  id: string
-): PaymentBatch {
+function docToPaymentBatch(docData: Record<string, unknown>, id: string): PaymentBatch {
   return {
     id,
     batchNumber: (docData.batchNumber as string) || '',
@@ -86,24 +84,29 @@ function docToPaymentBatch(
     bankAccountName: (docData.bankAccountName as string) || '',
     status: (docData.status as PaymentBatchStatus) || 'DRAFT',
     createdBy: (docData.createdBy as string) || '',
-    createdAt: docData.createdAt instanceof Timestamp
-      ? docData.createdAt.toDate()
-      : (docData.createdAt as Date | string),
-    submittedAt: docData.submittedAt instanceof Timestamp
-      ? docData.submittedAt.toDate()
-      : (docData.submittedAt as Date | string | undefined),
+    createdAt:
+      docData.createdAt instanceof Timestamp
+        ? docData.createdAt.toDate()
+        : (docData.createdAt as Date | string),
+    submittedAt:
+      docData.submittedAt instanceof Timestamp
+        ? docData.submittedAt.toDate()
+        : (docData.submittedAt as Date | string | undefined),
     approvedBy: docData.approvedBy as string | undefined,
-    approvedAt: docData.approvedAt instanceof Timestamp
-      ? docData.approvedAt.toDate()
-      : (docData.approvedAt as Date | string | undefined),
-    executedAt: docData.executedAt instanceof Timestamp
-      ? docData.executedAt.toDate()
-      : (docData.executedAt as Date | string | undefined),
+    approvedAt:
+      docData.approvedAt instanceof Timestamp
+        ? docData.approvedAt.toDate()
+        : (docData.approvedAt as Date | string | undefined),
+    executedAt:
+      docData.executedAt instanceof Timestamp
+        ? docData.executedAt.toDate()
+        : (docData.executedAt as Date | string | undefined),
     rejectionReason: docData.rejectionReason as string | undefined,
     notes: docData.notes as string | undefined,
-    updatedAt: docData.updatedAt instanceof Timestamp
-      ? docData.updatedAt.toDate()
-      : (docData.updatedAt as Date | string | undefined),
+    updatedAt:
+      docData.updatedAt instanceof Timestamp
+        ? docData.updatedAt.toDate()
+        : (docData.updatedAt as Date | string | undefined),
   };
 }
 
@@ -177,7 +180,8 @@ export async function createPaymentBatch(
     status: 'DRAFT' as PaymentBatchStatus,
     createdBy: userId,
     createdAt: now,
-    notes: input.notes,
+    // Only include notes if it has a value (Firestore doesn't accept undefined)
+    ...(input.notes ? { notes: input.notes } : {}),
     updatedAt: now,
   };
 
@@ -239,9 +243,7 @@ export async function listPaymentBatches(
   }
 
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((docSnap) =>
-    docToPaymentBatch(docSnap.data(), docSnap.id)
-  );
+  return snapshot.docs.map((docSnap) => docToPaymentBatch(docSnap.data(), docSnap.id));
 }
 
 /**
@@ -293,7 +295,8 @@ export async function addBatchReceipt(
     throw new Error('Cannot modify a batch that is not in DRAFT status');
   }
 
-  const receipt: BatchReceipt = {
+  // Remove undefined values - Firestore doesn't accept them
+  const receipt = removeUndefinedValues<BatchReceipt>({
     id: generateItemId(),
     sourceType: input.sourceType,
     sourceId: input.sourceId,
@@ -305,7 +308,7 @@ export async function addBatchReceipt(
     entityId: input.entityId,
     entityName: input.entityName,
     receiptDate: input.receiptDate,
-  };
+  });
 
   const updatedReceipts = [...batch.receipts, receipt];
   const totals = calculateBatchTotals({ ...batch, receipts: updatedReceipts });
@@ -370,11 +373,10 @@ export async function addBatchPayment(
   }
 
   // Calculate net payable
-  const netPayable = input.tdsAmount
-    ? input.amount - input.tdsAmount
-    : input.amount;
+  const netPayable = input.tdsAmount ? input.amount - input.tdsAmount : input.amount;
 
-  const payment: BatchPayment = {
+  // Remove undefined values - Firestore doesn't accept them
+  const payment = removeUndefinedValues<BatchPayment>({
     id: generateItemId(),
     linkedType: input.linkedType,
     linkedId: input.linkedId,
@@ -391,7 +393,7 @@ export async function addBatchPayment(
     projectName: input.projectName,
     status: 'PENDING',
     notes: input.notes,
-  };
+  });
 
   const updatedPayments = [...batch.payments, payment];
   const totals = calculateBatchTotals({ ...batch, payments: updatedPayments });
@@ -467,11 +469,12 @@ export async function updateBatchPayment(
     amount: updates.amount || existingPayment.amount,
     currency: updates.currency || existingPayment.currency,
     status: existingPayment.status,
-    netPayable: updates.tdsAmount !== undefined
-      ? (updates.amount || existingPayment.amount) - updates.tdsAmount
-      : updates.amount
-        ? updates.amount - (existingPayment.tdsAmount || 0)
-        : existingPayment.netPayable,
+    netPayable:
+      updates.tdsAmount !== undefined
+        ? (updates.amount || existingPayment.amount) - updates.tdsAmount
+        : updates.amount
+          ? updates.amount - (existingPayment.tdsAmount || 0)
+          : existingPayment.netPayable,
   };
 
   const updatedPayments = [...batch.payments];
@@ -495,10 +498,7 @@ export async function updateBatchPayment(
 /**
  * Submit a payment batch for approval
  */
-export async function submitBatchForApproval(
-  db: Firestore,
-  batchId: string
-): Promise<void> {
+export async function submitBatchForApproval(db: Firestore, batchId: string): Promise<void> {
   const batch = await getPaymentBatch(db, batchId);
   if (!batch) {
     throw new Error(`Payment batch not found: ${batchId}`);
@@ -554,11 +554,7 @@ export async function approveBatch(
 /**
  * Reject a payment batch
  */
-export async function rejectBatch(
-  db: Firestore,
-  batchId: string,
-  reason: string
-): Promise<void> {
+export async function rejectBatch(db: Firestore, batchId: string, reason: string): Promise<void> {
   const batch = await getPaymentBatch(db, batchId);
   if (!batch) {
     throw new Error(`Payment batch not found: ${batchId}`);
@@ -579,10 +575,7 @@ export async function rejectBatch(
 /**
  * Cancel a payment batch
  */
-export async function cancelBatch(
-  db: Firestore,
-  batchId: string
-): Promise<void> {
+export async function cancelBatch(db: Firestore, batchId: string): Promise<void> {
   const batch = await getPaymentBatch(db, batchId);
   if (!batch) {
     throw new Error(`Payment batch not found: ${batchId}`);
@@ -667,9 +660,7 @@ export async function getOutstandingBillsByProject(
 /**
  * Detect cross-project payments that will create interproject loans
  */
-export function detectCrossProjectPayments(
-  batch: PaymentBatch
-): Array<{
+export function detectCrossProjectPayments(batch: PaymentBatch): Array<{
   payment: BatchPayment;
   lendingProjectId: string;
   lendingProjectName: string;
@@ -713,9 +704,7 @@ export function detectCrossProjectPayments(
 /**
  * Get payment batch statistics
  */
-export async function getPaymentBatchStats(
-  db: Firestore
-): Promise<PaymentBatchStats> {
+export async function getPaymentBatchStats(db: Firestore): Promise<PaymentBatchStats> {
   const snapshot = await getDocs(collection(db, COLLECTIONS.PAYMENT_BATCHES));
 
   const stats: PaymentBatchStats = {
@@ -749,9 +738,8 @@ export async function getPaymentBatchStats(
     } else if (status === 'APPROVED') {
       stats.approvedAmount += totalPayment;
     } else if (status === 'COMPLETED') {
-      const executedAt = data.executedAt instanceof Timestamp
-        ? data.executedAt.toDate()
-        : data.executedAt;
+      const executedAt =
+        data.executedAt instanceof Timestamp ? data.executedAt.toDate() : data.executedAt;
       if (executedAt && new Date(executedAt as string) >= startOfMonth) {
         stats.completedThisMonth++;
         stats.paidThisMonthAmount += totalPayment;
