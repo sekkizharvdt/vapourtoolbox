@@ -18,17 +18,18 @@ This document outlines the required improvements to the Proposal Management modu
 
 **Problem:** Scope is defined in THREE places with different data structures:
 
-| Location | Data Field | Structure |
-|----------|-----------|-----------|
-| Wizard Step 2 (Scope of Work) | `scopeOfWork` | Free-text lists (summary, objectives, deliverables, etc.) |
-| Wizard Step 3 (Scope of Supply) | `scopeOfSupply` | Line items with pricing |
-| Scope Matrix Sub-module | `scopeMatrix` | Structured services/supply/exclusions by phase |
+| Location                        | Data Field      | Structure                                                 |
+| ------------------------------- | --------------- | --------------------------------------------------------- |
+| Wizard Step 2 (Scope of Work)   | `scopeOfWork`   | Free-text lists (summary, objectives, deliverables, etc.) |
+| Wizard Step 3 (Scope of Supply) | `scopeOfSupply` | Line items with pricing                                   |
+| Scope Matrix Sub-module         | `scopeMatrix`   | Structured services/supply/exclusions by phase            |
 
 **Impact:** Data inconsistency, user confusion, and maintenance burden.
 
 ### 3. Wizard vs. Hub Sub-Modules Mismatch
 
 **Problem:** The hub shows a phased approach:
+
 ```
 Enquiries → Scope Matrix → Estimation → Pricing → Generation
 ```
@@ -92,9 +93,11 @@ But the 6-step wizard tries to capture everything at once (scope, supply, pricin
 ### Phase 1: Bid/No-Bid Decision
 
 #### Task 1.1: Add Bid Decision Fields to Enquiry Type
+
 **File:** `packages/types/src/enquiry.ts`
 
 Add new fields:
+
 ```typescript
 interface Enquiry {
   // ... existing fields ...
@@ -102,23 +105,25 @@ interface Enquiry {
   // Bid decision
   bidDecision?: {
     decision: 'BID' | 'NO_BID';
-    rationale: string;  // Required text explaining the decision
-    decidedBy: string;  // User ID
+    rationale: string; // Required text explaining the decision
+    decidedBy: string; // User ID
     decidedAt: Timestamp;
   };
 }
 ```
 
 #### Task 1.2: Add Enquiry Status for No-Bid
+
 **File:** `packages/types/src/enquiry.ts`
 
 Update `EnquiryStatus` to include:
+
 ```typescript
 type EnquiryStatus =
   | 'NEW'
   | 'UNDER_REVIEW'
-  | 'BID_DECISION_PENDING'  // New
-  | 'NO_BID'                // New - terminal state
+  | 'BID_DECISION_PENDING' // New
+  | 'NO_BID' // New - terminal state
   | 'PROPOSAL_IN_PROGRESS'
   | 'PROPOSAL_SUBMITTED'
   | 'WON'
@@ -127,14 +132,17 @@ type EnquiryStatus =
 ```
 
 #### Task 1.3: Create Bid Decision Dialog
+
 **File:** `apps/web/src/app/proposals/enquiries/components/BidDecisionDialog.tsx`
 
 Dialog with:
+
 - Radio buttons: BID / NO-BID
 - Text area for rationale (required)
 - Confirm button
 
 #### Task 1.4: Update Enquiry Detail Page
+
 **File:** `apps/web/src/app/proposals/enquiries/[id]/EnquiryDetailClient.tsx`
 
 - Replace "Create Proposal" button with "Make Bid Decision" button
@@ -142,9 +150,11 @@ Dialog with:
 - Only show "Create Proposal" after BID decision is made
 
 #### Task 1.5: Update Enquiry Service
+
 **File:** `apps/web/src/lib/enquiry/enquiryService.ts`
 
 Add function:
+
 ```typescript
 async function recordBidDecision(
   db: Firestore,
@@ -152,7 +162,7 @@ async function recordBidDecision(
   decision: 'BID' | 'NO_BID',
   rationale: string,
   userId: string
-): Promise<void>
+): Promise<void>;
 ```
 
 ---
@@ -160,26 +170,32 @@ async function recordBidDecision(
 ### Phase 2: Simplify Proposal Creation
 
 #### Task 2.1: Create Simple Proposal Conversion Dialog
+
 **File:** `apps/web/src/app/proposals/enquiries/components/CreateProposalDialog.tsx`
 
 Replace the 6-step wizard with a simple dialog that captures:
+
 - Proposal title (pre-filled from enquiry)
 - Validity date (default: 30 days from now)
 - Any initial notes
 
 #### Task 2.2: Update Proposal Service - Create Minimal Proposal
+
 **File:** `apps/web/src/lib/proposals/proposalService.ts`
 
 Update `createProposal` to:
+
 - Auto-populate from enquiry data
 - Create proposal with status `DRAFT`
 - Initialize empty `scopeMatrix`
 - Skip the wizard entirely
 
 #### Task 2.3: Remove or Deprecate ProposalWizard
+
 **Files:** `apps/web/src/app/proposals/components/ProposalWizard/`
 
 Options:
+
 - **Option A:** Remove entirely and redirect `/proposals/new` to enquiries
 - **Option B:** Keep for editing existing proposals but simplify
 - **Option C:** Convert to a "quick entry" mode for simple proposals
@@ -187,6 +203,7 @@ Options:
 **Recommendation:** Option A - Remove wizard, use sub-modules instead.
 
 #### Task 2.4: Update /proposals/new Route
+
 **File:** `apps/web/src/app/proposals/new/page.tsx`
 
 Redirect to `/proposals/enquiries` with a message to select an enquiry first.
@@ -196,19 +213,23 @@ Redirect to `/proposals/enquiries` with a message to select an enquiry first.
 ### Phase 3: Integrate Scope Matrix
 
 #### Task 3.1: Update Proposal Detail to Show Scope Matrix Status
+
 **File:** `apps/web/src/app/proposals/[id]/ProposalDetailClient.tsx`
 
 Add:
+
 - Scope Matrix completion status
 - Quick link to edit scope
 - Warning if scope is incomplete
 
 #### Task 3.2: Add "Edit Scope" Action to Proposal List
+
 **File:** `apps/web/src/app/proposals/components/ProposalList.tsx`
 
 Add action button to go directly to scope editor.
 
 #### Task 3.3: Block Estimation Until Scope is Complete
+
 Add validation: Cannot proceed to estimation unless `scopeMatrix.isComplete === true`
 
 ---
@@ -216,11 +237,12 @@ Add validation: Cannot proceed to estimation unless `scopeMatrix.isComplete === 
 ### Phase 4: Build Estimation Sub-Module
 
 #### Task 4.1: Add Estimation Types
+
 **File:** `packages/types/src/proposal.ts`
 
 ```typescript
 interface EstimationItem {
-  scopeItemId: string;  // Links to ScopeItem
+  scopeItemId: string; // Links to ScopeItem
 
   // Cost breakdown
   materialCost?: Money;
@@ -250,6 +272,7 @@ interface ProposalEstimation {
 ```
 
 #### Task 4.2: Add estimation Field to Proposal
+
 **File:** `packages/types/src/proposal.ts`
 
 ```typescript
@@ -260,16 +283,20 @@ interface Proposal {
 ```
 
 #### Task 4.3: Create Estimation Hub Page
+
 **File:** `apps/web/src/app/proposals/estimation/page.tsx`
 
 List proposals where:
+
 - `scopeMatrix.isComplete === true`
 - `estimation.isComplete !== true`
 
 #### Task 4.4: Create Estimation Editor
+
 **File:** `apps/web/src/app/proposals/[id]/estimation/page.tsx`
 
 Table showing:
+
 - Scope items (from scopeMatrix)
 - Input fields for costs
 - Running totals
@@ -279,6 +306,7 @@ Table showing:
 ### Phase 5: Build Pricing Sub-Module
 
 #### Task 5.1: Add Pricing Types
+
 **File:** `packages/types/src/proposal.ts`
 
 ```typescript
@@ -289,11 +317,11 @@ interface ProposalPricing {
   profitMarginPercent: number;
 
   // Calculated values
-  subtotal: Money;           // From estimation
+  subtotal: Money; // From estimation
   overheadAmount: Money;
   contingencyAmount: Money;
   profitAmount: Money;
-  totalPrice: Money;         // Client-facing price
+  totalPrice: Money; // Client-facing price
 
   // Terms
   paymentTerms: string;
@@ -308,9 +336,11 @@ interface ProposalPricing {
 ```
 
 #### Task 5.2: Create Pricing Hub Page
+
 **File:** `apps/web/src/app/proposals/pricing/page.tsx`
 
 #### Task 5.3: Create Pricing Editor
+
 **File:** `apps/web/src/app/proposals/[id]/pricing/page.tsx`
 
 ---
@@ -318,14 +348,17 @@ interface ProposalPricing {
 ### Phase 6: Build Generation Sub-Module
 
 #### Task 6.1: Create Proposal Preview Component
+
 **File:** `apps/web/src/app/proposals/[id]/preview/page.tsx`
 
 Show complete proposal preview before PDF generation.
 
 #### Task 6.2: Add PDF Generation
+
 Use existing PDF generation capabilities or integrate a library.
 
 #### Task 6.3: Add Submit to Client Workflow
+
 - Update status to SUBMITTED
 - Record submission date
 - Optional: Email notification
@@ -335,9 +368,11 @@ Use existing PDF generation capabilities or integrate a library.
 ### Phase 7: Enable Hub Modules
 
 #### Task 7.1: Update Proposals Hub
+
 **File:** `apps/web/src/app/proposals/page.tsx`
 
 Remove `comingSoon: true` from:
+
 - Estimation
 - Pricing
 - Proposal Generation
@@ -349,6 +384,7 @@ Remove `comingSoon: true` from:
 ### Existing Proposals
 
 Proposals created with the old wizard will have:
+
 - `scopeOfWork` - text-based scope
 - `scopeOfSupply` - line items with pricing
 
@@ -365,20 +401,24 @@ These should continue to work. The new `scopeMatrix` and `estimation` fields are
 ## Files to Modify/Create
 
 ### Types Package
+
 - `packages/types/src/enquiry.ts` - Add bid decision fields
 - `packages/types/src/proposal.ts` - Add estimation, pricing types
 
 ### Web App - Enquiries
+
 - `apps/web/src/app/proposals/enquiries/components/BidDecisionDialog.tsx` (new)
 - `apps/web/src/app/proposals/enquiries/[id]/EnquiryDetailClient.tsx` (modify)
 - `apps/web/src/lib/enquiry/enquiryService.ts` (modify)
 
 ### Web App - Proposals
+
 - `apps/web/src/app/proposals/new/page.tsx` (simplify/remove)
 - `apps/web/src/app/proposals/components/ProposalWizard/` (deprecate)
 - `apps/web/src/app/proposals/page.tsx` (enable modules)
 
 ### Web App - New Sub-Modules
+
 - `apps/web/src/app/proposals/estimation/page.tsx` (new)
 - `apps/web/src/app/proposals/[id]/estimation/page.tsx` (new)
 - `apps/web/src/app/proposals/pricing/page.tsx` (new)
@@ -399,14 +439,94 @@ These should continue to work. The new `scopeMatrix` and `estimation` fields are
 
 ---
 
-## Questions to Resolve
+## Questions Resolved
 
-1. **Wizard fate:** Remove entirely or keep for quick/simple proposals?
-2. **Old proposals:** Should they be migrated to new structure?
-3. **Approval workflow:** When should internal approvals happen?
-4. **PDF template:** What should the generated proposal look like?
+1. **Wizard fate:** Simplify the wizard (not remove entirely).
+2. **Old proposals:** No migration needed - no proposals in database, only enquiries.
+3. **Approval workflow:** Internal approval will be by super admins.
+4. **PDF template:** Format will be provided at time of development.
 
 ---
 
-*Document created: 2026-01-14*
-*Last updated: 2026-01-14*
+## Bid/No-Bid Evaluation Criteria
+
+The bid decision should be based on evaluation of these five criteria:
+
+### 1. Strategic Alignment
+
+Does this opportunity align with our long-term strategy, core competencies, and target market positioning, or is it a distraction from priority objectives?
+
+**Evaluation options:**
+
+- Strong Fit - Directly aligns with strategy and competencies
+- Moderate Fit - Partial alignment, some strategic value
+- Weak Fit - Limited alignment, opportunistic only
+- No Fit - Does not align, would be a distraction
+
+### 2. Win Probability
+
+Do we have a clear, defensible advantage (technical, commercial, relationship, or regulatory) that gives us a realistic probability of winning?
+
+**Evaluation options:**
+
+- High (>60%) - Strong competitive position, clear advantages
+- Medium (30-60%) - Competitive but uncertain
+- Low (<30%) - Significant competition, limited advantages
+- Unknown - Insufficient information to assess
+
+### 3. Commercial Viability
+
+Will this bid deliver acceptable margins, cash flow, and return on resources invested, even under conservative assumptions?
+
+**Evaluation options:**
+
+- Highly Viable - Strong margins, good cash flow profile
+- Viable - Acceptable margins under normal conditions
+- Marginal - Thin margins, requires ideal execution
+- Not Viable - Unlikely to meet financial thresholds
+
+### 4. Risk Exposure
+
+Are the technical, contractual, financial, regulatory, and execution risks understood, manageable, and within our risk appetite?
+
+**Evaluation options:**
+
+- Low Risk - Well understood, standard terms, manageable
+- Moderate Risk - Some complexity, mitigable with planning
+- High Risk - Significant unknowns or unfavorable terms
+- Unacceptable Risk - Outside risk appetite
+
+### 5. Capacity and Capability
+
+Do we have the internal capacity, skills, and delivery bandwidth to execute this project successfully without jeopardizing existing commitments?
+
+**Evaluation options:**
+
+- Fully Capable - Resources available, proven capability
+- Capable with Planning - Resources can be allocated
+- Stretched - Would strain current commitments
+- Not Capable - Lacks required skills or capacity
+
+---
+
+### Bid Decision Matrix
+
+| Criteria             | BID Threshold                   | NO-BID Trigger             |
+| -------------------- | ------------------------------- | -------------------------- |
+| Strategic Alignment  | Moderate Fit or better          | No Fit                     |
+| Win Probability      | Medium or better                | Low with other weak scores |
+| Commercial Viability | Viable or better                | Not Viable                 |
+| Risk Exposure        | Moderate or better              | Unacceptable Risk          |
+| Capacity             | Capable with Planning or better | Not Capable                |
+
+**Decision Rules:**
+
+- Any single "NO-BID Trigger" → Strong recommendation for NO-BID
+- 3+ criteria at threshold → Recommend BID
+- 2 criteria below threshold → Review with management before BID
+- All criteria at threshold or better → Recommend BID
+
+---
+
+_Document created: 2026-01-14_
+_Last updated: 2026-01-18_
