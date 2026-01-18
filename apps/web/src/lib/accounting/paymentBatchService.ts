@@ -68,15 +68,36 @@ function calculateBatchTotals(batch: Partial<PaymentBatch>): {
 }
 
 /**
+ * Convert a date-like value (Timestamp, Date, string) to Date
+ */
+function toDate(value: unknown): Date | undefined {
+  if (!value) return undefined;
+  if (value instanceof Timestamp) return value.toDate();
+  if (value instanceof Date) return value;
+  if (typeof value === 'string') return new Date(value);
+  return undefined;
+}
+
+/**
  * Convert Firestore document to PaymentBatch
  */
 function docToPaymentBatch(docData: Record<string, unknown>, id: string): PaymentBatch {
+  // Convert receipts with proper date handling
+  const rawReceipts = (docData.receipts as Array<Record<string, unknown>>) || [];
+  const receipts: BatchReceipt[] = rawReceipts.map((r) => ({
+    ...r,
+    receiptDate: toDate(r.receiptDate) || new Date(),
+  })) as BatchReceipt[];
+
+  // Payments don't have dates that need conversion currently
+  const payments = (docData.payments as BatchPayment[]) || [];
+
   return {
     id,
     batchNumber: (docData.batchNumber as string) || '',
-    receipts: (docData.receipts as BatchReceipt[]) || [],
+    receipts,
     totalReceiptAmount: (docData.totalReceiptAmount as number) || 0,
-    payments: (docData.payments as BatchPayment[]) || [],
+    payments,
     totalPaymentAmount: (docData.totalPaymentAmount as number) || 0,
     remainingBalance: (docData.remainingBalance as number) || 0,
     bankBalanceAfter: docData.bankBalanceAfter as number | undefined,
@@ -84,29 +105,14 @@ function docToPaymentBatch(docData: Record<string, unknown>, id: string): Paymen
     bankAccountName: (docData.bankAccountName as string) || '',
     status: (docData.status as PaymentBatchStatus) || 'DRAFT',
     createdBy: (docData.createdBy as string) || '',
-    createdAt:
-      docData.createdAt instanceof Timestamp
-        ? docData.createdAt.toDate()
-        : (docData.createdAt as Date | string),
-    submittedAt:
-      docData.submittedAt instanceof Timestamp
-        ? docData.submittedAt.toDate()
-        : (docData.submittedAt as Date | string | undefined),
+    createdAt: toDate(docData.createdAt) || new Date(),
+    submittedAt: toDate(docData.submittedAt),
     approvedBy: docData.approvedBy as string | undefined,
-    approvedAt:
-      docData.approvedAt instanceof Timestamp
-        ? docData.approvedAt.toDate()
-        : (docData.approvedAt as Date | string | undefined),
-    executedAt:
-      docData.executedAt instanceof Timestamp
-        ? docData.executedAt.toDate()
-        : (docData.executedAt as Date | string | undefined),
+    approvedAt: toDate(docData.approvedAt),
+    executedAt: toDate(docData.executedAt),
     rejectionReason: docData.rejectionReason as string | undefined,
     notes: docData.notes as string | undefined,
-    updatedAt:
-      docData.updatedAt instanceof Timestamp
-        ? docData.updatedAt.toDate()
-        : (docData.updatedAt as Date | string | undefined),
+    updatedAt: toDate(docData.updatedAt),
   };
 }
 
