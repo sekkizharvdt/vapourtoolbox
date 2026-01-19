@@ -548,9 +548,17 @@ export interface UpdateProposalInput {
   scopeMatrix?: ScopeMatrix;
   deliveryPeriod?: Partial<DeliveryPeriod>;
   pricing?: Partial<Pricing>;
+  pricingConfig?: ProposalPricingConfig;
   terms?: Partial<TermsAndConditions>;
   status?: ProposalStatus;
   negotiationNotes?: string;
+  // Workflow timestamps
+  scopeCompletedAt?: Timestamp;
+  estimationCompletedAt?: Timestamp;
+  pricingCompletedAt?: Timestamp;
+  submittedAt?: Timestamp;
+  submittedByUserId?: string;
+  submittedByUserName?: string;
 }
 
 /**
