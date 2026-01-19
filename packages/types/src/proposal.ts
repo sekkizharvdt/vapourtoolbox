@@ -340,6 +340,43 @@ export interface Pricing {
 }
 
 /**
+ * Proposal Pricing Configuration
+ * Margin percentages and calculated values for proposal pricing
+ */
+export interface ProposalPricingConfig {
+  // Cost basis from estimation (sum of all linked BOMs)
+  estimationSubtotal: Money;
+
+  // Markup percentages
+  overheadPercent: number;
+  contingencyPercent: number;
+  profitMarginPercent: number;
+
+  // Calculated markup amounts
+  overheadAmount: Money;
+  contingencyAmount: Money;
+  profitAmount: Money;
+
+  // Subtotal before tax (estimation + markups)
+  subtotalBeforeTax: Money;
+
+  // Tax configuration
+  taxPercent: number; // e.g., 18 for GST
+  taxAmount: Money;
+
+  // Final client-facing price
+  totalPrice: Money;
+
+  // Terms
+  validityDays: number;
+
+  // Metadata
+  isComplete: boolean;
+  lastUpdatedAt?: Timestamp;
+  lastUpdatedBy?: string;
+}
+
+/**
  * Terms & Conditions
  */
 export interface TermsAndConditions {
@@ -439,8 +476,11 @@ export interface Proposal extends TimestampFields {
   // Delivery & Timeline
   deliveryPeriod: DeliveryPeriod;
 
-  // Pricing
+  // Pricing (legacy)
   pricing: Pricing;
+
+  // Pricing Configuration (new - margin-based pricing from estimation)
+  pricingConfig?: ProposalPricingConfig;
 
   // Terms & Conditions
   terms: TermsAndConditions;
