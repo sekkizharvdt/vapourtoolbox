@@ -40,6 +40,12 @@ import {
   Email as EmailIcon,
   CalendarToday as DateIcon,
   OpenInNew as OpenIcon,
+  GridView as ScopeIcon,
+  Calculate as EstimationIcon,
+  PriceChange as PricingIcon,
+  CheckCircle as CompleteIcon,
+  RadioButtonUnchecked as IncompleteIcon,
+  ArrowForward as ArrowIcon,
 } from '@mui/icons-material';
 import { Timestamp } from 'firebase/firestore';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
@@ -457,53 +463,270 @@ export default function ProposalDetailClient() {
         )}
       </PageHeader>
 
+      {/* Workflow Progress Card */}
+      {proposal.status === 'DRAFT' && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Proposal Workflow
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Complete each stage to finalize your proposal
+            </Typography>
+
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              {/* Scope Matrix Stage */}
+              <Card
+                variant="outlined"
+                sx={{
+                  flex: '1 1 200px',
+                  minWidth: 200,
+                  bgcolor: proposal.scopeMatrix?.isComplete ? 'success.lighter' : 'background.paper',
+                  borderColor: proposal.scopeMatrix?.isComplete ? 'success.main' : 'divider',
+                }}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
+                    {proposal.scopeMatrix?.isComplete ? (
+                      <CompleteIcon color="success" />
+                    ) : (
+                      <IncompleteIcon color="action" />
+                    )}
+                    <ScopeIcon color={proposal.scopeMatrix?.isComplete ? 'success' : 'action'} />
+                  </Box>
+                  <Typography variant="subtitle2">Scope Matrix</Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                    {proposal.scopeMatrix?.isComplete
+                      ? 'Scope defined'
+                      : `${(proposal.scopeMatrix?.services?.length || 0) + (proposal.scopeMatrix?.supply?.length || 0)} items`}
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant={proposal.scopeMatrix?.isComplete ? 'outlined' : 'contained'}
+                    endIcon={<ArrowIcon />}
+                    onClick={() => router.push(`/proposals/${proposalId}/scope`)}
+                  >
+                    {proposal.scopeMatrix?.isComplete ? 'View Scope' : 'Define Scope'}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Estimation Stage */}
+              <Card
+                variant="outlined"
+                sx={{
+                  flex: '1 1 200px',
+                  minWidth: 200,
+                  opacity: proposal.scopeMatrix?.isComplete ? 1 : 0.5,
+                }}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
+                    <IncompleteIcon color="action" />
+                    <EstimationIcon color="action" />
+                  </Box>
+                  <Typography variant="subtitle2">Estimation</Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                    Add internal costs
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={!proposal.scopeMatrix?.isComplete}
+                    onClick={() => router.push(`/proposals/${proposalId}/estimation`)}
+                  >
+                    Coming Soon
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Pricing Stage */}
+              <Card
+                variant="outlined"
+                sx={{
+                  flex: '1 1 200px',
+                  minWidth: 200,
+                  opacity: 0.5,
+                }}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
+                    <IncompleteIcon color="action" />
+                    <PricingIcon color="action" />
+                  </Box>
+                  <Typography variant="subtitle2">Pricing</Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                    Set client prices
+                  </Typography>
+                  <Button size="small" variant="outlined" disabled>
+                    Coming Soon
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Generation Stage */}
+              <Card
+                variant="outlined"
+                sx={{
+                  flex: '1 1 200px',
+                  minWidth: 200,
+                  opacity: 0.5,
+                }}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
+                    <IncompleteIcon color="action" />
+                    <PdfIcon color="action" />
+                  </Box>
+                  <Typography variant="subtitle2">Generate</Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                    Create PDF
+                  </Typography>
+                  <Button size="small" variant="outlined" disabled>
+                    Coming Soon
+                  </Button>
+                </CardContent>
+              </Card>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
       <Grid container spacing={3}>
         {/* Main Content */}
         <Grid size={{ xs: 12, md: 8 }}>
-          {/* Scope of Work */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Scope of Work
-              </Typography>
-              {proposal.scopeOfWork?.summary && (
-                <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>
-                  {proposal.scopeOfWork.summary}
-                </Typography>
-              )}
-
-              {proposal.scopeOfWork?.objectives && proposal.scopeOfWork.objectives.length > 0 && (
-                <>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
-                    Objectives
+          {/* Scope Matrix Summary */}
+          {proposal.scopeMatrix && (proposal.scopeMatrix.services.length > 0 || proposal.scopeMatrix.supply.length > 0 || proposal.scopeMatrix.exclusions.length > 0) ? (
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6">
+                    Scope Matrix
+                    {proposal.scopeMatrix.isComplete && (
+                      <Chip label="Complete" color="success" size="small" sx={{ ml: 1 }} />
+                    )}
                   </Typography>
-                  <Box component="ul" sx={{ pl: 2, mt: 1 }}>
-                    {proposal.scopeOfWork.objectives.map((obj, idx) => (
-                      <li key={idx}>
-                        <Typography variant="body2">{obj}</Typography>
-                      </li>
-                    ))}
-                  </Box>
-                </>
-              )}
+                  <Button
+                    size="small"
+                    startIcon={<EditIcon />}
+                    onClick={() => router.push(`/proposals/${proposalId}/scope`)}
+                  >
+                    Edit Scope
+                  </Button>
+                </Box>
 
-              {proposal.scopeOfWork?.deliverables &&
-                proposal.scopeOfWork.deliverables.length > 0 && (
+                <Grid container spacing={2}>
+                  {/* Services */}
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Services ({proposal.scopeMatrix.services.length})
+                    </Typography>
+                    {proposal.scopeMatrix.services.slice(0, 3).map((item) => (
+                      <Typography key={item.id} variant="body2" sx={{ mb: 0.5 }}>
+                        {item.itemNumber}. {item.name}
+                      </Typography>
+                    ))}
+                    {proposal.scopeMatrix.services.length > 3 && (
+                      <Typography variant="caption" color="text.secondary">
+                        +{proposal.scopeMatrix.services.length - 3} more
+                      </Typography>
+                    )}
+                  </Grid>
+
+                  {/* Supply */}
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Supply ({proposal.scopeMatrix.supply.length})
+                    </Typography>
+                    {proposal.scopeMatrix.supply.slice(0, 3).map((item) => (
+                      <Typography key={item.id} variant="body2" sx={{ mb: 0.5 }}>
+                        {item.itemNumber}. {item.name}
+                      </Typography>
+                    ))}
+                    {proposal.scopeMatrix.supply.length > 3 && (
+                      <Typography variant="caption" color="text.secondary">
+                        +{proposal.scopeMatrix.supply.length - 3} more
+                      </Typography>
+                    )}
+                  </Grid>
+
+                  {/* Exclusions */}
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Exclusions ({proposal.scopeMatrix.exclusions.length})
+                    </Typography>
+                    {proposal.scopeMatrix.exclusions.slice(0, 3).map((item) => (
+                      <Typography key={item.id} variant="body2" sx={{ mb: 0.5 }}>
+                        {item.itemNumber}. {item.name}
+                      </Typography>
+                    ))}
+                    {proposal.scopeMatrix.exclusions.length > 3 && (
+                      <Typography variant="caption" color="text.secondary">
+                        +{proposal.scopeMatrix.exclusions.length - 3} more
+                      </Typography>
+                    )}
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          ) : (
+            /* Legacy Scope of Work */
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6">
+                    Scope of Work
+                  </Typography>
+                  {proposal.status === 'DRAFT' && (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<ScopeIcon />}
+                      onClick={() => router.push(`/proposals/${proposalId}/scope`)}
+                    >
+                      Define in Scope Matrix
+                    </Button>
+                  )}
+                </Box>
+                {proposal.scopeOfWork?.summary && (
+                  <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>
+                    {proposal.scopeOfWork.summary}
+                  </Typography>
+                )}
+
+                {proposal.scopeOfWork?.objectives && proposal.scopeOfWork.objectives.length > 0 && (
                   <>
                     <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
-                      Deliverables
+                      Objectives
                     </Typography>
                     <Box component="ul" sx={{ pl: 2, mt: 1 }}>
-                      {proposal.scopeOfWork.deliverables.map((del, idx) => (
+                      {proposal.scopeOfWork.objectives.map((obj, idx) => (
                         <li key={idx}>
-                          <Typography variant="body2">{del}</Typography>
+                          <Typography variant="body2">{obj}</Typography>
                         </li>
                       ))}
                     </Box>
                   </>
                 )}
-            </CardContent>
-          </Card>
+
+                {proposal.scopeOfWork?.deliverables &&
+                  proposal.scopeOfWork.deliverables.length > 0 && (
+                    <>
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
+                        Deliverables
+                      </Typography>
+                      <Box component="ul" sx={{ pl: 2, mt: 1 }}>
+                        {proposal.scopeOfWork.deliverables.map((del, idx) => (
+                          <li key={idx}>
+                            <Typography variant="body2">{del}</Typography>
+                          </li>
+                        ))}
+                      </Box>
+                    </>
+                  )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Scope of Supply */}
           <Card sx={{ mb: 3 }}>
