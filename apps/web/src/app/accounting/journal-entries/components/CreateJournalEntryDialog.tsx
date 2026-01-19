@@ -40,6 +40,22 @@ interface CreateJournalEntryDialogProps {
   editingEntry?: JournalEntry | null;
 }
 
+// Helper to convert Firestore Timestamp/Date to YYYY-MM-DD string
+function getDateString(date: unknown): string {
+  if (!date) return '';
+  if (typeof date === 'object' && 'toDate' in date) {
+    // Firestore Timestamp
+    return (date as Timestamp).toDate().toISOString().split('T')[0] || '';
+  }
+  if (date instanceof Date) {
+    return date.toISOString().split('T')[0] || '';
+  }
+  if (typeof date === 'string') {
+    return date;
+  }
+  return '';
+}
+
 interface LedgerEntryForm extends Omit<LedgerEntry, 'accountName' | 'accountCode'> {
   accountName?: string;
   accountCode?: string;
@@ -86,12 +102,8 @@ export function CreateJournalEntryDialog({
   useEffect(() => {
     if (open) {
       if (editingEntry) {
-        const dateStr =
-          editingEntry.date instanceof Date
-            ? editingEntry.date.toISOString().split('T')[0] || ''
-            : typeof editingEntry.date === 'string'
-              ? editingEntry.date
-              : '';
+        // Handle Firestore Timestamp, Date, or string
+        const dateStr = getDateString(editingEntry.date);
         setDate(dateStr || new Date().toISOString().split('T')[0] || '');
         setDescription(editingEntry.description || '');
         setReference(editingEntry.referenceNumber || '');
@@ -267,35 +279,48 @@ export function CreateJournalEntryDialog({
       // Convert string date to Date object then to Timestamp for Firestore
       const journalDate = Timestamp.fromDate(new Date(date));
 
-      // Build journal entry object and remove any undefined values
-      const journalEntry = removeUndefinedValues({
-        type: 'JOURNAL_ENTRY' as const,
-        date: journalDate,
-        journalDate: journalDate,
-        description: description || '',
-        // Only include referenceNumber if it has a value
-        referenceNumber: reference || undefined,
-        // Only include projectId if it has a value
-        projectId: projectId || undefined,
-        status,
-        entries: resolvedEntries,
-        amount: balance.totalDebits,
-        transactionNumber:
-          editingEntry?.transactionNumber || (await generateTransactionNumber('JOURNAL_ENTRY')),
-        createdAt: editingEntry?.createdAt || Timestamp.now(),
-        updatedAt: Timestamp.now(),
-        currency: 'INR',
-        baseAmount: balance.totalDebits,
-        attachments: [],
-        journalType: 'GENERAL',
-        isReversed: false,
-      });
-
       if (editingEntry?.id) {
-        // Update existing entry
-        await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingEntry.id), journalEntry);
+        // Update existing entry - only update fields that can change
+        // Preserve original date, journalDate, createdAt, transactionNumber
+        const updateData = removeUndefinedValues({
+          description: description || '',
+          referenceNumber: reference || undefined,
+          projectId: projectId || undefined,
+          status,
+          entries: resolvedEntries,
+          amount: balance.totalDebits,
+          baseAmount: balance.totalDebits,
+          updatedAt: Timestamp.now(),
+          // Only update date if it was actually changed by the user
+          ...(date !== getDateString(editingEntry.date) && {
+            date: journalDate,
+            journalDate: journalDate,
+          }),
+        });
+
+        await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingEntry.id), updateData);
       } else {
-        // Create new entry
+        // Create new entry - include all fields
+        const journalEntry = removeUndefinedValues({
+          type: 'JOURNAL_ENTRY' as const,
+          date: journalDate,
+          journalDate: journalDate,
+          description: description || '',
+          referenceNumber: reference || undefined,
+          projectId: projectId || undefined,
+          status,
+          entries: resolvedEntries,
+          amount: balance.totalDebits,
+          transactionNumber: await generateTransactionNumber('JOURNAL_ENTRY'),
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+          currency: 'INR',
+          baseAmount: balance.totalDebits,
+          attachments: [],
+          journalType: 'GENERAL',
+          isReversed: false,
+        });
+
         await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), journalEntry);
       }
 

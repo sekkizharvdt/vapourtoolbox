@@ -80,9 +80,11 @@ export default function EntityLedgerPage() {
     setLoadingTransactions(true);
     const { db } = getFirebase();
     const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
+    // Only show POSTED or APPROVED transactions for accurate financial reporting
     const q = query(
       transactionsRef,
       where('entityId', '==', selectedEntity.id),
+      where('status', 'in', ['POSTED', 'APPROVED']),
       orderBy('date', 'desc')
     );
 
