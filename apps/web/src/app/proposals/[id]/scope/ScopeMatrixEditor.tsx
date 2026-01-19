@@ -32,12 +32,8 @@ import { LoadingButton } from '@/components/common/LoadingButton';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
-import type {
-  Proposal,
-  ScopeMatrix,
-  ScopeItem,
-  ScopeItemType,
-} from '@vapour/types';
+import { Timestamp } from 'firebase/firestore';
+import type { Proposal, ScopeMatrix, ScopeItem, ScopeItemType } from '@vapour/types';
 import { ScopeItemList } from './components/ScopeItemList';
 import { AddScopeItemDialog } from './components/AddScopeItemDialog';
 import { useToast } from '@/components/common/Toast';
@@ -133,7 +129,12 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
   // Handle item added from dialog
   const handleItemAdded = (newItem: ScopeItem) => {
     setScopeMatrix((prev) => {
-      const key = newItem.type === 'SERVICE' ? 'services' : newItem.type === 'SUPPLY' ? 'supply' : 'exclusions';
+      const key =
+        newItem.type === 'SERVICE'
+          ? 'services'
+          : newItem.type === 'SUPPLY'
+            ? 'supply'
+            : 'exclusions';
       return {
         ...prev,
         [key]: [...prev[key], newItem],
@@ -146,7 +147,12 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
   // Handle updating an item
   const handleUpdateItem = useCallback((updatedItem: ScopeItem) => {
     setScopeMatrix((prev) => {
-      const key = updatedItem.type === 'SERVICE' ? 'services' : updatedItem.type === 'SUPPLY' ? 'supply' : 'exclusions';
+      const key =
+        updatedItem.type === 'SERVICE'
+          ? 'services'
+          : updatedItem.type === 'SUPPLY'
+            ? 'supply'
+            : 'exclusions';
       return {
         ...prev,
         [key]: prev[key].map((item) => (item.id === updatedItem.id ? updatedItem : item)),
@@ -189,7 +195,7 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
 
       const updatedMatrix: ScopeMatrix = {
         ...scopeMatrix,
-        lastUpdatedAt: new Date() as unknown as import('firebase/firestore').Timestamp,
+        lastUpdatedAt: Timestamp.now(),
         lastUpdatedBy: user.uid,
         isComplete: markComplete ? true : scopeMatrix.isComplete,
       };
@@ -229,14 +235,11 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
   }
 
   if (!proposal) {
-    return (
-      <Alert severity="error">
-        Proposal not found
-      </Alert>
-    );
+    return <Alert severity="error">Proposal not found</Alert>;
   }
 
-  const totalItems = scopeMatrix.services.length + scopeMatrix.supply.length + scopeMatrix.exclusions.length;
+  const totalItems =
+    scopeMatrix.services.length + scopeMatrix.supply.length + scopeMatrix.exclusions.length;
 
   return (
     <Box>
@@ -254,18 +257,9 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
           </Box>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             {scopeMatrix.isComplete && (
-              <Chip
-                icon={<CompleteIcon />}
-                label="Scope Complete"
-                color="success"
-                size="small"
-              />
+              <Chip icon={<CompleteIcon />} label="Scope Complete" color="success" size="small" />
             )}
-            <Chip
-              label={`${totalItems} items`}
-              variant="outlined"
-              size="small"
-            />
+            <Chip label={`${totalItems} items`} variant="outlined" size="small" />
           </Box>
         </Box>
       </Paper>
@@ -305,10 +299,10 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
         {/* Services Tab */}
         <TabPanel value={activeTab} index={0}>
           <Box sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="subtitle1">
-                Services - Work performed by VDT
-              </Typography>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+            >
+              <Typography variant="subtitle1">Services - Work performed by VDT</Typography>
               <Button
                 variant="outlined"
                 startIcon={<AddIcon />}
@@ -336,10 +330,10 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
         {/* Supply Tab */}
         <TabPanel value={activeTab} index={1}>
           <Box sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="subtitle1">
-                Supply - Physical items delivered
-              </Typography>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+            >
+              <Typography variant="subtitle1">Supply - Physical items delivered</Typography>
               <Button
                 variant="outlined"
                 startIcon={<AddIcon />}
@@ -367,7 +361,9 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
         {/* Exclusions Tab */}
         <TabPanel value={activeTab} index={2}>
           <Box sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+            >
               <Typography variant="subtitle1">
                 Exclusions - Items explicitly NOT included
               </Typography>
