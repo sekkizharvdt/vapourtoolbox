@@ -234,72 +234,91 @@ Add validation: Cannot proceed to estimation unless `scopeMatrix.isComplete === 
 
 ---
 
-### Phase 4: Build Estimation Sub-Module
+### Phase 4: Integrate Existing BOM/Estimation Module
 
-#### Task 4.1: Add Estimation Types
+**Note:** The estimation functionality already exists in the `/estimation` module (Bill of Materials). Rather than building a new estimation system, we integrate the existing BOM module with proposals.
 
-**File:** `packages/types/src/proposal.ts`
+#### Architecture Overview
 
-```typescript
-interface EstimationItem {
-  scopeItemId: string; // Links to ScopeItem
-
-  // Cost breakdown
-  materialCost?: Money;
-  laborCost?: Money;
-  overheadCost?: Money;
-
-  // Calculated
-  totalCost: Money;
-
-  notes?: string;
-}
-
-interface ProposalEstimation {
-  items: EstimationItem[];
-
-  // Summary
-  totalMaterialCost: Money;
-  totalLaborCost: Money;
-  totalOverheadCost: Money;
-  grandTotal: Money;
-
-  // Metadata
-  isComplete: boolean;
-  lastUpdatedAt: Timestamp;
-  lastUpdatedBy: string;
-}
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     SCOPE MATRIX                                │
+├─────────────────────────────────────────────────────────────────┤
+│  Scope Item: "Heat Exchanger HX-101 Supply"                     │
+│    └── Linked BOM 1: Fabrication (EST-2025-0001)                │
+│    └── Linked BOM 2: Engineering (EST-2025-0002)                │
+│    └── Linked BOM 3: Transportation (EST-2025-0003)             │
+│                                                                 │
+│  Scope Item: "Piping Assembly Supply"                           │
+│    └── Linked BOM: Piping BOM (EST-2025-0004)                  │
+│                                                                 │
+│  Proposal Total = Sum of all linked BOMs                        │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-#### Task 4.2: Add estimation Field to Proposal
+#### Task 4.1: Add BOM Linking Types to ScopeItem ✅
 
 **File:** `packages/types/src/proposal.ts`
 
 ```typescript
-interface Proposal {
+interface LinkedBOM {
+  bomId: string;
+  bomCode: string; // Denormalized (e.g., "EST-2025-0001")
+  bomName: string;
+  category?: string;
+  totalCost: Money; // Snapshot at time of linking
+  linkedAt: Timestamp;
+  linkedBy: string;
+}
+
+interface ScopeItem {
   // ... existing fields ...
-  estimation?: ProposalEstimation;
+  linkedBOMs?: LinkedBOM[];
+  estimationSummary?: {
+    totalCost: Money;
+    bomCount: number;
+    lastUpdated?: Timestamp;
+  };
 }
 ```
 
-#### Task 4.3: Create Estimation Hub Page
+#### Task 4.2: Add Proposal/Enquiry Links to BOM ✅
 
-**File:** `apps/web/src/app/proposals/estimation/page.tsx`
+**File:** `packages/types/src/bom.ts`
 
-List proposals where:
+```typescript
+interface BOM {
+  // ... existing fields ...
+  proposalId?: string;
+  proposalNumber?: string;
+  enquiryId?: string;
+  enquiryNumber?: string;
+}
+```
 
-- `scopeMatrix.isComplete === true`
-- `estimation.isComplete !== true`
+#### Task 4.3: Create BOM Linking UI
 
-#### Task 4.4: Create Estimation Editor
+**File:** `apps/web/src/app/proposals/[id]/scope/components/LinkBOMDialog.tsx`
 
-**File:** `apps/web/src/app/proposals/[id]/estimation/page.tsx`
+Dialog to:
+- Search existing BOMs
+- Create new BOM (redirects to /estimation/new with proposal context)
+- Link selected BOM to current scope item
 
-Table showing:
+#### Task 4.4: Update Scope Matrix Editor
 
-- Scope items (from scopeMatrix)
-- Input fields for costs
-- Running totals
+**File:** `apps/web/src/app/proposals/[id]/scope/ScopeMatrixEditor.tsx`
+
+- Show linked BOMs count on each scope item
+- Add "Link BOM" button per scope item
+- Show total estimated cost per item and for entire proposal
+
+#### Task 4.5: Update /estimation/new Route
+
+**File:** `apps/web/src/app/estimation/new/page.tsx`
+
+- Accept `proposalId`, `enquiryId`, `scopeItemId` query params
+- Pre-populate proposal/enquiry references when creating BOM
 
 ---
 

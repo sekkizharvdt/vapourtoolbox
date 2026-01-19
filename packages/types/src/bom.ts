@@ -126,6 +126,12 @@ export interface BOM extends TimestampFields {
   projectId?: string;
   projectName?: string;
 
+  // Proposal/Enquiry linkage (optional - for traceability)
+  proposalId?: string;
+  proposalNumber?: string; // Denormalized for display
+  enquiryId?: string;
+  enquiryNumber?: string; // Denormalized for display
+
   // Summary (denormalized for quick access)
   summary: BOMSummary;
 
@@ -212,6 +218,8 @@ export interface BOMItem {
 export interface BOMListFilters {
   entityId?: string;
   projectId?: string;
+  proposalId?: string;
+  enquiryId?: string;
   category?: BOMCategory;
   status?: BOMStatus;
   searchTerm?: string; // Search in bomCode, name, description
@@ -245,6 +253,10 @@ export interface CreateBOMInput {
   category: BOMCategory;
   projectId?: string;
   projectName?: string;
+  proposalId?: string;
+  proposalNumber?: string;
+  enquiryId?: string;
+  enquiryNumber?: string;
   entityId: string;
 }
 
