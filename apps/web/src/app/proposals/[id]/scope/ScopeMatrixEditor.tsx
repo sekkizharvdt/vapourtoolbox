@@ -325,6 +325,10 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
               onDelete={handleDeleteItem}
               onReorder={(items) => handleReorderItems('SERVICE', items)}
               allItems={[...scopeMatrix.services, ...scopeMatrix.supply]}
+              proposalId={proposal.id}
+              proposalNumber={proposal.proposalNumber}
+              enquiryId={proposal.enquiryId}
+              enquiryNumber={proposal.enquiryNumber}
             />
           </Box>
         </TabPanel>
@@ -352,6 +356,10 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
               onDelete={handleDeleteItem}
               onReorder={(items) => handleReorderItems('SUPPLY', items)}
               allItems={[...scopeMatrix.services, ...scopeMatrix.supply]}
+              proposalId={proposal.id}
+              proposalNumber={proposal.proposalNumber}
+              enquiryId={proposal.enquiryId}
+              enquiryNumber={proposal.enquiryNumber}
             />
           </Box>
         </TabPanel>
@@ -379,6 +387,10 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
               onDelete={handleDeleteItem}
               onReorder={(items) => handleReorderItems('EXCLUSION', items)}
               allItems={[...scopeMatrix.services, ...scopeMatrix.supply]}
+              proposalId={proposal.id}
+              proposalNumber={proposal.proposalNumber}
+              enquiryId={proposal.enquiryId}
+              enquiryNumber={proposal.enquiryNumber}
             />
           </Box>
         </TabPanel>

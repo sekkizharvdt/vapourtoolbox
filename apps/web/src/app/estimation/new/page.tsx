@@ -13,10 +13,17 @@ import {
   Alert,
   Breadcrumbs,
   Link,
+  Paper,
+  Chip,
 } from '@mui/material';
-import { ArrowBack as BackIcon, Save as SaveIcon, Home as HomeIcon } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import {
+  ArrowBack as BackIcon,
+  Save as SaveIcon,
+  Home as HomeIcon,
+  Description as ProposalIcon,
+} from '@mui/icons-material';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { createBOM } from '@/lib/bom/bomService';
@@ -44,13 +51,24 @@ const categories: { value: BOMCategory; label: string }[] = [
   { value: 'OTHER' as BOMCategory, label: 'Other' },
 ];
 
-export default function NewBOMPage() {
+function NewBOMPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, claims } = useAuth();
   const { db } = getFirebase();
 
   // Get entity ID from claims or use fallback
   const entityId = claims?.entityId || FALLBACK_ENTITY_ID;
+
+  // Extract proposal context from query params (for linking to proposals)
+  const proposalId = searchParams.get('proposalId');
+  const proposalNumber = searchParams.get('proposalNumber');
+  const enquiryId = searchParams.get('enquiryId');
+  const enquiryNumber = searchParams.get('enquiryNumber');
+  const scopeItemId = searchParams.get('scopeItemId');
+  const scopeItemName = searchParams.get('scopeItemName');
+
+  const hasProposalContext = !!(proposalId && proposalNumber);
 
   const [formData, setFormData] = useState<Omit<CreateBOMInput, 'entityId'>>({
     name: '',
@@ -58,7 +76,22 @@ export default function NewBOMPage() {
     category: 'HEAT_EXCHANGER' as BOMCategory,
     projectId: '',
     projectName: '',
+    proposalId: proposalId || undefined,
+    proposalNumber: proposalNumber || undefined,
+    enquiryId: enquiryId || undefined,
+    enquiryNumber: enquiryNumber || undefined,
   });
+
+  // Pre-fill name from scope item if provided
+  useEffect(() => {
+    if (scopeItemName && !formData.name) {
+      setFormData((prev) => ({
+        ...prev,
+        name: `BOM for ${scopeItemName}`,
+        description: scopeItemId ? `Estimation for scope item: ${scopeItemName}` : prev.description,
+      }));
+    }
+  }, [scopeItemName, scopeItemId, formData.name]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,13 +117,22 @@ export default function NewBOMPage() {
       setLoading(true);
       setError(null);
 
+      // Build input, excluding undefined values
       const input: CreateBOMInput = {
-        ...formData,
+        name: formData.name,
+        description: formData.description,
+        category: formData.category,
         entityId,
+        ...(formData.projectId && { projectId: formData.projectId }),
+        ...(formData.projectName && { projectName: formData.projectName }),
+        ...(formData.proposalId && { proposalId: formData.proposalId }),
+        ...(formData.proposalNumber && { proposalNumber: formData.proposalNumber }),
+        ...(formData.enquiryId && { enquiryId: formData.enquiryId }),
+        ...(formData.enquiryNumber && { enquiryNumber: formData.enquiryNumber }),
       };
 
       const bom = await createBOM(db, input, user.uid);
-      logger.info('BOM created', { bomId: bom.id, bomCode: bom.bomCode });
+      logger.info('BOM created', { bomId: bom.id, bomCode: bom.bomCode, proposalId: input.proposalId });
 
       // Navigate to BOM editor
       router.push(`/estimation/${bom.id}`);
@@ -134,6 +176,34 @@ export default function NewBOMPage() {
           Create a new BOM to start adding items and calculating costs
         </Typography>
       </Box>
+
+      {/* Proposal Context Banner */}
+      {hasProposalContext && (
+        <Paper
+          sx={{
+            p: 2,
+            mb: 3,
+            bgcolor: 'primary.50',
+            border: '1px solid',
+            borderColor: 'primary.200',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <ProposalIcon color="primary" />
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="subtitle2" color="primary.main">
+                Creating BOM for Proposal
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {proposalNumber}
+                {enquiryNumber && ` (Enquiry: ${enquiryNumber})`}
+                {scopeItemName && ` • Scope Item: ${scopeItemName}`}
+              </Typography>
+            </Box>
+            <Chip label="Linked" color="primary" size="small" />
+          </Box>
+        </Paper>
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
@@ -215,5 +285,22 @@ export default function NewBOMPage() {
         </CardContent>
       </Card>
     </Container>
+  );
+}
+
+// Wrap with Suspense for useSearchParams
+export default function NewBOMPage() {
+  return (
+    <Suspense
+      fallback={
+        <Container maxWidth="md">
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        </Container>
+      }
+    >
+      <NewBOMPageContent />
+    </Suspense>
   );
 }

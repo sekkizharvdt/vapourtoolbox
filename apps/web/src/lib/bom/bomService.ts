@@ -167,6 +167,11 @@ export async function createBOM(
       entityId: input.entityId,
       projectId: input.projectId,
       projectName: input.projectName,
+      // Proposal/Enquiry linkage for traceability
+      proposalId: input.proposalId,
+      proposalNumber: input.proposalNumber,
+      enquiryId: input.enquiryId,
+      enquiryNumber: input.enquiryNumber,
       summary: {
         totalWeight: 0,
         totalMaterialCost: { amount: 0, currency: 'INR' },
@@ -188,7 +193,12 @@ export async function createBOM(
       updatedBy: userId,
     };
 
-    const docRef = await addDoc(collection(db, COLLECTIONS.BOMS), bomData);
+    // Remove undefined values before sending to Firestore
+    const cleanedBomData = Object.fromEntries(
+      Object.entries(bomData).filter(([, value]) => value !== undefined)
+    ) as Omit<BOM, 'id'>;
+
+    const docRef = await addDoc(collection(db, COLLECTIONS.BOMS), cleanedBomData);
 
     logger.info('BOM created successfully', { id: docRef.id, bomCode });
 
