@@ -54,6 +54,7 @@ import {
 } from '@vapour/types';
 import { EnquiryDocumentUpload } from '../components/EnquiryDocumentUpload';
 import { BidDecisionDialog } from '../components/BidDecisionDialog';
+import { CreateProposalDialog } from '../components/CreateProposalDialog';
 import { formatDate } from '@/lib/utils/formatters';
 
 export default function EnquiryDetailClient() {
@@ -69,6 +70,7 @@ export default function EnquiryDetailClient() {
   const [enquiryId, setEnquiryId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [bidDecisionDialogOpen, setBidDecisionDialogOpen] = useState(false);
+  const [createProposalDialogOpen, setCreateProposalDialogOpen] = useState(false);
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -200,9 +202,7 @@ export default function EnquiryDetailClient() {
                 <Button
                   variant="contained"
                   startIcon={<ProposalIcon />}
-                  onClick={() => {
-                    router.push(`/proposals/new?enquiryId=${enquiry.id}`);
-                  }}
+                  onClick={() => setCreateProposalDialogOpen(true)}
                 >
                   Create Proposal
                 </Button>
@@ -508,6 +508,17 @@ export default function EnquiryDetailClient() {
         onSuccess={(updatedEnquiry) => {
           setEnquiry(updatedEnquiry);
           setBidDecisionDialogOpen(false);
+        }}
+      />
+
+      {/* Create Proposal Dialog */}
+      <CreateProposalDialog
+        open={createProposalDialogOpen}
+        onClose={() => setCreateProposalDialogOpen(false)}
+        enquiry={enquiry}
+        onSuccess={() => {
+          // Navigation happens inside the dialog
+          setCreateProposalDialogOpen(false);
         }}
       />
     </Box>

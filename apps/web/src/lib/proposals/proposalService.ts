@@ -28,6 +28,7 @@ import type {
   ListProposalsOptions,
   ProposalStatus,
   Enquiry,
+  ProposalWorkflowStage,
 } from '@vapour/types';
 
 const logger = createLogger({ context: 'proposalService' });
@@ -162,6 +163,154 @@ export async function createProposal(
     return { id: docRef.id, ...proposal };
   } catch (error) {
     logger.error('Error creating proposal', { error });
+    throw error;
+  }
+}
+
+/**
+ * Minimal proposal creation input (simplified for Phase 2 workflow)
+ */
+export interface CreateMinimalProposalInput {
+  entityId: string;
+  enquiryId: string;
+  title: string;
+  clientId: string;
+  validityDate: Date;
+  notes?: string;
+}
+
+/**
+ * Create minimal proposal from enquiry (Phase 2 simplified workflow)
+ *
+ * Creates a proposal with minimal information, pre-populating from the enquiry.
+ * The proposal starts in SCOPE_DEFINITION workflow stage, ready for scope matrix work.
+ */
+export async function createMinimalProposal(
+  db: Firestore,
+  input: CreateMinimalProposalInput,
+  userId: string
+): Promise<Proposal> {
+  try {
+    // Get enquiry details
+    const enquiryDoc = await getDoc(doc(db, COLLECTIONS.ENQUIRIES, input.enquiryId));
+    if (!enquiryDoc.exists()) {
+      throw new Error('Enquiry not found');
+    }
+    const enquiryData = enquiryDoc.data() as Omit<Enquiry, 'id'>;
+    const enquiry: Enquiry = { id: enquiryDoc.id, ...enquiryData };
+
+    // Verify enquiry has bid decision
+    if (!enquiry.bidDecision || enquiry.bidDecision.decision !== 'BID') {
+      throw new Error('Cannot create proposal without a BID decision on the enquiry');
+    }
+
+    // Get client details
+    const clientDoc = await getDoc(doc(db, COLLECTIONS.ENTITIES, input.clientId));
+    if (!clientDoc.exists()) {
+      throw new Error('Client not found');
+    }
+    const client = clientDoc.data();
+
+    // Generate proposal number
+    const proposalNumber = await generateProposalNumber(db);
+
+    const now = Timestamp.now();
+    const proposal: Omit<Proposal, 'id'> = {
+      proposalNumber,
+      revision: 1,
+      enquiryId: input.enquiryId,
+      enquiryNumber: enquiry.enquiryNumber,
+      entityId: input.entityId,
+      clientId: input.clientId,
+      clientName: client.name || '',
+      clientContactPerson: enquiry.clientContactPerson,
+      clientEmail: enquiry.clientEmail,
+      clientAddress: client.billingAddress
+        ? `${client.billingAddress.line1}, ${client.billingAddress.city}, ${client.billingAddress.state} ${client.billingAddress.postalCode}`
+        : '',
+      title: input.title,
+      validityDate: Timestamp.fromDate(input.validityDate),
+      preparationDate: now,
+
+      // Empty scope of work - will be filled via scope matrix
+      scopeOfWork: {
+        summary: enquiry.description || '',
+        objectives: [],
+        deliverables: [],
+        inclusions: [],
+        exclusions: [],
+        assumptions: [],
+      },
+
+      // Empty scope of supply - will be filled via scope matrix
+      scopeOfSupply: [],
+
+      // Initialize empty scope matrix
+      scopeMatrix: {
+        services: [],
+        supply: [],
+        exclusions: [],
+        isComplete: false,
+      },
+
+      // Default delivery period
+      deliveryPeriod: {
+        durationInWeeks: 0,
+        description: 'To be determined during scope definition',
+        milestones: [],
+      },
+
+      // Empty pricing - will be filled in pricing module
+      pricing: {
+        currency: 'INR',
+        lineItems: [],
+        subtotal: { amount: 0, currency: 'INR' },
+        taxItems: [],
+        totalAmount: { amount: 0, currency: 'INR' },
+        paymentTerms: 'To be determined',
+      },
+
+      // Empty terms
+      terms: {},
+
+      // Status & Workflow
+      status: 'DRAFT',
+      workflowStage: 'SCOPE_DEFINITION' as ProposalWorkflowStage,
+      approvalHistory: [],
+      attachments: [],
+
+      // Audit
+      createdAt: now,
+      createdBy: userId,
+      updatedAt: now,
+      updatedBy: userId,
+      isLatestRevision: true,
+    };
+
+    // Remove undefined values before sending to Firestore
+    const cleanedProposal = Object.fromEntries(
+      Object.entries(proposal).filter(([, value]) => value !== undefined)
+    );
+
+    const docRef = await addDoc(collection(db, COLLECTIONS.PROPOSALS), cleanedProposal);
+
+    // Update enquiry status to PROPOSAL_IN_PROGRESS
+    await updateDoc(doc(db, COLLECTIONS.ENQUIRIES, input.enquiryId), {
+      status: 'PROPOSAL_IN_PROGRESS',
+      proposalCreatedAt: now,
+      updatedAt: now,
+      updatedBy: userId,
+    });
+
+    logger.info('Minimal proposal created', {
+      proposalId: docRef.id,
+      proposalNumber,
+      enquiryId: input.enquiryId,
+    });
+
+    return { id: docRef.id, ...proposal };
+  } catch (error) {
+    logger.error('Error creating minimal proposal', { error });
     throw error;
   }
 }
