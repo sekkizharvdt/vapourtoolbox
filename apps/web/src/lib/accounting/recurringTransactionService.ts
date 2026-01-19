@@ -74,6 +74,7 @@ export function calculateNextOccurrence(
 
     case 'MONTHLY': {
       // Store original day before changing month to avoid JS date overflow
+      const originalDay = result.getDate();
       const targetMonth = result.getMonth() + 1;
       const targetYear = targetMonth > 11 ? result.getFullYear() + 1 : result.getFullYear();
       const normalizedMonth = targetMonth % 12;
@@ -88,9 +89,11 @@ export function calculateNextOccurrence(
           result.setFullYear(targetYear, normalizedMonth, Math.min(dayOfMonth, lastDay));
         }
       } else {
-        // No specific day, just advance by 1 month
-        result.setDate(1); // Reset to 1st to avoid overflow
-        result.setMonth(targetMonth);
+        // No specific day, preserve original day but handle month overflow
+        // E.g., Jan 31 -> Feb 28 (not Mar 3)
+        const lastDayOfTargetMonth = new Date(targetYear, normalizedMonth + 1, 0).getDate();
+        const safeDay = Math.min(originalDay, lastDayOfTargetMonth);
+        result.setFullYear(targetYear, normalizedMonth, safeDay);
       }
       break;
     }
@@ -416,10 +419,7 @@ export async function generatePendingOccurrences(
 /**
  * Create an occurrence for a recurring transaction
  */
-async function createOccurrence(
-  db: Firestore,
-  transaction: RecurringTransaction
-): Promise<string> {
+async function createOccurrence(db: Firestore, transaction: RecurringTransaction): Promise<string> {
   const batch = writeBatch(db);
   const now = Timestamp.now();
 

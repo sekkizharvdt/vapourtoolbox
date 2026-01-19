@@ -378,8 +378,20 @@ export async function addBatchPayment(
     throw new Error('Cannot modify a batch that is not in DRAFT status');
   }
 
+  // Validate input amounts
+  if (input.amount <= 0) {
+    throw new Error('Payment amount must be positive');
+  }
+  if (input.tdsAmount !== undefined && input.tdsAmount < 0) {
+    throw new Error('TDS amount cannot be negative');
+  }
+
   // Calculate net payable
   const netPayable = input.tdsAmount ? input.amount - input.tdsAmount : input.amount;
+
+  if (netPayable <= 0) {
+    throw new Error('Net payable amount must be positive (TDS cannot exceed payment amount)');
+  }
 
   // Remove undefined values - Firestore doesn't accept them
   const payment = removeUndefinedValues<BatchPayment>({
