@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import {
   Typography,
   Chip,
@@ -22,6 +23,8 @@ interface TransactionsTableProps {
   rowsPerPage: number;
   onPageChange: (event: unknown, newPage: number) => void;
   onRowsPerPageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  /** Opening balance from prior period transactions */
+  openingBalance?: number;
 }
 
 /**
@@ -50,17 +53,57 @@ function getDebitCredit(txn: EntityTransaction): { debit: number; credit: number
   }
 }
 
+/**
+ * Calculates the balance impact of a transaction
+ * Positive = increases receivable (customer owes more or we owe vendor less)
+ * Negative = decreases receivable (customer paid or we owe vendor more)
+ */
+function getBalanceImpact(txn: EntityTransaction): number {
+  const amount = txn.totalAmount || txn.amount || 0;
+  switch (txn.type) {
+    case 'CUSTOMER_INVOICE':
+      return amount; // Customer owes us more
+    case 'CUSTOMER_PAYMENT':
+      return -amount; // Customer paid, owes less
+    case 'VENDOR_BILL':
+      return -amount; // We owe vendor more (negative balance)
+    case 'VENDOR_PAYMENT':
+      return amount; // We paid vendor, owe less
+    default:
+      return 0;
+  }
+}
+
 export function TransactionsTable({
   transactions,
   page,
   rowsPerPage,
   onPageChange,
   onRowsPerPageChange,
+  openingBalance = 0,
 }: TransactionsTableProps) {
-  const paginatedTransactions = transactions.slice(
+  // Calculate running balances for all transactions (oldest to newest)
+  // Note: transactions come in newest-first order from the page, we need to reverse for calculation
+  const transactionsWithBalance = useMemo(() => {
+    // Reverse to process oldest first
+    const chronological = [...transactions].reverse();
+    let runningBalance = openingBalance;
+
+    const withBalances = chronological.map((txn) => {
+      runningBalance += getBalanceImpact(txn);
+      return { ...txn, runningBalance };
+    });
+
+    // Reverse back to newest-first for display
+    return withBalances.reverse();
+  }, [transactions, openingBalance]);
+
+  const paginatedTransactions = transactionsWithBalance.slice(
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
   );
+
+  const showOpeningBalanceRow = page === 0 && openingBalance !== 0;
 
   return (
     <Paper>
@@ -74,11 +117,33 @@ export function TransactionsTable({
               <TableCell>Description</TableCell>
               <TableCell align="right">Debit</TableCell>
               <TableCell align="right">Credit</TableCell>
-              <TableCell align="right">Outstanding</TableCell>
+              <TableCell align="right">Balance</TableCell>
               <TableCell>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
+            {/* Opening Balance Row - show on first page if there's an opening balance */}
+            {showOpeningBalanceRow && (
+              <TableRow sx={{ bgcolor: 'grey.50' }}>
+                <TableCell colSpan={4}>
+                  <Typography variant="body2" fontWeight="medium" fontStyle="italic">
+                    Opening Balance (from prior transactions)
+                  </Typography>
+                </TableCell>
+                <TableCell align="right">-</TableCell>
+                <TableCell align="right">-</TableCell>
+                <TableCell align="right">
+                  <Typography
+                    variant="body2"
+                    fontWeight="bold"
+                    color={openingBalance >= 0 ? 'success.main' : 'error.main'}
+                  >
+                    {formatCurrency(openingBalance, 'INR')}
+                  </Typography>
+                </TableCell>
+                <TableCell>-</TableCell>
+              </TableRow>
+            )}
             {paginatedTransactions.map((txn) => {
               const { debit, credit } = getDebitCredit(txn);
               return (
@@ -129,20 +194,13 @@ export function TransactionsTable({
                     )}
                   </TableCell>
                   <TableCell align="right">
-                    {(txn.outstandingAmount !== undefined && txn.outstandingAmount > 0) ||
-                    (txn.outstandingBaseAmount !== undefined && txn.outstandingBaseAmount > 0) ? (
-                      <Typography variant="body2" color="warning.main" fontWeight="medium">
-                        {/* Outstanding always shown in INR (base currency) */}
-                        {formatCurrency(
-                          txn.outstandingBaseAmount || txn.baseAmount - (txn.paidBaseAmount || 0),
-                          'INR'
-                        )}
-                      </Typography>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        -
-                      </Typography>
-                    )}
+                    <Typography
+                      variant="body2"
+                      fontWeight="medium"
+                      color={txn.runningBalance >= 0 ? 'success.main' : 'error.main'}
+                    >
+                      {formatCurrency(txn.runningBalance, 'INR')}
+                    </Typography>
                   </TableCell>
                   <TableCell>
                     {txn.paymentStatus && (

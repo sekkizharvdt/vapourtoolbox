@@ -33,4 +33,8 @@ export interface FinancialSummary {
   overdueReceivable: number;
   overduePayable: number;
   aging: AgingBucket;
+  /** Opening balance at the start of the selected date range (from prior transactions) */
+  openingBalance: number;
+  /** Closing balance at the end of the selected date range */
+  closingBalance: number;
 }
