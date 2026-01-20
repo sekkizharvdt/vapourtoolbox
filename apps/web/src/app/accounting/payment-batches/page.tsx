@@ -9,12 +9,6 @@ import {
   Alert,
   Chip,
   LinearProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Paper,
   Breadcrumbs,
   Link,
@@ -266,79 +260,172 @@ export default function PaymentBatchesPage() {
         </ToggleButtonGroup>
       </Box>
 
-      {/* Batches Table */}
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Batch Number</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell>Receipts</TableCell>
-              <TableCell>Payments</TableCell>
-              <TableCell align="right">Total Amount</TableCell>
-              <TableCell align="right">Balance</TableCell>
-              <TableCell>Status</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {batches.length === 0 && !loading ? (
-              <TableRow>
-                <TableCell colSpan={7} align="center">
-                  <Typography color="text.secondary" sx={{ py: 4 }}>
-                    No payment batches found. Create your first batch to get started.
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              batches.map((batch) => (
-                <TableRow
-                  key={batch.id}
-                  hover
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => handleRowClick(batch)}
-                >
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
-                      {batch.batchNumber}
-                    </Typography>
-                    {batch.notes && (
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                        {batch.notes.length > 40 ? `${batch.notes.substring(0, 40)}...` : batch.notes}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>{formatDate(batch.createdAt)}</TableCell>
-                  <TableCell>
-                    {batch.receipts.length} receipt{batch.receipts.length !== 1 ? 's' : ''}
-                  </TableCell>
-                  <TableCell>
-                    {batch.payments.length} payment{batch.payments.length !== 1 ? 's' : ''}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography fontWeight="medium">
-                      {formatCurrency(batch.totalPaymentAmount)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography
-                      color={batch.remainingBalance >= 0 ? 'success.main' : 'error.main'}
-                    >
-                      {formatCurrency(batch.remainingBalance)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
+      {/* Batches List - Vertical Layout */}
+      {batches.length === 0 && !loading ? (
+        <Paper sx={{ p: 4, textAlign: 'center' }}>
+          <Typography color="text.secondary">
+            No payment batches found. Create your first batch to get started.
+          </Typography>
+        </Paper>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {batches.map((batch) => (
+            <Paper
+              key={batch.id}
+              sx={{
+                p: 2,
+                cursor: 'pointer',
+                '&:hover': { bgcolor: 'action.hover' },
+                transition: 'background-color 0.2s',
+              }}
+              onClick={() => handleRowClick(batch)}
+            >
+              {/* Batch Header */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  mb: 2,
+                }}
+              >
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="h6">{batch.batchNumber}</Typography>
                     <Chip
                       label={STATUS_LABELS[batch.status]}
                       color={STATUS_COLORS[batch.status]}
                       size="small"
                     />
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {formatDate(batch.createdAt)}
+                    {batch.notes && ` - ${batch.notes}`}
+                  </Typography>
+                </Box>
+                <Box sx={{ textAlign: 'right' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Balance
+                  </Typography>
+                  <Typography
+                    variant="h6"
+                    color={batch.remainingBalance >= 0 ? 'success.main' : 'error.main'}
+                  >
+                    {formatCurrency(batch.remainingBalance)}
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Two-Column Layout: Receipts & Payments */}
+              <Grid container spacing={2}>
+                {/* Receipts Column */}
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Box
+                    sx={{
+                      bgcolor: 'success.lighter',
+                      borderRadius: 1,
+                      p: 1.5,
+                      border: '1px solid',
+                      borderColor: 'success.light',
+                    }}
+                  >
+                    <Typography
+                      variant="subtitle2"
+                      color="success.dark"
+                      sx={{ mb: 1, display: 'flex', justifyContent: 'space-between' }}
+                    >
+                      <span>Receipts ({batch.receipts.length})</span>
+                      <span>{formatCurrency(batch.totalReceiptAmount)}</span>
+                    </Typography>
+                    {batch.receipts.length === 0 ? (
+                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        No receipts added
+                      </Typography>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        {batch.receipts.slice(0, 3).map((receipt) => (
+                          <Box
+                            key={receipt.id}
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <Typography variant="body2" noWrap sx={{ maxWidth: '60%' }}>
+                              {receipt.description || receipt.projectName || 'Receipt'}
+                            </Typography>
+                            <Typography variant="body2" fontWeight="medium" color="success.main">
+                              {formatCurrency(receipt.amount)}
+                            </Typography>
+                          </Box>
+                        ))}
+                        {batch.receipts.length > 3 && (
+                          <Typography variant="caption" color="text.secondary">
+                            +{batch.receipts.length - 3} more
+                          </Typography>
+                        )}
+                      </Box>
+                    )}
+                  </Box>
+                </Grid>
+
+                {/* Payments Column */}
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Box
+                    sx={{
+                      bgcolor: 'error.lighter',
+                      borderRadius: 1,
+                      p: 1.5,
+                      border: '1px solid',
+                      borderColor: 'error.light',
+                    }}
+                  >
+                    <Typography
+                      variant="subtitle2"
+                      color="error.dark"
+                      sx={{ mb: 1, display: 'flex', justifyContent: 'space-between' }}
+                    >
+                      <span>Payments ({batch.payments.length})</span>
+                      <span>{formatCurrency(batch.totalPaymentAmount)}</span>
+                    </Typography>
+                    {batch.payments.length === 0 ? (
+                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        No payments added
+                      </Typography>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        {batch.payments.slice(0, 3).map((payment) => (
+                          <Box
+                            key={payment.id}
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <Typography variant="body2" noWrap sx={{ maxWidth: '60%' }}>
+                              {payment.entityName}
+                            </Typography>
+                            <Typography variant="body2" fontWeight="medium" color="error.main">
+                              {formatCurrency(payment.amount)}
+                            </Typography>
+                          </Box>
+                        ))}
+                        {batch.payments.length > 3 && (
+                          <Typography variant="caption" color="text.secondary">
+                            +{batch.payments.length - 3} more
+                          </Typography>
+                        )}
+                      </Box>
+                    )}
+                  </Box>
+                </Grid>
+              </Grid>
+            </Paper>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 }
