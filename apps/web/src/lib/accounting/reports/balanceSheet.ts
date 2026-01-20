@@ -57,7 +57,9 @@ function isCurrentAsset(account: AccountBalance): boolean {
   const code = account.code;
 
   // Current assets typically have codes 1000-1999
-  if (code >= '1000' && code < '2000') {
+  // Use numeric comparison to handle codes of varying lengths correctly
+  const codeNum = parseInt(code, 10);
+  if (!isNaN(codeNum) && codeNum >= 1000 && codeNum < 2000) {
     return true;
   }
 
@@ -80,7 +82,9 @@ function isCurrentLiability(account: AccountBalance): boolean {
   const code = account.code;
 
   // Current liabilities typically have codes 2000-2999
-  if (code >= '2000' && code < '3000') {
+  // Use numeric comparison to handle codes of varying lengths correctly
+  const codeNum = parseInt(code, 10);
+  if (!isNaN(codeNum) && codeNum >= 2000 && codeNum < 3000) {
     return true;
   }
 

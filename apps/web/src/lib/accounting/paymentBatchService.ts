@@ -55,7 +55,7 @@ function generateItemId(): string {
 /**
  * Calculate batch totals
  */
-function calculateBatchTotals(batch: Partial<PaymentBatch>): {
+export function calculateBatchTotals(batch: Partial<PaymentBatch>): {
   totalReceiptAmount: number;
   totalPaymentAmount: number;
   remainingBalance: number;
@@ -293,14 +293,6 @@ export async function addBatchReceipt(
   batchId: string,
   input: AddBatchReceiptInput
 ): Promise<BatchReceipt> {
-  const batch = await getPaymentBatch(db, batchId);
-  if (!batch) {
-    throw new Error(`Payment batch not found: ${batchId}`);
-  }
-  if (batch.status !== 'DRAFT') {
-    throw new Error('Cannot modify a batch that is not in DRAFT status');
-  }
-
   // Remove undefined values - Firestore doesn't accept them
   const receipt = removeUndefinedValues<BatchReceipt>({
     id: generateItemId(),
@@ -316,13 +308,30 @@ export async function addBatchReceipt(
     receiptDate: input.receiptDate,
   });
 
-  const updatedReceipts = [...batch.receipts, receipt];
-  const totals = calculateBatchTotals({ ...batch, receipts: updatedReceipts });
+  // Use runTransaction to prevent race conditions
+  await runTransaction(db, async (transaction) => {
+    const batchRef = doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId);
+    const batchSnap = await transaction.get(batchRef);
 
-  await updateDoc(doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId), {
-    receipts: updatedReceipts,
-    ...totals,
-    updatedAt: Timestamp.now(),
+    if (!batchSnap.exists()) {
+      throw new Error('Payment batch not found');
+    }
+
+    const batchData = batchSnap.data();
+    if (batchData.status !== 'DRAFT') {
+      throw new Error('Cannot modify a batch that is not in DRAFT status');
+    }
+
+    const currentPayments = (batchData.payments || []) as BatchPayment[];
+    const currentReceipts = (batchData.receipts || []) as BatchReceipt[];
+    const updatedReceipts = [...currentReceipts, receipt];
+    const totals = calculateBatchTotals({ receipts: updatedReceipts, payments: currentPayments });
+
+    transaction.update(batchRef, {
+      receipts: updatedReceipts,
+      ...totals,
+      updatedAt: Timestamp.now(),
+    });
   });
 
   logger.info('[addBatchReceipt] Receipt added', { batchId, receiptId: receipt.id });
@@ -338,21 +347,30 @@ export async function removeBatchReceipt(
   batchId: string,
   receiptId: string
 ): Promise<void> {
-  const batch = await getPaymentBatch(db, batchId);
-  if (!batch) {
-    throw new Error(`Payment batch not found: ${batchId}`);
-  }
-  if (batch.status !== 'DRAFT') {
-    throw new Error('Cannot modify a batch that is not in DRAFT status');
-  }
+  // Use runTransaction to prevent race conditions
+  await runTransaction(db, async (transaction) => {
+    const batchRef = doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId);
+    const batchSnap = await transaction.get(batchRef);
 
-  const updatedReceipts = batch.receipts.filter((r) => r.id !== receiptId);
-  const totals = calculateBatchTotals({ ...batch, receipts: updatedReceipts });
+    if (!batchSnap.exists()) {
+      throw new Error('Payment batch not found');
+    }
 
-  await updateDoc(doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId), {
-    receipts: updatedReceipts,
-    ...totals,
-    updatedAt: Timestamp.now(),
+    const batchData = batchSnap.data();
+    if (batchData.status !== 'DRAFT') {
+      throw new Error('Cannot modify a batch that is not in DRAFT status');
+    }
+
+    const currentPayments = (batchData.payments || []) as BatchPayment[];
+    const currentReceipts = (batchData.receipts || []) as BatchReceipt[];
+    const updatedReceipts = currentReceipts.filter((r) => r.id !== receiptId);
+    const totals = calculateBatchTotals({ receipts: updatedReceipts, payments: currentPayments });
+
+    transaction.update(batchRef, {
+      receipts: updatedReceipts,
+      ...totals,
+      updatedAt: Timestamp.now(),
+    });
   });
 
   logger.info('[removeBatchReceipt] Receipt removed', { batchId, receiptId });
@@ -370,15 +388,7 @@ export async function addBatchPayment(
   batchId: string,
   input: AddBatchPaymentInput
 ): Promise<BatchPayment> {
-  const batch = await getPaymentBatch(db, batchId);
-  if (!batch) {
-    throw new Error(`Payment batch not found: ${batchId}`);
-  }
-  if (batch.status !== 'DRAFT') {
-    throw new Error('Cannot modify a batch that is not in DRAFT status');
-  }
-
-  // Validate input amounts
+  // Validate input amounts upfront (before transaction)
   if (input.amount <= 0) {
     throw new Error('Payment amount must be positive');
   }
@@ -413,13 +423,30 @@ export async function addBatchPayment(
     notes: input.notes,
   });
 
-  const updatedPayments = [...batch.payments, payment];
-  const totals = calculateBatchTotals({ ...batch, payments: updatedPayments });
+  // Use runTransaction to prevent race conditions
+  await runTransaction(db, async (transaction) => {
+    const batchRef = doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId);
+    const batchSnap = await transaction.get(batchRef);
 
-  await updateDoc(doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId), {
-    payments: updatedPayments,
-    ...totals,
-    updatedAt: Timestamp.now(),
+    if (!batchSnap.exists()) {
+      throw new Error('Payment batch not found');
+    }
+
+    const batchData = batchSnap.data();
+    if (batchData.status !== 'DRAFT') {
+      throw new Error('Cannot modify a batch that is not in DRAFT status');
+    }
+
+    const currentPayments = (batchData.payments || []) as BatchPayment[];
+    const currentReceipts = (batchData.receipts || []) as BatchReceipt[];
+    const updatedPayments = [...currentPayments, payment];
+    const totals = calculateBatchTotals({ receipts: currentReceipts, payments: updatedPayments });
+
+    transaction.update(batchRef, {
+      payments: updatedPayments,
+      ...totals,
+      updatedAt: Timestamp.now(),
+    });
   });
 
   logger.info('[addBatchPayment] Payment added', { batchId, paymentId: payment.id });
@@ -435,21 +462,30 @@ export async function removeBatchPayment(
   batchId: string,
   paymentId: string
 ): Promise<void> {
-  const batch = await getPaymentBatch(db, batchId);
-  if (!batch) {
-    throw new Error(`Payment batch not found: ${batchId}`);
-  }
-  if (batch.status !== 'DRAFT') {
-    throw new Error('Cannot modify a batch that is not in DRAFT status');
-  }
+  // Use runTransaction to prevent race conditions
+  await runTransaction(db, async (transaction) => {
+    const batchRef = doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId);
+    const batchSnap = await transaction.get(batchRef);
 
-  const updatedPayments = batch.payments.filter((p) => p.id !== paymentId);
-  const totals = calculateBatchTotals({ ...batch, payments: updatedPayments });
+    if (!batchSnap.exists()) {
+      throw new Error('Payment batch not found');
+    }
 
-  await updateDoc(doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId), {
-    payments: updatedPayments,
-    ...totals,
-    updatedAt: Timestamp.now(),
+    const batchData = batchSnap.data();
+    if (batchData.status !== 'DRAFT') {
+      throw new Error('Cannot modify a batch that is not in DRAFT status');
+    }
+
+    const currentPayments = (batchData.payments || []) as BatchPayment[];
+    const currentReceipts = (batchData.receipts || []) as BatchReceipt[];
+    const updatedPayments = currentPayments.filter((p) => p.id !== paymentId);
+    const totals = calculateBatchTotals({ receipts: currentReceipts, payments: updatedPayments });
+
+    transaction.update(batchRef, {
+      payments: updatedPayments,
+      ...totals,
+      updatedAt: Timestamp.now(),
+    });
   });
 
   logger.info('[removeBatchPayment] Payment removed', { batchId, paymentId });
@@ -464,46 +500,56 @@ export async function updateBatchPayment(
   paymentId: string,
   updates: Partial<AddBatchPaymentInput>
 ): Promise<void> {
-  const batch = await getPaymentBatch(db, batchId);
-  if (!batch) {
-    throw new Error(`Payment batch not found: ${batchId}`);
-  }
-  if (batch.status !== 'DRAFT') {
-    throw new Error('Cannot modify a batch that is not in DRAFT status');
-  }
+  // Use runTransaction to prevent race conditions
+  await runTransaction(db, async (transaction) => {
+    const batchRef = doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId);
+    const batchSnap = await transaction.get(batchRef);
 
-  const existingPayment = batch.payments.find((p) => p.id === paymentId);
-  if (!existingPayment) {
-    throw new Error(`Payment not found: ${paymentId}`);
-  }
+    if (!batchSnap.exists()) {
+      throw new Error('Payment batch not found');
+    }
 
-  const paymentIndex = batch.payments.findIndex((p) => p.id === paymentId);
+    const batchData = batchSnap.data();
+    if (batchData.status !== 'DRAFT') {
+      throw new Error('Cannot modify a batch that is not in DRAFT status');
+    }
 
-  const updatedPayment: BatchPayment = {
-    ...existingPayment,
-    ...updates,
-    id: existingPayment.id, // Ensure id is always present
-    entityName: updates.entityName || existingPayment.entityName,
-    amount: updates.amount || existingPayment.amount,
-    currency: updates.currency || existingPayment.currency,
-    status: existingPayment.status,
-    netPayable:
-      updates.tdsAmount !== undefined
-        ? (updates.amount || existingPayment.amount) - updates.tdsAmount
-        : updates.amount
-          ? updates.amount - (existingPayment.tdsAmount || 0)
-          : existingPayment.netPayable,
-  };
+    const currentPayments = (batchData.payments || []) as BatchPayment[];
+    const currentReceipts = (batchData.receipts || []) as BatchReceipt[];
 
-  const updatedPayments = [...batch.payments];
-  updatedPayments[paymentIndex] = updatedPayment;
+    const existingPayment = currentPayments.find((p) => p.id === paymentId);
+    if (!existingPayment) {
+      throw new Error(`Payment not found: ${paymentId}`);
+    }
 
-  const totals = calculateBatchTotals({ ...batch, payments: updatedPayments });
+    const paymentIndex = currentPayments.findIndex((p) => p.id === paymentId);
 
-  await updateDoc(doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId), {
-    payments: updatedPayments,
-    ...totals,
-    updatedAt: Timestamp.now(),
+    const updatedPayment: BatchPayment = {
+      ...existingPayment,
+      ...updates,
+      id: existingPayment.id, // Ensure id is always present
+      entityName: updates.entityName || existingPayment.entityName,
+      amount: updates.amount || existingPayment.amount,
+      currency: updates.currency || existingPayment.currency,
+      status: existingPayment.status,
+      netPayable:
+        updates.tdsAmount !== undefined
+          ? (updates.amount || existingPayment.amount) - updates.tdsAmount
+          : updates.amount
+            ? updates.amount - (existingPayment.tdsAmount || 0)
+            : existingPayment.netPayable,
+    };
+
+    const updatedPayments = [...currentPayments];
+    updatedPayments[paymentIndex] = updatedPayment;
+
+    const totals = calculateBatchTotals({ receipts: currentReceipts, payments: updatedPayments });
+
+    transaction.update(batchRef, {
+      payments: updatedPayments,
+      ...totals,
+      updatedAt: Timestamp.now(),
+    });
   });
 
   logger.info('[updateBatchPayment] Payment updated', { batchId, paymentId });
