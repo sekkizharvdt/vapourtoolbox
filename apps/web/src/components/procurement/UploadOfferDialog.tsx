@@ -10,7 +10,7 @@
  * Supports side-by-side comparison of both parsers for evaluation.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -176,6 +176,7 @@ export default function UploadOfferDialog({
 
   // Initialize offer items from RFQ items
   const initializeOfferItems = () => {
+    if (rfqItems.length === 0) return; // Don't initialize with empty items
     const items: OfferItemData[] = rfqItems.map((rfqItem) => ({
       rfqItemId: rfqItem.id,
       rfqItemDescription: rfqItem.description,
@@ -195,6 +196,14 @@ export default function UploadOfferDialog({
     }));
     setOfferItems(items);
   };
+
+  // Initialize offer items when rfqItems become available and dialog is open
+  useEffect(() => {
+    if (open && rfqItems.length > 0 && offerItems.length === 0 && selectedVendorIndex !== '') {
+      initializeOfferItems();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, rfqItems.length, selectedVendorIndex]);
 
   // Calculate totals
   const totals = useMemo(() => {
