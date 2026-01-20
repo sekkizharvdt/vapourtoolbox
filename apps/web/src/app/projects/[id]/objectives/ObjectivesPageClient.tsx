@@ -32,6 +32,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { Project, ProjectObjective, ProjectDeliverable } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageProjects } from '@vapour/constants';
+import { getStatusColor, getPriorityColor } from '@vapour/ui';
 import { useProjectPage } from '../components/useProjectPage';
 import { ProjectSubPageWrapper } from '../components/ProjectSubPageWrapper';
 import { formatDate } from '@/lib/utils/formatters';
@@ -51,36 +52,6 @@ function DialogLoader() {
       <CircularProgress />
     </Box>
   );
-}
-
-// Helper functions for status/priority colors
-function getStatusColor(status: string): 'default' | 'primary' | 'warning' | 'success' | 'error' {
-  switch (status) {
-    case 'ACHIEVED':
-    case 'ACCEPTED':
-      return 'success';
-    case 'IN_PROGRESS':
-    case 'SUBMITTED':
-      return 'primary';
-    case 'AT_RISK':
-    case 'REJECTED':
-      return 'error';
-    case 'PENDING':
-    case 'NOT_STARTED':
-    default:
-      return 'default';
-  }
-}
-
-function getPriorityColor(priority: string): 'error' | 'warning' | 'default' {
-  switch (priority) {
-    case 'HIGH':
-      return 'error';
-    case 'MEDIUM':
-      return 'warning';
-    default:
-      return 'default';
-  }
 }
 
 // Objectives Content Component
@@ -395,7 +366,7 @@ function ObjectivesContent({ project }: { project: Project }) {
                         <Chip
                           label={objective.status.replace(/_/g, ' ')}
                           size="small"
-                          color={getStatusColor(objective.status)}
+                          color={getStatusColor(objective.status, 'objective')}
                         />
                         <Chip
                           label={objective.priority}
@@ -502,7 +473,7 @@ function ObjectivesContent({ project }: { project: Project }) {
                         <Chip
                           label={deliverable.status.replace(/_/g, ' ')}
                           size="small"
-                          color={getStatusColor(deliverable.status)}
+                          color={getStatusColor(deliverable.status, 'objective')}
                         />
                         <Chip label={deliverable.type} size="small" variant="outlined" />
                       </Box>

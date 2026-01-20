@@ -20,6 +20,7 @@ import {
   Delete as DeleteIcon,
   Business as VendorIcon,
 } from '@mui/icons-material';
+import { getStatusColor } from '@vapour/ui';
 import type { OutsourcingVendor } from '@vapour/types';
 
 interface VendorTableProps {
@@ -27,24 +28,6 @@ interface VendorTableProps {
   hasManageAccess: boolean;
   onEdit: (vendor: OutsourcingVendor) => void;
   onDelete: (vendor: OutsourcingVendor) => void;
-}
-
-function getStatusColor(
-  status: OutsourcingVendor['contractStatus']
-): 'default' | 'primary' | 'warning' | 'success' | 'error' {
-  switch (status) {
-    case 'ACTIVE':
-      return 'success';
-    case 'NEGOTIATION':
-      return 'warning';
-    case 'COMPLETED':
-      return 'primary';
-    case 'TERMINATED':
-      return 'error';
-    case 'DRAFT':
-    default:
-      return 'default';
-  }
 }
 
 function calculateContractDuration(vendor: OutsourcingVendor): string {
@@ -144,7 +127,7 @@ export const VendorTable = memo(function VendorTable({
                 <Chip
                   label={vendor.contractStatus.replace(/_/g, ' ')}
                   size="small"
-                  color={getStatusColor(vendor.contractStatus)}
+                  color={getStatusColor(vendor.contractStatus, 'vendorContract')}
                 />
               </TableCell>
               <TableCell>

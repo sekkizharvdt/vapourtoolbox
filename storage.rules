@@ -90,6 +90,21 @@ service firebase.storage {
       allow delete: if isAuthenticated();
     }
 
+    // RFQ Offers - vendor quotation uploads
+    // Path: offers/{rfqId}/{filename}
+    match /offers/{rfqId}/{allPaths=**} {
+      // Read: Authenticated users can read offers
+      allow read: if isAuthenticated();
+
+      // Write: Authenticated users can upload offers
+      // Max file size: 25MB (PDFs, Excel files can be large)
+      allow write: if isAuthenticated() &&
+                     request.resource.size < 25 * 1024 * 1024;
+
+      // Delete: Authenticated users can delete
+      allow delete: if isAuthenticated();
+    }
+
     // Default deny for all other paths
     match /{allPaths=**} {
       allow read, write: if false;

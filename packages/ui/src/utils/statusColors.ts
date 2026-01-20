@@ -13,6 +13,7 @@ export type CommonStatus =
   | 'INACTIVE'
   | 'DRAFT'
   | 'PENDING'
+  | 'PENDING_APPROVAL'
   | 'APPROVED'
   | 'REJECTED'
   | 'POSTED'
@@ -21,7 +22,11 @@ export type CommonStatus =
   | 'COMPLETED'
   | 'IN_PROGRESS'
   | 'ON_HOLD'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'PAID'
+  | 'PARTIALLY_PAID'
+  | 'UNPAID'
+  | 'OVERDUE';
 
 /**
  * Context-specific status types
@@ -36,32 +41,61 @@ export type BOMStatus = 'DRAFT' | 'UNDER_REVIEW' | 'APPROVED' | 'RELEASED' | 'AR
 
 export type DocumentStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'ARCHIVED';
 
+export type TransactionStatus =
+  | 'DRAFT'
+  | 'PENDING_APPROVAL'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'POSTED'
+  | 'VOID'
+  | 'UNPAID'
+  | 'PARTIALLY_PAID'
+  | 'PAID';
+
 /**
  * Base status color mapping
  * These mappings are used across all contexts unless overridden
+ *
+ * Color semantics:
+ * - success (green): Final positive state, fully complete
+ * - info (blue): Intermediate positive state, needs action
+ * - warning (orange): Waiting state, needs attention
+ * - error (red): Negative state, problem
+ * - primary (purple): Special/highlighted state
+ * - default (gray): Initial/neutral state
  */
 const baseStatusColors: Record<string, ChipProps['color']> = {
-  // Active/Positive states
+  // Final positive states (green)
   ACTIVE: 'success',
-  APPROVED: 'success',
   POSTED: 'success',
   COMPLETED: 'success',
   RELEASED: 'success',
+  PAID: 'success',
   active: 'success',
 
-  // Warning/Intermediate states
+  // Intermediate positive states (blue) - approved but not final
+  APPROVED: 'info',
+  NEGOTIATION: 'info',
+
+  // Warning/Waiting states (orange)
   PENDING: 'warning',
+  PENDING_APPROVAL: 'warning',
   ON_HOLD: 'warning',
   IN_PROGRESS: 'warning',
   UNDER_REVIEW: 'warning',
-  PENDING_APPROVAL: 'warning',
+  PARTIALLY_PAID: 'warning',
+  OVERDUE: 'warning',
   pending: 'warning',
 
-  // Info/Neutral states
+  // Neutral states (gray/default)
   DRAFT: 'default',
+  UNPAID: 'default',
+
+  // Primary/Special states (purple)
   PROPOSAL: 'primary',
 
-  // Error/Negative states
+  // Negative states (red)
+  TERMINATED: 'error',
   INACTIVE: 'error',
   REJECTED: 'error',
   VOID: 'error',
@@ -73,19 +107,49 @@ const baseStatusColors: Record<string, ChipProps['color']> = {
 /**
  * Context-specific overrides
  * Use these when a context needs different color mappings
+ *
+ * Note: Most contexts use the base colors. Overrides are only needed
+ * when a specific context has different semantic meaning for a status.
  */
 const contextOverrides: Record<string, Partial<Record<string, ChipProps['color']>>> = {
+  // BOM context - RELEASED is a caution state, APPROVED is final
   bom: {
-    RELEASED: 'warning', // Released is a "caution" state for BOMs
+    RELEASED: 'warning',
     APPROVED: 'success',
   },
-  invoice: {
-    APPROVED: 'info', // Approved but not yet posted
-    POSTED: 'success', // Final state
+  // Invoice/Bill contexts use base colors (APPROVED=info, POSTED=success)
+  invoice: {},
+  bill: {},
+  // Transaction context (journal entries, etc.) uses base colors
+  transaction: {},
+  // Project context - ACTIVE is final positive state
+  project: {
+    ACTIVE: 'success',
+    COMPLETED: 'success',
+    ON_HOLD: 'warning',
+    CANCELLED: 'error',
+    PROPOSAL: 'primary',
   },
-  bill: {
-    APPROVED: 'info', // Approved but not yet posted
-    POSTED: 'success', // Final state
+  // Entity context (customers, vendors)
+  entity: {
+    ACTIVE: 'success',
+    INACTIVE: 'default',
+  },
+  // Vendor contract context - COMPLETED is primary (finished but not "success" green)
+  vendorContract: {
+    COMPLETED: 'primary',
+    NEGOTIATION: 'warning',
+    TERMINATED: 'error',
+  },
+  // Objective/Deliverable context
+  objective: {
+    ACHIEVED: 'success',
+    ACCEPTED: 'success',
+    IN_PROGRESS: 'primary',
+    SUBMITTED: 'primary',
+    AT_RISK: 'error',
+    PENDING: 'default',
+    NOT_STARTED: 'default',
   },
 };
 
@@ -111,7 +175,17 @@ const contextOverrides: Record<string, Partial<Record<string, ChipProps['color']
  */
 export function getStatusColor(
   status: string,
-  context?: 'project' | 'invoice' | 'bill' | 'user' | 'bom' | 'document' | 'entity' | 'transaction'
+  context?:
+    | 'project'
+    | 'invoice'
+    | 'bill'
+    | 'user'
+    | 'bom'
+    | 'document'
+    | 'entity'
+    | 'transaction'
+    | 'vendorContract'
+    | 'objective'
 ): ChipProps['color'] {
   // Check for context-specific override first
   if (context && contextOverrides[context]?.[status]) {
