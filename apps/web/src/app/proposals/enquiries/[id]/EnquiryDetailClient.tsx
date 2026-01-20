@@ -71,6 +71,7 @@ export default function EnquiryDetailClient() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [bidDecisionDialogOpen, setBidDecisionDialogOpen] = useState(false);
   const [createProposalDialogOpen, setCreateProposalDialogOpen] = useState(false);
+  const [isRevisionMode, setIsRevisionMode] = useState(false);
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -191,7 +192,10 @@ export default function EnquiryDetailClient() {
                   variant="contained"
                   color="primary"
                   startIcon={<BidDecisionIcon />}
-                  onClick={() => setBidDecisionDialogOpen(true)}
+                  onClick={() => {
+                    setIsRevisionMode(false);
+                    setBidDecisionDialogOpen(true);
+                  }}
                 >
                   Make Bid Decision
                 </Button>
@@ -401,15 +405,30 @@ export default function EnquiryDetailClient() {
           {enquiry.bidDecision && (
             <Card>
               <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                  {enquiry.bidDecision.decision === 'BID' ? (
-                    <BidIcon color="success" />
-                  ) : (
-                    <NoBidIcon color="error" />
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {enquiry.bidDecision.decision === 'BID' ? (
+                      <BidIcon color="success" />
+                    ) : (
+                      <NoBidIcon color="error" />
+                    )}
+                    <Typography variant="h6">
+                      Bid Decision: {BID_DECISION_LABELS[enquiry.bidDecision.decision]}
+                    </Typography>
+                  </Box>
+                  {/* Allow revising bid decision before proposal is created */}
+                  {!['WON', 'LOST', 'CANCELLED'].includes(enquiry.status) && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => {
+                        setIsRevisionMode(true);
+                        setBidDecisionDialogOpen(true);
+                      }}
+                    >
+                      Revise
+                    </Button>
                   )}
-                  <Typography variant="h6">
-                    Bid Decision: {BID_DECISION_LABELS[enquiry.bidDecision.decision]}
-                  </Typography>
                 </Box>
 
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -503,11 +522,16 @@ export default function EnquiryDetailClient() {
       {/* Bid Decision Dialog */}
       <BidDecisionDialog
         open={bidDecisionDialogOpen}
-        onClose={() => setBidDecisionDialogOpen(false)}
+        onClose={() => {
+          setBidDecisionDialogOpen(false);
+          setIsRevisionMode(false);
+        }}
         enquiry={enquiry}
+        isRevision={isRevisionMode}
         onSuccess={(updatedEnquiry) => {
           setEnquiry(updatedEnquiry);
           setBidDecisionDialogOpen(false);
+          setIsRevisionMode(false);
         }}
       />
 

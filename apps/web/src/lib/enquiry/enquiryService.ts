@@ -40,6 +40,7 @@ const logger = createLogger({ context: 'enquiryService' });
 const COLLECTIONS = {
   ENQUIRIES: 'enquiries',
   ENTITIES: 'entities',
+  PROPOSALS: 'proposals',
 };
 
 /**
@@ -586,6 +587,151 @@ export async function recordBidDecision(
     };
   } catch (error) {
     logger.error('Error recording bid decision', { enquiryId, decision, error });
+    throw error;
+  }
+}
+
+/**
+ * Revise an existing bid decision
+ *
+ * Allows changing a bid decision before a proposal is created.
+ * Cannot revise if proposal already exists or enquiry is in terminal state.
+ *
+ * @param db - Firestore instance
+ * @param enquiryId - ID of the enquiry
+ * @param decision - New BID or NO_BID decision
+ * @param evaluation - New evaluation criteria
+ * @param rationale - New decision rationale text
+ * @param userId - User making the revision
+ * @param userName - User's display name (denormalized)
+ * @returns Updated enquiry
+ */
+export async function reviseBidDecision(
+  db: Firestore,
+  enquiryId: string,
+  decision: BidDecision,
+  evaluation: BidEvaluationCriteria,
+  rationale: string,
+  userId: string,
+  userName: string
+): Promise<Enquiry> {
+  try {
+    // Get current enquiry
+    const enquiry = await getEnquiryById(db, enquiryId);
+    if (!enquiry) {
+      throw new Error('Enquiry not found');
+    }
+
+    // Must have an existing bid decision to revise
+    if (!enquiry.bidDecision) {
+      throw new Error('No existing bid decision to revise');
+    }
+
+    // Cannot revise if in terminal state
+    const terminalStatuses: EnquiryStatus[] = ['WON', 'LOST', 'CANCELLED'];
+    if (terminalStatuses.includes(enquiry.status)) {
+      throw new Error(
+        `Cannot revise bid decision for enquiry in ${enquiry.status} status`
+      );
+    }
+
+    // Check if a proposal already exists for this enquiry
+    const proposalsRef = collection(db, COLLECTIONS.PROPOSALS);
+    const proposalQuery = query(proposalsRef, where('enquiryId', '==', enquiryId));
+    const proposalSnapshot = await getDocs(proposalQuery);
+
+    if (!proposalSnapshot.empty) {
+      throw new Error(
+        'Cannot revise bid decision after a proposal has been created. Please void or delete the proposal first.'
+      );
+    }
+
+    // Store previous decision for audit trail
+    const previousDecision = enquiry.bidDecision;
+
+    // Clean evaluation to remove undefined notes
+    const cleanedEvaluation: BidEvaluationCriteria = {
+      strategicAlignment: {
+        rating: evaluation.strategicAlignment.rating,
+        ...(evaluation.strategicAlignment.notes && { notes: evaluation.strategicAlignment.notes }),
+      },
+      winProbability: {
+        rating: evaluation.winProbability.rating,
+        ...(evaluation.winProbability.notes && { notes: evaluation.winProbability.notes }),
+      },
+      commercialViability: {
+        rating: evaluation.commercialViability.rating,
+        ...(evaluation.commercialViability.notes && { notes: evaluation.commercialViability.notes }),
+      },
+      riskExposure: {
+        rating: evaluation.riskExposure.rating,
+        ...(evaluation.riskExposure.notes && { notes: evaluation.riskExposure.notes }),
+      },
+      capacityCapability: {
+        rating: evaluation.capacityCapability.rating,
+        ...(evaluation.capacityCapability.notes && { notes: evaluation.capacityCapability.notes }),
+      },
+    };
+
+    const bidDecisionRecord: BidDecisionRecord = {
+      decision,
+      evaluation: cleanedEvaluation,
+      rationale,
+      decidedBy: userId,
+      decidedByName: userName,
+      decidedAt: Timestamp.now(),
+      // Track revision history
+      previousDecision: {
+        decision: previousDecision.decision,
+        decidedBy: previousDecision.decidedBy,
+        decidedByName: previousDecision.decidedByName,
+        decidedAt: previousDecision.decidedAt,
+        rationale: previousDecision.rationale,
+      },
+    };
+
+    // Determine new status based on decision
+    const newStatus: EnquiryStatus = decision === 'BID' ? 'PROPOSAL_IN_PROGRESS' : 'NO_BID';
+
+    const updates: Record<string, unknown> = {
+      bidDecision: bidDecisionRecord,
+      status: newStatus,
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    };
+
+    // For NO_BID, also set outcome tracking
+    if (decision === 'NO_BID') {
+      updates.outcomeDate = Timestamp.now();
+      updates.outcomeReason = `No Bid Decision (Revised): ${rationale}`;
+    } else {
+      // If changing from NO_BID to BID, clear outcome fields
+      updates.outcomeDate = null;
+      updates.outcomeReason = null;
+    }
+
+    await updateDoc(doc(db, COLLECTIONS.ENQUIRIES, enquiryId), updates);
+
+    logger.info('Bid decision revised', {
+      enquiryId,
+      previousDecision: previousDecision.decision,
+      newDecision: decision,
+      newStatus,
+      userId,
+    });
+
+    // Return updated enquiry
+    return {
+      ...enquiry,
+      bidDecision: bidDecisionRecord,
+      status: newStatus,
+      ...(decision === 'NO_BID' && {
+        outcomeDate: Timestamp.now(),
+        outcomeReason: `No Bid Decision (Revised): ${rationale}`,
+      }),
+    };
+  } catch (error) {
+    logger.error('Error revising bid decision', { enquiryId, decision, error });
     throw error;
   }
 }

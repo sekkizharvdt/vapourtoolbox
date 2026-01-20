@@ -35,7 +35,7 @@ export function CreateProposalDialog({
 }: CreateProposalDialogProps) {
   const router = useRouter();
   const db = useFirestore();
-  const { user, claims } = useAuth();
+  const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>('');
 
@@ -60,7 +60,7 @@ export function CreateProposalDialog({
       setError('Please select a validity date');
       return;
     }
-    if (!db || !user?.uid || !claims?.entityId) {
+    if (!db || !user?.uid) {
       setError('Authentication required');
       return;
     }
@@ -69,10 +69,11 @@ export function CreateProposalDialog({
       setSubmitting(true);
       setError('');
 
+      // Use entityId from the enquiry (all enquiries have entityId)
       const proposal = await createMinimalProposal(
         db,
         {
-          entityId: claims.entityId,
+          entityId: enquiry.entityId,
           enquiryId: enquiry.id,
           title: title.trim(),
           clientId: enquiry.clientId,

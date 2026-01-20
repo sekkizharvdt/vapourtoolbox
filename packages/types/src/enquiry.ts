@@ -82,6 +82,17 @@ export interface BidEvaluationCriteria {
 }
 
 /**
+ * Previous Bid Decision (for revision tracking)
+ */
+export interface PreviousBidDecision {
+  decision: BidDecision;
+  decidedBy: string;
+  decidedByName: string;
+  decidedAt: Timestamp;
+  rationale: string;
+}
+
+/**
  * Bid Decision Record
  */
 export interface BidDecisionRecord {
@@ -91,6 +102,8 @@ export interface BidDecisionRecord {
   decidedBy: string; // User ID
   decidedByName: string; // Denormalized user name
   decidedAt: Timestamp;
+  // Optional: tracks the previous decision if this is a revision
+  previousDecision?: PreviousBidDecision;
 }
 
 /**

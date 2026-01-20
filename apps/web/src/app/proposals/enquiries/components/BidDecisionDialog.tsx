@@ -31,7 +31,7 @@ import {
 } from '@mui/icons-material';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
-import { recordBidDecision } from '@/lib/enquiry/enquiryService';
+import { recordBidDecision, reviseBidDecision } from '@/lib/enquiry/enquiryService';
 import type {
   BidDecision,
   BidEvaluationCriteria,
@@ -50,6 +50,8 @@ interface BidDecisionDialogProps {
   onClose: () => void;
   enquiry: Enquiry;
   onSuccess: (updatedEnquiry: Enquiry) => void;
+  /** If true, this is revising an existing decision */
+  isRevision?: boolean;
 }
 
 type StrategicAlignmentRating = BidEvaluationCriteria['strategicAlignment']['rating'];
@@ -63,6 +65,7 @@ export function BidDecisionDialog({
   onClose,
   enquiry,
   onSuccess,
+  isRevision = false,
 }: BidDecisionDialogProps) {
   const db = useFirestore();
   const { user } = useAuth();
@@ -163,15 +166,26 @@ export function BidDecisionDialog({
         },
       };
 
-      const updatedEnquiry = await recordBidDecision(
-        db,
-        enquiry.id,
-        decision,
-        evaluation,
-        rationale,
-        user.uid,
-        user.displayName || 'Unknown User'
-      );
+      // Use appropriate service based on whether this is a revision
+      const updatedEnquiry = isRevision
+        ? await reviseBidDecision(
+            db,
+            enquiry.id,
+            decision,
+            evaluation,
+            rationale,
+            user.uid,
+            user.displayName || 'Unknown User'
+          )
+        : await recordBidDecision(
+            db,
+            enquiry.id,
+            decision,
+            evaluation,
+            rationale,
+            user.uid,
+            user.displayName || 'Unknown User'
+          );
 
       onSuccess(updatedEnquiry);
       handleClose();
@@ -204,7 +218,7 @@ export function BidDecisionDialog({
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        Bid/No-Bid Decision
+        {isRevision ? 'Revise Bid Decision' : 'Bid/No-Bid Decision'}
         <Typography variant="body2" color="text.secondary">
           {enquiry.enquiryNumber} - {enquiry.title}
         </Typography>
@@ -217,40 +231,9 @@ export function BidDecisionDialog({
             </Alert>
           )}
 
-          {/* Decision Selection */}
-          <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Decision
-            </Typography>
-            <RadioGroup
-              row
-              value={decision}
-              onChange={(e) => setDecision(e.target.value as BidDecision)}
-            >
-              <FormControlLabel
-                value="BID"
-                control={<Radio color="success" />}
-                label={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <BidIcon color="success" />
-                    <Typography>Bid - Proceed with Proposal</Typography>
-                  </Box>
-                }
-              />
-              <FormControlLabel
-                value="NO_BID"
-                control={<Radio color="error" />}
-                label={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <NoBidIcon color="error" />
-                    <Typography>No Bid - Decline Opportunity</Typography>
-                  </Box>
-                }
-              />
-            </RadioGroup>
-          </Paper>
-
-          <Divider sx={{ my: 2 }} />
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Complete the evaluation criteria below, then make your final Bid/No-Bid decision at the end.
+          </Alert>
 
           <Typography variant="h6" gutterBottom>
             Evaluation Criteria
@@ -543,6 +526,44 @@ export function BidDecisionDialog({
             rows={4}
             helperText="Required - Explain the key factors behind this decision"
           />
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* Final Decision Selection - moved to end */}
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
+            <Typography variant="h6" gutterBottom>
+              Final Decision
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Based on your evaluation above, select your bid decision:
+            </Typography>
+            <RadioGroup
+              row
+              value={decision}
+              onChange={(e) => setDecision(e.target.value as BidDecision)}
+            >
+              <FormControlLabel
+                value="BID"
+                control={<Radio color="success" />}
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <BidIcon color="success" />
+                    <Typography>Bid - Proceed with Proposal</Typography>
+                  </Box>
+                }
+              />
+              <FormControlLabel
+                value="NO_BID"
+                control={<Radio color="error" />}
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <NoBidIcon color="error" />
+                    <Typography>No Bid - Decline Opportunity</Typography>
+                  </Box>
+                }
+              />
+            </RadioGroup>
+          </Paper>
         </Box>
       </DialogContent>
       <DialogActions sx={{ p: 3 }}>
