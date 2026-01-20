@@ -26,11 +26,18 @@ import {
   Alert,
   Breadcrumbs,
   Link,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import {
   Home as HomeIcon,
   Edit as EditIcon,
   AttachFile as AttachFileIcon,
+  CheckCircle as ApproveIcon,
+  Cancel as RejectIcon,
 } from '@mui/icons-material';
 import type {
   PurchaseRequest,
@@ -42,7 +49,10 @@ import {
   getPurchaseRequestById,
   getPurchaseRequestItems,
   getPRAttachments,
+  approvePurchaseRequest,
+  rejectPurchaseRequest,
 } from '@/lib/procurement/purchaseRequest';
+import { useAuth } from '@/contexts/AuthContext';
 import { findRFQsByPurchaseRequestId } from '@/lib/procurement/rfq/queries';
 import { formatDate } from '@/lib/utils/formatters';
 import PRAttachmentUpload from '@/components/procurement/PRAttachmentUpload';
@@ -50,6 +60,7 @@ import PRAttachmentUpload from '@/components/procurement/PRAttachmentUpload';
 export default function PRDetailPage() {
   const pathname = usePathname();
   const router = useRouter();
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [pr, setPr] = useState<PurchaseRequest | null>(null);
@@ -58,6 +69,13 @@ export default function PRDetailPage() {
   const [linkedRFQ, setLinkedRFQ] = useState<RFQ | null>(null);
   const [error, setError] = useState<string>('');
   const [prId, setPrId] = useState<string | null>(null);
+
+  // Approval state
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [approvalComments, setApprovalComments] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -158,6 +176,72 @@ export default function PRDetailPage() {
   // Check if PR can be edited (only DRAFT and REJECTED status can be edited)
   const canEdit = (status: string): boolean => {
     return status === 'DRAFT' || status === 'REJECTED';
+  };
+
+  // Check if current user can approve/reject this PR
+  const canApproveOrReject = (): boolean => {
+    if (!pr || !user) return false;
+
+    // PR must be in reviewable status
+    if (pr.status !== 'SUBMITTED' && pr.status !== 'UNDER_REVIEW') return false;
+
+    // User cannot approve their own submission
+    if (pr.submittedBy === user.uid) return false;
+
+    // If a specific approver is assigned, only they can approve
+    if (pr.approverId && pr.approverId !== user.uid) return false;
+
+    return true;
+  };
+
+  // Handle approve
+  const handleApprove = async () => {
+    if (!pr || !user) return;
+
+    setApproving(true);
+    try {
+      await approvePurchaseRequest(
+        pr.id,
+        user.uid,
+        user.displayName || user.email || 'Unknown',
+        approvalComments
+      );
+      await loadPR(); // Reload to get updated status
+      setApprovalComments('');
+    } catch (err) {
+      console.error('[PRDetailPage] Error approving PR:', err);
+      setError(err instanceof Error ? err.message : 'Failed to approve purchase request');
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  // Handle reject
+  const handleReject = async () => {
+    if (!pr || !user) return;
+
+    if (!rejectionReason.trim()) {
+      setError('Please provide a reason for rejection');
+      return;
+    }
+
+    setRejecting(true);
+    try {
+      await rejectPurchaseRequest(
+        pr.id,
+        user.uid,
+        user.displayName || user.email || 'Unknown',
+        rejectionReason
+      );
+      await loadPR(); // Reload to get updated status
+      setRejectionReason('');
+      setShowRejectDialog(false);
+    } catch (err) {
+      console.error('[PRDetailPage] Error rejecting PR:', err);
+      setError(err instanceof Error ? err.message : 'Failed to reject purchase request');
+    } finally {
+      setRejecting(false);
+    }
   };
 
   if (loading) {
@@ -368,6 +452,47 @@ export default function PRDetailPage() {
                   <Typography variant="body1">{pr.rejectionReason}</Typography>
                 </Box>
               )}
+
+              {/* Approval Actions - show only if user can approve */}
+              {canApproveOrReject() && (
+                <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Approval Actions
+                  </Typography>
+                  <Stack spacing={2}>
+                    <TextField
+                      label="Comments (optional)"
+                      value={approvalComments}
+                      onChange={(e) => setApprovalComments(e.target.value)}
+                      multiline
+                      rows={2}
+                      size="small"
+                      fullWidth
+                      placeholder="Add any comments for the requester..."
+                    />
+                    <Stack direction="row" spacing={2}>
+                      <Button
+                        variant="contained"
+                        color="success"
+                        startIcon={<ApproveIcon />}
+                        onClick={handleApprove}
+                        disabled={approving || rejecting}
+                      >
+                        {approving ? 'Approving...' : 'Approve'}
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        startIcon={<RejectIcon />}
+                        onClick={() => setShowRejectDialog(true)}
+                        disabled={approving || rejecting}
+                      >
+                        Reject
+                      </Button>
+                    </Stack>
+                  </Stack>
+                </Box>
+              )}
             </Stack>
           </Paper>
         )}
@@ -512,6 +637,47 @@ export default function PRDetailPage() {
           </Stack>
         </Paper>
       </Stack>
+
+      {/* Rejection Dialog */}
+      <Dialog
+        open={showRejectDialog}
+        onClose={() => setShowRejectDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Reject Purchase Request</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Please provide a reason for rejecting this purchase request. This will be visible to the
+            requester.
+          </Typography>
+          <TextField
+            label="Rejection Reason"
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            multiline
+            rows={3}
+            fullWidth
+            required
+            error={!rejectionReason.trim() && rejecting}
+            helperText={!rejectionReason.trim() && rejecting ? 'Rejection reason is required' : ''}
+            placeholder="e.g., Budget not available, specifications unclear, duplicate request..."
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowRejectDialog(false)} disabled={rejecting}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleReject}
+            disabled={rejecting || !rejectionReason.trim()}
+          >
+            {rejecting ? 'Rejecting...' : 'Reject'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
