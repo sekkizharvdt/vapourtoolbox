@@ -56,7 +56,7 @@ import {
   Compare as CompareIcon,
   Speed as SpeedIcon,
 } from '@mui/icons-material';
-import { httpsCallable } from 'firebase/functions';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -285,7 +285,9 @@ export default function UploadOfferDialog({
     setCompareResult(null);
 
     try {
-      const { storage, functions } = getFirebase();
+      const { storage, app } = getFirebase();
+      // Use asia-south1 region where compareOfferParsers is deployed
+      const functionsAsiaSouth1 = getFunctions(app, 'asia-south1');
 
       let storagePath = '';
       if (fileUrl) {
@@ -325,7 +327,7 @@ export default function UploadOfferDialog({
           rfqItems: typeof rfqItemsForParsing;
         },
         CompareParsingResult
-      >(functions, 'compareOfferParsers');
+      >(functionsAsiaSouth1, 'compareOfferParsers');
 
       setProgress(50);
       const result = await compareParsersFn({
@@ -556,12 +558,29 @@ export default function UploadOfferDialog({
   };
 
   const canCompare = file && selectedVendorIndex !== '' && !parsing && !uploading;
+
+  // Check which items are missing prices
+  const itemsMissingPrice = offerItems.filter((item) => item.unitPrice <= 0);
+  const allItemsHavePrice = itemsMissingPrice.length === 0;
+
   const canCreate =
     selectedVendorIndex !== '' &&
     fileUrl &&
     offerItems.length > 0 &&
-    offerItems.every((item) => item.unitPrice > 0) &&
+    allItemsHavePrice &&
     !creating;
+
+  // Build validation message for Create Offer button
+  const getCreateButtonTooltip = (): string => {
+    if (creating) return 'Creating offer...';
+    if (selectedVendorIndex === '') return 'Please select a vendor';
+    if (!fileUrl) return 'Please upload an offer document';
+    if (offerItems.length === 0) return 'No items to create offer';
+    if (!allItemsHavePrice) {
+      return `Please enter unit price for ${itemsMissingPrice.length} item${itemsMissingPrice.length > 1 ? 's' : ''} (highlighted in red)`;
+    }
+    return '';
+  };
 
   // Render comparison view
   const renderComparisonView = () => {
@@ -1225,11 +1244,23 @@ export default function UploadOfferDialog({
         </Stack>
       </DialogContent>
 
-      <DialogActions>
-        <Button onClick={handleClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleCreateOffer} disabled={!canCreate}>
-          {creating ? 'Creating...' : 'Create Offer'}
-        </Button>
+      <DialogActions sx={{ flexDirection: 'column', alignItems: 'stretch', gap: 1, p: 2 }}>
+        {/* Validation message when button is disabled */}
+        {!canCreate && offerItems.length > 0 && !creating && (
+          <Alert severity="warning" sx={{ width: '100%' }}>
+            {getCreateButtonTooltip()}
+          </Alert>
+        )}
+        <Stack direction="row" spacing={1} justifyContent="flex-end">
+          <Button onClick={handleClose}>Cancel</Button>
+          <Tooltip title={getCreateButtonTooltip()} arrow disableHoverListener={canCreate || false}>
+            <span>
+              <Button variant="contained" onClick={handleCreateOffer} disabled={!canCreate}>
+                {creating ? 'Creating...' : 'Create Offer'}
+              </Button>
+            </span>
+          </Tooltip>
+        </Stack>
       </DialogActions>
     </Dialog>
   );
