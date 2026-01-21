@@ -590,25 +590,36 @@ export const parseDocumentForPR = onCall(
       const client = new DocumentProcessorServiceClient();
       const processorName = `projects/${projectId}/locations/${location}/processors/${processorId}`;
 
-      // Convert MIME type for Document AI
-      let docAIMimeType = data.mimeType;
-      if (data.mimeType === 'application/msword') {
-        // Convert DOC to PDF first (Document AI doesn't support DOC directly)
-        warnings.push('DOC format may have reduced parsing accuracy. PDF recommended.');
-        docAIMimeType = 'application/pdf';
+      // Google Document AI Form Parser supports: PDF, TIFF, GIF, JPEG, PNG, BMP, WEBP
+      // It does NOT support DOC/DOCX formats directly
+      const supportedMimeTypes = [
+        'application/pdf',
+        'image/tiff',
+        'image/gif',
+        'image/jpeg',
+        'image/png',
+        'image/bmp',
+        'image/webp',
+      ];
+
+      if (!supportedMimeTypes.includes(data.mimeType)) {
+        throw new HttpsError(
+          'invalid-argument',
+          `Google Document AI does not support ${data.mimeType} format. Supported formats: PDF and images (TIFF, GIF, JPEG, PNG, BMP, WEBP). Please upload a PDF file.`
+        );
       }
 
       // Process document
       logger.info('Sending to Document AI', {
         processor: processorName,
-        mimeType: docAIMimeType,
+        mimeType: data.mimeType,
       });
 
       const [result] = await client.processDocument({
         name: processorName,
         rawDocument: {
           content: fileContent.toString('base64'),
-          mimeType: docAIMimeType,
+          mimeType: data.mimeType,
         },
       });
 

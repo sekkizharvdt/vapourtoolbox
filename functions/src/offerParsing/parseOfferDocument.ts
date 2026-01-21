@@ -425,8 +425,10 @@ function extractOfferHeader(document: any, fullText: string): ParsedOfferHeader 
   const patterns = {
     quotationNumber: /(?:quotation|quote|offer|ref)\s*(?:no|number|#)?[:\s]*([A-Z0-9\-\/]+)/i,
     date: /(?:date|dated)[:\s]*(\d{1,2}[\-\/\.]\d{1,2}[\-\/\.]\d{2,4})/i,
-    validity: /(?:valid|validity)[:\s]*(?:till|until|upto)?[:\s]*(\d{1,2}[\-\/\.]\d{1,2}[\-\/\.]\d{2,4})/i,
-    totalAmount: /(?:grand\s*)?total[:\s]*(?:amount)?[:\s]*(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d{2})?)/i,
+    validity:
+      /(?:valid|validity)[:\s]*(?:till|until|upto)?[:\s]*(\d{1,2}[\-\/\.]\d{1,2}[\-\/\.]\d{2,4})/i,
+    totalAmount:
+      /(?:grand\s*)?total[:\s]*(?:amount)?[:\s]*(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d{2})?)/i,
     paymentTerms: /(?:payment\s*terms?)[:\s]*([^\n]+)/i,
     deliveryTerms: /(?:delivery\s*terms?)[:\s]*([^\n]+)/i,
     warranty: /(?:warranty)[:\s]*([^\n]+)/i,
@@ -509,8 +511,7 @@ function processDocumentAIResponse(
       const columnMap = detectOfferColumnMapping(columnHeaders);
 
       // Check if this table has pricing columns
-      const hasPricingColumns =
-        columnMap.unitPrice !== undefined || columnMap.amount !== undefined;
+      const hasPricingColumns = columnMap.unitPrice !== undefined || columnMap.amount !== undefined;
 
       if (!hasPricingColumns) {
         // Skip tables without pricing (likely not the quotation table)
@@ -522,9 +523,7 @@ function processDocumentAIResponse(
       for (const row of bodyRows) {
         const cells = row.cells || [];
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const cellTexts: string[] = cells.map((cell: any) =>
-          extractTextFromCell(cell, fullText)
-        );
+        const cellTexts: string[] = cells.map((cell: any) => extractTextFromCell(cell, fullText));
 
         const item = extractOfferItemFromRow(cellTexts, columnMap, lineNumber);
         if (item && item.unitPrice > 0) {
@@ -645,16 +644,28 @@ export const parseOfferDocument = onCall(
       const client = new DocumentProcessorServiceClient();
       const processorName = `projects/${projectId}/locations/${location}/processors/${processorId}`;
 
-      // Convert MIME type for Document AI
-      let docAIMimeType = data.mimeType;
-      if (data.mimeType === 'application/msword') {
-        warnings.push('DOC format may have reduced parsing accuracy. PDF recommended.');
-        docAIMimeType = 'application/pdf';
+      // Google Document AI Form Parser supports: PDF, TIFF, GIF, JPEG, PNG, BMP, WEBP
+      // It does NOT support DOC/DOCX formats directly
+      const supportedMimeTypes = [
+        'application/pdf',
+        'image/tiff',
+        'image/gif',
+        'image/jpeg',
+        'image/png',
+        'image/bmp',
+        'image/webp',
+      ];
+
+      if (!supportedMimeTypes.includes(data.mimeType)) {
+        throw new HttpsError(
+          'invalid-argument',
+          `Google Document AI does not support ${data.mimeType} format. Supported formats: PDF and images (TIFF, GIF, JPEG, PNG, BMP, WEBP). Please upload a PDF file.`
+        );
       }
 
       logger.info('Sending to Document AI', {
         processor: processorName,
-        mimeType: docAIMimeType,
+        mimeType: data.mimeType,
       });
 
       // Process document
@@ -662,7 +673,7 @@ export const parseOfferDocument = onCall(
         name: processorName,
         rawDocument: {
           content: fileContent.toString('base64'),
-          mimeType: docAIMimeType,
+          mimeType: data.mimeType,
         },
       });
 
@@ -691,10 +702,7 @@ export const parseOfferDocument = onCall(
 
       // Calculate financial totals
       const calculatedSubtotal = matchedItems.reduce((sum, item) => sum + item.amount, 0);
-      const calculatedTax = matchedItems.reduce(
-        (sum, item) => sum + (item.gstAmount || 0),
-        0
-      );
+      const calculatedTax = matchedItems.reduce((sum, item) => sum + (item.gstAmount || 0), 0);
       const calculatedTotal = calculatedSubtotal + calculatedTax;
 
       // Add warnings

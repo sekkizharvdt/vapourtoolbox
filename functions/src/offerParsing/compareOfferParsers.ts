@@ -420,17 +420,45 @@ async function parseWithGoogleDocumentAI(
     const client = new DocumentProcessorServiceClient();
     const processorName = `projects/${projectId}/locations/${location}/processors/${processorId}`;
 
-    let docAIMimeType = mimeType;
-    if (mimeType === 'application/msword') {
-      warnings.push('DOC format may have reduced parsing accuracy. PDF recommended.');
-      docAIMimeType = 'application/pdf';
+    // Google Document AI Form Parser supports: PDF, TIFF, GIF, JPEG, PNG, BMP, WEBP
+    // It does NOT support DOC/DOCX formats directly
+    const supportedMimeTypes = [
+      'application/pdf',
+      'image/tiff',
+      'image/gif',
+      'image/jpeg',
+      'image/png',
+      'image/bmp',
+      'image/webp',
+    ];
+
+    if (!supportedMimeTypes.includes(mimeType)) {
+      // Document AI doesn't support this format (DOC, DOCX, etc.)
+      return {
+        success: false,
+        error: `Google Document AI does not support ${mimeType} format. Supported formats: PDF and images. Use Claude AI for Word documents.`,
+        items: [],
+        totalItemsFound: 0,
+        matchedItems: 0,
+        unmatchedItems: 0,
+        highConfidenceItems: 0,
+        lowConfidenceItems: 0,
+        calculatedSubtotal: 0,
+        calculatedTax: 0,
+        calculatedTotal: 0,
+        warnings: [
+          'Word documents (.doc, .docx) are not supported by Google Document AI. Please use PDF format or rely on Claude AI results.',
+        ],
+        processingTimeMs: Date.now() - startTime,
+        modelUsed: 'Google Document AI - Form Parser',
+      };
     }
 
     const [result] = await client.processDocument({
       name: processorName,
       rawDocument: {
         content: fileContent.toString('base64'),
-        mimeType: docAIMimeType,
+        mimeType: mimeType,
       },
     });
 
