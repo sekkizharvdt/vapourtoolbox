@@ -149,7 +149,8 @@ function ApproverSelectorComponent({
     const usersRef = collection(db, COLLECTIONS.USERS);
 
     // Query active users only - permission filtering is done client-side
-    const q = query(usersRef, where('isActive', '==', true), orderBy('displayName', 'asc'));
+    // Use 'status' field instead of deprecated 'isActive' boolean
+    const q = query(usersRef, where('status', '==', 'active'), orderBy('displayName', 'asc'));
 
     // Subscribe to real-time updates
     const unsubscribe = onSnapshot(
