@@ -53,7 +53,7 @@ jest.mock('firebase/firestore', () => ({
   },
 }));
 
-// Helper to create mock Timestamp
+// Helper to create mock Timestamp with all required methods
 const createMockTimestamp = (seconds?: number) => ({
   seconds: seconds ?? Date.now() / 1000,
   nanoseconds: 0,
@@ -61,6 +61,7 @@ const createMockTimestamp = (seconds?: number) => ({
   toMillis: () => (seconds ?? Date.now() / 1000) * 1000,
   isEqual: () => true,
   toJSON: () => ({ seconds: seconds ?? Date.now() / 1000, nanoseconds: 0, type: 'timestamp' }),
+  valueOf: () => `Timestamp(seconds=${seconds ?? Date.now() / 1000}, nanoseconds=0)`,
 });
 
 // Mock logger

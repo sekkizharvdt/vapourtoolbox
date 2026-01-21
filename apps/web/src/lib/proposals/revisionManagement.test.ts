@@ -40,7 +40,7 @@ jest.mock('firebase/firestore', () => ({
   },
 }));
 
-// Helper to create mock Timestamp
+// Helper to create mock Timestamp with all required methods
 const createMockTimestamp = (seconds?: number) => ({
   seconds: seconds ?? Date.now() / 1000,
   nanoseconds: 0,
@@ -48,6 +48,7 @@ const createMockTimestamp = (seconds?: number) => ({
   toMillis: () => (seconds ?? Date.now() / 1000) * 1000,
   isEqual: () => true,
   toJSON: () => ({ seconds: seconds ?? Date.now() / 1000, nanoseconds: 0, type: 'timestamp' }),
+  valueOf: () => `Timestamp(seconds=${seconds ?? Date.now() / 1000}, nanoseconds=0)`,
 });
 
 // Mock logger
@@ -96,8 +97,8 @@ describe('revisionManagement', () => {
     clientEmail: 'john@example.com',
     clientAddress: '123 Test St',
     title: 'Test Proposal',
-    validityDate: { seconds: Date.now() / 1000 + 86400 * 30, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0, type: 'timestamp' }) },
-    preparationDate: { seconds: Date.now() / 1000, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0, type: 'timestamp' }) },
+    validityDate: { seconds: Date.now() / 1000 + 86400 * 30, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0, type: 'timestamp' }), valueOf: () => 'timestamp' },
+    preparationDate: { seconds: Date.now() / 1000, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0, type: 'timestamp' }), valueOf: () => 'timestamp' },
     status: 'DRAFT' as ProposalStatus,
     isLatestRevision: true,
     scopeOfWork: {
@@ -325,8 +326,8 @@ describe('revisionManagement', () => {
 
       const newRevision = createMockProposal({
         scopeOfSupply: [
-          { itemNumber: '1', itemName: 'Item 1', quantity: 10 },
-          { itemNumber: '2', itemName: 'Item 2', quantity: 5 },
+          { id: 'item-1', itemNumber: '1', itemName: 'Item 1', category: 'EQUIPMENT', description: 'Test item', quantity: 10, unit: 'Nos', totalPrice: { amount: 10000, currency: 'INR' } },
+          { id: 'item-2', itemNumber: '2', itemName: 'Item 2', category: 'EQUIPMENT', description: 'Test item 2', quantity: 5, unit: 'Nos', totalPrice: { amount: 5000, currency: 'INR' } },
         ],
       });
 
@@ -409,7 +410,7 @@ describe('revisionManagement', () => {
           totalAmount: { amount: 177000, currency: 'INR' },
           paymentTerms: '50% advance',
         },
-        scopeOfSupply: [{ itemNumber: '1', itemName: 'Item 1', quantity: 15 }],
+        scopeOfSupply: [{ id: 'item-1', itemNumber: '1', itemName: 'Item 1', category: 'EQUIPMENT', description: 'Test item', quantity: 15, unit: 'Nos', totalPrice: { amount: 15000, currency: 'INR' } }],
         terms: { warranty: '24 months' },
       });
 
