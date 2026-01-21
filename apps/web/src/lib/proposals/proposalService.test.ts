@@ -34,13 +34,34 @@ jest.mock('firebase/firestore', () => ({
   limit: jest.fn((...args) => args),
   startAfter: jest.fn((...args) => args),
   Timestamp: {
-    now: jest.fn(() => ({ seconds: Date.now() / 1000, nanoseconds: 0 })),
+    now: jest.fn(() => ({
+      seconds: Date.now() / 1000,
+      nanoseconds: 0,
+      toDate: () => new Date(),
+      toMillis: () => Date.now(),
+      isEqual: () => true,
+      toJSON: () => ({ seconds: 0, nanoseconds: 0 }),
+    })),
     fromDate: jest.fn((date: Date) => ({
       seconds: date.getTime() / 1000,
       nanoseconds: 0,
+      toDate: () => date,
+      toMillis: () => date.getTime(),
+      isEqual: () => true,
+      toJSON: () => ({ seconds: date.getTime() / 1000, nanoseconds: 0 }),
     })),
   },
 }));
+
+// Helper to create mock Timestamp
+const createMockTimestamp = (seconds?: number) => ({
+  seconds: seconds ?? Date.now() / 1000,
+  nanoseconds: 0,
+  toDate: () => new Date((seconds ?? Date.now() / 1000) * 1000),
+  toMillis: () => (seconds ?? Date.now() / 1000) * 1000,
+  isEqual: () => true,
+  toJSON: () => ({ seconds: seconds ?? Date.now() / 1000, nanoseconds: 0 }),
+});
 
 // Mock logger
 jest.mock('@vapour/logger', () => ({
@@ -73,12 +94,13 @@ import {
   getProposalsCountByStatus,
 } from './proposalService';
 import type { Firestore } from 'firebase/firestore';
+import type { Proposal, ProposalStatus } from '@vapour/types';
 
 describe('proposalService', () => {
   const mockDb = {} as unknown as Firestore;
   const mockUserId = 'user-123';
 
-  // Sample mock data - no type assertions needed for mock data
+  // Sample mock data - using plain objects
   const mockEnquiry = {
     id: 'enquiry-123',
     enquiryNumber: 'ENQ-26-01',
@@ -105,7 +127,7 @@ describe('proposalService', () => {
     },
   };
 
-  const mockProposal = {
+  const mockProposal: Partial<Proposal> = {
     id: 'proposal-123',
     proposalNumber: 'PROP-26-01',
     revision: 1,
@@ -115,7 +137,7 @@ describe('proposalService', () => {
     clientId: 'client-123',
     clientName: 'Test Client Corp',
     title: 'Test Proposal',
-    status: 'DRAFT',
+    status: 'DRAFT' as ProposalStatus,
     isLatestRevision: true,
     approvalHistory: [],
     attachments: [],
@@ -152,7 +174,7 @@ describe('proposalService', () => {
         entityId: 'entity-123',
         clientId: 'client-123',
         title: 'Test Proposal',
-        validityDate: { seconds: Date.now() / 1000, nanoseconds: 0 },
+        validityDate: createMockTimestamp(),
         scopeOfWork: {
           summary: 'Test scope',
           objectives: [],
@@ -188,7 +210,7 @@ describe('proposalService', () => {
         entityId: 'entity-123',
         clientId: 'client-123',
         title: 'Test Proposal',
-        validityDate: { seconds: Date.now() / 1000, nanoseconds: 0 },
+        validityDate: createMockTimestamp(),
         scopeOfWork: {
           summary: '',
           objectives: [],
@@ -218,7 +240,7 @@ describe('proposalService', () => {
         entityId: 'entity-123',
         clientId: 'non-existent',
         title: 'Test Proposal',
-        validityDate: { seconds: Date.now() / 1000, nanoseconds: 0 },
+        validityDate: createMockTimestamp(),
         scopeOfWork: {
           summary: '',
           objectives: [],

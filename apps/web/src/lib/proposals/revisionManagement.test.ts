@@ -58,14 +58,15 @@ import {
   compareRevisions,
 } from './revisionManagement';
 import type { Firestore } from 'firebase/firestore';
+import type { Proposal, ProposalStatus } from '@vapour/types';
 
 describe('revisionManagement', () => {
   const mockDb = {} as unknown as Firestore;
   const mockUserId = 'user-123';
   const mockUserName = 'Test User';
 
-  // Simple mock proposal factory - no type assertions
-  const createMockProposal = (overrides = {}) => ({
+  // Mock proposal factory - cast to Proposal for test compatibility
+  const createMockProposal = (overrides: Partial<Proposal> = {}): Proposal => ({
     id: 'proposal-123',
     proposalNumber: 'PROP-26-01',
     revision: 1,
@@ -78,7 +79,9 @@ describe('revisionManagement', () => {
     clientEmail: 'john@example.com',
     clientAddress: '123 Test St',
     title: 'Test Proposal',
-    status: 'DRAFT',
+    validityDate: { seconds: Date.now() / 1000 + 86400 * 30, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0 }) },
+    preparationDate: { seconds: Date.now() / 1000, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0 }) },
+    status: 'DRAFT' as ProposalStatus,
     isLatestRevision: true,
     scopeOfWork: {
       summary: 'Test scope summary',
@@ -112,7 +115,7 @@ describe('revisionManagement', () => {
     updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
     updatedBy: mockUserId,
     ...overrides,
-  });
+  }) as unknown as Proposal;
 
   beforeEach(() => {
     jest.clearAllMocks();
