@@ -90,8 +90,6 @@ export async function createOffer(
     taxAmount: input.taxAmount,
     totalAmount: input.totalAmount,
     currency: input.currency || 'INR',
-    paymentTerms: input.paymentTerms,
-    deliveryTerms: input.deliveryTerms,
     status: 'UPLOADED',
     isRecommended: false,
     uploadedBy: userId,
@@ -101,7 +99,9 @@ export async function createOffer(
     updatedAt: now,
   };
 
-  // Add optional fields only if they have values
+  // Add optional fields only if they have values (Firestore doesn't accept undefined)
+  if (input.paymentTerms) offerData.paymentTerms = input.paymentTerms;
+  if (input.deliveryTerms) offerData.deliveryTerms = input.deliveryTerms;
   if (input.vendorOfferNumber) offerData.vendorOfferNumber = input.vendorOfferNumber;
   if (input.vendorOfferDate) offerData.vendorOfferDate = Timestamp.fromDate(input.vendorOfferDate);
   if (input.validityDate) offerData.validityDate = Timestamp.fromDate(input.validityDate);
