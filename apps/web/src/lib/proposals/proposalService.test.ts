@@ -82,6 +82,7 @@ jest.mock('@/lib/firebase/typeHelpers', () => ({
   },
 }));
 
+import type { CreateProposalInput } from '@vapour/types';
 import {
   createProposal,
   createMinimalProposal,
@@ -190,7 +191,7 @@ describe('proposalService', () => {
           milestones: [],
         },
         paymentTerms: '50% advance',
-      };
+      } as unknown as CreateProposalInput;
 
       const result = await createProposal(mockDb, input, mockUserId);
 
@@ -222,7 +223,7 @@ describe('proposalService', () => {
         },
         deliveryPeriod: { durationInWeeks: 4, description: '', milestones: [] },
         paymentTerms: '',
-      };
+      } as unknown as CreateProposalInput;
 
       await expect(createProposal(mockDb, input, mockUserId)).rejects.toThrow('Enquiry not found');
     });
@@ -252,7 +253,7 @@ describe('proposalService', () => {
         },
         deliveryPeriod: { durationInWeeks: 4, description: '', milestones: [] },
         paymentTerms: '',
-      };
+      } as unknown as CreateProposalInput;
 
       await expect(createProposal(mockDb, input, mockUserId)).rejects.toThrow('Client not found');
     });
