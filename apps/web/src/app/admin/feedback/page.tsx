@@ -7,9 +7,7 @@
  * Permission check is handled by the parent admin layout.
  */
 
-import { Box, Typography, Stack, Skeleton, Breadcrumbs, Link } from '@mui/material';
-import { Home as HomeIcon } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
+import { Box, Typography, Stack, Skeleton } from '@mui/material';
 import dynamic from 'next/dynamic';
 import { FeedbackStats } from '@/components/admin/feedback';
 
@@ -28,25 +26,8 @@ const FeedbackList = dynamic(
 );
 
 export default function FeedbackManagementPage() {
-  const router = useRouter();
-
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/admin"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/admin');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Administration
-        </Link>
-        <Typography color="text.primary">Feedback</Typography>
-      </Breadcrumbs>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h4">Feedback Management</Typography>

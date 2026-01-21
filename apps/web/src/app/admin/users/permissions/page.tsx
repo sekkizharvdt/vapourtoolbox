@@ -37,8 +37,6 @@ import {
   Stack,
   Divider,
   Alert,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -47,7 +45,6 @@ import {
   Download as DownloadIcon,
   ViewModule as ViewModuleIcon,
   Person as PersonIcon,
-  Home as HomeIcon,
 } from '@mui/icons-material';
 import {
   collection,
@@ -240,21 +237,6 @@ export default function PermissionMatrixPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/admin"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/admin');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Administration
-        </Link>
-        <Typography color="text.primary">User Permissions</Typography>
-      </Breadcrumbs>
       <Stack spacing={3}>
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

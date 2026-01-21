@@ -32,8 +32,6 @@ import {
   Tooltip,
   ToggleButtonGroup,
   ToggleButton,
-  Breadcrumbs,
-  Link,
 } from '@mui/material';
 import {
   Assignment as TaskIcon,
@@ -42,9 +40,7 @@ import {
   TrendingUp as TrendingUpIcon,
   AccessTime as TimeIcon,
   Person as PersonIcon,
-  Home as HomeIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -80,7 +76,6 @@ interface OverallStats {
 type TimeRange = '7d' | '30d' | '90d' | 'all';
 
 export default function TaskAnalyticsPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userStats, setUserStats] = useState<TaskStats[]>([]);
@@ -319,21 +314,6 @@ export default function TaskAnalyticsPage() {
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/admin"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/admin');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Administration
-        </Link>
-        <Typography color="text.primary">Task Analytics</Typography>
-      </Breadcrumbs>
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
         <Box>
