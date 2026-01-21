@@ -71,8 +71,8 @@ describe('projectConversion', () => {
     clientEmail: 'john@example.com',
     clientAddress: '123 Test St',
     title: 'Test Proposal',
-    validityDate: { seconds: Date.now() / 1000 + 86400 * 30, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0 }) },
-    preparationDate: { seconds: Date.now() / 1000, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0 }) },
+    validityDate: { seconds: Date.now() / 1000 + 86400 * 30, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0, type: 'timestamp' }) },
+    preparationDate: { seconds: Date.now() / 1000, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0, type: 'timestamp' }) },
     status: 'ACCEPTED' as ProposalStatus,
     isLatestRevision: true,
     scopeOfWork: {
@@ -85,17 +85,23 @@ describe('projectConversion', () => {
     },
     scopeOfSupply: [
       {
+        id: 'item-1',
         itemNumber: '1',
         itemName: 'Test Item 1',
+        category: 'EQUIPMENT',
         description: 'Test item description',
         quantity: 10,
+        unit: 'Nos',
         totalPrice: { amount: 50000, currency: 'INR' },
       },
       {
+        id: 'item-2',
         itemNumber: '2',
         itemName: 'Test Item 2',
+        category: 'EQUIPMENT',
         description: 'Another item',
         quantity: 5,
+        unit: 'Nos',
         totalPrice: { amount: 30000, currency: 'INR' },
       },
     ],
@@ -378,17 +384,23 @@ describe('projectConversion', () => {
       const proposal = createMockProposal({
         scopeOfSupply: [
           {
+            id: 'item-1',
             itemNumber: '1',
             itemName: 'Equipment A',
+            category: 'EQUIPMENT',
             description: 'Main equipment',
             quantity: 5,
+            unit: 'Nos',
             totalPrice: { amount: 100000, currency: 'INR' },
           },
           {
+            id: 'item-2',
             itemNumber: '2',
             itemName: 'Component B',
+            category: 'MATERIAL',
             description: 'Supporting component',
             quantity: 10,
+            unit: 'Nos',
             totalPrice: { amount: 50000, currency: 'INR' },
           },
         ],
@@ -517,10 +529,14 @@ describe('projectConversion', () => {
       const proposal = createMockProposal({
         scopeOfSupply: [
           {
+            id: 'item-1',
             itemNumber: '1',
             itemName: 'Item without price',
+            category: 'EQUIPMENT',
             description: 'No price set',
             quantity: 5,
+            unit: 'Nos',
+            totalPrice: { amount: 0, currency: 'INR' },
           },
         ],
       });

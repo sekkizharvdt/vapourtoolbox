@@ -29,9 +29,26 @@ jest.mock('firebase/firestore', () => ({
   where: jest.fn((...args) => args),
   orderBy: jest.fn((...args) => args),
   Timestamp: {
-    now: jest.fn(() => ({ seconds: Date.now() / 1000, nanoseconds: 0 })),
+    now: jest.fn(() => ({
+      seconds: Date.now() / 1000,
+      nanoseconds: 0,
+      toDate: () => new Date(),
+      toMillis: () => Date.now(),
+      isEqual: () => true,
+      toJSON: () => ({ seconds: Date.now() / 1000, nanoseconds: 0, type: 'timestamp' }),
+    })),
   },
 }));
+
+// Helper to create mock Timestamp
+const createMockTimestamp = (seconds?: number) => ({
+  seconds: seconds ?? Date.now() / 1000,
+  nanoseconds: 0,
+  toDate: () => new Date((seconds ?? Date.now() / 1000) * 1000),
+  toMillis: () => (seconds ?? Date.now() / 1000) * 1000,
+  isEqual: () => true,
+  toJSON: () => ({ seconds: seconds ?? Date.now() / 1000, nanoseconds: 0, type: 'timestamp' }),
+});
 
 // Mock logger
 jest.mock('@vapour/logger', () => ({
@@ -79,8 +96,8 @@ describe('revisionManagement', () => {
     clientEmail: 'john@example.com',
     clientAddress: '123 Test St',
     title: 'Test Proposal',
-    validityDate: { seconds: Date.now() / 1000 + 86400 * 30, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0 }) },
-    preparationDate: { seconds: Date.now() / 1000, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0 }) },
+    validityDate: { seconds: Date.now() / 1000 + 86400 * 30, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0, type: 'timestamp' }) },
+    preparationDate: { seconds: Date.now() / 1000, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0, type: 'timestamp' }) },
     status: 'DRAFT' as ProposalStatus,
     isLatestRevision: true,
     scopeOfWork: {
@@ -91,7 +108,7 @@ describe('revisionManagement', () => {
       exclusions: [],
       assumptions: [],
     },
-    scopeOfSupply: [{ itemNumber: '1', itemName: 'Item 1', quantity: 10 }],
+    scopeOfSupply: [{ id: 'item-1', itemNumber: '1', itemName: 'Item 1', category: 'EQUIPMENT', description: 'Test item', quantity: 10, unit: 'Nos', totalPrice: { amount: 10000, currency: 'INR' } }],
     deliveryPeriod: {
       durationInWeeks: 4,
       description: 'Four weeks delivery',
@@ -156,7 +173,7 @@ describe('revisionManagement', () => {
       const originalProposal = createMockProposal({
         revision: 2,
         status: 'APPROVED',
-        submittedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+        submittedAt: createMockTimestamp(),
         submittedByUserId: 'submitter-123',
         submittedByUserName: 'Submitter Name',
       });
@@ -303,7 +320,7 @@ describe('revisionManagement', () => {
 
     it('should detect scope of supply changes', () => {
       const oldRevision = createMockProposal({
-        scopeOfSupply: [{ itemNumber: '1', itemName: 'Item 1', quantity: 10 }],
+        scopeOfSupply: [{ id: 'item-1', itemNumber: '1', itemName: 'Item 1', category: 'EQUIPMENT', description: 'Test item', quantity: 10, unit: 'Nos', totalPrice: { amount: 10000, currency: 'INR' } }],
       });
 
       const newRevision = createMockProposal({
@@ -379,7 +396,7 @@ describe('revisionManagement', () => {
           totalAmount: { amount: 118000, currency: 'INR' },
           paymentTerms: '50% advance',
         },
-        scopeOfSupply: [{ itemNumber: '1', itemName: 'Item 1', quantity: 10 }],
+        scopeOfSupply: [{ id: 'item-1', itemNumber: '1', itemName: 'Item 1', category: 'EQUIPMENT', description: 'Test item', quantity: 10, unit: 'Nos', totalPrice: { amount: 10000, currency: 'INR' } }],
         terms: { warranty: '12 months' },
       });
 

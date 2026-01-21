@@ -60,7 +60,7 @@ const createMockTimestamp = (seconds?: number) => ({
   toDate: () => new Date((seconds ?? Date.now() / 1000) * 1000),
   toMillis: () => (seconds ?? Date.now() / 1000) * 1000,
   isEqual: () => true,
-  toJSON: () => ({ seconds: seconds ?? Date.now() / 1000, nanoseconds: 0 }),
+  toJSON: () => ({ seconds: seconds ?? Date.now() / 1000, nanoseconds: 0, type: 'timestamp' }),
 });
 
 // Mock logger
