@@ -14,3 +14,4 @@ export * from './idempotencyService';
 export * from './optimisticLocking';
 export * from './batchProcessor';
 export * from './materializedAggregations';
+export * from './statusColors';

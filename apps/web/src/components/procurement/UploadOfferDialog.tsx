@@ -67,6 +67,7 @@ import {
 } from '@/lib/procurement/offer';
 import type { RFQ, RFQItem } from '@vapour/types';
 import type { OfferParsingResult, ParsedOfferItem } from '@vapour/types';
+import { formatCurrency } from '@/lib/utils/formatters';
 
 interface UploadOfferDialogProps {
   open: boolean;
@@ -556,14 +557,6 @@ export default function UploadOfferDialog({
     if (confidence >= 0.8) return 'success';
     if (confidence >= 0.5) return 'warning';
     return 'error';
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 2,
-    }).format(amount);
   };
 
   const canCompare = file && selectedVendorIndex !== '' && !parsing && !uploading;

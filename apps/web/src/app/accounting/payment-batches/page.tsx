@@ -29,11 +29,9 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting, canManageAccounting } from '@vapour/constants';
 import { getFirebase } from '@/lib/firebase';
-import {
-  listPaymentBatches,
-  getPaymentBatchStats,
-} from '@/lib/accounting/paymentBatchService';
+import { listPaymentBatches, getPaymentBatchStats } from '@/lib/accounting/paymentBatchService';
 import type { PaymentBatch, PaymentBatchStatus, PaymentBatchStats } from '@vapour/types';
+import { formatCurrency } from '@/lib/utils/formatters';
 
 const STATUS_LABELS: Record<PaymentBatchStatus, string> = {
   DRAFT: 'Draft',
@@ -45,7 +43,10 @@ const STATUS_LABELS: Record<PaymentBatchStatus, string> = {
   CANCELLED: 'Cancelled',
 };
 
-const STATUS_COLORS: Record<PaymentBatchStatus, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info'> = {
+const STATUS_COLORS: Record<
+  PaymentBatchStatus,
+  'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info'
+> = {
   DRAFT: 'default',
   PENDING_APPROVAL: 'warning',
   APPROVED: 'info',
@@ -81,9 +82,7 @@ export default function PaymentBatchesPage() {
 
         // Determine status filter
         const statusOptions: PaymentBatchStatus[] | undefined =
-          statusFilter === 'ALL'
-            ? undefined
-            : [statusFilter as PaymentBatchStatus];
+          statusFilter === 'ALL' ? undefined : [statusFilter as PaymentBatchStatus];
 
         const [batchList, batchStats] = await Promise.all([
           listPaymentBatches(db, {
@@ -112,14 +111,6 @@ export default function PaymentBatchesPage() {
 
   const handleRowClick = (batch: PaymentBatch) => {
     router.push(`/accounting/payment-batches/${batch.id}`);
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
   };
 
   const formatDate = (date: Date | string | undefined) => {
@@ -338,7 +329,11 @@ export default function PaymentBatchesPage() {
                       <span>{formatCurrency(batch.totalReceiptAmount)}</span>
                     </Typography>
                     {batch.receipts.length === 0 ? (
-                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ fontStyle: 'italic' }}
+                      >
                         No receipts added
                       </Typography>
                     ) : (
@@ -390,7 +385,11 @@ export default function PaymentBatchesPage() {
                       <span>{formatCurrency(batch.totalPaymentAmount)}</span>
                     </Typography>
                     {batch.payments.length === 0 ? (
-                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ fontStyle: 'italic' }}
+                      >
                         No payments added
                       </Typography>
                     ) : (
