@@ -132,9 +132,14 @@ export async function createLine(
   const linesRef = getLinesCollection(projectId);
   const now = Timestamp.now();
 
+  // Filter out undefined values (Firestore doesn't accept undefined)
+  const filteredInput = Object.fromEntries(
+    Object.entries(enrichedInput).filter(([, value]) => value !== undefined)
+  );
+
   const lineData = {
     projectId,
-    ...enrichedInput,
+    ...filteredInput,
     createdAt: now,
     createdBy: userId,
     updatedAt: now,
@@ -187,8 +192,13 @@ export async function updateLine(
 
   const enriched = needsRecalc ? enrichLineInput(merged) : merged;
 
+  // Filter out undefined values (Firestore doesn't accept undefined)
+  const filteredEnriched = Object.fromEntries(
+    Object.entries(enriched).filter(([, value]) => value !== undefined)
+  );
+
   await updateDoc(docRef, {
-    ...enriched,
+    ...filteredEnriched,
     updatedAt: Timestamp.now(),
     updatedBy: userId,
   });

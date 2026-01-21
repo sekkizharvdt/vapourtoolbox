@@ -186,7 +186,8 @@ export async function createRecurringTransaction(
   // Calculate first occurrence
   const firstOccurrence = input.startDate;
 
-  const data: Omit<RecurringTransaction, 'id'> = {
+  // Build data object with only defined values (Firestore doesn't accept undefined)
+  const data: Record<string, unknown> = {
     name: input.name,
     description: input.description,
     type: input.type,
@@ -194,32 +195,13 @@ export async function createRecurringTransaction(
 
     frequency: input.frequency,
     startDate,
-    endDate: input.endDate ? Timestamp.fromDate(input.endDate) : undefined,
     nextOccurrence: Timestamp.fromDate(firstOccurrence),
-    dayOfMonth: input.dayOfMonth,
-    dayOfWeek: input.dayOfWeek,
 
     amount: {
       amount: input.amount,
       currency: input.currency,
     },
     currency: input.currency,
-
-    // Type-specific fields
-    employeeIds: input.employeeIds,
-    vendorId: input.vendorId,
-    customerId: input.customerId,
-    expenseAccountId: input.expenseAccountId,
-    revenueAccountId: input.revenueAccountId,
-    paymentTermDays: input.paymentTermDays,
-
-    // Line items
-    lineItems: input.lineItems?.map((item, index) => ({
-      ...item,
-      id: `line-${index + 1}`,
-    })),
-
-    journalTemplate: input.journalTemplate,
 
     // Settings
     autoGenerate: input.autoGenerate,
@@ -235,6 +217,24 @@ export async function createRecurringTransaction(
     createdAt: now,
     updatedAt: now,
   };
+
+  // Add optional fields only if they have values
+  if (input.endDate) data.endDate = Timestamp.fromDate(input.endDate);
+  if (input.dayOfMonth !== undefined) data.dayOfMonth = input.dayOfMonth;
+  if (input.dayOfWeek !== undefined) data.dayOfWeek = input.dayOfWeek;
+  if (input.employeeIds) data.employeeIds = input.employeeIds;
+  if (input.vendorId) data.vendorId = input.vendorId;
+  if (input.customerId) data.customerId = input.customerId;
+  if (input.expenseAccountId) data.expenseAccountId = input.expenseAccountId;
+  if (input.revenueAccountId) data.revenueAccountId = input.revenueAccountId;
+  if (input.paymentTermDays !== undefined) data.paymentTermDays = input.paymentTermDays;
+  if (input.lineItems) {
+    data.lineItems = input.lineItems.map((item, index) => ({
+      ...item,
+      id: `line-${index + 1}`,
+    }));
+  }
+  if (input.journalTemplate) data.journalTemplate = input.journalTemplate;
 
   const docRef = await addDoc(collection(db, COLLECTIONS.RECURRING_TRANSACTIONS), data);
 

@@ -310,8 +310,13 @@ export async function updateCompanyDocument(
 ): Promise<void> {
   const docRef = doc(db, COLLECTIONS.COMPANY_DOCUMENTS, documentId);
 
+  // Filter out undefined values (Firestore doesn't accept undefined)
+  const filteredUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([, value]) => value !== undefined)
+  );
+
   await updateDoc(docRef, {
-    ...updates,
+    ...filteredUpdates,
     updatedAt: Timestamp.now(),
     updatedBy: userId,
     updatedByName: userName,
