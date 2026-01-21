@@ -162,7 +162,7 @@ export function ApproveTransactionDialog({
           )}
 
           {/* Transaction Summary */}
-          <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+          <Box sx={{ mb: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
               <Box>
                 <Typography variant="subtitle2" color="text.secondary">

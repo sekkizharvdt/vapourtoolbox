@@ -136,10 +136,10 @@ export default function HolidayWorkingDialog({
             sx={{
               mt: 2,
               p: 2,
-              backgroundColor: 'grey.100',
+              bgcolor: 'action.hover',
               borderRadius: 1,
               borderLeft: 4,
-              borderColor: holiday.color || '#f97316',
+              borderColor: holiday.color || 'warning.main',
             }}
           >
             <Typography variant="subtitle1" fontWeight="bold">

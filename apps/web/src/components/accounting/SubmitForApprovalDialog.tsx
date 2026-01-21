@@ -151,7 +151,7 @@ export function SubmitForApprovalDialog({
           </Typography>
 
           {showAmountSummary && (
-            <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+            <Box sx={{ mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
               <Typography variant="caption" color="text.secondary">
                 Amount
               </Typography>

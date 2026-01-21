@@ -67,7 +67,7 @@ export function DeleteProjectDialog({
           <Typography variant="body1" gutterBottom>
             Are you sure you want to delete this project?
           </Typography>
-          <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+          <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary">
               <strong>Project:</strong> {project.name}
             </Typography>

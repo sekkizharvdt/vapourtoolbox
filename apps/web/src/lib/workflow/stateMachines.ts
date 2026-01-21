@@ -129,14 +129,16 @@ export const goodsReceiptStateMachine: StateMachine<GoodsReceiptStatus> =
  * Offer workflow states:
  *
  * UPLOADED -> UNDER_REVIEW -> EVALUATED -> SELECTED
+ *         \-> SELECTED (direct selection for simple workflows)
  *                                      \-> REJECTED
  *
  * WITHDRAWN can happen from any non-terminal state
+ * Direct SELECTED allowed from any active state for single-offer or expedited scenarios
  */
 const offerConfig: StateTransitionConfig<OfferStatus> = {
   transitions: {
-    UPLOADED: ['UNDER_REVIEW', 'WITHDRAWN'],
-    UNDER_REVIEW: ['EVALUATED', 'WITHDRAWN'],
+    UPLOADED: ['UNDER_REVIEW', 'SELECTED', 'REJECTED', 'WITHDRAWN'],
+    UNDER_REVIEW: ['EVALUATED', 'SELECTED', 'REJECTED', 'WITHDRAWN'],
     EVALUATED: ['SELECTED', 'REJECTED', 'WITHDRAWN'],
     SELECTED: [], // Terminal - PO will be created
     REJECTED: [], // Terminal

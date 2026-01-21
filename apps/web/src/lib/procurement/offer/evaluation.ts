@@ -46,15 +46,21 @@ export async function evaluateOffer(
   const updateData: Record<string, unknown> = {
     status: 'EVALUATED',
     evaluationScore: input.evaluationScore,
-    evaluationNotes: input.evaluationNotes,
     isRecommended: input.isRecommended || false,
-    recommendationReason: input.recommendationReason,
     redFlags: input.redFlags || [],
     evaluatedBy: userId,
     evaluatedByName: userName,
     evaluatedAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   };
+
+  // Only include optional fields if they have values (Firestore doesn't accept undefined)
+  if (input.evaluationNotes !== undefined) {
+    updateData.evaluationNotes = input.evaluationNotes;
+  }
+  if (input.recommendationReason !== undefined) {
+    updateData.recommendationReason = input.recommendationReason;
+  }
 
   await updateDoc(doc(db, COLLECTIONS.OFFERS, offerId), updateData);
 

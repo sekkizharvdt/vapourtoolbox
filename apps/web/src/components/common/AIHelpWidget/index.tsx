@@ -357,7 +357,7 @@ export function AIHelpWidget({ open, onClose }: AIHelpWidgetProps) {
               sx={{
                 p: 1.5,
                 maxWidth: '85%',
-                bgcolor: message.role === 'user' ? 'primary.main' : 'grey.100',
+                bgcolor: message.role === 'user' ? 'primary.main' : 'action.hover',
                 color: message.role === 'user' ? 'primary.contrastText' : 'text.primary',
                 borderRadius: 2,
               }}
@@ -397,7 +397,7 @@ export function AIHelpWidget({ open, onClose }: AIHelpWidgetProps) {
         {/* Loading indicator */}
         {isLoading && (
           <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <Paper elevation={1} sx={{ p: 1.5, bgcolor: 'grey.100', borderRadius: 2 }}>
+            <Paper elevation={1} sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CircularProgress size={16} />
                 <Typography variant="body2" color="text.secondary">

@@ -49,10 +49,10 @@ export interface CommentData {
 }
 
 const SEVERITY_OPTIONS: { value: CommentSeverity; label: string; color: string }[] = [
-  { value: 'CRITICAL', label: 'Critical', color: '#d32f2f' },
-  { value: 'MAJOR', label: 'Major', color: '#f57c00' },
-  { value: 'MINOR', label: 'Minor', color: '#fbc02d' },
-  { value: 'SUGGESTION', label: 'Suggestion', color: '#388e3c' },
+  { value: 'CRITICAL', label: 'Critical', color: 'error.main' },
+  { value: 'MAJOR', label: 'Major', color: 'warning.main' },
+  { value: 'MINOR', label: 'Minor', color: 'warning.light' },
+  { value: 'SUGGESTION', label: 'Suggestion', color: 'success.main' },
 ];
 
 const CATEGORY_OPTIONS: { value: CommentCategory; label: string }[] = [

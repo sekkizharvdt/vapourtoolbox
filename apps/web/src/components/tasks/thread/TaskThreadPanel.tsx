@@ -230,7 +230,7 @@ export default function TaskThreadPanel({
           sx={{
             flex: 1,
             overflow: 'auto',
-            backgroundColor: 'grey.50',
+            bgcolor: 'action.hover',
           }}
         >
           {loading ? (

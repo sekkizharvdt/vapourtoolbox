@@ -48,7 +48,7 @@ function StatCard({
   title: string;
   value: number;
   icon: React.ReactNode;
-  color: string;
+  color: 'primary' | 'secondary' | 'warning' | 'success' | 'error' | 'info';
 }) {
   return (
     <Card sx={{ height: '100%' }}>
@@ -58,8 +58,8 @@ function StatCard({
             sx={{
               p: 1.5,
               borderRadius: 2,
-              bgcolor: `${color}15`,
-              color: color,
+              bgcolor: `${color}.50`,
+              color: `${color}.main`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -101,7 +101,7 @@ function ModuleBar({ count, total, label }: { count: number; total: number; labe
         sx={{
           height: 8,
           borderRadius: 4,
-          bgcolor: 'grey.100',
+          bgcolor: 'action.hover',
           '& .MuiLinearProgress-bar': {
             borderRadius: 4,
           },
@@ -181,7 +181,7 @@ export function FeedbackStats() {
             title="Total Feedback"
             value={stats.total}
             icon={<ChatBubbleIcon />}
-            color="#2196f3"
+            color="primary"
           />
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
@@ -189,7 +189,7 @@ export function FeedbackStats() {
             title="New"
             value={stats.byStatus.new}
             icon={<NewReleasesIcon />}
-            color="#ff9800"
+            color="warning"
           />
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
@@ -197,7 +197,7 @@ export function FeedbackStats() {
             title="In Progress"
             value={stats.byStatus.in_progress}
             icon={<HourglassEmptyIcon />}
-            color="#9c27b0"
+            color="secondary"
           />
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
@@ -205,7 +205,7 @@ export function FeedbackStats() {
             title="Resolved"
             value={stats.byStatus.resolved + stats.byStatus.closed}
             icon={<CheckCircleIcon />}
-            color="#4caf50"
+            color="success"
           />
         </Grid>
       </Grid>
@@ -282,40 +282,28 @@ export function FeedbackStats() {
                 <Stack spacing={1.5}>
                   <Stack direction="row" alignItems="center" justifyContent="space-between">
                     <Stack direction="row" alignItems="center" spacing={1}>
-                      <ErrorIcon sx={{ color: '#d32f2f' }} fontSize="small" />
+                      <ErrorIcon color="error" fontSize="small" />
                       <Typography variant="body2">Critical</Typography>
                     </Stack>
-                    <Chip
-                      label={stats.bySeverity.critical || 0}
-                      size="small"
-                      sx={{ bgcolor: '#d32f2f', color: 'white' }}
-                    />
+                    <Chip label={stats.bySeverity.critical || 0} size="small" color="error" />
                   </Stack>
                   <Stack direction="row" alignItems="center" justifyContent="space-between">
                     <Stack direction="row" alignItems="center" spacing={1}>
-                      <ErrorIcon sx={{ color: '#ed6c02' }} fontSize="small" />
+                      <ErrorIcon color="warning" fontSize="small" />
                       <Typography variant="body2">Major</Typography>
                     </Stack>
-                    <Chip
-                      label={stats.bySeverity.major || 0}
-                      size="small"
-                      sx={{ bgcolor: '#ed6c02', color: 'white' }}
-                    />
+                    <Chip label={stats.bySeverity.major || 0} size="small" color="warning" />
                   </Stack>
                   <Stack direction="row" alignItems="center" justifyContent="space-between">
                     <Stack direction="row" alignItems="center" spacing={1}>
-                      <ErrorIcon sx={{ color: '#0288d1' }} fontSize="small" />
+                      <ErrorIcon color="info" fontSize="small" />
                       <Typography variant="body2">Minor</Typography>
                     </Stack>
-                    <Chip
-                      label={stats.bySeverity.minor || 0}
-                      size="small"
-                      sx={{ bgcolor: '#0288d1', color: 'white' }}
-                    />
+                    <Chip label={stats.bySeverity.minor || 0} size="small" color="info" />
                   </Stack>
                   <Stack direction="row" alignItems="center" justifyContent="space-between">
                     <Stack direction="row" alignItems="center" spacing={1}>
-                      <ErrorIcon sx={{ color: '#757575' }} fontSize="small" />
+                      <ErrorIcon color="disabled" fontSize="small" />
                       <Typography variant="body2">Cosmetic</Typography>
                     </Stack>
                     <Chip label={stats.bySeverity.cosmetic || 0} size="small" />

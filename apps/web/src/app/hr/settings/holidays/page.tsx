@@ -421,21 +421,21 @@ export default function HolidaySettingsPage() {
               <Chip
                 label="All Sundays"
                 size="small"
-                sx={{ backgroundColor: '#9ca3af', color: 'white' }}
+                sx={{ bgcolor: 'grey.500', color: 'common.white' }}
               />
             )}
             {DEFAULT_RECURRING_CONFIG.firstSaturday && (
               <Chip
                 label="1st Saturday of each month"
                 size="small"
-                sx={{ backgroundColor: '#9ca3af', color: 'white' }}
+                sx={{ bgcolor: 'grey.500', color: 'common.white' }}
               />
             )}
             {DEFAULT_RECURRING_CONFIG.thirdSaturday && (
               <Chip
                 label="3rd Saturday of each month"
                 size="small"
-                sx={{ backgroundColor: '#9ca3af', color: 'white' }}
+                sx={{ bgcolor: 'grey.500', color: 'common.white' }}
               />
             )}
           </Box>
