@@ -32,6 +32,7 @@ import { getFirebase } from '@/lib/firebase';
 import { listPaymentBatches, getPaymentBatchStats } from '@/lib/accounting/paymentBatchService';
 import type { PaymentBatch, PaymentBatchStatus, PaymentBatchStats } from '@vapour/types';
 import { formatCurrency } from '@/lib/utils/formatters';
+import { getStatusColor } from '@vapour/ui';
 
 const STATUS_LABELS: Record<PaymentBatchStatus, string> = {
   DRAFT: 'Draft',
@@ -41,19 +42,6 @@ const STATUS_LABELS: Record<PaymentBatchStatus, string> = {
   COMPLETED: 'Completed',
   REJECTED: 'Rejected',
   CANCELLED: 'Cancelled',
-};
-
-const STATUS_COLORS: Record<
-  PaymentBatchStatus,
-  'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info'
-> = {
-  DRAFT: 'default',
-  PENDING_APPROVAL: 'warning',
-  APPROVED: 'info',
-  EXECUTING: 'primary',
-  COMPLETED: 'success',
-  REJECTED: 'error',
-  CANCELLED: 'default',
 };
 
 type FilterStatus = 'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'COMPLETED';
@@ -285,7 +273,7 @@ export default function PaymentBatchesPage() {
                     <Typography variant="h6">{batch.batchNumber}</Typography>
                     <Chip
                       label={STATUS_LABELS[batch.status]}
-                      color={STATUS_COLORS[batch.status]}
+                      color={getStatusColor(batch.status)}
                       size="small"
                     />
                   </Box>

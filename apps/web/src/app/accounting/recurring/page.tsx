@@ -54,6 +54,7 @@ import type {
   RecurringTransactionType,
   RecurringTransactionSummary,
 } from '@vapour/types';
+import { getStatusColor } from '@vapour/ui';
 
 const TYPE_LABELS: Record<RecurringTransactionType, string> = {
   SALARY: 'Salary',
@@ -86,9 +87,10 @@ export default function RecurringTransactionsPage() {
   const [summary, setSummary] = useState<RecurringTransactionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<RecurringTransactionType | 'ALL'>('ALL');
-  const [menuAnchor, setMenuAnchor] = useState<{ el: HTMLElement; tx: RecurringTransaction } | null>(
-    null
-  );
+  const [menuAnchor, setMenuAnchor] = useState<{
+    el: HTMLElement;
+    tx: RecurringTransaction;
+  } | null>(null);
 
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
   const hasManageAccess = claims?.permissions ? canManageAccounting(claims.permissions) : false;
@@ -428,19 +430,7 @@ export default function RecurringTransactionsPage() {
                       <Typography variant="body2">{formatDate(tx.nextOccurrence)}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        label={tx.status}
-                        color={
-                          tx.status === 'ACTIVE'
-                            ? 'success'
-                            : tx.status === 'PAUSED'
-                              ? 'warning'
-                              : tx.status === 'COMPLETED'
-                                ? 'default'
-                                : 'error'
-                        }
-                        size="small"
-                      />
+                      <Chip label={tx.status} color={getStatusColor(tx.status)} size="small" />
                     </TableCell>
                     <TableCell align="center">
                       <Typography variant="body2">{tx.totalOccurrences}</Typography>
