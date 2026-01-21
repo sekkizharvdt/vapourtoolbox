@@ -553,6 +553,28 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    match /offers/{offerId} {
+      // Vendor Offers - linked to RFQs
+      // Read: Internal users OR external CLIENT_PM for their projects
+      allow read: if (isInternalUser()) ||
+                     (isExternalUser() &&
+                      hasPermission(131072) && // VIEW_PROCUREMENT (bit 17)
+                      isAssignedToProject(resource.data.projectId));
+
+      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow delete: if isSuperAdmin();
+    }
+
+    match /offerItems/{itemId} {
+      // Offer line items - same permissions as parent Offer
+      // Read: Internal users (simplified - Offer access implies item access)
+      allow read: if isInternalUser();
+
+      // Write: Users with MANAGE_PROCUREMENT permission
+      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow delete: if isSuperAdmin();
+    }
+
     // ============================================
     // Estimation Collections
     // ============================================
