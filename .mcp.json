@@ -3,6 +3,10 @@
     "firebase-feedback": {
       "command": "node",
       "args": ["/workspaces/vapourtoolbox/mcp-servers/firebase-feedback/index.js"]
+    },
+    "accounting-audit": {
+      "command": "node",
+      "args": ["/workspaces/vapourtoolbox/mcp-servers/accounting-audit/index.js"]
     }
   }
 }
