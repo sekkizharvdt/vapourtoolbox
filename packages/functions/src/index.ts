@@ -12,8 +12,8 @@ import * as admin from 'firebase-admin';
 // Initialize Firebase Admin
 admin.initializeApp();
 
-// Export currency functions
-export { fetchDailyExchangeRates, manualFetchExchangeRates } from './currency';
+// Currency functions removed - RBI exchange rate fetching no longer needed
+// All accounting is done in INR; foreign currency is display-only on invoices
 
 // Export project functions
 export { onProjectCreated, onProjectUpdated } from './projects';

@@ -6,7 +6,6 @@ import {
   TrendingUp as TrendingUpIcon,
   Description as ReportIcon,
   SwapHoriz as TransferIcon,
-  CurrencyExchange as ForexIcon,
   LibraryBooks as JournalIcon,
   Article as InvoiceIcon,
   RequestQuote as BillIcon,
@@ -61,13 +60,6 @@ export default function AccountingPage() {
           description: "Manage your company's chart of accounts with hierarchical structure",
           icon: <AccountBalanceIcon sx={{ fontSize: 40, color: 'primary.main' }} />,
           path: '/accounting/chart-of-accounts',
-        },
-        {
-          title: 'Currency & Forex',
-          description:
-            'Manage exchange rates, track forex gains/losses, and monitor currency exposure',
-          icon: <ForexIcon sx={{ fontSize: 40, color: 'primary.main' }} />,
-          path: '/accounting/currency',
         },
         {
           title: 'Cost Centres',

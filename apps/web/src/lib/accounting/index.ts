@@ -23,7 +23,6 @@ export * from './gstCalculator';
 
 // Bank operations
 export * from './bankStatementParser';
-export * from './seedExchangeRates';
 
 // Generators
 export * from './gstReportGenerator';
