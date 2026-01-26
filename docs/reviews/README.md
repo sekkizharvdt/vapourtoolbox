@@ -57,9 +57,11 @@ What was fixed from previous review.
 
 ## Past Reviews
 
-| Date                        | Grade       | Key Findings                                                                                |
-| --------------------------- | ----------- | ------------------------------------------------------------------------------------------- |
-| [2025-12-26](2025-12-26.md) | B+ (8.2/10) | Zero type/lint errors, 17.6% statement coverage, fixed useParams bug, HR module needs tests |
+| Date                        | Grade       | Key Findings                                                                                     |
+| --------------------------- | ----------- | ------------------------------------------------------------------------------------------------ |
+| [2026-01-20](2026-01-20.md) | B+ (8.5/10) | Proposals module complete, Entity ledger opening balance, PR approval buttons, 0 Proposals tests |
+| [2026-01-05](2026-01-05.md) | B+ (8.4/10) | Holiday working system, on-duty requests, breadcrumbs, HR test coverage improved                 |
+| [2025-12-26](2025-12-26.md) | B+ (8.2/10) | Zero type/lint errors, 17.6% statement coverage, fixed useParams bug, HR module needs tests      |
 
 ## How to Conduct a Review
 

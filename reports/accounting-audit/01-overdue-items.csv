@@ -1,0 +1,35 @@
+Category,Transaction Number,Entity Name,Total Amount,Amount Due,Due Date,Days Past Due,Payment Status
+invoice,VDT/FI-001/25-26,,1475000,1475000,2025-04-10,290,UNPAID
+invoice,VDT/FI-002/2025-26,Desolenator BV,12864,12864,2025-06-24,215,UNPAID
+invoice,VDT/FI-003/25-26,Aquatherm Engg Consultants I P Ltd,150000.42,150000.42,2025-07-10,199,UNPAID
+invoice,VDT/FI-004/2025-26,Aquatherm Singapore Pte Ltd,6686,6686,2025-07-20,189,UNPAID
+invoice,VDT/FI-004/2025-26,Aquatherm Singapore Pte Ltd,6686,6686,2025-07-22,187,UNPAID
+invoice,VDT/FI-005/25-26,NRG-Fuels Limited,316900,316900,2025-08-11,167,UNPAID
+invoice,VDT/FI-006/2025-26,Aquatherm Singapore Pte Ltd,2616,2616,2025-08-20,158,UNPAID
+invoice,VDT/FI-006/2526,Aquatherm Singapore Pte Ltd,2616,2616,2025-08-20,158,UNPAID
+invoice,VDT-FI-007/2526,Desolenator BV,1643,1643,2025-09-16,131,UNPAID
+invoice,VDT/FI-008/2025-26,Aquatherm Singapore Pte Ltd,2616,2616,2025-09-19,128,UNPAID
+invoice,VDT/FI-009/2025-26,Excel Maritime & Logistics P Ltd,328974.8,328974.8,2025-10-04,113,UNPAID
+invoice,VDT/FI-010/2025-26,Desolenator BV,6072.78,6072.78,2025-10-30,87,UNPAID
+bill,BILL-0350,Cavalier Logistics Private Limited,33211.1,33211.1,2025-11-04,82,UNPAID
+invoice,VDT/FI-011/2025-26,Aquatherm Singapore Pte Ltd,6105,6105,2025-11-10,76,UNPAID
+invoice,VDT/FI-012/25-26,Nine Corporation,401200,401200,2025-11-11,75,UNPAID
+invoice,VDT/FI-013/2025-26,Desolenator BV,2839.18,2839.18,2025-11-28,58,UNPAID
+invoice,VDT/FI-014/2025-26,Maya Recyclage Pvt Ltd,28320,28320,2025-12-04,52,UNPAID
+invoice,VDT/FI-017/2025-26,NRG-Fuels Limited,9500,9500,2025-12-11,45,UNPAID
+invoice,VDT/FI-018/2025-26,Maya Recyclage Pvt Ltd,52215,52215,2025-12-15,41,UNPAID
+invoice,VDT/FI-018/2025-26,Maya Recyclage Pvt Ltd,52215,52215,2025-12-18,38,UNPAID
+bill,BILL-0067,Excel Maritime & Logistics P Ltd,14750,14750,2025-12-18,38,UNPAID
+bill,BILL-0066,Excel Maritime & Logistics P Ltd,81420,81420,2025-12-18,38,UNPAID
+invoice,VDT/FI-019/2025-26,Aquatherm Singapore Pte Ltd,3371,3371,2025-12-19,37,UNPAID
+invoice,VDT/FI-016/2025-26,Nine Corporation,401200,401200,2025-12-20,36,UNPAID
+invoice,VDT/FI-020/2025-26,Maya Recyclage Pvt Ltd,49560,49560,2025-12-23,33,UNPAID
+invoice,VDT/FI-023/25-26,Maya Recyclage Pvt Ltd,111223.26,111223.26,2025-12-31,25,UNPAID
+invoice,VDT/FI-022/25-26,Maya Recyclage Pvt Ltd,47790,47790,2025-12-31,25,UNPAID
+invoice,VDT/FI-021/2025-26,Desolenator BV,13992.68,13992.68,2025-12-31,25,UNPAID
+bill,BILL-0045,V Subramanyam - Aquatherm Singapore Project,150000,150000,2025-12-31,25,UNPAID
+bill,BILL-0063,Max Office,51920,51920,2026-01-08,17,UNPAID
+bill,BILL-4895QB,Excel Maritime & Logistics P Ltd,9456.52,9456.52,2026-01-09,16,UNPAID
+invoice,VDT/FI-024/25-26,Aquatherm Singapore Pte Ltd,299970,299970,2026-01-13,12,UNPAID
+bill,BILL-0065,Thiyagesar Consulting Services,6000,6000,2026-01-15,10,UNPAID
+invoice,VDT/FI-015/2025-26,Coastal Marine Construction & Engineering Limited,3416100,3416100,2026-01-20,5,UNPAID
