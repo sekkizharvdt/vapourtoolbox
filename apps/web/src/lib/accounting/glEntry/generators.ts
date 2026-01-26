@@ -202,16 +202,49 @@ export async function generateBillGLEntries(
     const totalAmount = input.subtotal + gstAmount;
     const payableAmount = totalAmount - tdsAmount; // Net payable after TDS deduction
 
-    // Entry 1: Debit Expenses (Expense increases)
-    entries.push({
-      accountId: accounts.expenses!,
-      accountCode: '5100',
-      accountName: 'Cost of Goods Sold',
-      debit: input.subtotal,
-      credit: 0,
-      description: 'Expense from bill',
-      costCentreId: input.projectId,
-    });
+    // Expense entries: Use per-line-item accounts if specified, otherwise use default
+    const lineItemsWithAccounts = input.lineItems?.filter(
+      (item) => item.accountId && item.amount > 0
+    );
+    const lineItemsWithoutAccounts = input.lineItems?.filter(
+      (item) => !item.accountId && item.amount > 0
+    );
+
+    // Calculate amounts for items with and without specific accounts
+    const amountWithSpecificAccounts =
+      lineItemsWithAccounts?.reduce((sum, item) => sum + item.amount, 0) || 0;
+    const amountWithDefaultAccount = input.subtotal - amountWithSpecificAccounts;
+
+    // Create entries for line items with specific accounts
+    if (lineItemsWithAccounts && lineItemsWithAccounts.length > 0) {
+      for (const item of lineItemsWithAccounts) {
+        entries.push({
+          accountId: item.accountId!,
+          accountCode: item.accountCode || '',
+          accountName: item.accountName || item.description,
+          debit: item.amount,
+          credit: 0,
+          description: item.description || 'Expense from bill',
+          costCentreId: input.projectId,
+        });
+      }
+    }
+
+    // Create single entry for items without specific accounts (use default expense account)
+    if (amountWithDefaultAccount > 0) {
+      entries.push({
+        accountId: accounts.expenses!,
+        accountCode: '5100',
+        accountName: 'Cost of Goods Sold',
+        debit: amountWithDefaultAccount,
+        credit: 0,
+        description:
+          lineItemsWithoutAccounts && lineItemsWithoutAccounts.length > 0
+            ? lineItemsWithoutAccounts.map((i) => i.description).join(', ')
+            : 'Expense from bill',
+        costCentreId: input.projectId,
+      });
+    }
 
     // Entry 2-4: Debit GST Input Tax Credit accounts (if GST applicable)
     if (input.gstDetails) {

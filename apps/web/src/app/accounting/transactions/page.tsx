@@ -127,6 +127,7 @@ export default function TransactionsPage() {
       JOURNAL_ENTRY: 'Journal Entry',
       BANK_TRANSFER: 'Transfer',
       EXPENSE_CLAIM: 'Expense',
+      DIRECT_PAYMENT: 'Direct Payment',
     };
     return labels[type] || type;
   };

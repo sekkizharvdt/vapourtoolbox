@@ -4,7 +4,16 @@
  * Type definitions for GL entry generation
  */
 
-import type { LedgerEntry, GSTDetails, TDSDetails } from '@vapour/types';
+import type { LedgerEntry, GSTDetails, TDSDetails, LineItem } from '@vapour/types';
+
+/**
+ * Line item with optional account mapping for GL entry generation
+ */
+export interface GLLineItem extends Pick<LineItem, 'description' | 'amount' | 'accountId'> {
+  accountId?: string;
+  accountCode?: string;
+  accountName?: string;
+}
 
 /**
  * Input for generating invoice GL entries
@@ -14,7 +23,7 @@ export interface InvoiceGLInput {
   transactionNumber?: string;
   transactionDate?: { toDate: () => Date };
   subtotal: number; // Amount before GST
-  lineItems?: unknown[];
+  lineItems?: GLLineItem[];
   gstDetails?: GSTDetails;
   currency?: string;
   description?: string;
@@ -30,7 +39,7 @@ export interface BillGLInput {
   transactionNumber?: string;
   transactionDate?: { toDate: () => Date };
   subtotal: number; // Amount before GST
-  lineItems?: unknown[];
+  lineItems?: GLLineItem[];
   gstDetails?: GSTDetails;
   tdsDetails?: TDSDetails;
   currency?: string;

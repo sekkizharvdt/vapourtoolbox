@@ -34,13 +34,14 @@ import {
   Receipt as ReceiptIcon,
   Payment as PaymentIcon,
   Home as HomeIcon,
+  AccountBalance as DirectPaymentIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
-import type { CustomerPayment, VendorPayment } from '@vapour/types';
+import type { CustomerPayment, VendorPayment, PaymentMethod } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { formatDate } from '@/lib/utils/formatters';
@@ -60,8 +61,13 @@ const RecordVendorPaymentDialog = dynamic(
     import('./components/RecordVendorPaymentDialog').then((mod) => mod.RecordVendorPaymentDialog),
   { ssr: false }
 );
+const RecordDirectPaymentDialog = dynamic(
+  () =>
+    import('./components/RecordDirectPaymentDialog').then((mod) => mod.RecordDirectPaymentDialog),
+  { ssr: false }
+);
 
-type PaymentType = 'all' | 'customer' | 'vendor';
+type PaymentType = 'all' | 'customer' | 'vendor' | 'direct';
 type Payment = CustomerPayment | VendorPayment;
 
 /** Generate month options for the last 12 months */
@@ -86,6 +92,7 @@ export default function PaymentsPage() {
   const [paymentType, setPaymentType] = useState<PaymentType>('all');
   const [customerPaymentDialogOpen, setCustomerPaymentDialogOpen] = useState(false);
   const [vendorPaymentDialogOpen, setVendorPaymentDialogOpen] = useState(false);
+  const [directPaymentDialogOpen, setDirectPaymentDialogOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
@@ -100,7 +107,7 @@ export default function PaymentsPage() {
     () =>
       query(
         collection(db, COLLECTIONS.TRANSACTIONS),
-        where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT']),
+        where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT', 'DIRECT_PAYMENT']),
         orderBy('paymentDate', 'desc')
       ),
     [db]
@@ -118,12 +125,19 @@ export default function PaymentsPage() {
     setVendorPaymentDialogOpen(true);
   };
 
+  const handleCreateDirectPayment = () => {
+    setEditingPayment(null);
+    setDirectPaymentDialogOpen(true);
+  };
+
   const handleEdit = (payment: Payment) => {
     setEditingPayment(payment);
     if (payment.type === 'CUSTOMER_PAYMENT') {
       setCustomerPaymentDialogOpen(true);
-    } else {
+    } else if (payment.type === 'VENDOR_PAYMENT') {
       setVendorPaymentDialogOpen(true);
+    } else if ((payment as unknown as { type: string }).type === 'DIRECT_PAYMENT') {
+      setDirectPaymentDialogOpen(true);
     }
   };
 
@@ -155,12 +169,19 @@ export default function PaymentsPage() {
     setEditingPayment(null);
   };
 
+  const handleDirectPaymentDialogClose = () => {
+    setDirectPaymentDialogOpen(false);
+    setEditingPayment(null);
+  };
+
   // Filter payments by type and month
   const filteredPayments = payments.filter((payment) => {
     // Filter by type
     let matchesType = true;
     if (paymentType === 'customer') matchesType = payment.type === 'CUSTOMER_PAYMENT';
     else if (paymentType === 'vendor') matchesType = payment.type === 'VENDOR_PAYMENT';
+    else if (paymentType === 'direct')
+      matchesType = (payment as unknown as { type: string }).type === 'DIRECT_PAYMENT';
 
     // Filter by month
     let matchesMonth = true;
@@ -237,6 +258,14 @@ export default function PaymentsPage() {
             >
               Vendor Payment
             </Button>
+            <Button
+              variant="outlined"
+              startIcon={<DirectPaymentIcon />}
+              onClick={handleCreateDirectPayment}
+              color="secondary"
+            >
+              Direct Payment
+            </Button>
           </Stack>
         )}
       </Stack>
@@ -252,6 +281,7 @@ export default function PaymentsPage() {
           <ToggleButton value="all">All Payments</ToggleButton>
           <ToggleButton value="customer">Customer Receipts</ToggleButton>
           <ToggleButton value="vendor">Vendor Payments</ToggleButton>
+          <ToggleButton value="direct">Direct Payments</ToggleButton>
         </ToggleButtonGroup>
 
         <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -311,10 +341,30 @@ export default function PaymentsPage() {
                 <TableRow key={payment.id} hover>
                   <TableCell>
                     <Chip
-                      icon={payment.type === 'CUSTOMER_PAYMENT' ? <ReceiptIcon /> : <PaymentIcon />}
-                      label={payment.type === 'CUSTOMER_PAYMENT' ? 'Receipt' : 'Payment'}
+                      icon={
+                        payment.type === 'CUSTOMER_PAYMENT' ? (
+                          <ReceiptIcon />
+                        ) : (payment as unknown as { type: string }).type === 'DIRECT_PAYMENT' ? (
+                          <DirectPaymentIcon />
+                        ) : (
+                          <PaymentIcon />
+                        )
+                      }
+                      label={
+                        payment.type === 'CUSTOMER_PAYMENT'
+                          ? 'Receipt'
+                          : (payment as unknown as { type: string }).type === 'DIRECT_PAYMENT'
+                            ? 'Direct'
+                            : 'Payment'
+                      }
                       size="small"
-                      color={payment.type === 'CUSTOMER_PAYMENT' ? 'success' : 'primary'}
+                      color={
+                        payment.type === 'CUSTOMER_PAYMENT'
+                          ? 'success'
+                          : (payment as unknown as { type: string }).type === 'DIRECT_PAYMENT'
+                            ? 'secondary'
+                            : 'primary'
+                      }
                     />
                   </TableCell>
                   <TableCell>{formatDate(payment.paymentDate)}</TableCell>
@@ -398,6 +448,30 @@ export default function PaymentsPage() {
         onClose={handleVendorPaymentDialogClose}
         editingPayment={
           editingPayment?.type === 'VENDOR_PAYMENT' ? (editingPayment as VendorPayment) : null
+        }
+      />
+
+      <RecordDirectPaymentDialog
+        open={directPaymentDialogOpen}
+        onClose={handleDirectPaymentDialogClose}
+        editingPayment={
+          (editingPayment as unknown as { type: string })?.type === 'DIRECT_PAYMENT'
+            ? (editingPayment as unknown as {
+                id?: string;
+                type: 'DIRECT_PAYMENT';
+                transactionNumber: string;
+                paymentDate: unknown;
+                expenseAccountId: string;
+                bankAccountId: string;
+                paymentMethod: PaymentMethod;
+                amount: number;
+                description?: string;
+                reference?: string;
+                projectId?: string;
+                chequeNumber?: string;
+                upiTransactionId?: string;
+              })
+            : null
         }
       />
     </Box>
