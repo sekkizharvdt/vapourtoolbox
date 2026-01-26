@@ -38,7 +38,7 @@ export interface AccountBalance {
   id: string;
   code: string;
   name: string;
-  type: string;
+  accountType: string;
   balance: number;
   debit: number;
   credit: number;
@@ -74,7 +74,7 @@ export async function generateProfitLossReport(
         id: doc.id,
         code: data.code || '',
         name: data.name || '',
-        type: data.type || '',
+        accountType: data.accountType || '',
         balance: 0, // Will calculate from transactions
         debit: 0,
         credit: 0,
@@ -131,7 +131,7 @@ export async function generateProfitLossReport(
       const accountCode = account.code;
 
       // Revenue accounts (credit balance means revenue)
-      if (account.type === 'REVENUE') {
+      if (account.accountType === 'REVENUE' || account.accountType === 'INCOME') {
         const netRevenue = account.credit - account.debit;
 
         // Sales accounts (typically 4000-4999)
@@ -148,7 +148,7 @@ export async function generateProfitLossReport(
       }
 
       // Expense accounts (debit balance means expense)
-      if (account.type === 'EXPENSE') {
+      if (account.accountType === 'EXPENSE') {
         const netExpense = account.debit - account.credit;
 
         // Cost of Goods Sold (typically 5000-5999)

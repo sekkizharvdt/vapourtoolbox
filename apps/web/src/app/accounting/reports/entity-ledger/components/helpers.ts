@@ -9,13 +9,14 @@ export const getTransactionTypeLabel = (type: TransactionType): string => {
     JOURNAL_ENTRY: 'Journal',
     BANK_TRANSFER: 'Transfer',
     EXPENSE_CLAIM: 'Expense',
+    DIRECT_PAYMENT: 'Direct',
   };
   return labels[type] || type;
 };
 
 export const getTransactionTypeColor = (
   type: TransactionType
-): 'primary' | 'success' | 'warning' | 'info' | 'default' => {
+): 'primary' | 'success' | 'warning' | 'info' | 'secondary' | 'default' => {
   switch (type) {
     case 'CUSTOMER_INVOICE':
       return 'primary';
@@ -25,6 +26,8 @@ export const getTransactionTypeColor = (
       return 'warning';
     case 'VENDOR_PAYMENT':
       return 'info';
+    case 'DIRECT_PAYMENT':
+      return 'secondary';
     default:
       return 'default';
   }
