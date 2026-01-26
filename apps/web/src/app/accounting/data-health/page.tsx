@@ -131,7 +131,8 @@ export default function DataHealthPage() {
           const dueDate = data.dueDate?.toDate?.() || new Date(data.dueDate);
           if (dueDate && dueDate < now) {
             overdueCount++;
-            overdueTotal += data.outstandingAmount || data.totalAmount || 0;
+            // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
+            overdueTotal += data.outstandingAmount || data.baseAmount || data.totalAmount || 0;
           }
         }
       });
@@ -142,7 +143,8 @@ export default function DataHealthPage() {
           const dueDate = data.dueDate?.toDate?.() || new Date(data.dueDate);
           if (dueDate && dueDate < now) {
             overdueCount++;
-            overdueTotal += data.outstandingAmount || data.totalAmount || 0;
+            // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
+            overdueTotal += data.outstandingAmount || data.baseAmount || data.totalAmount || 0;
           }
         }
       });

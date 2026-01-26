@@ -128,7 +128,8 @@ export default function OverdueItemsPage() {
           const daysOverdue = Math.floor(
             (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
           );
-          const outstanding = data.outstandingAmount ?? data.totalAmount ?? 0;
+          // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
+          const outstanding = data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
 
           if (outstanding > 0) {
             overdue.push({
@@ -167,7 +168,8 @@ export default function OverdueItemsPage() {
           const daysOverdue = Math.floor(
             (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
           );
-          const outstanding = data.outstandingAmount ?? data.totalAmount ?? 0;
+          // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
+          const outstanding = data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
 
           if (outstanding > 0) {
             overdue.push({

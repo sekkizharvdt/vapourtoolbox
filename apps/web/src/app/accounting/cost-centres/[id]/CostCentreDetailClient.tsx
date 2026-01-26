@@ -308,36 +308,38 @@ export default function CostCentreDetailClient() {
     {} as Record<string, number>
   );
 
-  // Use outstandingAmount directly from bills for accurate outstanding calculation
-  // This handles cases where payments have been recorded against bills
+  // Calculate outstanding amounts - always in INR
+  // outstandingAmount is maintained in INR when payments are recorded
   const vendorOutstandingTotals = bills.reduce(
     (acc, bill) => {
-      const currency = bill.currency || 'INR';
-      // Use outstandingAmount field which is maintained when payments are recorded
+      // Outstanding is always tracked in INR
       const outstanding = (bill as unknown as { outstandingAmount?: number }).outstandingAmount;
-      // If outstandingAmount is available, use it; otherwise calculate from totalAmount - paidAmount
+      const baseAmount = (bill as unknown as { baseAmount?: number }).baseAmount;
       const totalAmount =
         (bill as unknown as { totalAmount?: number }).totalAmount || bill.amount || 0;
       const paidAmount = (bill as unknown as { paidAmount?: number }).paidAmount || 0;
-      const outstandingValue = outstanding !== undefined ? outstanding : totalAmount - paidAmount;
-      acc[currency] = (acc[currency] || 0) + outstandingValue;
+      // Use outstandingAmount (INR), fallback to baseAmount (INR for forex), then totalAmount - paidAmount
+      const outstandingValue =
+        outstanding !== undefined ? outstanding : (baseAmount ?? totalAmount) - paidAmount;
+      acc['INR'] = (acc['INR'] || 0) + outstandingValue;
       return acc;
     },
     {} as Record<string, number>
   );
 
-  // Use outstandingAmount directly from invoices for accurate outstanding calculation
-  // This handles cases where payments have been recorded against invoices
+  // Calculate outstanding amounts - always in INR
+  // outstandingAmount is maintained in INR when payments are recorded
   const customerOutstandingTotals = invoices.reduce(
     (acc, inv) => {
-      const currency = inv.currency || 'INR';
-      // Use outstandingAmount field which is maintained when payments are recorded
+      // Outstanding is always tracked in INR
       const outstanding = (inv as unknown as { outstandingAmount?: number }).outstandingAmount;
-      // If outstandingAmount is available, use it; otherwise calculate from totalAmount - paidAmount
+      const baseAmount = (inv as unknown as { baseAmount?: number }).baseAmount;
       const totalAmount = inv.totalAmount || inv.amount || 0;
       const paidAmount = (inv as unknown as { paidAmount?: number }).paidAmount || 0;
-      const outstandingValue = outstanding !== undefined ? outstanding : totalAmount - paidAmount;
-      acc[currency] = (acc[currency] || 0) + outstandingValue;
+      // Use outstandingAmount (INR), fallback to baseAmount (INR for forex), then totalAmount - paidAmount
+      const outstandingValue =
+        outstanding !== undefined ? outstanding : (baseAmount ?? totalAmount) - paidAmount;
+      acc['INR'] = (acc['INR'] || 0) + outstandingValue;
       return acc;
     },
     {} as Record<string, number>

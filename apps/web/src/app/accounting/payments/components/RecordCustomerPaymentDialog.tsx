@@ -113,19 +113,40 @@ export function RecordCustomerPaymentDialog({
         // If baseAmount exists, it's the correct INR total
         const baseAmountINR = data.baseAmount ?? totalAmount * invoiceExchangeRate;
 
-        // Check if outstandingAmount appears to be in foreign currency
         if (data.outstandingAmount !== undefined && data.outstandingAmount !== null) {
-          // Heuristic: if outstanding equals totalAmount (unpaid invoice), it was likely stored in foreign currency
-          if (data.outstandingAmount === totalAmount && totalAmount > 0) {
-            // Stored in foreign currency - convert to INR
-            return totalAmount * invoiceExchangeRate;
-          }
+          const outstanding = data.outstandingAmount;
 
-          // If outstanding is different from total, invoice is partially paid
-          // Calculate proportion of baseAmount that's still outstanding
-          if (totalAmount > 0) {
-            const paidRatio = 1 - data.outstandingAmount / totalAmount;
-            return baseAmountINR * (1 - paidRatio);
+          // Determine if outstandingAmount is in INR or foreign currency by checking
+          // which reference value it's closer to (as a ratio)
+          // - If closer to baseAmount: it's stored in INR
+          // - If closer to totalAmount: it's stored in foreign currency
+          const ratioToBase = baseAmountINR > 0 ? outstanding / baseAmountINR : 0;
+          const ratioToTotal = totalAmount > 0 ? outstanding / totalAmount : 0;
+
+          // Outstanding should be <= 1.0 of its reference (can't owe more than original)
+          // If ratio to base is reasonable (0-1), outstanding is likely in INR
+          // If ratio to total is reasonable (0-1), outstanding is likely in foreign currency
+          const isLikelyINR = ratioToBase >= 0 && ratioToBase <= 1.01; // Allow small tolerance
+          const isLikelyForex = ratioToTotal >= 0 && ratioToTotal <= 1.01;
+
+          if (isLikelyINR && !isLikelyForex) {
+            // Outstanding is already in INR
+            return outstanding;
+          } else if (isLikelyForex && !isLikelyINR) {
+            // Outstanding is in foreign currency - convert to INR
+            return outstanding * invoiceExchangeRate;
+          } else if (isLikelyINR && isLikelyForex) {
+            // Both ratios are valid - use the one closer to the original
+            // For unpaid invoices: outstanding equals baseAmount (INR) or totalAmount (forex)
+            const distToBase = Math.abs(outstanding - baseAmountINR);
+            const distToTotal = Math.abs(outstanding - totalAmount);
+            if (distToBase <= distToTotal) {
+              // Closer to baseAmount - stored in INR
+              return outstanding;
+            } else {
+              // Closer to totalAmount - stored in foreign currency
+              return outstanding * invoiceExchangeRate;
+            }
           }
         }
 

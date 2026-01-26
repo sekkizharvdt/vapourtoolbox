@@ -158,12 +158,14 @@ export async function updateTransactionStatusAfterPayment(
       }
 
       const transactionData = transactionDoc.data();
-      const totalAmount = transactionData.totalAmount || 0;
+      // Use baseAmount (INR) for forex invoices, fall back to totalAmount for INR invoices
+      // This ensures outstanding is always tracked in INR for consistent payment allocation
+      const totalAmountINR = transactionData.baseAmount || transactionData.totalAmount || 0;
       const previouslyPaid = transactionData.amountPaid || 0;
       const newTotalPaid = previouslyPaid + paidAmount;
 
       let newStatus: TransactionStatus;
-      if (newTotalPaid >= totalAmount) {
+      if (newTotalPaid >= totalAmountINR) {
         newStatus = 'PAID';
       } else if (newTotalPaid > 0) {
         newStatus = 'PARTIALLY_PAID';
@@ -174,7 +176,7 @@ export async function updateTransactionStatusAfterPayment(
       transaction.update(transactionRef, {
         status: newStatus,
         amountPaid: newTotalPaid,
-        outstandingAmount: Math.max(0, totalAmount - newTotalPaid),
+        outstandingAmount: Math.max(0, totalAmountINR - newTotalPaid),
         updatedAt: Timestamp.now(),
       });
     });
@@ -366,12 +368,13 @@ export async function createPaymentWithAllocationsAtomic(
       }
 
       const invoiceData = invoiceDoc.data();
-      const totalAmount = invoiceData.totalAmount || 0;
+      // Use baseAmount (INR) for forex invoices, fall back to totalAmount for INR invoices
+      const totalAmountINR = invoiceData.baseAmount || invoiceData.totalAmount || 0;
       const previouslyPaid = invoiceData.amountPaid || 0;
       const newTotalPaid = previouslyPaid + allocation.allocatedAmount;
 
       let newStatus: TransactionStatus;
-      if (newTotalPaid >= totalAmount) {
+      if (newTotalPaid >= totalAmountINR) {
         newStatus = 'PAID';
       } else if (newTotalPaid > 0) {
         newStatus = 'PARTIALLY_PAID';
@@ -382,7 +385,7 @@ export async function createPaymentWithAllocationsAtomic(
       batch.update(invoiceRef, {
         status: newStatus,
         amountPaid: newTotalPaid,
-        outstandingAmount: Math.max(0, totalAmount - newTotalPaid),
+        outstandingAmount: Math.max(0, totalAmountINR - newTotalPaid),
         updatedAt: Timestamp.now(),
       });
     });
@@ -507,12 +510,13 @@ export async function updatePaymentWithAllocationsAtomic(
         throw new Error(`Invoice ${invoiceId} not found`);
       }
 
-      const totalAmount = invoiceData.totalAmount || 0;
+      // Use baseAmount (INR) for forex invoices, fall back to totalAmount for INR invoices
+      const totalAmountINR = invoiceData.baseAmount || invoiceData.totalAmount || 0;
       const previouslyPaid = invoiceData.amountPaid || 0;
       const newTotalPaid = Math.max(0, previouslyPaid + netChange);
 
       let newStatus: TransactionStatus;
-      if (newTotalPaid >= totalAmount) {
+      if (newTotalPaid >= totalAmountINR) {
         newStatus = 'PAID';
       } else if (newTotalPaid > 0) {
         newStatus = 'PARTIALLY_PAID';
@@ -524,7 +528,7 @@ export async function updatePaymentWithAllocationsAtomic(
       transaction.update(invoiceRef, {
         status: newStatus,
         amountPaid: newTotalPaid,
-        outstandingAmount: Math.max(0, totalAmount - newTotalPaid),
+        outstandingAmount: Math.max(0, totalAmountINR - newTotalPaid),
         updatedAt: now,
       });
     }
