@@ -174,6 +174,7 @@ export async function updateTransactionStatusAfterPayment(
       transaction.update(transactionRef, {
         status: newStatus,
         amountPaid: newTotalPaid,
+        outstandingAmount: Math.max(0, totalAmount - newTotalPaid),
         updatedAt: Timestamp.now(),
       });
     });
@@ -381,6 +382,7 @@ export async function createPaymentWithAllocationsAtomic(
       batch.update(invoiceRef, {
         status: newStatus,
         amountPaid: newTotalPaid,
+        outstandingAmount: Math.max(0, totalAmount - newTotalPaid),
         updatedAt: Timestamp.now(),
       });
     });
@@ -522,6 +524,7 @@ export async function updatePaymentWithAllocationsAtomic(
       transaction.update(invoiceRef, {
         status: newStatus,
         amountPaid: newTotalPaid,
+        outstandingAmount: Math.max(0, totalAmount - newTotalPaid),
         updatedAt: now,
       });
     }

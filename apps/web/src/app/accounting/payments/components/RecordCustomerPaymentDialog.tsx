@@ -64,6 +64,7 @@ export function RecordCustomerPaymentDialog({
   // Invoice allocation
   const [outstandingInvoices, setOutstandingInvoices] = useState<CustomerInvoice[]>([]);
   const [allocations, setAllocations] = useState<PaymentAllocation[]>([]);
+  const [hasAutoAllocated, setHasAutoAllocated] = useState(false);
 
   // Calculate base amount (INR) when amount or exchange rate changes
   useEffect(() => {
@@ -185,6 +186,7 @@ export function RecordCustomerPaymentDialog({
         setReference(editingPayment.reference || '');
         setProjectId(editingPayment.projectId || null);
         setAllocations(editingPayment.invoiceAllocations || []);
+        setHasAutoAllocated(false);
       } else {
         setPaymentDate(new Date().toISOString().split('T')[0] || '');
         setEntityId(null);
@@ -201,6 +203,7 @@ export function RecordCustomerPaymentDialog({
         setReference('');
         setProjectId(null);
         setAllocations([]);
+        setHasAutoAllocated(false);
       }
       setError('');
     }
@@ -223,6 +226,7 @@ export function RecordCustomerPaymentDialog({
 
   // Auto-distribute payment across invoices
   const handleAutoAllocate = () => {
+    setHasAutoAllocated(true);
     let remaining = baseAmount; // Use base amount in INR for allocation
     const newAllocations = allocations.map((allocation) => {
       if (remaining <= 0) {
@@ -241,6 +245,31 @@ export function RecordCustomerPaymentDialog({
 
     setAllocations(newAllocations);
   };
+
+  // Re-run auto-allocation when baseAmount changes (e.g., when exchange rate is corrected)
+  useEffect(() => {
+    if (hasAutoAllocated && baseAmount > 0 && allocations.length > 0) {
+      let remaining = baseAmount;
+      const newAllocations = allocations.map((allocation) => {
+        if (remaining <= 0) {
+          return { ...allocation, allocatedAmount: 0 };
+        }
+
+        const toAllocate = Math.min(remaining, allocation.originalAmount);
+        remaining -= toAllocate;
+
+        return {
+          ...allocation,
+          allocatedAmount: toAllocate,
+          remainingAmount: allocation.originalAmount - toAllocate,
+        };
+      });
+
+      setAllocations(newAllocations);
+    }
+    // Only re-run when baseAmount changes, not when allocations change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseAmount, hasAutoAllocated]);
 
   // Fill remaining balance for a specific invoice
   const handleFillRemaining = (invoiceId: string) => {
