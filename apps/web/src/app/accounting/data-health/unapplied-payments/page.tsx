@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
   Table,
   TableBody,
   TableCell,
@@ -18,22 +16,25 @@ import {
   Tooltip,
   Alert,
   TextField,
-  InputAdornment,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   Breadcrumbs,
   Link,
+  Paper,
 } from '@mui/material';
 import {
   Edit as EditIcon,
-  Search as SearchIcon,
   ArrowBack as BackIcon,
   Home as HomeIcon,
+  Receipt as ReceiptIcon,
+  Payment as PaymentIcon,
+  AttachMoney as MoneyIcon,
+  AccountBalance as TotalIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { PageHeader, LoadingState } from '@vapour/ui';
+import { PageHeader, LoadingState, StatCard, FilterBar, EmptyState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
@@ -41,6 +42,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { CustomerPayment, VendorPayment } from '@vapour/types';
 import { RecordCustomerPaymentDialog } from '../../payments/components/RecordCustomerPaymentDialog';
 import { RecordVendorPaymentDialog } from '../../payments/components/RecordVendorPaymentDialog';
+import { formatCurrency } from '@/lib/utils/formatters';
 
 type UnappliedPayment = (CustomerPayment | VendorPayment) & {
   id: string;
@@ -163,12 +165,9 @@ export default function UnappliedPaymentsPage() {
     return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 2,
-    }).format(amount);
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setTypeFilter('all');
   };
 
   const handleEditPayment = (payment: UnappliedPayment) => {
@@ -199,11 +198,11 @@ export default function UnappliedPaymentsPage() {
   const vendorCount = filteredPayments.filter((p) => p.paymentType === 'vendor').length;
 
   if (loading) {
-    return <LoadingState message="Loading unapplied payments..." />;
+    return <LoadingState variant="page" message="Loading unapplied payments..." />;
   }
 
   return (
-    <>
+    <Box sx={{ py: 4 }}>
       <Breadcrumbs sx={{ mb: 2 }}>
         <Link
           color="inherit"
@@ -251,174 +250,144 @@ export default function UnappliedPaymentsPage() {
 
       {/* Summary Cards */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <Card sx={{ minWidth: 150 }}>
-          <CardContent sx={{ py: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              Total Unapplied
-            </Typography>
-            <Typography variant="h5" fontWeight="bold">
-              {filteredPayments.length}
-            </Typography>
-          </CardContent>
-        </Card>
-        <Card sx={{ minWidth: 150 }}>
-          <CardContent sx={{ py: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              Customer Receipts
-            </Typography>
-            <Typography variant="h5" fontWeight="bold" color="success.main">
-              {customerCount}
-            </Typography>
-          </CardContent>
-        </Card>
-        <Card sx={{ minWidth: 150 }}>
-          <CardContent sx={{ py: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              Vendor Payments
-            </Typography>
-            <Typography variant="h5" fontWeight="bold" color="error.main">
-              {vendorCount}
-            </Typography>
-          </CardContent>
-        </Card>
-        <Card sx={{ minWidth: 200 }}>
-          <CardContent sx={{ py: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              Total Amount
-            </Typography>
-            <Typography variant="h5" fontWeight="bold">
-              {formatCurrency(totalAmount)}
-            </Typography>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Total Unapplied"
+          value={filteredPayments.length.toString()}
+          icon={<TotalIcon />}
+          color="primary"
+        />
+        <StatCard
+          label="Customer Receipts"
+          value={customerCount.toString()}
+          icon={<ReceiptIcon />}
+          color="success"
+        />
+        <StatCard
+          label="Vendor Payments"
+          value={vendorCount.toString()}
+          icon={<PaymentIcon />}
+          color="error"
+        />
+        <StatCard
+          label="Total Amount"
+          value={formatCurrency(totalAmount, 'INR')}
+          icon={<MoneyIcon />}
+          color="warning"
+        />
       </Box>
 
       {/* Filters */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ py: 2 }}>
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <TextField
-              placeholder="Search by entity, number, or reference..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              size="small"
-              sx={{ minWidth: 300 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Type</InputLabel>
-              <Select
-                value={typeFilter}
-                label="Type"
-                onChange={(e) => setTypeFilter(e.target.value as 'all' | 'customer' | 'vendor')}
-              >
-                <MenuItem value="all">All Types</MenuItem>
-                <MenuItem value="customer">Customer Receipts</MenuItem>
-                <MenuItem value="vendor">Vendor Payments</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-        </CardContent>
-      </Card>
+      <FilterBar onClear={handleClearFilters}>
+        <TextField
+          placeholder="Search by entity, number, or reference..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          size="small"
+          sx={{ minWidth: 300 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel>Type</InputLabel>
+          <Select
+            value={typeFilter}
+            label="Type"
+            onChange={(e) => setTypeFilter(e.target.value as 'all' | 'customer' | 'vendor')}
+          >
+            <MenuItem value="all">All Types</MenuItem>
+            <MenuItem value="customer">Customer Receipts</MenuItem>
+            <MenuItem value="vendor">Vendor Payments</MenuItem>
+          </Select>
+        </FormControl>
+      </FilterBar>
 
-      {filteredPayments.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Typography variant="h6">No Unapplied Payments</Typography>
-          <Typography color="text.secondary">
-            All payments have been applied to invoices or bills.
-          </Typography>
-        </Box>
-      ) : (
-        <Card>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Number</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Entity</TableCell>
-                  <TableCell>Method</TableCell>
-                  <TableCell align="right">Amount</TableCell>
-                  <TableCell>Reference</TableCell>
-                  <TableCell align="center">Action</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredPayments
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((payment) => (
-                    <TableRow key={payment.id} hover>
-                      <TableCell>
-                        <Chip
-                          label={payment.paymentType === 'customer' ? 'Receipt' : 'Payment'}
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Type</TableCell>
+              <TableCell>Number</TableCell>
+              <TableCell>Date</TableCell>
+              <TableCell>Entity</TableCell>
+              <TableCell>Method</TableCell>
+              <TableCell align="right">Amount</TableCell>
+              <TableCell>Reference</TableCell>
+              <TableCell align="center">Action</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredPayments.length === 0 ? (
+              <EmptyState
+                message="All payments have been applied to invoices or bills."
+                variant="table"
+                colSpan={8}
+              />
+            ) : (
+              filteredPayments
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((payment) => (
+                  <TableRow key={payment.id} hover>
+                    <TableCell>
+                      <Chip
+                        label={payment.paymentType === 'customer' ? 'Receipt' : 'Payment'}
+                        size="small"
+                        color={payment.paymentType === 'customer' ? 'success' : 'error'}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="medium">
+                        {payment.transactionNumber}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{formatDate(payment.paymentDate)}</TableCell>
+                    <TableCell>{payment.entityName}</TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
+                        {payment.paymentMethod?.replace('_', ' ').toLowerCase()}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography
+                        fontWeight="medium"
+                        color={payment.paymentType === 'customer' ? 'success.main' : 'error.main'}
+                      >
+                        {formatCurrency(payment.totalAmount || payment.amount || 0, 'INR')}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {payment.reference || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Tooltip title="Apply to Invoice/Bill">
+                        <Button
+                          variant="contained"
                           size="small"
-                          color={payment.paymentType === 'customer' ? 'success' : 'error'}
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {payment.transactionNumber}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{formatDate(payment.paymentDate)}</TableCell>
-                      <TableCell>{payment.entityName}</TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
-                          {payment.paymentMethod?.replace('_', ' ').toLowerCase()}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography
-                          fontWeight="medium"
-                          color={payment.paymentType === 'customer' ? 'success.main' : 'error.main'}
+                          startIcon={<EditIcon />}
+                          onClick={() => handleEditPayment(payment)}
                         >
-                          {formatCurrency(payment.totalAmount || payment.amount || 0)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary">
-                          {payment.reference || '-'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Tooltip title="Apply to Invoice/Bill">
-                          <Button
-                            variant="contained"
-                            size="small"
-                            startIcon={<EditIcon />}
-                            onClick={() => handleEditPayment(payment)}
-                          >
-                            Apply
-                          </Button>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            component="div"
-            count={filteredPayments.length}
-            page={page}
-            onPageChange={(_, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(e) => {
-              setRowsPerPage(parseInt(e.target.value, 10));
-              setPage(0);
-            }}
-            rowsPerPageOptions={[10, 25, 50, 100]}
-          />
-        </Card>
-      )}
+                          Apply
+                        </Button>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))
+            )}
+          </TableBody>
+        </Table>
+        <TablePagination
+          component="div"
+          count={filteredPayments.length}
+          page={page}
+          onPageChange={(_, newPage) => setPage(newPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+          rowsPerPageOptions={[10, 25, 50, 100]}
+        />
+      </TableContainer>
 
       {/* Edit Dialogs */}
       <RecordCustomerPaymentDialog
@@ -431,6 +400,6 @@ export default function UnappliedPaymentsPage() {
         onClose={handleDialogClose}
         editingPayment={editingVendorPayment}
       />
-    </>
+    </Box>
   );
 }

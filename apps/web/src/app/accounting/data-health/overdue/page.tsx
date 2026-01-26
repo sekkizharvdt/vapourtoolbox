@@ -17,29 +17,32 @@ import {
   Chip,
   Alert,
   TextField,
-  InputAdornment,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   Tabs,
   Tab,
+  Breadcrumbs,
+  Link,
+  Paper,
 } from '@mui/material';
 import {
-  Search as SearchIcon,
   ArrowBack as BackIcon,
-  CheckCircle as SuccessIcon,
   Warning as WarningIcon,
+  Home as HomeIcon,
+  Receipt as ReceiptIcon,
+  Payment as PaymentIcon,
+  AccountBalance as TotalIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { PageHeader, LoadingState } from '@vapour/ui';
-import { Breadcrumbs, Link } from '@mui/material';
-import HomeIcon from '@mui/icons-material/Home';
+import { PageHeader, LoadingState, StatCard, FilterBar, EmptyState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill, CustomerInvoice } from '@vapour/types';
+import { formatCurrency } from '@/lib/utils/formatters';
 
 type OverdueItem = {
   id: string;
@@ -231,12 +234,9 @@ export default function OverdueItemsPage() {
     return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 2,
-    }).format(amount);
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setAgingFilter('all');
   };
 
   const receivables = items.filter((i) => i.type === 'CUSTOMER_INVOICE');
@@ -261,11 +261,11 @@ export default function OverdueItemsPage() {
   };
 
   if (loading) {
-    return <LoadingState message="Loading overdue items..." />;
+    return <LoadingState variant="page" message="Loading overdue items..." />;
   }
 
   return (
-    <>
+    <Box sx={{ py: 4 }}>
       <Breadcrumbs sx={{ mb: 2 }}>
         <Link
           color="inherit"
@@ -309,49 +309,34 @@ export default function OverdueItemsPage() {
       {items.length > 0 && (
         <Alert severity="warning" icon={<WarningIcon />} sx={{ mb: 3 }}>
           You have {items.length} overdue items totaling{' '}
-          {formatCurrency(items.reduce((sum, i) => sum + i.outstandingAmount, 0))}. Follow up on
-          these items to improve cash flow.
+          {formatCurrency(
+            items.reduce((sum, i) => sum + i.outstandingAmount, 0),
+            'INR'
+          )}
+          . Follow up on these items to improve cash flow.
         </Alert>
       )}
 
       {/* Summary Cards */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <Card sx={{ minWidth: 150 }}>
-          <CardContent sx={{ py: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              Total Overdue
-            </Typography>
-            <Typography variant="h5" fontWeight="bold">
-              {items.length}
-            </Typography>
-          </CardContent>
-        </Card>
-        <Card sx={{ minWidth: 200 }}>
-          <CardContent sx={{ py: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              Receivables (AR)
-            </Typography>
-            <Typography variant="h5" fontWeight="bold" color="success.main">
-              {formatCurrency(totalReceivable)}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {receivables.length} invoices
-            </Typography>
-          </CardContent>
-        </Card>
-        <Card sx={{ minWidth: 200 }}>
-          <CardContent sx={{ py: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              Payables (AP)
-            </Typography>
-            <Typography variant="h5" fontWeight="bold" color="error.main">
-              {formatCurrency(totalPayable)}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {payables.length} bills
-            </Typography>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Total Overdue"
+          value={items.length.toString()}
+          icon={<TotalIcon />}
+          color="primary"
+        />
+        <StatCard
+          label={`Receivables (${receivables.length})`}
+          value={formatCurrency(totalReceivable, 'INR')}
+          icon={<ReceiptIcon />}
+          color="success"
+        />
+        <StatCard
+          label={`Payables (${payables.length})`}
+          value={formatCurrency(totalPayable, 'INR')}
+          icon={<PaymentIcon />}
+          color="error"
+        />
       </Box>
 
       {/* Aging Summary */}
@@ -379,7 +364,7 @@ export default function OverdueItemsPage() {
                   {bucket}
                 </Typography>
                 <Typography variant="h6" fontWeight="medium">
-                  {formatCurrency(amount)}
+                  {formatCurrency(amount, 'INR')}
                 </Typography>
               </Box>
             ))}
@@ -397,125 +382,106 @@ export default function OverdueItemsPage() {
       </Card>
 
       {/* Filters */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ py: 2 }}>
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <TextField
-              placeholder="Search by entity or number..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              size="small"
-              sx={{ minWidth: 300 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Aging</InputLabel>
-              <Select
-                value={agingFilter}
-                label="Aging"
-                onChange={(e) => setAgingFilter(e.target.value)}
-              >
-                <MenuItem value="all">All Aging</MenuItem>
-                <MenuItem value="0-30 days">0-30 days</MenuItem>
-                <MenuItem value="31-60 days">31-60 days</MenuItem>
-                <MenuItem value="61-90 days">61-90 days</MenuItem>
-                <MenuItem value="90+ days">90+ days</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-        </CardContent>
-      </Card>
+      <FilterBar onClear={handleClearFilters}>
+        <TextField
+          placeholder="Search by entity or number..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          size="small"
+          sx={{ minWidth: 300 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel>Aging</InputLabel>
+          <Select
+            value={agingFilter}
+            label="Aging"
+            onChange={(e) => setAgingFilter(e.target.value)}
+          >
+            <MenuItem value="all">All Aging</MenuItem>
+            <MenuItem value="0-30 days">0-30 days</MenuItem>
+            <MenuItem value="31-60 days">31-60 days</MenuItem>
+            <MenuItem value="61-90 days">61-90 days</MenuItem>
+            <MenuItem value="90+ days">90+ days</MenuItem>
+          </Select>
+        </FormControl>
+      </FilterBar>
 
-      {filteredItems.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
-          <SuccessIcon sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
-          <Typography variant="h6">No Overdue Items</Typography>
-          <Typography color="text.secondary">
-            All invoices and bills are within their due dates.
-          </Typography>
-        </Box>
-      ) : (
-        <Card>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Number</TableCell>
-                  <TableCell>Entity</TableCell>
-                  <TableCell>Due Date</TableCell>
-                  <TableCell>Days Overdue</TableCell>
-                  <TableCell align="right">Outstanding</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredItems
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((item) => (
-                    <TableRow key={item.id} hover>
-                      <TableCell>
-                        <Chip
-                          label={item.type === 'CUSTOMER_INVOICE' ? 'Invoice' : 'Bill'}
-                          size="small"
-                          color={item.type === 'CUSTOMER_INVOICE' ? 'success' : 'error'}
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {item.transactionNumber}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{item.entityName}</TableCell>
-                      <TableCell>{formatDate(item.dueDate)}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={`${item.daysOverdue} days`}
-                          size="small"
-                          color={getAgingColor(item.daysOverdue)}
-                        />
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography
-                          fontWeight="medium"
-                          color={item.type === 'CUSTOMER_INVOICE' ? 'success.main' : 'error.main'}
-                        >
-                          {formatCurrency(item.outstandingAmount)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={item.status.replace('_', ' ')}
-                          size="small"
-                          variant="outlined"
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            component="div"
-            count={filteredItems.length}
-            page={page}
-            onPageChange={(_, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(e) => {
-              setRowsPerPage(parseInt(e.target.value, 10));
-              setPage(0);
-            }}
-            rowsPerPageOptions={[10, 25, 50, 100]}
-          />
-        </Card>
-      )}
-    </>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Type</TableCell>
+              <TableCell>Number</TableCell>
+              <TableCell>Entity</TableCell>
+              <TableCell>Due Date</TableCell>
+              <TableCell>Days Overdue</TableCell>
+              <TableCell align="right">Outstanding</TableCell>
+              <TableCell>Status</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredItems.length === 0 ? (
+              <EmptyState
+                message="All invoices and bills are within their due dates."
+                variant="table"
+                colSpan={7}
+              />
+            ) : (
+              filteredItems
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((item) => (
+                  <TableRow key={item.id} hover>
+                    <TableCell>
+                      <Chip
+                        label={item.type === 'CUSTOMER_INVOICE' ? 'Invoice' : 'Bill'}
+                        size="small"
+                        color={item.type === 'CUSTOMER_INVOICE' ? 'success' : 'error'}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="medium">
+                        {item.transactionNumber}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{item.entityName}</TableCell>
+                    <TableCell>{formatDate(item.dueDate)}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={`${item.daysOverdue} days`}
+                        size="small"
+                        color={getAgingColor(item.daysOverdue)}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography
+                        fontWeight="medium"
+                        color={item.type === 'CUSTOMER_INVOICE' ? 'success.main' : 'error.main'}
+                      >
+                        {formatCurrency(item.outstandingAmount, 'INR')}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={item.status.replace('_', ' ')} size="small" variant="outlined" />
+                    </TableCell>
+                  </TableRow>
+                ))
+            )}
+          </TableBody>
+        </Table>
+        <TablePagination
+          component="div"
+          count={filteredItems.length}
+          page={page}
+          onPageChange={(_, newPage) => setPage(newPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+          rowsPerPageOptions={[10, 25, 50, 100]}
+        />
+      </TableContainer>
+    </Box>
   );
 }

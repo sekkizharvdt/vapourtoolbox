@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
   Table,
   TableBody,
   TableCell,
@@ -17,27 +15,31 @@ import {
   Chip,
   Alert,
   TextField,
-  InputAdornment,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
+  Breadcrumbs,
+  Link,
+  Paper,
 } from '@mui/material';
 import {
   Edit as EditIcon,
-  Search as SearchIcon,
   ArrowBack as BackIcon,
-  CheckCircle as SuccessIcon,
   Home as HomeIcon,
+  Receipt as BillIcon,
+  Description as InvoiceIcon,
+  Warning as WarningIcon,
+  AccountBalance as TotalIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { PageHeader, LoadingState } from '@vapour/ui';
-import { Breadcrumbs, Link } from '@mui/material';
+import { PageHeader, LoadingState, StatCard, FilterBar, EmptyState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill, CustomerInvoice, InvoiceLineItem } from '@vapour/types';
+import { formatCurrency } from '@/lib/utils/formatters';
 
 type UnmappedTransaction = {
   id: string;
@@ -174,12 +176,9 @@ export default function UnmappedAccountsPage() {
     return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 2,
-    }).format(amount);
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setTypeFilter('all');
   };
 
   const handleEdit = (transaction: UnmappedTransaction) => {
@@ -195,11 +194,11 @@ export default function UnmappedAccountsPage() {
   const totalUnmappedItems = filteredTransactions.reduce((sum, t) => sum + t.unmappedCount, 0);
 
   if (loading) {
-    return <LoadingState message="Loading transactions with unmapped accounts..." />;
+    return <LoadingState variant="page" message="Loading transactions with unmapped accounts..." />;
   }
 
   return (
-    <>
+    <Box sx={{ py: 4 }}>
       <Breadcrumbs sx={{ mb: 2 }}>
         <Link
           color="inherit"
@@ -248,170 +247,139 @@ export default function UnmappedAccountsPage() {
 
       {/* Summary Cards */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <Card sx={{ minWidth: 150 }}>
-          <CardContent sx={{ py: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              Transactions
-            </Typography>
-            <Typography variant="h5" fontWeight="bold">
-              {filteredTransactions.length}
-            </Typography>
-          </CardContent>
-        </Card>
-        <Card sx={{ minWidth: 150 }}>
-          <CardContent sx={{ py: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              Vendor Bills
-            </Typography>
-            <Typography variant="h5" fontWeight="bold" color="error.main">
-              {billCount}
-            </Typography>
-          </CardContent>
-        </Card>
-        <Card sx={{ minWidth: 150 }}>
-          <CardContent sx={{ py: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              Customer Invoices
-            </Typography>
-            <Typography variant="h5" fontWeight="bold" color="success.main">
-              {invoiceCount}
-            </Typography>
-          </CardContent>
-        </Card>
-        <Card sx={{ minWidth: 200 }}>
-          <CardContent sx={{ py: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              Unmapped Line Items
-            </Typography>
-            <Typography variant="h5" fontWeight="bold" color="warning.main">
-              {totalUnmappedItems}
-            </Typography>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Transactions"
+          value={filteredTransactions.length.toString()}
+          icon={<TotalIcon />}
+          color="primary"
+        />
+        <StatCard
+          label="Vendor Bills"
+          value={billCount.toString()}
+          icon={<BillIcon />}
+          color="error"
+        />
+        <StatCard
+          label="Customer Invoices"
+          value={invoiceCount.toString()}
+          icon={<InvoiceIcon />}
+          color="success"
+        />
+        <StatCard
+          label="Unmapped Line Items"
+          value={totalUnmappedItems.toString()}
+          icon={<WarningIcon />}
+          color="warning"
+        />
       </Box>
 
       {/* Filters */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ py: 2 }}>
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <TextField
-              placeholder="Search by entity or number..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              size="small"
-              sx={{ minWidth: 300 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Type</InputLabel>
-              <Select
-                value={typeFilter}
-                label="Type"
-                onChange={(e) => setTypeFilter(e.target.value as 'all' | 'bill' | 'invoice')}
-              >
-                <MenuItem value="all">All Types</MenuItem>
-                <MenuItem value="bill">Vendor Bills</MenuItem>
-                <MenuItem value="invoice">Customer Invoices</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-        </CardContent>
-      </Card>
+      <FilterBar onClear={handleClearFilters}>
+        <TextField
+          placeholder="Search by entity or number..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          size="small"
+          sx={{ minWidth: 300 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel>Type</InputLabel>
+          <Select
+            value={typeFilter}
+            label="Type"
+            onChange={(e) => setTypeFilter(e.target.value as 'all' | 'bill' | 'invoice')}
+          >
+            <MenuItem value="all">All Types</MenuItem>
+            <MenuItem value="bill">Vendor Bills</MenuItem>
+            <MenuItem value="invoice">Customer Invoices</MenuItem>
+          </Select>
+        </FormControl>
+      </FilterBar>
 
-      {filteredTransactions.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
-          <SuccessIcon sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
-          <Typography variant="h6">No Unmapped Accounts</Typography>
-          <Typography color="text.secondary">
-            All line items have account mappings assigned.
-          </Typography>
-        </Box>
-      ) : (
-        <Card>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Number</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Entity</TableCell>
-                  <TableCell align="right">Amount</TableCell>
-                  <TableCell align="center">Unmapped Items</TableCell>
-                  <TableCell align="center">Action</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredTransactions
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((transaction) => (
-                    <TableRow key={transaction.id} hover>
-                      <TableCell>
-                        <Chip
-                          label={transaction.type === 'VENDOR_BILL' ? 'Bill' : 'Invoice'}
-                          size="small"
-                          color={transaction.type === 'VENDOR_BILL' ? 'error' : 'success'}
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {transaction.transactionNumber}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{formatDate(transaction.date)}</TableCell>
-                      <TableCell>{transaction.entityName}</TableCell>
-                      <TableCell align="right">
-                        <Typography fontWeight="medium">
-                          {formatCurrency(transaction.totalAmount)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip
-                          label={`${transaction.unmappedCount} / ${transaction.totalLineItems}`}
-                          size="small"
-                          color={
-                            transaction.unmappedCount === transaction.totalLineItems
-                              ? 'error'
-                              : 'warning'
-                          }
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Button
-                          variant="contained"
-                          size="small"
-                          startIcon={<EditIcon />}
-                          onClick={() => handleEdit(transaction)}
-                        >
-                          Edit
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            component="div"
-            count={filteredTransactions.length}
-            page={page}
-            onPageChange={(_, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(e) => {
-              setRowsPerPage(parseInt(e.target.value, 10));
-              setPage(0);
-            }}
-            rowsPerPageOptions={[10, 25, 50, 100]}
-          />
-        </Card>
-      )}
-    </>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Type</TableCell>
+              <TableCell>Number</TableCell>
+              <TableCell>Date</TableCell>
+              <TableCell>Entity</TableCell>
+              <TableCell align="right">Amount</TableCell>
+              <TableCell align="center">Unmapped Items</TableCell>
+              <TableCell align="center">Action</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredTransactions.length === 0 ? (
+              <EmptyState
+                message="All line items have account mappings assigned."
+                variant="table"
+                colSpan={7}
+              />
+            ) : (
+              filteredTransactions
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((transaction) => (
+                  <TableRow key={transaction.id} hover>
+                    <TableCell>
+                      <Chip
+                        label={transaction.type === 'VENDOR_BILL' ? 'Bill' : 'Invoice'}
+                        size="small"
+                        color={transaction.type === 'VENDOR_BILL' ? 'error' : 'success'}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="medium">
+                        {transaction.transactionNumber}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{formatDate(transaction.date)}</TableCell>
+                    <TableCell>{transaction.entityName}</TableCell>
+                    <TableCell align="right">
+                      <Typography fontWeight="medium">
+                        {formatCurrency(transaction.totalAmount, 'INR')}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Chip
+                        label={`${transaction.unmappedCount} / ${transaction.totalLineItems}`}
+                        size="small"
+                        color={
+                          transaction.unmappedCount === transaction.totalLineItems
+                            ? 'error'
+                            : 'warning'
+                        }
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<EditIcon />}
+                        onClick={() => handleEdit(transaction)}
+                      >
+                        Edit
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+            )}
+          </TableBody>
+        </Table>
+        <TablePagination
+          component="div"
+          count={filteredTransactions.length}
+          page={page}
+          onPageChange={(_, newPage) => setPage(newPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+          rowsPerPageOptions={[10, 25, 50, 100]}
+        />
+      </TableContainer>
+    </Box>
   );
 }
