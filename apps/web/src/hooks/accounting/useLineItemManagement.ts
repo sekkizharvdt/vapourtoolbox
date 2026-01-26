@@ -40,7 +40,7 @@ interface UseLineItemManagementReturn {
   /**
    * Update a specific field of a line item
    */
-  updateLineItem: (index: number, field: keyof LineItem, value: string | number) => void;
+  updateLineItem: (index: number, field: keyof LineItem, value: string | number | null) => void;
   /**
    * Calculate subtotal from all line items
    */
@@ -131,13 +131,20 @@ export function useLineItemManagement(
   );
 
   const updateLineItem = useCallback(
-    (index: number, field: keyof LineItem, value: string | number) => {
+    (index: number, field: keyof LineItem, value: string | number | null) => {
       setLineItems((prev) => {
         const newLineItems = [...prev];
         const item = newLineItems[index];
         if (!item) return prev;
 
-        newLineItems[index] = { ...item, [field]: value };
+        // Handle null values for optional fields like accountId
+        if (value === null) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { [field]: _removed, ...rest } = item;
+          newLineItems[index] = rest as LineItem;
+        } else {
+          newLineItems[index] = { ...item, [field]: value };
+        }
 
         // Recalculate amount when quantity or unitPrice changes
         if (field === 'quantity' || field === 'unitPrice') {

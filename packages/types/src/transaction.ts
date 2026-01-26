@@ -2,7 +2,7 @@
  * Transaction Types
  * Comprehensive transaction management for accounting system
  *
- * Supports 7 transaction types:
+ * Supports 8 transaction types:
  * 1. Customer Invoice
  * 2. Customer Payment (Receipt)
  * 3. Vendor Bill
@@ -10,6 +10,7 @@
  * 5. Journal Entry
  * 6. Bank Transfer
  * 7. Expense Claim
+ * 8. Direct Payment (expense payments without vendor bill)
  */
 
 import type { GSTDetails, TDSDetails, LedgerEntry } from './accounting';
@@ -24,7 +25,8 @@ export type TransactionType =
   | 'VENDOR_PAYMENT'
   | 'JOURNAL_ENTRY'
   | 'BANK_TRANSFER'
-  | 'EXPENSE_CLAIM';
+  | 'EXPENSE_CLAIM'
+  | 'DIRECT_PAYMENT';
 
 /**
  * Transaction Status

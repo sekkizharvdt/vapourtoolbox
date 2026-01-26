@@ -311,6 +311,7 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
               tdsAmount={tdsAmount}
               tdsRate={tdsDetails?.tdsRate}
               totalAmount={totalAmount}
+              showAccountSelector
             />
           </Box>
         </Grid>

@@ -19,6 +19,7 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import type { LineItem, GSTDetails } from '@vapour/types';
+import { AccountSelector } from '@/components/common/forms/AccountSelector';
 
 const GST_RATE_SUGGESTIONS = [0, 5, 12, 18, 28];
 
@@ -37,7 +38,7 @@ interface LineItemsTableProps {
   /**
    * Callback to update a specific field of a line item
    */
-  onUpdateLineItem: (index: number, field: keyof LineItem, value: string | number) => void;
+  onUpdateLineItem: (index: number, field: keyof LineItem, value: string | number | null) => void;
   /**
    * Callback to remove a line item
    */
@@ -74,6 +75,10 @@ interface LineItemsTableProps {
    * Whether the table is read-only
    */
   readOnly?: boolean;
+  /**
+   * Show account selector column for Chart of Accounts mapping
+   */
+  showAccountSelector?: boolean;
 }
 
 /**
@@ -105,29 +110,35 @@ export function LineItemsTable({
   totalAmount,
   minItems = 1,
   readOnly = false,
+  showAccountSelector = false,
 }: LineItemsTableProps) {
+  // Calculate column count for colspan in summary rows
+  const baseColCount = showAccountSelector ? 7 : 6;
   return (
     <Box>
       <TableContainer component={Paper} variant="outlined">
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell width="30%">Description</TableCell>
-              <TableCell width="10%" align="right">
+              <TableCell width={showAccountSelector ? '20%' : '30%'}>Description</TableCell>
+              {showAccountSelector && (
+                <TableCell width="18%">Account</TableCell>
+              )}
+              <TableCell width="8%" align="right">
                 Qty
               </TableCell>
-              <TableCell width="15%" align="right">
+              <TableCell width="12%" align="right">
                 Unit Price
               </TableCell>
-              <TableCell width="10%" align="right">
+              <TableCell width="8%" align="right">
                 GST %
               </TableCell>
               <TableCell width="10%">HSN Code</TableCell>
-              <TableCell width="15%" align="right">
+              <TableCell width="12%" align="right">
                 Amount
               </TableCell>
               {!readOnly && (
-                <TableCell width="10%" align="right">
+                <TableCell width="8%" align="right">
                   Actions
                 </TableCell>
               )}
@@ -146,6 +157,19 @@ export function LineItemsTable({
                     disabled={readOnly}
                   />
                 </TableCell>
+                {showAccountSelector && (
+                  <TableCell>
+                    <AccountSelector
+                      value={item.accountId || null}
+                      onChange={(accountId) => onUpdateLineItem(index, 'accountId', accountId)}
+                      filterByType="EXPENSE"
+                      excludeGroups
+                      size="small"
+                      disabled={readOnly}
+                      placeholder="Select account"
+                    />
+                  </TableCell>
+                )}
                 <TableCell>
                   <TextField
                     fullWidth
@@ -218,7 +242,7 @@ export function LineItemsTable({
 
             {/* Subtotal Row */}
             <TableRow>
-              <TableCell colSpan={5} align="right">
+              <TableCell colSpan={baseColCount - 1} align="right">
                 <Typography variant="subtitle2">Subtotal:</Typography>
               </TableCell>
               <TableCell align="right">
@@ -235,7 +259,7 @@ export function LineItemsTable({
                 {gstDetails.gstType === 'CGST_SGST' && (
                   <>
                     <TableRow>
-                      <TableCell colSpan={5} align="right">
+                      <TableCell colSpan={baseColCount - 1} align="right">
                         <Typography variant="body2">CGST ({gstDetails.cgstRate}%):</Typography>
                       </TableCell>
                       <TableCell align="right">
@@ -244,7 +268,7 @@ export function LineItemsTable({
                       {!readOnly && <TableCell />}
                     </TableRow>
                     <TableRow>
-                      <TableCell colSpan={5} align="right">
+                      <TableCell colSpan={baseColCount - 1} align="right">
                         <Typography variant="body2">SGST ({gstDetails.sgstRate}%):</Typography>
                       </TableCell>
                       <TableCell align="right">
@@ -256,7 +280,7 @@ export function LineItemsTable({
                 )}
                 {gstDetails.gstType === 'IGST' && (
                   <TableRow>
-                    <TableCell colSpan={5} align="right">
+                    <TableCell colSpan={baseColCount - 1} align="right">
                       <Typography variant="body2">IGST ({gstDetails.igstRate}%):</Typography>
                     </TableCell>
                     <TableCell align="right">
@@ -271,7 +295,7 @@ export function LineItemsTable({
             {/* TDS Deduction Row (for bills only) */}
             {tdsAmount !== undefined && tdsAmount > 0 && tdsRate !== undefined && (
               <TableRow>
-                <TableCell colSpan={5} align="right">
+                <TableCell colSpan={baseColCount - 1} align="right">
                   <Typography variant="body2" color="error">
                     TDS Deducted ({tdsRate}%):
                   </Typography>
@@ -287,7 +311,7 @@ export function LineItemsTable({
 
             {/* Total Amount Row */}
             <TableRow>
-              <TableCell colSpan={5} align="right">
+              <TableCell colSpan={baseColCount - 1} align="right">
                 <Typography variant="h6">Total Amount:</Typography>
               </TableCell>
               <TableCell align="right">
