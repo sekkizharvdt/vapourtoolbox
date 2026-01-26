@@ -1,0 +1,521 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import {
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  Button,
+  Chip,
+  Alert,
+  TextField,
+  InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Tabs,
+  Tab,
+} from '@mui/material';
+import {
+  Search as SearchIcon,
+  ArrowBack as BackIcon,
+  CheckCircle as SuccessIcon,
+  Warning as WarningIcon,
+} from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
+import { PageHeader, LoadingState } from '@vapour/ui';
+import { Breadcrumbs, Link } from '@mui/material';
+import HomeIcon from '@mui/icons-material/Home';
+import { useAuth } from '@/contexts/AuthContext';
+import { getFirebase } from '@/lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { COLLECTIONS } from '@vapour/firebase';
+import type { VendorBill, CustomerInvoice } from '@vapour/types';
+
+type OverdueItem = {
+  id: string;
+  transactionNumber: string;
+  type: 'VENDOR_BILL' | 'CUSTOMER_INVOICE';
+  entityName: string;
+  dueDate: Date;
+  totalAmount: number;
+  outstandingAmount: number;
+  daysOverdue: number;
+  status: string;
+};
+
+function getAgingBucket(daysOverdue: number): string {
+  if (daysOverdue <= 30) return '0-30 days';
+  if (daysOverdue <= 60) return '31-60 days';
+  if (daysOverdue <= 90) return '61-90 days';
+  return '90+ days';
+}
+
+function getAgingColor(daysOverdue: number): 'warning' | 'error' | 'default' {
+  if (daysOverdue <= 30) return 'warning';
+  if (daysOverdue <= 90) return 'error';
+  return 'error';
+}
+
+export default function OverdueItemsPage() {
+  const router = useRouter();
+  useAuth();
+  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<OverdueItem[]>([]);
+  const [filteredItems, setFilteredItems] = useState<OverdueItem[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [tabValue, setTabValue] = useState(0); // 0 = All, 1 = Receivables, 2 = Payables
+  const [agingFilter, setAgingFilter] = useState<string>('all');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+
+  const fetchOverdueItems = async () => {
+    setLoading(true);
+    try {
+      const { db } = getFirebase();
+      const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
+      const now = new Date();
+
+      const [billsSnap, invoicesSnap] = await Promise.all([
+        getDocs(
+          query(
+            transactionsRef,
+            where('type', '==', 'VENDOR_BILL'),
+            where('status', 'in', ['POSTED', 'APPROVED', 'PARTIALLY_PAID', 'UNPAID'])
+          )
+        ),
+        getDocs(
+          query(
+            transactionsRef,
+            where('type', '==', 'CUSTOMER_INVOICE'),
+            where('status', 'in', ['POSTED', 'APPROVED', 'PARTIALLY_PAID', 'UNPAID'])
+          )
+        ),
+      ]);
+
+      const overdue: OverdueItem[] = [];
+
+      billsSnap.forEach((doc) => {
+        const data = doc.data() as VendorBill;
+        const dueDateRaw = data.dueDate as unknown as
+          | { toDate?: () => Date }
+          | string
+          | Date
+          | undefined;
+        const dueDate =
+          dueDateRaw &&
+          typeof dueDateRaw === 'object' &&
+          'toDate' in dueDateRaw &&
+          dueDateRaw.toDate
+            ? dueDateRaw.toDate()
+            : dueDateRaw
+              ? new Date(dueDateRaw as string | Date)
+              : null;
+
+        if (dueDate && dueDate < now) {
+          const daysOverdue = Math.floor(
+            (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
+          );
+          const outstanding = data.outstandingAmount ?? data.totalAmount ?? 0;
+
+          if (outstanding > 0) {
+            overdue.push({
+              id: doc.id,
+              transactionNumber: data.transactionNumber || '',
+              type: 'VENDOR_BILL',
+              entityName: data.entityName || '',
+              dueDate,
+              totalAmount: data.totalAmount || 0,
+              outstandingAmount: outstanding,
+              daysOverdue,
+              status: data.status || '',
+            });
+          }
+        }
+      });
+
+      invoicesSnap.forEach((doc) => {
+        const data = doc.data() as CustomerInvoice;
+        const dueDateRaw = data.dueDate as unknown as
+          | { toDate?: () => Date }
+          | string
+          | Date
+          | undefined;
+        const dueDate =
+          dueDateRaw &&
+          typeof dueDateRaw === 'object' &&
+          'toDate' in dueDateRaw &&
+          dueDateRaw.toDate
+            ? dueDateRaw.toDate()
+            : dueDateRaw
+              ? new Date(dueDateRaw as string | Date)
+              : null;
+
+        if (dueDate && dueDate < now) {
+          const daysOverdue = Math.floor(
+            (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
+          );
+          const outstanding = data.outstandingAmount ?? data.totalAmount ?? 0;
+
+          if (outstanding > 0) {
+            overdue.push({
+              id: doc.id,
+              transactionNumber: data.transactionNumber || '',
+              type: 'CUSTOMER_INVOICE',
+              entityName: data.entityName || '',
+              dueDate,
+              totalAmount: data.totalAmount || 0,
+              outstandingAmount: outstanding,
+              daysOverdue,
+              status: data.status || '',
+            });
+          }
+        }
+      });
+
+      // Sort by days overdue descending
+      overdue.sort((a, b) => b.daysOverdue - a.daysOverdue);
+
+      setItems(overdue);
+      setFilteredItems(overdue);
+    } catch (err) {
+      console.error('Error fetching overdue items:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOverdueItems();
+  }, []);
+
+  useEffect(() => {
+    let filtered = items;
+
+    // Filter by tab
+    if (tabValue === 1) {
+      filtered = filtered.filter((i) => i.type === 'CUSTOMER_INVOICE');
+    } else if (tabValue === 2) {
+      filtered = filtered.filter((i) => i.type === 'VENDOR_BILL');
+    }
+
+    // Filter by aging bucket
+    if (agingFilter !== 'all') {
+      filtered = filtered.filter((i) => getAgingBucket(i.daysOverdue) === agingFilter);
+    }
+
+    // Filter by search term
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (i) =>
+          i.entityName?.toLowerCase().includes(term) ||
+          i.transactionNumber?.toLowerCase().includes(term)
+      );
+    }
+
+    setFilteredItems(filtered);
+    setPage(0);
+  }, [items, tabValue, agingFilter, searchTerm]);
+
+  const formatDate = (date: Date): string => {
+    return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  const receivables = items.filter((i) => i.type === 'CUSTOMER_INVOICE');
+  const payables = items.filter((i) => i.type === 'VENDOR_BILL');
+  const totalReceivable = receivables.reduce((sum, i) => sum + i.outstandingAmount, 0);
+  const totalPayable = payables.reduce((sum, i) => sum + i.outstandingAmount, 0);
+
+  // Aging summary
+  const agingSummary = {
+    '0-30 days': filteredItems
+      .filter((i) => i.daysOverdue <= 30)
+      .reduce((sum, i) => sum + i.outstandingAmount, 0),
+    '31-60 days': filteredItems
+      .filter((i) => i.daysOverdue > 30 && i.daysOverdue <= 60)
+      .reduce((sum, i) => sum + i.outstandingAmount, 0),
+    '61-90 days': filteredItems
+      .filter((i) => i.daysOverdue > 60 && i.daysOverdue <= 90)
+      .reduce((sum, i) => sum + i.outstandingAmount, 0),
+    '90+ days': filteredItems
+      .filter((i) => i.daysOverdue > 90)
+      .reduce((sum, i) => sum + i.outstandingAmount, 0),
+  };
+
+  if (loading) {
+    return <LoadingState message="Loading overdue items..." />;
+  }
+
+  return (
+    <>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/accounting"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting');
+          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+          Accounting
+        </Link>
+        <Link
+          color="inherit"
+          href="/accounting/data-health"
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            router.push('/accounting/data-health');
+          }}
+          sx={{ cursor: 'pointer' }}
+        >
+          Data Health
+        </Link>
+        <Typography color="text.primary">Overdue Items</Typography>
+      </Breadcrumbs>
+
+      <PageHeader
+        title="Overdue Items"
+        action={
+          <Button
+            variant="outlined"
+            startIcon={<BackIcon />}
+            onClick={() => router.push('/accounting/data-health')}
+          >
+            Back to Dashboard
+          </Button>
+        }
+      />
+
+      {items.length > 0 && (
+        <Alert severity="warning" icon={<WarningIcon />} sx={{ mb: 3 }}>
+          You have {items.length} overdue items totaling{' '}
+          {formatCurrency(items.reduce((sum, i) => sum + i.outstandingAmount, 0))}. Follow up on
+          these items to improve cash flow.
+        </Alert>
+      )}
+
+      {/* Summary Cards */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+        <Card sx={{ minWidth: 150 }}>
+          <CardContent sx={{ py: 1.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              Total Overdue
+            </Typography>
+            <Typography variant="h5" fontWeight="bold">
+              {items.length}
+            </Typography>
+          </CardContent>
+        </Card>
+        <Card sx={{ minWidth: 200 }}>
+          <CardContent sx={{ py: 1.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              Receivables (AR)
+            </Typography>
+            <Typography variant="h5" fontWeight="bold" color="success.main">
+              {formatCurrency(totalReceivable)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {receivables.length} invoices
+            </Typography>
+          </CardContent>
+        </Card>
+        <Card sx={{ minWidth: 200 }}>
+          <CardContent sx={{ py: 1.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              Payables (AP)
+            </Typography>
+            <Typography variant="h5" fontWeight="bold" color="error.main">
+              {formatCurrency(totalPayable)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {payables.length} bills
+            </Typography>
+          </CardContent>
+        </Card>
+      </Box>
+
+      {/* Aging Summary */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="subtitle2" gutterBottom>
+            Aging Summary
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            {Object.entries(agingSummary).map(([bucket, amount]) => (
+              <Box
+                key={bucket}
+                sx={{
+                  p: 1.5,
+                  borderRadius: 1,
+                  bgcolor: amount > 0 ? 'action.hover' : 'transparent',
+                  minWidth: 120,
+                  cursor: amount > 0 ? 'pointer' : 'default',
+                  border: agingFilter === bucket ? 2 : 0,
+                  borderColor: 'primary.main',
+                }}
+                onClick={() => setAgingFilter(agingFilter === bucket ? 'all' : bucket)}
+              >
+                <Typography variant="caption" color="text.secondary">
+                  {bucket}
+                </Typography>
+                <Typography variant="h6" fontWeight="medium">
+                  {formatCurrency(amount)}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* Tabs */}
+      <Card sx={{ mb: 3 }}>
+        <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
+          <Tab label={`All (${items.length})`} />
+          <Tab label={`Receivables (${receivables.length})`} />
+          <Tab label={`Payables (${payables.length})`} />
+        </Tabs>
+      </Card>
+
+      {/* Filters */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent sx={{ py: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <TextField
+              placeholder="Search by entity or number..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              size="small"
+              sx={{ minWidth: 300 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>Aging</InputLabel>
+              <Select
+                value={agingFilter}
+                label="Aging"
+                onChange={(e) => setAgingFilter(e.target.value)}
+              >
+                <MenuItem value="all">All Aging</MenuItem>
+                <MenuItem value="0-30 days">0-30 days</MenuItem>
+                <MenuItem value="31-60 days">31-60 days</MenuItem>
+                <MenuItem value="61-90 days">61-90 days</MenuItem>
+                <MenuItem value="90+ days">90+ days</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </CardContent>
+      </Card>
+
+      {filteredItems.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <SuccessIcon sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
+          <Typography variant="h6">No Overdue Items</Typography>
+          <Typography color="text.secondary">
+            All invoices and bills are within their due dates.
+          </Typography>
+        </Box>
+      ) : (
+        <Card>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Number</TableCell>
+                  <TableCell>Entity</TableCell>
+                  <TableCell>Due Date</TableCell>
+                  <TableCell>Days Overdue</TableCell>
+                  <TableCell align="right">Outstanding</TableCell>
+                  <TableCell>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredItems
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map((item) => (
+                    <TableRow key={item.id} hover>
+                      <TableCell>
+                        <Chip
+                          label={item.type === 'CUSTOMER_INVOICE' ? 'Invoice' : 'Bill'}
+                          size="small"
+                          color={item.type === 'CUSTOMER_INVOICE' ? 'success' : 'error'}
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="medium">
+                          {item.transactionNumber}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{item.entityName}</TableCell>
+                      <TableCell>{formatDate(item.dueDate)}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={`${item.daysOverdue} days`}
+                          size="small"
+                          color={getAgingColor(item.daysOverdue)}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography
+                          fontWeight="medium"
+                          color={item.type === 'CUSTOMER_INVOICE' ? 'success.main' : 'error.main'}
+                        >
+                          {formatCurrency(item.outstandingAmount)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={item.status.replace('_', ' ')}
+                          size="small"
+                          variant="outlined"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            component="div"
+            count={filteredItems.length}
+            page={page}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[10, 25, 50, 100]}
+          />
+        </Card>
+      )}
+    </>
+  );
+}

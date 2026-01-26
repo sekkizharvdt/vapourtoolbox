@@ -22,6 +22,7 @@ import {
   Receipt as ReceiptIcon,
   Assessment as AssessmentIcon,
   AutoMode as AutoModeIcon,
+  HealthAndSafety as DataHealthIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -63,7 +64,8 @@ export default function AccountingPage() {
         },
         {
           title: 'Currency & Forex',
-          description: 'Manage exchange rates, track forex gains/losses, and monitor currency exposure',
+          description:
+            'Manage exchange rates, track forex gains/losses, and monitor currency exposure',
           icon: <ForexIcon sx={{ fontSize: 40, color: 'primary.main' }} />,
           path: '/accounting/currency',
         },
@@ -111,6 +113,12 @@ export default function AccountingPage() {
       description: 'Batch processing, recurring transactions, and reconciliation',
       icon: <AutoModeIcon />,
       modules: [
+        {
+          title: 'Data Health',
+          description: 'Fix data issues: unapplied payments, missing GL entries, unmapped accounts',
+          icon: <DataHealthIcon sx={{ fontSize: 40, color: 'warning.main' }} />,
+          path: '/accounting/data-health',
+        },
         {
           title: 'Payment Batches',
           description: 'Allocate receipts to payments with approval workflow',
