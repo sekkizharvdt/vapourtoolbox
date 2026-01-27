@@ -37,6 +37,7 @@ import {
   Home as HomeIcon,
   CheckCircle as CheckCircleIcon,
   Star as StarIcon,
+  ShoppingCart as ShoppingCartIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -411,16 +412,27 @@ export default function OfferComparisonPage() {
                   >
                     {offer.isRecommended ? 'Recommended' : 'Recommend'}
                   </Button>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    color="success"
-                    startIcon={<CheckCircleIcon />}
-                    onClick={() => handleSelectOffer(offer.id)}
-                    disabled={offer.status === 'SELECTED'}
-                  >
-                    {offer.status === 'SELECTED' ? 'Selected' : 'Select'}
-                  </Button>
+                  {offer.status === 'SELECTED' ? (
+                    <Button
+                      variant="contained"
+                      size="small"
+                      color="primary"
+                      startIcon={<ShoppingCartIcon />}
+                      onClick={() => router.push(`/procurement/pos/new?offerId=${offer.id}`)}
+                    >
+                      Create PO
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="contained"
+                      size="small"
+                      color="success"
+                      startIcon={<CheckCircleIcon />}
+                      onClick={() => handleSelectOffer(offer.id)}
+                    >
+                      Select
+                    </Button>
+                  )}
                 </Stack>
               </Stack>
             ))}
