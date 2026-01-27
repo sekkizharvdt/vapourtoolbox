@@ -3,10 +3,11 @@
 /**
  * Create Purchase Order Page
  *
- * Create a PO from a selected offer
+ * Create a PO from a selected offer with structured commercial terms.
+ * Uses the CommercialTermsForm component for the 19-section terms template.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Box,
@@ -18,10 +19,12 @@ import {
   CircularProgress,
   Alert,
   Divider,
-  Switch,
-  FormControlLabel,
   Breadcrumbs,
   Link,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -29,10 +32,17 @@ import {
   Home as HomeIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Offer } from '@vapour/types';
+import type { Offer, POCommercialTerms, CommercialTermsTemplate } from '@vapour/types';
 import { getOfferById } from '@/lib/procurement/offer';
 import { createPOFromOffer } from '@/lib/procurement/purchaseOrderService';
 import { formatCurrency } from '@/lib/procurement/purchaseOrderHelpers';
+import {
+  getDefaultTemplate,
+  getActiveTemplates,
+  createCommercialTermsFromTemplate,
+  validatePaymentSchedule,
+} from '@/lib/procurement/commercialTerms';
+import { CommercialTermsForm } from '@/components/procurement';
 
 export default function NewPOPage() {
   const router = useRouter();
@@ -45,16 +55,22 @@ export default function NewPOPage() {
   const [offer, setOffer] = useState<Offer | null>(null);
   const [creating, setCreating] = useState(false);
 
-  // Form fields
-  const [paymentTerms, setPaymentTerms] = useState('');
-  const [deliveryTerms, setDeliveryTerms] = useState('');
-  const [warrantyTerms, setWarrantyTerms] = useState('');
-  const [penaltyClause, setPenaltyClause] = useState('');
-  const [otherClauses, setOtherClauses] = useState('');
-  const [deliveryAddress, setDeliveryAddress] = useState('');
+  // Template selection
+  const [selectedTemplate, setSelectedTemplate] = useState<CommercialTermsTemplate>(
+    getDefaultTemplate()
+  );
+  const availableTemplates = useMemo(() => getActiveTemplates(), []);
+
+  // Commercial terms state (structured)
+  const [commercialTerms, setCommercialTerms] = useState<POCommercialTerms>(() =>
+    createCommercialTermsFromTemplate(getDefaultTemplate(), '')
+  );
+
+  // Form validation errors
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Expected delivery date (kept separate as it's a PO-level field, not part of commercial terms)
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
-  const [advancePaymentRequired, setAdvancePaymentRequired] = useState(false);
-  const [advancePercentage, setAdvancePercentage] = useState(30);
 
   useEffect(() => {
     if (!offerId) {
@@ -85,10 +101,11 @@ export default function NewPOPage() {
 
       setOffer(offerData);
 
-      // Pre-fill from offer if available
-      if (offerData.paymentTerms) setPaymentTerms(offerData.paymentTerms);
-      if (offerData.deliveryTerms) setDeliveryTerms(offerData.deliveryTerms);
-      if (offerData.warrantyTerms) setWarrantyTerms(offerData.warrantyTerms);
+      // Update commercial terms with offer currency
+      setCommercialTerms((prev) => ({
+        ...prev,
+        currency: offerData.currency || 'INR',
+      }));
     } catch (err) {
       console.error('[NewPOPage] Error loading offer:', err);
       setError('Failed to load offer');
@@ -97,27 +114,54 @@ export default function NewPOPage() {
     }
   };
 
+  const handleTemplateChange = (templateId: string) => {
+    const template = availableTemplates.find((t) => t.id === templateId);
+    if (template) {
+      setSelectedTemplate(template);
+      // Reset commercial terms to new template defaults, preserving delivery address
+      setCommercialTerms(
+        createCommercialTermsFromTemplate(template, commercialTerms.deliveryAddress, {
+          currency: offer?.currency || 'INR',
+        })
+      );
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    // Validate delivery address
+    if (!commercialTerms.deliveryAddress.trim()) {
+      errors.deliveryAddress = 'Delivery address is required';
+    }
+
+    // Validate payment schedule
+    const scheduleValidation = validatePaymentSchedule(commercialTerms.paymentSchedule);
+    if (!scheduleValidation.isValid) {
+      errors.paymentSchedule = scheduleValidation.error || 'Invalid payment schedule';
+    }
+
+    // Validate buyer contact
+    if (!commercialTerms.buyerContactName.trim()) {
+      errors.buyerContactName = 'Buyer contact name is required';
+    }
+    if (!commercialTerms.buyerContactPhone.trim()) {
+      errors.buyerContactPhone = 'Buyer contact phone is required';
+    }
+    if (!commercialTerms.buyerContactEmail.trim()) {
+      errors.buyerContactEmail = 'Buyer contact email is required';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleCreatePO = async () => {
     if (!user || !offer || !offerId) return;
 
-    // Validation
-    if (!paymentTerms.trim()) {
-      setError('Payment terms are required');
-      return;
-    }
-
-    if (!deliveryTerms.trim()) {
-      setError('Delivery terms are required');
-      return;
-    }
-
-    if (!deliveryAddress.trim()) {
-      setError('Delivery address is required');
-      return;
-    }
-
-    if (advancePaymentRequired && (advancePercentage <= 0 || advancePercentage > 100)) {
-      setError('Advance percentage must be between 1 and 100');
+    // Validate form
+    if (!validateForm()) {
+      setError('Please fix the validation errors before creating the PO');
       return;
     }
 
@@ -125,23 +169,47 @@ export default function NewPOPage() {
     setError('');
 
     try {
-      const otherClausesArray = otherClauses
-        .split('\n')
-        .map((c) => c.trim())
-        .filter((c) => c.length > 0);
+      // Generate legacy text fields from structured terms for backward compatibility
+      const paymentTermsText = commercialTerms.paymentSchedule
+        .map((m) => `${m.percentage}% - ${m.paymentType} (${m.deliverables})`)
+        .join(', ');
+
+      const deliveryTermsText = `${commercialTerms.deliveryWeeks} weeks from ${
+        commercialTerms.deliveryTrigger === 'PO_DATE'
+          ? 'PO date'
+          : commercialTerms.deliveryTrigger === 'ADVANCE_PAYMENT'
+            ? 'advance payment receipt'
+            : 'drawing approval'
+      }. Price basis: ${commercialTerms.priceBasis}`;
+
+      const warrantyTermsText = `${commercialTerms.warrantyMonthsFromSupply} months from supply or ${commercialTerms.warrantyMonthsFromCommissioning} months from commissioning, whichever is later`;
+
+      const penaltyClauseText = `${commercialTerms.ldPerWeekPercent}% per week of delay, maximum ${commercialTerms.ldMaxPercent}% of order value`;
+
+      // Calculate advance payment from payment schedule
+      const advanceMilestone = commercialTerms.paymentSchedule.find(
+        (m) => m.paymentType.toLowerCase().includes('advance')
+      );
+      const advancePercentage = advanceMilestone?.percentage || 0;
 
       const poId = await createPOFromOffer(
         offerId,
         {
-          paymentTerms,
-          deliveryTerms,
-          warrantyTerms: warrantyTerms || undefined,
-          penaltyClause: penaltyClause || undefined,
-          otherClauses: otherClausesArray.length > 0 ? otherClausesArray : undefined,
-          deliveryAddress,
+          // Legacy text fields (for backward compatibility with existing code)
+          paymentTerms: paymentTermsText,
+          deliveryTerms: deliveryTermsText,
+          warrantyTerms: warrantyTermsText,
+          penaltyClause: penaltyClauseText,
+          otherClauses: [],
+          deliveryAddress: commercialTerms.deliveryAddress,
           expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : undefined,
-          advancePaymentRequired,
-          advancePercentage: advancePaymentRequired ? advancePercentage : undefined,
+          advancePaymentRequired: advancePercentage > 0,
+          advancePercentage: advancePercentage > 0 ? advancePercentage : undefined,
+
+          // New structured commercial terms
+          commercialTermsTemplateId: selectedTemplate.id,
+          commercialTermsTemplateName: selectedTemplate.name,
+          commercialTerms: commercialTerms,
         },
         user.uid,
         user.displayName || 'Unknown'
@@ -222,7 +290,7 @@ export default function NewPOPage() {
             Create Purchase Order
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Create a purchase order from the selected offer
+            Create a purchase order from the selected offer with structured commercial terms
           </Typography>
         </Box>
 
@@ -262,129 +330,58 @@ export default function NewPOPage() {
               </Stack>
             </Paper>
 
-            {/* PO Terms Form */}
+            {/* Template Selection */}
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Commercial Terms Template
+              </Typography>
+              <Divider sx={{ my: 2 }} />
+              <FormControl fullWidth>
+                <InputLabel>Select Template</InputLabel>
+                <Select
+                  value={selectedTemplate.id}
+                  label="Select Template"
+                  onChange={(e) => handleTemplateChange(e.target.value)}
+                >
+                  {availableTemplates.map((template) => (
+                    <MenuItem key={template.id} value={template.id}>
+                      {template.name}
+                      {template.isDefault && ' (Default)'}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Paper>
+
+            {/* Commercial Terms Form */}
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
                 Purchase Order Terms
               </Typography>
               <Divider sx={{ my: 2 }} />
-              <Stack spacing={3}>
-                <TextField
-                  label="Payment Terms"
-                  value={paymentTerms}
-                  onChange={(e) => setPaymentTerms(e.target.value)}
-                  required
-                  fullWidth
-                  multiline
-                  rows={3}
-                  placeholder="e.g., 30% advance, 60% on delivery, 10% after commissioning"
-                  helperText="Specify the payment schedule and terms"
-                />
-
-                <TextField
-                  label="Delivery Terms"
-                  value={deliveryTerms}
-                  onChange={(e) => setDeliveryTerms(e.target.value)}
-                  required
-                  fullWidth
-                  multiline
-                  rows={2}
-                  placeholder="e.g., CIF Mumbai Port, FOB Dubai"
-                  helperText="Specify delivery terms (CIF, FOB, etc.)"
-                />
-
-                <TextField
-                  label="Delivery Address"
-                  value={deliveryAddress}
-                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                  required
-                  fullWidth
-                  multiline
-                  rows={3}
-                  placeholder="Complete delivery address with contact details"
-                />
-
-                <TextField
-                  label="Expected Delivery Date"
-                  type="date"
-                  value={expectedDeliveryDate}
-                  onChange={(e) => setExpectedDeliveryDate(e.target.value)}
-                  fullWidth
-                  InputLabelProps={{ shrink: true }}
-                  helperText="Expected date of delivery"
-                />
-
-                <TextField
-                  label="Warranty Terms"
-                  value={warrantyTerms}
-                  onChange={(e) => setWarrantyTerms(e.target.value)}
-                  fullWidth
-                  multiline
-                  rows={2}
-                  placeholder="e.g., 12 months from date of commissioning"
-                />
-
-                <TextField
-                  label="Penalty Clause"
-                  value={penaltyClause}
-                  onChange={(e) => setPenaltyClause(e.target.value)}
-                  fullWidth
-                  multiline
-                  rows={2}
-                  placeholder="e.g., 0.5% per week of delay, max 10% of order value"
-                />
-
-                <TextField
-                  label="Other Clauses"
-                  value={otherClauses}
-                  onChange={(e) => setOtherClauses(e.target.value)}
-                  fullWidth
-                  multiline
-                  rows={4}
-                  placeholder="Enter each clause on a new line"
-                  helperText="Additional terms and conditions (one per line)"
-                />
-              </Stack>
+              <CommercialTermsForm
+                terms={commercialTerms}
+                template={selectedTemplate}
+                onChange={setCommercialTerms}
+                errors={formErrors}
+              />
             </Paper>
 
-            {/* Advance Payment */}
+            {/* Expected Delivery Date */}
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
-                Advance Payment
+                Expected Delivery
               </Typography>
               <Divider sx={{ my: 2 }} />
-              <Stack spacing={2}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={advancePaymentRequired}
-                      onChange={(e) => setAdvancePaymentRequired(e.target.checked)}
-                    />
-                  }
-                  label="Advance payment required"
-                />
-
-                {advancePaymentRequired && (
-                  <>
-                    <TextField
-                      label="Advance Percentage"
-                      type="number"
-                      value={advancePercentage}
-                      onChange={(e) => setAdvancePercentage(Number(e.target.value))}
-                      inputProps={{ min: 1, max: 100 }}
-                      fullWidth
-                      helperText="Percentage of total amount to be paid in advance"
-                    />
-                    <Alert severity="info">
-                      Advance amount:{' '}
-                      {formatCurrency(
-                        (offer.totalAmount * advancePercentage) / 100,
-                        offer.currency
-                      )}
-                    </Alert>
-                  </>
-                )}
-              </Stack>
+              <TextField
+                label="Expected Delivery Date"
+                type="date"
+                value={expectedDeliveryDate}
+                onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                helperText="Expected date of delivery at site"
+              />
             </Paper>
 
             {/* Actions */}

@@ -31,6 +31,7 @@ import type {
   PurchaseOrderStatus,
   Offer,
   OfferItem,
+  POCommercialTerms,
 } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
@@ -92,6 +93,7 @@ export async function generatePONumber(): Promise<string> {
 // ============================================================================
 
 export interface CreatePOFromOfferTerms {
+  // Legacy simple text fields (for backward compatibility)
   paymentTerms: string;
   deliveryTerms: string;
   warrantyTerms?: string;
@@ -101,6 +103,11 @@ export interface CreatePOFromOfferTerms {
   expectedDeliveryDate?: Date;
   advancePaymentRequired?: boolean;
   advancePercentage?: number;
+
+  // New structured commercial terms (optional - for enhanced PO creation)
+  commercialTermsTemplateId?: string;
+  commercialTermsTemplateName?: string;
+  commercialTerms?: POCommercialTerms;
 }
 
 export async function createPOFromOffer(
@@ -206,6 +213,17 @@ export async function createPOFromOffer(
       }
       if (advanceAmount) poData.advanceAmount = advanceAmount;
       if (terms.advancePaymentRequired) poData.advancePaymentStatus = 'PENDING';
+
+      // Add structured commercial terms if provided
+      if (terms.commercialTermsTemplateId) {
+        poData.commercialTermsTemplateId = terms.commercialTermsTemplateId;
+      }
+      if (terms.commercialTermsTemplateName) {
+        poData.commercialTermsTemplateName = terms.commercialTermsTemplateName;
+      }
+      if (terms.commercialTerms) {
+        poData.commercialTerms = terms.commercialTerms;
+      }
 
       const poRef = await addDoc(collection(db, COLLECTIONS.PURCHASE_ORDERS), poData);
 
