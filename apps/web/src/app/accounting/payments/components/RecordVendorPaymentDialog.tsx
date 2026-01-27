@@ -379,7 +379,10 @@ export function RecordVendorPaymentDialog({
       onClose();
     } catch (err) {
       console.error('[RecordVendorPaymentDialog] Error saving payment:', err);
-      setError('Failed to save payment. Please try again.');
+      // Show specific error message if available
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to save payment. Please try again.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
