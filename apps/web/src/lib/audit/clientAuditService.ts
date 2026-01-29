@@ -19,6 +19,20 @@ import type {
 const logger = createLogger({ context: 'clientAuditService' });
 
 /**
+ * Remove undefined values from an object (Firestore rejects undefined)
+ * This is necessary because optional fields may be undefined
+ */
+function removeUndefinedValues<T extends Record<string, unknown>>(obj: T): T {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+  return result as T;
+}
+
+/**
  * User context for audit logging
  * Should be obtained from the current authenticated user
  */
@@ -164,7 +178,9 @@ export async function logAuditEvent(
     };
 
     // Write to Firestore audit logs collection
-    await addDoc(collection(db, COLLECTIONS.AUDIT_LOGS), auditLog);
+    // Remove undefined values as Firestore rejects them
+    const cleanedAuditLog = removeUndefinedValues(auditLog);
+    await addDoc(collection(db, COLLECTIONS.AUDIT_LOGS), cleanedAuditLog);
   } catch (error) {
     // Don't throw errors from audit logging - log but don't block the operation
     logger.error('Failed to write audit log', {
