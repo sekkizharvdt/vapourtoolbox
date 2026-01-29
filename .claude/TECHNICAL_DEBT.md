@@ -75,6 +75,46 @@ This document tracks TODO comments and technical debt items identified in the co
 
 ---
 
+---
+
+## High Priority - New Items
+
+### 6. Form Validation Standardization
+
+**Issue:** 95 form/dialog components exist, but only 4 use the `@vapour/validation` package.
+
+**Current State:**
+
+- `@vapour/validation` package has comprehensive Zod schemas
+- `inputValidation.ts` has sanitization utilities
+- Most forms rely on basic HTML5 validation or none at all
+
+**Files Needing Validation:**
+
+- All `*Dialog.tsx` components (create/edit operations)
+- All `*Form.tsx` components (user input)
+
+**Suggested Fix:**
+
+1. Prioritize forms handling financial data (accounting, procurement)
+2. Add Zod schemas to forms handling sensitive data
+3. Use `zodResolver` with react-hook-form consistently
+4. Create shared validation hooks
+
+**Example Pattern:**
+
+```typescript
+import { zodResolver } from '@hookform/resolvers/zod';
+import { entitySchema } from '@vapour/validation';
+
+const form = useForm({
+  resolver: zodResolver(entitySchema),
+  defaultValues: { ... }
+});
+```
+
+---
+
 ## Resolution Process
 
 1. Create GitHub issue for each item or group
