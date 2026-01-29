@@ -5,9 +5,9 @@ module.exports = {
     const nonTestFiles = filenames.filter((f) => !f.includes('.test.'));
     const commands = ['pnpm exec prettier --write ' + filenames.join(' ')];
 
-    // Only run ESLint on web app files (Next.js lint handles .eslintrc.json correctly)
+    // Run ESLint via Next.js lint (uses --max-warnings from package.json script)
     if (filenames.length > 0) {
-      commands.push(`pnpm --filter @vapour/web run lint --max-warnings=0`);
+      commands.push(`pnpm --filter @vapour/web run lint`);
     }
 
     // Run related tests for non-test source files (exit 0 if no tests found)
@@ -20,24 +20,18 @@ module.exports = {
     return commands;
   },
   'packages/**/*.{ts,tsx}': (filenames) => {
-    const nonTestFiles = filenames.filter((f) => !f.includes('.test.'));
     const commands = ['pnpm exec prettier --write ' + filenames.join(' ')];
-
-    // Run related tests for non-test source files (exit 0 if no tests found)
-    if (nonTestFiles.length > 0) {
-      commands.push(
-        `pnpm exec jest --passWithNoTests --bail --findRelatedTests ${nonTestFiles.join(' ')} || true`
-      );
-    }
-
+    // Note: Packages are type-checked during build. Tests for packages
+    // run through the web app's jest config which imports from packages.
     return commands;
   },
   'functions/**/*.{ts,tsx}': ['pnpm exec prettier --write'],
   'scripts/**/*.js': ['pnpm exec prettier --write'],
 
-  // Run tests for changed test files (use -- to pass flags through turbo)
+  // Run tests for changed test files
   'apps/web/**/*.test.{ts,tsx}': ['pnpm --filter @vapour/web test -- --passWithNoTests --bail'],
-  'packages/**/*.test.{ts,tsx}': ['pnpm test -- --passWithNoTests --bail'],
+  // Package tests run through web app's jest which imports packages
+  'packages/**/*.test.{ts,tsx}': ['pnpm --filter @vapour/web test -- --passWithNoTests --bail'],
 
   // Format E2E tests (no eslint, just prettier)
   'apps/**/e2e/**/*.{ts,tsx}': ['pnpm exec prettier --write'],

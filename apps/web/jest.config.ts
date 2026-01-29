@@ -65,14 +65,15 @@ const config: Config = {
   ],
 
   // Coverage thresholds
-  // Start with 0% and gradually increase as tests are added
+  // Baseline established: 2026-01-29
+  // Current: statements 18%, branches 73%, functions 43%, lines 18%
   // Target: 50% by Q2 2026, 80% by Q4 2026
   coverageThreshold: {
     global: {
-      branches: 0,
-      functions: 0,
-      lines: 0,
-      statements: 0,
+      branches: 70,
+      functions: 40,
+      lines: 15,
+      statements: 15,
     },
   },
 };

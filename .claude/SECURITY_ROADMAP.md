@@ -1237,6 +1237,45 @@ allowlist.regexes = ['''AIzaSyCxzqzAUTT3Ouiv-szpfO1Au4LwEMnP-4w''']
 
 ---
 
-**Last Updated:** 2025-11-06
+---
+
+## 🛡️ Vulnerability Decisions
+
+### CVE-2025-59472: Next.js PPR Memory Exhaustion
+
+**Status:** ✅ NOT AFFECTED (Documented 2026-01-29)
+**CVE:** CVE-2025-59472
+**GHSA:** GHSA-5f7q-jpqc-wp7h
+**Severity:** Moderate (CVSS 5.9)
+
+**Vulnerability Summary:**
+Denial of service via unbounded memory consumption in Next.js with Partial Prerendering (PPR) enabled in minimal mode. Allows V8 out-of-memory errors through unbounded request buffering or zipbomb decompression.
+
+**Affected Versions:**
+
+- Next.js ≥ 15.0.0-canary.0, < 15.6.0-canary.61
+- Requires: `experimental.ppr: true` OR `cacheComponents: true` with `NEXT_PRIVATE_MINIMAL_MODE=1`
+
+**Our Configuration (next.config.ts):**
+
+- `experimental.ppr`: **NOT ENABLED** ❌
+- `output: 'export'`: Static export mode (no Node.js server) ✅
+- `NEXT_PRIVATE_MINIMAL_MODE`: **NOT SET** ❌
+
+**Decision:** Accept vulnerability as **NOT APPLICABLE**
+
+- App uses static export (`output: 'export'`)
+- Served via Firebase Hosting (static files, no Node.js runtime)
+- PPR feature not enabled and not needed for current architecture
+- No server-side Node.js process to attack
+
+**Future Action Required:**
+
+- If migrating to server-side rendering with PPR, upgrade to Next.js ≥ 15.6.0 first
+- Monitor for related CVEs if architecture changes
+
+---
+
+**Last Updated:** 2026-01-29
 **Review Date:** External security review on 2025-11-06
 **Next Review:** 2026-02-01 (after Q1 tasks complete)

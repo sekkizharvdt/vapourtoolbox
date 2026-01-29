@@ -45,6 +45,7 @@ const MIGRATIONS_COLLECTION = 'system_migrations';
  */
 const MIGRATIONS = {
   'add-isDeleted-field': require('./migrations/add-isDeleted-field'),
+  'migrate-po-delivery-fields': require('./migrations/migrate-po-delivery-fields'),
   // Add more migrations as needed
 };
 
@@ -60,23 +61,29 @@ async function isMigrationComplete(migrationName) {
  * Record migration start
  */
 async function recordMigrationStart(migrationName, dryRun) {
-  await db.collection(MIGRATIONS_COLLECTION).doc(migrationName).set({
-    name: migrationName,
-    status: dryRun ? 'dry-run' : 'running',
-    startedAt: admin.firestore.Timestamp.now(),
-    dryRun,
-  });
+  await db
+    .collection(MIGRATIONS_COLLECTION)
+    .doc(migrationName)
+    .set({
+      name: migrationName,
+      status: dryRun ? 'dry-run' : 'running',
+      startedAt: admin.firestore.Timestamp.now(),
+      dryRun,
+    });
 }
 
 /**
  * Record migration completion
  */
 async function recordMigrationComplete(migrationName, stats, dryRun) {
-  await db.collection(MIGRATIONS_COLLECTION).doc(migrationName).update({
-    status: dryRun ? 'dry-run-complete' : 'completed',
-    completedAt: admin.firestore.Timestamp.now(),
-    stats,
-  });
+  await db
+    .collection(MIGRATIONS_COLLECTION)
+    .doc(migrationName)
+    .update({
+      status: dryRun ? 'dry-run-complete' : 'completed',
+      completedAt: admin.firestore.Timestamp.now(),
+      stats,
+    });
 }
 
 /**
@@ -111,14 +118,14 @@ async function runMigration(migrationName, options = {}) {
   if (!migration) {
     console.error(`❌ Migration not found: ${migrationName}`);
     console.log('\nAvailable migrations:');
-    Object.keys(MIGRATIONS).forEach(name => {
+    Object.keys(MIGRATIONS).forEach((name) => {
       console.log(`  - ${name}`);
     });
     process.exit(1);
   }
 
   // Check if already completed
-  if (!dryRun && await isMigrationComplete(migrationName)) {
+  if (!dryRun && (await isMigrationComplete(migrationName))) {
     console.log(`⚠️  Migration "${migrationName}" has already been completed.`);
     console.log('\nTo re-run, delete the migration document from Firestore:');
     console.log(`  Collection: ${MIGRATIONS_COLLECTION}`);
@@ -163,7 +170,6 @@ async function runMigration(migrationName, options = {}) {
     }
 
     process.exit(0);
-
   } catch (error) {
     console.error('\n❌ Migration failed:', error.message);
     console.error(error.stack);
@@ -189,12 +195,12 @@ async function listMigrations() {
   const migrationsSnapshot = await db.collection(MIGRATIONS_COLLECTION).get();
   const migrationStatus = {};
 
-  migrationsSnapshot.forEach(doc => {
+  migrationsSnapshot.forEach((doc) => {
     migrationStatus[doc.id] = doc.data();
   });
 
   // List all migrations
-  Object.keys(MIGRATIONS).forEach(name => {
+  Object.keys(MIGRATIONS).forEach((name) => {
     const status = migrationStatus[name];
 
     if (!status) {
@@ -216,9 +222,9 @@ async function listMigrations() {
 
 // Parse command line arguments
 const args = process.argv.slice(2);
-const migrationName = args.find(arg => !arg.startsWith('--'));
+const migrationName = args.find((arg) => !arg.startsWith('--'));
 const dryRun = args.includes('--dry-run');
-const batchSizeArg = args.find(arg => arg.startsWith('--batch-size='));
+const batchSizeArg = args.find((arg) => arg.startsWith('--batch-size='));
 const batchSize = batchSizeArg ? parseInt(batchSizeArg.split('=')[1]) : 500;
 
 // Handle commands
