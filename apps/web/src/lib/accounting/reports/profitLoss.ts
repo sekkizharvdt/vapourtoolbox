@@ -12,6 +12,24 @@ import { createLogger } from '@vapour/logger';
 
 const logger = createLogger({ context: 'reports/profitLoss' });
 
+/**
+ * Account item for breakdown display
+ */
+export interface AccountLineItem {
+  id: string;
+  code: string;
+  name: string;
+  amount: number;
+}
+
+/**
+ * Category breakdown with accounts
+ */
+export interface CategoryBreakdown {
+  total: number;
+  accounts: AccountLineItem[];
+}
+
 export interface ProfitLossReport {
   period: {
     startDate: Date;
@@ -21,12 +39,19 @@ export interface ProfitLossReport {
     sales: number;
     otherIncome: number;
     total: number;
+    // Account-level breakdown
+    salesAccounts: AccountLineItem[];
+    otherIncomeAccounts: AccountLineItem[];
   };
   expenses: {
     costOfGoodsSold: number;
     operatingExpenses: number;
     otherExpenses: number;
     total: number;
+    // Account-level breakdown
+    cogsAccounts: AccountLineItem[];
+    operatingAccounts: AccountLineItem[];
+    otherAccounts: AccountLineItem[];
   };
   grossProfit: number;
   operatingProfit: number;
@@ -126,6 +151,13 @@ export async function generateProfitLossReport(
     let operatingExpenses = 0;
     let otherExpenses = 0;
 
+    // Account-level breakdown arrays
+    const salesAccounts: AccountLineItem[] = [];
+    const otherIncomeAccounts: AccountLineItem[] = [];
+    const cogsAccounts: AccountLineItem[] = [];
+    const operatingAccounts: AccountLineItem[] = [];
+    const otherAccounts: AccountLineItem[] = [];
+
     accountMap.forEach((account) => {
       const accountName = account.name.toLowerCase();
       const accountCode = account.code;
@@ -134,6 +166,16 @@ export async function generateProfitLossReport(
       if (account.accountType === 'REVENUE' || account.accountType === 'INCOME') {
         const netRevenue = account.credit - account.debit;
 
+        // Only include accounts with non-zero balance
+        if (netRevenue === 0) return;
+
+        const lineItem: AccountLineItem = {
+          id: account.id,
+          code: account.code,
+          name: account.name,
+          amount: netRevenue,
+        };
+
         // Sales accounts (typically 4000-4999)
         if (
           accountCode.startsWith('4') ||
@@ -141,15 +183,27 @@ export async function generateProfitLossReport(
           accountName.includes('revenue')
         ) {
           sales += netRevenue;
+          salesAccounts.push(lineItem);
         } else {
           // Other income
           otherIncome += netRevenue;
+          otherIncomeAccounts.push(lineItem);
         }
       }
 
       // Expense accounts (debit balance means expense)
       if (account.accountType === 'EXPENSE') {
         const netExpense = account.debit - account.credit;
+
+        // Only include accounts with non-zero balance
+        if (netExpense === 0) return;
+
+        const lineItem: AccountLineItem = {
+          id: account.id,
+          code: account.code,
+          name: account.name,
+          amount: netExpense,
+        };
 
         // Cost of Goods Sold (typically 5000-5999)
         if (
@@ -158,6 +212,7 @@ export async function generateProfitLossReport(
           accountName.includes('cogs')
         ) {
           costOfGoodsSold += netExpense;
+          cogsAccounts.push(lineItem);
         }
         // Operating Expenses (typically 6000-7999)
         else if (
@@ -169,13 +224,23 @@ export async function generateProfitLossReport(
           accountName.includes('depreciation')
         ) {
           operatingExpenses += netExpense;
+          operatingAccounts.push(lineItem);
         }
         // Other Expenses
         else {
           otherExpenses += netExpense;
+          otherAccounts.push(lineItem);
         }
       }
     });
+
+    // Sort each category by amount (descending) for better readability
+    const sortByAmount = (a: AccountLineItem, b: AccountLineItem) => b.amount - a.amount;
+    salesAccounts.sort(sortByAmount);
+    otherIncomeAccounts.sort(sortByAmount);
+    cogsAccounts.sort(sortByAmount);
+    operatingAccounts.sort(sortByAmount);
+    otherAccounts.sort(sortByAmount);
 
     // Calculate profits
     const totalRevenue = sales + otherIncome;
@@ -194,12 +259,17 @@ export async function generateProfitLossReport(
         sales,
         otherIncome,
         total: totalRevenue,
+        salesAccounts,
+        otherIncomeAccounts,
       },
       expenses: {
         costOfGoodsSold,
         operatingExpenses,
         otherExpenses,
         total: totalExpenses,
+        cogsAccounts,
+        operatingAccounts,
+        otherAccounts,
       },
       grossProfit,
       operatingProfit,

@@ -19,12 +19,19 @@ import {
   Alert,
   Breadcrumbs,
   Link,
+  Collapse,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
   Assessment as AssessmentIcon,
   Home as HomeIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  UnfoldMore as UnfoldMoreIcon,
+  UnfoldLess as UnfoldLessIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
@@ -32,7 +39,88 @@ import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import {
   generateProfitLossReport,
   type ProfitLossReport,
+  type AccountLineItem,
 } from '@/lib/accounting/reports/profitLoss';
+
+/**
+ * Expandable row component for P&L categories with account breakdown
+ */
+interface ExpandableRowProps {
+  label: string;
+  amount: number;
+  accounts: AccountLineItem[];
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+function ExpandableRow({ label, amount, accounts, expanded, onToggle }: ExpandableRowProps) {
+  const hasAccounts = accounts.length > 0;
+
+  return (
+    <>
+      {/* Main category row */}
+      <TableRow
+        sx={{
+          cursor: hasAccounts ? 'pointer' : 'default',
+          '&:hover': hasAccounts ? { bgcolor: 'action.hover' } : {},
+        }}
+        onClick={hasAccounts ? onToggle : undefined}
+      >
+        <TableCell sx={{ pl: 4 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            {hasAccounts && (
+              <IconButton size="small" sx={{ p: 0 }}>
+                {expanded ? (
+                  <ExpandLessIcon fontSize="small" />
+                ) : (
+                  <ExpandMoreIcon fontSize="small" />
+                )}
+              </IconButton>
+            )}
+            <Typography>{label}</Typography>
+            {hasAccounts && (
+              <Typography variant="caption" color="text.secondary">
+                ({accounts.length} account{accounts.length !== 1 ? 's' : ''})
+              </Typography>
+            )}
+          </Stack>
+        </TableCell>
+        <TableCell align="right">{formatCurrency(amount)}</TableCell>
+      </TableRow>
+
+      {/* Expanded account details */}
+      {hasAccounts && (
+        <TableRow>
+          <TableCell colSpan={2} sx={{ py: 0, pl: 0, pr: 0 }}>
+            <Collapse in={expanded} timeout="auto" unmountOnExit>
+              <Box sx={{ bgcolor: 'grey.50', py: 1 }}>
+                <Table size="small">
+                  <TableBody>
+                    {accounts.map((account) => (
+                      <TableRow key={account.id} sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                        <TableCell sx={{ pl: 8, py: 0.5, borderBottom: 'none' }}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Typography variant="body2" color="text.secondary">
+                              {account.code}
+                            </Typography>
+                            <Typography variant="body2">{account.name}</Typography>
+                          </Stack>
+                        </TableCell>
+                        <TableCell align="right" sx={{ py: 0.5, borderBottom: 'none' }}>
+                          <Typography variant="body2">{formatCurrency(account.amount)}</Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Box>
+            </Collapse>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  );
+}
 
 export default function ProfitLossPage() {
   const router = useRouter();
@@ -50,6 +138,45 @@ export default function ProfitLossPage() {
   const [report, setReport] = useState<ProfitLossReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Expand/collapse state for each category
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    sales: false,
+    otherIncome: false,
+    cogs: false,
+    operating: false,
+    other: false,
+  });
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
+
+  const expandAll = () => {
+    setExpandedSections({
+      sales: true,
+      otherIncome: true,
+      cogs: true,
+      operating: true,
+      other: true,
+    });
+  };
+
+  const collapseAll = () => {
+    setExpandedSections({
+      sales: false,
+      otherIncome: false,
+      cogs: false,
+      operating: false,
+      other: false,
+    });
+  };
+
+  const allExpanded = Object.values(expandedSections).every(Boolean);
+  const allCollapsed = Object.values(expandedSections).every((v) => !v);
 
   const handleGenerateReport = async () => {
     if (!startDate || !endDate) {
@@ -228,18 +355,43 @@ export default function ProfitLossPage() {
                 <TableHead>
                   <TableRow>
                     <TableCell>
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        Profit & Loss Statement
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {new Date(report.period.startDate).toLocaleDateString()} -{' '}
-                        {new Date(report.period.endDate).toLocaleDateString()}
-                      </Typography>
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        <Box>
+                          <Typography variant="subtitle2" fontWeight="bold">
+                            Profit & Loss Statement
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(report.period.startDate).toLocaleDateString()} -{' '}
+                            {new Date(report.period.endDate).toLocaleDateString()}
+                          </Typography>
+                        </Box>
+                      </Stack>
                     </TableCell>
                     <TableCell align="right">
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        Amount
-                      </Typography>
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        justifyContent="flex-end"
+                        alignItems="center"
+                      >
+                        <Tooltip title={allExpanded ? 'All expanded' : 'Expand All'}>
+                          <span>
+                            <IconButton size="small" onClick={expandAll} disabled={allExpanded}>
+                              <UnfoldMoreIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                        <Tooltip title={allCollapsed ? 'All collapsed' : 'Collapse All'}>
+                          <span>
+                            <IconButton size="small" onClick={collapseAll} disabled={allCollapsed}>
+                              <UnfoldLessIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                        <Typography variant="subtitle2" fontWeight="bold" sx={{ ml: 1 }}>
+                          Amount
+                        </Typography>
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 </TableHead>
@@ -252,16 +404,25 @@ export default function ProfitLossPage() {
                       </Typography>
                     </TableCell>
                   </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ pl: 4 }}>Sales Revenue</TableCell>
-                    <TableCell align="right">{formatCurrency(report.revenue.sales)}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ pl: 4 }}>Other Income</TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(report.revenue.otherIncome)}
-                    </TableCell>
-                  </TableRow>
+
+                  {/* Sales Revenue - Expandable */}
+                  <ExpandableRow
+                    label="Sales Revenue"
+                    amount={report.revenue.sales}
+                    accounts={report.revenue.salesAccounts}
+                    expanded={expandedSections.sales ?? false}
+                    onToggle={() => toggleSection('sales')}
+                  />
+
+                  {/* Other Income - Expandable */}
+                  <ExpandableRow
+                    label="Other Income"
+                    amount={report.revenue.otherIncome}
+                    accounts={report.revenue.otherIncomeAccounts}
+                    expanded={expandedSections.otherIncome ?? false}
+                    onToggle={() => toggleSection('otherIncome')}
+                  />
+
                   <TableRow sx={{ bgcolor: 'action.hover' }}>
                     <TableCell sx={{ fontWeight: 'bold' }}>Total Revenue</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 'bold' }}>
@@ -282,36 +443,48 @@ export default function ProfitLossPage() {
                       </Typography>
                     </TableCell>
                   </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ pl: 4 }}>Cost of Goods Sold</TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(report.expenses.costOfGoodsSold)}
-                    </TableCell>
-                  </TableRow>
+
+                  {/* Cost of Goods Sold - Expandable */}
+                  <ExpandableRow
+                    label="Cost of Goods Sold"
+                    amount={report.expenses.costOfGoodsSold}
+                    accounts={report.expenses.cogsAccounts}
+                    expanded={expandedSections.cogs ?? false}
+                    onToggle={() => toggleSection('cogs')}
+                  />
+
                   <TableRow sx={{ bgcolor: 'action.hover' }}>
                     <TableCell sx={{ fontWeight: 'bold' }}>Gross Profit</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                       {formatCurrency(report.grossProfit)}
                     </TableCell>
                   </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ pl: 4 }}>Operating Expenses</TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(report.expenses.operatingExpenses)}
-                    </TableCell>
-                  </TableRow>
+
+                  {/* Operating Expenses - Expandable */}
+                  <ExpandableRow
+                    label="Operating Expenses"
+                    amount={report.expenses.operatingExpenses}
+                    accounts={report.expenses.operatingAccounts}
+                    expanded={expandedSections.operating ?? false}
+                    onToggle={() => toggleSection('operating')}
+                  />
+
                   <TableRow sx={{ bgcolor: 'action.hover' }}>
                     <TableCell sx={{ fontWeight: 'bold' }}>Operating Profit</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                       {formatCurrency(report.operatingProfit)}
                     </TableCell>
                   </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ pl: 4 }}>Other Expenses</TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(report.expenses.otherExpenses)}
-                    </TableCell>
-                  </TableRow>
+
+                  {/* Other Expenses - Expandable */}
+                  <ExpandableRow
+                    label="Other Expenses"
+                    amount={report.expenses.otherExpenses}
+                    accounts={report.expenses.otherAccounts}
+                    expanded={expandedSections.other ?? false}
+                    onToggle={() => toggleSection('other')}
+                  />
+
                   <TableRow sx={{ bgcolor: 'action.hover' }}>
                     <TableCell sx={{ fontWeight: 'bold' }}>Total Expenses</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 'bold' }}>
