@@ -59,6 +59,7 @@ export default function UnappliedPaymentsPage() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'customer' | 'vendor'>('all');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [error, setError] = useState<string | null>(null);
 
   // Edit dialogs
   const [editingCustomerPayment, setEditingCustomerPayment] = useState<CustomerPayment | null>(
@@ -70,6 +71,7 @@ export default function UnappliedPaymentsPage() {
 
   const fetchUnappliedPayments = async () => {
     setLoading(true);
+    setError(null);
     try {
       const { db } = getFirebase();
       const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
@@ -126,6 +128,9 @@ export default function UnappliedPaymentsPage() {
       setFilteredPayments(unapplied);
     } catch (err) {
       console.error('Error fetching unapplied payments:', err);
+      setError(
+        err instanceof Error ? err.message : 'Failed to fetch unapplied payments. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -242,6 +247,12 @@ export default function UnappliedPaymentsPage() {
           </Button>
         }
       />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
       <Alert severity="info" sx={{ mb: 3 }}>
         These payments have been recorded but not applied to any invoice or bill. Click

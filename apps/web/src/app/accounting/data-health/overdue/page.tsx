@@ -80,9 +80,11 @@ export default function OverdueItemsPage() {
   const [agingFilter, setAgingFilter] = useState<string>('all');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchOverdueItems = async () => {
     setLoading(true);
+    setError(null);
     try {
       const { db } = getFirebase();
       const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
@@ -194,6 +196,9 @@ export default function OverdueItemsPage() {
       setFilteredItems(overdue);
     } catch (err) {
       console.error('Error fetching overdue items:', err);
+      setError(
+        err instanceof Error ? err.message : 'Failed to fetch overdue items. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -307,6 +312,12 @@ export default function OverdueItemsPage() {
           </Button>
         }
       />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
       {items.length > 0 && (
         <Alert severity="warning" icon={<WarningIcon />} sx={{ mb: 3 }}>

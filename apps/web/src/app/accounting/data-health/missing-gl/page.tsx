@@ -65,6 +65,7 @@ export default function MissingGLEntriesPage() {
 
   // Regeneration state
   const [regenerating, setRegenerating] = useState<Record<string, boolean>>({});
+  const [error, setError] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -73,6 +74,7 @@ export default function MissingGLEntriesPage() {
 
   const fetchMissingGLPayments = async () => {
     setLoading(true);
+    setError(null);
     try {
       const { db } = getFirebase();
       const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
@@ -143,6 +145,11 @@ export default function MissingGLEntriesPage() {
       setFilteredPayments(missingGL);
     } catch (err) {
       console.error('Error fetching missing GL payments:', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to fetch transactions with missing GL entries. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -260,7 +267,8 @@ export default function MissingGLEntriesPage() {
         } else {
           failCount++;
         }
-      } catch {
+      } catch (err) {
+        console.error('Error regenerating GL for payment:', payment.id, err);
         failCount++;
       } finally {
         setRegenerating((prev) => ({ ...prev, [payment.id]: false }));
@@ -338,6 +346,12 @@ export default function MissingGLEntriesPage() {
           </Box>
         }
       />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
       <Alert severity="warning" sx={{ mb: 3 }}>
         These posted transactions are missing General Ledger entries. This affects your financial

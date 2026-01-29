@@ -62,9 +62,11 @@ export default function UnmappedAccountsPage() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'bill' | 'invoice'>('all');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchUnmappedTransactions = async () => {
     setLoading(true);
+    setError(null);
     try {
       const { db } = getFirebase();
       const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
@@ -136,6 +138,11 @@ export default function UnmappedAccountsPage() {
       setFilteredTransactions(unmapped);
     } catch (err) {
       console.error('Error fetching unmapped transactions:', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to fetch transactions with unmapped accounts. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -238,6 +245,12 @@ export default function UnmappedAccountsPage() {
           </Button>
         }
       />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
       <Alert severity="info" sx={{ mb: 3 }}>
         These transactions have line items without a Chart of Account assigned. This affects
