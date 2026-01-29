@@ -714,7 +714,10 @@ service cloud.firestore {
 
     match /auditLogs/{logId} {
       allow read: if isAdmin(); // Only users with MANAGE_USERS permission
-      allow write: if false; // Written by Cloud Functions only
+      // Write: Internal users can create audit logs (for client-side operations)
+      // External users cannot write audit logs directly
+      allow create: if isInternalUser();
+      allow update, delete: if false; // Audit logs are immutable
     }
 
     // ============================================
