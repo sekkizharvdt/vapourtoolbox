@@ -1296,6 +1296,16 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Idempotency Keys (for preventing duplicate operations)
+    // ============================================
+
+    match /idempotency_keys/{keyId} {
+      // Read/Write: All authenticated users
+      // These keys are used to prevent duplicate operations (e.g., double-click on PO creation)
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================
     // Feedback Collection (Bug Reports, Feature Requests)
     // ============================================
 
