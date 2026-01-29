@@ -6,7 +6,16 @@
  * Card-based navigation to procurement workflows organized by workflow stage
  */
 
-import { Typography, Box, Card, CardContent, CardActions, Button, Grid, Divider } from '@mui/material';
+import {
+  Typography,
+  Box,
+  Card,
+  CardContent,
+  CardActions,
+  Button,
+  Grid,
+  Divider,
+} from '@mui/material';
 import {
   Description as DescriptionIcon,
   RequestQuote as RequestQuoteIcon,
@@ -18,6 +27,7 @@ import {
   CompareArrows as CompareArrowsIcon,
   Edit as EditIcon,
   Folder as FolderIcon,
+  HealthAndSafety as DataHealthIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -132,6 +142,18 @@ export default function ProcurementPage() {
           description: 'Browse and manage procurement-related documents',
           icon: <FolderIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
           path: '/procurement/files',
+        },
+      ],
+    },
+    {
+      title: 'Analytics & Monitoring',
+      description: 'Track procurement health and identify issues',
+      modules: [
+        {
+          title: 'Data Health',
+          description: 'Monitor procurement data quality and identify stale or incomplete items',
+          icon: <DataHealthIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+          path: '/procurement/data-health',
         },
       ],
     },
