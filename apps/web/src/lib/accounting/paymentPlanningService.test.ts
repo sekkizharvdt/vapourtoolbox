@@ -63,7 +63,6 @@ import {
   deleteManualCashFlowItem,
   getManualCashFlowItems,
   generateCashFlowForecast,
-  getCashFlowSummary,
   getCategoryLabel,
   getCategoriesByDirection,
 } from './paymentPlanningService';
@@ -110,7 +109,9 @@ describe('paymentPlanningService', () => {
     });
 
     it('returns category itself for unknown category', () => {
-      expect(getCategoryLabel('UNKNOWN_CATEGORY' as any)).toBe('UNKNOWN_CATEGORY');
+      // Use type assertion to simulate unknown category - getCategoryLabel handles this gracefully
+      const unknownCategory = 'UNKNOWN_CATEGORY' as Parameters<typeof getCategoryLabel>[0];
+      expect(getCategoryLabel(unknownCategory)).toBe('UNKNOWN_CATEGORY');
     });
   });
 
@@ -175,17 +176,19 @@ describe('paymentPlanningService', () => {
       );
     });
 
-    it('handles expectedDate as Timestamp', async () => {
+    it('handles item with all optional fields', async () => {
       const itemData = {
-        name: 'Payment',
+        name: 'Office Rent',
         direction: 'OUTFLOW' as const,
-        category: 'OTHER_EXPENSE' as const,
-        amount: 10000,
+        category: 'RENT_LEASE' as const,
+        amount: 50000,
         currency: 'INR' as const,
-        expectedDate: { toDate: () => new Date('2024-02-01') } as any,
-        isRecurring: false,
+        expectedDate: new Date('2024-02-01'),
+        isRecurring: true,
+        recurrencePattern: 'MONTHLY' as const,
         status: 'PLANNED' as const,
         createdBy: 'user-123',
+        notes: 'Monthly office rent payment',
       };
 
       await createManualCashFlowItem(mockDb, itemData);
