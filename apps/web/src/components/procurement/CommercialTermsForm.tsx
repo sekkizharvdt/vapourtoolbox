@@ -36,6 +36,7 @@ import type {
   CommercialTermsTemplate,
   POPriceBasis,
   PODeliveryTrigger,
+  PODeliveryUnit,
   POScopeAssignment,
   POErectionScope,
   PORequiredDocument,
@@ -55,6 +56,13 @@ const DELIVERY_TRIGGER_LABELS: Record<PODeliveryTrigger, string> = {
   PO_DATE: 'From PO Date',
   ADVANCE_PAYMENT: 'From Advance Payment Receipt',
   DRAWING_APPROVAL: 'From Drawing Approval',
+};
+
+const DELIVERY_UNIT_LABELS: Record<PODeliveryUnit, string> = {
+  READY_STOCK: 'Ready Stock',
+  DAYS: 'Days',
+  WEEKS: 'Weeks',
+  MONTHS: 'Months',
 };
 
 const SCOPE_LABELS: Record<POScopeAssignment, string> = {
@@ -226,35 +234,77 @@ export function CommercialTermsForm({
         <AccordionDetails>
           <Stack spacing={3}>
             {/* 4. Delivery Period */}
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                label="Delivery Period"
-                type="number"
-                value={terms.deliveryWeeks}
-                onChange={(e) => handleChange('deliveryWeeks', Number(e.target.value))}
-                disabled={disabled}
-                inputProps={{ min: 1, max: 104 }}
-                InputProps={{ endAdornment: <InputAdornment position="end">weeks</InputAdornment> }}
-                sx={{ width: 180 }}
-                error={!!errors.deliveryWeeks}
-                helperText={errors.deliveryWeeks}
-              />
-
-              <FormControl sx={{ minWidth: 250 }} disabled={disabled}>
-                <InputLabel>Delivery Trigger</InputLabel>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
+              {/* Delivery Unit Selector */}
+              <FormControl sx={{ minWidth: 150 }} disabled={disabled}>
+                <InputLabel>Delivery Type</InputLabel>
                 <Select
-                  value={terms.deliveryTrigger}
-                  label="Delivery Trigger"
-                  onChange={(e) => handleChange('deliveryTrigger', e.target.value as PODeliveryTrigger)}
+                  value={terms.deliveryUnit || 'WEEKS'}
+                  label="Delivery Type"
+                  onChange={(e) => handleChange('deliveryUnit', e.target.value as PODeliveryUnit)}
                 >
-                  {Object.entries(DELIVERY_TRIGGER_LABELS).map(([value, label]) => (
+                  {Object.entries(DELIVERY_UNIT_LABELS).map(([value, label]) => (
                     <MenuItem key={value} value={value}>
                       {label}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
+
+              {/* Delivery Period - hidden for Ready Stock */}
+              {terms.deliveryUnit !== 'READY_STOCK' && (
+                <TextField
+                  label="Delivery Period"
+                  type="number"
+                  value={terms.deliveryPeriod ?? terms.deliveryWeeks ?? 8}
+                  onChange={(e) => handleChange('deliveryPeriod', Number(e.target.value))}
+                  disabled={disabled}
+                  inputProps={{
+                    min: 1,
+                    max: terms.deliveryUnit === 'DAYS' ? 365 : terms.deliveryUnit === 'MONTHS' ? 24 : 104,
+                  }}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        {terms.deliveryUnit === 'DAYS'
+                          ? 'days'
+                          : terms.deliveryUnit === 'MONTHS'
+                            ? 'months'
+                            : 'weeks'}
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{ width: 180 }}
+                  error={!!errors.deliveryPeriod}
+                  helperText={errors.deliveryPeriod}
+                />
+              )}
+
+              {/* Delivery Trigger - hidden for Ready Stock */}
+              {terms.deliveryUnit !== 'READY_STOCK' && (
+                <FormControl sx={{ minWidth: 250 }} disabled={disabled}>
+                  <InputLabel>Delivery Trigger</InputLabel>
+                  <Select
+                    value={terms.deliveryTrigger}
+                    label="Delivery Trigger"
+                    onChange={(e) => handleChange('deliveryTrigger', e.target.value as PODeliveryTrigger)}
+                  >
+                    {Object.entries(DELIVERY_TRIGGER_LABELS).map(([value, label]) => (
+                      <MenuItem key={value} value={value}>
+                        {label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
             </Stack>
+
+            {/* Ready Stock info message */}
+            {terms.deliveryUnit === 'READY_STOCK' && (
+              <Alert severity="info" sx={{ mt: -1 }}>
+                Items are available immediately from vendor stock. No delivery period required.
+              </Alert>
+            )}
 
             {/* 5. Packing & Forwarding */}
             <FormControlLabel

@@ -199,6 +199,15 @@ export type POPriceBasis = 'FOR_SITE' | 'EX_WORKS' | 'FOR_DESTINATION';
 export type PODeliveryTrigger = 'PO_DATE' | 'ADVANCE_PAYMENT' | 'DRAWING_APPROVAL';
 
 /**
+ * Delivery period unit options
+ * READY_STOCK: Items available immediately (no period needed)
+ * DAYS: Delivery period in days
+ * WEEKS: Delivery period in weeks
+ * MONTHS: Delivery period in months
+ */
+export type PODeliveryUnit = 'READY_STOCK' | 'DAYS' | 'WEEKS' | 'MONTHS';
+
+/**
  * Scope assignment - who is responsible
  */
 export type POScopeAssignment = 'VENDOR' | 'CUSTOMER';
@@ -233,8 +242,15 @@ export interface POCommercialTerms {
   currency: string;
 
   // 4. Delivery
-  deliveryWeeks: number;
-  deliveryTrigger: PODeliveryTrigger;
+  deliveryPeriod: number; // Value depends on deliveryUnit (ignored if READY_STOCK)
+  deliveryUnit: PODeliveryUnit; // READY_STOCK, DAYS, WEEKS, MONTHS
+  deliveryTrigger: PODeliveryTrigger; // When delivery period starts counting
+
+  /**
+   * @deprecated Use deliveryPeriod instead. Kept for backward compatibility.
+   * If deliveryUnit is not set, this value is assumed to be in weeks.
+   */
+  deliveryWeeks?: number;
 
   // 5. Packing & Forwarding
   packingForwardingIncluded: boolean;

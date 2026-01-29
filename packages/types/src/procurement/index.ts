@@ -51,6 +51,7 @@ export {
   type PaymentMilestone,
   type POPriceBasis,
   type PODeliveryTrigger,
+  type PODeliveryUnit,
   type POScopeAssignment,
   type POErectionScope,
   type PORequiredDocument,

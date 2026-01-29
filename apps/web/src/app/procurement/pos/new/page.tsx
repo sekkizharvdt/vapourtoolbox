@@ -174,13 +174,25 @@ export default function NewPOPage() {
         .map((m) => `${m.percentage}% - ${m.paymentType} (${m.deliverables})`)
         .join(', ');
 
-      const deliveryTermsText = `${commercialTerms.deliveryWeeks} weeks from ${
+      // Generate delivery terms text based on delivery unit
+      const deliveryUnitLabel =
+        commercialTerms.deliveryUnit === 'DAYS'
+          ? 'days'
+          : commercialTerms.deliveryUnit === 'MONTHS'
+            ? 'months'
+            : 'weeks';
+
+      const deliveryTriggerLabel =
         commercialTerms.deliveryTrigger === 'PO_DATE'
           ? 'PO date'
           : commercialTerms.deliveryTrigger === 'ADVANCE_PAYMENT'
             ? 'advance payment receipt'
-            : 'drawing approval'
-      }. Price basis: ${commercialTerms.priceBasis}`;
+            : 'drawing approval';
+
+      const deliveryTermsText =
+        commercialTerms.deliveryUnit === 'READY_STOCK'
+          ? `Ready Stock - items available immediately. Price basis: ${commercialTerms.priceBasis}`
+          : `${commercialTerms.deliveryPeriod ?? commercialTerms.deliveryWeeks ?? 8} ${deliveryUnitLabel} from ${deliveryTriggerLabel}. Price basis: ${commercialTerms.priceBasis}`;
 
       const warrantyTermsText = `${commercialTerms.warrantyMonthsFromSupply} months from supply or ${commercialTerms.warrantyMonthsFromCommissioning} months from commissioning, whichever is later`;
 
