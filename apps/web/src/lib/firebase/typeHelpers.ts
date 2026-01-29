@@ -176,6 +176,86 @@ export function isFirestoreTimestamp(value: unknown): value is Timestamp {
 }
 
 /**
+ * Converts any date-like value to a JavaScript Date object.
+ * Handles Firestore Timestamps, Date objects, and date strings.
+ *
+ * @param value - Date value (Timestamp, Date, string, or object with toDate method)
+ * @returns JavaScript Date object, or null if conversion fails
+ *
+ * @example
+ * ```typescript
+ * // Instead of:
+ * const date = typeof value === 'object' && 'toDate' in value
+ *   ? value.toDate()
+ *   : new Date(value as string);
+ *
+ * // Use:
+ * const date = toDate(value);
+ * ```
+ */
+export function toDate(
+  value: Date | Timestamp | string | { toDate?: () => Date } | null | undefined
+): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  // Already a Date
+  if (value instanceof Date) {
+    return value;
+  }
+
+  // Firestore Timestamp
+  if (value instanceof Timestamp) {
+    return value.toDate();
+  }
+
+  // Object with toDate method (Firestore Timestamp-like)
+  if (typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
+    try {
+      return value.toDate();
+    } catch {
+      return null;
+    }
+  }
+
+  // String date
+  if (typeof value === 'string') {
+    try {
+      const date = new Date(value);
+      return isNaN(date.getTime()) ? null : date;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Converts any date-like value to a date string in YYYY-MM-DD format.
+ * Useful for date input fields.
+ *
+ * @param value - Date value to convert
+ * @returns Date string in YYYY-MM-DD format, or empty string if invalid
+ *
+ * @example
+ * ```typescript
+ * const dateStr = toDateString(transaction.date);
+ * // Returns: "2025-01-15" or "" if invalid
+ * ```
+ */
+export function toDateString(
+  value: Date | Timestamp | string | { toDate?: () => Date } | null | undefined
+): string {
+  const date = toDate(value);
+  if (!date) {
+    return '';
+  }
+  return date.toISOString().split('T')[0] || '';
+}
+
+/**
  * Safely converts any date-like value to a Firestore Timestamp
  * Returns null if conversion fails
  */
