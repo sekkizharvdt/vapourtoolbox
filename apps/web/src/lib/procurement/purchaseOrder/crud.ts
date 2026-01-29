@@ -40,6 +40,42 @@ import { withIdempotency, generateIdempotencyKey } from '@/lib/utils/idempotency
 const logger = createLogger({ context: 'purchaseOrder/crud' });
 
 // ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Recursively remove undefined values from an object
+ * Firestore doesn't accept undefined values, so we need to strip them
+ */
+function removeUndefinedDeep<T extends Record<string, unknown>>(obj: T): T {
+  const result: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) {
+      continue; // Skip undefined values
+    }
+
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      // Recursively clean nested objects
+      result[key] = removeUndefinedDeep(value as Record<string, unknown>);
+    } else if (Array.isArray(value)) {
+      // Clean arrays - remove undefined elements and clean objects within
+      result[key] = value
+        .filter((item) => item !== undefined)
+        .map((item) =>
+          item !== null && typeof item === 'object'
+            ? removeUndefinedDeep(item as Record<string, unknown>)
+            : item
+        );
+    } else {
+      result[key] = value;
+    }
+  }
+
+  return result as T;
+}
+
+// ============================================================================
 // PO NUMBER GENERATION (ATOMIC)
 // ============================================================================
 
@@ -222,7 +258,10 @@ export async function createPOFromOffer(
         poData.commercialTermsTemplateName = terms.commercialTermsTemplateName;
       }
       if (terms.commercialTerms) {
-        poData.commercialTerms = terms.commercialTerms;
+        // Remove undefined values from commercialTerms - Firestore doesn't accept undefined
+        poData.commercialTerms = removeUndefinedDeep(
+          terms.commercialTerms as unknown as Record<string, unknown>
+        );
       }
 
       const poRef = await addDoc(collection(db, COLLECTIONS.PURCHASE_ORDERS), poData);
