@@ -779,9 +779,9 @@ service cloud.firestore {
       // Read: Users with VIEW_FINANCIAL_REPORTS permission
       allow read: if hasPermission(8388608); // VIEW_FINANCIAL_REPORTS
 
-      // Create/Update: Only by Cloud Functions (system)
-      // Cloud Functions set createdBy to 'system'
-      allow create, update: if request.auth != null;
+      // Create/Update: Only by internal users with CREATE_TRANSACTIONS permission
+      // or by Cloud Functions (which set createdBy to 'system')
+      allow create, update: if isInternalUser() && hasPermission(2097152); // CREATE_TRANSACTIONS
 
       // Delete: Super admins only
       allow delete: if isSuperAdmin();

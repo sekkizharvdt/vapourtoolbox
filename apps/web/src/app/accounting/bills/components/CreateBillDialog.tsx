@@ -19,6 +19,8 @@ import { useEntityStateFetch } from '@/hooks/accounting/useEntityStateFetch';
 import { useGSTCalculation } from '@/hooks/accounting/useGSTCalculation';
 import { useTDSCalculation } from '@/hooks/accounting/useTDSCalculation';
 import type { TDSSection as TDSSectionType } from '@/lib/accounting/tdsCalculator';
+import { useAuth } from '@/contexts/AuthContext';
+import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 
 interface CreateBillDialogProps {
   open: boolean;
@@ -27,6 +29,7 @@ interface CreateBillDialogProps {
 }
 
 export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialogProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [vendorBillNumber, setVendorBillNumber] = useState('');
@@ -226,9 +229,61 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
             newOutstanding <= 0 ? 'PAID' : existingPaidAmount > 0 ? 'PARTIALLY_PAID' : 'UNPAID',
         };
         await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingBill.id), updatedBill);
+
+        // Audit log: bill updated
+        if (user) {
+          const auditContext = createAuditContext(
+            user.uid,
+            user.email || '',
+            user.displayName || user.email || ''
+          );
+          await logAuditEvent(
+            db,
+            auditContext,
+            'BILL_UPDATED',
+            'BILL',
+            editingBill.id,
+            `Bill ${transactionNumber} updated for ${formState.entityName}`,
+            {
+              entityName: transactionNumber,
+              metadata: {
+                entityId: formState.entityId,
+                entityName: formState.entityName,
+                vendorBillNumber: vendorBillNumber.trim(),
+                amount: totalAmount,
+              },
+            }
+          );
+        }
       } else {
         // Create new bill
-        await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), bill);
+        const docRef = await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), bill);
+
+        // Audit log: bill created
+        if (user) {
+          const auditContext = createAuditContext(
+            user.uid,
+            user.email || '',
+            user.displayName || user.email || ''
+          );
+          await logAuditEvent(
+            db,
+            auditContext,
+            'BILL_CREATED',
+            'BILL',
+            docRef.id,
+            `Bill ${transactionNumber} created for ${formState.entityName}`,
+            {
+              entityName: transactionNumber,
+              metadata: {
+                entityId: formState.entityId,
+                entityName: formState.entityName,
+                vendorBillNumber: vendorBillNumber.trim(),
+                amount: totalAmount,
+              },
+            }
+          );
+        }
       }
 
       onClose();

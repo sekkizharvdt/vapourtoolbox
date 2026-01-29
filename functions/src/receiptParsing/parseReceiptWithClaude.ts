@@ -20,6 +20,8 @@ export interface ClaudeReceiptParseRequest {
   mimeType: string;
   fileName: string;
   companyGstin: string | null;
+  /** API key for Anthropic - should be passed from Firebase Secrets */
+  apiKey: string;
 }
 
 export interface ParsedReceiptData {
@@ -120,10 +122,10 @@ export async function parseReceiptWithClaude(
 ): Promise<ParsedReceiptData> {
   const startTime = Date.now();
 
-  // Get API key from environment (set via Cloud Functions secrets)
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  // Use API key from request (passed from Firebase Secrets)
+  const apiKey = request.apiKey;
   if (!apiKey) {
-    throw new Error('ANTHROPIC_API_KEY not configured');
+    throw new Error('ANTHROPIC_API_KEY not provided');
   }
 
   // Initialize Anthropic client

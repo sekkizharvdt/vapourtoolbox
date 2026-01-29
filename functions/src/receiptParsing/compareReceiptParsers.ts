@@ -534,6 +534,7 @@ export const compareReceiptParsers = onCall(
           mimeType: data.mimeType,
           fileName: data.fileName,
           companyGstin,
+          apiKey: anthropicApiKey.value(),
         })
           .then(
             (result): SingleParserResult => ({

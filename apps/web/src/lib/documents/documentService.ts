@@ -35,6 +35,7 @@ import type {
 } from '@vapour/types';
 import { PermissionFlag } from '@vapour/types';
 import { requireOwnerOrPermission } from '@/lib/auth';
+import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 
 const logger = createLogger({ context: 'documentService' });
 
@@ -160,7 +161,30 @@ export async function uploadDocument(
       });
     }
 
-    // 9. Return complete record
+    // 9. Audit log: document created
+    const auditContext = createAuditContext(userId, '', userName);
+    await logAuditEvent(
+      db,
+      auditContext,
+      'DOCUMENT_CREATED',
+      'MASTER_DOCUMENT',
+      docRef.id,
+      `Document uploaded: ${request.file.name}`,
+      {
+        entityName: request.title || request.file.name,
+        metadata: {
+          module: request.module,
+          documentType: request.documentType,
+          projectId: request.projectId,
+          equipmentId: request.equipmentId,
+          fileSize: request.file.size,
+          version,
+          isNewVersion: request.isNewVersion,
+        },
+      }
+    );
+
+    // 10. Return complete record
     return {
       id: docRef.id,
       ...documentRecord,
@@ -541,6 +565,27 @@ export async function deleteDocument(
       deletionReason: reason,
       updatedAt: Timestamp.now(),
     });
+
+    // Audit log: document deleted
+    const auditContext = createAuditContext(userId, '', '');
+    await logAuditEvent(
+      db,
+      auditContext,
+      'DOCUMENT_DELETED',
+      'MASTER_DOCUMENT',
+      documentId,
+      `Document deleted: ${document.fileName}`,
+      {
+        entityName: document.title || document.fileName,
+        severity: 'CRITICAL',
+        metadata: {
+          fileName: document.fileName,
+          module: document.module,
+          projectId: document.projectId,
+          deletionReason: reason,
+        },
+      }
+    );
   } catch (error) {
     logger.error('Failed to delete document', { documentId, error });
     throw error;

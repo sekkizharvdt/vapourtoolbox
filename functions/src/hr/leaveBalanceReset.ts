@@ -213,7 +213,13 @@ export const resetLeaveBalances = onSchedule(
 export const seedLeaveTypes = onCall(
   {
     region: 'asia-south1',
-    cors: true,
+    cors: [
+      'https://toolbox.vapourdesal.com',
+      'https://vapour-toolbox.web.app',
+      'https://vapour-toolbox.firebaseapp.com',
+      'http://localhost:3000',
+      'http://localhost:3001',
+    ],
   },
   async (request) => {
     // Verify caller has admin permissions
@@ -332,7 +338,13 @@ export const seedLeaveTypes = onCall(
 export const manualResetLeaveBalances = onCall(
   {
     region: 'asia-south1',
-    cors: true,
+    cors: [
+      'https://toolbox.vapourdesal.com',
+      'https://vapour-toolbox.web.app',
+      'https://vapour-toolbox.firebaseapp.com',
+      'http://localhost:3000',
+      'http://localhost:3001',
+    ],
   },
   async (request) => {
     // Verify caller has admin permissions

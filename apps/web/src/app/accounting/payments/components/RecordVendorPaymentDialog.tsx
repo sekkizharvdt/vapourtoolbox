@@ -22,6 +22,7 @@ import {
   PAYMENT_METHODS,
   TDS_SECTIONS,
 } from './vendor-payment';
+import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 
 interface RecordVendorPaymentDialogProps {
   open: boolean;
@@ -371,9 +372,67 @@ export function RecordVendorPaymentDialog({
           oldAllocations,
           validAllocations
         );
+
+        // Audit log: payment updated
+        if (user) {
+          const auditContext = createAuditContext(
+            user.uid,
+            user.email || '',
+            user.displayName || user.email || ''
+          );
+          await logAuditEvent(
+            db,
+            auditContext,
+            'PAYMENT_UPDATED',
+            'PAYMENT',
+            editingPayment.id,
+            `Vendor payment ${transactionNumber} updated for ${entityName}`,
+            {
+              entityName: transactionNumber || '',
+              metadata: {
+                entityId,
+                entityName,
+                amount,
+                paymentMethod,
+                allocationsCount: validAllocations.length,
+              },
+            }
+          );
+        }
       } else {
         // Create new payment with GL validation
-        await createPaymentWithAllocationsAtomic(db, paymentData, validAllocations);
+        const paymentId = await createPaymentWithAllocationsAtomic(
+          db,
+          paymentData,
+          validAllocations
+        );
+
+        // Audit log: payment created
+        if (user) {
+          const auditContext = createAuditContext(
+            user.uid,
+            user.email || '',
+            user.displayName || user.email || ''
+          );
+          await logAuditEvent(
+            db,
+            auditContext,
+            'PAYMENT_CREATED',
+            'PAYMENT',
+            paymentId,
+            `Vendor payment ${transactionNumber} created for ${entityName}`,
+            {
+              entityName: transactionNumber || '',
+              metadata: {
+                entityId,
+                entityName,
+                amount,
+                paymentMethod,
+                allocationsCount: validAllocations.length,
+              },
+            }
+          );
+        }
       }
 
       onClose();

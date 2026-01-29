@@ -27,6 +27,8 @@ import { useTransactionForm } from '@/hooks/accounting/useTransactionForm';
 import { useLineItemManagement } from '@/hooks/accounting/useLineItemManagement';
 import { useEntityStateFetch } from '@/hooks/accounting/useEntityStateFetch';
 import { useGSTCalculation } from '@/hooks/accounting/useGSTCalculation';
+import { useAuth } from '@/contexts/AuthContext';
+import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 
 interface CreateInvoiceDialogProps {
   open: boolean;
@@ -41,6 +43,7 @@ export function CreateInvoiceDialog({
   editingInvoice,
   viewOnly = false,
 }: CreateInvoiceDialogProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [customInvoiceNumber, setCustomInvoiceNumber] = useState('');
@@ -251,9 +254,61 @@ export function CreateInvoiceDialog({
       if (editingInvoice?.id) {
         // Update existing invoice
         await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingInvoice.id), invoice);
+
+        // Audit log: invoice updated
+        if (user) {
+          const auditContext = createAuditContext(
+            user.uid,
+            user.email || '',
+            user.displayName || user.email || ''
+          );
+          await logAuditEvent(
+            db,
+            auditContext,
+            'INVOICE_UPDATED',
+            'INVOICE',
+            editingInvoice.id,
+            `Invoice ${transactionNumber} updated for ${formState.entityName}`,
+            {
+              entityName: transactionNumber,
+              metadata: {
+                entityId: formState.entityId,
+                entityName: formState.entityName,
+                amount: grandTotal,
+                currency,
+              },
+            }
+          );
+        }
       } else {
         // Create new invoice
-        await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), invoice);
+        const docRef = await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), invoice);
+
+        // Audit log: invoice created
+        if (user) {
+          const auditContext = createAuditContext(
+            user.uid,
+            user.email || '',
+            user.displayName || user.email || ''
+          );
+          await logAuditEvent(
+            db,
+            auditContext,
+            'INVOICE_CREATED',
+            'INVOICE',
+            docRef.id,
+            `Invoice ${transactionNumber} created for ${formState.entityName}`,
+            {
+              entityName: transactionNumber,
+              metadata: {
+                entityId: formState.entityId,
+                entityName: formState.entityName,
+                amount: grandTotal,
+                currency,
+              },
+            }
+          );
+        }
       }
 
       onClose();

@@ -84,7 +84,7 @@ interface Message {
 interface AIHelpRequest {
   messages: Message[];
   currentPage?: string;
-  userEmail?: string;
+  // Note: userEmail removed for privacy - not sent to external AI services
 }
 
 /**
@@ -116,7 +116,7 @@ export const aiHelp = onCall(
       throw new HttpsError('unauthenticated', 'User must be authenticated to use AI Help');
     }
 
-    const { messages, currentPage, userEmail } = request.data as AIHelpRequest;
+    const { messages, currentPage } = request.data as AIHelpRequest;
 
     // Validate input
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -137,11 +137,11 @@ export const aiHelp = onCall(
       const client = new Anthropic({ apiKey });
 
       // Add context about current page to the system prompt
+      // Note: User email removed for privacy - not sent to external AI services
       const contextualPrompt = `${SYSTEM_PROMPT}
 
 ## Current Context
 - User is on page: ${currentPage || 'Unknown'}
-- User email: ${userEmail || request.auth.token.email || 'Unknown'}
 - This is a beta testing session`;
 
       const response = await client.messages.create({

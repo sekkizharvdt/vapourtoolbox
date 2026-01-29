@@ -12,6 +12,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { PaymentMethod, LedgerEntry } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { useBankAccounts } from '@/lib/accounting/hooks/useAccounts';
+import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 
 const PAYMENT_METHODS: PaymentMethod[] = [
   'CASH',
@@ -230,9 +231,59 @@ export function RecordDirectPaymentDialog({
       if (editingPayment?.id) {
         // Update existing payment
         await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, editingPayment.id), paymentData);
+
+        // Audit log: payment updated
+        if (user) {
+          const auditContext = createAuditContext(
+            user.uid,
+            user.email || '',
+            user.displayName || user.email || ''
+          );
+          await logAuditEvent(
+            db,
+            auditContext,
+            'PAYMENT_UPDATED',
+            'PAYMENT',
+            editingPayment.id,
+            `Direct payment ${transactionNumber} updated`,
+            {
+              entityName: transactionNumber,
+              metadata: {
+                amount,
+                paymentMethod,
+                expenseAccountId,
+              },
+            }
+          );
+        }
       } else {
         // Create new payment
-        await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), paymentData);
+        const docRef = await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), paymentData);
+
+        // Audit log: payment created
+        if (user) {
+          const auditContext = createAuditContext(
+            user.uid,
+            user.email || '',
+            user.displayName || user.email || ''
+          );
+          await logAuditEvent(
+            db,
+            auditContext,
+            'PAYMENT_CREATED',
+            'PAYMENT',
+            docRef.id,
+            `Direct payment ${transactionNumber} created`,
+            {
+              entityName: transactionNumber,
+              metadata: {
+                amount,
+                paymentMethod,
+                expenseAccountId,
+              },
+            }
+          );
+        }
       }
 
       onClose();

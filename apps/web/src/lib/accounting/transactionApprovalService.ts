@@ -16,11 +16,14 @@ import type {
   TransactionStatus,
   TransactionApprovalRecord,
   TaskNotificationCategory,
+  AuditAction,
+  AuditEntityType,
 } from '@vapour/types';
 import {
   createTaskNotification,
   completeTaskNotificationsByEntity,
 } from '@/lib/tasks/taskNotificationService';
+import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 
 // Validation constants
 const MAX_COMMENT_LENGTH = 2000;
@@ -206,6 +209,30 @@ export async function submitTransactionForApproval(
       autoCompletable: true,
     });
 
+    // Audit log: transaction submitted for approval
+    const auditAction: AuditAction =
+      config.entityType === 'INVOICE' ? 'INVOICE_SUBMITTED' : 'BILL_SUBMITTED';
+    const auditEntityType: AuditEntityType = config.entityType;
+    const auditContext = createAuditContext(userId, '', userName);
+    await logAuditEvent(
+      db,
+      auditContext,
+      auditAction,
+      auditEntityType,
+      transactionId,
+      `${config.entityLabel} ${displayNumber} submitted for approval to ${approverName}`,
+      {
+        entityName: displayNumber,
+        metadata: {
+          entityId: transaction.entityId,
+          entityName,
+          approverId,
+          approverName,
+          comments,
+        },
+      }
+    );
+
     logger.info(`${config.entityLabel} submitted for approval`, {
       transactionId,
       userId,
@@ -313,6 +340,29 @@ export async function approveTransaction(
       }
     }
 
+    // Audit log: transaction approved
+    const auditAction: AuditAction =
+      config.entityType === 'INVOICE' ? 'INVOICE_APPROVED' : 'BILL_APPROVED';
+    const auditEntityType: AuditEntityType = config.entityType;
+    const auditContext = createAuditContext(userId, '', userName);
+    await logAuditEvent(
+      db,
+      auditContext,
+      auditAction,
+      auditEntityType,
+      transactionId,
+      `${config.entityLabel} ${displayNumber} approved by ${userName}`,
+      {
+        entityName: displayNumber,
+        severity: 'WARNING', // Approvals are important actions
+        metadata: {
+          entityId: transaction.entityId,
+          entityName,
+          comments,
+        },
+      }
+    );
+
     logger.info(`${config.entityLabel} approved`, {
       transactionId,
       userId,
@@ -411,6 +461,29 @@ export async function rejectTransaction(
         });
       }
     }
+
+    // Audit log: transaction rejected
+    const auditAction: AuditAction =
+      config.entityType === 'INVOICE' ? 'INVOICE_REJECTED' : 'BILL_REJECTED';
+    const auditEntityType: AuditEntityType = config.entityType;
+    const auditContext = createAuditContext(userId, '', userName);
+    await logAuditEvent(
+      db,
+      auditContext,
+      auditAction,
+      auditEntityType,
+      transactionId,
+      `${config.entityLabel} ${displayNumber} rejected by ${userName}: ${comments}`,
+      {
+        entityName: displayNumber,
+        severity: 'WARNING', // Rejections are important actions
+        metadata: {
+          entityId: transaction.entityId,
+          entityName: (transaction.entityName as string) || config.counterpartyLabelLower,
+          rejectionReason: comments,
+        },
+      }
+    );
 
     logger.info(`${config.entityLabel} rejected`, {
       transactionId,

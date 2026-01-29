@@ -17,6 +17,7 @@ import { getFirebase } from '@/lib/firebase';
 import type { CustomClaims } from '@vapour/types';
 import { isAuthorizedDomain, PERMISSION_PRESETS } from '@vapour/constants';
 import { createLogger } from '@vapour/utils';
+import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 
 const logger = createLogger('Auth');
 
@@ -324,8 +325,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      // Audit log: successful Google sign-in
+      const auditContext = createAuditContext(
+        result.user.uid,
+        email,
+        result.user.displayName || email
+      );
+      await logAuditEvent(
+        db,
+        auditContext,
+        'LOGIN_SUCCESS',
+        'USER',
+        result.user.uid,
+        `User signed in via Google: ${email}`,
+        {
+          metadata: {
+            authMethod: 'google',
+            isNewUser: !userDocSnap.exists(),
+          },
+        }
+      );
+
       // Success - user will be handled by onAuthStateChanged
     } catch (error: unknown) {
+      // Audit log: failed Google sign-in
+      const { db: auditDb } = getFirebase();
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error during Google sign-in';
+      await logAuditEvent(
+        auditDb,
+        createAuditContext('unknown', 'unknown', 'unknown'),
+        'LOGIN_FAILED',
+        'USER',
+        'unknown',
+        `Google sign-in failed: ${errorMessage}`,
+        {
+          success: false,
+          errorMessage,
+          metadata: { authMethod: 'google' },
+        }
+      );
+
       // Clean up on error
       if (auth.currentUser) {
         await firebaseSignOut(auth);
@@ -368,49 +408,104 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Validate domain is authorized
     if (!isAuthorizedDomain(email)) {
+      // Audit log: unauthorized domain attempt
+      await logAuditEvent(
+        db,
+        createAuditContext('unknown', email, email),
+        'LOGIN_FAILED',
+        'USER',
+        'unknown',
+        `Email link sign-in failed: unauthorized domain for ${email}`,
+        {
+          success: false,
+          errorMessage: 'UNAUTHORIZED_DOMAIN',
+          metadata: { authMethod: 'email_link' },
+        }
+      );
       throw new Error('UNAUTHORIZED_DOMAIN');
     }
 
-    const result = await signInWithEmailLink(auth, email, link);
+    try {
+      const result = await signInWithEmailLink(auth, email, link);
 
-    // Clear stored email
-    window.localStorage.removeItem('emailForSignIn');
+      // Clear stored email
+      window.localStorage.removeItem('emailForSignIn');
 
-    // Check if user document exists in Firestore
-    const { doc, getDoc, setDoc, serverTimestamp } = await import('firebase/firestore');
-    const userDocRef = doc(db, 'users', result.user.uid);
-    const userDocSnap = await getDoc(userDocRef);
+      // Check if user document exists in Firestore
+      const { doc, getDoc, setDoc, serverTimestamp } = await import('firebase/firestore');
+      const userDocRef = doc(db, 'users', result.user.uid);
+      const userDocSnap = await getDoc(userDocRef);
 
-    // If user document doesn't exist, create it
-    if (!userDocSnap.exists()) {
-      // Calculate domain from email (@vapourdesal.com = internal, others = external)
-      const isInternalUser = email.endsWith('@vapourdesal.com');
-      const domain = isInternalUser ? 'internal' : 'external';
+      // If user document doesn't exist, create it
+      if (!userDocSnap.exists()) {
+        // Calculate domain from email (@vapourdesal.com = internal, others = external)
+        const isInternalUser = email.endsWith('@vapourdesal.com');
+        const domain = isInternalUser ? 'internal' : 'external';
 
-      // Auto-approve internal users with VIEWER permissions
-      // External users remain pending until admin approves
-      const userStatus = isInternalUser ? 'active' : 'pending';
-      const userIsActive = isInternalUser;
-      const userPermissions = isInternalUser ? PERMISSION_PRESETS.VIEWER : 0;
+        // Auto-approve internal users with VIEWER permissions
+        // External users remain pending until admin approves
+        const userStatus = isInternalUser ? 'active' : 'pending';
+        const userIsActive = isInternalUser;
+        const userPermissions = isInternalUser ? PERMISSION_PRESETS.VIEWER : 0;
 
-      await setDoc(userDocRef, {
-        uid: result.user.uid,
-        email: email,
-        displayName: result.user.displayName || email.split('@')[0] || '',
-        photoURL: result.user.photoURL || '',
-        status: userStatus,
-        isActive: userIsActive,
-        permissions: userPermissions,
-        domain: domain,
-        assignedProjects: [],
-        department: '',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+        await setDoc(userDocRef, {
+          uid: result.user.uid,
+          email: email,
+          displayName: result.user.displayName || email.split('@')[0] || '',
+          photoURL: result.user.photoURL || '',
+          status: userStatus,
+          isActive: userIsActive,
+          permissions: userPermissions,
+          domain: domain,
+          assignedProjects: [],
+          department: '',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
 
-      if (isInternalUser) {
-        logger.info('Auto-approved internal user with VIEWER permissions', { email });
+        if (isInternalUser) {
+          logger.info('Auto-approved internal user with VIEWER permissions', { email });
+        }
       }
+
+      // Audit log: successful email link sign-in
+      const auditContext = createAuditContext(
+        result.user.uid,
+        email,
+        result.user.displayName || email.split('@')[0] || email
+      );
+      await logAuditEvent(
+        db,
+        auditContext,
+        'LOGIN_SUCCESS',
+        'USER',
+        result.user.uid,
+        `User signed in via email link: ${email}`,
+        {
+          metadata: {
+            authMethod: 'email_link',
+            isNewUser: !userDocSnap.exists(),
+          },
+        }
+      );
+    } catch (error) {
+      // Audit log: failed email link sign-in
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error during email link sign-in';
+      await logAuditEvent(
+        db,
+        createAuditContext('unknown', email, email),
+        'LOGIN_FAILED',
+        'USER',
+        'unknown',
+        `Email link sign-in failed for ${email}: ${errorMessage}`,
+        {
+          success: false,
+          errorMessage,
+          metadata: { authMethod: 'email_link' },
+        }
+      );
+      throw error;
     }
   };
 
@@ -423,7 +518,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    const { auth } = getFirebase();
+    const { auth, db } = getFirebase();
+
+    // Capture user info before signing out for audit log
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      const auditContext = createAuditContext(
+        currentUser.uid,
+        currentUser.email || '',
+        currentUser.displayName || currentUser.email || ''
+      );
+      await logAuditEvent(
+        db,
+        auditContext,
+        'LOGOUT',
+        'USER',
+        currentUser.uid,
+        `User signed out: ${currentUser.email}`
+      );
+    }
+
     await firebaseSignOut(auth);
   };
 
