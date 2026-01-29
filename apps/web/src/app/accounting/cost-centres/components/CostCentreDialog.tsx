@@ -19,6 +19,11 @@ import { addDoc, updateDoc, doc, collection, Timestamp } from 'firebase/firestor
 import { COLLECTIONS } from '@vapour/firebase';
 import type { CostCentre, CurrencyCode, CostCentreCategory } from '@vapour/types';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
+import {
+  logAuditEvent,
+  createAuditContext,
+  createFieldChanges,
+} from '@/lib/audit/clientAuditService';
 
 interface CostCentreDialogProps {
   open: boolean;
@@ -172,9 +177,48 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
           updatedAt: Timestamp.now(),
           updatedBy: user.uid,
         });
+
+        // Log audit event for cost centre update
+        const auditContext = createAuditContext(
+          user.uid,
+          user.email || '',
+          user.displayName || user.email || ''
+        );
+
+        const changes = createFieldChanges(
+          {
+            name: costCentre.name,
+            category: costCentre.category,
+            budgetAmount: costCentre.budgetAmount,
+            isActive: costCentre.isActive,
+          },
+          {
+            name: formData.name,
+            category: formData.category,
+            budgetAmount: budgetValue || null,
+            isActive: formData.isActive,
+          }
+        );
+
+        await logAuditEvent(
+          db,
+          auditContext,
+          'COST_CENTRE_UPDATED',
+          'COST_CENTRE',
+          costCentre.id,
+          `Updated cost centre "${formData.name}" (${formData.code})`,
+          {
+            entityName: formData.name,
+            changes,
+            metadata: {
+              code: formData.code,
+              category: formData.category,
+            },
+          }
+        );
       } else {
         // Create new cost centre
-        await addDoc(collection(db, COLLECTIONS.COST_CENTRES), {
+        const newDoc = await addDoc(collection(db, COLLECTIONS.COST_CENTRES), {
           code: formData.code,
           name: formData.name,
           description: formData.description || null,
@@ -189,6 +233,30 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
           createdBy: user.uid,
           updatedAt: Timestamp.now(),
         });
+
+        // Log audit event for cost centre creation
+        const auditContext = createAuditContext(
+          user.uid,
+          user.email || '',
+          user.displayName || user.email || ''
+        );
+
+        await logAuditEvent(
+          db,
+          auditContext,
+          'COST_CENTRE_CREATED',
+          'COST_CENTRE',
+          newDoc.id,
+          `Created cost centre "${formData.name}" (${formData.code})`,
+          {
+            entityName: formData.name,
+            metadata: {
+              code: formData.code,
+              category: formData.category,
+              budgetAmount: budgetValue,
+            },
+          }
+        );
       }
 
       onClose();

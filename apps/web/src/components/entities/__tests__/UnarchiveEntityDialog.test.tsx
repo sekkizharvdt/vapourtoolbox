@@ -24,6 +24,26 @@ jest.mock('@/lib/firebase', () => ({
   })),
 }));
 
+// Mock useAuth
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { uid: 'test-user-id', email: 'test@example.com', displayName: 'Test User' },
+    claims: { admin: false },
+    loading: false,
+    error: null,
+  }),
+}));
+
+// Mock audit logging (fire-and-forget, no need to await in tests)
+jest.mock('@/lib/audit/clientAuditService', () => ({
+  logAuditEvent: jest.fn().mockResolvedValue(undefined),
+  createAuditContext: jest.fn().mockReturnValue({
+    userId: 'test-user-id',
+    userEmail: 'test@example.com',
+    userName: 'Test User',
+  }),
+}));
+
 describe('UnarchiveEntityDialog', () => {
   const archivedEntity = createMockArchivedEntity({
     name: 'Archived Entity',

@@ -18,6 +18,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { checkEntityCascadeDelete } from '@/lib/entities/businessEntityService';
+import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 
 interface ArchiveEntityDialogProps {
   open: boolean;
@@ -74,6 +75,30 @@ export function ArchiveEntityDialog({
         archiveReason: reason.trim(),
         updatedAt: Timestamp.now(),
       });
+
+      // Log audit event for entity archive
+      const auditContext = createAuditContext(
+        user.uid,
+        user.email || '',
+        user.displayName || user.email || ''
+      );
+
+      await logAuditEvent(
+        db,
+        auditContext,
+        'ENTITY_DELETED', // Using DELETED as archive is a soft-delete
+        'ENTITY',
+        entity.id,
+        `Archived entity "${entity.name}"`,
+        {
+          entityName: entity.name,
+          severity: 'WARNING',
+          metadata: {
+            archiveReason: reason.trim(),
+            roles: entity.roles,
+          },
+        }
+      );
 
       // Reset and close
       setReason('');

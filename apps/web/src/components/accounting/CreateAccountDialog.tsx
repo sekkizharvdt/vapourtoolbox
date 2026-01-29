@@ -21,6 +21,11 @@ import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { Account, AccountType, AccountCategory } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  logAuditEvent,
+  createAuditContext,
+  createFieldChanges,
+} from '@/lib/audit/clientAuditService';
 
 interface CreateAccountDialogProps {
   open: boolean;
@@ -37,7 +42,12 @@ const ACCOUNT_CATEGORIES: Record<AccountType, AccountCategory[]> = {
   EXPENSE: ['COST_OF_GOODS_SOLD', 'OPERATING_EXPENSES', 'FINANCIAL_EXPENSES', 'OTHER_EXPENSES'],
 };
 
-export function CreateAccountDialog({ open, onClose, accounts, editingAccount }: CreateAccountDialogProps) {
+export function CreateAccountDialog({
+  open,
+  onClose,
+  accounts,
+  editingAccount,
+}: CreateAccountDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -194,6 +204,43 @@ export function CreateAccountDialog({ open, onClose, accounts, editingAccount }:
           updatedAt: serverTimestamp(),
           updatedBy: user.uid,
         });
+
+        // Log audit event for account update
+        const auditContext = createAuditContext(
+          user.uid,
+          user.email || '',
+          user.displayName || user.email || ''
+        );
+
+        const changes = createFieldChanges(
+          {
+            name: editingAccount.name,
+            accountType: editingAccount.accountType,
+            accountCategory: editingAccount.accountCategory,
+          },
+          {
+            name: name.trim(),
+            accountType,
+            accountCategory,
+          }
+        );
+
+        await logAuditEvent(
+          db,
+          auditContext,
+          'ACCOUNT_UPDATED',
+          'GL_ACCOUNT',
+          editingAccount.id,
+          `Updated GL account "${name.trim()}" (${editingAccount.code})`,
+          {
+            entityName: name.trim(),
+            changes,
+            metadata: {
+              code: editingAccount.code,
+              accountType,
+            },
+          }
+        );
       } else {
         // Create new account
         const accountId = `acc-${code}`;
@@ -227,6 +274,34 @@ export function CreateAccountDialog({ open, onClose, accounts, editingAccount }:
           createdBy: user.uid,
           updatedAt: serverTimestamp(),
         });
+
+        // Log audit event for account creation
+        const auditContext = createAuditContext(
+          user.uid,
+          user.email || '',
+          user.displayName || user.email || ''
+        );
+
+        await logAuditEvent(
+          db,
+          auditContext,
+          'ACCOUNT_CREATED',
+          'GL_ACCOUNT',
+          accountId,
+          `Created GL account "${name.trim()}" (${code})`,
+          {
+            entityName: name.trim(),
+            metadata: {
+              code,
+              accountType,
+              accountCategory,
+              isGroup,
+              isBankAccount,
+              isGSTAccount,
+              isTDSAccount,
+            },
+          }
+        );
       }
 
       onClose();
@@ -346,7 +421,11 @@ export function CreateAccountDialog({ open, onClose, accounts, editingAccount }:
             <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth>
                 <InputLabel>Currency</InputLabel>
-                <Select value={currency} label="Currency" onChange={(e) => setCurrency(e.target.value)}>
+                <Select
+                  value={currency}
+                  label="Currency"
+                  onChange={(e) => setCurrency(e.target.value)}
+                >
                   <MenuItem value="INR">INR - Indian Rupee</MenuItem>
                   <MenuItem value="USD">USD - US Dollar</MenuItem>
                   <MenuItem value="EUR">EUR - Euro</MenuItem>
@@ -358,7 +437,9 @@ export function CreateAccountDialog({ open, onClose, accounts, editingAccount }:
             {/* Checkboxes */}
             <Grid size={{ xs: 12 }}>
               <FormControlLabel
-                control={<Checkbox checked={isGroup} onChange={(e) => setIsGroup(e.target.checked)} />}
+                control={
+                  <Checkbox checked={isGroup} onChange={(e) => setIsGroup(e.target.checked)} />
+                }
                 label="Group Account (has sub-accounts)"
               />
             </Grid>
@@ -366,7 +447,12 @@ export function CreateAccountDialog({ open, onClose, accounts, editingAccount }:
             {/* GST Account */}
             <Grid size={{ xs: 12 }}>
               <FormControlLabel
-                control={<Checkbox checked={isGSTAccount} onChange={(e) => setIsGSTAccount(e.target.checked)} />}
+                control={
+                  <Checkbox
+                    checked={isGSTAccount}
+                    onChange={(e) => setIsGSTAccount(e.target.checked)}
+                  />
+                }
                 label="GST Account"
               />
             </Grid>
@@ -376,7 +462,13 @@ export function CreateAccountDialog({ open, onClose, accounts, editingAccount }:
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth>
                     <InputLabel>GST Type</InputLabel>
-                    <Select value={gstType} label="GST Type" onChange={(e) => setGstType(e.target.value as 'CGST' | 'SGST' | 'IGST' | 'CESS')}>
+                    <Select
+                      value={gstType}
+                      label="GST Type"
+                      onChange={(e) =>
+                        setGstType(e.target.value as 'CGST' | 'SGST' | 'IGST' | 'CESS')
+                      }
+                    >
                       <MenuItem value="CGST">CGST</MenuItem>
                       <MenuItem value="SGST">SGST</MenuItem>
                       <MenuItem value="IGST">IGST</MenuItem>
@@ -404,7 +496,12 @@ export function CreateAccountDialog({ open, onClose, accounts, editingAccount }:
             {/* TDS Account */}
             <Grid size={{ xs: 12 }}>
               <FormControlLabel
-                control={<Checkbox checked={isTDSAccount} onChange={(e) => setIsTDSAccount(e.target.checked)} />}
+                control={
+                  <Checkbox
+                    checked={isTDSAccount}
+                    onChange={(e) => setIsTDSAccount(e.target.checked)}
+                  />
+                }
                 label="TDS Account"
               />
             </Grid>
@@ -425,7 +522,12 @@ export function CreateAccountDialog({ open, onClose, accounts, editingAccount }:
             {/* Bank Account */}
             <Grid size={{ xs: 12 }}>
               <FormControlLabel
-                control={<Checkbox checked={isBankAccount} onChange={(e) => setIsBankAccount(e.target.checked)} />}
+                control={
+                  <Checkbox
+                    checked={isBankAccount}
+                    onChange={(e) => setIsBankAccount(e.target.checked)}
+                  />
+                }
                 label="Bank Account"
               />
             </Grid>
@@ -479,7 +581,13 @@ export function CreateAccountDialog({ open, onClose, accounts, editingAccount }:
           Cancel
         </Button>
         <Button onClick={handleSubmit} variant="contained" disabled={loading}>
-          {loading ? (editingAccount ? 'Updating...' : 'Creating...') : (editingAccount ? 'Update Account' : 'Create Account')}
+          {loading
+            ? editingAccount
+              ? 'Updating...'
+              : 'Creating...'
+            : editingAccount
+              ? 'Update Account'
+              : 'Create Account'}
         </Button>
       </DialogActions>
     </Dialog>

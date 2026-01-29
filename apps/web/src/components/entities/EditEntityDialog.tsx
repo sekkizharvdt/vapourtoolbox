@@ -17,6 +17,12 @@ import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity, EntityRole } from '@vapour/types';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  logAuditEvent,
+  createAuditContext,
+  createFieldChanges,
+} from '@/lib/audit/clientAuditService';
 import { ContactsManager, EntityContactData } from './ContactsManager';
 import { BankDetailsManager, BankDetailsData } from './BankDetailsManager';
 import {
@@ -40,6 +46,7 @@ interface EditEntityDialogProps {
 }
 
 export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntityDialogProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -376,6 +383,54 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
       }
 
       await updateDoc(entityRef, updateData);
+
+      // Log audit event for entity update
+      if (user) {
+        const auditContext = createAuditContext(
+          user.uid,
+          user.email || '',
+          user.displayName || user.email || ''
+        );
+
+        // Track field changes for audit trail
+        const changes = createFieldChanges(
+          {
+            name: entity.name,
+            legalName: entity.legalName,
+            roles: entity.roles,
+            contactPerson: entity.contactPerson,
+            email: entity.email,
+            gstin: entity.taxIdentifiers?.gstin,
+            pan: entity.taxIdentifiers?.pan,
+          },
+          {
+            name: name.trim(),
+            legalName: legalName.trim() || name.trim(),
+            roles,
+            contactPerson: primaryContact.name,
+            email: primaryContact.email,
+            gstin: gstin.trim() || null,
+            pan: pan.trim() || null,
+          }
+        );
+
+        await logAuditEvent(
+          db,
+          auditContext,
+          'ENTITY_UPDATED',
+          'ENTITY',
+          entity.id,
+          `Updated entity "${name.trim()}"`,
+          {
+            entityName: name.trim(),
+            changes,
+            metadata: {
+              previousName: entity.name,
+              roles,
+            },
+          }
+        );
+      }
 
       onSuccess();
       onClose();

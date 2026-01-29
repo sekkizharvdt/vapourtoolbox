@@ -16,6 +16,8 @@ import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity } from '@vapour/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 
 interface UnarchiveEntityDialogProps {
   open: boolean;
@@ -30,6 +32,7 @@ export function UnarchiveEntityDialog({
   onClose,
   onSuccess,
 }: UnarchiveEntityDialogProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -53,6 +56,31 @@ export function UnarchiveEntityDialog({
         archiveReason: null,
         updatedAt: Timestamp.now(),
       });
+
+      // Log audit event for entity restoration
+      if (user) {
+        const auditContext = createAuditContext(
+          user.uid,
+          user.email || '',
+          user.displayName || user.email || ''
+        );
+
+        await logAuditEvent(
+          db,
+          auditContext,
+          'ENTITY_UPDATED',
+          'ENTITY',
+          entity.id,
+          `Restored entity "${entity.name}" from archive`,
+          {
+            entityName: entity.name,
+            metadata: {
+              previousArchiveReason: entity.archiveReason,
+              roles: entity.roles,
+            },
+          }
+        );
+      }
 
       onSuccess();
       onClose();

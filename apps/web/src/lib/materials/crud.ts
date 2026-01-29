@@ -22,8 +22,17 @@ import { createLogger } from '@vapour/logger';
 import { docToTyped } from '../firebase/typeHelpers';
 import type { Material, MaterialCategory } from '@vapour/types';
 import { getMaterialCodeParts } from '@vapour/types';
+import { logAuditEvent, type AuditContext } from '../audit/clientAuditService';
 
 const logger = createLogger({ context: 'materialService:crud' });
+
+/**
+ * Options for material CRUD operations with optional audit logging
+ */
+export interface MaterialCrudOptions {
+  /** Optional audit context for logging. If provided, audit events will be logged. */
+  auditContext?: AuditContext;
+}
 
 /**
  * Create a new material
@@ -31,12 +40,14 @@ const logger = createLogger({ context: 'materialService:crud' });
  * @param db - Firestore instance
  * @param materialData - Material data (without id)
  * @param userId - ID of user creating the material
+ * @param options - Optional settings including audit context
  * @returns Created material with generated ID
  */
 export async function createMaterial(
   db: Firestore,
   materialData: Omit<Material, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>,
-  userId: string
+  userId: string,
+  options?: MaterialCrudOptions
 ): Promise<Material> {
   try {
     logger.info('Creating material', { name: materialData.name, category: materialData.category });
@@ -75,6 +86,26 @@ export async function createMaterial(
     const docRef = await addDoc(collection(db, COLLECTIONS.MATERIALS), newMaterial);
 
     logger.info('Material created successfully', { id: docRef.id, materialCode });
+
+    // Log audit event if context provided
+    if (options?.auditContext) {
+      await logAuditEvent(
+        db,
+        options.auditContext,
+        'MATERIAL_CREATED',
+        'MATERIAL',
+        docRef.id,
+        `Created material "${materialData.name}" (${materialCode})`,
+        {
+          entityName: materialData.name,
+          metadata: {
+            materialCode,
+            category: materialData.category,
+            grade: materialData.specification.grade,
+          },
+        }
+      );
+    }
 
     return {
       ...newMaterial,
@@ -145,12 +176,14 @@ async function generateMaterialCode(
  * @param materialId - Material ID to update
  * @param updates - Partial material data to update
  * @param userId - ID of user updating the material
+ * @param options - Optional settings including audit context
  */
 export async function updateMaterial(
   db: Firestore,
   materialId: string,
   updates: Partial<Omit<Material, 'id' | 'materialCode' | 'createdAt' | 'createdBy'>>,
-  userId: string
+  userId: string,
+  options?: MaterialCrudOptions
 ): Promise<void> {
   try {
     logger.info('Updating material', { materialId });
@@ -163,6 +196,24 @@ export async function updateMaterial(
     });
 
     logger.info('Material updated successfully', { materialId });
+
+    // Log audit event if context provided
+    if (options?.auditContext) {
+      await logAuditEvent(
+        db,
+        options.auditContext,
+        'MATERIAL_UPDATED',
+        'MATERIAL',
+        materialId,
+        `Updated material "${updates.name || materialId}"`,
+        {
+          entityName: updates.name,
+          metadata: {
+            updatedFields: Object.keys(updates),
+          },
+        }
+      );
+    }
   } catch (error) {
     logger.error('Failed to update material', { materialId, error });
     throw new Error(
@@ -202,14 +253,25 @@ export async function getMaterialById(db: Firestore, materialId: string): Promis
  * @param db - Firestore instance
  * @param materialId - Material ID to delete
  * @param userId - ID of user deleting the material
+ * @param options - Optional settings including audit context
  */
 export async function deleteMaterial(
   db: Firestore,
   materialId: string,
-  userId: string
+  userId: string,
+  options?: MaterialCrudOptions
 ): Promise<void> {
   try {
     logger.info('Soft deleting material', { materialId });
+
+    // Get material name before deleting for audit log
+    let materialName = materialId;
+    if (options?.auditContext) {
+      const material = await getMaterialById(db, materialId);
+      if (material) {
+        materialName = material.name;
+      }
+    }
 
     const materialRef = doc(db, COLLECTIONS.MATERIALS, materialId);
     await updateDoc(materialRef, {
@@ -219,6 +281,22 @@ export async function deleteMaterial(
     });
 
     logger.info('Material soft deleted successfully', { materialId });
+
+    // Log audit event if context provided
+    if (options?.auditContext) {
+      await logAuditEvent(
+        db,
+        options.auditContext,
+        'MATERIAL_DELETED',
+        'MATERIAL',
+        materialId,
+        `Deleted material "${materialName}"`,
+        {
+          entityName: materialName,
+          severity: 'WARNING',
+        }
+      );
+    }
   } catch (error) {
     logger.error('Failed to delete material', { materialId, error });
     throw new Error(
