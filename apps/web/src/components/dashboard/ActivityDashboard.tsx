@@ -264,7 +264,7 @@ export function ActivityDashboard() {
               count={summary.data?.pendingApprovals || 0}
               icon={<CheckCircleIcon />}
               color="#10B981"
-              onClick={() => router.push('/procurement')}
+              onClick={() => router.push('/pending-approval')}
             />
             <SummaryCard
               title="Unread Mentions"

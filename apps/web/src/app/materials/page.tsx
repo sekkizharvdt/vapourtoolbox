@@ -1,6 +1,6 @@
 'use client';
 
-import { Typography, Box, Card, CardContent, CardActions, Button, Grid } from '@mui/material';
+import { useState, useEffect } from 'react';
 import {
   Layers as PlatesIcon,
   Circle as PipesIcon,
@@ -9,91 +9,32 @@ import {
   Build as FastenersIcon,
   Cake as FlangesIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getCountFromServer } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { MaterialCategory } from '@vapour/types';
 import { MaterialCategory as MC } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
+import { ModuleLandingPage, type ModuleItem } from '@/components/modules';
 
 const logger = createLogger({ context: 'MaterialsPage' });
 
-interface MaterialCategoryModule {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  path: string;
-  comingSoon?: boolean;
-  categories?: MaterialCategory[];
+// Define counts type with module IDs as keys
+interface MaterialCounts {
+  plates: number;
+  pipes: number;
+  fittings: number;
+  flanges: number;
 }
 
 export default function MaterialsPage() {
-  const router = useRouter();
   const { db } = getFirebase();
-  const [plateCounts, setPlateCounts] = useState(0);
-  const [pipeCounts, setPipeCounts] = useState(0);
-  const [fittingsCounts, setFittingsCounts] = useState(0);
-  const [flangesCounts, setFlangesCounts] = useState(0);
+  const [counts, setCounts] = useState<MaterialCounts>({
+    plates: 0,
+    pipes: 0,
+    fittings: 0,
+    flanges: 0,
+  });
   const [loading, setLoading] = useState(true);
-
-  const modules: MaterialCategoryModule[] = [
-    {
-      title: 'Plates',
-      description:
-        'Carbon Steel, Stainless Steel, Duplex, and Alloy plates with thickness variants',
-      icon: <PlatesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/materials/plates',
-      comingSoon: false,
-      categories: [
-        MC.PLATES_CARBON_STEEL,
-        MC.PLATES_STAINLESS_STEEL,
-        MC.PLATES_DUPLEX_STEEL,
-        MC.PLATES_ALLOY_STEEL,
-      ],
-    },
-    {
-      title: 'Pipes',
-      description:
-        'Carbon Steel, SS 304L, SS 316L seamless pipes with ASTM schedules (Sch 10, 40, 80)',
-      icon: <PipesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/materials/pipes',
-      comingSoon: false,
-      categories: [MC.PIPES_CARBON_STEEL, MC.PIPES_STAINLESS_304L, MC.PIPES_STAINLESS_316L],
-    },
-    {
-      title: 'Structural Steel',
-      description: 'ISMB, ISMC, ISUA, ISLB sections and structural shapes',
-      icon: <StructuralIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/materials/structural-steel',
-      comingSoon: true,
-      categories: [MC.STRUCTURAL_SHAPES],
-    },
-    {
-      title: 'Fittings',
-      description: 'Butt weld elbows, tees, reducers, and other pipe fittings per ASME B16.9',
-      icon: <FittingsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/materials/fittings',
-      comingSoon: false,
-      categories: [MC.FITTINGS_BUTT_WELD],
-    },
-    {
-      title: 'Fasteners',
-      description: 'Bolts, nuts, washers, and other fasteners with grade specifications',
-      icon: <FastenersIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/materials/fasteners',
-      comingSoon: true,
-    },
-    {
-      title: 'Flanges',
-      description: 'Weld neck, slip-on, blind, and other flanges per ASME B16.5',
-      icon: <FlangesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/materials/flanges',
-      comingSoon: false,
-      categories: [MC.FLANGES_WELD_NECK, MC.FLANGES_SLIP_ON, MC.FLANGES_BLIND],
-    },
-  ];
 
   // Load material counts
   useEffect(() => {
@@ -101,7 +42,6 @@ export default function MaterialsPage() {
       if (!db) return;
 
       try {
-        // Load all counts in parallel for better performance
         const plateCategories = [
           MC.PLATES_CARBON_STEEL,
           MC.PLATES_STAINLESS_STEEL,
@@ -134,7 +74,7 @@ export default function MaterialsPage() {
 
         const flangesQuery = query(
           collection(db, COLLECTIONS.MATERIALS),
-          where('category', '==', MC.FLANGES_WELD_NECK)
+          where('category', 'in', [MC.FLANGES_WELD_NECK, MC.FLANGES_SLIP_ON, MC.FLANGES_BLIND])
         );
 
         // Execute all queries in parallel
@@ -146,10 +86,12 @@ export default function MaterialsPage() {
             getCountFromServer(flangesQuery),
           ]);
 
-        setPlateCounts(platesSnapshot.data().count);
-        setPipeCounts(pipesSnapshot.data().count);
-        setFittingsCounts(fittingsSnapshot.data().count);
-        setFlangesCounts(flangesSnapshot.data().count);
+        setCounts({
+          plates: platesSnapshot.data().count,
+          pipes: pipesSnapshot.data().count,
+          fittings: fittingsSnapshot.data().count,
+          flanges: flangesSnapshot.data().count,
+        });
       } catch (error) {
         logger.error('Error loading material counts', { error });
       } finally {
@@ -160,106 +102,68 @@ export default function MaterialsPage() {
     loadCounts();
   }, [db]);
 
+  const modules: ModuleItem[] = [
+    {
+      id: 'plates',
+      title: 'Plates',
+      description:
+        'Carbon Steel, Stainless Steel, Duplex, and Alloy plates with thickness variants',
+      icon: <PlatesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/materials/plates',
+      count: counts.plates,
+      countLoading: loading,
+    },
+    {
+      id: 'pipes',
+      title: 'Pipes',
+      description:
+        'Carbon Steel, SS 304L, SS 316L seamless pipes with ASTM schedules (Sch 10, 40, 80)',
+      icon: <PipesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/materials/pipes',
+      count: counts.pipes,
+      countLoading: loading,
+    },
+    {
+      id: 'structural-steel',
+      title: 'Structural Steel',
+      description: 'ISMB, ISMC, ISUA, ISLB sections and structural shapes',
+      icon: <StructuralIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/materials/structural-steel',
+      comingSoon: true,
+    },
+    {
+      id: 'fittings',
+      title: 'Fittings',
+      description: 'Butt weld elbows, tees, reducers, and other pipe fittings per ASME B16.9',
+      icon: <FittingsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/materials/fittings',
+      count: counts.fittings,
+      countLoading: loading,
+    },
+    {
+      id: 'fasteners',
+      title: 'Fasteners',
+      description: 'Bolts, nuts, washers, and other fasteners with grade specifications',
+      icon: <FastenersIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/materials/fasteners',
+      comingSoon: true,
+    },
+    {
+      id: 'flanges',
+      title: 'Flanges',
+      description: 'Weld neck, slip-on, blind, and other flanges per ASME B16.5',
+      icon: <FlangesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/materials/flanges',
+      count: counts.flanges,
+      countLoading: loading,
+    },
+  ];
+
   return (
-    <>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Materials
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Engineering materials database with technical specifications and variants
-        </Typography>
-      </Box>
-
-      <Grid container spacing={3}>
-        {modules.map((module, index) => (
-          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={module.path}>
-            <Card
-              sx={{
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                position: 'relative',
-                ...(module.comingSoon && {
-                  opacity: 0.7,
-                  backgroundColor: 'action.hover',
-                }),
-              }}
-            >
-              {module.comingSoon && (
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    bgcolor: 'warning.main',
-                    color: 'warning.contrastText',
-                    px: 1,
-                    py: 0.5,
-                    borderRadius: 1,
-                    fontSize: '0.75rem',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  Coming Soon
-                </Box>
-              )}
-
-              {/* Show count badge for active modules */}
-              {!module.comingSoon && (
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    bgcolor: 'primary.main',
-                    color: 'primary.contrastText',
-                    px: 1,
-                    py: 0.5,
-                    borderRadius: 1,
-                    fontSize: '0.75rem',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  {loading
-                    ? '...'
-                    : `${
-                        index === 0
-                          ? plateCounts
-                          : index === 1
-                            ? pipeCounts
-                            : index === 3
-                              ? fittingsCounts
-                              : index === 5
-                                ? flangesCounts
-                                : 0
-                      } materials`}
-                </Box>
-              )}
-
-              <CardContent sx={{ flexGrow: 1, textAlign: 'center', pt: 4 }}>
-                <Box sx={{ mb: 2 }}>{module.icon}</Box>
-                <Typography variant="h6" component="h2" gutterBottom>
-                  {module.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {module.description}
-                </Typography>
-              </CardContent>
-
-              <CardActions sx={{ justifyContent: 'center', pb: 2 }}>
-                <Button
-                  variant="contained"
-                  onClick={() => router.push(module.path)}
-                  disabled={module.comingSoon}
-                >
-                  {module.comingSoon ? 'Coming Soon' : 'Open Module'}
-                </Button>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-    </>
+    <ModuleLandingPage
+      title="Materials"
+      description="Engineering materials database with technical specifications and variants"
+      items={modules}
+    />
   );
 }

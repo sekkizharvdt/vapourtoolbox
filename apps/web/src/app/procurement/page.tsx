@@ -7,16 +7,6 @@
  */
 
 import {
-  Typography,
-  Box,
-  Card,
-  CardContent,
-  CardActions,
-  Button,
-  Grid,
-  Divider,
-} from '@mui/material';
-import {
   Description as DescriptionIcon,
   RequestQuote as RequestQuoteIcon,
   ShoppingCart as ShoppingCartIcon,
@@ -29,26 +19,11 @@ import {
   Folder as FolderIcon,
   HealthAndSafety as DataHealthIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewProcurement } from '@vapour/constants';
-
-interface ProcurementModule {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  path: string;
-  comingSoon?: boolean;
-}
-
-interface ModuleSection {
-  title: string;
-  description: string;
-  modules: ProcurementModule[];
-}
+import { ModuleLandingPage, type ModuleSection } from '@/components/modules';
 
 export default function ProcurementPage() {
-  const router = useRouter();
   const { claims } = useAuth();
 
   // Check permissions
@@ -56,16 +31,19 @@ export default function ProcurementPage() {
 
   const sections: ModuleSection[] = [
     {
+      id: 'requisition',
       title: 'Requisition & Approval',
       description: 'Create purchase requests and get engineering approval',
-      modules: [
+      items: [
         {
+          id: 'purchase-requests',
           title: 'Purchase Requests',
           description: 'Create and manage purchase requests with approval workflow',
           icon: <DescriptionIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
           path: '/procurement/purchase-requests',
         },
         {
+          id: 'engineering-approval',
           title: 'Engineering Approval',
           description: 'Review and approve purchase requests from engineering perspective',
           icon: <CheckCircleIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
@@ -74,22 +52,26 @@ export default function ProcurementPage() {
       ],
     },
     {
+      id: 'sourcing',
       title: 'Sourcing',
       description: 'Vendor engagement, quotations, and purchase orders',
-      modules: [
+      items: [
         {
+          id: 'rfqs',
           title: 'RFQs (Requests for Quotation)',
           description: 'Issue RFQs to vendors, receive and compare quotations',
           icon: <RequestQuoteIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
           path: '/procurement/rfqs',
         },
         {
+          id: 'pos',
           title: 'Purchase Orders',
           description: 'Create, approve, and track purchase orders with vendors',
           icon: <ShoppingCartIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
           path: '/procurement/pos',
         },
         {
+          id: 'amendments',
           title: 'PO Amendments',
           description: 'Create and manage amendments to approved purchase orders',
           icon: <EditIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
@@ -98,22 +80,26 @@ export default function ProcurementPage() {
       ],
     },
     {
+      id: 'receiving',
       title: 'Receiving & Verification',
       description: 'Track shipments, receive goods, and verify completion',
-      modules: [
+      items: [
         {
+          id: 'packing-lists',
           title: 'Packing Lists',
           description: 'Manage packing lists for shipments and deliveries',
           icon: <ReceiptIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
           path: '/procurement/packing-lists',
         },
         {
+          id: 'goods-receipts',
           title: 'Goods Receipts',
           description: 'Record received goods, verify quality, and inspect items',
           icon: <LocalShippingIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
           path: '/procurement/goods-receipts',
         },
         {
+          id: 'work-completion',
           title: 'Work Completion',
           description: 'Issue work completion certificates for service POs',
           icon: <AssignmentIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
@@ -122,10 +108,12 @@ export default function ProcurementPage() {
       ],
     },
     {
+      id: 'payment',
       title: 'Payment Processing',
       description: 'Reconciliation before payment approval',
-      modules: [
+      items: [
         {
+          id: 'three-way-match',
           title: 'Three-Way Match',
           description: 'Match POs, goods receipts, and vendor bills for payment approval',
           icon: <CompareArrowsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
@@ -134,10 +122,12 @@ export default function ProcurementPage() {
       ],
     },
     {
+      id: 'documents',
       title: 'Documents',
       description: 'Supporting documentation and files',
-      modules: [
+      items: [
         {
+          id: 'files',
           title: 'Files',
           description: 'Browse and manage procurement-related documents',
           icon: <FolderIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
@@ -146,10 +136,12 @@ export default function ProcurementPage() {
       ],
     },
     {
+      id: 'analytics',
       title: 'Analytics & Monitoring',
       description: 'Track procurement health and identify issues',
-      modules: [
+      items: [
         {
+          id: 'data-health',
           title: 'Data Health',
           description: 'Monitor procurement data quality and identify stale or incomplete items',
           icon: <DataHealthIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
@@ -159,101 +151,16 @@ export default function ProcurementPage() {
     },
   ];
 
-  if (!hasViewAccess) {
-    return (
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Procurement
-        </Typography>
-        <Typography variant="body1" color="error">
-          You do not have permission to access the Procurement module.
-        </Typography>
-      </Box>
-    );
-  }
-
   return (
-    <>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Procurement
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          End-to-end procurement workflow: from purchase requests to goods receipt
-        </Typography>
-      </Box>
-
-      {sections.map((section, sectionIndex) => (
-        <Box key={section.title} sx={{ mb: 4 }}>
-          {sectionIndex > 0 && <Divider sx={{ mb: 3 }} />}
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="h6" component="h2" color="text.primary">
-              {section.title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {section.description}
-            </Typography>
-          </Box>
-
-          <Grid container spacing={3}>
-            {section.modules.map((module) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={module.path}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    position: 'relative',
-                    ...(module.comingSoon && {
-                      opacity: 0.7,
-                      backgroundColor: 'action.hover',
-                    }),
-                  }}
-                >
-                  {module.comingSoon && (
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        top: 8,
-                        right: 8,
-                        bgcolor: 'warning.main',
-                        color: 'warning.contrastText',
-                        px: 1,
-                        py: 0.5,
-                        borderRadius: 1,
-                        fontSize: '0.75rem',
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      Coming Soon
-                    </Box>
-                  )}
-
-                  <CardContent sx={{ flexGrow: 1, textAlign: 'center', pt: 4 }}>
-                    <Box sx={{ mb: 2 }}>{module.icon}</Box>
-                    <Typography variant="h6" component="h3" gutterBottom>
-                      {module.title}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {module.description}
-                    </Typography>
-                  </CardContent>
-
-                  <CardActions sx={{ justifyContent: 'center', pb: 2 }}>
-                    <Button
-                      variant="contained"
-                      onClick={() => router.push(module.path)}
-                      disabled={module.comingSoon}
-                    >
-                      {module.comingSoon ? 'Coming Soon' : 'Open Module'}
-                    </Button>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      ))}
-    </>
+    <ModuleLandingPage
+      title="Procurement"
+      description="End-to-end procurement workflow: from purchase requests to goods receipt"
+      sections={sections}
+      newAction={{
+        label: 'New PR',
+        path: '/procurement/purchase-requests/new',
+      }}
+      permissionDenied={!hasViewAccess}
+    />
   );
 }
