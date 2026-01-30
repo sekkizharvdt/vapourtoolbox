@@ -585,6 +585,56 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    match /goodsReceipts/{grId} {
+      // Goods Receipts - linked to Purchase Orders
+      // Read: Internal users OR external CLIENT_PM for their projects
+      allow read: if (isInternalUser()) ||
+                     (isExternalUser() &&
+                      hasPermission(131072) && // VIEW_PROCUREMENT (bit 17)
+                      isAssignedToProject(resource.data.projectId));
+
+      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow delete: if isSuperAdmin();
+    }
+
+    match /goodsReceiptItems/{itemId} {
+      // GR line items - same permissions as parent GR
+      allow read: if isInternalUser();
+
+      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow delete: if isSuperAdmin();
+    }
+
+    match /packingLists/{plId} {
+      // Packing Lists - linked to Purchase Orders
+      allow read: if (isInternalUser()) ||
+                     (isExternalUser() &&
+                      hasPermission(131072) && // VIEW_PROCUREMENT (bit 17)
+                      isAssignedToProject(resource.data.projectId));
+
+      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow delete: if isSuperAdmin();
+    }
+
+    match /packingListItems/{itemId} {
+      // Packing List line items
+      allow read: if isInternalUser();
+
+      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow delete: if isSuperAdmin();
+    }
+
+    match /workCompletionCertificates/{wccId} {
+      // Work Completion Certificates - linked to service POs
+      allow read: if (isInternalUser()) ||
+                     (isExternalUser() &&
+                      hasPermission(131072) && // VIEW_PROCUREMENT (bit 17)
+                      isAssignedToProject(resource.data.projectId));
+
+      allow create, update: if hasPermission(65536) && isInternalUser(); // MANAGE_PROCUREMENT (bit 16)
+      allow delete: if isSuperAdmin();
+    }
+
     // ============================================
     // Estimation Collections
     // ============================================

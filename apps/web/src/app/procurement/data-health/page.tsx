@@ -72,8 +72,8 @@ export default function ProcurementDataHealthPage() {
     try {
       const { db } = getFirebase();
 
-      // Fetch all procurement documents
-      const [prsSnap, rfqsSnap, offersSnap, posSnap, grsSnap] = await Promise.all([
+      // Fetch all procurement documents - use allSettled to handle partial permission failures
+      const results = await Promise.allSettled([
         getDocs(collection(db, COLLECTIONS.PURCHASE_REQUESTS)),
         getDocs(collection(db, COLLECTIONS.RFQS)),
         getDocs(collection(db, COLLECTIONS.OFFERS)),
@@ -81,13 +81,24 @@ export default function ProcurementDataHealthPage() {
         getDocs(collection(db, COLLECTIONS.GOODS_RECEIPTS)),
       ]);
 
+      const prsSnap = results[0].status === 'fulfilled' ? results[0].value : null;
+      const rfqsSnap = results[1].status === 'fulfilled' ? results[1].value : null;
+      const offersSnap = results[2].status === 'fulfilled' ? results[2].value : null;
+      const posSnap = results[3].status === 'fulfilled' ? results[3].value : null;
+      const grsSnap = results[4].status === 'fulfilled' ? results[4].value : null;
+
+      // If all queries failed, show error
+      if (!prsSnap && !rfqsSnap && !offersSnap && !posSnap && !grsSnap) {
+        throw new Error('Unable to access procurement data. Check your permissions.');
+      }
+
       const now = new Date();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
       // 1. Count stale PRs (DRAFT or SUBMITTED for more than 7 days)
       let stalePRCount = 0;
       let oldestPRDays = 0;
-      prsSnap.forEach((doc) => {
+      prsSnap?.forEach((doc) => {
         const data = doc.data();
         if (data.status === 'DRAFT' || data.status === 'SUBMITTED') {
           const createdAt = data.createdAt?.toDate?.() || new Date(data.createdAt);
@@ -103,13 +114,13 @@ export default function ProcurementDataHealthPage() {
 
       // 2. Count RFQs without offers
       const rfqsWithOffers = new Set<string>();
-      offersSnap.forEach((doc) => {
+      offersSnap?.forEach((doc) => {
         const data = doc.data();
         if (data.rfqId) rfqsWithOffers.add(data.rfqId);
       });
 
       let rfqsWithoutOffersCount = 0;
-      rfqsSnap.forEach((doc) => {
+      rfqsSnap?.forEach((doc) => {
         const data = doc.data();
         if (data.status === 'SENT' && !rfqsWithOffers.has(doc.id)) {
           rfqsWithoutOffersCount++;
@@ -119,7 +130,7 @@ export default function ProcurementDataHealthPage() {
       // 3. Count RFQs with offers but no selection (pending selection)
       let pendingSelectionCount = 0;
       let pendingSelectionValue = 0;
-      rfqsSnap.forEach((doc) => {
+      rfqsSnap?.forEach((doc) => {
         const data = doc.data();
         if (data.status === 'OFFERS_RECEIVED' || data.status === 'UNDER_EVALUATION') {
           pendingSelectionCount++;
@@ -130,7 +141,7 @@ export default function ProcurementDataHealthPage() {
       // 4. Count POs pending approval
       let posPendingCount = 0;
       let posPendingValue = 0;
-      posSnap.forEach((doc) => {
+      posSnap?.forEach((doc) => {
         const data = doc.data();
         if (data.status === 'PENDING_APPROVAL') {
           posPendingCount++;
@@ -141,7 +152,7 @@ export default function ProcurementDataHealthPage() {
       // 5. Count overdue deliveries
       let overdueCount = 0;
       let overdueValue = 0;
-      posSnap.forEach((doc) => {
+      posSnap?.forEach((doc) => {
         const data = doc.data();
         if (
           data.status === 'ISSUED' ||
@@ -160,20 +171,20 @@ export default function ProcurementDataHealthPage() {
 
       // 6. Count missing goods receipts (delivered POs without GR)
       const posWithGR = new Set<string>();
-      grsSnap.forEach((doc) => {
+      grsSnap?.forEach((doc) => {
         const data = doc.data();
         if (data.purchaseOrderId) posWithGR.add(data.purchaseOrderId);
       });
 
       let missingGRCount = 0;
-      posSnap.forEach((doc) => {
+      posSnap?.forEach((doc) => {
         const data = doc.data();
         if (data.status === 'DELIVERED' && !posWithGR.has(doc.id)) {
           missingGRCount++;
         }
       });
 
-      const totalDocuments = prsSnap.size + rfqsSnap.size + posSnap.size;
+      const totalDocuments = (prsSnap?.size || 0) + (rfqsSnap?.size || 0) + (posSnap?.size || 0);
 
       // Calculate health score
       const issueCount =
