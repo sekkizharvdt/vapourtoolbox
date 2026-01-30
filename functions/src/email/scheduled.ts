@@ -36,7 +36,7 @@ export const checkOverdueItemsAndNotify = onSchedule(
       const billsSnap = await db
         .collection('transactions')
         .where('type', '==', 'VENDOR_BILL')
-        .where('status', 'not-in', ['PAID', 'CANCELLED', 'VOIDED', 'VOID'])
+        .where('status', 'in', ['APPROVED', 'POSTED'])
         .get();
 
       const overdueBills: { number: string; vendor: string; amount: number; dueDate: string }[] =
@@ -44,6 +44,10 @@ export const checkOverdueItemsAndNotify = onSchedule(
 
       billsSnap.forEach((doc) => {
         const data = doc.data();
+        // Skip bills that are already fully paid
+        if (data.paymentStatus === 'PAID') {
+          return;
+        }
         const dueDate = data.dueDate?.toDate?.() || new Date(data.dueDate);
         if (dueDate && dueDate < now) {
           overdueBills.push({

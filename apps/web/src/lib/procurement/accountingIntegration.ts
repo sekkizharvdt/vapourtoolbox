@@ -217,7 +217,7 @@ export async function createBillFromGoodsReceipt(
       transactionNumber,
       date: Timestamp.now(),
       dueDate: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 days
-      status: 'UNPAID',
+      status: 'APPROVED',
 
       // Amounts
       subtotal,

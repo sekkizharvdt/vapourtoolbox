@@ -88,7 +88,7 @@ export function RecordCustomerPaymentDialog({
         transactionsRef,
         where('type', '==', 'CUSTOMER_INVOICE'),
         where('entityId', '==', entityId),
-        where('status', 'in', ['POSTED', 'APPROVED'])
+        where('status', 'in', ['APPROVED', 'POSTED'])
       );
 
       const snapshot = await getDocs(q);

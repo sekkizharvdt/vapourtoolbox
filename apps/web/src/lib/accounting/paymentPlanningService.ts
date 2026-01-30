@@ -56,9 +56,7 @@ export async function createManualCashFlowItem(
   const docData = {
     ...item,
     expectedDate:
-      item.expectedDate instanceof Date
-        ? Timestamp.fromDate(item.expectedDate)
-        : item.expectedDate,
+      item.expectedDate instanceof Date ? Timestamp.fromDate(item.expectedDate) : item.expectedDate,
     recurrenceEndDate: item.recurrenceEndDate
       ? item.recurrenceEndDate instanceof Date
         ? Timestamp.fromDate(item.recurrenceEndDate)
@@ -201,7 +199,7 @@ async function getOutstandingInvoices(
   const q = query(
     collection(db, COLLECTIONS.TRANSACTIONS),
     where('type', '==', 'CUSTOMER_INVOICE'),
-    where('paymentStatus', 'in', ['UNPAID', 'PARTIAL'])
+    where('paymentStatus', 'in', ['UNPAID', 'PARTIALLY_PAID'])
   );
 
   const snapshot = await getDocs(q);
@@ -251,7 +249,7 @@ async function getOutstandingBills(
   const q = query(
     collection(db, COLLECTIONS.TRANSACTIONS),
     where('type', '==', 'VENDOR_BILL'),
-    where('paymentStatus', 'in', ['UNPAID', 'PARTIAL'])
+    where('paymentStatus', 'in', ['UNPAID', 'PARTIALLY_PAID'])
   );
 
   const snapshot = await getDocs(q);
@@ -314,8 +312,7 @@ async function getRecurringForecastItems(
     );
 
     // Determine direction based on recurring transaction type
-    const direction: CashFlowDirection =
-      occ.type === 'CUSTOMER_INVOICE' ? 'INFLOW' : 'OUTFLOW';
+    const direction: CashFlowDirection = occ.type === 'CUSTOMER_INVOICE' ? 'INFLOW' : 'OUTFLOW';
 
     // Use finalAmount (after any modifications) for the forecast
     const amount = occ.finalAmount?.amount ?? occ.originalAmount?.amount ?? 0;
@@ -358,9 +355,7 @@ async function getManualForecastItems(
 
   return manualItems.map((item) => {
     const expectedDate =
-      item.expectedDate instanceof Date
-        ? item.expectedDate
-        : new Date(String(item.expectedDate));
+      item.expectedDate instanceof Date ? item.expectedDate : new Date(String(item.expectedDate));
     const daysUntilDue = Math.ceil(
       (expectedDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
     );
@@ -738,7 +733,9 @@ export async function getCashFlowSummary(
     overdueReceivablesCount,
     overduePayablesCount,
     upcomingRecurringCount,
-    projectedBalance7Days: day7Forecast?.closingBalance ?? (currentBalance ?? 0) + (next7DaysReceipts - next7DaysPayments),
+    projectedBalance7Days:
+      day7Forecast?.closingBalance ??
+      (currentBalance ?? 0) + (next7DaysReceipts - next7DaysPayments),
     projectedBalance30Days: forecast.projectedClosingBalance,
   };
 }

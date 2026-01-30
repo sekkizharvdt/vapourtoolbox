@@ -26,7 +26,7 @@ const EXPENSE_TRANSACTION_TYPES = ['VENDOR_BILL', 'VENDOR_PAYMENT', 'EXPENSE_CLA
 /**
  * Transaction statuses that should be included in actual cost calculation
  */
-const POSTED_STATUSES = ['POSTED', 'PAID', 'PARTIALLY_PAID'];
+const POSTED_STATUSES = ['APPROVED', 'POSTED'];
 
 /**
  * Budget line item actual cost data

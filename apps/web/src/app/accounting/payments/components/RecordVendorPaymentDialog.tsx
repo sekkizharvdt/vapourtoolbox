@@ -83,7 +83,7 @@ export function RecordVendorPaymentDialog({
           transactionsRef,
           where('type', '==', 'VENDOR_BILL'),
           where('entityId', '==', entityId),
-          where('status', 'in', ['POSTED', 'APPROVED'])
+          where('status', 'in', ['APPROVED', 'POSTED'])
         );
 
         const snapshot = await getDocs(q);

@@ -84,11 +84,11 @@ export function canVoidBill(bill: VendorBill): { canVoid: boolean; reason?: stri
   }
 
   // Cannot void paid or partially paid bills
-  if (bill.status === 'PAID') {
+  if (bill.paymentStatus === 'PAID') {
     return { canVoid: false, reason: 'Cannot void a bill that has been fully paid' };
   }
 
-  if (bill.status === 'PARTIALLY_PAID') {
+  if (bill.paymentStatus === 'PARTIALLY_PAID') {
     return {
       canVoid: false,
       reason: 'Cannot void a bill with partial payments. Reverse payments first.',

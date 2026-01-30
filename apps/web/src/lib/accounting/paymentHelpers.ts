@@ -19,7 +19,7 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import type { PaymentAllocation, TransactionStatus } from '@vapour/types';
+import type { PaymentAllocation, PaymentStatus } from '@vapour/types';
 import {
   generateCustomerPaymentGLEntries,
   generateVendorPaymentGLEntries,
@@ -164,17 +164,17 @@ export async function updateTransactionStatusAfterPayment(
       const previouslyPaid = transactionData.amountPaid || 0;
       const newTotalPaid = previouslyPaid + paidAmount;
 
-      let newStatus: TransactionStatus;
+      let newPaymentStatus: PaymentStatus;
       if (newTotalPaid >= totalAmountINR) {
-        newStatus = 'PAID';
+        newPaymentStatus = 'PAID';
       } else if (newTotalPaid > 0) {
-        newStatus = 'PARTIALLY_PAID';
+        newPaymentStatus = 'PARTIALLY_PAID';
       } else {
-        newStatus = 'UNPAID';
+        newPaymentStatus = 'UNPAID';
       }
 
       transaction.update(transactionRef, {
-        status: newStatus,
+        paymentStatus: newPaymentStatus,
         amountPaid: newTotalPaid,
         outstandingAmount: Math.max(0, totalAmountINR - newTotalPaid),
         updatedAt: Timestamp.now(),
@@ -373,17 +373,17 @@ export async function createPaymentWithAllocationsAtomic(
       const previouslyPaid = invoiceData.amountPaid || 0;
       const newTotalPaid = previouslyPaid + allocation.allocatedAmount;
 
-      let newStatus: TransactionStatus;
+      let newPaymentStatus: PaymentStatus;
       if (newTotalPaid >= totalAmountINR) {
-        newStatus = 'PAID';
+        newPaymentStatus = 'PAID';
       } else if (newTotalPaid > 0) {
-        newStatus = 'PARTIALLY_PAID';
+        newPaymentStatus = 'PARTIALLY_PAID';
       } else {
-        newStatus = 'UNPAID';
+        newPaymentStatus = 'UNPAID';
       }
 
       batch.update(invoiceRef, {
-        status: newStatus,
+        paymentStatus: newPaymentStatus,
         amountPaid: newTotalPaid,
         outstandingAmount: Math.max(0, totalAmountINR - newTotalPaid),
         updatedAt: Timestamp.now(),
@@ -515,18 +515,18 @@ export async function updatePaymentWithAllocationsAtomic(
       const previouslyPaid = invoiceData.amountPaid || 0;
       const newTotalPaid = Math.max(0, previouslyPaid + netChange);
 
-      let newStatus: TransactionStatus;
+      let newPaymentStatus: PaymentStatus;
       if (newTotalPaid >= totalAmountINR) {
-        newStatus = 'PAID';
+        newPaymentStatus = 'PAID';
       } else if (newTotalPaid > 0) {
-        newStatus = 'PARTIALLY_PAID';
+        newPaymentStatus = 'PARTIALLY_PAID';
       } else {
-        newStatus = 'UNPAID';
+        newPaymentStatus = 'UNPAID';
       }
 
       const invoiceRef = doc(db, COLLECTIONS.TRANSACTIONS, invoiceId);
       transaction.update(invoiceRef, {
-        status: newStatus,
+        paymentStatus: newPaymentStatus,
         amountPaid: newTotalPaid,
         outstandingAmount: Math.max(0, totalAmountINR - newTotalPaid),
         updatedAt: now,

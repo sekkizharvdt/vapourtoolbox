@@ -37,10 +37,13 @@ export type TransactionStatus =
   | 'APPROVED'
   | 'REJECTED'
   | 'POSTED'
-  | 'VOID'
-  | 'UNPAID'
-  | 'PARTIALLY_PAID'
-  | 'PAID';
+  | 'VOID';
+
+/**
+ * Payment Status (separate from workflow status)
+ * Tracks whether a bill/invoice has been paid.
+ */
+export type PaymentStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE';
 
 /**
  * Payment Method
@@ -168,7 +171,7 @@ export interface CustomerInvoice extends BaseTransaction {
   // Payment tracking
   paidAmount: number;
   outstandingAmount: number;
-  paymentStatus: 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE';
+  paymentStatus: PaymentStatus;
 }
 
 /**
@@ -227,7 +230,7 @@ export interface VendorBill extends BaseTransaction {
   // Payment tracking
   paidAmount: number;
   outstandingAmount: number;
-  paymentStatus: 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE';
+  paymentStatus: PaymentStatus;
 
   // TDS deduction
   tdsDeducted: boolean;

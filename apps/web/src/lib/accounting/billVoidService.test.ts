@@ -103,7 +103,7 @@ describe('billVoidService', () => {
 
     it('returns canVoid: false for PAID bills', () => {
       // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      const bill = { status: 'PAID' } as VendorBill;
+      const bill = { status: 'APPROVED', paymentStatus: 'PAID' } as VendorBill;
       const result = canVoidBill(bill);
       expect(result.canVoid).toBe(false);
       expect(result.reason).toBe('Cannot void a bill that has been fully paid');
@@ -111,7 +111,7 @@ describe('billVoidService', () => {
 
     it('returns canVoid: false for PARTIALLY_PAID bills', () => {
       // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      const bill = { status: 'PARTIALLY_PAID' } as VendorBill;
+      const bill = { status: 'APPROVED', paymentStatus: 'PARTIALLY_PAID' } as VendorBill;
       const result = canVoidBill(bill);
       expect(result.canVoid).toBe(false);
       expect(result.reason).toBe(
@@ -145,7 +145,8 @@ describe('billVoidService', () => {
         exists: () => true,
         id: 'bill-123',
         data: () => ({
-          status: 'PAID',
+          status: 'APPROVED',
+          paymentStatus: 'PAID',
           transactionNumber: 'BILL-001',
         }),
       });
@@ -293,7 +294,8 @@ describe('billVoidService', () => {
             exists: () => true,
             id: 'bill-123',
             data: () => ({
-              status: 'PAID',
+              status: 'APPROVED',
+              paymentStatus: 'PAID',
               transactionNumber: 'BILL-001',
             }),
           }),
@@ -341,7 +343,7 @@ describe('billVoidService', () => {
 
     it('returns all false for PAID bill even with manage permission', () => {
       // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      const bill = { status: 'PAID' } as VendorBill;
+      const bill = { status: 'APPROVED', paymentStatus: 'PAID' } as VendorBill;
       const result = getVoidAvailableActions(bill, true);
 
       expect(result.canVoid).toBe(false);

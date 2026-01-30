@@ -22,9 +22,9 @@ const TRANSACTIONS_COLLECTION = 'transactions';
 const EXPENSE_TRANSACTION_TYPES = ['VENDOR_BILL', 'VENDOR_PAYMENT', 'EXPENSE_CLAIM'];
 
 /**
- * Transaction statuses that should be included in actual cost calculation
+ * Transaction statuses that represent confirmed expenses
  */
-const POSTED_STATUSES = ['POSTED', 'PAID', 'PARTIALLY_PAID'];
+const POSTED_STATUSES = ['APPROVED', 'POSTED'];
 
 /**
  * Calculate total actual spent for a cost centre from transactions

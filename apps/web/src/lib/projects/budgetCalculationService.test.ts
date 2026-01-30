@@ -201,7 +201,7 @@ describe('Budget Calculation Service', () => {
         'VENDOR_PAYMENT',
         'EXPENSE_CLAIM',
       ]);
-      expect(mockWhere).toHaveBeenCalledWith('status', 'in', ['POSTED', 'PAID', 'PARTIALLY_PAID']);
+      expect(mockWhere).toHaveBeenCalledWith('status', 'in', ['APPROVED', 'POSTED']);
     });
 
     it('should throw error on Firestore failure', async () => {

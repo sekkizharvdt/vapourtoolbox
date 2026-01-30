@@ -144,11 +144,11 @@ export default function InvoicesPage() {
       0
     );
     const outstanding = activeInvoices
-      .filter((inv) => inv.status !== 'PAID' && inv.status !== 'DRAFT')
+      .filter((inv) => inv.paymentStatus !== 'PAID' && inv.status !== 'DRAFT')
       .reduce((sum, inv) => sum + (inv.baseAmount || inv.totalAmount || 0), 0);
     const overdue = activeInvoices
       .filter((inv) => {
-        if (inv.status !== 'UNPAID' || !inv.dueDate) return false;
+        if (inv.paymentStatus !== 'UNPAID' || !inv.dueDate) return false;
         const dueDate = toDate(inv.dueDate);
         return dueDate && dueDate < new Date();
       })

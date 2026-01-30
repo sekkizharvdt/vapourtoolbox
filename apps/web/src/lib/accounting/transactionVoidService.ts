@@ -129,7 +129,7 @@ function generateReversingEntries(originalEntries: LedgerEntry[], voidDate: Date
  */
 export function canVoidTransaction(
   transactionType: VoidableTransactionType,
-  transaction: { status?: TransactionStatus }
+  transaction: { status?: TransactionStatus; paymentStatus?: string }
 ): { canVoid: boolean; reason?: string } {
   const config = VOID_CONFIGS[transactionType];
 
@@ -139,14 +139,14 @@ export function canVoidTransaction(
   }
 
   // Cannot void paid or partially paid transactions
-  if (transaction.status === 'PAID') {
+  if (transaction.paymentStatus === 'PAID') {
     return {
       canVoid: false,
       reason: `Cannot void ${config.entityLabelLower === 'invoice' ? 'an' : 'a'} ${config.entityLabelLower} that has been fully paid`,
     };
   }
 
-  if (transaction.status === 'PARTIALLY_PAID') {
+  if (transaction.paymentStatus === 'PARTIALLY_PAID') {
     return {
       canVoid: false,
       reason: `Cannot void ${config.entityLabelLower === 'invoice' ? 'an' : 'a'} ${config.entityLabelLower} with partial payments. Reverse payments first.`,
@@ -187,6 +187,7 @@ export async function voidTransaction(
     // Check if transaction can be voided
     const voidCheck = canVoidTransaction(transactionType, {
       status: transaction.status as TransactionStatus,
+      paymentStatus: transaction.paymentStatus as string | undefined,
     });
     if (!voidCheck.canVoid) {
       return { success: false, voidedTransactionId: transactionId, error: voidCheck.reason };
@@ -288,6 +289,7 @@ export async function voidAndRecreateTransaction(
       // Check if transaction can be voided
       const voidCheck = canVoidTransaction(transactionType, {
         status: transaction.status as TransactionStatus,
+        paymentStatus: transaction.paymentStatus as string | undefined,
       });
       if (!voidCheck.canVoid) {
         throw new Error(voidCheck.reason);
@@ -425,7 +427,7 @@ export async function voidAndRecreateTransaction(
  */
 export function getVoidAvailableActions(
   transactionType: VoidableTransactionType,
-  transaction: { status?: TransactionStatus },
+  transaction: { status?: TransactionStatus; paymentStatus?: string },
   canManage: boolean
 ): {
   canVoid: boolean;

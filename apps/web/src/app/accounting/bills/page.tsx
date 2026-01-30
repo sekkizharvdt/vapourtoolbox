@@ -164,11 +164,12 @@ export default function BillsPage() {
       0
     );
     const outstanding = bills
-      .filter((bill) => bill.status !== 'PAID' && bill.status !== 'DRAFT')
+      .filter((bill) => bill.paymentStatus !== 'PAID' && bill.status !== 'DRAFT')
       .reduce((sum, bill) => sum + (bill.baseAmount || bill.totalAmount || 0), 0);
     const overdue = bills
       .filter(
-        (bill) => bill.status === 'UNPAID' && bill.dueDate && new Date(bill.dueDate) < new Date()
+        (bill) =>
+          bill.paymentStatus === 'UNPAID' && bill.dueDate && new Date(bill.dueDate) < new Date()
       )
       .reduce((sum, bill) => sum + (bill.baseAmount || bill.totalAmount || 0), 0);
 
@@ -631,8 +632,8 @@ export default function BillsPage() {
                           show:
                             canManage &&
                             bill.status !== 'VOID' &&
-                            bill.status !== 'PAID' &&
-                            bill.status !== 'PARTIALLY_PAID',
+                            bill.paymentStatus !== 'PAID' &&
+                            bill.paymentStatus !== 'PARTIALLY_PAID',
                         },
                         {
                           icon: <DeleteIcon />,

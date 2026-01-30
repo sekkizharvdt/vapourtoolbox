@@ -248,7 +248,7 @@ async function extractTDSTransactions(
       where('type', '==', 'BILL'),
       where('date', '>=', startDate),
       where('date', '<=', endDate),
-      where('status', 'in', ['POSTED', 'APPROVED', 'PAID'])
+      where('status', 'in', ['APPROVED', 'POSTED'])
     );
 
     const billsSnapshot = await getDocs(billsQuery);

@@ -671,7 +671,7 @@ export async function getOutstandingBillsForProject(
   const q = query(
     collection(db, COLLECTIONS.TRANSACTIONS),
     where('type', '==', 'VENDOR_BILL'),
-    where('paymentStatus', 'in', ['UNPAID', 'PARTIAL']),
+    where('paymentStatus', 'in', ['UNPAID', 'PARTIALLY_PAID']),
     orderBy('dueDate', 'asc')
   );
 

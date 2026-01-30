@@ -89,7 +89,7 @@ export const onInvoiceStatusChange = onDocumentUpdated(
     }
 
     // Auto-complete payment task when invoice is paid
-    if (newStatus === 'PAID' || newStatus === 'COMPLETED') {
+    if (after.paymentStatus === 'PAID') {
       try {
         // Find the payment task
         const paymentTask = await findTaskNotificationByEntity(

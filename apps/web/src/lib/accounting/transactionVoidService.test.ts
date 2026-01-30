@@ -89,13 +89,19 @@ describe('transactionVoidService', () => {
     });
 
     it('prevents voiding PAID transactions', () => {
-      const result = canVoidTransaction('CUSTOMER_INVOICE', { status: 'PAID' });
+      const result = canVoidTransaction('CUSTOMER_INVOICE', {
+        status: 'APPROVED',
+        paymentStatus: 'PAID',
+      });
       expect(result.canVoid).toBe(false);
       expect(result.reason).toBe('Cannot void an invoice that has been fully paid');
     });
 
     it('prevents voiding PARTIALLY_PAID transactions', () => {
-      const result = canVoidTransaction('VENDOR_BILL', { status: 'PARTIALLY_PAID' });
+      const result = canVoidTransaction('VENDOR_BILL', {
+        status: 'APPROVED',
+        paymentStatus: 'PARTIALLY_PAID',
+      });
       expect(result.canVoid).toBe(false);
       expect(result.reason).toBe(
         'Cannot void a bill with partial payments. Reverse payments first.'
@@ -103,12 +109,18 @@ describe('transactionVoidService', () => {
     });
 
     it('uses correct article for invoice (an)', () => {
-      const result = canVoidTransaction('CUSTOMER_INVOICE', { status: 'PAID' });
+      const result = canVoidTransaction('CUSTOMER_INVOICE', {
+        status: 'APPROVED',
+        paymentStatus: 'PAID',
+      });
       expect(result.reason).toContain('an invoice');
     });
 
     it('uses correct article for bill (a)', () => {
-      const result = canVoidTransaction('VENDOR_BILL', { status: 'PAID' });
+      const result = canVoidTransaction('VENDOR_BILL', {
+        status: 'APPROVED',
+        paymentStatus: 'PAID',
+      });
       expect(result.reason).toContain('a bill');
     });
   });
@@ -171,7 +183,8 @@ describe('transactionVoidService', () => {
       mockGetDoc.mockResolvedValue({
         exists: () => true,
         data: () => ({
-          status: 'PAID',
+          status: 'APPROVED',
+          paymentStatus: 'PAID',
           transactionNumber: 'INV-2026-001',
         }),
       });
@@ -238,7 +251,11 @@ describe('transactionVoidService', () => {
     });
 
     it('returns correct reason when transaction cannot be voided', () => {
-      const result = getVoidAvailableActions('VENDOR_BILL', { status: 'PAID' }, true);
+      const result = getVoidAvailableActions(
+        'VENDOR_BILL',
+        { status: 'APPROVED', paymentStatus: 'PAID' },
+        true
+      );
 
       expect(result.canVoid).toBe(false);
       expect(result.canVoidAndRecreate).toBe(false);

@@ -76,11 +76,11 @@ export function canVoidInvoice(invoice: CustomerInvoice): { canVoid: boolean; re
   }
 
   // Cannot void paid or partially paid invoices
-  if (invoice.status === 'PAID') {
+  if (invoice.paymentStatus === 'PAID') {
     return { canVoid: false, reason: 'Cannot void an invoice that has been fully paid' };
   }
 
-  if (invoice.status === 'PARTIALLY_PAID') {
+  if (invoice.paymentStatus === 'PARTIALLY_PAID') {
     return {
       canVoid: false,
       reason: 'Cannot void an invoice with partial payments. Reverse payments first.',

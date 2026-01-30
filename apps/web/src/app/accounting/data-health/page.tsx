@@ -138,7 +138,11 @@ export default function DataHealthPage() {
 
       billsSnap.forEach((doc) => {
         const data = doc.data();
-        if (data.status !== 'PAID' && data.status !== 'CANCELLED' && data.status !== 'VOIDED') {
+        if (
+          data.paymentStatus !== 'PAID' &&
+          data.status !== 'CANCELLED' &&
+          data.status !== 'VOIDED'
+        ) {
           const dueDate = data.dueDate?.toDate?.() || new Date(data.dueDate);
           if (dueDate && dueDate < now) {
             overdueCount++;
@@ -150,7 +154,11 @@ export default function DataHealthPage() {
 
       invoicesSnap.forEach((doc) => {
         const data = doc.data();
-        if (data.status !== 'PAID' && data.status !== 'CANCELLED' && data.status !== 'VOIDED') {
+        if (
+          data.paymentStatus !== 'PAID' &&
+          data.status !== 'CANCELLED' &&
+          data.status !== 'VOIDED'
+        ) {
           const dueDate = data.dueDate?.toDate?.() || new Date(data.dueDate);
           if (dueDate && dueDate < now) {
             overdueCount++;

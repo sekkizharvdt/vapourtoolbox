@@ -95,7 +95,7 @@ describe('invoiceVoidService', () => {
 
     it('returns canVoid: true for UNPAID invoices', () => {
       // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      const invoice = { status: 'UNPAID' } as CustomerInvoice;
+      const invoice = { status: 'APPROVED', paymentStatus: 'UNPAID' } as CustomerInvoice;
       const result = canVoidInvoice(invoice);
       expect(result.canVoid).toBe(true);
     });
@@ -110,7 +110,7 @@ describe('invoiceVoidService', () => {
 
     it('returns canVoid: false for PAID invoices', () => {
       // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      const invoice = { status: 'PAID' } as CustomerInvoice;
+      const invoice = { status: 'APPROVED', paymentStatus: 'PAID' } as CustomerInvoice;
       const result = canVoidInvoice(invoice);
       expect(result.canVoid).toBe(false);
       expect(result.reason).toBe('Cannot void an invoice that has been fully paid');
@@ -118,7 +118,7 @@ describe('invoiceVoidService', () => {
 
     it('returns canVoid: false for PARTIALLY_PAID invoices', () => {
       // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      const invoice = { status: 'PARTIALLY_PAID' } as CustomerInvoice;
+      const invoice = { status: 'APPROVED', paymentStatus: 'PARTIALLY_PAID' } as CustomerInvoice;
       const result = canVoidInvoice(invoice);
       expect(result.canVoid).toBe(false);
       expect(result.reason).toBe(
@@ -152,7 +152,8 @@ describe('invoiceVoidService', () => {
         exists: () => true,
         id: 'invoice-123',
         data: () => ({
-          status: 'PAID',
+          status: 'APPROVED',
+          paymentStatus: 'PAID',
           transactionNumber: 'INV-001',
         }),
       });
@@ -168,7 +169,8 @@ describe('invoiceVoidService', () => {
         exists: () => true,
         id: 'invoice-123',
         data: () => ({
-          status: 'PARTIALLY_PAID',
+          status: 'APPROVED',
+          paymentStatus: 'PARTIALLY_PAID',
           transactionNumber: 'INV-001',
         }),
       });
@@ -351,7 +353,8 @@ describe('invoiceVoidService', () => {
             exists: () => true,
             id: 'invoice-123',
             data: () => ({
-              status: 'PAID',
+              status: 'APPROVED',
+              paymentStatus: 'PAID',
               transactionNumber: 'INV-001',
             }),
           }),
@@ -373,7 +376,8 @@ describe('invoiceVoidService', () => {
             exists: () => true,
             id: 'invoice-123',
             data: () => ({
-              status: 'PARTIALLY_PAID',
+              status: 'APPROVED',
+              paymentStatus: 'PARTIALLY_PAID',
               transactionNumber: 'INV-001',
             }),
           }),
@@ -432,7 +436,7 @@ describe('invoiceVoidService', () => {
 
     it('returns all true for UNPAID invoice when user can manage', () => {
       // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      const invoice = { status: 'UNPAID' } as CustomerInvoice;
+      const invoice = { status: 'APPROVED', paymentStatus: 'UNPAID' } as CustomerInvoice;
       const result = getVoidInvoiceAvailableActions(invoice, true);
 
       expect(result.canVoid).toBe(true);
@@ -441,7 +445,7 @@ describe('invoiceVoidService', () => {
 
     it('returns all false for PAID invoice even with manage permission', () => {
       // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      const invoice = { status: 'PAID' } as CustomerInvoice;
+      const invoice = { status: 'APPROVED', paymentStatus: 'PAID' } as CustomerInvoice;
       const result = getVoidInvoiceAvailableActions(invoice, true);
 
       expect(result.canVoid).toBe(false);
@@ -451,7 +455,7 @@ describe('invoiceVoidService', () => {
 
     it('returns all false for PARTIALLY_PAID invoice even with manage permission', () => {
       // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      const invoice = { status: 'PARTIALLY_PAID' } as CustomerInvoice;
+      const invoice = { status: 'APPROVED', paymentStatus: 'PARTIALLY_PAID' } as CustomerInvoice;
       const result = getVoidInvoiceAvailableActions(invoice, true);
 
       expect(result.canVoid).toBe(false);

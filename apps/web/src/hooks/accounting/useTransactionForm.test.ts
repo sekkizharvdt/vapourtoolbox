@@ -431,7 +431,7 @@ describe('useTransactionForm Hook', () => {
         'PENDING_APPROVAL',
         'APPROVED',
         'REJECTED',
-        'PAID',
+        'POSTED',
       ];
 
       const { result } = renderHook(() => useTransactionForm());
@@ -542,12 +542,12 @@ describe('useTransactionForm Hook', () => {
         result.current.setEntityName('Tech Solutions Ltd');
         result.current.setDescription('Payment for software licenses');
         result.current.setReference('PAY-2025-089');
-        result.current.setStatus('PAID');
+        result.current.setStatus('POSTED');
       });
 
       const formData = result.current.getFormData();
 
-      expect(formData.status).toBe('PAID');
+      expect(formData.status).toBe('POSTED');
       expect(formData.reference).toBe('PAY-2025-089');
       expect(formData.description).toContain('software licenses');
     });

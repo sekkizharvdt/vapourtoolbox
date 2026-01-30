@@ -106,3 +106,6 @@ export {
 } from './email/triggers';
 export { checkOverdueItemsAndNotify } from './email/scheduled';
 export { sendTestEmail } from './email/testEmail';
+
+// Import migration functions
+export { migratePaymentStatus } from './migrations/migratePaymentStatus';

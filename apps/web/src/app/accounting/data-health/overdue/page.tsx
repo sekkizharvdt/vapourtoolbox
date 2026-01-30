@@ -95,14 +95,14 @@ export default function OverdueItemsPage() {
           query(
             transactionsRef,
             where('type', '==', 'VENDOR_BILL'),
-            where('status', 'in', ['POSTED', 'APPROVED', 'PARTIALLY_PAID', 'UNPAID'])
+            where('status', 'in', ['APPROVED', 'POSTED'])
           )
         ),
         getDocs(
           query(
             transactionsRef,
             where('type', '==', 'CUSTOMER_INVOICE'),
-            where('status', 'in', ['POSTED', 'APPROVED', 'PARTIALLY_PAID', 'UNPAID'])
+            where('status', 'in', ['APPROVED', 'POSTED'])
           )
         ),
       ]);
