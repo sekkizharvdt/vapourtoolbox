@@ -14,6 +14,7 @@ import {
   getDoc,
   getDocs,
   addDoc,
+  updateDoc,
   query,
   where,
   orderBy,
@@ -342,6 +343,12 @@ export async function createPOFromOffer(
         batch.set(itemRef, poItemData);
       });
 
+      // Mark offer as PO_CREATED to prevent duplicate POs
+      batch.update(doc(db, COLLECTIONS.OFFERS, offerId), {
+        status: 'PO_CREATED',
+        updatedAt: now,
+      });
+
       await batch.commit();
 
       // Audit log: PO created
@@ -445,4 +452,106 @@ export async function listPOs(
     id: doc.id,
     ...doc.data(),
   })) as PurchaseOrder[];
+}
+
+// ============================================================================
+// UPDATE DRAFT PO
+// ============================================================================
+
+export interface UpdateDraftPOTerms {
+  paymentTerms: string;
+  deliveryTerms: string;
+  warrantyTerms?: string;
+  penaltyClause?: string;
+  deliveryAddress: string;
+  expectedDeliveryDate?: Date;
+  advancePaymentRequired: boolean;
+  advancePercentage?: number;
+  commercialTermsTemplateId?: string;
+  commercialTermsTemplateName?: string;
+  commercialTerms?: POCommercialTerms;
+}
+
+/**
+ * Update a DRAFT PO's commercial terms.
+ * Only DRAFT POs can be edited.
+ */
+export async function updateDraftPO(
+  poId: string,
+  terms: UpdateDraftPOTerms,
+  userId: string,
+  userName: string
+): Promise<void> {
+  const { db } = getFirebase();
+
+  const poDoc = await getDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId));
+  if (!poDoc.exists()) {
+    throw new Error('Purchase Order not found');
+  }
+
+  const po = poDoc.data();
+  if (po.status !== 'DRAFT') {
+    throw new Error('Only DRAFT Purchase Orders can be edited');
+  }
+
+  const now = Timestamp.now();
+
+  // Calculate advance amount if required
+  let advanceAmount = 0;
+  const grandTotal = po.grandTotal as number;
+  if (terms.advancePaymentRequired && terms.advancePercentage) {
+    advanceAmount = (grandTotal * terms.advancePercentage) / 100;
+  }
+
+  const updateData: Record<string, unknown> = {
+    paymentTerms: terms.paymentTerms,
+    deliveryTerms: terms.deliveryTerms,
+    deliveryAddress: terms.deliveryAddress,
+    advancePaymentRequired: terms.advancePaymentRequired,
+    updatedAt: now,
+    updatedBy: userId,
+  };
+
+  if (terms.warrantyTerms) updateData.warrantyTerms = terms.warrantyTerms;
+  if (terms.penaltyClause) updateData.penaltyClause = terms.penaltyClause;
+  if (terms.expectedDeliveryDate) {
+    updateData.expectedDeliveryDate = Timestamp.fromDate(terms.expectedDeliveryDate);
+  }
+  if (terms.advancePercentage !== undefined) {
+    updateData.advancePercentage = terms.advancePercentage;
+  }
+  if (advanceAmount) updateData.advanceAmount = advanceAmount;
+  if (terms.advancePaymentRequired) updateData.advancePaymentStatus = 'PENDING';
+  if (terms.commercialTermsTemplateId) {
+    updateData.commercialTermsTemplateId = terms.commercialTermsTemplateId;
+  }
+  if (terms.commercialTermsTemplateName) {
+    updateData.commercialTermsTemplateName = terms.commercialTermsTemplateName;
+  }
+  if (terms.commercialTerms) {
+    updateData.commercialTerms = removeUndefinedDeep(
+      terms.commercialTerms as unknown as Record<string, unknown>
+    );
+  }
+
+  await updateDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId), updateData);
+
+  // Audit log
+  const auditContext = createAuditContext(userId, '', userName);
+  await logAuditEvent(
+    db,
+    auditContext,
+    'PO_UPDATED',
+    'PURCHASE_ORDER',
+    poId,
+    `Updated Draft Purchase Order ${po.number}`,
+    {
+      entityName: po.number as string,
+      metadata: {
+        fields: Object.keys(updateData).filter((k) => k !== 'updatedAt' && k !== 'updatedBy'),
+      },
+    }
+  );
+
+  logger.info('Draft PO updated', { poId, poNumber: po.number });
 }

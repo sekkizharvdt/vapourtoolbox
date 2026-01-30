@@ -220,9 +220,14 @@ describe('offerStateMachine', () => {
 
   describe('terminal states', () => {
     it('should identify all final states as terminal', () => {
-      expect(offerStateMachine.isTerminal('SELECTED')).toBe(true);
+      expect(offerStateMachine.isTerminal('PO_CREATED')).toBe(true);
       expect(offerStateMachine.isTerminal('REJECTED')).toBe(true);
       expect(offerStateMachine.isTerminal('WITHDRAWN')).toBe(true);
+    });
+
+    it('should not consider SELECTED as terminal (can transition to PO_CREATED)', () => {
+      expect(offerStateMachine.isTerminal('SELECTED')).toBe(false);
+      expect(offerStateMachine.canTransitionTo('SELECTED', 'PO_CREATED')).toBe(true);
     });
   });
 });
@@ -300,7 +305,7 @@ describe('isTerminalStatus', () => {
   it('should return true for terminal statuses', () => {
     expect(isTerminalStatus(purchaseOrderStateMachine, 'COMPLETED')).toBe(true);
     expect(isTerminalStatus(proposalStateMachine, 'ACCEPTED')).toBe(true);
-    expect(isTerminalStatus(offerStateMachine, 'SELECTED')).toBe(true);
+    expect(isTerminalStatus(offerStateMachine, 'PO_CREATED')).toBe(true);
   });
 
   it('should return false for non-terminal statuses', () => {

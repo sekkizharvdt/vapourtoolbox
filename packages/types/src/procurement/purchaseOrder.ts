@@ -254,6 +254,8 @@ export interface POCommercialTerms {
 
   // 5. Packing & Forwarding
   packingForwardingIncluded: boolean;
+  pfChargeType?: 'PERCENTAGE' | 'LUMPSUM';
+  pfChargeValue?: number;
 
   // 6-8. Scope assignments
   freightScope: POScopeAssignment;

@@ -140,11 +140,12 @@ const offerConfig: StateTransitionConfig<OfferStatus> = {
     UPLOADED: ['UNDER_REVIEW', 'SELECTED', 'REJECTED', 'WITHDRAWN'],
     UNDER_REVIEW: ['EVALUATED', 'SELECTED', 'REJECTED', 'WITHDRAWN'],
     EVALUATED: ['SELECTED', 'REJECTED', 'WITHDRAWN'],
-    SELECTED: [], // Terminal - PO will be created
+    SELECTED: ['PO_CREATED'], // PO creation transitions to PO_CREATED
+    PO_CREATED: [], // Terminal - PO has been created
     REJECTED: [], // Terminal
     WITHDRAWN: [], // Terminal
   },
-  terminalStates: ['SELECTED', 'REJECTED', 'WITHDRAWN'],
+  terminalStates: ['PO_CREATED', 'REJECTED', 'WITHDRAWN'],
 };
 export const offerStateMachine: StateMachine<OfferStatus> = createStateMachine(offerConfig);
 

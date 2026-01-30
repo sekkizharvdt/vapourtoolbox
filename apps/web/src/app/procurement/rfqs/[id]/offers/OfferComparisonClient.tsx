@@ -412,7 +412,9 @@ export default function OfferComparisonPage() {
                   >
                     {offer.isRecommended ? 'Recommended' : 'Recommend'}
                   </Button>
-                  {offer.status === 'SELECTED' ? (
+                  {offer.status === 'PO_CREATED' ? (
+                    <Chip label="PO Created" color="info" size="small" />
+                  ) : offer.status === 'SELECTED' ? (
                     <Button
                       variant="contained"
                       size="small"

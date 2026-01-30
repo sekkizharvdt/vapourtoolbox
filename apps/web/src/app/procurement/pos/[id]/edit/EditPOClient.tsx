@@ -1,14 +1,13 @@
 'use client';
 
 /**
- * Create Purchase Order Page
+ * Edit Draft Purchase Order Client Component
  *
- * Create a PO from a selected offer with structured commercial terms.
- * Uses the CommercialTermsForm component for the 19-section terms template.
+ * Edit commercial terms of a DRAFT PO before submitting for approval.
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   Box,
   Paper,
@@ -31,39 +30,40 @@ import {
   Save as SaveIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
+import { doc, getDoc } from 'firebase/firestore';
+import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Offer, POCommercialTerms, CommercialTermsTemplate } from '@vapour/types';
-import { getOfferById } from '@/lib/procurement/offer';
-import { createPOFromOffer } from '@/lib/procurement/purchaseOrderService';
+import type { PurchaseOrder, POCommercialTerms, CommercialTermsTemplate } from '@vapour/types';
+import { getPOById } from '@/lib/procurement/purchaseOrderService';
+import { updateDraftPO } from '@/lib/procurement/purchaseOrder';
 import { formatCurrency } from '@/lib/procurement/purchaseOrderHelpers';
 import {
   getDefaultTemplate,
   getActiveTemplates,
+  getTemplateById,
   createCommercialTermsFromTemplate,
   validatePaymentSchedule,
   buildBillingAddressFromCompany,
 } from '@/lib/procurement/commercialTerms';
-import { doc, getDoc } from 'firebase/firestore';
-import { getFirebase } from '@/lib/firebase';
 import { CommercialTermsForm } from '@/components/procurement';
 
-export default function NewPOPage() {
+export default function EditPOClient() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { user } = useAuth();
-  const offerId = searchParams.get('offerId');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [offer, setOffer] = useState<Offer | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [po, setPO] = useState<PurchaseOrder | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [poId, setPoId] = useState<string | null>(null);
 
   // Template selection
   const [selectedTemplate, setSelectedTemplate] =
     useState<CommercialTermsTemplate>(getDefaultTemplate());
   const availableTemplates = useMemo(() => getActiveTemplates(), []);
 
-  // Commercial terms state (structured)
+  // Commercial terms state
   const [commercialTerms, setCommercialTerms] = useState<POCommercialTerms>(() =>
     createCommercialTermsFromTemplate(getDefaultTemplate(), '')
   );
@@ -71,55 +71,78 @@ export default function NewPOPage() {
   // Form validation errors
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Expected delivery date (kept separate as it's a PO-level field, not part of commercial terms)
+  // Expected delivery date
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
 
+  // Extract PO ID from pathname
   useEffect(() => {
-    if (!offerId) {
-      setError('No offer selected. Please select an offer first.');
-      setLoading(false);
-      return;
+    if (pathname) {
+      const match = pathname.match(/\/procurement\/pos\/([^/]+)\/edit/);
+      const extractedId = match?.[1];
+      if (extractedId && extractedId !== 'placeholder') {
+        setPoId(extractedId);
+      }
     }
-    loadOffer();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offerId]);
+  }, [pathname]);
 
-  const loadOffer = async () => {
-    if (!offerId) return;
+  useEffect(() => {
+    if (poId) {
+      loadPO();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poId]);
+
+  const loadPO = async () => {
+    if (!poId) return;
 
     setLoading(true);
     setError('');
     try {
-      const [offerData, companyDoc] = await Promise.all([
-        getOfferById(offerId),
+      const [poData, companyDoc] = await Promise.all([
+        getPOById(poId),
         getDoc(doc(getFirebase().db, 'company', 'settings')),
       ]);
 
-      if (!offerData) {
-        setError('Offer not found');
+      if (!poData) {
+        setError('Purchase Order not found');
         return;
       }
 
-      if (offerData.status !== 'SELECTED') {
-        setError('Only selected offers can be converted to Purchase Orders');
+      if (poData.status !== 'DRAFT') {
+        setError('Only DRAFT Purchase Orders can be edited');
         return;
       }
 
-      setOffer(offerData);
+      setPO(poData);
 
-      // Build billing address from company profile
-      const companySettings = companyDoc.exists() ? companyDoc.data() : null;
-      const billingAddress = buildBillingAddressFromCompany(companySettings);
+      // Load existing commercial terms or create from template
+      if (poData.commercialTerms) {
+        // Build billing address from company profile if available
+        const companySettings = companyDoc.exists() ? companyDoc.data() : null;
+        const billingAddress = buildBillingAddressFromCompany(companySettings);
 
-      // Update commercial terms with offer currency and company billing address
-      setCommercialTerms((prev) => ({
-        ...prev,
-        currency: offerData.currency || 'INR',
-        billingAddress,
-      }));
+        setCommercialTerms({
+          ...poData.commercialTerms,
+          billingAddress: billingAddress || poData.commercialTerms.billingAddress,
+        });
+      }
+
+      // Set template if stored on PO
+      if (poData.commercialTermsTemplateId) {
+        const template = getTemplateById(poData.commercialTermsTemplateId);
+        if (template) setSelectedTemplate(template);
+      }
+
+      // Set expected delivery date
+      if (poData.expectedDeliveryDate) {
+        const date = poData.expectedDeliveryDate.toDate?.()
+          ? poData.expectedDeliveryDate.toDate()
+          : new Date(poData.expectedDeliveryDate as unknown as string);
+        setExpectedDeliveryDate(date.toISOString().split('T')[0] ?? '');
+      }
     } catch (err) {
-      console.error('[NewPOPage] Error loading offer:', err);
-      setError('Failed to load offer');
+      console.error('[EditPOPage] Error loading PO:', err);
+      setError('Failed to load purchase order');
     } finally {
       setLoading(false);
     }
@@ -129,10 +152,9 @@ export default function NewPOPage() {
     const template = availableTemplates.find((t) => t.id === templateId);
     if (template) {
       setSelectedTemplate(template);
-      // Reset commercial terms to new template defaults, preserving delivery and billing address
       setCommercialTerms(
         createCommercialTermsFromTemplate(template, commercialTerms.deliveryAddress, {
-          currency: offer?.currency || 'INR',
+          currency: po?.currency || 'INR',
           billingAddress: commercialTerms.billingAddress,
         })
       );
@@ -142,18 +164,15 @@ export default function NewPOPage() {
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    // Validate delivery address
     if (!commercialTerms.deliveryAddress.trim()) {
       errors.deliveryAddress = 'Delivery address is required';
     }
 
-    // Validate payment schedule
     const scheduleValidation = validatePaymentSchedule(commercialTerms.paymentSchedule);
     if (!scheduleValidation.isValid) {
       errors.paymentSchedule = scheduleValidation.error || 'Invalid payment schedule';
     }
 
-    // Validate buyer contact
     if (!commercialTerms.buyerContactName.trim()) {
       errors.buyerContactName = 'Buyer contact name is required';
     }
@@ -168,25 +187,23 @@ export default function NewPOPage() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleCreatePO = async () => {
-    if (!user || !offer || !offerId) return;
+  const handleSave = async () => {
+    if (!user || !po || !poId) return;
 
-    // Validate form
     if (!validateForm()) {
-      setError('Please fix the validation errors before creating the PO');
+      setError('Please fix the validation errors before saving');
       return;
     }
 
-    setCreating(true);
+    setSaving(true);
     setError('');
 
     try {
-      // Generate legacy text fields from structured terms for backward compatibility
+      // Generate text fields from structured terms
       const paymentTermsText = commercialTerms.paymentSchedule
         .map((m) => `${m.percentage}% - ${m.paymentType} (${m.deliverables})`)
         .join(', ');
 
-      // Generate delivery terms text based on delivery unit
       const deliveryUnitLabel =
         commercialTerms.deliveryUnit === 'DAYS'
           ? 'days'
@@ -210,27 +227,22 @@ export default function NewPOPage() {
 
       const penaltyClauseText = `${commercialTerms.ldPerWeekPercent}% per week of delay, maximum ${commercialTerms.ldMaxPercent}% of order value`;
 
-      // Calculate advance payment from payment schedule
       const advanceMilestone = commercialTerms.paymentSchedule.find((m) =>
         m.paymentType.toLowerCase().includes('advance')
       );
       const advancePercentage = advanceMilestone?.percentage || 0;
 
-      const poId = await createPOFromOffer(
-        offerId,
+      await updateDraftPO(
+        poId,
         {
-          // Legacy text fields (for backward compatibility with existing code)
           paymentTerms: paymentTermsText,
           deliveryTerms: deliveryTermsText,
           warrantyTerms: warrantyTermsText,
           penaltyClause: penaltyClauseText,
-          otherClauses: [],
           deliveryAddress: commercialTerms.deliveryAddress,
           expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : undefined,
           advancePaymentRequired: advancePercentage > 0,
           advancePercentage: advancePercentage > 0 ? advancePercentage : undefined,
-
-          // New structured commercial terms
           commercialTermsTemplateId: selectedTemplate.id,
           commercialTermsTemplateName: selectedTemplate.name,
           commercialTerms: commercialTerms,
@@ -241,9 +253,9 @@ export default function NewPOPage() {
 
       router.push(`/procurement/pos/${poId}`);
     } catch (err) {
-      console.error('[NewPOPage] Error creating PO:', err);
-      setError('Failed to create Purchase Order. Please try again.');
-      setCreating(false);
+      console.error('[EditPOPage] Error saving PO:', err);
+      setError('Failed to save changes. Please try again.');
+      setSaving(false);
     }
   };
 
@@ -255,16 +267,16 @@ export default function NewPOPage() {
     );
   }
 
-  if (error && !offer) {
+  if (error && !po) {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">{error}</Alert>
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => router.push('/procurement/rfqs')}
+          onClick={() => router.push('/procurement/pos')}
           sx={{ mt: 2 }}
         >
-          Back to RFQs
+          Back to Purchase Orders
         </Button>
       </Box>
     );
@@ -298,59 +310,68 @@ export default function NewPOPage() {
           >
             Purchase Orders
           </Link>
-          <Typography color="text.primary">New</Typography>
+          <Link
+            color="inherit"
+            href={`/procurement/pos/${poId}`}
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault();
+              router.push(`/procurement/pos/${poId}`);
+            }}
+            sx={{ cursor: 'pointer' }}
+          >
+            {po?.number}
+          </Link>
+          <Typography color="text.primary">Edit</Typography>
         </Breadcrumbs>
 
         {/* Header */}
         <Box>
           <Button
             startIcon={<ArrowBackIcon />}
-            onClick={() => router.push(`/procurement/rfqs/${offer?.rfqId}/offers`)}
+            onClick={() => router.push(`/procurement/pos/${poId}`)}
             sx={{ mb: 1 }}
           >
-            Back to Offers
+            Back to PO
           </Button>
           <Typography variant="h4" gutterBottom>
-            Create Purchase Order
+            Edit {po?.number}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Create a purchase order from the selected offer with structured commercial terms
+            Edit commercial terms before submitting for approval
           </Typography>
         </Box>
 
         {error && <Alert severity="error">{error}</Alert>}
 
-        {offer && (
+        {po && (
           <>
-            {/* Offer Summary */}
+            {/* PO Summary */}
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
-                Selected Offer
+                PO Summary
               </Typography>
               <Divider sx={{ my: 2 }} />
-              <Stack spacing={2}>
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                  <Box flex={1}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Vendor
-                    </Typography>
-                    <Typography variant="body1">{offer.vendorName}</Typography>
-                  </Box>
-                  <Box flex={1}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Offer Number
-                    </Typography>
-                    <Typography variant="body1">{offer.number}</Typography>
-                  </Box>
-                  <Box flex={1}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Total Amount
-                    </Typography>
-                    <Typography variant="h6" color="primary">
-                      {formatCurrency(offer.totalAmount, offer.currency)}
-                    </Typography>
-                  </Box>
-                </Stack>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <Box flex={1}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Vendor
+                  </Typography>
+                  <Typography variant="body1">{po.vendorName}</Typography>
+                </Box>
+                <Box flex={1}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Offer
+                  </Typography>
+                  <Typography variant="body1">{po.selectedOfferNumber}</Typography>
+                </Box>
+                <Box flex={1}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Total Amount
+                  </Typography>
+                  <Typography variant="h6" color="primary">
+                    {formatCurrency(po.grandTotal, po.currency)}
+                  </Typography>
+                </Box>
               </Stack>
             </Paper>
 
@@ -410,19 +431,16 @@ export default function NewPOPage() {
 
             {/* Actions */}
             <Stack direction="row" spacing={2} justifyContent="flex-end">
-              <Button
-                onClick={() => router.push(`/procurement/rfqs/${offer.rfqId}/offers`)}
-                disabled={creating}
-              >
+              <Button onClick={() => router.push(`/procurement/pos/${poId}`)} disabled={saving}>
                 Cancel
               </Button>
               <Button
                 variant="contained"
-                startIcon={creating ? <CircularProgress size={20} /> : <SaveIcon />}
-                onClick={handleCreatePO}
-                disabled={creating}
+                startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+                onClick={handleSave}
+                disabled={saving}
               >
-                {creating ? 'Creating...' : 'Create Purchase Order'}
+                {saving ? 'Saving...' : 'Save Changes'}
               </Button>
             </Stack>
           </>

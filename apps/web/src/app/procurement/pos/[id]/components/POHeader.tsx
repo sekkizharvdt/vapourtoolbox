@@ -9,6 +9,7 @@
 import { Box, Typography, Button, Stack, Chip } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
+  Edit as EditIcon,
   Send as SendIcon,
   Check as CheckIcon,
   Close as CloseIcon,
@@ -18,6 +19,7 @@ import type { PurchaseOrder } from '@vapour/types';
 import {
   getPOStatusText,
   getPOStatusColor,
+  canEditPO,
   canSubmitForApproval,
   canApprovePO,
   canRejectPO,
@@ -29,6 +31,7 @@ import {
 interface POHeaderProps {
   po: PurchaseOrder;
   onBack: () => void;
+  onEdit: () => void;
   onSubmitForApproval: () => void;
   onApprove: () => void;
   onReject: () => void;
@@ -39,6 +42,7 @@ interface POHeaderProps {
 export function POHeader({
   po,
   onBack,
+  onEdit,
   onSubmitForApproval,
   onApprove,
   onReject,
@@ -75,6 +79,11 @@ export function POHeader({
           </Stack>
         </Box>
         <Stack direction="row" spacing={1}>
+          {canEditPO(po) && (
+            <Button variant="outlined" startIcon={<EditIcon />} onClick={onEdit}>
+              Edit
+            </Button>
+          )}
           {canSubmitForApproval(po) && (
             <Button variant="contained" startIcon={<SendIcon />} onClick={onSubmitForApproval}>
               Submit for Approval

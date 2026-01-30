@@ -16,6 +16,7 @@ export type OfferStatus =
   | 'UNDER_REVIEW'
   | 'EVALUATED'
   | 'SELECTED'
+  | 'PO_CREATED'
   | 'REJECTED'
   | 'WITHDRAWN';
 

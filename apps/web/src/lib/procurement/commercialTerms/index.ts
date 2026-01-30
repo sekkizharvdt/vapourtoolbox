@@ -21,6 +21,8 @@ export {
   // Terms creation
   createCommercialTermsFromTemplate,
   getWarrantyText,
+  // Billing address utility
+  buildBillingAddressFromCompany,
 } from './defaults';
 
 // Re-export types from @vapour/types for convenience

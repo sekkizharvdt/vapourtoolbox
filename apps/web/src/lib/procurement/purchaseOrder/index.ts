@@ -11,14 +11,10 @@ export {
   getPOById,
   getPOItems,
   listPOs,
+  updateDraftPO,
   type CreatePOFromOfferTerms,
+  type UpdateDraftPOTerms,
 } from './crud';
 
 // Workflow operations
-export {
-  submitPOForApproval,
-  approvePO,
-  rejectPO,
-  issuePO,
-  updatePOStatus,
-} from './workflow';
+export { submitPOForApproval, approvePO, rejectPO, issuePO, updatePOStatus } from './workflow';

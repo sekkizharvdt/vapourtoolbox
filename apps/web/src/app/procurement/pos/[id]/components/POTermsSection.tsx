@@ -216,7 +216,13 @@ export function POTermsSection({ po }: POTermsSectionProps) {
                   Packing & Forwarding
                 </Typography>
                 <Typography variant="body2">
-                  {terms.packingForwardingIncluded ? 'Included in price' : 'Not included'}
+                  {terms.packingForwardingIncluded
+                    ? 'Included in price'
+                    : terms.pfChargeType === 'PERCENTAGE'
+                      ? `Extra — ${terms.pfChargeValue}% of basic amount`
+                      : terms.pfChargeType === 'LUMPSUM'
+                        ? `Extra — Lump sum ₹${terms.pfChargeValue?.toLocaleString('en-IN') ?? '—'}`
+                        : 'Not included'}
                 </Typography>
               </Box>
               <Box>

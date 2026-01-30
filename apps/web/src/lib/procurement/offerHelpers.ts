@@ -52,6 +52,7 @@ export function getOfferStatusText(status: OfferStatus): string {
     UNDER_REVIEW: 'Under Review',
     EVALUATED: 'Evaluated',
     SELECTED: 'Selected',
+    PO_CREATED: 'PO Created',
     REJECTED: 'Rejected',
     WITHDRAWN: 'Withdrawn',
   };
@@ -73,6 +74,7 @@ export function getOfferStatusColor(
     UNDER_REVIEW: 'warning',
     EVALUATED: 'primary',
     SELECTED: 'success',
+    PO_CREATED: 'info',
     REJECTED: 'error',
     WITHDRAWN: 'default',
   };

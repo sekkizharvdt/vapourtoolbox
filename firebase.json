@@ -72,6 +72,10 @@
         "destination": "/procurement/packing-lists/placeholder.html"
       },
       {
+        "source": "/procurement/pos/*/edit",
+        "destination": "/procurement/pos/placeholder/edit.html"
+      },
+      {
         "source": "/procurement/pos/*",
         "destination": "/procurement/pos/placeholder.html"
       },

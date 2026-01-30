@@ -5,11 +5,7 @@
  * These templates provide sensible defaults that can be overridden per-PO.
  */
 
-import type {
-  CommercialTermsTemplate,
-  POCommercialTerms,
-  PaymentMilestone,
-} from '@vapour/types';
+import type { CommercialTermsTemplate, POCommercialTerms, PaymentMilestone } from '@vapour/types';
 
 // ============================================================================
 // FIXED TEXT CLAUSES (Common across templates)
@@ -33,12 +29,45 @@ const VDT_FIXED_TEXTS = {
 // VDT BILLING ADDRESS (Common across all POs)
 // ============================================================================
 
-const VDT_BILLING_ADDRESS = `Vapour Desal Technologies Pvt Ltd
-No. 12, 2nd Cross Street
-Nehru Nagar, Adyar
-Chennai - 600 020
-Tamil Nadu, India
-GSTIN: 33AABCV1234A1Z5`;
+const VDT_BILLING_ADDRESS_FALLBACK = `Vapour Desal Technologies Pvt Ltd`;
+
+/**
+ * Build billing address string from company settings (Firestore company/settings doc).
+ * Falls back to a minimal default if company settings are not available.
+ */
+export function buildBillingAddressFromCompany(
+  companySettings: {
+    companyName?: string;
+    legalName?: string;
+    address?: {
+      street?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      country?: string;
+    };
+    taxIds?: { gstin?: string };
+  } | null
+): string {
+  if (!companySettings) return VDT_BILLING_ADDRESS_FALLBACK;
+
+  const name = companySettings.legalName || companySettings.companyName || '';
+  const addr = companySettings.address;
+  const gstin = companySettings.taxIds?.gstin;
+
+  const lines = [name];
+  if (addr?.street) lines.push(addr.street);
+  if (addr?.city || addr?.state || addr?.postalCode) {
+    lines.push([addr.city, addr.state, addr.postalCode].filter(Boolean).join(', '));
+  }
+  if (addr?.country) lines.push(addr.country);
+  if (gstin) lines.push(`GSTIN: ${gstin}`);
+
+  return lines.filter(Boolean).join('\n');
+}
+
+// Keep as variable for backward compatibility with template defaults
+const VDT_BILLING_ADDRESS = VDT_BILLING_ADDRESS_FALLBACK;
 
 // ============================================================================
 // DEFAULT BUYER CONTACT

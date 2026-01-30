@@ -111,6 +111,9 @@ export function CommercialTermsForm({
     'scope',
   ]);
 
+  // Local state for Other Documents text input (process on blur, not every keystroke)
+  const [otherDocsText, setOtherDocsText] = useState((terms.otherDocuments || []).join(', '));
+
   const handleSectionToggle = (section: string) => {
     setExpandedSections((prev) =>
       prev.includes(section) ? prev.filter((s) => s !== section) : [...prev, section]
@@ -127,9 +130,7 @@ export function CommercialTermsForm({
   const handleDocumentToggle = useCallback(
     (doc: PORequiredDocument) => {
       const current = terms.requiredDocuments || [];
-      const updated = current.includes(doc)
-        ? current.filter((d) => d !== doc)
-        : [...current, doc];
+      const updated = current.includes(doc) ? current.filter((d) => d !== doc) : [...current, doc];
       handleChange('requiredDocuments', updated);
     },
     [terms.requiredDocuments, handleChange]
@@ -187,7 +188,9 @@ export function CommercialTermsForm({
                   </MenuItem>
                 ))}
               </Select>
-              <FormHelperText>Defines who bears freight costs and when ownership transfers</FormHelperText>
+              <FormHelperText>
+                Defines who bears freight costs and when ownership transfers
+              </FormHelperText>
             </FormControl>
 
             {/* 2. Payment Schedule */}
@@ -261,7 +264,12 @@ export function CommercialTermsForm({
                   disabled={disabled}
                   inputProps={{
                     min: 1,
-                    max: terms.deliveryUnit === 'DAYS' ? 365 : terms.deliveryUnit === 'MONTHS' ? 24 : 104,
+                    max:
+                      terms.deliveryUnit === 'DAYS'
+                        ? 365
+                        : terms.deliveryUnit === 'MONTHS'
+                          ? 24
+                          : 104,
                   }}
                   InputProps={{
                     endAdornment: (
@@ -287,7 +295,9 @@ export function CommercialTermsForm({
                   <Select
                     value={terms.deliveryTrigger}
                     label="Delivery Trigger"
-                    onChange={(e) => handleChange('deliveryTrigger', e.target.value as PODeliveryTrigger)}
+                    onChange={(e) =>
+                      handleChange('deliveryTrigger', e.target.value as PODeliveryTrigger)
+                    }
                   >
                     {Object.entries(DELIVERY_TRIGGER_LABELS).map(([value, label]) => (
                       <MenuItem key={value} value={value}>
@@ -311,12 +321,58 @@ export function CommercialTermsForm({
               control={
                 <Switch
                   checked={terms.packingForwardingIncluded}
-                  onChange={(e) => handleChange('packingForwardingIncluded', e.target.checked)}
+                  onChange={(e) => {
+                    handleChange('packingForwardingIncluded', e.target.checked);
+                    if (e.target.checked) {
+                      handleChange(
+                        'pfChargeType',
+                        undefined as unknown as 'PERCENTAGE' | 'LUMPSUM'
+                      );
+                      handleChange('pfChargeValue', undefined as unknown as number);
+                    }
+                  }}
                   disabled={disabled}
                 />
               }
               label="Packing & Forwarding charges included in price"
             />
+            {!terms.packingForwardingIncluded && (
+              <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
+                <FormControl size="small" sx={{ minWidth: 160 }} disabled={disabled}>
+                  <InputLabel>P&F Charge Type</InputLabel>
+                  <Select
+                    value={terms.pfChargeType || ''}
+                    label="P&F Charge Type"
+                    onChange={(e) =>
+                      handleChange('pfChargeType', e.target.value as 'PERCENTAGE' | 'LUMPSUM')
+                    }
+                  >
+                    <MenuItem value="PERCENTAGE">Percentage (%)</MenuItem>
+                    <MenuItem value="LUMPSUM">Lump Sum</MenuItem>
+                  </Select>
+                </FormControl>
+                <TextField
+                  label={terms.pfChargeType === 'PERCENTAGE' ? 'P&F Percentage' : 'P&F Amount'}
+                  type="number"
+                  value={terms.pfChargeValue ?? ''}
+                  onChange={(e) =>
+                    handleChange(
+                      'pfChargeValue',
+                      e.target.value ? Number(e.target.value) : (undefined as unknown as number)
+                    )
+                  }
+                  disabled={disabled}
+                  size="small"
+                  sx={{ width: 160 }}
+                  InputProps={{
+                    endAdornment:
+                      terms.pfChargeType === 'PERCENTAGE' ? (
+                        <InputAdornment position="end">%</InputAdornment>
+                      ) : undefined,
+                  }}
+                />
+              </Stack>
+            )}
 
             {/* 11. Delivery Address */}
             <TextField
@@ -369,7 +425,9 @@ export function CommercialTermsForm({
               <Select
                 value={terms.transportScope}
                 label="Transport"
-                onChange={(e) => handleChange('transportScope', e.target.value as POScopeAssignment)}
+                onChange={(e) =>
+                  handleChange('transportScope', e.target.value as POScopeAssignment)
+                }
               >
                 {Object.entries(SCOPE_LABELS).map(([value, label]) => (
                   <MenuItem key={value} value={value}>
@@ -490,11 +548,12 @@ export function CommercialTermsForm({
               </FormGroup>
               <TextField
                 label="Other Documents (comma-separated)"
-                value={(terms.otherDocuments || []).join(', ')}
-                onChange={(e) =>
+                value={otherDocsText}
+                onChange={(e) => setOtherDocsText(e.target.value)}
+                onBlur={() =>
                   handleChange(
                     'otherDocuments',
-                    e.target.value
+                    otherDocsText
                       .split(',')
                       .map((s) => s.trim())
                       .filter(Boolean)
@@ -522,9 +581,7 @@ export function CommercialTermsForm({
                   </MenuItem>
                 ))}
               </Select>
-              <FormHelperText>
-                {template.fixedTexts.inspection.substring(0, 100)}...
-              </FormHelperText>
+              <FormHelperText>{template.fixedTexts.inspection.substring(0, 100)}...</FormHelperText>
             </FormControl>
 
             {/* 14. MDCC Required */}
@@ -582,7 +639,8 @@ export function CommercialTermsForm({
                 />
               </Stack>
               <FormHelperText>
-                Delay penalty: {terms.ldPerWeekPercent}% per week of delay, maximum {terms.ldMaxPercent}% of order value
+                Delay penalty: {terms.ldPerWeekPercent}% per week of delay, maximum{' '}
+                {terms.ldMaxPercent}% of order value
               </FormHelperText>
             </Box>
 
@@ -633,7 +691,9 @@ export function CommercialTermsForm({
                 onChange={(e) => handleChange('warrantyMonthsFromSupply', Number(e.target.value))}
                 disabled={disabled}
                 inputProps={{ min: 0, max: 60 }}
-                InputProps={{ endAdornment: <InputAdornment position="end">months</InputAdornment> }}
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">months</InputAdornment>,
+                }}
                 sx={{ width: 200 }}
               />
               <TextField
@@ -645,7 +705,9 @@ export function CommercialTermsForm({
                 }
                 disabled={disabled}
                 inputProps={{ min: 0, max: 36 }}
-                InputProps={{ endAdornment: <InputAdornment position="end">months</InputAdornment> }}
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">months</InputAdornment>,
+                }}
                 sx={{ width: 200 }}
               />
             </Stack>

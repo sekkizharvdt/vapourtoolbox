@@ -239,6 +239,7 @@ export default function PODetailPage() {
         <POHeader
           po={po}
           onBack={() => router.push('/procurement/pos')}
+          onEdit={() => router.push(`/procurement/pos/${poId}/edit`)}
           onSubmitForApproval={() => dialogState.setSubmitDialogOpen(true)}
           onApprove={() => dialogState.setApproveDialogOpen(true)}
           onReject={() => dialogState.setRejectDialogOpen(true)}
