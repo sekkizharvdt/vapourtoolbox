@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Grid, Box, Typography, Stack } from '@mui/material';
+import { Grid, Box, Typography, Stack, Button as MuiButton } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { TransactionFormFields } from '@/components/accounting/shared/TransactionFormFields';
 import { LineItemsTable } from '@/components/accounting/shared/LineItemsTable';
@@ -26,9 +26,15 @@ interface CreateBillDialogProps {
   open: boolean;
   onClose: () => void;
   editingBill?: VendorBill | null;
+  viewOnly?: boolean;
 }
 
-export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialogProps) {
+export function CreateBillDialog({
+  open,
+  onClose,
+  editingBill,
+  viewOnly = false,
+}: CreateBillDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -299,18 +305,22 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
     <FormDialog
       open={open}
       onClose={onClose}
-      title={editingBill ? 'Edit Bill' : 'Create Bill'}
+      title={viewOnly ? 'View Bill' : editingBill ? 'Edit Bill' : 'Create Bill'}
       loading={loading}
       error={error}
       onError={setError}
       maxWidth="lg"
       actions={
-        <FormDialogActions
-          onCancel={onClose}
-          onSubmit={handleSave}
-          loading={loading}
-          submitLabel={editingBill ? 'Update' : 'Create'}
-        />
+        viewOnly ? (
+          <MuiButton onClick={onClose}>Close</MuiButton>
+        ) : (
+          <FormDialogActions
+            onCancel={onClose}
+            onSubmit={handleSave}
+            loading={loading}
+            submitLabel={editingBill ? 'Update' : 'Create'}
+          />
+        )
       }
     >
       <Grid container spacing={2}>
@@ -321,7 +331,7 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
           label="Vendor Bill/Invoice Number"
           placeholder="Enter vendor's bill number"
           helperText="Enter the bill/invoice number from the vendor"
-          editable
+          editable={!viewOnly}
         />
 
         {/* Transaction Form Fields */}
@@ -342,6 +352,7 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
           onProjectChange={formState.setProjectId}
           entityLabel="Vendor"
           entityRole="VENDOR"
+          disabled={viewOnly}
         />
 
         {/* Line Items Table */}
@@ -367,6 +378,7 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
               tdsRate={tdsDetails?.tdsRate}
               totalAmount={totalAmount}
               showAccountSelector
+              readOnly={viewOnly}
             />
           </Box>
         </Grid>
@@ -379,6 +391,7 @@ export function CreateBillDialog({ open, onClose, editingBill }: CreateBillDialo
           onTdsSectionChange={setTdsSection}
           vendorPAN={vendorPAN}
           onVendorPANChange={setVendorPAN}
+          disabled={viewOnly}
         />
       </Grid>
     </FormDialog>

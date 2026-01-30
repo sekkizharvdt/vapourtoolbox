@@ -34,7 +34,6 @@ import {
   Visibility as ViewIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Payment as PaymentIcon,
   Search as SearchIcon,
   AttachMoney as MoneyIcon,
   PendingActions as PendingIcon,
@@ -72,7 +71,6 @@ import type { VendorBill } from '@vapour/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
-import { getBillAvailableActions } from '@/lib/accounting/billApprovalService';
 import { useRouter } from 'next/navigation';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
@@ -119,6 +117,7 @@ export default function BillsPage() {
   const { confirm } = useConfirmDialog();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<VendorBill | null>(null);
+  const [viewMode, setViewMode] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [searchTerm, setSearchTerm] = useState('');
@@ -223,11 +222,19 @@ export default function BillsPage() {
 
   const handleCreate = () => {
     setEditingBill(null);
+    setViewMode(false);
+    setCreateDialogOpen(true);
+  };
+
+  const handleView = (bill: VendorBill) => {
+    setEditingBill(bill);
+    setViewMode(true);
     setCreateDialogOpen(true);
   };
 
   const handleEdit = (bill: VendorBill) => {
     setEditingBill(bill);
+    setViewMode(false);
     setCreateDialogOpen(true);
   };
 
@@ -252,6 +259,7 @@ export default function BillsPage() {
   const handleDialogClose = () => {
     setCreateDialogOpen(false);
     setEditingBill(null);
+    setViewMode(false);
   };
 
   const handleChangePage = (_event: unknown, newPage: number) => {
@@ -580,79 +588,61 @@ export default function BillsPage() {
                     />
                   </TableCell>
                   <TableCell align="right">
-                    {(() => {
-                      // assignedApproverId is in BaseTransaction which VendorBill extends
-                      const assignedApproverId = bill.assignedApproverId;
-
-                      const actions = getBillAvailableActions(
-                        bill.status,
-                        canManage,
-                        assignedApproverId === user?.uid,
-                        user?.uid || '',
-                        assignedApproverId
-                      );
-
-                      return (
-                        <TableActionCell
-                          actions={[
-                            {
-                              icon: <ViewIcon />,
-                              label: 'View Bill',
-                              onClick: () => handleEdit(bill),
-                            },
-                            {
-                              icon: <EditIcon />,
-                              label: 'Edit Bill',
-                              onClick: () => handleEdit(bill),
-                              show: actions.canEdit,
-                            },
-                            {
-                              icon: <SendIcon />,
-                              label: 'Submit for Approval',
-                              onClick: () => handleSubmitForApproval(bill),
-                              show: actions.canSubmitForApproval,
-                            },
-                            {
-                              icon: <CheckIcon />,
-                              label: 'Review & Approve',
-                              onClick: () => handleApproveBill(bill),
-                              color: 'success',
-                              show: actions.canApprove,
-                            },
-                            {
-                              icon: <NumbersIcon />,
-                              label: 'Update Bill Number',
-                              onClick: () => handleOpenUpdateBillNumber(bill),
-                              show: canManage && bill.status !== 'DRAFT',
-                            },
-                            {
-                              icon: <PaymentIcon />,
-                              label: 'Record Payment',
-                              onClick: () => {},
-                              show: actions.canRecordPayment,
-                            },
-                            {
-                              icon: <VoidIcon />,
-                              label: 'Void / Change Vendor',
-                              onClick: () => handleVoidBill(bill),
-                              color: 'warning',
-                              show:
-                                canManage &&
-                                bill.status !== 'VOID' &&
-                                bill.status !== 'PAID' &&
-                                bill.status !== 'PARTIALLY_PAID',
-                            },
-                            {
-                              icon: <DeleteIcon />,
-                              label: 'Delete Bill',
-                              onClick: () => handleDelete(bill.id!),
-                              color: 'error',
-                              show: actions.canDelete,
-                            },
-                          ]}
-                        />
-                      );
-                    })()}
+                    <TableActionCell
+                      actions={[
+                        {
+                          icon: <ViewIcon />,
+                          label: 'View Bill',
+                          onClick: () => handleView(bill),
+                        },
+                        {
+                          icon: <EditIcon />,
+                          label: 'Edit Bill',
+                          onClick: () => handleEdit(bill),
+                          show: canManage && bill.status === 'DRAFT',
+                        },
+                        {
+                          icon: <SendIcon />,
+                          label: 'Submit for Approval',
+                          onClick: () => handleSubmitForApproval(bill),
+                          show: canManage && bill.status === 'DRAFT',
+                          color: 'primary',
+                        },
+                        {
+                          icon: <CheckIcon />,
+                          label: 'Review & Approve',
+                          onClick: () => handleApproveBill(bill),
+                          color: 'success',
+                          show:
+                            bill.status === 'PENDING_APPROVAL' &&
+                            (canManage || bill.assignedApproverId === user?.uid),
+                        },
+                        {
+                          icon: <NumbersIcon />,
+                          label: 'Update Bill Number',
+                          onClick: () => handleOpenUpdateBillNumber(bill),
+                          show: canManage && bill.status !== 'DRAFT',
+                        },
+                        {
+                          icon: <VoidIcon />,
+                          label: 'Void / Change Vendor',
+                          onClick: () => handleVoidBill(bill),
+                          color: 'warning',
+                          show:
+                            canManage &&
+                            bill.status !== 'VOID' &&
+                            bill.status !== 'PAID' &&
+                            bill.status !== 'PARTIALLY_PAID',
+                        },
+                        {
+                          icon: <DeleteIcon />,
+                          label: 'Delete Bill',
+                          onClick: () => handleDelete(bill.id!),
+                          color: 'error',
+                          show: canManage && bill.status === 'DRAFT',
+                        },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))
@@ -674,6 +664,7 @@ export default function BillsPage() {
         open={createDialogOpen}
         onClose={handleDialogClose}
         editingBill={editingBill}
+        viewOnly={viewMode}
       />
 
       {/* Update Bill Number Dialog */}
