@@ -78,6 +78,9 @@ export default function DataHealthPage() {
         getDocs(query(transactionsRef, where('type', '==', 'CUSTOMER_INVOICE'))),
       ]);
 
+      // Track unique transactions with any issue for health score
+      const transactionsWithIssues = new Set<string>();
+
       // Count unapplied payments
       let unappliedCount = 0;
       let unappliedTotal = 0;
@@ -93,6 +96,7 @@ export default function DataHealthPage() {
         if (!hasAllocations) {
           unappliedCount++;
           unappliedTotal += data.totalAmount || data.amount || 0;
+          transactionsWithIssues.add(doc.id);
         }
       });
 
@@ -102,6 +106,7 @@ export default function DataHealthPage() {
         const data = doc.data();
         if (data.status === 'POSTED' && (!data.entries || data.entries.length === 0)) {
           missingGLCount++;
+          transactionsWithIssues.add(doc.id);
         }
       });
 
@@ -111,13 +116,19 @@ export default function DataHealthPage() {
         const data = doc.data();
         const lineItems = data.lineItems || [];
         const hasUnmapped = lineItems.some((item: { accountId?: string }) => !item.accountId);
-        if (hasUnmapped) unmappedCount++;
+        if (hasUnmapped) {
+          unmappedCount++;
+          transactionsWithIssues.add(doc.id);
+        }
       });
       invoicesSnap.forEach((doc) => {
         const data = doc.data();
         const lineItems = data.lineItems || [];
         const hasUnmapped = lineItems.some((item: { accountId?: string }) => !item.accountId);
-        if (hasUnmapped) unmappedCount++;
+        if (hasUnmapped) {
+          unmappedCount++;
+          transactionsWithIssues.add(doc.id);
+        }
       });
 
       // Count overdue items
@@ -151,12 +162,9 @@ export default function DataHealthPage() {
 
       const totalTransactions = paymentsSnap.size + billsSnap.size + invoicesSnap.size;
 
-      // Calculate health score
-      const issueCount = unappliedCount + missingGLCount + unmappedCount;
-      const healthScore = Math.max(
-        0,
-        Math.round(100 - (issueCount / Math.max(totalTransactions, 1)) * 100)
-      );
+      // Health score = % of transactions with no issues
+      const cleanTransactions = totalTransactions - transactionsWithIssues.size;
+      const healthScore = Math.round((cleanTransactions / Math.max(totalTransactions, 1)) * 100);
 
       setStats({
         unappliedPayments: { count: unappliedCount, total: unappliedTotal },
