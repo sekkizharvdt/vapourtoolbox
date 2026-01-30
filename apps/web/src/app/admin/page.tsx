@@ -3,93 +3,68 @@
 /**
  * Admin Dashboard Page
  *
- * Landing page for the Administration section with cards linking to:
- * - User Management
- * - Company Settings
- * - Feedback
- * - Audit Logs
+ * Landing page for the Administration section using the standardized
+ * ModuleLandingPage component with live stats via Firestore onSnapshot
+ * and quick stats summary cards.
  */
 
 import { useState, useEffect } from 'react';
-import {
-  Box,
-  Container,
-  Typography,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
-  Button,
-  Chip,
-  Skeleton,
-} from '@mui/material';
+import { Box, Card, CardContent, Typography, Grid, Skeleton } from '@mui/material';
 import {
   People as UsersIcon,
   Business as CompanyIcon,
   Feedback as FeedbackIcon,
   History as AuditIcon,
-  ArrowForward as ArrowIcon,
   Assessment as AnalyticsIcon,
   Security as SecurityIcon,
   EventNote as HRIcon,
+  Timeline as ActivityIcon,
+  Backup as BackupIcon,
+  Notifications as NotificationsIcon,
+  PendingActions as PendingIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getCountFromServer } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import { ModuleLandingPage, type ModuleItem } from '@/components/modules';
 
-interface AdminCard {
-  id: string;
-  title: string;
-  description: string;
+interface QuickStat {
+  label: string;
+  value: number;
+  loading: boolean;
+  color: string;
   icon: React.ReactNode;
-  path: string;
-  stats?: { label: string; value: number | string; color?: string }[];
-  loading?: boolean;
 }
 
 export default function AdminDashboardPage() {
-  const router = useRouter();
-  const [userStats, setUserStats] = useState({ active: 0, pending: 0, loading: true });
-  const [feedbackStats, setFeedbackStats] = useState({ new: 0, inProgress: 0, loading: true });
+  const [userCount, setUserCount] = useState<number>(0);
+  const [userLoading, setUserLoading] = useState(true);
+  const [feedbackCount, setFeedbackCount] = useState<number>(0);
+  const [feedbackLoading, setFeedbackLoading] = useState(true);
+  const [approvalsCount, setApprovalsCount] = useState<number>(0);
+  const [approvalsLoading, setApprovalsLoading] = useState(true);
 
-  // Load user stats
+  // Load user stats (active users count)
   useEffect(() => {
     const { db } = getFirebase();
-    const usersRef = collection(db, COLLECTIONS.USERS);
+    const activeQuery = query(collection(db, COLLECTIONS.USERS), where('isActive', '==', true));
 
-    // Count active users
-    const activeQuery = query(usersRef, where('isActive', '==', true));
-    const pendingQuery = query(usersRef, where('status', '==', 'pending'));
-
-    const unsubscribeActive = onSnapshot(
+    const unsubscribe = onSnapshot(
       activeQuery,
       (snapshot) => {
-        setUserStats((prev) => ({ ...prev, active: snapshot.size, loading: false }));
+        setUserCount(snapshot.size);
+        setUserLoading(false);
       },
       (error) => {
         console.error('[AdminDashboard] Error fetching active users:', error.message);
-        setUserStats((prev) => ({ ...prev, loading: false }));
+        setUserLoading(false);
       }
     );
 
-    const unsubscribePending = onSnapshot(
-      pendingQuery,
-      (snapshot) => {
-        setUserStats((prev) => ({ ...prev, pending: snapshot.size }));
-      },
-      (error) => {
-        console.error('[AdminDashboard] Error fetching pending users:', error.message);
-      }
-    );
-
-    return () => {
-      unsubscribeActive();
-      unsubscribePending();
-    };
+    return unsubscribe;
   }, []);
 
-  // Load feedback stats
+  // Load feedback stats (new + in-progress count)
   useEffect(() => {
     const { db } = getFirebase();
     const feedbackRef = collection(db, COLLECTIONS.FEEDBACK);
@@ -97,21 +72,27 @@ export default function AdminDashboardPage() {
     const newQuery = query(feedbackRef, where('status', '==', 'new'));
     const inProgressQuery = query(feedbackRef, where('status', '==', 'in_progress'));
 
+    let newCount = 0;
+    let inProgressCount = 0;
+
     const unsubscribeNew = onSnapshot(
       newQuery,
       (snapshot) => {
-        setFeedbackStats((prev) => ({ ...prev, new: snapshot.size, loading: false }));
+        newCount = snapshot.size;
+        setFeedbackCount(newCount + inProgressCount);
+        setFeedbackLoading(false);
       },
       (error) => {
         console.error('[AdminDashboard] Error fetching new feedback:', error.message);
-        setFeedbackStats((prev) => ({ ...prev, loading: false }));
+        setFeedbackLoading(false);
       }
     );
 
     const unsubscribeInProgress = onSnapshot(
       inProgressQuery,
       (snapshot) => {
-        setFeedbackStats((prev) => ({ ...prev, inProgress: snapshot.size }));
+        inProgressCount = snapshot.size;
+        setFeedbackCount(newCount + inProgressCount);
       },
       (error) => {
         console.error('[AdminDashboard] Error fetching in-progress feedback:', error.message);
@@ -124,22 +105,77 @@ export default function AdminDashboardPage() {
     };
   }, []);
 
-  const cards: AdminCard[] = [
+  // Load pending approvals count (POs + PRs + leave requests)
+  useEffect(() => {
+    async function loadApprovals() {
+      const { db } = getFirebase();
+
+      const results = await Promise.allSettled([
+        getCountFromServer(
+          query(
+            collection(db, COLLECTIONS.PURCHASE_ORDERS),
+            where('status', '==', 'PENDING_APPROVAL')
+          )
+        ),
+        getCountFromServer(
+          query(collection(db, COLLECTIONS.PURCHASE_REQUESTS), where('status', '==', 'SUBMITTED'))
+        ),
+        getCountFromServer(
+          query(
+            collection(db, COLLECTIONS.HR_LEAVE_REQUESTS),
+            where('status', '==', 'PENDING_APPROVAL')
+          )
+        ),
+      ]);
+
+      let total = 0;
+      results.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          total += result.value.data().count;
+        }
+      });
+
+      setApprovalsCount(total);
+      setApprovalsLoading(false);
+    }
+
+    loadApprovals();
+  }, []);
+
+  const quickStats: QuickStat[] = [
+    {
+      label: 'Active Users',
+      value: userCount,
+      loading: userLoading,
+      color: 'primary.main',
+      icon: <UsersIcon sx={{ fontSize: 28, opacity: 0.7 }} />,
+    },
+    {
+      label: 'Open Feedback',
+      value: feedbackCount,
+      loading: feedbackLoading,
+      color: feedbackCount > 0 ? 'warning.main' : 'success.main',
+      icon: <FeedbackIcon sx={{ fontSize: 28, opacity: 0.7 }} />,
+    },
+    {
+      label: 'Pending Approvals',
+      value: approvalsCount,
+      loading: approvalsLoading,
+      color: approvalsCount > 0 ? 'error.main' : 'success.main',
+      icon: <PendingIcon sx={{ fontSize: 28, opacity: 0.7 }} />,
+    },
+  ];
+
+  const modules: ModuleItem[] = [
     {
       id: 'users',
       title: 'User Management',
       description: 'Manage users, permissions, and access control',
       icon: <UsersIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/admin/users',
-      stats: userStats.loading
-        ? undefined
-        : [
-            { label: 'Active', value: userStats.active, color: 'success' },
-            ...(userStats.pending > 0
-              ? [{ label: 'Pending', value: userStats.pending, color: 'warning' as const }]
-              : []),
-          ],
-      loading: userStats.loading,
+      count: userCount,
+      countLabel: 'users',
+      countLoading: userLoading,
     },
     {
       id: 'company',
@@ -154,26 +190,16 @@ export default function AdminDashboardPage() {
       description: 'Review bug reports, feature requests, and user suggestions',
       icon: <FeedbackIcon sx={{ fontSize: 48, color: 'secondary.main' }} />,
       path: '/admin/feedback',
-      stats: feedbackStats.loading
-        ? undefined
-        : [
-            ...(feedbackStats.new > 0
-              ? [{ label: 'New', value: feedbackStats.new, color: 'error' as const }]
-              : []),
-            ...(feedbackStats.inProgress > 0
-              ? [
-                  {
-                    label: 'In Progress',
-                    value: feedbackStats.inProgress,
-                    color: 'warning' as const,
-                  },
-                ]
-              : []),
-            ...(feedbackStats.new === 0 && feedbackStats.inProgress === 0
-              ? [{ label: 'All clear', value: '', color: 'success' as const }]
-              : []),
-          ],
-      loading: feedbackStats.loading,
+      count: feedbackCount,
+      countLabel: 'open',
+      countLoading: feedbackLoading,
+    },
+    {
+      id: 'activity',
+      title: 'Activity Feed',
+      description: 'Recent organization-wide activity and changes',
+      icon: <ActivityIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/admin/activity',
     },
     {
       id: 'audit',
@@ -181,6 +207,20 @@ export default function AdminDashboardPage() {
       description: 'View system activity and user action history',
       icon: <AuditIcon sx={{ fontSize: 48, color: 'text.secondary' }} />,
       path: '/admin/audit-logs',
+    },
+    {
+      id: 'backup',
+      title: 'Data Backup',
+      description: 'Export and backup your organization data',
+      icon: <BackupIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/admin/backup',
+    },
+    {
+      id: 'notifications',
+      title: 'Notifications',
+      description: 'Configure email notification settings',
+      icon: <NotificationsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/admin/notifications',
     },
     {
       id: 'task-analytics',
@@ -206,84 +246,43 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <Container maxWidth="xl">
-      {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Administration
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Manage users, company settings, and system configuration
-        </Typography>
+    <>
+      {/* Quick Stats */}
+      <Box sx={{ mb: 3 }}>
+        <Grid container spacing={2}>
+          {quickStats.map((stat) => (
+            <Grid size={{ xs: 12, sm: 4 }} key={stat.label}>
+              <Card variant="outlined">
+                <CardContent sx={{ py: 2, px: 2.5, '&:last-child': { pb: 2 } }}>
+                  <Box
+                    sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                        {stat.label}
+                      </Typography>
+                      {stat.loading ? (
+                        <Skeleton width={60} height={36} />
+                      ) : (
+                        <Typography variant="h4" sx={{ color: stat.color, fontWeight: 700 }}>
+                          {stat.value}
+                        </Typography>
+                      )}
+                    </Box>
+                    <Box sx={{ color: stat.color }}>{stat.icon}</Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
       </Box>
 
-      {/* Admin Cards */}
-      <Grid container spacing={3}>
-        {cards.map((card) => (
-          <Grid size={{ xs: 12, sm: 6, md: 3 }} key={card.id}>
-            <Card
-              sx={{
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                transition: 'box-shadow 0.2s',
-                '&:hover': {
-                  boxShadow: 4,
-                },
-              }}
-            >
-              <CardContent sx={{ flexGrow: 1, textAlign: 'center', pt: 3 }}>
-                <Box sx={{ mb: 2 }}>{card.icon}</Box>
-                <Typography variant="h6" gutterBottom>
-                  {card.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {card.description}
-                </Typography>
-
-                {/* Stats */}
-                {card.loading ? (
-                  <Skeleton variant="rectangular" height={24} sx={{ mx: 'auto', width: 100 }} />
-                ) : (
-                  card.stats && (
-                    <Box
-                      sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}
-                    >
-                      {card.stats.map((stat, idx) => (
-                        <Chip
-                          key={idx}
-                          label={stat.value !== '' ? `${stat.value} ${stat.label}` : stat.label}
-                          size="small"
-                          color={stat.color as 'success' | 'warning' | 'error' | 'default'}
-                          variant="outlined"
-                        />
-                      ))}
-                    </Box>
-                  )
-                )}
-              </CardContent>
-
-              <CardActions sx={{ justifyContent: 'center', pb: 2 }}>
-                <Button
-                  variant="contained"
-                  endIcon={<ArrowIcon />}
-                  onClick={() => router.push(card.path)}
-                >
-                  {card.id === 'users'
-                    ? 'Manage Users'
-                    : card.id === 'company'
-                      ? 'Configure'
-                      : card.id === 'system-status'
-                        ? 'View Status'
-                        : card.id === 'hr-setup'
-                          ? 'Setup'
-                          : 'View'}
-                </Button>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-    </Container>
+      <ModuleLandingPage
+        title="Administration"
+        description="Manage users, company settings, and system configuration"
+        items={modules}
+      />
+    </>
   );
 }

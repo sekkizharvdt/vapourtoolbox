@@ -31,11 +31,13 @@ import {
   TableHead,
   TableRow,
   TablePagination,
+  Button,
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Visibility as VisibilityIcon,
   Refresh as RefreshIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -59,6 +61,8 @@ export function AuditLogList() {
   const [actionFilter, setActionFilter] = useState<AuditAction | 'all'>('all');
   const [entityTypeFilter, setEntityTypeFilter] = useState<AuditEntityType | 'all'>('all');
   const [severityFilter, setSeverityFilter] = useState<AuditSeverity | 'all'>('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   // Detail dialog state
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
@@ -117,6 +121,22 @@ export function AuditLogList() {
       // Severity filter
       if (severityFilter !== 'all' && log.severity !== severityFilter) return false;
 
+      // Date range filter
+      if (startDate || endDate) {
+        try {
+          const logDate = log.timestamp?.toDate();
+          if (!logDate) return false;
+          if (startDate && logDate < new Date(startDate)) return false;
+          if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            if (logDate > end) return false;
+          }
+        } catch {
+          return false;
+        }
+      }
+
       // Search filter (actor name/email, entity name, description)
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -131,7 +151,7 @@ export function AuditLogList() {
 
       return true;
     });
-  }, [auditLogs, actionFilter, entityTypeFilter, severityFilter, searchQuery]);
+  }, [auditLogs, actionFilter, entityTypeFilter, severityFilter, searchQuery, startDate, endDate]);
 
   // Paginated logs
   const paginatedLogs = useMemo(() => {
@@ -157,7 +177,53 @@ export function AuditLogList() {
     setActionFilter('all');
     setEntityTypeFilter('all');
     setSeverityFilter('all');
+    setStartDate('');
+    setEndDate('');
     setPage(0);
+  };
+
+  const exportToCSV = () => {
+    const headers = [
+      'Timestamp',
+      'Actor',
+      'Email',
+      'Action',
+      'Entity Type',
+      'Entity ID',
+      'Entity Name',
+      'Severity',
+      'Description',
+      'Success',
+    ];
+
+    const escapeCSV = (value: string) => {
+      if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return value;
+    };
+
+    const rows = filteredLogs.map((log) => [
+      escapeCSV(formatFullTimestamp(log.timestamp)),
+      escapeCSV(log.actorName || 'System'),
+      escapeCSV(log.actorEmail || ''),
+      escapeCSV(log.action?.replace(/_/g, ' ') || ''),
+      escapeCSV(log.entityType?.replace(/_/g, ' ') || ''),
+      escapeCSV(log.entityId || ''),
+      escapeCSV(log.entityName || ''),
+      escapeCSV(log.severity || ''),
+      escapeCSV(log.description || ''),
+      log.success !== false ? 'Yes' : 'No',
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `audit-logs-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const formatTimestamp = (timestamp: AuditLog['timestamp']) => {
@@ -304,6 +370,32 @@ export function AuditLogList() {
             </Select>
           </FormControl>
 
+          <TextField
+            size="small"
+            type="date"
+            label="From"
+            value={startDate}
+            onChange={(e) => {
+              setStartDate(e.target.value);
+              setPage(0);
+            }}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 160 }}
+          />
+
+          <TextField
+            size="small"
+            type="date"
+            label="To"
+            value={endDate}
+            onChange={(e) => {
+              setEndDate(e.target.value);
+              setPage(0);
+            }}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 160 }}
+          />
+
           <Tooltip title="Clear Filters">
             <IconButton onClick={clearFilters} size="small" aria-label="Clear filters">
               <RefreshIcon />
@@ -315,6 +407,16 @@ export function AuditLogList() {
           <Typography variant="body2" color="text.secondary">
             {filteredLogs.length} of {auditLogs.length} entries
           </Typography>
+
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<DownloadIcon />}
+            onClick={exportToCSV}
+            disabled={filteredLogs.length === 0}
+          >
+            Export CSV
+          </Button>
         </Stack>
       </Paper>
 

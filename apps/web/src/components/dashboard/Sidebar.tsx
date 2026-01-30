@@ -13,7 +13,7 @@
  * - Administration (visible to admins only)
  */
 
-import { useMemo, useCallback, memo, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback, memo, useRef, useEffect } from 'react';
 import {
   Drawer,
   List,
@@ -31,6 +31,7 @@ import {
   Tooltip,
   Chip,
   Badge,
+  Collapse,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -52,6 +53,10 @@ import {
   Feedback as FeedbackIcon,
   History as AuditIcon,
   RequestQuote as RequestQuoteIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  Timeline as TimelineIcon,
+  EventNote as EventNoteIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 // NOTE: Using <img> instead of next/image because app uses output: 'export'
@@ -96,6 +101,22 @@ const moduleIcons: Record<string, React.ReactNode> = {
   'admin-feedback': <FeedbackIcon />,
   'admin-audit': <AuditIcon />,
 };
+
+// Admin sub-navigation items (shown when sidebar is expanded)
+interface AdminSubItem {
+  id: string;
+  label: string;
+  path: string;
+  icon: React.ReactNode;
+}
+
+const ADMIN_SUB_ITEMS: AdminSubItem[] = [
+  { id: 'users', label: 'Users', path: '/admin/users', icon: <PeopleIcon /> },
+  { id: 'feedback', label: 'Feedback', path: '/admin/feedback', icon: <FeedbackIcon /> },
+  { id: 'activity', label: 'Activity', path: '/admin/activity', icon: <TimelineIcon /> },
+  { id: 'audit-logs', label: 'Audit Logs', path: '/admin/audit-logs', icon: <AuditIcon /> },
+  { id: 'hr-setup', label: 'HR Setup', path: '/admin/hr-setup', icon: <EventNoteIcon /> },
+];
 
 // Category definitions for sidebar organization
 interface CategoryConfig {
@@ -177,6 +198,15 @@ function SidebarComponent({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isAdminPath = pathname.startsWith('/admin');
+  const [adminExpanded, setAdminExpanded] = useState(isAdminPath);
+
+  // Auto-expand admin sub-menu when navigating to admin paths
+  useEffect(() => {
+    if (pathname.startsWith('/admin') && !collapsed) {
+      setAdminExpanded(true);
+    }
+  }, [pathname, collapsed]);
 
   // Persist sidebar scroll position across navigation
   useEffect(() => {
@@ -357,9 +387,14 @@ function SidebarComponent({
                     >
                       <ListItemButton
                         selected={isSelected}
-                        onClick={() =>
-                          module.status === 'active' ? handleNavigation(module.path) : undefined
-                        }
+                        onClick={() => {
+                          if (module.id === 'admin' && !collapsed) {
+                            setAdminExpanded((prev) => !prev);
+                            handleNavigation(module.path);
+                          } else if (module.status === 'active') {
+                            handleNavigation(module.path);
+                          }
+                        }}
                         disabled={module.status === 'coming_soon'}
                         sx={{
                           justifyContent: collapsed ? 'center' : 'initial',
@@ -455,6 +490,12 @@ function SidebarComponent({
                                 }}
                               />
                             )}
+                            {module.id === 'admin' &&
+                              (adminExpanded ? (
+                                <ExpandLessIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                              ) : (
+                                <ExpandMoreIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                              ))}
                           </Box>
                         )}
                       </ListItemButton>
@@ -462,6 +503,37 @@ function SidebarComponent({
                   </ListItem>
                 );
               })}
+
+              {/* Admin sub-navigation */}
+              {category.isAdmin && !collapsed && (
+                <Collapse in={adminExpanded} timeout="auto" unmountOnExit>
+                  {ADMIN_SUB_ITEMS.map((subItem) => (
+                    <ListItem key={subItem.id} disablePadding>
+                      <ListItemButton
+                        selected={
+                          pathname === subItem.path || pathname.startsWith(subItem.path + '/')
+                        }
+                        onClick={() => handleNavigation(subItem.path)}
+                        sx={{ pl: 4, py: 0.5, minHeight: 36 }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 28, color: 'primary.main' }}>
+                          {subItem.id === 'feedback' && feedbackCount > 0 ? (
+                            <Badge badgeContent={feedbackCount} color="error" max={99}>
+                              {subItem.icon}
+                            </Badge>
+                          ) : (
+                            subItem.icon
+                          )}
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={subItem.label}
+                          primaryTypographyProps={{ fontSize: '0.8rem' }}
+                        />
+                      </ListItemButton>
+                    </ListItem>
+                  ))}
+                </Collapse>
+              )}
             </List>
 
             {/* Add divider between categories except after the last one and before admin */}

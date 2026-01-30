@@ -39,6 +39,10 @@ function getBreadcrumbs(pathname: string) {
     seed: 'Seed Data',
     'seed-materials': 'Seed Materials',
     'hr-setup': 'HR Setup',
+    activity: 'Activity Feed',
+    backup: 'Data Backup',
+    notifications: 'Notification Settings',
+    'task-analytics': 'Task Analytics',
   };
 
   // Add subsequent segments
