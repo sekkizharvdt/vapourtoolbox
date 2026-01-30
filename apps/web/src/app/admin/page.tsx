@@ -21,6 +21,7 @@ import {
   Timeline as ActivityIcon,
   Backup as BackupIcon,
   Notifications as NotificationsIcon,
+  Settings as SettingsIcon,
   PendingActions as PendingIcon,
 } from '@mui/icons-material';
 import { collection, query, where, onSnapshot, getCountFromServer } from 'firebase/firestore';
@@ -221,6 +222,13 @@ export default function AdminDashboardPage() {
       description: 'Configure email notification settings',
       icon: <NotificationsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/admin/notifications',
+    },
+    {
+      id: 'settings',
+      title: 'Settings',
+      description: 'Email delivery configuration and notification recipients',
+      icon: <SettingsIcon sx={{ fontSize: 48, color: 'text.secondary' }} />,
+      path: '/admin/settings',
     },
     {
       id: 'task-analytics',

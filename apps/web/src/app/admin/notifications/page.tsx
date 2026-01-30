@@ -25,6 +25,7 @@ import {
 import { Save as SaveIcon } from '@mui/icons-material';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
+import NextLink from 'next/link';
 
 interface NotificationEvent {
   id: string;
@@ -234,12 +235,15 @@ export default function NotificationSettingsPage() {
 
       <Alert severity="info" variant="outlined" sx={{ mb: 3 }}>
         <Typography variant="body2" sx={{ fontWeight: 500 }}>
-          Email delivery requires additional setup
+          Email delivery is configured in Settings
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          These settings control which events should trigger notifications. To actually send emails,
-          you need to configure one of: Firebase &quot;Trigger Email&quot; Extension, SendGrid, or
-          another SMTP provider. Toggle the settings now and configure email delivery when ready.
+          These settings control which events should trigger notifications. To configure email
+          delivery (SendGrid), sender details, and recipients, go to{' '}
+          <NextLink href="/admin/settings" style={{ color: 'inherit' }}>
+            Settings
+          </NextLink>
+          .
         </Typography>
       </Alert>
 

@@ -73,6 +73,30 @@ if (fs.existsSync(templatesSrc)) {
   console.log('⚠️  PDF templates directory not found - skipping');
 }
 
+// Copy email templates (HTML files) to lib directory
+const emailTemplatesSrc = path.join(__dirname, 'src', 'email', 'templates');
+const emailTemplatesDest = path.join(libDir, 'email', 'templates');
+
+if (fs.existsSync(emailTemplatesSrc)) {
+  console.log('📦 Copying email templates...');
+
+  if (!fs.existsSync(emailTemplatesDest)) {
+    fs.mkdirSync(emailTemplatesDest, { recursive: true });
+  }
+
+  const emailTemplateFiles = fs.readdirSync(emailTemplatesSrc).filter(f => f.endsWith('.html'));
+  for (const file of emailTemplateFiles) {
+    fs.copyFileSync(
+      path.join(emailTemplatesSrc, file),
+      path.join(emailTemplatesDest, file)
+    );
+  }
+
+  console.log(`✅ Copied ${emailTemplateFiles.length} email template files`);
+} else {
+  console.log('⚠️  Email templates directory not found - skipping');
+}
+
 // Clean up packages directory if it exists (from previous builds)
 const packagesDir = path.join(libDir, 'packages');
 if (fs.existsSync(packagesDir)) {

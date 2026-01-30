@@ -95,3 +95,14 @@ export { aiHelp } from './aiHelp';
 
 // Import backup functions
 export { scheduledBackup, manualBackup } from './backup/scheduledBackup';
+
+// Import email notification functions
+export {
+  onPRSubmittedNotify,
+  onPOStatusNotify,
+  onAccountingNotify,
+  onLeaveNotify,
+  onNewUserNotify,
+} from './email/triggers';
+export { checkOverdueItemsAndNotify } from './email/scheduled';
+export { sendTestEmail } from './email/testEmail';

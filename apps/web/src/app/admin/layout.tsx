@@ -42,6 +42,7 @@ function getBreadcrumbs(pathname: string) {
     activity: 'Activity Feed',
     backup: 'Data Backup',
     notifications: 'Notification Settings',
+    settings: 'Settings',
     'task-analytics': 'Task Analytics',
   };
 

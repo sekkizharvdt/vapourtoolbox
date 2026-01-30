@@ -116,6 +116,7 @@ const ADMIN_SUB_ITEMS: AdminSubItem[] = [
   { id: 'activity', label: 'Activity', path: '/admin/activity', icon: <TimelineIcon /> },
   { id: 'audit-logs', label: 'Audit Logs', path: '/admin/audit-logs', icon: <AuditIcon /> },
   { id: 'hr-setup', label: 'HR Setup', path: '/admin/hr-setup', icon: <EventNoteIcon /> },
+  { id: 'settings', label: 'Settings', path: '/admin/settings', icon: <SettingsIcon /> },
 ];
 
 // Category definitions for sidebar organization

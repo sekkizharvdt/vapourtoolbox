@@ -14,6 +14,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
+import { sendNotificationEmail, sendgridApiKey } from '../email/sendEmail';
 
 const BACKUP_BUCKET = 'vapour-toolbox-backups';
 
@@ -189,6 +190,29 @@ async function runBackup(triggeredBy: string): Promise<{
     `Backup complete: ${totalDocuments} docs across ${results.filter((r) => !r.error).length} collections in ${durationMs}ms`
   );
 
+  // Send backup_completed notification
+  try {
+    const errorCount = results.filter((r) => r.error).length;
+    await sendNotificationEmail({
+      eventId: 'backup_completed',
+      subject: `Backup Complete — ${totalDocuments} documents`,
+      templateData: {
+        title: 'Data Backup Completed',
+        message: `Weekly backup finished${errorCount > 0 ? ` with ${errorCount} error(s)` : ' successfully'}.`,
+        details: [
+          { label: 'Documents', value: String(totalDocuments) },
+          { label: 'Collections', value: String(results.filter((r) => !r.error).length) },
+          { label: 'Size', value: `${(totalSizeBytes / 1024 / 1024).toFixed(1)} MB` },
+          { label: 'Duration', value: `${(durationMs / 1000).toFixed(1)}s` },
+          { label: 'Triggered By', value: triggeredBy },
+        ],
+        linkUrl: 'https://toolbox.vapourdesal.com/admin/backup',
+      },
+    });
+  } catch (emailErr) {
+    logger.warn('Failed to send backup notification email:', emailErr);
+  }
+
   return { backupPath, results, totalDocuments, totalSizeBytes, durationMs };
 }
 
@@ -203,6 +227,7 @@ export const scheduledBackup = onSchedule(
     memory: '1GiB',
     timeoutSeconds: 540, // 9 minutes (max for scheduled)
     maxInstances: 1,
+    secrets: [sendgridApiKey],
   },
   async () => {
     logger.info('Starting scheduled weekly backup');
@@ -218,6 +243,7 @@ export const manualBackup = onCall(
     region: 'us-central1',
     memory: '1GiB',
     timeoutSeconds: 540,
+    secrets: [sendgridApiKey],
   },
   async (request) => {
     // Require authentication
