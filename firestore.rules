@@ -1520,6 +1520,26 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Notification Settings (Admin)
+    // ============================================
+
+    match /notificationSettings/{docId} {
+      // Read/Write: Only admins can configure notification preferences
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================
+    // Backup Records (Admin read-only, written by Cloud Functions)
+    // ============================================
+
+    match /backups/{backupId} {
+      // Read: Only admins can view backup history
+      allow read: if isAdmin();
+      // Write: Cloud Functions only (uses Admin SDK, bypasses rules)
+      allow write: if false;
+    }
+
+    // ============================================
     // System Status (Admin Dashboard)
     // ============================================
 

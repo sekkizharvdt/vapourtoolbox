@@ -92,3 +92,6 @@ export {
 
 // Import AI Help function (beta feature)
 export { aiHelp } from './aiHelp';
+
+// Import backup functions
+export { scheduledBackup, manualBackup } from './backup/scheduledBackup';
