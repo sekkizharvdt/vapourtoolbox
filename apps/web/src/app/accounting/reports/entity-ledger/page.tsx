@@ -29,7 +29,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, where } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
-import type { BusinessEntity } from '@vapour/types';
+import type { BusinessEntity, LedgerEntry } from '@vapour/types';
 import {
   EntityTransaction,
   FinancialSummary,
@@ -111,25 +111,78 @@ export default function EntityLedgerPage() {
     setLoadingTransactions(true);
     const { db } = getFirebase();
     const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    // Only show POSTED or APPROVED transactions for accurate financial reporting
-    const q = query(
+
+    // Query 1: Regular transactions with top-level entityId
+    const entityQuery = query(
       transactionsRef,
       where('entityId', '==', selectedEntity.id),
       where('status', 'in', ['POSTED', 'APPROVED']),
-      orderBy('date', 'asc') // Order ascending for running balance calculation
+      orderBy('date', 'asc')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const transactionsData: EntityTransaction[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        transactionsData.push({ id: doc.id, ...data } as EntityTransaction);
+    // Query 2: Journal entries (entityId is in entries[].entityId, not top-level)
+    const journalQuery = query(
+      transactionsRef,
+      where('type', '==', 'JOURNAL_ENTRY'),
+      where('status', 'in', ['POSTED', 'APPROVED']),
+      orderBy('date', 'asc')
+    );
+
+    let entityTxns: EntityTransaction[] = [];
+    let journalTxns: EntityTransaction[] = [];
+    let entityLoaded = false;
+    let journalLoaded = false;
+
+    function mergeAndSet() {
+      if (!entityLoaded || !journalLoaded) return;
+      const merged = [...entityTxns, ...journalTxns].sort((a, b) => {
+        const dateA = toDate(a.date)?.getTime() || 0;
+        const dateB = toDate(b.date)?.getTime() || 0;
+        return dateA - dateB;
       });
-      setAllTransactions(transactionsData);
+      setAllTransactions(merged);
       setLoadingTransactions(false);
+    }
+
+    const unsub1 = onSnapshot(entityQuery, (snapshot) => {
+      entityTxns = [];
+      snapshot.forEach((doc) => {
+        entityTxns.push({ id: doc.id, ...doc.data() } as EntityTransaction);
+      });
+      entityLoaded = true;
+      mergeAndSet();
     });
 
-    return () => unsubscribe();
+    const unsub2 = onSnapshot(journalQuery, (snapshot) => {
+      journalTxns = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const entries = (data.entries || []) as LedgerEntry[];
+        // Filter journal entries that have lines referencing this entity
+        const entityLines = entries.filter((entry) => entry.entityId === selectedEntity.id);
+        if (entityLines.length > 0) {
+          // Sum debit/credit for this entity's lines
+          const totalDebit = entityLines.reduce((sum, e) => sum + (e.debit || 0), 0);
+          const totalCredit = entityLines.reduce((sum, e) => sum + (e.credit || 0), 0);
+          journalTxns.push({
+            id: doc.id,
+            ...data,
+            entityId: selectedEntity.id,
+            entityName: selectedEntity.name,
+            // Store entity-specific amounts for display
+            _journalDebit: totalDebit,
+            _journalCredit: totalCredit,
+          } as EntityTransaction);
+        }
+      });
+      journalLoaded = true;
+      mergeAndSet();
+    });
+
+    return () => {
+      unsub1();
+      unsub2();
+    };
   }, [selectedEntity]);
 
   // Split transactions into opening balance (before start date) and current period
@@ -195,6 +248,14 @@ export default function EntityLedgerPage() {
         case 'VENDOR_PAYMENT':
           balance += amount; // We paid vendor (reduces our liability)
           break;
+        case 'JOURNAL_ENTRY': {
+          // Journal entries: debit increases balance, credit decreases
+          const jDebit = (txn as EntityTransaction & { _journalDebit?: number })._journalDebit || 0;
+          const jCredit =
+            (txn as EntityTransaction & { _journalCredit?: number })._journalCredit || 0;
+          balance += jDebit - jCredit;
+          break;
+        }
       }
     });
     return balance;
@@ -291,6 +352,13 @@ export default function EntityLedgerPage() {
           totalPaid += amount;
           periodMovement += amount;
           break;
+        case 'JOURNAL_ENTRY': {
+          const jDebit = (txn as EntityTransaction & { _journalDebit?: number })._journalDebit || 0;
+          const jCredit =
+            (txn as EntityTransaction & { _journalCredit?: number })._journalCredit || 0;
+          periodMovement += jDebit - jCredit;
+          break;
+        }
       }
     });
 

@@ -48,6 +48,12 @@ function getDebitCredit(txn: EntityTransaction): { debit: number; credit: number
     case 'VENDOR_PAYMENT':
       // We paid vendor - Debit to their account (reduce liability)
       return { debit: amount, credit: 0 };
+    case 'JOURNAL_ENTRY': {
+      // Journal entries: entity-specific debit/credit computed during loading
+      const jDebit = (txn as EntityTransaction & { _journalDebit?: number })._journalDebit || 0;
+      const jCredit = (txn as EntityTransaction & { _journalCredit?: number })._journalCredit || 0;
+      return { debit: jDebit, credit: jCredit };
+    }
     default:
       return { debit: 0, credit: 0 };
   }
@@ -69,6 +75,11 @@ function getBalanceImpact(txn: EntityTransaction): number {
       return -amount; // We owe vendor more (negative balance)
     case 'VENDOR_PAYMENT':
       return amount; // We paid vendor, owe less
+    case 'JOURNAL_ENTRY': {
+      const jDebit = (txn as EntityTransaction & { _journalDebit?: number })._journalDebit || 0;
+      const jCredit = (txn as EntityTransaction & { _journalCredit?: number })._journalCredit || 0;
+      return jDebit - jCredit;
+    }
     default:
       return 0;
   }

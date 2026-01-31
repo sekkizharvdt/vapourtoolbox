@@ -14,6 +14,9 @@ export interface EntityTransaction extends BaseTransaction {
   totalBaseAmount?: number; // totalAmount in INR
   paidBaseAmount?: number; // paidAmount in INR
   outstandingBaseAmount?: number; // outstandingAmount in INR
+  // Journal entry: entity-specific debit/credit computed during loading
+  _journalDebit?: number;
+  _journalCredit?: number;
 }
 
 export interface AgingBucket {

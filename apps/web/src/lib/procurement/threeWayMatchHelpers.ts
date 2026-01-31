@@ -15,8 +15,6 @@ export function getMatchStatusText(status: ThreeWayMatchStatus): string {
     PARTIALLY_MATCHED: 'Partially Matched',
     NOT_MATCHED: 'Not Matched',
     PENDING_REVIEW: 'Pending Review',
-    APPROVED_WITH_VARIANCE: 'Approved with Variance',
-    REJECTED: 'Rejected',
   };
   return statusMap[status] || status;
 }
@@ -35,8 +33,6 @@ export function getMatchStatusColor(
     PARTIALLY_MATCHED: 'warning',
     NOT_MATCHED: 'error',
     PENDING_REVIEW: 'info',
-    APPROVED_WITH_VARIANCE: 'success',
-    REJECTED: 'error',
   };
   return colorMap[status] || 'default';
 }
@@ -80,7 +76,7 @@ export function calculateMatchStats(matches: ThreeWayMatch[]) {
     partiallyMatched: matches.filter((m) => m.status === 'PARTIALLY_MATCHED').length,
     notMatched: matches.filter((m) => m.status === 'NOT_MATCHED').length,
     pendingReview: matches.filter((m) => m.status === 'PENDING_REVIEW').length,
-    approvedWithVariance: matches.filter((m) => m.status === 'APPROVED_WITH_VARIANCE').length,
+    approved: matches.filter((m) => m.approvalStatus === 'APPROVED').length,
     totalVariance: matches.reduce((sum, m) => sum + Math.abs(m.variance), 0),
   };
 }

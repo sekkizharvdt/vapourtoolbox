@@ -251,8 +251,12 @@ export default function ThreeWayMatchDetailClient() {
     );
   }
 
-  const canApprove = match.status === 'PENDING_REVIEW' || match.status === 'PARTIALLY_MATCHED';
-  const canReject = match.status === 'PENDING_REVIEW' || match.status === 'NOT_MATCHED';
+  const canApprove =
+    match.approvalStatus === 'PENDING' &&
+    (match.status === 'PENDING_REVIEW' || match.status === 'PARTIALLY_MATCHED');
+  const canReject =
+    match.approvalStatus === 'PENDING' &&
+    (match.status === 'PENDING_REVIEW' || match.status === 'NOT_MATCHED');
 
   return (
     <Box sx={{ p: 3 }}>
@@ -295,6 +299,12 @@ export default function ThreeWayMatchDetailClient() {
                   color={getMatchStatusColor(match.status)}
                   size="medium"
                 />
+                {match.approvalStatus === 'APPROVED' && (
+                  <Chip label="Approved" color="success" size="medium" variant="outlined" />
+                )}
+                {match.approvalStatus === 'REJECTED' && (
+                  <Chip label="Rejected" color="error" size="medium" variant="outlined" />
+                )}
               </Stack>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                 PO: {match.poNumber} • GR: {match.grNumber} • Bill: {match.vendorBillNumber}

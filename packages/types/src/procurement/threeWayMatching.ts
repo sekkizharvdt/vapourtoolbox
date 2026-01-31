@@ -18,9 +18,7 @@ export type ThreeWayMatchStatus =
   | 'MATCHED' // All three documents match within tolerance
   | 'PARTIALLY_MATCHED' // Some items match, some have discrepancies
   | 'NOT_MATCHED' // Significant discrepancies found
-  | 'PENDING_REVIEW' // Needs manual review
-  | 'APPROVED_WITH_VARIANCE' // Approved despite discrepancies
-  | 'REJECTED'; // Rejected due to discrepancies
+  | 'PENDING_REVIEW'; // Needs manual review
 
 /**
  * Discrepancy Type

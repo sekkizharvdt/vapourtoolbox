@@ -69,7 +69,6 @@ export async function approveMatch(
         resolved: true,
         resolvedBy: userId,
         resolvedAt: serverTimestamp(),
-        status: 'APPROVED_WITH_VARIANCE',
         updatedAt: serverTimestamp(),
         updatedBy: userId,
       })
@@ -166,7 +165,6 @@ export async function rejectMatch(
         approvedByName: userName,
         approvedAt: serverTimestamp(),
         approvalComments: reason,
-        status: 'REJECTED',
         updatedAt: serverTimestamp(),
         updatedBy: userId,
       })

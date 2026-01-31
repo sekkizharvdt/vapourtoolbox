@@ -257,7 +257,6 @@ export default function ThreeWayMatchListPage() {
                 <MenuItem value="PARTIALLY_MATCHED">Partially Matched</MenuItem>
                 <MenuItem value="NOT_MATCHED">Not Matched</MenuItem>
                 <MenuItem value="PENDING_REVIEW">Pending Review</MenuItem>
-                <MenuItem value="APPROVED_WITH_VARIANCE">Approved with Variance</MenuItem>
               </Select>
             </FormControl>
           </Stack>
@@ -319,11 +318,19 @@ export default function ThreeWayMatchListPage() {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        label={getMatchStatusText(match.status)}
-                        color={getMatchStatusColor(match.status)}
-                        size="small"
-                      />
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Chip
+                          label={getMatchStatusText(match.status)}
+                          color={getMatchStatusColor(match.status)}
+                          size="small"
+                        />
+                        {match.approvalStatus === 'APPROVED' && (
+                          <Chip label="Approved" color="success" size="small" variant="outlined" />
+                        )}
+                        {match.approvalStatus === 'REJECTED' && (
+                          <Chip label="Rejected" color="error" size="small" variant="outlined" />
+                        )}
+                      </Stack>
                     </TableCell>
                     <TableCell>{formatDate(match.matchedAt)}</TableCell>
                   </TableRow>
