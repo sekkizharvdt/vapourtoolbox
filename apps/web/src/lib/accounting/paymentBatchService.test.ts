@@ -77,7 +77,11 @@ jest.mock('@/lib/firebase/typeHelpers', () => ({
   },
 }));
 
-import { addBatchPayment, calculateBatchTotals } from './paymentBatchService';
+import {
+  addBatchPayment,
+  calculateBatchTotals,
+  detectCrossProjectPayments,
+} from './paymentBatchService';
 import type { Firestore } from 'firebase/firestore';
 import type { PaymentBatch, AddBatchPaymentInput } from '@vapour/types';
 
@@ -294,6 +298,82 @@ describe('paymentBatchService', () => {
       // Verify returned payment object
       expect(result.amount).toBe(50000);
       expect(result.netPayable).toBe(50000);
+    });
+  });
+
+  describe('detectCrossProjectPayments', () => {
+    it('detects payments to projects not in receipt sources', () => {
+      const batch = {
+        receipts: [{ id: 'r1', projectId: 'proj-A', projectName: 'Alpha', amount: 100000 }],
+        payments: [{ id: 'p1', projectId: 'proj-B', projectName: 'Beta', amount: 50000 }],
+      } as unknown as PaymentBatch;
+
+      const result = detectCrossProjectPayments(batch);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        lendingProjectId: 'proj-A',
+        lendingProjectName: 'Alpha',
+        borrowingProjectId: 'proj-B',
+        borrowingProjectName: 'Beta',
+      });
+    });
+
+    it('returns empty when all payments match source projects', () => {
+      const batch = {
+        receipts: [{ id: 'r1', projectId: 'proj-A', projectName: 'Alpha', amount: 100000 }],
+        payments: [{ id: 'p1', projectId: 'proj-A', projectName: 'Alpha', amount: 50000 }],
+      } as unknown as PaymentBatch;
+
+      expect(detectCrossProjectPayments(batch)).toHaveLength(0);
+    });
+
+    it('returns empty when receipts have no project IDs', () => {
+      const batch = {
+        receipts: [{ id: 'r1', amount: 100000 }],
+        payments: [{ id: 'p1', projectId: 'proj-B', amount: 50000 }],
+      } as unknown as PaymentBatch;
+
+      expect(detectCrossProjectPayments(batch)).toHaveLength(0);
+    });
+
+    it('returns empty when payments have no project IDs', () => {
+      const batch = {
+        receipts: [{ id: 'r1', projectId: 'proj-A', projectName: 'A', amount: 100000 }],
+        payments: [{ id: 'p1', amount: 50000 }],
+      } as unknown as PaymentBatch;
+
+      expect(detectCrossProjectPayments(batch)).toHaveLength(0);
+    });
+
+    it('handles multiple source projects - only flags outside set', () => {
+      const batch = {
+        receipts: [
+          { id: 'r1', projectId: 'proj-A', projectName: 'A', amount: 50000 },
+          { id: 'r2', projectId: 'proj-B', projectName: 'B', amount: 50000 },
+        ],
+        payments: [
+          { id: 'p1', projectId: 'proj-A', amount: 30000 },
+          { id: 'p2', projectId: 'proj-B', amount: 30000 },
+          { id: 'p3', projectId: 'proj-C', projectName: 'C', amount: 20000 },
+        ],
+      } as unknown as PaymentBatch;
+
+      const result = detectCrossProjectPayments(batch);
+      expect(result).toHaveLength(1);
+      expect(result[0]!.borrowingProjectId).toBe('proj-C');
+      expect(result[0]!.lendingProjectId).toBe('proj-A');
+    });
+
+    it('uses projectId as fallback when projectName is missing', () => {
+      const batch = {
+        receipts: [{ id: 'r1', projectId: 'proj-A', amount: 100000 }],
+        payments: [{ id: 'p1', projectId: 'proj-B', amount: 50000 }],
+      } as unknown as PaymentBatch;
+
+      const result = detectCrossProjectPayments(batch);
+      expect(result[0]!.lendingProjectName).toBe('proj-A');
+      expect(result[0]!.borrowingProjectName).toBe('proj-B');
     });
   });
 

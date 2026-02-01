@@ -42,6 +42,12 @@ jest.mock('@vapour/logger', () => ({
   }),
 }));
 
+// Mock audit service
+jest.mock('@/lib/audit/clientAuditService', () => ({
+  logAuditEvent: jest.fn().mockResolvedValue(undefined),
+  createAuditContext: jest.fn().mockReturnValue({ userId: 'user-1' }),
+}));
+
 import {
   submitBillForApproval,
   approveBill,
@@ -318,6 +324,34 @@ describe('billApprovalService', () => {
 
     it('returns all false when user cannot manage', () => {
       const result = getBillAvailableActions('DRAFT' as TransactionStatus, false, false, 'user-1');
+
+      expect(result.canEdit).toBe(false);
+      expect(result.canSubmitForApproval).toBe(false);
+      expect(result.canApprove).toBe(false);
+      expect(result.canReject).toBe(false);
+      expect(result.canDelete).toBe(false);
+      expect(result.canRecordPayment).toBe(false);
+    });
+
+    it('does NOT allow payment recording without canManage', () => {
+      const result = getBillAvailableActions(
+        'APPROVED' as TransactionStatus,
+        false,
+        false,
+        'user-1'
+      );
+
+      expect(result.canRecordPayment).toBe(false);
+    });
+
+    it('denies all actions for VOID status', () => {
+      const result = getBillAvailableActions(
+        'VOID' as TransactionStatus,
+        true,
+        true,
+        'user-1',
+        'user-1'
+      );
 
       expect(result.canEdit).toBe(false);
       expect(result.canSubmitForApproval).toBe(false);

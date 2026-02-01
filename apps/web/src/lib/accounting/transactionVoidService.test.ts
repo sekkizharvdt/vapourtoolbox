@@ -263,6 +263,119 @@ describe('transactionVoidService', () => {
     });
   });
 
+  describe('voidTransaction - vendor bills', () => {
+    it('voids a vendor bill successfully', async () => {
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({
+          status: 'APPROVED',
+          transactionNumber: 'BILL-2026-001',
+          vendorInvoiceNumber: 'VINV-001',
+          entityName: 'Test Vendor',
+          totalAmount: 50000,
+          entries: [
+            { accountId: 'acc-1', debit: 50000, credit: 0, description: 'Expense' },
+            { accountId: 'acc-2', debit: 0, credit: 50000, description: 'Payable' },
+          ],
+        }),
+      });
+
+      const result = await voidTransaction(mockDb, 'VENDOR_BILL', {
+        transactionId: 'txn-bill-1',
+        reason: 'Wrong vendor',
+        userId: 'user-1',
+        userName: 'User',
+      });
+
+      expect(result.success).toBe(true);
+      const updateCall = mockUpdateDoc.mock.calls[0][1];
+      expect(updateCall.status).toBe('VOID');
+      expect(updateCall.voidReason).toBe('Wrong vendor');
+    });
+  });
+
+  describe('voidTransaction - reversal entries', () => {
+    it('prefixes reversal descriptions with [REVERSAL]', async () => {
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({
+          status: 'APPROVED',
+          transactionNumber: 'INV-001',
+          entityName: 'Customer',
+          entries: [{ accountId: 'a1', debit: 1000, credit: 0, description: 'Sales Revenue' }],
+        }),
+      });
+
+      await voidTransaction(mockDb, 'CUSTOMER_INVOICE', {
+        transactionId: 'txn-1',
+        reason: 'Test',
+        userId: 'u1',
+        userName: 'User',
+      });
+
+      const reversalEntries = mockUpdateDoc.mock.calls[0][1].reversalEntries;
+      expect(reversalEntries[0].description).toBe('[REVERSAL] Sales Revenue');
+    });
+
+    it('swaps debits and credits correctly', async () => {
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({
+          status: 'APPROVED',
+          transactionNumber: 'INV-001',
+          entityName: 'Customer',
+          entries: [
+            { accountId: 'a1', debit: 5000, credit: 0 },
+            { accountId: 'a2', debit: 0, credit: 3000 },
+            { accountId: 'a3', debit: 0, credit: 2000 },
+          ],
+        }),
+      });
+
+      await voidTransaction(mockDb, 'CUSTOMER_INVOICE', {
+        transactionId: 'txn-1',
+        reason: 'Test',
+        userId: 'u1',
+        userName: 'User',
+      });
+
+      const reversals = mockUpdateDoc.mock.calls[0][1].reversalEntries;
+      expect(reversals[0]).toMatchObject({ debit: 0, credit: 5000 });
+      expect(reversals[1]).toMatchObject({ debit: 3000, credit: 0 });
+      expect(reversals[2]).toMatchObject({ debit: 2000, credit: 0 });
+    });
+  });
+
+  describe('voidTransaction - error handling', () => {
+    it('catches and returns Firestore errors', async () => {
+      mockGetDoc.mockRejectedValue(new Error('Firestore unavailable'));
+
+      const result = await voidTransaction(mockDb, 'CUSTOMER_INVOICE', {
+        transactionId: 'txn-1',
+        reason: 'Test',
+        userId: 'u1',
+        userName: 'User',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Firestore unavailable');
+    });
+
+    it('returns "Unknown error" for non-Error throws', async () => {
+      mockGetDoc.mockRejectedValue('string error');
+
+      const result = await voidTransaction(mockDb, 'CUSTOMER_INVOICE', {
+        transactionId: 'txn-1',
+        reason: 'Test',
+        userId: 'u1',
+        userName: 'User',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Unknown error');
+    });
+  });
+
   describe('backward compatibility helpers', () => {
     it('canVoidInvoice delegates to canVoidTransaction', () => {
       const result = canVoidInvoice({ status: 'DRAFT' });

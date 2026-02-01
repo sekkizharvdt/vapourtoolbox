@@ -42,6 +42,12 @@ jest.mock('@vapour/logger', () => ({
   }),
 }));
 
+// Mock audit service
+jest.mock('@/lib/audit/clientAuditService', () => ({
+  logAuditEvent: jest.fn().mockResolvedValue(undefined),
+  createAuditContext: jest.fn().mockReturnValue({ userId: 'user-1' }),
+}));
+
 import {
   submitInvoiceForApproval,
   approveInvoice,
@@ -392,6 +398,34 @@ describe('invoiceApprovalService', () => {
 
       expect(result.canApprove).toBe(true);
       expect(result.canReject).toBe(true);
+    });
+
+    it('does NOT include canRecordPayment (invoice-specific)', () => {
+      const result = getInvoiceAvailableActions(
+        'APPROVED' as TransactionStatus,
+        true,
+        false,
+        'user-1'
+      );
+
+      // Invoice actions should not have canRecordPayment
+      expect(result).not.toHaveProperty('canRecordPayment');
+    });
+
+    it('denies all actions for VOID status', () => {
+      const result = getInvoiceAvailableActions(
+        'VOID' as TransactionStatus,
+        true,
+        true,
+        'user-1',
+        'user-1'
+      );
+
+      expect(result.canEdit).toBe(false);
+      expect(result.canSubmitForApproval).toBe(false);
+      expect(result.canApprove).toBe(false);
+      expect(result.canReject).toBe(false);
+      expect(result.canDelete).toBe(false);
     });
   });
 });
