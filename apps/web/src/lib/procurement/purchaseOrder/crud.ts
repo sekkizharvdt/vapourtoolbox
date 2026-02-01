@@ -172,6 +172,11 @@ export async function createPOFromOffer(
 
       const offer = { id: offerDoc.id, ...offerDoc.data() } as Offer;
 
+      // Prevent duplicate PO creation from the same offer
+      if (offer.status === 'PO_CREATED') {
+        throw new Error('A Purchase Order has already been created from this offer');
+      }
+
       const offerItemsQuery = query(
         collection(db, COLLECTIONS.OFFER_ITEMS),
         where('offerId', '==', offerId),
@@ -348,6 +353,17 @@ export async function createPOFromOffer(
         status: 'PO_CREATED',
         updatedAt: now,
       });
+
+      // Mark RFQ as COMPLETED to prevent creating duplicate POs from the same RFQ
+      if (offer.rfqId) {
+        batch.update(doc(db, COLLECTIONS.RFQS, offer.rfqId), {
+          status: 'COMPLETED',
+          selectedOfferId: offerId,
+          completedAt: now,
+          updatedAt: now,
+          updatedBy: userId,
+        });
+      }
 
       await batch.commit();
 
