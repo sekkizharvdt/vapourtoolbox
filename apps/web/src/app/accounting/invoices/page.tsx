@@ -37,6 +37,7 @@ import {
   CheckCircle as ApproveIcon,
   AssignmentTurnedIn as SubmitIcon,
   Home as HomeIcon,
+  Block as VoidIcon,
 } from '@mui/icons-material';
 import {
   PageHeader,
@@ -61,9 +62,16 @@ import { SubmitForApprovalDialog } from './components/SubmitForApprovalDialog';
 import { ApproveInvoiceDialog } from './components/ApproveInvoiceDialog';
 import { useRouter } from 'next/navigation';
 
-// Lazy load heavy dialog component
+// Lazy load heavy dialog components
 const CreateInvoiceDialog = dynamic(
   () => import('./components/CreateInvoiceDialog').then((mod) => mod.CreateInvoiceDialog),
+  { ssr: false }
+);
+const VoidAndRecreateInvoiceDialog = dynamic(
+  () =>
+    import('./components/VoidAndRecreateInvoiceDialog').then(
+      (mod) => mod.VoidAndRecreateInvoiceDialog
+    ),
   { ssr: false }
 );
 
@@ -107,6 +115,11 @@ export default function InvoicesPage() {
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<CustomerInvoiceWithExtras | null>(null);
+
+  // Void dialog states
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
+  const [selectedInvoiceForVoid, setSelectedInvoiceForVoid] =
+    useState<CustomerInvoiceWithExtras | null>(null);
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
   const canApprove = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
@@ -233,6 +246,17 @@ export default function InvoicesPage() {
     setSelectedInvoice(null);
   };
 
+  // Void workflow handlers
+  const handleVoidInvoice = (invoice: CustomerInvoiceWithExtras) => {
+    setSelectedInvoiceForVoid(invoice);
+    setVoidDialogOpen(true);
+  };
+
+  const handleCloseVoidDialog = () => {
+    setVoidDialogOpen(false);
+    setSelectedInvoiceForVoid(null);
+  };
+
   // Check if current user is the assigned approver
   const isAssignedApprover = (invoice: CustomerInvoiceWithExtras): boolean => {
     return !!(user && invoice.assignedApproverId === user.uid);
@@ -356,6 +380,7 @@ export default function InvoicesPage() {
             <MenuItem value="APPROVED">Approved</MenuItem>
             <MenuItem value="SENT">Sent</MenuItem>
             <MenuItem value="PAID">Paid</MenuItem>
+            <MenuItem value="VOID">Void</MenuItem>
             <MenuItem value="OVERDUE">Overdue</MenuItem>
           </Select>
         </FormControl>
@@ -474,6 +499,19 @@ export default function InvoicesPage() {
                             show: canManage && invoice.status === 'APPROVED' && !isDeleted,
                           },
                           {
+                            icon: <VoidIcon />,
+                            label: 'Void / Change Customer',
+                            onClick: () => handleVoidInvoice(invoice),
+                            color: 'warning',
+                            show:
+                              canManage &&
+                              invoice.status !== 'VOID' &&
+                              invoice.status !== 'DRAFT' &&
+                              invoice.paymentStatus !== 'PAID' &&
+                              invoice.paymentStatus !== 'PARTIALLY_PAID' &&
+                              !isDeleted,
+                          },
+                          {
                             icon: <DeleteIcon />,
                             label: 'Delete Invoice',
                             onClick: () => handleDelete(invoice.id!),
@@ -518,6 +556,12 @@ export default function InvoicesPage() {
         open={approveDialogOpen}
         onClose={handleApprovalDialogClose}
         invoice={selectedInvoice}
+      />
+
+      <VoidAndRecreateInvoiceDialog
+        open={voidDialogOpen}
+        onClose={handleCloseVoidDialog}
+        invoice={selectedInvoiceForVoid}
       />
     </Box>
   );
