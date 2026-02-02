@@ -51,14 +51,13 @@ import {
 import { invoiceListHelp } from '@/lib/help/pageHelpContent';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, where, orderBy, doc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { CustomerInvoice } from '@vapour/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
-import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { SubmitForApprovalDialog } from './components/SubmitForApprovalDialog';
 import { ApproveInvoiceDialog } from './components/ApproveInvoiceDialog';
 import { useRouter } from 'next/navigation';
@@ -104,7 +103,6 @@ function toDate(value: Date | Timestamp | unknown): Date | null {
 export default function InvoicesPage() {
   const router = useRouter();
   const { claims, user } = useAuth();
-  const { confirm } = useConfirmDialog();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<CustomerInvoice | null>(null);
   const [viewMode, setViewMode] = useState(false);
@@ -205,17 +203,20 @@ export default function InvoicesPage() {
   };
 
   const handleDelete = async (invoiceId: string) => {
-    const confirmed = await confirm({
-      title: 'Delete Invoice',
-      message: 'Are you sure you want to delete this invoice? This action cannot be undone.',
-      confirmText: 'Delete',
-      confirmColor: 'error',
-    });
-    if (!confirmed) return;
+    if (
+      !confirm(
+        'Are you sure you want to delete this invoice? It will be moved to the bottom of the list for audit purposes.'
+      )
+    )
+      return;
 
     try {
       const { db } = getFirebase();
-      await deleteDoc(doc(db, COLLECTIONS.TRANSACTIONS, invoiceId));
+      const { updateDoc, Timestamp } = await import('firebase/firestore');
+      await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, invoiceId), {
+        deletedAt: Timestamp.now(),
+        deletedBy: user?.uid || 'unknown',
+      });
     } catch (error) {
       console.error('[InvoicesPage] Error deleting invoice:', error);
       alert('Failed to delete invoice');
@@ -515,7 +516,7 @@ export default function InvoicesPage() {
                             label: 'Delete Invoice',
                             onClick: () => handleDelete(invoice.id!),
                             color: 'error',
-                            show: canManage && invoice.status !== 'VOID' && !isDeleted,
+                            show: canManage && invoice.status === 'DRAFT' && !isDeleted,
                           },
                         ]}
                       />

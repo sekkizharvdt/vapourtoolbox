@@ -640,7 +640,7 @@ export default function BillsPage() {
                           label: 'Delete Bill',
                           onClick: () => handleDelete(bill.id!),
                           color: 'error',
-                          show: canManage && bill.status !== 'VOID',
+                          show: canManage && bill.status === 'DRAFT',
                         },
                       ]}
                     />
