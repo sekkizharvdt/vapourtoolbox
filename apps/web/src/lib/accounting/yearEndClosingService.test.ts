@@ -585,6 +585,130 @@ describe('yearEndClosingService', () => {
     });
   });
 
+  describe('YearEndClosingError', () => {
+    it('has correct name and properties', () => {
+      const error = new YearEndClosingError('Test error', 'TEST_CODE', { foo: 'bar' });
+      expect(error.name).toBe('YearEndClosingError');
+      expect(error.message).toBe('Test error');
+      expect(error.errorCode).toBe('TEST_CODE');
+      expect(error.details).toEqual({ foo: 'bar' });
+      expect(error instanceof Error).toBe(true);
+    });
+
+    it('works without details', () => {
+      const error = new YearEndClosingError('No details', 'NO_DETAIL');
+      expect(error.details).toBeUndefined();
+    });
+  });
+
+  describe('checkYearEndClosingReadiness - warnings', () => {
+    it('warns when periods are closed but not locked', async () => {
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        id: 'fy-2024-25',
+        data: () => createMockFiscalYear(),
+      });
+
+      const retainedEarningsAccount = createMockAccount({
+        id: 'acc-retained',
+        code: '3100',
+        name: 'Retained Earnings',
+        accountType: 'EQUITY',
+        accountCategory: 'RETAINED_EARNINGS',
+      });
+
+      mockGetDocs
+        .mockResolvedValueOnce({
+          docs: [
+            {
+              id: 'period-1',
+              data: () => createMockPeriod({ status: 'CLOSED', name: 'Apr 2024' }),
+            },
+            {
+              id: 'period-2',
+              data: () => createMockPeriod({ id: 'period-2', status: 'CLOSED', name: 'May 2024' }),
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          docs: [{ id: 'acc-retained', data: () => retainedEarningsAccount }],
+          empty: false,
+        });
+
+      const result = await checkYearEndClosingReadiness(mockDb, 'fy-2024-25');
+
+      expect(result.isReady).toBe(true);
+      expect(result.warnings.some((w) => w.includes('locking all periods'))).toBe(true);
+      expect(result.closedPeriods).toHaveLength(2);
+      expect(result.lockedPeriods).toHaveLength(0);
+    });
+
+    it('warns when fiscal year end date has not passed', async () => {
+      const futureEndDate = new Date();
+      futureEndDate.setFullYear(futureEndDate.getFullYear() + 1);
+
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        id: 'fy-future',
+        data: () => createMockFiscalYear({ endDate: futureEndDate }),
+      });
+
+      const retainedEarningsAccount = createMockAccount({
+        id: 'acc-retained',
+        code: '3100',
+        name: 'Retained Earnings',
+        accountType: 'EQUITY',
+        accountCategory: 'RETAINED_EARNINGS',
+      });
+
+      mockGetDocs
+        .mockResolvedValueOnce({
+          docs: [{ id: 'period-1', data: () => createMockPeriod({ status: 'LOCKED' }) }],
+        })
+        .mockResolvedValueOnce({
+          docs: [{ id: 'acc-retained', data: () => retainedEarningsAccount }],
+          empty: false,
+        });
+
+      const result = await checkYearEndClosingReadiness(mockDb, 'fy-future');
+
+      expect(result.isReady).toBe(true);
+      expect(result.warnings.some((w) => w.includes('close early'))).toBe(true);
+    });
+
+    it('correctly separates open, locked, and closed periods', async () => {
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        id: 'fy-2024-25',
+        data: () => createMockFiscalYear(),
+      });
+
+      mockGetDocs
+        .mockResolvedValueOnce({
+          docs: [
+            { id: 'period-1', data: () => createMockPeriod({ status: 'OPEN', name: 'Apr' }) },
+            {
+              id: 'period-2',
+              data: () => createMockPeriod({ id: 'p2', status: 'CLOSED', name: 'May' }),
+            },
+            {
+              id: 'period-3',
+              data: () => createMockPeriod({ id: 'p3', status: 'LOCKED', name: 'Jun' }),
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ docs: [], empty: true })
+        .mockResolvedValueOnce({ docs: [], empty: true })
+        .mockResolvedValueOnce({ docs: [] });
+
+      const result = await checkYearEndClosingReadiness(mockDb, 'fy-2024-25');
+
+      expect(result.openPeriods).toHaveLength(1);
+      expect(result.closedPeriods).toHaveLength(1);
+      expect(result.lockedPeriods).toHaveLength(1);
+    });
+  });
+
   describe('closing entries generation', () => {
     it('generates balanced entries for profit scenario', async () => {
       const fiscalYear = createMockFiscalYear();
@@ -712,6 +836,160 @@ describe('yearEndClosingService', () => {
 
       expect(retainedEntry?.debit).toBe(150000); // Loss debited from retained earnings
       expect(retainedEntry?.credit).toBe(0);
+    });
+
+    it('generates no retained earnings entry for zero net income', async () => {
+      const fiscalYear = createMockFiscalYear();
+      const retainedEarningsAccount = createMockAccount({
+        id: 'acc-retained',
+        code: '3100',
+        name: 'Retained Earnings',
+        accountType: 'EQUITY',
+        currentBalance: 100000,
+      });
+
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        id: 'fy-2024-25',
+        data: () => fiscalYear,
+      });
+
+      mockGetDocs
+        .mockResolvedValueOnce({
+          docs: [{ id: 'period-1', data: () => createMockPeriod({ status: 'LOCKED' }) }],
+        })
+        .mockResolvedValueOnce({
+          docs: [{ id: 'acc-retained', data: () => retainedEarningsAccount }],
+          empty: false,
+        })
+        .mockResolvedValueOnce({
+          docs: [
+            {
+              id: 'acc-revenue',
+              data: () =>
+                createMockAccount({
+                  id: 'acc-revenue',
+                  accountType: 'INCOME',
+                  currentBalance: 200000,
+                }),
+            },
+            {
+              id: 'acc-expense',
+              data: () =>
+                createMockAccount({
+                  id: 'acc-expense',
+                  accountType: 'EXPENSE',
+                  currentBalance: 200000,
+                }),
+            },
+          ],
+        });
+
+      const preview = await previewYearEndClosing(mockDb, 'fy-2024-25');
+
+      expect(preview.netIncome).toBe(0);
+
+      // No retained earnings entry when net income is zero
+      const retainedEntry = preview.closingEntries.find((e) => e.accountId === 'acc-retained');
+      expect(retainedEntry).toBeUndefined();
+
+      // Still balances
+      const totalDebits = preview.closingEntries.reduce((sum, e) => sum + e.debit, 0);
+      const totalCredits = preview.closingEntries.reduce((sum, e) => sum + e.credit, 0);
+      expect(totalDebits).toBe(totalCredits);
+    });
+
+    it('skips accounts with zero balance', async () => {
+      const fiscalYear = createMockFiscalYear();
+      const retainedEarningsAccount = createMockAccount({
+        id: 'acc-retained',
+        code: '3100',
+        name: 'Retained Earnings',
+        accountType: 'EQUITY',
+        currentBalance: 0,
+      });
+
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        id: 'fy-2024-25',
+        data: () => fiscalYear,
+      });
+
+      mockGetDocs
+        .mockResolvedValueOnce({
+          docs: [{ id: 'period-1', data: () => createMockPeriod({ status: 'LOCKED' }) }],
+        })
+        .mockResolvedValueOnce({
+          docs: [{ id: 'acc-retained', data: () => retainedEarningsAccount }],
+          empty: false,
+        })
+        .mockResolvedValueOnce({
+          docs: [
+            {
+              id: 'acc-revenue-active',
+              data: () =>
+                createMockAccount({
+                  id: 'acc-revenue-active',
+                  accountType: 'INCOME',
+                  currentBalance: 100000,
+                }),
+            },
+            {
+              id: 'acc-revenue-zero',
+              data: () =>
+                createMockAccount({
+                  id: 'acc-revenue-zero',
+                  accountType: 'INCOME',
+                  currentBalance: 0,
+                }),
+            },
+            {
+              id: 'acc-inactive',
+              data: () =>
+                createMockAccount({
+                  id: 'acc-inactive',
+                  accountType: 'EXPENSE',
+                  isActive: false,
+                  currentBalance: 50000,
+                }),
+            },
+          ],
+        });
+
+      const preview = await previewYearEndClosing(mockDb, 'fy-2024-25');
+
+      // Only the active account with non-zero balance should appear
+      expect(preview.revenueAccounts).toHaveLength(1);
+      expect(preview.expenseAccounts).toHaveLength(0);
+      expect(preview.totalRevenue).toBe(100000);
+    });
+  });
+
+  describe('executeYearEndClosing - error handling', () => {
+    it('returns error result for non-YearEndClosingError exceptions', async () => {
+      mockGetDoc.mockRejectedValue(new Error('Network failure'));
+
+      const result = await executeYearEndClosing(mockDb, {
+        fiscalYearId: 'fy-2024-25',
+        userId: 'user-1',
+        userName: 'Test User',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Network failure');
+    });
+
+    it('returns generic error for non-Error throws', async () => {
+      mockGetDoc.mockRejectedValue('string error');
+
+      const result = await executeYearEndClosing(mockDb, {
+        fiscalYearId: 'fy-2024-25',
+        userId: 'user-1',
+        userName: 'Test User',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Unknown error during year-end closing');
     });
   });
 });
