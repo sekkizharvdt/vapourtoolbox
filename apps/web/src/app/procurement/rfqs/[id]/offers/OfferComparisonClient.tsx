@@ -375,69 +375,85 @@ export default function OfferComparisonPage() {
           </Typography>
           <Divider sx={{ mb: 2 }} />
 
+          {rfq?.status === 'COMPLETED' && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              This RFQ is completed. A Purchase Order has already been created from the selected
+              offer.
+            </Alert>
+          )}
+
           <Stack spacing={2}>
-            {offers.map((offer: Offer) => (
-              <Stack
-                key={offer.id}
-                direction="row"
-                justifyContent="space-between"
-                alignItems="center"
-              >
-                <Box>
-                  <Typography variant="body1" fontWeight="medium">
-                    {offer.vendorName}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {offer.number} - {formatCurrency(offer.totalAmount)}
-                  </Typography>
-                </Box>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => {
-                      setSelectedOfferId(offer.id);
-                      setEvaluationDialogOpen(true);
-                    }}
-                  >
-                    Evaluate
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    color="warning"
-                    startIcon={<StarIcon />}
-                    onClick={() => handleRecommend(offer.id)}
-                    disabled={offer.isRecommended}
-                  >
-                    {offer.isRecommended ? 'Recommended' : 'Recommend'}
-                  </Button>
-                  {offer.status === 'PO_CREATED' ? (
-                    <Chip label="PO Created" color="info" size="small" />
-                  ) : offer.status === 'SELECTED' ? (
-                    <Button
-                      variant="contained"
-                      size="small"
-                      color="primary"
-                      startIcon={<ShoppingCartIcon />}
-                      onClick={() => router.push(`/procurement/pos/new?offerId=${offer.id}`)}
-                    >
-                      Create PO
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="contained"
-                      size="small"
-                      color="success"
-                      startIcon={<CheckCircleIcon />}
-                      onClick={() => handleSelectOffer(offer.id)}
-                    >
-                      Select
-                    </Button>
-                  )}
+            {offers.map((offer: Offer) => {
+              const isRfqCompleted = rfq?.status === 'COMPLETED';
+              const isPOCreated = offer.status === 'PO_CREATED' || isRfqCompleted;
+
+              return (
+                <Stack
+                  key={offer.id}
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                  <Box>
+                    <Typography variant="body1" fontWeight="medium">
+                      {offer.vendorName}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {offer.number} - {formatCurrency(offer.totalAmount)}
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1}>
+                    {!isRfqCompleted && (
+                      <>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => {
+                            setSelectedOfferId(offer.id);
+                            setEvaluationDialogOpen(true);
+                          }}
+                        >
+                          Evaluate
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          color="warning"
+                          startIcon={<StarIcon />}
+                          onClick={() => handleRecommend(offer.id)}
+                          disabled={offer.isRecommended}
+                        >
+                          {offer.isRecommended ? 'Recommended' : 'Recommend'}
+                        </Button>
+                      </>
+                    )}
+                    {isPOCreated ? (
+                      <Chip label="PO Created" color="info" size="small" />
+                    ) : offer.status === 'SELECTED' ? (
+                      <Button
+                        variant="contained"
+                        size="small"
+                        color="primary"
+                        startIcon={<ShoppingCartIcon />}
+                        onClick={() => router.push(`/procurement/pos/new?offerId=${offer.id}`)}
+                      >
+                        Create PO
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="contained"
+                        size="small"
+                        color="success"
+                        startIcon={<CheckCircleIcon />}
+                        onClick={() => handleSelectOffer(offer.id)}
+                      >
+                        Select
+                      </Button>
+                    )}
+                  </Stack>
                 </Stack>
-              </Stack>
-            ))}
+              );
+            })}
           </Stack>
         </Paper>
       </Stack>
