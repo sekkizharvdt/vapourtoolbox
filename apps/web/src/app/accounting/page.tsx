@@ -17,6 +17,7 @@ import {
   Payments as PaymentBatchIcon,
   Handshake as LoanIcon,
   HealthAndSafety as DataHealthIcon,
+  DeleteSweep as TrashIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting } from '@vapour/constants';
@@ -117,6 +118,13 @@ export default function AccountingPage() {
           description: 'Match bank statements with accounting records',
           icon: <ReconciliationIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
           path: '/accounting/reconciliation',
+        },
+        {
+          id: 'trash',
+          title: 'Trash',
+          description: 'View and manage deleted transactions. Restore or permanently delete.',
+          icon: <TrashIcon sx={{ fontSize: 48, color: 'text.secondary' }} />,
+          path: '/accounting/trash',
         },
       ],
     },

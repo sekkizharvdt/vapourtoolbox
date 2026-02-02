@@ -388,7 +388,15 @@ service cloud.firestore {
       allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
       allow create: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
       allow update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
-      allow delete: if isSuperAdmin();
+      allow delete: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING - hard delete (archives first)
+    }
+
+    match /deletedTransactions/{archivedId} {
+      // Archive of permanently deleted transactions (for audit trail)
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+      allow create: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow update: if false; // Archives are immutable
+      allow delete: if isSuperAdmin(); // Only super admin can purge archives
     }
 
     match /costCentres/{costCentreId} {

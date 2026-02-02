@@ -29,7 +29,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { JournalEntry } from '@vapour/types';
@@ -38,10 +38,11 @@ import { CreateJournalEntryDialog } from './components/CreateJournalEntryDialog'
 import { formatDate } from '@/lib/utils/formatters';
 import { useRouter } from 'next/navigation';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
 
 export default function JournalEntriesPage() {
   const router = useRouter();
-  const { claims } = useAuth();
+  const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,15 +57,17 @@ export default function JournalEntriesPage() {
   useEffect(() => {
     const { db } = getFirebase();
     const entriesRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    const q = query(entriesRef, orderBy('date', 'desc'));
+    const q = query(
+      entriesRef,
+      where('type', '==', 'JOURNAL_ENTRY'),
+      where('isDeleted', '!=', true),
+      orderBy('date', 'desc')
+    );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const entriesData: JournalEntry[] = [];
       snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.type === 'JOURNAL_ENTRY') {
-          entriesData.push({ id: doc.id, ...data } as JournalEntry);
-        }
+        entriesData.push({ id: doc.id, ...doc.data() } as JournalEntry);
       });
       setJournalEntries(entriesData);
       setLoading(false);
@@ -85,19 +88,28 @@ export default function JournalEntriesPage() {
 
   const handleDelete = async (entryId: string) => {
     const confirmed = await confirm({
-      title: 'Delete Journal Entry',
-      message: 'Are you sure you want to delete this journal entry? This action cannot be undone.',
-      confirmText: 'Delete',
+      title: 'Move to Trash',
+      message:
+        'This journal entry will be moved to the Trash. You can restore it later or permanently delete it from there.',
+      confirmText: 'Move to Trash',
       confirmColor: 'error',
     });
     if (!confirmed) return;
 
     try {
       const { db } = getFirebase();
-      await deleteDoc(doc(db, COLLECTIONS.TRANSACTIONS, entryId));
+      const result = await softDeleteTransaction(db, {
+        transactionId: entryId,
+        reason: 'Moved to trash by user',
+        userId: user?.uid || 'unknown',
+        userName: user?.displayName || user?.email || 'Unknown',
+      });
+      if (!result.success) {
+        alert(result.error || 'Failed to move journal entry to trash');
+      }
     } catch (error) {
-      console.error('[JournalEntriesPage] Error deleting entry:', error);
-      alert('Failed to delete journal entry');
+      console.error('[JournalEntriesPage] Error moving entry to trash:', error);
+      alert('Failed to move journal entry to trash');
     }
   };
 
@@ -212,7 +224,7 @@ export default function JournalEntriesPage() {
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Delete">
+                        <Tooltip title="Move to Trash">
                           <IconButton
                             size="small"
                             onClick={() => handleDelete(entry.id!)}

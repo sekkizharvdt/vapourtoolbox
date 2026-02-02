@@ -55,16 +55,7 @@ import {
 } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  doc,
-  deleteDoc,
-  updateDoc,
-  Timestamp,
-} from 'firebase/firestore';
+import { collection, query, where, orderBy, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { VendorBill } from '@vapour/types';
@@ -73,6 +64,7 @@ import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { useRouter } from 'next/navigation';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
 
 // Lazy load heavy dialog components
 const CreateBillDialog = dynamic(
@@ -150,6 +142,7 @@ export default function BillsPage() {
       query(
         collection(db, COLLECTIONS.TRANSACTIONS),
         where('type', '==', 'VENDOR_BILL'),
+        where('isDeleted', '!=', true),
         orderBy('date', 'desc')
       ),
     [db]
@@ -241,19 +234,27 @@ export default function BillsPage() {
 
   const handleDelete = async (billId: string) => {
     const confirmed = await confirm({
-      title: 'Delete Bill',
-      message: 'Are you sure you want to delete this bill? This action cannot be undone.',
-      confirmText: 'Delete',
+      title: 'Move to Trash',
+      message:
+        'This bill will be moved to the Trash. You can restore it later or permanently delete it from there.',
+      confirmText: 'Move to Trash',
       confirmColor: 'error',
     });
     if (!confirmed) return;
 
     try {
-      const { db } = getFirebase();
-      await deleteDoc(doc(db, COLLECTIONS.TRANSACTIONS, billId));
+      const result = await softDeleteTransaction(db, {
+        transactionId: billId,
+        reason: 'Moved to trash by user',
+        userId: user?.uid || 'unknown',
+        userName: user?.displayName || user?.email || 'Unknown',
+      });
+      if (!result.success) {
+        alert(result.error || 'Failed to move bill to trash');
+      }
     } catch (error) {
-      console.error('[BillsPage] Error deleting bill:', error);
-      alert('Failed to delete bill');
+      console.error('[BillsPage] Error moving bill to trash:', error);
+      alert('Failed to move bill to trash');
     }
   };
 
@@ -637,10 +638,10 @@ export default function BillsPage() {
                         },
                         {
                           icon: <DeleteIcon />,
-                          label: 'Delete Bill',
+                          label: 'Move to Trash',
                           onClick: () => handleDelete(bill.id!),
                           color: 'error',
-                          show: canManage && bill.status === 'DRAFT',
+                          show: canManage && bill.status !== 'VOID',
                         },
                       ]}
                     />

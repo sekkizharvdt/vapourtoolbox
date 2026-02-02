@@ -51,13 +51,15 @@ import {
 import { invoiceListHelp } from '@/lib/help/pageHelpContent';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, where, orderBy, doc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { CustomerInvoice } from '@vapour/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
 import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
 import { SubmitForApprovalDialog } from './components/SubmitForApprovalDialog';
 import { ApproveInvoiceDialog } from './components/ApproveInvoiceDialog';
 import { useRouter } from 'next/navigation';
@@ -75,10 +77,8 @@ const VoidAndRecreateInvoiceDialog = dynamic(
   { ssr: false }
 );
 
-// Extended type for soft delete and approval support
+// Extended type for approval support
 interface CustomerInvoiceWithExtras extends CustomerInvoice {
-  deletedAt?: Timestamp;
-  deletedBy?: string;
   assignedApproverId?: string;
   assignedApproverName?: string;
   submittedByUserId?: string;
@@ -103,6 +103,7 @@ function toDate(value: Date | Timestamp | unknown): Date | null {
 export default function InvoicesPage() {
   const router = useRouter();
   const { claims, user } = useAuth();
+  const { confirm } = useConfirmDialog();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<CustomerInvoice | null>(null);
   const [viewMode, setViewMode] = useState(false);
@@ -131,27 +132,17 @@ export default function InvoicesPage() {
       query(
         collection(db, COLLECTIONS.TRANSACTIONS),
         where('type', '==', 'CUSTOMER_INVOICE'),
+        where('isDeleted', '!=', true),
         orderBy('date', 'desc')
       ),
     [db]
   );
 
-  const { data: rawInvoices, loading } =
-    useFirestoreQuery<CustomerInvoiceWithExtras>(invoicesQuery);
+  const { data: invoices, loading } = useFirestoreQuery<CustomerInvoiceWithExtras>(invoicesQuery);
 
-  // Sort invoices: non-deleted first, then by date (already sorted by date from query)
-  const invoices = useMemo(() => {
-    return [...rawInvoices].sort((a, b) => {
-      // Non-deleted items come first
-      if (!a.deletedAt && b.deletedAt) return -1;
-      if (a.deletedAt && !b.deletedAt) return 1;
-      return 0; // Preserve date order from query
-    });
-  }, [rawInvoices]);
-
-  // Calculate stats (exclude deleted invoices) - always in INR (base currency)
+  // Calculate stats - always in INR (base currency)
   const stats = useMemo(() => {
-    const activeInvoices = invoices.filter((inv) => !inv.deletedAt);
+    const activeInvoices = invoices;
     const totalInvoiced = activeInvoices.reduce(
       (sum, inv) => sum + (inv.baseAmount || inv.totalAmount || 0),
       0
@@ -203,23 +194,28 @@ export default function InvoicesPage() {
   };
 
   const handleDelete = async (invoiceId: string) => {
-    if (
-      !confirm(
-        'Are you sure you want to delete this invoice? It will be moved to the bottom of the list for audit purposes.'
-      )
-    )
-      return;
+    const confirmed = await confirm({
+      title: 'Move to Trash',
+      message:
+        'This invoice will be moved to the Trash. You can restore it later or permanently delete it from there.',
+      confirmText: 'Move to Trash',
+      confirmColor: 'error',
+    });
+    if (!confirmed) return;
 
     try {
-      const { db } = getFirebase();
-      const { updateDoc, Timestamp } = await import('firebase/firestore');
-      await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, invoiceId), {
-        deletedAt: Timestamp.now(),
-        deletedBy: user?.uid || 'unknown',
+      const result = await softDeleteTransaction(db, {
+        transactionId: invoiceId,
+        reason: 'Moved to trash by user',
+        userId: user?.uid || 'unknown',
+        userName: user?.displayName || user?.email || 'Unknown',
       });
+      if (!result.success) {
+        alert(result.error || 'Failed to move invoice to trash');
+      }
     } catch (error) {
-      console.error('[InvoicesPage] Error deleting invoice:', error);
-      alert('Failed to delete invoice');
+      console.error('[InvoicesPage] Error moving invoice to trash:', error);
+      alert('Failed to move invoice to trash');
     }
   };
 
@@ -421,17 +417,8 @@ export default function InvoicesPage() {
               />
             ) : (
               paginatedInvoices.map((invoice) => {
-                const isDeleted = !!invoice.deletedAt;
-
                 return (
-                  <TableRow
-                    key={invoice.id}
-                    hover
-                    sx={{
-                      opacity: isDeleted ? 0.5 : 1,
-                      backgroundColor: isDeleted ? 'action.hover' : 'inherit',
-                    }}
-                  >
+                  <TableRow key={invoice.id} hover>
                     <TableCell>{formatDate(invoice.date)}</TableCell>
                     <TableCell>{invoice.transactionNumber}</TableCell>
                     <TableCell>{invoice.entityName || '-'}</TableCell>
@@ -473,13 +460,13 @@ export default function InvoicesPage() {
                             icon: <EditIcon />,
                             label: 'Edit Invoice',
                             onClick: () => handleEdit(invoice),
-                            show: canManage && invoice.status === 'DRAFT' && !isDeleted,
+                            show: canManage && invoice.status === 'DRAFT',
                           },
                           {
                             icon: <SubmitIcon />,
                             label: 'Submit for Approval',
                             onClick: () => handleSubmitForApproval(invoice),
-                            show: canManage && invoice.status === 'DRAFT' && !isDeleted,
+                            show: canManage && invoice.status === 'DRAFT',
                             color: 'primary',
                           },
                           {
@@ -488,7 +475,6 @@ export default function InvoicesPage() {
                             onClick: () => handleApprove(invoice),
                             show:
                               invoice.status === 'PENDING_APPROVAL' &&
-                              !isDeleted &&
                               (canApprove || isAssignedApprover(invoice)),
                             color: 'success',
                           },
@@ -496,7 +482,7 @@ export default function InvoicesPage() {
                             icon: <SendIcon />,
                             label: 'Send Invoice',
                             onClick: () => {},
-                            show: canManage && invoice.status === 'APPROVED' && !isDeleted,
+                            show: canManage && invoice.status === 'APPROVED',
                           },
                           {
                             icon: <VoidIcon />,
@@ -508,15 +494,14 @@ export default function InvoicesPage() {
                               invoice.status !== 'VOID' &&
                               invoice.status !== 'DRAFT' &&
                               invoice.paymentStatus !== 'PAID' &&
-                              invoice.paymentStatus !== 'PARTIALLY_PAID' &&
-                              !isDeleted,
+                              invoice.paymentStatus !== 'PARTIALLY_PAID',
                           },
                           {
                             icon: <DeleteIcon />,
-                            label: 'Delete Invoice',
+                            label: 'Move to Trash',
                             onClick: () => handleDelete(invoice.id!),
                             color: 'error',
-                            show: canManage && invoice.status === 'DRAFT' && !isDeleted,
+                            show: canManage && invoice.status !== 'VOID',
                           },
                         ]}
                       />

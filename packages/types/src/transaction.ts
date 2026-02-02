@@ -14,6 +14,7 @@
  */
 
 import type { GSTDetails, TDSDetails, LedgerEntry } from './accounting';
+import type { SoftDeleteFields } from './common';
 
 /**
  * Transaction Types
@@ -73,7 +74,7 @@ export interface TransactionApprovalRecord {
  * Base Transaction Interface
  * All transaction types extend this
  */
-export interface BaseTransaction {
+export interface BaseTransaction extends SoftDeleteFields {
   id: string;
   type: TransactionType;
   transactionNumber: string; // Auto-generated: INV-001, RCPT-001, etc.

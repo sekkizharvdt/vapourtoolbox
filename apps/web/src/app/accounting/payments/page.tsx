@@ -38,7 +38,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, where, orderBy, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { CustomerPayment, VendorPayment, PaymentMethod } from '@vapour/types';
@@ -47,6 +47,7 @@ import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { formatDate } from '@/lib/utils/formatters';
 import { useRouter } from 'next/navigation';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
 
 // Lazy load heavy dialog components
 const RecordCustomerPaymentDialog = dynamic(
@@ -87,7 +88,7 @@ function getMonthOptions() {
 
 export default function PaymentsPage() {
   const router = useRouter();
-  const { claims } = useAuth();
+  const { claims, user } = useAuth();
   const { confirm } = useConfirmDialog();
   const [paymentType, setPaymentType] = useState<PaymentType>('all');
   const [customerPaymentDialogOpen, setCustomerPaymentDialogOpen] = useState(false);
@@ -108,6 +109,7 @@ export default function PaymentsPage() {
       query(
         collection(db, COLLECTIONS.TRANSACTIONS),
         where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT', 'DIRECT_PAYMENT']),
+        where('isDeleted', '!=', true),
         orderBy('paymentDate', 'desc')
       ),
     [db]
@@ -143,19 +145,27 @@ export default function PaymentsPage() {
 
   const handleDelete = async (paymentId: string) => {
     const confirmed = await confirm({
-      title: 'Delete Payment',
-      message: 'Are you sure you want to delete this payment? This action cannot be undone.',
-      confirmText: 'Delete',
+      title: 'Move to Trash',
+      message:
+        'This payment will be moved to the Trash. You can restore it later or permanently delete it from there.',
+      confirmText: 'Move to Trash',
       confirmColor: 'error',
     });
     if (!confirmed) return;
 
     try {
-      const { db } = getFirebase();
-      await deleteDoc(doc(db, COLLECTIONS.TRANSACTIONS, paymentId));
+      const result = await softDeleteTransaction(db, {
+        transactionId: paymentId,
+        reason: 'Moved to trash by user',
+        userId: user?.uid || 'unknown',
+        userName: user?.displayName || user?.email || 'Unknown',
+      });
+      if (!result.success) {
+        alert(result.error || 'Failed to move payment to trash');
+      }
     } catch (error) {
-      console.error('[PaymentsPage] Error deleting payment:', error);
-      alert('Failed to delete payment');
+      console.error('[PaymentsPage] Error moving payment to trash:', error);
+      alert('Failed to move payment to trash');
     }
   };
 
@@ -407,7 +417,7 @@ export default function PaymentsPage() {
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Delete">
+                        <Tooltip title="Move to Trash">
                           <IconButton
                             size="small"
                             onClick={() => handleDelete(payment.id!)}

@@ -37,7 +37,7 @@ import {
 } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BaseTransaction, TransactionType } from '@vapour/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
@@ -60,7 +60,7 @@ export default function TransactionsPage() {
   useEffect(() => {
     const { db } = getFirebase();
     const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    const q = query(transactionsRef, orderBy('date', 'desc'));
+    const q = query(transactionsRef, where('isDeleted', '!=', true), orderBy('date', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const transactionsData: BaseTransaction[] = [];

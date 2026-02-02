@@ -52,6 +52,7 @@ export const COLLECTIONS = {
   YEAR_END_CLOSING_ENTRIES: 'yearEndClosingEntries',
   PERIOD_LOCK_AUDIT: 'periodLockAudit',
   INTERPROJECT_LOANS: 'interprojectLoans',
+  DELETED_TRANSACTIONS: 'deletedTransactions', // Archive for hard-deleted transactions
 
   // Recurring Transactions
   RECURRING_TRANSACTIONS: 'recurringTransactions',
