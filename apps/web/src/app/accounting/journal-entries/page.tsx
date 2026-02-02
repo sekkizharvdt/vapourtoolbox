@@ -57,17 +57,15 @@ export default function JournalEntriesPage() {
   useEffect(() => {
     const { db } = getFirebase();
     const entriesRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    const q = query(
-      entriesRef,
-      where('type', '==', 'JOURNAL_ENTRY'),
-      where('isDeleted', '!=', true),
-      orderBy('date', 'desc')
-    );
+    const q = query(entriesRef, where('type', '==', 'JOURNAL_ENTRY'), orderBy('date', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const entriesData: JournalEntry[] = [];
       snapshot.forEach((doc) => {
-        entriesData.push({ id: doc.id, ...doc.data() } as JournalEntry);
+        const data = doc.data();
+        if (!data.isDeleted) {
+          entriesData.push({ id: doc.id, ...data } as JournalEntry);
+        }
       });
       setJournalEntries(entriesData);
       setLoading(false);

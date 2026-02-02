@@ -109,13 +109,13 @@ export default function PaymentsPage() {
       query(
         collection(db, COLLECTIONS.TRANSACTIONS),
         where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT', 'DIRECT_PAYMENT']),
-        where('isDeleted', '!=', true),
         orderBy('paymentDate', 'desc')
       ),
     [db]
   );
 
-  const { data: payments, loading } = useFirestoreQuery<Payment>(paymentsQuery);
+  const { data: rawPayments, loading } = useFirestoreQuery<Payment>(paymentsQuery);
+  const payments = useMemo(() => rawPayments.filter((p) => !p.isDeleted), [rawPayments]);
 
   const handleCreateCustomerPayment = () => {
     setEditingPayment(null);

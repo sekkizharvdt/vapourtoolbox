@@ -142,13 +142,13 @@ export default function BillsPage() {
       query(
         collection(db, COLLECTIONS.TRANSACTIONS),
         where('type', '==', 'VENDOR_BILL'),
-        where('isDeleted', '!=', true),
         orderBy('date', 'desc')
       ),
     [db]
   );
 
-  const { data: bills, loading } = useFirestoreQuery<VendorBill>(billsQuery);
+  const { data: rawBills, loading } = useFirestoreQuery<VendorBill>(billsQuery);
+  const bills = useMemo(() => rawBills.filter((bill) => !bill.isDeleted), [rawBills]);
 
   // Calculate stats - always in INR (base currency)
   const stats = useMemo(() => {

@@ -132,13 +132,14 @@ export default function InvoicesPage() {
       query(
         collection(db, COLLECTIONS.TRANSACTIONS),
         where('type', '==', 'CUSTOMER_INVOICE'),
-        where('isDeleted', '!=', true),
         orderBy('date', 'desc')
       ),
     [db]
   );
 
-  const { data: invoices, loading } = useFirestoreQuery<CustomerInvoiceWithExtras>(invoicesQuery);
+  const { data: rawInvoices, loading } =
+    useFirestoreQuery<CustomerInvoiceWithExtras>(invoicesQuery);
+  const invoices = useMemo(() => rawInvoices.filter((inv) => !inv.isDeleted), [rawInvoices]);
 
   // Calculate stats - always in INR (base currency)
   const stats = useMemo(() => {
