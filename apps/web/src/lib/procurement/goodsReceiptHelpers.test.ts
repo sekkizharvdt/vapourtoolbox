@@ -241,16 +241,33 @@ describe('goodsReceiptHelpers', () => {
       expect(actions.canApprovePayment).toBe(false);
     });
 
-    it('can approve payment when COMPLETED and not yet approved', () => {
-      const gr = createMockGR({ status: 'COMPLETED', approvedForPayment: false });
+    it('can approve payment when COMPLETED with bill and not yet approved', () => {
+      const gr = createMockGR({
+        status: 'COMPLETED',
+        approvedForPayment: false,
+        paymentRequestId: 'bill-123',
+      });
       const actions = getGRAvailableActions(gr);
 
       expect(actions.canComplete).toBe(false);
+      expect(actions.canCreateBill).toBe(false);
       expect(actions.canApprovePayment).toBe(true);
     });
 
+    it('can create bill when COMPLETED without bill', () => {
+      const gr = createMockGR({ status: 'COMPLETED', approvedForPayment: false });
+      const actions = getGRAvailableActions(gr);
+
+      expect(actions.canCreateBill).toBe(true);
+      expect(actions.canApprovePayment).toBe(false);
+    });
+
     it('cannot approve payment when already approved', () => {
-      const gr = createMockGR({ status: 'COMPLETED', approvedForPayment: true });
+      const gr = createMockGR({
+        status: 'COMPLETED',
+        approvedForPayment: true,
+        paymentRequestId: 'bill-123',
+      });
       const actions = getGRAvailableActions(gr);
 
       expect(actions.canApprovePayment).toBe(false);
@@ -261,6 +278,7 @@ describe('goodsReceiptHelpers', () => {
       const actions = getGRAvailableActions(gr);
 
       expect(actions.canComplete).toBe(false);
+      expect(actions.canCreateBill).toBe(false);
       expect(actions.canApprovePayment).toBe(false);
     });
   });

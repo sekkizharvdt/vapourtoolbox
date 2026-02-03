@@ -36,6 +36,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Payment as PaymentIcon,
   Warning as WarningIcon,
+  Receipt as ReceiptIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import type { GoodsReceipt, GoodsReceiptItem } from '@vapour/types';
@@ -45,6 +46,8 @@ import {
   completeGR,
   approveGRForPayment,
 } from '@/lib/procurement/goodsReceiptService';
+import { createBillFromGoodsReceipt } from '@/lib/procurement/accountingIntegration';
+import { getFirebase } from '@/lib/firebase';
 import {
   getGRStatusText,
   getGRStatusColor,
@@ -124,6 +127,25 @@ export default function GRDetailClient() {
     } catch (err) {
       console.error('[GRDetailClient] Error completing GR:', err);
       setError('Failed to complete goods receipt');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCreateBill = async () => {
+    if (!user || !gr || !grId) return;
+
+    setActionLoading(true);
+    setError('');
+    try {
+      const { db } = getFirebase();
+      await createBillFromGoodsReceipt(db, gr, user.uid, user.email || '');
+      await loadGR();
+    } catch (err) {
+      console.error('[GRDetailClient] Error creating bill:', err);
+      setError(
+        'Failed to create bill. Please try again or create a bill manually from the Accounting module.'
+      );
     } finally {
       setActionLoading(false);
     }
@@ -231,6 +253,17 @@ export default function GRDetailClient() {
                   onClick={() => setCompleteDialogOpen(true)}
                 >
                   Complete GR
+                </Button>
+              )}
+              {actions.canCreateBill && (
+                <Button
+                  variant="contained"
+                  color="warning"
+                  startIcon={actionLoading ? <CircularProgress size={20} /> : <ReceiptIcon />}
+                  onClick={handleCreateBill}
+                  disabled={actionLoading}
+                >
+                  Create Bill
                 </Button>
               )}
               {actions.canApprovePayment && (

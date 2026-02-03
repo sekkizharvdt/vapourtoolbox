@@ -127,10 +127,12 @@ export function calculateGRStats(grs: GoodsReceipt[]) {
 // Get available actions based on status
 export function getGRAvailableActions(gr: GoodsReceipt): {
   canComplete: boolean;
+  canCreateBill: boolean;
   canApprovePayment: boolean;
 } {
   return {
     canComplete: gr.status === 'IN_PROGRESS',
-    canApprovePayment: gr.status === 'COMPLETED' && !gr.approvedForPayment,
+    canCreateBill: gr.status === 'COMPLETED' && !gr.paymentRequestId,
+    canApprovePayment: gr.status === 'COMPLETED' && !gr.approvedForPayment && !!gr.paymentRequestId,
   };
 }
