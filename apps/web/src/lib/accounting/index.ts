@@ -28,8 +28,7 @@ export * from './bankStatementParser';
 export * from './gstReportGenerator';
 
 // Approval workflows
-export * from './billApprovalService';
-export * from './invoiceApprovalService';
+export * from './transactionApprovalService';
 
 // Cost management
 export * from './costCentreService';

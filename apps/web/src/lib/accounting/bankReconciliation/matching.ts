@@ -294,6 +294,16 @@ export async function matchMultipleTransactions(
   notes?: string
 ): Promise<void> {
   try {
+    // Each accounting transaction requires 2 batch ops (match record + txn update) + 1 for bank txn
+    const FIRESTORE_BATCH_LIMIT = 500;
+    const requiredOps = accountingTransactionIds.length * 2 + 1;
+    if (requiredOps > FIRESTORE_BATCH_LIMIT) {
+      throw new Error(
+        `Cannot match ${accountingTransactionIds.length} transactions in a single batch. ` +
+          `Maximum is ${Math.floor((FIRESTORE_BATCH_LIMIT - 1) / 2)} per operation.`
+      );
+    }
+
     const batch = writeBatch(db);
     const now = Timestamp.now();
 

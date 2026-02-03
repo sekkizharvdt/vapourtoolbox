@@ -29,61 +29,13 @@ import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
 import { goodsReceiptStateMachine } from '@/lib/workflow/stateMachines';
 import { withIdempotency, generateIdempotencyKey } from '@/lib/utils/idempotencyService';
+import { generateProcurementNumber, PROCUREMENT_NUMBER_CONFIGS } from './generateProcurementNumber';
 
 const logger = createLogger({ context: 'goodsReceiptService' });
 import {
   createBillFromGoodsReceipt,
   createPaymentFromApprovedReceipt,
 } from './accountingIntegration';
-
-// ============================================================================
-// GR NUMBER GENERATION (ATOMIC)
-// ============================================================================
-
-/**
- * Generate GR number using atomic transaction
- * Uses a counter document to prevent race conditions
- * Format: GR/YYYY/MM/XXXX
- */
-async function generateGRNumber(): Promise<string> {
-  const { db } = getFirebase();
-
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const counterKey = `gr-${year}-${month}`;
-
-  const counterRef = doc(db, COLLECTIONS.COUNTERS, counterKey);
-
-  const grNumber = await runTransaction(db, async (transaction) => {
-    const counterDoc = await transaction.get(counterRef);
-
-    let sequence = 1;
-    if (counterDoc.exists()) {
-      const data = counterDoc.data();
-      sequence = (data.value || 0) + 1;
-      transaction.update(counterRef, {
-        value: sequence,
-        updatedAt: Timestamp.now(),
-      });
-    } else {
-      // Initialize counter for this month
-      transaction.set(counterRef, {
-        type: 'goods_receipt',
-        year,
-        month: parseInt(month, 10),
-        value: sequence,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      });
-    }
-
-    const sequenceStr = String(sequence).padStart(4, '0');
-    return `GR/${year}/${month}/${sequenceStr}`;
-  });
-
-  return grNumber;
-}
 
 // ============================================================================
 // CREATE GR
@@ -135,7 +87,7 @@ export async function createGoodsReceipt(
     'create-goods-receipt',
     async () => {
       // Generate GR number (uses its own transaction for counter)
-      const grNumber = await generateGRNumber();
+      const grNumber = await generateProcurementNumber(PROCUREMENT_NUMBER_CONFIGS.GOODS_RECEIPT);
 
       // Get PO items outside transaction (read-only, for item descriptions)
       const poItemsQuery = query(

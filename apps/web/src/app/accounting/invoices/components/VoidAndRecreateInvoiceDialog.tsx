@@ -34,7 +34,7 @@ import {
   voidInvoice,
   voidAndRecreateInvoice,
   canVoidInvoice,
-} from '@/lib/accounting/invoiceVoidService';
+} from '@/lib/accounting/transactionVoidService';
 
 interface VoidAndRecreateInvoiceDialogProps {
   open: boolean;
@@ -104,12 +104,12 @@ export function VoidAndRecreateInvoiceDialog({
       if (recreateWithNewCustomer && newCustomerId) {
         // Void and recreate with new customer
         const result = await voidAndRecreateInvoice(db, {
-          invoiceId: invoice.id,
+          transactionId: invoice.id,
           reason,
           userId: user.uid,
           userName: user.displayName || user.email || 'Unknown',
-          newCustomerId,
-          newCustomerName,
+          newEntityId: newCustomerId,
+          newEntityName: newCustomerName,
         });
 
         if (result.success) {
@@ -125,7 +125,7 @@ export function VoidAndRecreateInvoiceDialog({
       } else {
         // Just void the invoice
         const result = await voidInvoice(db, {
-          invoiceId: invoice.id,
+          transactionId: invoice.id,
           reason,
           userId: user.uid,
           userName: user.displayName || user.email || 'Unknown',

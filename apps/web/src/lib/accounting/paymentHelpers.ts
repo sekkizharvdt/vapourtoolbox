@@ -191,19 +191,68 @@ export async function updateTransactionStatusAfterPayment(
 }
 
 /**
- * Process payment allocations and update invoice/bill statuses
+ * Process payment allocations and update invoice/bill statuses.
+ *
+ * Uses a single Firestore transaction to read all target invoices/bills,
+ * compute updated payment statuses, and write atomically. This prevents
+ * race conditions when two concurrent payments target the same invoice.
  */
 export async function processPaymentAllocations(
   db: Firestore,
   allocations: PaymentAllocation[]
 ): Promise<void> {
-  const updatePromises = allocations
-    .filter((allocation) => allocation.allocatedAmount > 0)
-    .map((allocation) =>
-      updateTransactionStatusAfterPayment(db, allocation.invoiceId, allocation.allocatedAmount)
+  const validAllocations = allocations.filter((a) => a.allocatedAmount > 0);
+  if (validAllocations.length === 0) return;
+
+  // Group allocations by invoice ID so multiple allocations to the same
+  // invoice are summed correctly within one atomic transaction.
+  const allocationsByInvoice = new Map<string, number>();
+  for (const allocation of validAllocations) {
+    const current = allocationsByInvoice.get(allocation.invoiceId) ?? 0;
+    allocationsByInvoice.set(allocation.invoiceId, current + allocation.allocatedAmount);
+  }
+
+  await runTransaction(db, async (transaction) => {
+    // Read all target transaction docs
+    const reads = await Promise.all(
+      Array.from(allocationsByInvoice.keys()).map(async (txnId) => {
+        const ref = doc(db, COLLECTIONS.TRANSACTIONS, txnId);
+        const snap = await transaction.get(ref);
+        return { txnId, ref, snap };
+      })
     );
 
-  await Promise.all(updatePromises);
+    // Compute and write updates
+    for (const { txnId, ref, snap } of reads) {
+      if (!snap.exists()) {
+        logger.error('Transaction not found when updating status after payment', {
+          transactionId: txnId,
+        });
+        throw new Error(`Transaction ${txnId} not found`);
+      }
+
+      const data = snap.data();
+      const totalAmountINR = data.baseAmount || data.totalAmount || 0;
+      const previouslyPaid = data.amountPaid || 0;
+      const newTotalPaid = previouslyPaid + allocationsByInvoice.get(txnId)!;
+
+      let newPaymentStatus: PaymentStatus;
+      if (newTotalPaid >= totalAmountINR) {
+        newPaymentStatus = 'PAID';
+      } else if (newTotalPaid > 0) {
+        newPaymentStatus = 'PARTIALLY_PAID';
+      } else {
+        newPaymentStatus = 'UNPAID';
+      }
+
+      transaction.update(ref, {
+        paymentStatus: newPaymentStatus,
+        amountPaid: newTotalPaid,
+        outstandingAmount: Math.max(0, totalAmountINR - newTotalPaid),
+        updatedAt: Timestamp.now(),
+      });
+    }
+  });
 }
 
 /**

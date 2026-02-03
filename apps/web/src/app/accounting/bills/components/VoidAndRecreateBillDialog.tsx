@@ -30,7 +30,11 @@ import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import type { VendorBill } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
-import { voidBill, voidAndRecreateBill, canVoidBill } from '@/lib/accounting/billVoidService';
+import {
+  voidBill,
+  voidAndRecreateBill,
+  canVoidBill,
+} from '@/lib/accounting/transactionVoidService';
 
 interface VoidAndRecreateBillDialogProps {
   open: boolean;
@@ -94,12 +98,12 @@ export function VoidAndRecreateBillDialog({ open, onClose, bill }: VoidAndRecrea
       if (recreateWithNewVendor && newVendorId) {
         // Void and recreate with new vendor
         const result = await voidAndRecreateBill(db, {
-          billId: bill.id,
+          transactionId: bill.id,
           reason,
           userId: user.uid,
           userName: user.displayName || user.email || 'Unknown',
-          newVendorId,
-          newVendorName,
+          newEntityId: newVendorId,
+          newEntityName: newVendorName,
         });
 
         if (result.success) {
@@ -115,7 +119,7 @@ export function VoidAndRecreateBillDialog({ open, onClose, bill }: VoidAndRecrea
       } else {
         // Just void the bill
         const result = await voidBill(db, {
-          billId: bill.id,
+          transactionId: bill.id,
           reason,
           userId: user.uid,
           userName: user.displayName || user.email || 'Unknown',

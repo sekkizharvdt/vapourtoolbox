@@ -16,63 +16,14 @@ import {
   limit,
   QueryConstraint,
   Timestamp,
-  runTransaction,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { WorkCompletionCertificate, PurchaseOrder } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
+import { generateProcurementNumber, PROCUREMENT_NUMBER_CONFIGS } from './generateProcurementNumber';
 
 const logger = createLogger({ context: 'workCompletionService' });
-
-// ============================================================================
-// WCC NUMBER GENERATION (ATOMIC)
-// ============================================================================
-
-/**
- * Generate WCC number using atomic transaction
- * Uses a counter document to prevent race conditions
- * Format: WCC/YYYY/MM/XXXX
- */
-async function generateWCCNumber(): Promise<string> {
-  const { db } = getFirebase();
-
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const counterKey = `wcc-${year}-${month}`;
-
-  const counterRef = doc(db, COLLECTIONS.COUNTERS, counterKey);
-
-  const wccNumber = await runTransaction(db, async (transaction) => {
-    const counterDoc = await transaction.get(counterRef);
-
-    let sequence = 1;
-    if (counterDoc.exists()) {
-      const data = counterDoc.data();
-      sequence = (data.value || 0) + 1;
-      transaction.update(counterRef, {
-        value: sequence,
-        updatedAt: Timestamp.now(),
-      });
-    } else {
-      // Initialize counter for this month
-      transaction.set(counterRef, {
-        type: 'work_completion_certificate',
-        year,
-        month: parseInt(month, 10),
-        value: sequence,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      });
-    }
-
-    const sequenceStr = String(sequence).padStart(4, '0');
-    return `WCC/${year}/${month}/${sequenceStr}`;
-  });
-
-  return wccNumber;
-}
 
 // ============================================================================
 // CREATE WCC
@@ -106,7 +57,7 @@ export async function createWorkCompletionCertificate(
 
   const po = { id: poDoc.id, ...poDoc.data() } as PurchaseOrder;
 
-  const wccNumber = await generateWCCNumber();
+  const wccNumber = await generateProcurementNumber(PROCUREMENT_NUMBER_CONFIGS.WORK_COMPLETION);
   const now = Timestamp.now();
 
   // Create WCC

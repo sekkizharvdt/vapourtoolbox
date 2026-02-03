@@ -21,7 +21,6 @@ import {
   limit,
   Timestamp,
   writeBatch,
-  runTransaction,
   type QueryConstraint,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -37,6 +36,10 @@ import type {
 import { createLogger } from '@vapour/logger';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { withIdempotency, generateIdempotencyKey } from '@/lib/utils/idempotencyService';
+import {
+  generateProcurementNumber,
+  PROCUREMENT_NUMBER_CONFIGS,
+} from '../generateProcurementNumber';
 
 const logger = createLogger({ context: 'purchaseOrder/crud' });
 
@@ -86,43 +89,7 @@ function removeUndefinedDeep<T extends Record<string, unknown>>(obj: T): T {
  * Format: PO/YYYY/MM/XXXX
  */
 export async function generatePONumber(): Promise<string> {
-  const { db } = getFirebase();
-
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const counterKey = `po-${year}-${month}`;
-
-  const counterRef = doc(db, COLLECTIONS.COUNTERS, counterKey);
-
-  const poNumber = await runTransaction(db, async (transaction) => {
-    const counterDoc = await transaction.get(counterRef);
-
-    let sequence = 1;
-    if (counterDoc.exists()) {
-      const data = counterDoc.data();
-      sequence = (data.value || 0) + 1;
-      transaction.update(counterRef, {
-        value: sequence,
-        updatedAt: Timestamp.now(),
-      });
-    } else {
-      // Initialize counter for this month
-      transaction.set(counterRef, {
-        type: 'purchase_order',
-        year,
-        month: parseInt(month, 10),
-        value: sequence,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      });
-    }
-
-    const sequenceStr = String(sequence).padStart(4, '0');
-    return `PO/${year}/${month}/${sequenceStr}`;
-  });
-
-  return poNumber;
+  return generateProcurementNumber(PROCUREMENT_NUMBER_CONFIGS.PURCHASE_ORDER);
 }
 
 // ============================================================================

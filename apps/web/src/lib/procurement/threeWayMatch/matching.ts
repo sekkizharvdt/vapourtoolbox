@@ -102,6 +102,12 @@ export async function performThreeWayMatch(
       throw new Error('Vendor Bill is from a different vendor than the Purchase Order');
     }
 
+    // Derive severity thresholds from tolerance config (2x tolerance = HIGH severity)
+    const qtySeverityThreshold = toleranceConfig
+      ? toleranceConfig.quantityTolerancePercent * 2
+      : 10;
+    const priceSeverityThreshold = toleranceConfig ? toleranceConfig.priceTolerancePercent * 2 : 5;
+
     // Perform line-level matching
     const matchLineItems: Omit<MatchLineItem, 'id'>[] = [];
     const discrepancies: Omit<MatchDiscrepancy, 'id'>[] = [];
@@ -285,7 +291,7 @@ export async function performThreeWayMatch(
             '',
             undefined,
             'QUANTITY_MISMATCH',
-            Math.abs(qtyVariancePercent) > 10 ? 'HIGH' : 'MEDIUM',
+            Math.abs(qtyVariancePercent) > qtySeverityThreshold ? 'HIGH' : 'MEDIUM',
             `Quantity variance: ${qtyVariance.toFixed(2)} ${poItem.unit} (${qtyVariancePercent.toFixed(1)}%)`,
             'quantity',
             grItem.receivedQuantity.toString(),
@@ -293,7 +299,7 @@ export async function performThreeWayMatch(
             qtyVariance,
             qtyVariancePercent,
             Math.abs(amountVariance),
-            Math.abs(qtyVariancePercent) > 10,
+            Math.abs(qtyVariancePercent) > qtySeverityThreshold,
             userId,
             userName
           )
@@ -307,7 +313,7 @@ export async function performThreeWayMatch(
             '',
             undefined,
             'PRICE_MISMATCH',
-            Math.abs(priceVariancePercent) > 5 ? 'HIGH' : 'MEDIUM',
+            Math.abs(priceVariancePercent) > priceSeverityThreshold ? 'HIGH' : 'MEDIUM',
             `Unit price variance: ₹${priceVariance.toFixed(2)} (${priceVariancePercent.toFixed(1)}%)`,
             'unitPrice',
             poItem.unitPrice.toString(),
@@ -315,7 +321,7 @@ export async function performThreeWayMatch(
             priceVariance,
             priceVariancePercent,
             Math.abs(amountVariance),
-            Math.abs(priceVariancePercent) > 5,
+            Math.abs(priceVariancePercent) > priceSeverityThreshold,
             userId,
             userName
           )
