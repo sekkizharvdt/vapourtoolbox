@@ -64,7 +64,7 @@ jest.mock('./pipeService', () => ({
     actualVelocity: 2.5,
     velocityStatus: 'OK',
   })),
-  calculateRequiredArea: jest.fn(
+  calculateRequiredPipeArea: jest.fn(
     (flowRate: number, density: number, velocity: number) =>
       (flowRate * 1000) / (density * 3600 * velocity)
   ),

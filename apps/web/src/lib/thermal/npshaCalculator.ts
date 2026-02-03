@@ -21,6 +21,11 @@ import {
   getSeawaterDensity,
   getDensityLiquid,
 } from '@vapour/constants';
+import { ATM_PRESSURE_BAR, barToHead as _barToHead, headToBar as _headToBar } from './thermalUtils';
+
+// Re-export for backward compatibility
+export const barToHead = _barToHead;
+export const headToBar = _headToBar;
 
 // ============================================================================
 // Types
@@ -94,41 +99,6 @@ export interface NPSHaResult {
 // ============================================================================
 // Constants
 // ============================================================================
-
-/** Standard atmospheric pressure in bar */
-const ATM_PRESSURE_BAR = 1.01325;
-
-/** Gravitational acceleration in m/s² */
-const GRAVITY = 9.81;
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Convert pressure in bar to head in meters
- *
- * h = P / (ρ × g)
- *
- * @param pressureBar - Pressure in bar
- * @param density - Liquid density in kg/m³
- * @returns Head in meters
- */
-export function barToHead(pressureBar: number, density: number): number {
-  // 1 bar = 100,000 Pa
-  return (pressureBar * 100000) / (density * GRAVITY);
-}
-
-/**
- * Convert head in meters to pressure in bar
- *
- * @param headM - Head in meters
- * @param density - Liquid density in kg/m³
- * @returns Pressure in bar
- */
-export function headToBar(headM: number, density: number): number {
-  return (headM * density * GRAVITY) / 100000;
-}
 
 // ============================================================================
 // Main Calculation Function

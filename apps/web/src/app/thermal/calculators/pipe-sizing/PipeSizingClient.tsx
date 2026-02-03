@@ -13,7 +13,7 @@ import {
   SCHEDULE_40_PIPES,
   selectPipeByVelocity,
   calculateVelocity,
-  calculateRequiredArea,
+  calculateRequiredPipeArea,
   getPipeByNPS,
   type PipeVariant,
 } from '@/lib/thermal';
@@ -151,7 +151,7 @@ export default function PipeSizingClient() {
           pipe: selectedPipe,
           velocity: selectedPipe.actualVelocity,
           velocityStatus: selectedPipe.velocityStatus,
-          requiredArea: calculateRequiredArea(massFlowTonHr, density, target),
+          requiredArea: calculateRequiredPipeArea(massFlowTonHr, density, target),
           alternatives,
         };
       } else {

@@ -13,7 +13,7 @@ import {
   calculateLatentHeat,
   calculateLMTD,
   calculateHeatDutyFromLMTD,
-  calculateRequiredArea,
+  calculateHeatExchangerArea,
   calculateCombinedHeat,
   TYPICAL_HTC,
   type SensibleHeatInput,
@@ -313,14 +313,14 @@ describe('Heat Duty Calculator', () => {
     });
   });
 
-  describe('calculateRequiredArea', () => {
+  describe('calculateHeatExchangerArea', () => {
     it('should calculate required area from Q, U, and LMTD', () => {
       // A = Q / (U × LMTD)
       const heatDuty = 1500; // kW
       const overallHTC = 1000; // W/(m²·K)
       const lmtd = 30; // °C
 
-      const area = calculateRequiredArea(heatDuty, overallHTC, lmtd);
+      const area = calculateHeatExchangerArea(heatDuty, overallHTC, lmtd);
 
       // A = 1500000 / (1000 × 30) = 50 m²
       expect(area).toBe(50);
@@ -334,7 +334,7 @@ describe('Heat Duty Calculator', () => {
       const overallHTC = condensingSteamHTC!.typical; // 5000 W/(m²·K)
       const lmtd = 20; // °C
 
-      const area = calculateRequiredArea(heatDuty, overallHTC, lmtd);
+      const area = calculateHeatExchangerArea(heatDuty, overallHTC, lmtd);
 
       // A = 5000000 / (5000 × 20) = 50 m²
       expect(area).toBe(50);

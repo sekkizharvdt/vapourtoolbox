@@ -7,7 +7,7 @@
 import {
   selectPipeSize,
   selectPipeByVelocity,
-  calculateRequiredArea,
+  calculateRequiredPipeArea,
   calculateVelocity,
   getPipeByNPS,
   getPipeByDN,
@@ -136,30 +136,30 @@ describe('Pipe Service', () => {
     });
   });
 
-  describe('calculateRequiredArea', () => {
+  describe('calculateRequiredPipeArea', () => {
     it('should calculate area from mass flow and velocity', () => {
       // 36 ton/hr, 1000 kg/m³, 2 m/s
       // Q = 36 × 1000 / (1000 × 3600) = 0.01 m³/s
       // A = 0.01 / 2 = 0.005 m² = 5000 mm²
-      const area = calculateRequiredArea(36, 1000, 2);
+      const area = calculateRequiredPipeArea(36, 1000, 2);
       expect(area).toBeCloseTo(5000, 0);
     });
 
     it('should scale with mass flow', () => {
-      const area1 = calculateRequiredArea(36, 1000, 2);
-      const area2 = calculateRequiredArea(72, 1000, 2);
+      const area1 = calculateRequiredPipeArea(36, 1000, 2);
+      const area2 = calculateRequiredPipeArea(72, 1000, 2);
       expect(area2).toBeCloseTo(area1 * 2, 0);
     });
 
     it('should scale inversely with velocity', () => {
-      const area1 = calculateRequiredArea(36, 1000, 1);
-      const area2 = calculateRequiredArea(36, 1000, 2);
+      const area1 = calculateRequiredPipeArea(36, 1000, 1);
+      const area2 = calculateRequiredPipeArea(36, 1000, 2);
       expect(area1).toBeCloseTo(area2 * 2, 0);
     });
 
     it('should scale inversely with density', () => {
-      const areaWater = calculateRequiredArea(36, 1000, 2);
-      const areaSeawater = calculateRequiredArea(36, 1025, 2);
+      const areaWater = calculateRequiredPipeArea(36, 1000, 2);
+      const areaSeawater = calculateRequiredPipeArea(36, 1025, 2);
       expect(areaSeawater).toBeLessThan(areaWater);
     });
   });
@@ -276,7 +276,7 @@ describe('Pipe Service', () => {
       // Q = 100 / 3600 = 0.0278 m³/s
       // A = 0.0278 / 1.5 = 0.0185 m² = 18500 mm²
       const massFlow = 100 * 1.025; // 102.5 ton/hr at 1025 kg/m³
-      const area = calculateRequiredArea(massFlow, 1025, 1.5);
+      const area = calculateRequiredPipeArea(massFlow, 1025, 1.5);
       const pipe = selectPipeSize(area);
       expect(pipe.nps).toBe('6'); // 6" pipe (18638 mm²)
     });
@@ -284,7 +284,7 @@ describe('Pipe Service', () => {
     it('should size pipe for steam flow', () => {
       // 5 ton/hr steam at 20 m/s (low pressure steam)
       // Density ~0.6 kg/m³ at atmospheric
-      const area = calculateRequiredArea(5, 0.6, 20);
+      const area = calculateRequiredPipeArea(5, 0.6, 20);
       const pipe = selectPipeSize(area);
       // Should be a larger pipe due to low density
       expect(parseInt(pipe.nps) || 24).toBeGreaterThanOrEqual(10);

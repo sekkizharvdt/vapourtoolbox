@@ -10,6 +10,16 @@
  */
 
 import { getPipeByNPS, type PipeVariant } from './pipeService';
+import {
+  GRAVITY,
+  tonHrToKgS,
+  mH2OToBar as _mH2OToBar,
+  barToMH2O as _barToMH2O,
+} from './thermalUtils';
+
+// Re-export for backward compatibility
+export const mH2OToBar = _mH2OToBar;
+export const barToMH2O = _barToMH2O;
 
 // ============================================================================
 // Types
@@ -156,9 +166,6 @@ export const FITTING_NAMES: Record<FittingType, string> = {
 /** Default pipe roughness for commercial steel (mm) */
 const DEFAULT_ROUGHNESS_MM = 0.045;
 
-/** Gravitational acceleration (m/s²) */
-const GRAVITY = 9.81;
-
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -227,26 +234,6 @@ function calculateTurbulentFrictionFactor(
   return 0.25 / Math.pow(denominator, 2);
 }
 
-/**
- * Convert pressure head from m H₂O to bar
- *
- * @param headM - Pressure head in meters of water
- * @param density - Fluid density in kg/m³ (default: 1000 for water)
- * @returns Pressure in bar
- */
-export function mH2OToBar(headM: number, density: number = 1000): number {
-  // P = ρ × g × h
-  // 1 bar = 100,000 Pa
-  return (density * GRAVITY * headM) / 100000;
-}
-
-/**
- * Convert pressure from bar to m H₂O
- */
-export function barToMH2O(pressureBar: number, density: number = 1000): number {
-  return (pressureBar * 100000) / (density * GRAVITY);
-}
-
 // ============================================================================
 // Main Calculation Function
 // ============================================================================
@@ -278,7 +265,7 @@ export function calculatePressureDrop(input: PressureDropInput): PressureDropRes
   // Calculate velocity
   // Q = m / ρ (m³/s)
   // v = Q / A
-  const massFlowKgS = (input.flowRate * 1000) / 3600; // ton/hr to kg/s
+  const massFlowKgS = tonHrToKgS(input.flowRate);
   const volumetricFlowM3S = massFlowKgS / input.fluidDensity;
   const velocity = volumetricFlowM3S / areaM2;
 

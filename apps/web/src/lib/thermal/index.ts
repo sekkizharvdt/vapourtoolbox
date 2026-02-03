@@ -12,7 +12,7 @@ export {
   getSchedule40Pipes,
   selectPipeSize,
   selectPipeByVelocity,
-  calculateRequiredArea,
+  calculateRequiredPipeArea,
   calculateVelocity,
   getPipeByNPS,
   getPipeByDN,
@@ -57,7 +57,7 @@ export {
   calculateLMTD,
   calculateCombinedHeat,
   calculateHeatDutyFromLMTD,
-  calculateRequiredArea as calculateHeatExchangerArea,
+  calculateHeatExchangerArea,
   TYPICAL_HTC,
   type HeatFluidType,
   type HeatProcessType,
@@ -70,3 +70,34 @@ export {
   type LMTDResult,
   type CombinedHeatResult,
 } from './heatDutyCalculator';
+
+// Shared Utilities
+export { GRAVITY, ATM_PRESSURE_BAR, tonHrToKgS, kgSToTonHr, tonHrToM3S } from './thermalUtils';
+
+// Heat Transfer Correlations
+export {
+  calculatePrandtlNumber,
+  calculateTubeReynoldsNumber,
+  calculateDittusBoelter,
+  calculateTubeSideHTC,
+  calculateNusseltCondensation,
+  calculateOverallHTC,
+  type PrandtlResult,
+  type DittusBoelterResult,
+  type TubeSideHTCInput,
+  type TubeSideHTCResult,
+  type NusseltCondensationInput,
+  type CondensationHTCResult,
+  type OverallHTCInput,
+  type OverallHTCResult,
+} from './heatTransfer';
+
+// Pump Sizing
+export {
+  calculateTDH,
+  calculateHydraulicPower,
+  calculateBrakePower,
+  STANDARD_MOTOR_SIZES_KW,
+  type PumpSizingInput,
+  type PumpSizingResult,
+} from './pumpSizing';

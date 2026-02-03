@@ -13,6 +13,7 @@
  */
 
 import { getSeawaterSpecificHeat, getLatentHeat } from '@vapour/constants';
+import { tonHrToKgS } from './thermalUtils';
 
 // ============================================================================
 // Types
@@ -152,7 +153,7 @@ export function calculateSensibleHeat(input: SensibleHeatInput): SensibleHeatRes
   const { fluidType, salinity, massFlowRate, inletTemperature, outletTemperature } = input;
 
   // Convert mass flow to kg/s
-  const massFlowKgS = (massFlowRate * 1000) / 3600;
+  const massFlowKgS = tonHrToKgS(massFlowRate);
 
   // Calculate temperature change
   const deltaT = outletTemperature - inletTemperature;
@@ -165,8 +166,8 @@ export function calculateSensibleHeat(input: SensibleHeatInput): SensibleHeatRes
   if (fluidType === 'SEAWATER' && salinity) {
     specificHeat = getSeawaterSpecificHeat(salinity, meanTemp);
   } else if (fluidType === 'PURE_WATER') {
-    // Use water specific heat (approximately 4.18 kJ/kg·K)
-    specificHeat = 4.186 - 0.0018 * meanTemp + 0.00002 * meanTemp * meanTemp;
+    // Pure water Cp via Sharqawy correlation at 0 ppm salinity
+    specificHeat = getSeawaterSpecificHeat(0, meanTemp);
   } else {
     // Steam (superheated) - approximate
     specificHeat = 2.0; // Approximate for steam
@@ -197,7 +198,7 @@ export function calculateLatentHeat(input: LatentHeatInput): LatentHeatResult {
   const { massFlowRate, temperature, process } = input;
 
   // Convert mass flow to kg/s
-  const massFlowKgS = (massFlowRate * 1000) / 3600;
+  const massFlowKgS = tonHrToKgS(massFlowRate);
 
   // Get latent heat at saturation temperature
   const latentHeat = getLatentHeat(temperature);
@@ -331,7 +332,11 @@ export function calculateHeatDutyFromLMTD(overallHTC: number, area: number, lmtd
  * @param lmtd - Log mean temperature difference in °C
  * @returns Required area in m²
  */
-export function calculateRequiredArea(heatDuty: number, overallHTC: number, lmtd: number): number {
+export function calculateHeatExchangerArea(
+  heatDuty: number,
+  overallHTC: number,
+  lmtd: number
+): number {
   // A = Q / (U × LMTD)
   // Q in kW = Q * 1000 W
   return (heatDuty * 1000) / (overallHTC * lmtd);

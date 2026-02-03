@@ -12,11 +12,9 @@
 
 import {
   getSaturationTemperature,
-  getSaturationPressure,
   getEnthalpyVapor,
   getDensityVapor,
   mbarAbsToBar,
-  barToWaterHead,
   getSeawaterDensity,
   getSeawaterEnthalpy,
   getBoilingPointElevation,
@@ -25,10 +23,12 @@ import {
 
 import {
   selectPipeByVelocity,
-  calculateRequiredArea,
+  calculateRequiredPipeArea,
   SCHEDULE_40_PIPES,
   type PipeVariant,
 } from './pipeService';
+import { tonHrToKgS, tonHrToM3S } from './thermalUtils';
+import { calculateNPSHa as calculateStandaloneNPSHa } from './npshaCalculator';
 
 import type {
   FlashChamberInput,
@@ -517,11 +517,10 @@ function calculateHeatMassBalance(
   const vaporEnthalpy = getEnthalpyVapor(satTempPure);
 
   // Calculate heat duties (kW)
-  // Q = m * h (where m is in ton/hr, h is in kJ/kg)
-  // Convert: ton/hr * kJ/kg = ton/hr * kJ/kg * (1000 kg/ton) / (3600 s/hr) = kW
-  const inletHeatDuty = (waterFlow * 1000 * inletEnthalpy) / 3600;
-  const vaporHeatDuty = (vaporFlow * 1000 * vaporEnthalpy) / 3600;
-  const brineHeatDuty = (brineFlow * 1000 * brineEnthalpy) / 3600;
+  // Q = m_kgS * h_kJkg = kW
+  const inletHeatDuty = tonHrToKgS(waterFlow) * inletEnthalpy;
+  const vaporHeatDuty = tonHrToKgS(vaporFlow) * vaporEnthalpy;
+  const brineHeatDuty = tonHrToKgS(brineFlow) * brineEnthalpy;
 
   // Use appropriate stream names based on water type
   const inletStreamName = waterType === 'SEAWATER' ? 'Seawater Inlet' : 'DM Water Inlet';
@@ -619,7 +618,7 @@ function calculateChamberSize(
   // Volume = flow rate * retention time
   // V = Q * t (where Q is in m³/min, t is in minutes)
   const inletDensity = getSeawaterDensity(effectiveSalinity, input.inletTemperature);
-  const volumetricFlowM3Min = (waterFlow * 1000) / (inletDensity * 60); // m³/min
+  const volumetricFlowM3Min = tonHrToM3S(waterFlow, inletDensity) * 60; // m³/min
   const retentionVolume = volumetricFlowM3Min * input.retentionTime; // m³
   const retentionHeightM = retentionVolume / actualCrossSectionArea; // m
   const retentionHeightMM = retentionHeightM * 1000; // mm
@@ -641,7 +640,7 @@ function calculateChamberSize(
   // This is critical for proper liquid-vapor separation
   // Velocity = volumetric flow / cross-section area
   const vaporDensity = getDensityVapor(satTempPure); // kg/m³
-  const vaporVolumetricFlow = (vaporFlow * 1000) / (vaporDensity * 3600); // m³/s
+  const vaporVolumetricFlow = tonHrToM3S(vaporFlow, vaporDensity); // m³/s
   const vaporVelocity = vaporVolumetricFlow / actualCrossSectionArea; // m/s
 
   // Determine vapor velocity status
@@ -705,8 +704,8 @@ function calculateNozzleSizes(
 
   // 1. Inlet Nozzle
   const inletDensity = getSeawaterDensity(effectiveSalinity, input.inletTemperature);
-  const inletVolumetricFlow = (waterFlow * 1000) / (inletDensity * 3600); // m³/s
-  const inletRequiredArea = calculateRequiredArea(
+  const inletVolumetricFlow = tonHrToM3S(waterFlow, inletDensity); // m³/s
+  const inletRequiredArea = calculateRequiredPipeArea(
     waterFlow,
     inletDensity,
     input.inletWaterVelocity
@@ -734,8 +733,8 @@ function calculateNozzleSizes(
 
   // 2. Outlet (Brine) Nozzle
   const brineDensity = getSeawaterDensity(brineSalinity, satTemp);
-  const brineVolumetricFlow = (brineFlow * 1000) / (brineDensity * 3600); // m³/s
-  const brineRequiredArea = calculateRequiredArea(
+  const brineVolumetricFlow = tonHrToM3S(brineFlow, brineDensity); // m³/s
+  const brineRequiredArea = calculateRequiredPipeArea(
     brineFlow,
     brineDensity,
     input.outletWaterVelocity
@@ -763,8 +762,8 @@ function calculateNozzleSizes(
 
   // 3. Vapor Outlet Nozzle
   const vaporDensity = getDensityVapor(satTempPure);
-  const vaporVolumetricFlow = (vaporFlow * 1000) / (vaporDensity * 3600); // m³/s
-  const vaporRequiredArea = calculateRequiredArea(vaporFlow, vaporDensity, input.vaporVelocity);
+  const vaporVolumetricFlow = tonHrToM3S(vaporFlow, vaporDensity); // m³/s
+  const vaporRequiredArea = calculateRequiredPipeArea(vaporFlow, vaporDensity, input.vaporVelocity);
 
   const vaporPipe = selectPipeByVelocity(
     vaporVolumetricFlow,
@@ -794,13 +793,8 @@ function calculateNozzleSizes(
 // ============================================================================
 
 /**
- * Calculate Net Positive Suction Head Available at three levels for vacuum flash chamber
- *
- * For a closed vacuum vessel, NPSHa is calculated as:
- * NPSHa = Static Head + Chamber Pressure Head - Vapor Pressure Head - Friction Loss
- *
- * Note: Atmospheric pressure does NOT act on the liquid in a closed vacuum system.
- * The driving pressure is the chamber operating pressure.
+ * Calculate Net Positive Suction Head Available at three levels for vacuum flash chamber.
+ * Delegates to the standalone NPSHa calculator for the core calculation.
  *
  * @param elevations - Calculated elevation data
  * @param chamberPressureBar - Operating pressure of chamber in bar (absolute)
@@ -811,29 +805,24 @@ function calculateNPSHa(
   chamberPressureBar: number,
   satTempPure: number
 ): NPSHaCalculation {
-  // Chamber pressure converted to head (this is the pressure acting on liquid surface)
-  const chamberPressureHead = barToWaterHead(chamberPressureBar);
-
-  // Vapor pressure at operating temperature (converted to head)
-  // At saturation, vapor pressure = chamber pressure, so this will be nearly equal
-  const vaporPressureBar = getSaturationPressure(satTempPure);
-  const vaporPressureHead = barToWaterHead(vaporPressureBar);
-
-  // Estimated friction loss in suction piping
   const frictionLoss = ESTIMATED_FRICTION_LOSS;
 
-  // Helper function to calculate NPSHa at a given level
+  // Helper: calculate NPSHa at a given level using the standalone calculator
   const calculateAtLevel = (levelName: string, levelElevation: number): NPSHaAtLevel => {
-    // Static head = level elevation - pump centerline
-    const staticHead = levelElevation - elevations.pumpCenterline;
-    // NPSHa = Static head + Chamber Pressure - Vapor Pressure - Friction loss
-    const npshAvailable = staticHead + chamberPressureHead - vaporPressureHead - frictionLoss;
+    const result = calculateStandaloneNPSHa({
+      vesselType: 'VACUUM',
+      liquidLevelAbovePump: levelElevation - elevations.pumpCenterline,
+      vesselPressure: chamberPressureBar,
+      liquidTemperature: satTempPure,
+      liquidType: 'PURE_WATER',
+      frictionLoss,
+    });
 
     return {
       levelName,
       elevation: levelElevation,
-      staticHead,
-      npshAvailable,
+      staticHead: result.staticHead,
+      npshAvailable: result.npshAvailable,
     };
   };
 
@@ -841,6 +830,16 @@ function calculateNPSHa(
   const atLGL = calculateAtLevel('LG-L (Low Level)', elevations.lgLow);
   const atOperating = calculateAtLevel('Operating Level', elevations.operatingLevel);
   const atLGH = calculateAtLevel('LG-H (High Level)', elevations.lgHigh);
+
+  // Get pressure/vapor heads from any level result (they're level-independent)
+  const refResult = calculateStandaloneNPSHa({
+    vesselType: 'VACUUM',
+    liquidLevelAbovePump: 0,
+    vesselPressure: chamberPressureBar,
+    liquidTemperature: satTempPure,
+    liquidType: 'PURE_WATER',
+    frictionLoss,
+  });
 
   // Generate recommendation based on worst case (LG-L)
   const worstCaseNPSHa = atLGL.npshAvailable;
@@ -862,8 +861,8 @@ function calculateNPSHa(
     atLGL,
     atOperating,
     atLGH,
-    chamberPressureHead,
-    vaporPressureHead,
+    chamberPressureHead: refResult.pressureHead,
+    vaporPressureHead: refResult.vaporPressureHead,
     frictionLoss,
     recommendedNpshMargin: MIN_NPSH_MARGIN,
     recommendation,

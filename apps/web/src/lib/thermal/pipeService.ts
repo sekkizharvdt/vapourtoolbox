@@ -531,7 +531,11 @@ export function selectPipeByVelocity(
  * @param velocity - Target velocity in m/s
  * @returns Required flow area in mm²
  */
-export function calculateRequiredArea(massFlow: number, density: number, velocity: number): number {
+export function calculateRequiredPipeArea(
+  massFlow: number,
+  density: number,
+  velocity: number
+): number {
   // Convert ton/hr to m³/s
   // massFlow (ton/hr) = massFlow * 1000 (kg/hr) / density (kg/m³) / 3600 (s/hr)
   const volumetricFlow = (massFlow * 1000) / (density * 3600); // m³/s
