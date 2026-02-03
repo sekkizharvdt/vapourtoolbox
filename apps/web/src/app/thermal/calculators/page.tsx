@@ -24,6 +24,8 @@ import {
   TrendingDown as PressureDropIcon,
   Speed as NPSHIcon,
   Whatshot as HeatIcon,
+  Compress as CompressIcon,
+  Thermostat as ThermostatIcon,
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
@@ -91,6 +93,24 @@ const calculators: Calculator[] = [
     href: '/thermal/calculators/heat-duty',
     status: 'available',
     reference: 'First Law',
+  },
+  {
+    title: 'Pump Sizing',
+    description:
+      'Calculate total differential head, hydraulic power, brake power, and motor sizing for centrifugal pumps.',
+    icon: <CompressIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/calculators/pump-sizing',
+    status: 'available',
+    reference: 'Hydraulic Institute',
+  },
+  {
+    title: 'Heat Transfer Coefficients',
+    description:
+      'Calculate tube-side, condensation, and overall heat transfer coefficients for heat exchanger design.',
+    icon: <ThermostatIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/calculators/heat-transfer',
+    status: 'available',
+    reference: 'Dittus-Boelter / Nusselt',
   },
 ];
 
