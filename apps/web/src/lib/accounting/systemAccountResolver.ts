@@ -6,7 +6,7 @@
  * the Chart of Accounts for specific account types and properties.
  */
 
-import { collection, query, where, getDocs, type Firestore } from 'firebase/firestore';
+import { collection, getDocs, query, where, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 
@@ -55,139 +55,78 @@ export async function getSystemAccountIds(
   const accounts: SystemAccountIds = {};
 
   try {
-    // Find Trade Receivables (Asset -> Current Assets)
-    // Code: 1200, Name: "Trade Receivables (Debtors)"
-    const arQuery = query(
-      accountsRef,
-      where('code', '==', '1200'),
-      where('isSystemAccount', '==', true)
-    );
-    const arDocs = await getDocs(arQuery);
-    if (!arDocs.empty && arDocs.docs[0]) {
-      accounts.accountsReceivable = arDocs.docs[0].id;
+    // Fetch all system accounts in a single query using code-based lookup.
+    // This avoids composite index requirements from multi-field where clauses.
+    const systemCodes = [
+      '1200', // Trade Receivables (Debtors)
+      '4100', // Sales Revenue
+      '2201', // CGST Output
+      '2202', // SGST Output
+      '2203', // IGST Output
+      '2100', // Trade Payables (Creditors)
+      '5100', // Cost of Goods Sold
+      '1301', // CGST Input
+      '1302', // SGST Input
+      '1303', // IGST Input
+      '2300', // TDS Payable
+    ];
+
+    const q = query(accountsRef, where('code', 'in', systemCodes));
+    const snapshot = await getDocs(q);
+
+    // Build a lookup map: code -> doc
+    const docsByCode = new Map<string, { id: string; data: Record<string, unknown> }>();
+    snapshot.docs.forEach((d) => {
+      const data = d.data() as Record<string, unknown>;
+      const code = data.code as string;
+      docsByCode.set(code, { id: d.id, data });
+    });
+
+    // Map accounts by code with client-side property validation
+    const ar = docsByCode.get('1200');
+    if (ar && ar.data.isSystemAccount) accounts.accountsReceivable = ar.id;
+
+    const rev = docsByCode.get('4100');
+    if (rev && rev.data.isSystemAccount) accounts.revenue = rev.id;
+
+    const cgstOut = docsByCode.get('2201');
+    if (cgstOut && cgstOut.data.gstType === 'CGST' && cgstOut.data.gstDirection === 'OUTPUT') {
+      accounts.cgstPayable = cgstOut.id;
     }
 
-    // Find Revenue account
-    // Code: 4100, Name: "Sales Revenue"
-    const revenueQuery = query(
-      accountsRef,
-      where('code', '==', '4100'),
-      where('isSystemAccount', '==', true)
-    );
-    const revDocs = await getDocs(revenueQuery);
-    if (!revDocs.empty && revDocs.docs[0]) {
-      accounts.revenue = revDocs.docs[0].id;
+    const sgstOut = docsByCode.get('2202');
+    if (sgstOut && sgstOut.data.gstType === 'SGST' && sgstOut.data.gstDirection === 'OUTPUT') {
+      accounts.sgstPayable = sgstOut.id;
     }
 
-    // Find GST Output accounts (Payable - for sales/invoices)
-    // CGST Output: Code 2201
-    const cgstPayableQuery = query(
-      accountsRef,
-      where('code', '==', '2201'),
-      where('gstType', '==', 'CGST'),
-      where('gstDirection', '==', 'OUTPUT')
-    );
-    const cgstPayableDocs = await getDocs(cgstPayableQuery);
-    if (!cgstPayableDocs.empty && cgstPayableDocs.docs[0]) {
-      accounts.cgstPayable = cgstPayableDocs.docs[0].id;
+    const igstOut = docsByCode.get('2203');
+    if (igstOut && igstOut.data.gstType === 'IGST' && igstOut.data.gstDirection === 'OUTPUT') {
+      accounts.igstPayable = igstOut.id;
     }
 
-    // SGST Output: Code 2202
-    const sgstPayableQuery = query(
-      accountsRef,
-      where('code', '==', '2202'),
-      where('gstType', '==', 'SGST'),
-      where('gstDirection', '==', 'OUTPUT')
-    );
-    const sgstPayableDocs = await getDocs(sgstPayableQuery);
-    if (!sgstPayableDocs.empty && sgstPayableDocs.docs[0]) {
-      accounts.sgstPayable = sgstPayableDocs.docs[0].id;
+    const ap = docsByCode.get('2100');
+    if (ap && ap.data.isSystemAccount) accounts.accountsPayable = ap.id;
+
+    const exp = docsByCode.get('5100');
+    if (exp && exp.data.isSystemAccount) accounts.expenses = exp.id;
+
+    const cgstIn = docsByCode.get('1301');
+    if (cgstIn && cgstIn.data.gstType === 'CGST' && cgstIn.data.gstDirection === 'INPUT') {
+      accounts.cgstInput = cgstIn.id;
     }
 
-    // IGST Output: Code 2203
-    const igstPayableQuery = query(
-      accountsRef,
-      where('code', '==', '2203'),
-      where('gstType', '==', 'IGST'),
-      where('gstDirection', '==', 'OUTPUT')
-    );
-    const igstPayableDocs = await getDocs(igstPayableQuery);
-    if (!igstPayableDocs.empty && igstPayableDocs.docs[0]) {
-      accounts.igstPayable = igstPayableDocs.docs[0].id;
+    const sgstIn = docsByCode.get('1302');
+    if (sgstIn && sgstIn.data.gstType === 'SGST' && sgstIn.data.gstDirection === 'INPUT') {
+      accounts.sgstInput = sgstIn.id;
     }
 
-    // Find Trade Payables (Liability -> Current Liabilities)
-    // Code: 2100, Name: "Trade Payables (Creditors)"
-    const apQuery = query(
-      accountsRef,
-      where('code', '==', '2100'),
-      where('isSystemAccount', '==', true)
-    );
-    const apDocs = await getDocs(apQuery);
-    if (!apDocs.empty && apDocs.docs[0]) {
-      accounts.accountsPayable = apDocs.docs[0].id;
+    const igstIn = docsByCode.get('1303');
+    if (igstIn && igstIn.data.gstType === 'IGST' && igstIn.data.gstDirection === 'INPUT') {
+      accounts.igstInput = igstIn.id;
     }
 
-    // Find Expense account
-    // Code: 5100, Name: "Cost of Goods Sold"
-    const expenseQuery = query(
-      accountsRef,
-      where('code', '==', '5100'),
-      where('isSystemAccount', '==', true)
-    );
-    const expDocs = await getDocs(expenseQuery);
-    if (!expDocs.empty && expDocs.docs[0]) {
-      accounts.expenses = expDocs.docs[0].id;
-    }
-
-    // Find GST Input accounts (for purchases/bills)
-    // CGST Input: Code 1301
-    const cgstInputQuery = query(
-      accountsRef,
-      where('code', '==', '1301'),
-      where('gstType', '==', 'CGST'),
-      where('gstDirection', '==', 'INPUT')
-    );
-    const cgstInputDocs = await getDocs(cgstInputQuery);
-    if (!cgstInputDocs.empty && cgstInputDocs.docs[0]) {
-      accounts.cgstInput = cgstInputDocs.docs[0].id;
-    }
-
-    // SGST Input: Code 1302
-    const sgstInputQuery = query(
-      accountsRef,
-      where('code', '==', '1302'),
-      where('gstType', '==', 'SGST'),
-      where('gstDirection', '==', 'INPUT')
-    );
-    const sgstInputDocs = await getDocs(sgstInputQuery);
-    if (!sgstInputDocs.empty && sgstInputDocs.docs[0]) {
-      accounts.sgstInput = sgstInputDocs.docs[0].id;
-    }
-
-    // IGST Input: Code 1303
-    const igstInputQuery = query(
-      accountsRef,
-      where('code', '==', '1303'),
-      where('gstType', '==', 'IGST'),
-      where('gstDirection', '==', 'INPUT')
-    );
-    const igstInputDocs = await getDocs(igstInputQuery);
-    if (!igstInputDocs.empty && igstInputDocs.docs[0]) {
-      accounts.igstInput = igstInputDocs.docs[0].id;
-    }
-
-    // Find TDS Payable
-    // Code: 2300
-    const tdsQuery = query(
-      accountsRef,
-      where('code', '==', '2300'),
-      where('isTDSAccount', '==', true)
-    );
-    const tdsDocs = await getDocs(tdsQuery);
-    if (!tdsDocs.empty && tdsDocs.docs[0]) {
-      accounts.tdsPayable = tdsDocs.docs[0].id;
-    }
+    const tds = docsByCode.get('2300');
+    if (tds && tds.data.isTDSAccount) accounts.tdsPayable = tds.id;
 
     // Cache the results
     cachedAccounts = accounts;

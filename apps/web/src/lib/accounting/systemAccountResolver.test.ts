@@ -48,65 +48,31 @@ describe('systemAccountResolver', () => {
     clearSystemAccountsCache(); // Clear cache before each test
   });
 
+  // Helper to create a mock Firestore doc with a data() method
+  function mockDoc(id: string, fields: Record<string, unknown>) {
+    return { id, data: () => fields };
+  }
+
+  // All system account docs for a successful fetch
+  function allSystemAccountDocs() {
+    return [
+      mockDoc('ar-account-id', { code: '1200', isSystemAccount: true }),
+      mockDoc('revenue-account-id', { code: '4100', isSystemAccount: true }),
+      mockDoc('cgst-payable-id', { code: '2201', gstType: 'CGST', gstDirection: 'OUTPUT' }),
+      mockDoc('sgst-payable-id', { code: '2202', gstType: 'SGST', gstDirection: 'OUTPUT' }),
+      mockDoc('igst-payable-id', { code: '2203', gstType: 'IGST', gstDirection: 'OUTPUT' }),
+      mockDoc('ap-account-id', { code: '2100', isSystemAccount: true }),
+      mockDoc('expenses-account-id', { code: '5100', isSystemAccount: true }),
+      mockDoc('cgst-input-id', { code: '1301', gstType: 'CGST', gstDirection: 'INPUT' }),
+      mockDoc('sgst-input-id', { code: '1302', gstType: 'SGST', gstDirection: 'INPUT' }),
+      mockDoc('igst-input-id', { code: '1303', gstType: 'IGST', gstDirection: 'INPUT' }),
+      mockDoc('tds-payable-id', { code: '2300', isTDSAccount: true }),
+    ];
+  }
+
   describe('getSystemAccountIds', () => {
     it('fetches all system accounts successfully', async () => {
-      // Setup mock to return different accounts for each query
-      mockGetDocs
-        // Accounts Receivable (code 1200)
-        .mockResolvedValueOnce({
-          empty: false,
-          docs: [{ id: 'ar-account-id' }],
-        })
-        // Revenue (code 4100)
-        .mockResolvedValueOnce({
-          empty: false,
-          docs: [{ id: 'revenue-account-id' }],
-        })
-        // CGST Payable (code 2201)
-        .mockResolvedValueOnce({
-          empty: false,
-          docs: [{ id: 'cgst-payable-id' }],
-        })
-        // SGST Payable (code 2202)
-        .mockResolvedValueOnce({
-          empty: false,
-          docs: [{ id: 'sgst-payable-id' }],
-        })
-        // IGST Payable (code 2203)
-        .mockResolvedValueOnce({
-          empty: false,
-          docs: [{ id: 'igst-payable-id' }],
-        })
-        // Accounts Payable (code 2100)
-        .mockResolvedValueOnce({
-          empty: false,
-          docs: [{ id: 'ap-account-id' }],
-        })
-        // Expenses (code 5100)
-        .mockResolvedValueOnce({
-          empty: false,
-          docs: [{ id: 'expenses-account-id' }],
-        })
-        // CGST Input (code 1301)
-        .mockResolvedValueOnce({
-          empty: false,
-          docs: [{ id: 'cgst-input-id' }],
-        })
-        // SGST Input (code 1302)
-        .mockResolvedValueOnce({
-          empty: false,
-          docs: [{ id: 'sgst-input-id' }],
-        })
-        // IGST Input (code 1303)
-        .mockResolvedValueOnce({
-          empty: false,
-          docs: [{ id: 'igst-input-id' }],
-        })
-        // TDS Payable (code 2300)
-        .mockResolvedValueOnce({
-          empty: false,
-          docs: [{ id: 'tds-payable-id' }],
-        });
+      mockGetDocs.mockResolvedValueOnce({ docs: allSystemAccountDocs() });
 
       const result = await getSystemAccountIds(mockDb);
 
@@ -124,11 +90,7 @@ describe('systemAccountResolver', () => {
     });
 
     it('handles missing accounts gracefully', async () => {
-      // All queries return empty
-      mockGetDocs.mockResolvedValue({
-        empty: true,
-        docs: [],
-      });
+      mockGetDocs.mockResolvedValueOnce({ docs: [] });
 
       const result = await getSystemAccountIds(mockDb);
 
@@ -138,11 +100,7 @@ describe('systemAccountResolver', () => {
     });
 
     it('uses cached results within TTL', async () => {
-      // First call - setup mock
-      mockGetDocs.mockResolvedValue({
-        empty: false,
-        docs: [{ id: 'cached-id' }],
-      });
+      mockGetDocs.mockResolvedValueOnce({ docs: allSystemAccountDocs() });
 
       // First call
       await getSystemAccountIds(mockDb);
@@ -156,10 +114,7 @@ describe('systemAccountResolver', () => {
     });
 
     it('refreshes cache when forceRefresh is true', async () => {
-      mockGetDocs.mockResolvedValue({
-        empty: false,
-        docs: [{ id: 'some-id' }],
-      });
+      mockGetDocs.mockResolvedValue({ docs: allSystemAccountDocs() });
 
       // First call
       await getSystemAccountIds(mockDb);
@@ -173,9 +128,32 @@ describe('systemAccountResolver', () => {
     });
 
     it('throws error when Firestore operation fails', async () => {
-      mockGetDocs.mockRejectedValue(new Error('Firestore error'));
+      mockGetDocs.mockRejectedValueOnce(new Error('Firestore error'));
 
       await expect(getSystemAccountIds(mockDb)).rejects.toThrow('Firestore error');
+    });
+
+    it('only makes a single Firestore query', async () => {
+      mockGetDocs.mockResolvedValueOnce({ docs: allSystemAccountDocs() });
+
+      await getSystemAccountIds(mockDb);
+
+      expect(mockGetDocs).toHaveBeenCalledTimes(1);
+    });
+
+    it('validates GST properties client-side', async () => {
+      // Return docs with correct codes but wrong GST properties
+      mockGetDocs.mockResolvedValueOnce({
+        docs: [
+          mockDoc('wrong-cgst', { code: '2201', gstType: 'SGST', gstDirection: 'OUTPUT' }),
+          mockDoc('correct-ap', { code: '2100', isSystemAccount: true }),
+        ],
+      });
+
+      const result = await getSystemAccountIds(mockDb);
+
+      expect(result.cgstPayable).toBeUndefined(); // Wrong gstType
+      expect(result.accountsPayable).toBe('correct-ap'); // Correct
     });
   });
 
@@ -245,10 +223,7 @@ describe('systemAccountResolver', () => {
 
   describe('clearSystemAccountsCache', () => {
     it('clears the cache forcing next call to fetch', async () => {
-      mockGetDocs.mockResolvedValue({
-        empty: false,
-        docs: [{ id: 'some-id' }],
-      });
+      mockGetDocs.mockResolvedValue({ docs: allSystemAccountDocs() });
 
       // First call
       await getSystemAccountIds(mockDb);
@@ -266,19 +241,7 @@ describe('systemAccountResolver', () => {
 
   describe('getEntityControlAccount', () => {
     beforeEach(() => {
-      // Setup mock to return system accounts
-      mockGetDocs
-        .mockResolvedValueOnce({ empty: false, docs: [{ id: 'ar-account-id' }] })
-        .mockResolvedValueOnce({ empty: false, docs: [{ id: 'revenue-id' }] })
-        .mockResolvedValueOnce({ empty: false, docs: [{ id: 'cgst-payable-id' }] })
-        .mockResolvedValueOnce({ empty: false, docs: [{ id: 'sgst-payable-id' }] })
-        .mockResolvedValueOnce({ empty: false, docs: [{ id: 'igst-payable-id' }] })
-        .mockResolvedValueOnce({ empty: false, docs: [{ id: 'ap-account-id' }] })
-        .mockResolvedValueOnce({ empty: false, docs: [{ id: 'expenses-id' }] })
-        .mockResolvedValueOnce({ empty: false, docs: [{ id: 'cgst-input-id' }] })
-        .mockResolvedValueOnce({ empty: false, docs: [{ id: 'sgst-input-id' }] })
-        .mockResolvedValueOnce({ empty: false, docs: [{ id: 'igst-input-id' }] })
-        .mockResolvedValueOnce({ empty: false, docs: [{ id: 'tds-payable-id' }] });
+      mockGetDocs.mockResolvedValueOnce({ docs: allSystemAccountDocs() });
     });
 
     it('returns Accounts Receivable for CUSTOMER role', async () => {
