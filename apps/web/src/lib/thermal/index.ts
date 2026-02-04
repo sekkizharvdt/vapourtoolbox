@@ -101,3 +101,16 @@ export {
   type PumpSizingInput,
   type PumpSizingResult,
 } from './pumpSizing';
+
+// Desuperheating Calculator
+export {
+  calculateDesuperheating,
+  type DesuperheatingInput,
+  type DesuperheatingResult,
+} from './desuperheatingCalculator';
+
+// Thermo Vapour Compressor (TVC)
+export { calculateTVC, type TVCInput, type TVCResult } from './tvcCalculator';
+
+// Mechanical Vapour Compressor (MVC)
+export { calculateMVC, type MVCInput, type MVCResult } from './mvcCalculator';

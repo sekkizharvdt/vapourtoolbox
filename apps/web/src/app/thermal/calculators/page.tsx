@@ -26,6 +26,9 @@ import {
   Whatshot as HeatIcon,
   Compress as CompressIcon,
   Thermostat as ThermostatIcon,
+  Air as AirIcon,
+  PrecisionManufacturing as MfgIcon,
+  WaterDrop as WaterDropIcon,
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
@@ -111,6 +114,33 @@ const calculators: Calculator[] = [
     href: '/thermal/calculators/heat-transfer',
     status: 'available',
     reference: 'Dittus-Boelter / Nusselt',
+  },
+  {
+    title: 'Thermo Vapour Compressor',
+    description:
+      'Calculate entrainment ratio, flows, and energy balance for steam ejectors used in MED desalination.',
+    icon: <AirIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/calculators/tvc',
+    status: 'available',
+    reference: 'El-Dessouky (2002)',
+  },
+  {
+    title: 'Mechanical Vapour Compressor',
+    description:
+      'Calculate shaft power, discharge conditions, and specific energy for isentropic vapor compression.',
+    icon: <MfgIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/calculators/mvc',
+    status: 'available',
+    reference: 'Isentropic',
+  },
+  {
+    title: 'Desuperheating',
+    description:
+      'Calculate spray water flow required to desuperheat steam to a target temperature using energy balance.',
+    icon: <WaterDropIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/calculators/desuperheating',
+    status: 'available',
+    reference: 'Energy Balance',
   },
 ];
 
