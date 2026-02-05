@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import { Container, Typography, Box, Paper, Grid, Alert, Chip, Stack } from '@mui/material';
-import { calculateTVC } from '@/lib/thermal';
+import { calculateTVC, calculateDesuperheating } from '@/lib/thermal';
+import type { DesuperheatingResult } from '@/lib/thermal';
 import { TVCInputs, TVCResults } from './components';
 
 export default function TVCClient() {
@@ -12,6 +13,8 @@ export default function TVCClient() {
   const [dischargePressure, setDischargePressure] = useState<string>('');
   const [flowMode, setFlowMode] = useState<'entrained' | 'motive'>('entrained');
   const [flowValue, setFlowValue] = useState<string>('');
+  const [desuperheatEnabled, setDesuperheatEnabled] = useState<boolean>(false);
+  const [sprayWaterTemperature, setSprayWaterTemperature] = useState<string>('25');
 
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +46,28 @@ export default function TVCClient() {
     }
   }, [motivePressure, motiveTemperature, suctionPressure, dischargePressure, flowMode, flowValue]);
 
+  const desuperheatingResult = useMemo((): DesuperheatingResult | null => {
+    if (!result || !desuperheatEnabled) return null;
+    if (result.dischargeSuperheat <= 0) return null;
+
+    try {
+      const sprayTemp = parseFloat(sprayWaterTemperature);
+      if (isNaN(sprayTemp)) return null;
+
+      const pc = parseFloat(dischargePressure);
+
+      return calculateDesuperheating({
+        steamPressure: pc,
+        steamTemperature: result.dischargeTemperature,
+        targetTemperature: result.dischargeSatTemperature + 2, // Target 2°C above saturation
+        sprayWaterTemperature: sprayTemp,
+        steamFlow: result.dischargeFlow,
+      });
+    } catch {
+      return null;
+    }
+  }, [result, desuperheatEnabled, sprayWaterTemperature, dischargePressure]);
+
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Box sx={{ mb: 4 }}>
@@ -71,12 +96,17 @@ export default function TVCClient() {
               dischargePressure={dischargePressure}
               flowMode={flowMode}
               flowValue={flowValue}
+              desuperheatEnabled={desuperheatEnabled}
+              sprayWaterTemperature={sprayWaterTemperature}
+              showDesuperheatOption={result !== null && result.dischargeSuperheat > 0}
               onMotivePressureChange={setMotivePressure}
               onMotiveTemperatureChange={setMotiveTemperature}
               onSuctionPressureChange={setSuctionPressure}
               onDischargePressureChange={setDischargePressure}
               onFlowModeChange={setFlowMode}
               onFlowValueChange={setFlowValue}
+              onDesuperheatEnabledChange={setDesuperheatEnabled}
+              onSprayWaterTemperatureChange={setSprayWaterTemperature}
             />
           </Paper>
 
@@ -88,7 +118,7 @@ export default function TVCClient() {
         </Grid>
 
         <Grid size={{ xs: 12, md: 7 }}>
-          {result && <TVCResults result={result} />}
+          {result && <TVCResults result={result} desuperheatingResult={desuperheatingResult} />}
 
           {!result && !error && (
             <Paper

@@ -13,13 +13,14 @@ import {
   TableCell,
   TableRow,
 } from '@mui/material';
-import type { TVCResult } from '@/lib/thermal';
+import type { TVCResult, DesuperheatingResult } from '@/lib/thermal';
 
 interface TVCResultsProps {
   result: TVCResult;
+  desuperheatingResult?: DesuperheatingResult | null;
 }
 
-export function TVCResults({ result }: TVCResultsProps) {
+export function TVCResults({ result, desuperheatingResult }: TVCResultsProps) {
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" gutterBottom>
@@ -199,10 +200,14 @@ export function TVCResults({ result }: TVCResultsProps) {
       </Card>
 
       {/* Discharge Conditions */}
-      <Card variant="outlined" sx={{ mb: 2, bgcolor: 'warning.light' }}>
+      <Card
+        variant="outlined"
+        sx={{ mb: 2, bgcolor: desuperheatingResult ? 'action.hover' : 'warning.light' }}
+      >
         <CardContent sx={{ textAlign: 'center', py: 1 }}>
           <Typography variant="caption" color="text.secondary">
-            Discharge Temperature (Superheated)
+            Discharge Temperature{' '}
+            {desuperheatingResult ? '(Before Desuperheating)' : '(Superheated)'}
           </Typography>
           <Typography variant="h5">{result.dischargeTemperature.toFixed(1)} °C</Typography>
           <Typography variant="body2">
@@ -211,6 +216,78 @@ export function TVCResults({ result }: TVCResultsProps) {
           </Typography>
         </CardContent>
       </Card>
+
+      {/* Desuperheating Results */}
+      {desuperheatingResult && (
+        <Card variant="outlined" sx={{ mb: 2, bgcolor: 'success.light' }}>
+          <CardContent>
+            <Typography variant="subtitle2" gutterBottom sx={{ textAlign: 'center' }}>
+              After Desuperheating
+            </Typography>
+            <Stack
+              direction="row"
+              justifyContent="center"
+              alignItems="baseline"
+              spacing={1}
+              sx={{ mb: 2 }}
+            >
+              <Typography variant="h4">
+                {(result.dischargeSatTemperature + desuperheatingResult.outletSuperheat).toFixed(1)}{' '}
+                °C
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                ({desuperheatingResult.outletSuperheat.toFixed(1)}°C superheat)
+              </Typography>
+            </Stack>
+            <Table size="small">
+              <TableBody>
+                <TableRow>
+                  <TableCell sx={{ border: 0, py: 0.5 }}>Spray water required</TableCell>
+                  <TableCell align="right" sx={{ border: 0, py: 0.5, fontFamily: 'monospace' }}>
+                    {desuperheatingResult.sprayWaterFlow.toFixed(3)} ton/hr
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ border: 0, py: 0.5 }}>Water-to-steam ratio</TableCell>
+                  <TableCell align="right" sx={{ border: 0, py: 0.5, fontFamily: 'monospace' }}>
+                    {(desuperheatingResult.waterToSteamRatio * 100).toFixed(1)}%
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ borderTop: 1, borderBottom: 0, py: 0.5, fontWeight: 'bold' }}>
+                    Total outlet flow
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{
+                      borderTop: 1,
+                      borderBottom: 0,
+                      py: 0.5,
+                      fontFamily: 'monospace',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {desuperheatingResult.totalOutletFlow.toFixed(2)} ton/hr
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ border: 0, py: 0.5 }}>Heat removed</TableCell>
+                  <TableCell align="right" sx={{ border: 0, py: 0.5, fontFamily: 'monospace' }}>
+                    {desuperheatingResult.heatRemoved.toFixed(1)} kW
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+            {desuperheatingResult.warnings.length > 0 && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                {desuperheatingResult.warnings.map((w, i) => (
+                  <div key={i}>{w}</div>
+                ))}
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Saturation Temperatures */}
       <Grid container spacing={2}>
