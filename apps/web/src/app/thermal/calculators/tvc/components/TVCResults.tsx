@@ -36,9 +36,13 @@ export function TVCResults({ result }: TVCResultsProps) {
             Entrainment Ratio (Ra = entrained / motive)
           </Typography>
           <Stack direction="row" alignItems="baseline" spacing={2}>
-            <Typography variant="h3">{result.entrainmentRatio.toFixed(3)}</Typography>
+            <Typography variant="h3">{result.entrainmentRatio.toFixed(2)}</Typography>
           </Stack>
           <Typography variant="body2" sx={{ opacity: 0.9, mt: 1 }}>
+            Theoretical: {result.theoreticalEntrainmentRatio.toFixed(2)} × η ={' '}
+            {(result.ejectorEfficiency * 100).toFixed(0)}%
+          </Typography>
+          <Typography variant="body2" sx={{ opacity: 0.8, mt: 0.5 }}>
             CR = {result.compressionRatio.toFixed(2)} | ER = {result.expansionRatio.toFixed(1)}
           </Typography>
         </CardContent>
@@ -55,7 +59,7 @@ export function TVCResults({ result }: TVCResultsProps) {
 
       {/* Ratios */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 6 }}>
+        <Grid size={{ xs: 4 }}>
           <Card variant="outlined">
             <CardContent sx={{ textAlign: 'center', py: 1 }}>
               <Typography variant="caption" color="text.secondary">
@@ -66,7 +70,7 @@ export function TVCResults({ result }: TVCResultsProps) {
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 6 }}>
+        <Grid size={{ xs: 4 }}>
           <Card variant="outlined">
             <CardContent sx={{ textAlign: 'center', py: 1 }}>
               <Typography variant="caption" color="text.secondary">
@@ -77,7 +81,49 @@ export function TVCResults({ result }: TVCResultsProps) {
             </CardContent>
           </Card>
         </Grid>
+        <Grid size={{ xs: 4 }}>
+          <Card variant="outlined">
+            <CardContent sx={{ textAlign: 'center', py: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                Ejector Efficiency
+              </Typography>
+              <Typography variant="h6">{(result.ejectorEfficiency * 100).toFixed(0)}%</Typography>
+              <Typography variant="caption">η_ej</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
+
+      {/* Efficiency Breakdown */}
+      <Card variant="outlined" sx={{ mb: 2 }}>
+        <CardContent>
+          <Typography variant="subtitle2" gutterBottom>
+            Efficiency Parameters (1-D Model)
+          </Typography>
+          <Table size="small">
+            <TableBody>
+              <TableRow>
+                <TableCell sx={{ border: 0, py: 0.5 }}>Nozzle efficiency (η_n)</TableCell>
+                <TableCell align="right" sx={{ border: 0, py: 0.5, fontFamily: 'monospace' }}>
+                  {(result.nozzleEfficiency * 100).toFixed(0)}%
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell sx={{ border: 0, py: 0.5 }}>Mixing efficiency (η_m)</TableCell>
+                <TableCell align="right" sx={{ border: 0, py: 0.5, fontFamily: 'monospace' }}>
+                  {(result.mixingEfficiency * 100).toFixed(0)}%
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell sx={{ border: 0, py: 0.5 }}>Diffuser efficiency (η_d)</TableCell>
+                <TableCell align="right" sx={{ border: 0, py: 0.5, fontFamily: 'monospace' }}>
+                  {(result.diffuserEfficiency * 100).toFixed(0)}%
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {/* Flow Breakdown */}
       <Card variant="outlined" sx={{ mb: 2 }}>
@@ -149,6 +195,20 @@ export function TVCResults({ result }: TVCResultsProps) {
               </TableRow>
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      {/* Discharge Conditions */}
+      <Card variant="outlined" sx={{ mb: 2, bgcolor: 'warning.light' }}>
+        <CardContent sx={{ textAlign: 'center', py: 1 }}>
+          <Typography variant="caption" color="text.secondary">
+            Discharge Temperature (Superheated)
+          </Typography>
+          <Typography variant="h5">{result.dischargeTemperature.toFixed(1)} °C</Typography>
+          <Typography variant="body2">
+            {result.dischargeSuperheat.toFixed(1)}°C superheat above Tsat (
+            {result.dischargeSatTemperature.toFixed(1)}°C)
+          </Typography>
         </CardContent>
       </Card>
 

@@ -50,7 +50,7 @@ export default function TVCClient() {
           <Typography variant="h4" component="h1">
             Thermo Vapour Compressor (TVC)
           </Typography>
-          <Chip label="El-Dessouky (2002)" size="small" color="primary" variant="outlined" />
+          <Chip label="1-D Model (Huang 1999)" size="small" color="primary" variant="outlined" />
         </Stack>
         <Typography variant="body1" color="text.secondary">
           Calculate entrainment ratio, flows, and energy balance for steam ejectors used in MED
@@ -113,22 +113,28 @@ export default function TVCClient() {
 
       <Box sx={{ mt: 4, p: 3, bgcolor: 'action.hover', borderRadius: 2 }}>
         <Typography variant="subtitle2" gutterBottom>
-          Correlation
+          Method: 1-D Constant Pressure Mixing Model
         </Typography>
         <Typography variant="body2" color="text.secondary" component="div">
           <ul style={{ margin: 0, paddingLeft: 20 }}>
             <li>
-              <strong>Entrainment Ratio:</strong> Ra = 0.296 × (Ps/Pm)<sup>1.04</sup> × (Pc/Pm)
-              <sup>0.015</sup>
+              <strong>Theoretical Ra:</strong> (h_m - h_d_sat) / (h_d_sat - h_e) — from energy
+              balance
             </li>
             <li>
-              <strong>Energy Balance:</strong> m_m × h_m + m_e × h_e = m_d × h_d
+              <strong>Actual Ra:</strong> Theoretical × η_ejector — accounting for real losses
+            </li>
+            <li>
+              <strong>η_ejector:</strong> η_nozzle × η_mixing × η_diffuser × f(CR)
+            </li>
+            <li>
+              <strong>Typical MED-TVC:</strong> Ra = 0.3 – 1.2, CR limit = 2.2 – 2.5
             </li>
           </ul>
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          <strong>Reference:</strong> El-Dessouky &amp; Ettouney, Fundamentals of Salt Water
-          Desalination, 2002
+          <strong>References:</strong> Huang et al. (1999) Int. J. Refrigeration; Keenan et al.
+          (1950) ASME; El-Dessouky & Ettouney (2002)
         </Typography>
       </Box>
     </Container>

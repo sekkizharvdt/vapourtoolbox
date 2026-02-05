@@ -118,11 +118,11 @@ const calculators: Calculator[] = [
   {
     title: 'Thermo Vapour Compressor',
     description:
-      'Calculate entrainment ratio, flows, and energy balance for steam ejectors used in MED desalination.',
+      'Calculate entrainment ratio, flows, and performance for steam ejectors using 1-D constant pressure mixing model.',
     icon: <AirIcon sx={{ fontSize: 40 }} />,
     href: '/thermal/calculators/tvc',
     status: 'available',
-    reference: 'El-Dessouky (2002)',
+    reference: 'Huang 1999',
   },
   {
     title: 'Mechanical Vapour Compressor',
