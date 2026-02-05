@@ -29,6 +29,10 @@ import type {
   ProposalStatus,
   Enquiry,
   ProposalWorkflowStage,
+  ProposalTemplate,
+  CreateProposalTemplateInput,
+  ListProposalTemplatesOptions,
+  ScopeItem,
 } from '@vapour/types';
 
 const logger = createLogger({ context: 'proposalService' });
@@ -37,6 +41,7 @@ const COLLECTIONS = {
   PROPOSALS: 'proposals',
   ENQUIRIES: 'enquiries',
   ENTITIES: 'entities',
+  PROPOSAL_TEMPLATES: 'proposalTemplates',
 };
 
 /**
@@ -639,5 +644,395 @@ export async function getProposalsCountByStatus(
   } catch (error) {
     logger.error('Error getting proposal counts', { error });
     throw error;
+  }
+}
+
+/**
+ * Clone proposal input
+ */
+export interface CloneProposalInput {
+  sourceProposalId: string;
+  newTitle: string;
+  // Optional: link to different client/enquiry
+  newClientId?: string;
+  newEnquiryId?: string;
+  // What to copy
+  copyScope?: boolean;
+  copyPricing?: boolean;
+  copyTerms?: boolean;
+  copyAttachments?: boolean;
+}
+
+/**
+ * Clone an existing proposal to create a new one
+ *
+ * Creates a new proposal based on an existing one, copying scope, pricing,
+ * and other configurable sections. Useful for similar projects or repeat clients.
+ */
+export async function cloneProposal(
+  db: Firestore,
+  input: CloneProposalInput,
+  userId: string,
+  userName: string
+): Promise<Proposal> {
+  try {
+    // Load source proposal
+    const sourceProposal = await getProposalById(db, input.sourceProposalId);
+    if (!sourceProposal) {
+      throw new Error('Source proposal not found');
+    }
+
+    // Generate new proposal number
+    const proposalNumber = await generateProposalNumber(db);
+    const now = Timestamp.now();
+
+    // Determine client info - use new client if provided, otherwise copy from source
+    let clientId = sourceProposal.clientId;
+    let clientName = sourceProposal.clientName;
+    let clientContactPerson = sourceProposal.clientContactPerson;
+    let clientEmail = sourceProposal.clientEmail;
+    let clientAddress = sourceProposal.clientAddress;
+    let enquiryId = sourceProposal.enquiryId;
+    let enquiryNumber = sourceProposal.enquiryNumber;
+
+    if (input.newClientId && input.newClientId !== sourceProposal.clientId) {
+      const clientDoc = await getDoc(doc(db, COLLECTIONS.ENTITIES, input.newClientId));
+      if (clientDoc.exists()) {
+        const client = clientDoc.data();
+        clientId = input.newClientId;
+        clientName = client.name || '';
+        clientContactPerson = client.primaryContact?.name || '';
+        clientEmail = client.primaryContact?.email || client.email || '';
+        clientAddress = client.billingAddress
+          ? `${client.billingAddress.line1}, ${client.billingAddress.city}, ${client.billingAddress.state} ${client.billingAddress.postalCode}`
+          : '';
+      }
+    }
+
+    if (input.newEnquiryId && input.newEnquiryId !== sourceProposal.enquiryId) {
+      const enquiryDoc = await getDoc(doc(db, COLLECTIONS.ENQUIRIES, input.newEnquiryId));
+      if (enquiryDoc.exists()) {
+        const enquiry = enquiryDoc.data() as Omit<Enquiry, 'id'>;
+        enquiryId = input.newEnquiryId;
+        enquiryNumber = enquiry.enquiryNumber;
+        // Also update client contact from enquiry if available
+        if (enquiry.clientContactPerson) clientContactPerson = enquiry.clientContactPerson;
+        if (enquiry.clientEmail) clientEmail = enquiry.clientEmail;
+      }
+    }
+
+    // Build cloned proposal
+    const clonedProposal: Omit<Proposal, 'id'> = {
+      proposalNumber,
+      revision: 1,
+      enquiryId,
+      enquiryNumber,
+      entityId: sourceProposal.entityId,
+      clientId,
+      clientName,
+      clientContactPerson,
+      clientEmail,
+      clientAddress,
+      title: input.newTitle,
+      validityDate: Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+      ),
+      preparationDate: now,
+
+      // Conditionally copy sections
+      scopeOfWork:
+        input.copyScope !== false && sourceProposal.scopeOfWork
+          ? sourceProposal.scopeOfWork
+          : {
+              summary: '',
+              objectives: [],
+              deliverables: [],
+              inclusions: [],
+              exclusions: [],
+              assumptions: [],
+            },
+      scopeOfSupply: input.copyScope !== false ? sourceProposal.scopeOfSupply : [],
+      scopeMatrix:
+        input.copyScope !== false && sourceProposal.scopeMatrix
+          ? {
+              services: sourceProposal.scopeMatrix.services || [],
+              supply: sourceProposal.scopeMatrix.supply || [],
+              exclusions: sourceProposal.scopeMatrix.exclusions || [],
+              isComplete: false, // Reset completion status
+              lastUpdatedAt: now,
+              lastUpdatedBy: userId,
+            }
+          : undefined,
+
+      deliveryPeriod: sourceProposal.deliveryPeriod,
+
+      pricing:
+        input.copyPricing !== false
+          ? {
+              ...sourceProposal.pricing,
+            }
+          : {
+              currency: 'INR',
+              lineItems: [],
+              subtotal: { amount: 0, currency: 'INR' },
+              taxItems: [],
+              totalAmount: { amount: 0, currency: 'INR' },
+              paymentTerms: sourceProposal.pricing?.paymentTerms || '',
+            },
+
+      pricingConfig:
+        input.copyPricing !== false && sourceProposal.pricingConfig
+          ? {
+              ...sourceProposal.pricingConfig,
+              isComplete: false, // Reset completion status
+              lastUpdatedAt: now,
+              lastUpdatedBy: userId,
+            }
+          : undefined,
+
+      terms: input.copyTerms !== false ? sourceProposal.terms : {},
+
+      // Reset status and workflow
+      status: 'DRAFT',
+      approvalHistory: [],
+      attachments: input.copyAttachments ? sourceProposal.attachments : [],
+
+      // Metadata
+      createdAt: now,
+      createdBy: userId,
+      updatedAt: now,
+      updatedBy: userId,
+      isLatestRevision: true,
+
+      // Track cloning
+      clonedFrom: {
+        proposalId: sourceProposal.id,
+        proposalNumber: sourceProposal.proposalNumber,
+        clonedAt: now,
+        clonedBy: userId,
+        clonedByName: userName,
+      },
+    };
+
+    const docRef = await addDoc(collection(db, COLLECTIONS.PROPOSALS), clonedProposal);
+
+    logger.info('Proposal cloned', {
+      newProposalId: docRef.id,
+      newProposalNumber: proposalNumber,
+      sourceProposalId: input.sourceProposalId,
+      sourceProposalNumber: sourceProposal.proposalNumber,
+    });
+
+    return { id: docRef.id, ...clonedProposal };
+  } catch (error) {
+    logger.error('Error cloning proposal', { error, input });
+    throw error;
+  }
+}
+
+// ============================================================================
+// Proposal Template Functions
+// ============================================================================
+
+/**
+ * Strip IDs and estimation data from scope items for template storage
+ */
+function stripScopeItemForTemplate(
+  item: ScopeItem
+): Omit<ScopeItem, 'id' | 'itemNumber' | 'linkedBOMs' | 'estimationSummary'> {
+  const {
+    id: _id,
+    itemNumber: _itemNumber,
+    linkedBOMs: _linkedBOMs,
+    estimationSummary: _estimationSummary,
+    ...rest
+  } = item;
+  return rest;
+}
+
+/**
+ * Create a proposal template from an existing proposal
+ */
+export async function createProposalTemplate(
+  db: Firestore,
+  proposal: Proposal,
+  input: CreateProposalTemplateInput,
+  userId: string,
+  userName: string
+): Promise<ProposalTemplate> {
+  try {
+    const now = Timestamp.now();
+
+    const template: Omit<ProposalTemplate, 'id'> = {
+      name: input.name,
+      description: input.description,
+      category: input.category,
+      entityId: proposal.entityId,
+
+      // Copy scope matrix if requested
+      scopeMatrix:
+        input.includeScope !== false && proposal.scopeMatrix
+          ? {
+              services: (proposal.scopeMatrix.services || []).map(stripScopeItemForTemplate),
+              supply: (proposal.scopeMatrix.supply || []).map(stripScopeItemForTemplate),
+              exclusions: (proposal.scopeMatrix.exclusions || []).map(stripScopeItemForTemplate),
+            }
+          : undefined,
+
+      // Copy pricing defaults if requested
+      pricingDefaults:
+        input.includePricing !== false && proposal.pricingConfig
+          ? {
+              overheadPercent: proposal.pricingConfig.overheadPercent,
+              contingencyPercent: proposal.pricingConfig.contingencyPercent,
+              profitMarginPercent: proposal.pricingConfig.profitMarginPercent,
+              taxPercent: proposal.pricingConfig.taxPercent,
+              validityDays: proposal.pricingConfig.validityDays,
+            }
+          : undefined,
+
+      // Copy terms if requested
+      terms: input.includeTerms !== false ? proposal.terms : undefined,
+
+      // Copy delivery period if requested
+      deliveryPeriod:
+        input.includeDelivery !== false && proposal.deliveryPeriod
+          ? {
+              durationInWeeks: proposal.deliveryPeriod.durationInWeeks,
+              description: proposal.deliveryPeriod.description,
+            }
+          : undefined,
+
+      // Metadata
+      isActive: true,
+      usageCount: 0,
+      createdAt: now,
+      createdBy: userId,
+      createdByName: userName,
+      updatedAt: now,
+
+      // Source tracking
+      sourceProposalId: input.sourceProposalId || proposal.id,
+      sourceProposalNumber: proposal.proposalNumber,
+    };
+
+    const docRef = await addDoc(collection(db, COLLECTIONS.PROPOSAL_TEMPLATES), template);
+
+    logger.info('Proposal template created', {
+      templateId: docRef.id,
+      templateName: input.name,
+      sourceProposalId: proposal.id,
+    });
+
+    return { id: docRef.id, ...template };
+  } catch (error) {
+    logger.error('Error creating proposal template', { error, input });
+    throw error;
+  }
+}
+
+/**
+ * List proposal templates
+ */
+export async function listProposalTemplates(
+  db: Firestore,
+  options: ListProposalTemplatesOptions = {}
+): Promise<ProposalTemplate[]> {
+  try {
+    let q = query(collection(db, COLLECTIONS.PROPOSAL_TEMPLATES), orderBy('createdAt', 'desc'));
+
+    if (options.entityId) {
+      q = query(q, where('entityId', '==', options.entityId));
+    }
+
+    if (options.category) {
+      q = query(q, where('category', '==', options.category));
+    }
+
+    if (options.isActive !== undefined) {
+      q = query(q, where('isActive', '==', options.isActive));
+    }
+
+    if (options.limit) {
+      q = query(q, limit(options.limit));
+    }
+
+    const snapshot = await getDocs(q);
+    let templates = snapshot.docs.map((d) => docToTyped<ProposalTemplate>(d.id, d.data()));
+
+    // Filter by search term if provided (client-side)
+    if (options.searchTerm) {
+      const term = options.searchTerm.toLowerCase();
+      templates = templates.filter(
+        (t) =>
+          t.name.toLowerCase().includes(term) ||
+          t.description?.toLowerCase().includes(term) ||
+          t.category?.toLowerCase().includes(term)
+      );
+    }
+
+    logger.info('Proposal templates listed', { count: templates.length });
+    return templates;
+  } catch (error) {
+    logger.error('Error listing proposal templates', { error, options });
+    throw error;
+  }
+}
+
+/**
+ * Get a proposal template by ID
+ */
+export async function getProposalTemplateById(
+  db: Firestore,
+  templateId: string
+): Promise<ProposalTemplate | null> {
+  try {
+    const docRef = doc(db, COLLECTIONS.PROPOSAL_TEMPLATES, templateId);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return null;
+    }
+
+    return docToTyped<ProposalTemplate>(docSnap.id, docSnap.data());
+  } catch (error) {
+    logger.error('Error getting proposal template', { error, templateId });
+    throw error;
+  }
+}
+
+/**
+ * Delete a proposal template
+ */
+export async function deleteProposalTemplate(db: Firestore, templateId: string): Promise<void> {
+  try {
+    const docRef = doc(db, COLLECTIONS.PROPOSAL_TEMPLATES, templateId);
+    await updateDoc(docRef, { isActive: false });
+
+    logger.info('Proposal template deleted', { templateId });
+  } catch (error) {
+    logger.error('Error deleting proposal template', { error, templateId });
+    throw error;
+  }
+}
+
+/**
+ * Increment template usage count
+ */
+export async function incrementTemplateUsage(db: Firestore, templateId: string): Promise<void> {
+  try {
+    const docRef = doc(db, COLLECTIONS.PROPOSAL_TEMPLATES, templateId);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const template = docSnap.data() as ProposalTemplate;
+      await updateDoc(docRef, {
+        usageCount: (template.usageCount || 0) + 1,
+        updatedAt: Timestamp.now(),
+      });
+    }
+  } catch (error) {
+    logger.error('Error incrementing template usage', { error, templateId });
+    // Non-critical, don't throw
   }
 }

@@ -46,6 +46,8 @@ import {
   CheckCircle as CompleteIcon,
   RadioButtonUnchecked as IncompleteIcon,
   ArrowForward as ArrowIcon,
+  ContentCopy as CloneIcon,
+  BookmarkAdd as TemplateIcon,
 } from '@mui/icons-material';
 import { Timestamp } from 'firebase/firestore';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
@@ -70,6 +72,8 @@ import StatusBadge from './components/StatusBadge';
 import ApprovalHistory from './components/ApprovalHistory';
 import ConvertToProjectDialog from './components/ConvertToProjectDialog';
 import ProposalAttachments from './components/ProposalAttachments';
+import { CloneProposalDialog } from './components/CloneProposalDialog';
+import { SaveAsTemplateDialog } from './components/SaveAsTemplateDialog';
 
 export default function ProposalDetailClient() {
   const pathname = usePathname();
@@ -83,6 +87,8 @@ export default function ProposalDetailClient() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [proposalId, setProposalId] = useState<string | null>(null);
 
@@ -453,6 +459,28 @@ export default function ProposalDetailClient() {
                   <ListItemText>Request Changes</ListItemText>
                 </MenuItem>
               )}
+              <MenuItem
+                onClick={() => {
+                  setCloneDialogOpen(true);
+                  handleMenuClose();
+                }}
+              >
+                <ListItemIcon>
+                  <CloneIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Clone Proposal</ListItemText>
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  setTemplateDialogOpen(true);
+                  handleMenuClose();
+                }}
+              >
+                <ListItemIcon>
+                  <TemplateIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Save as Template</ListItemText>
+              </MenuItem>
             </Menu>
           </Box>
         }
@@ -481,12 +509,22 @@ export default function ProposalDetailClient() {
                 sx={{
                   flex: '1 1 200px',
                   minWidth: 200,
-                  bgcolor: proposal.scopeMatrix?.isComplete ? 'success.lighter' : 'background.paper',
+                  bgcolor: proposal.scopeMatrix?.isComplete
+                    ? 'success.lighter'
+                    : 'background.paper',
                   borderColor: proposal.scopeMatrix?.isComplete ? 'success.main' : 'divider',
                 }}
               >
                 <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 1,
+                      mb: 1,
+                    }}
+                  >
                     {proposal.scopeMatrix?.isComplete ? (
                       <CompleteIcon color="success" />
                     ) : (
@@ -495,7 +533,12 @@ export default function ProposalDetailClient() {
                     <ScopeIcon color={proposal.scopeMatrix?.isComplete ? 'success' : 'action'} />
                   </Box>
                   <Typography variant="subtitle2">Scope Matrix</Typography>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                    sx={{ mb: 1 }}
+                  >
                     {proposal.scopeMatrix?.isComplete
                       ? 'Scope defined'
                       : `${(proposal.scopeMatrix?.services?.length || 0) + (proposal.scopeMatrix?.supply?.length || 0)} items`}
@@ -521,21 +564,34 @@ export default function ProposalDetailClient() {
                 }}
               >
                 <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 1,
+                      mb: 1,
+                    }}
+                  >
                     <IncompleteIcon color="action" />
                     <EstimationIcon color="action" />
                   </Box>
                   <Typography variant="subtitle2">Estimation</Typography>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                    Add internal costs
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                    sx={{ mb: 1 }}
+                  >
+                    Link BOMs to scope items
                   </Typography>
                   <Button
                     size="small"
                     variant="outlined"
                     disabled={!proposal.scopeMatrix?.isComplete}
-                    onClick={() => router.push(`/proposals/${proposalId}/estimation`)}
+                    onClick={() => router.push(`/proposals/${proposalId}/scope`)}
                   >
-                    Coming Soon
+                    Link BOMs
                   </Button>
                 </CardContent>
               </Card>
@@ -546,20 +602,51 @@ export default function ProposalDetailClient() {
                 sx={{
                   flex: '1 1 200px',
                   minWidth: 200,
-                  opacity: 0.5,
+                  bgcolor: proposal.pricingConfig?.isComplete
+                    ? 'success.lighter'
+                    : 'background.paper',
+                  borderColor: proposal.pricingConfig?.isComplete ? 'success.main' : 'divider',
+                  opacity: proposal.scopeMatrix?.isComplete ? 1 : 0.5,
                 }}
               >
                 <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
-                    <IncompleteIcon color="action" />
-                    <PricingIcon color="action" />
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 1,
+                      mb: 1,
+                    }}
+                  >
+                    {proposal.pricingConfig?.isComplete ? (
+                      <CompleteIcon color="success" />
+                    ) : (
+                      <IncompleteIcon color="action" />
+                    )}
+                    <PricingIcon
+                      color={proposal.pricingConfig?.isComplete ? 'success' : 'action'}
+                    />
                   </Box>
                   <Typography variant="subtitle2">Pricing</Typography>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                    Set client prices
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                    sx={{ mb: 1 }}
+                  >
+                    {proposal.pricingConfig?.isComplete
+                      ? formatCurrency(proposal.pricingConfig.totalPrice)
+                      : 'Set client prices'}
                   </Typography>
-                  <Button size="small" variant="outlined" disabled>
-                    Coming Soon
+                  <Button
+                    size="small"
+                    variant={proposal.pricingConfig?.isComplete ? 'outlined' : 'contained'}
+                    endIcon={<ArrowIcon />}
+                    disabled={!proposal.scopeMatrix?.isComplete}
+                    onClick={() => router.push(`/proposals/${proposalId}/pricing`)}
+                  >
+                    {proposal.pricingConfig?.isComplete ? 'View Pricing' : 'Configure Pricing'}
                   </Button>
                 </CardContent>
               </Card>
@@ -570,20 +657,45 @@ export default function ProposalDetailClient() {
                 sx={{
                   flex: '1 1 200px',
                   minWidth: 200,
-                  opacity: 0.5,
+                  bgcolor: proposal.generatedPdfUrl ? 'success.lighter' : 'background.paper',
+                  borderColor: proposal.generatedPdfUrl ? 'success.main' : 'divider',
+                  opacity: proposal.scopeMatrix?.isComplete ? 1 : 0.5,
                 }}
               >
                 <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
-                    <IncompleteIcon color="action" />
-                    <PdfIcon color="action" />
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 1,
+                      mb: 1,
+                    }}
+                  >
+                    {proposal.generatedPdfUrl ? (
+                      <CompleteIcon color="success" />
+                    ) : (
+                      <IncompleteIcon color="action" />
+                    )}
+                    <PdfIcon color={proposal.generatedPdfUrl ? 'success' : 'action'} />
                   </Box>
                   <Typography variant="subtitle2">Generate</Typography>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                    Create PDF
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                    sx={{ mb: 1 }}
+                  >
+                    {proposal.generatedPdfUrl ? 'PDF Ready' : 'Preview & create PDF'}
                   </Typography>
-                  <Button size="small" variant="outlined" disabled>
-                    Coming Soon
+                  <Button
+                    size="small"
+                    variant={proposal.generatedPdfUrl ? 'outlined' : 'contained'}
+                    endIcon={<ArrowIcon />}
+                    disabled={!proposal.scopeMatrix?.isComplete}
+                    onClick={() => router.push(`/proposals/${proposalId}/preview`)}
+                  >
+                    {proposal.generatedPdfUrl ? 'View Preview' : 'Preview & Generate'}
                   </Button>
                 </CardContent>
               </Card>
@@ -596,10 +708,20 @@ export default function ProposalDetailClient() {
         {/* Main Content */}
         <Grid size={{ xs: 12, md: 8 }}>
           {/* Scope Matrix Summary */}
-          {proposal.scopeMatrix && (proposal.scopeMatrix.services.length > 0 || proposal.scopeMatrix.supply.length > 0 || proposal.scopeMatrix.exclusions.length > 0) ? (
+          {proposal.scopeMatrix &&
+          (proposal.scopeMatrix.services.length > 0 ||
+            proposal.scopeMatrix.supply.length > 0 ||
+            proposal.scopeMatrix.exclusions.length > 0) ? (
             <Card sx={{ mb: 3 }}>
               <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    mb: 2,
+                  }}
+                >
                   <Typography variant="h6">
                     Scope Matrix
                     {proposal.scopeMatrix.isComplete && (
@@ -673,10 +795,15 @@ export default function ProposalDetailClient() {
             /* Legacy Scope of Work */
             <Card sx={{ mb: 3 }}>
               <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">
-                    Scope of Work
-                  </Typography>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    mb: 2,
+                  }}
+                >
+                  <Typography variant="h6">Scope of Work</Typography>
                   {proposal.status === 'DRAFT' && (
                     <Button
                       size="small"
@@ -935,6 +1062,31 @@ export default function ProposalDetailClient() {
           proposal={proposal}
           onClose={() => setConvertDialogOpen(false)}
           onComplete={handleConversionComplete}
+        />
+      )}
+
+      {/* Clone Proposal Dialog */}
+      {proposal && (
+        <CloneProposalDialog
+          open={cloneDialogOpen}
+          proposal={proposal}
+          onClose={() => setCloneDialogOpen(false)}
+          onComplete={(newProposalId) => {
+            setCloneDialogOpen(false);
+            router.push(`/proposals/${newProposalId}`);
+          }}
+        />
+      )}
+
+      {/* Save as Template Dialog */}
+      {proposal && (
+        <SaveAsTemplateDialog
+          open={templateDialogOpen}
+          proposal={proposal}
+          onClose={() => setTemplateDialogOpen(false)}
+          onComplete={() => {
+            setTemplateDialogOpen(false);
+          }}
         />
       )}
     </Box>

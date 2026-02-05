@@ -14,6 +14,7 @@ import {
   PictureAsPdf as PdfIcon,
   List as ListIcon,
   Folder as FolderIcon,
+  BookmarkAdd as TemplateIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewProposals } from '@vapour/constants';
@@ -74,6 +75,13 @@ export default function ProposalsPage() {
       description: 'Browse proposal-related documents',
       icon: <FolderIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/proposals/files',
+    },
+    {
+      id: 'templates',
+      title: 'Templates',
+      description: 'Reusable proposal templates',
+      icon: <TemplateIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/proposals/templates',
     },
   ];
 

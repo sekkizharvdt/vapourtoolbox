@@ -36,14 +36,18 @@ import {
   Save as SaveIcon,
   CheckCircle as CompleteIcon,
   Home as HomeIcon,
+  ArrowForward as ArrowIcon,
+  PictureAsPdf as PreviewIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
+import { getBOMById } from '@/lib/bom/bomService';
 import { LoadingButton } from '@/components/common/LoadingButton';
 import { useToast } from '@/components/common/Toast';
-import type { Proposal, ProposalPricingConfig, ScopeItem, Money } from '@vapour/types';
+import type { Proposal, ProposalPricingConfig, ScopeItem, ScopeMatrix, Money } from '@vapour/types';
 import { Timestamp } from 'firebase/firestore';
 import { createLogger } from '@vapour/logger';
 
@@ -60,6 +64,7 @@ export default function PricingEditorClient() {
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Pricing configuration state
@@ -204,11 +209,14 @@ export default function PricingEditorClient() {
 
       await updateProposal(db, proposalId, updates, user.uid);
 
-      toast.success(markComplete ? 'Pricing marked as complete' : 'Pricing saved successfully');
+      toast.success(
+        markComplete ? 'Pricing complete! Continue to preview.' : 'Pricing saved successfully'
+      );
       logger.info('Pricing saved', { proposalId, markComplete });
 
       if (markComplete) {
-        router.push('/proposals/pricing');
+        // Redirect to preview page after marking pricing complete
+        router.push(`/proposals/${proposalId}/preview`);
       }
     } catch (err) {
       logger.error('Error saving pricing', { error: err });
@@ -216,6 +224,93 @@ export default function PricingEditorClient() {
       toast.error('Failed to save pricing');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Refresh BOM costs from the estimation module
+  const handleRefreshBOMCosts = async () => {
+    if (!db || !user || !proposal?.scopeMatrix) return;
+
+    try {
+      setRefreshing(true);
+      setError(null);
+
+      // Collect all unique BOM IDs from the scope matrix
+      const allItems = [
+        ...(proposal.scopeMatrix.services || []),
+        ...(proposal.scopeMatrix.supply || []),
+      ];
+
+      const bomIds = new Set<string>();
+      allItems.forEach((item) => {
+        (item.linkedBOMs || []).forEach((bom) => bomIds.add(bom.bomId));
+      });
+
+      if (bomIds.size === 0) {
+        toast.info('No BOMs linked to refresh');
+        return;
+      }
+
+      // Fetch latest BOM costs
+      const bomCosts: Record<
+        string,
+        { amount: number; currency: 'INR' | 'USD' | 'EUR' | 'GBP' | 'SGD' | 'AED' }
+      > = {};
+      for (const bomId of bomIds) {
+        const bom = await getBOMById(db, bomId);
+        if (bom) {
+          bomCosts[bomId] = bom.summary.totalCost;
+        }
+      }
+
+      // Update scope items with refreshed costs
+      const updateScopeItems = (items: ScopeItem[]): ScopeItem[] => {
+        return items.map((item) => {
+          if (!item.linkedBOMs || item.linkedBOMs.length === 0) return item;
+
+          // Update linked BOM costs
+          const updatedLinkedBOMs = item.linkedBOMs.map((linkedBom) => ({
+            ...linkedBom,
+            totalCost: bomCosts[linkedBom.bomId] || linkedBom.totalCost,
+          }));
+
+          // Recalculate estimation summary
+          const totalCost = updatedLinkedBOMs.reduce((sum, bom) => sum + bom.totalCost.amount, 0);
+          const currency = updatedLinkedBOMs[0]?.totalCost.currency || 'INR';
+
+          return {
+            ...item,
+            linkedBOMs: updatedLinkedBOMs,
+            estimationSummary: {
+              totalCost: { amount: totalCost, currency },
+              bomCount: updatedLinkedBOMs.length,
+            },
+          };
+        });
+      };
+
+      const updatedScopeMatrix: ScopeMatrix = {
+        ...proposal.scopeMatrix,
+        services: updateScopeItems(proposal.scopeMatrix.services || []),
+        supply: updateScopeItems(proposal.scopeMatrix.supply || []),
+        lastUpdatedAt: Timestamp.now(),
+        lastUpdatedBy: user.uid,
+      };
+
+      // Save updated scope matrix
+      await updateProposal(db, proposalId, { scopeMatrix: updatedScopeMatrix }, user.uid);
+
+      // Update local state
+      setProposal((prev) => (prev ? { ...prev, scopeMatrix: updatedScopeMatrix } : null));
+
+      toast.success(`Refreshed costs from ${bomIds.size} BOMs`);
+      logger.info('BOM costs refreshed', { proposalId, bomCount: bomIds.size });
+    } catch (err) {
+      logger.error('Error refreshing BOM costs', { error: err });
+      setError('Failed to refresh BOM costs');
+      toast.error('Failed to refresh BOM costs');
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -327,9 +422,25 @@ export default function PricingEditorClient() {
           <Box sx={{ flex: 1 }}>
             <Card sx={{ mb: 3 }}>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Estimation Breakdown
-                </Typography>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    mb: 2,
+                  }}
+                >
+                  <Typography variant="h6">Estimation Breakdown</Typography>
+                  <LoadingButton
+                    size="small"
+                    startIcon={<RefreshIcon />}
+                    onClick={handleRefreshBOMCosts}
+                    loading={refreshing}
+                    variant="outlined"
+                  >
+                    Refresh Costs
+                  </LoadingButton>
+                </Box>
                 <TableContainer>
                   <Table size="small">
                     <TableHead>
@@ -519,16 +630,29 @@ export default function PricingEditorClient() {
                 >
                   Save Draft
                 </LoadingButton>
-                <LoadingButton
-                  variant="contained"
-                  color="success"
-                  fullWidth
-                  startIcon={<CompleteIcon />}
-                  onClick={() => handleSave(true)}
-                  loading={saving}
-                >
-                  Mark Pricing Complete
-                </LoadingButton>
+                {proposal?.pricingConfig?.isComplete ? (
+                  <Button
+                    variant="contained"
+                    color="success"
+                    fullWidth
+                    startIcon={<PreviewIcon />}
+                    endIcon={<ArrowIcon />}
+                    onClick={() => router.push(`/proposals/${proposalId}/preview`)}
+                  >
+                    Continue to Preview
+                  </Button>
+                ) : (
+                  <LoadingButton
+                    variant="contained"
+                    color="success"
+                    fullWidth
+                    startIcon={<CompleteIcon />}
+                    onClick={() => handleSave(true)}
+                    loading={saving}
+                  >
+                    Mark Pricing Complete
+                  </LoadingButton>
+                )}
               </Box>
             </Paper>
           </Box>

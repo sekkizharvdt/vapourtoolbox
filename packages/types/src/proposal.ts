@@ -521,6 +521,15 @@ export interface Proposal extends TimestampFields {
   previousRevisionId?: string;
   revisionReason?: string;
   isLatestRevision: boolean;
+
+  // Clone tracking
+  clonedFrom?: {
+    proposalId: string;
+    proposalNumber: string;
+    clonedAt: Timestamp;
+    clonedBy: string;
+    clonedByName: string;
+  };
 }
 
 /**
@@ -587,4 +596,79 @@ export interface ImportBOMToProposalInput {
   categoryMapping?: Record<string, ProposalLineItemCategory>; // Map BOM categories to proposal categories
   includeServiceCosts?: boolean;
   applyMargin?: number; // Default margin % to apply
+}
+
+// ============================================================================
+// Proposal Template Types
+// ============================================================================
+
+/**
+ * Proposal Template
+ * Reusable templates for quickly creating new proposals
+ */
+export interface ProposalTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string; // e.g., "Heat Exchanger", "Condenser", "General"
+
+  // Organization
+  entityId: string;
+
+  // Template content
+  scopeMatrix?: {
+    services: Omit<ScopeItem, 'id' | 'itemNumber' | 'linkedBOMs' | 'estimationSummary'>[];
+    supply: Omit<ScopeItem, 'id' | 'itemNumber' | 'linkedBOMs' | 'estimationSummary'>[];
+    exclusions: Omit<ScopeItem, 'id' | 'itemNumber' | 'linkedBOMs' | 'estimationSummary'>[];
+  };
+  pricingDefaults?: {
+    overheadPercent: number;
+    contingencyPercent: number;
+    profitMarginPercent: number;
+    taxPercent: number;
+    validityDays: number;
+  };
+  terms?: TermsAndConditions;
+  deliveryPeriod?: {
+    durationInWeeks: number;
+    description: string;
+  };
+
+  // Metadata
+  isActive: boolean;
+  usageCount: number;
+  createdAt: Timestamp;
+  createdBy: string;
+  createdByName: string;
+  updatedAt: Timestamp;
+  updatedBy?: string;
+
+  // Source tracking
+  sourceProposalId?: string;
+  sourceProposalNumber?: string;
+}
+
+/**
+ * Create Proposal Template Input
+ */
+export interface CreateProposalTemplateInput {
+  name: string;
+  description?: string;
+  category?: string;
+  sourceProposalId?: string;
+  includeScope?: boolean;
+  includePricing?: boolean;
+  includeTerms?: boolean;
+  includeDelivery?: boolean;
+}
+
+/**
+ * List Proposal Templates Options
+ */
+export interface ListProposalTemplatesOptions {
+  entityId?: string;
+  category?: string;
+  isActive?: boolean;
+  searchTerm?: string;
+  limit?: number;
 }

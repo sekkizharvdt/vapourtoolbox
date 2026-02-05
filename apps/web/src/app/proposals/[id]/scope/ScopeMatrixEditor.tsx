@@ -27,6 +27,9 @@ import {
   Engineering as ServiceIcon,
   LocalShipping as SupplyIcon,
   Block as ExclusionIcon,
+  ArrowForward as ArrowIcon,
+  PriceChange as PricingIcon,
+  Upload as ImportIcon,
 } from '@mui/icons-material';
 import { LoadingButton } from '@/components/common/LoadingButton';
 import { useFirestore } from '@/lib/firebase/hooks';
@@ -36,6 +39,7 @@ import { Timestamp } from 'firebase/firestore';
 import type { Proposal, ScopeMatrix, ScopeItem, ScopeItemType } from '@vapour/types';
 import { ScopeItemList } from './components/ScopeItemList';
 import { AddScopeItemDialog } from './components/AddScopeItemDialog';
+import { BulkImportDialog } from './components/BulkImportDialog';
 import { useToast } from '@/components/common/Toast';
 
 interface ScopeMatrixEditorProps {
@@ -81,6 +85,8 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
   const [activeTab, setActiveTab] = useState(0);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addItemType, setAddItemType] = useState<ScopeItemType>('SERVICE');
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importItemType, setImportItemType] = useState<ScopeItemType>('SERVICE');
 
   // Load proposal data
   useEffect(() => {
@@ -124,6 +130,29 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
   const handleAddItem = (type: ScopeItemType) => {
     setAddItemType(type);
     setAddDialogOpen(true);
+  };
+
+  // Handle opening bulk import dialog
+  const handleOpenImport = (type: ScopeItemType) => {
+    setImportItemType(type);
+    setImportDialogOpen(true);
+  };
+
+  // Handle bulk import of items
+  const handleBulkImport = (items: ScopeItem[]) => {
+    const firstItem = items[0];
+    if (!firstItem) return;
+
+    const type = firstItem.type;
+    setScopeMatrix((prev) => {
+      const key = type === 'SERVICE' ? 'services' : type === 'SUPPLY' ? 'supply' : 'exclusions';
+      return {
+        ...prev,
+        [key]: [...prev[key], ...items],
+      };
+    });
+    setHasChanges(true);
+    toast.success(`Imported ${items.length} ${type.toLowerCase()} items`);
   };
 
   // Handle item added from dialog
@@ -204,10 +233,13 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
 
       setScopeMatrix(updatedMatrix);
       setHasChanges(false);
-      toast.success(markComplete ? 'Scope marked as complete' : 'Scope saved successfully');
+      toast.success(
+        markComplete ? 'Scope marked as complete! Continue to pricing.' : 'Scope saved successfully'
+      );
 
       if (markComplete) {
-        router.push('/proposals/scope-matrix');
+        // Redirect to pricing page after marking scope complete
+        router.push(`/proposals/${proposalId}/pricing`);
       }
     } catch (err) {
       console.error('Error saving scope matrix:', err);
@@ -303,14 +335,24 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
               sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
             >
               <Typography variant="subtitle1">Services - Work performed by VDT</Typography>
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={() => handleAddItem('SERVICE')}
-                size="small"
-              >
-                Add Service
-              </Button>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<ImportIcon />}
+                  onClick={() => handleOpenImport('SERVICE')}
+                  size="small"
+                >
+                  Import
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => handleAddItem('SERVICE')}
+                  size="small"
+                >
+                  Add Service
+                </Button>
+              </Box>
             </Box>
             <ScopeItemList
               items={scopeMatrix.services}
@@ -334,14 +376,24 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
               sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
             >
               <Typography variant="subtitle1">Supply - Physical items delivered</Typography>
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={() => handleAddItem('SUPPLY')}
-                size="small"
-              >
-                Add Supply Item
-              </Button>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<ImportIcon />}
+                  onClick={() => handleOpenImport('SUPPLY')}
+                  size="small"
+                >
+                  Import
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => handleAddItem('SUPPLY')}
+                  size="small"
+                >
+                  Add Supply Item
+                </Button>
+              </Box>
             </Box>
             <ScopeItemList
               items={scopeMatrix.supply}
@@ -367,14 +419,24 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
               <Typography variant="subtitle1">
                 Exclusions - Items explicitly NOT included
               </Typography>
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={() => handleAddItem('EXCLUSION')}
-                size="small"
-              >
-                Add Exclusion
-              </Button>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<ImportIcon />}
+                  onClick={() => handleOpenImport('EXCLUSION')}
+                  size="small"
+                >
+                  Import
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => handleAddItem('EXCLUSION')}
+                  size="small"
+                >
+                  Add Exclusion
+                </Button>
+              </Box>
             </Box>
             <ScopeItemList
               items={scopeMatrix.exclusions}
@@ -396,10 +458,10 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
         <Button
           variant="outlined"
-          onClick={() => router.push('/proposals/scope-matrix')}
+          onClick={() => router.push(`/proposals/${proposalId}`)}
           disabled={saving}
         >
-          Cancel
+          Back to Proposal
         </Button>
         <LoadingButton
           variant="contained"
@@ -411,16 +473,28 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
         >
           Save Draft
         </LoadingButton>
-        <LoadingButton
-          variant="contained"
-          color="success"
-          startIcon={<CompleteIcon />}
-          onClick={() => handleSave(true)}
-          loading={saving}
-          disabled={totalItems === 0}
-        >
-          Mark Complete
-        </LoadingButton>
+        {scopeMatrix.isComplete ? (
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<PricingIcon />}
+            endIcon={<ArrowIcon />}
+            onClick={() => router.push(`/proposals/${proposalId}/pricing`)}
+          >
+            Continue to Pricing
+          </Button>
+        ) : (
+          <LoadingButton
+            variant="contained"
+            color="success"
+            startIcon={<CompleteIcon />}
+            onClick={() => handleSave(true)}
+            loading={saving}
+            disabled={totalItems === 0}
+          >
+            Mark Complete
+          </LoadingButton>
+        )}
       </Box>
 
       {/* Add Item Dialog */}
@@ -429,6 +503,15 @@ export function ScopeMatrixEditor({ proposalId }: ScopeMatrixEditorProps) {
         type={addItemType}
         onClose={() => setAddDialogOpen(false)}
         onAdd={handleItemAdded}
+        existingItems={[...scopeMatrix.services, ...scopeMatrix.supply, ...scopeMatrix.exclusions]}
+      />
+
+      {/* Bulk Import Dialog */}
+      <BulkImportDialog
+        open={importDialogOpen}
+        type={importItemType}
+        onClose={() => setImportDialogOpen(false)}
+        onImport={handleBulkImport}
         existingItems={[...scopeMatrix.services, ...scopeMatrix.supply, ...scopeMatrix.exclusions]}
       />
     </Box>
