@@ -50,6 +50,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProposalById, updateProposal } from '@/lib/proposals/proposalService';
+import { generateAndDownloadProposalPDF } from '@/lib/proposals/proposalPDF';
 import { LoadingButton } from '@/components/common/LoadingButton';
 import { useToast } from '@/components/common/Toast';
 import type { Proposal, ScopeItem, Money } from '@vapour/types';
@@ -70,6 +71,7 @@ export default function PreviewClient() {
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
 
@@ -153,6 +155,41 @@ export default function PreviewClient() {
       toast.error('Failed to submit proposal');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleGeneratePDF = async () => {
+    if (!proposal) return;
+
+    try {
+      setGeneratingPdf(true);
+      setError(null);
+
+      // Generate and download PDF, optionally saving to storage
+      await generateAndDownloadProposalPDF(
+        db,
+        proposal,
+        {
+          includeTerms: true,
+          includeDeliverySchedule: true,
+        },
+        !!db
+      ); // Save to storage if db is available
+
+      toast.success('PDF generated and downloaded successfully');
+      logger.info('PDF generated', { proposalId: proposal.id });
+
+      // Refresh proposal to get updated PDF URL if saved
+      if (db) {
+        const updated = await getProposalById(db, proposal.id);
+        if (updated) setProposal(updated);
+      }
+    } catch (err) {
+      logger.error('Error generating PDF', { error: err });
+      setError('Failed to generate PDF');
+      toast.error('Failed to generate PDF');
+    } finally {
+      setGeneratingPdf(false);
     }
   };
 
@@ -247,9 +284,24 @@ export default function PreviewClient() {
             {isAlreadySubmitted && (
               <Chip icon={<CompleteIcon />} label="Submitted" color="success" />
             )}
-            <Button variant="outlined" startIcon={<PdfIcon />} disabled>
-              Generate PDF (Coming Soon)
-            </Button>
+            {proposal.generatedPdfUrl && (
+              <Button
+                variant="outlined"
+                startIcon={<PdfIcon />}
+                href={proposal.generatedPdfUrl}
+                target="_blank"
+              >
+                View PDF
+              </Button>
+            )}
+            <LoadingButton
+              variant="outlined"
+              startIcon={<PdfIcon />}
+              onClick={handleGeneratePDF}
+              loading={generatingPdf}
+            >
+              {proposal.generatedPdfUrl ? 'Regenerate PDF' : 'Generate PDF'}
+            </LoadingButton>
             {isReadyForSubmission && (
               <Button
                 variant="contained"

@@ -2,18 +2,14 @@
  * Proposal PDF Document Template
  *
  * React-PDF template for professional proposal documents
+ * Supports both legacy (scopeOfSupply, pricing) and new (scopeMatrix, pricingConfig) data structures
  */
 
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import type { Proposal } from '@vapour/types';
+import type { Proposal, ScopeItem, Money } from '@vapour/types';
+import { PROJECT_PHASE_LABELS } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
-
-// Register fonts (using default fonts for now)
-// Font.register({
-//   family: 'Roboto',
-//   src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-regular-webfont.ttf'
-// });
 
 const styles = StyleSheet.create({
   page: {
@@ -49,6 +45,13 @@ const styles = StyleSheet.create({
     borderBottom: '1pt solid #e0e0e0',
     paddingBottom: 4,
   },
+  subsectionTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    marginTop: 10,
+    marginBottom: 6,
+    color: '#333',
+  },
   row: {
     flexDirection: 'row',
     marginBottom: 4,
@@ -76,11 +79,10 @@ const styles = StyleSheet.create({
     borderBottom: '0.5pt solid #e0e0e0',
   },
   col1: { width: '8%' },
-  col2: { width: '35%' },
-  col3: { width: '12%' },
+  col2: { width: '47%' },
+  col3: { width: '15%' },
   col4: { width: '15%' },
   col5: { width: '15%' },
-  col6: { width: '15%' },
   footer: {
     position: 'absolute',
     bottom: 30,
@@ -151,13 +153,30 @@ export const ProposalPDFDocument = ({
   includeDeliverySchedule,
   watermark,
 }: ProposalPDFDocumentProps) => {
-
-  const formatCurrency = (money: { amount: number; currency: string }) => {
+  const formatCurrency = (
+    money: Money | { amount: number; currency: string } | undefined | null
+  ) => {
+    if (!money) return '—';
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: money.currency,
-      minimumFractionDigits: 2,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(money.amount);
+  };
+
+  // Check if using new data structure (scopeMatrix + pricingConfig) or legacy
+  const useNewStructure = Boolean(proposal.scopeMatrix && proposal.pricingConfig);
+
+  // Group scope items by phase for new structure
+  const groupByPhase = (items: ScopeItem[]) => {
+    const grouped: Record<string, ScopeItem[]> = {};
+    items.forEach((item) => {
+      const phase = item.phase || 'GENERAL';
+      if (!grouped[phase]) grouped[phase] = [];
+      grouped[phase].push(item);
+    });
+    return grouped;
   };
 
   return (
@@ -209,8 +228,31 @@ export const ProposalPDFDocument = ({
           </View>
         </View>
 
-        {/* Scope of Work */}
-        {proposal.scopeOfWork && (
+        {/* Scope of Work - Legacy or from scopeMatrix services */}
+        {useNewStructure &&
+        proposal.scopeMatrix?.services &&
+        proposal.scopeMatrix.services.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Scope of Services</Text>
+            {Object.entries(groupByPhase(proposal.scopeMatrix.services)).map(([phase, items]) => (
+              <View key={phase} style={{ marginBottom: 8 }}>
+                <Text style={styles.subsectionTitle}>
+                  {phase === 'GENERAL'
+                    ? 'General'
+                    : PROJECT_PHASE_LABELS[phase as keyof typeof PROJECT_PHASE_LABELS] || phase}
+                </Text>
+                <View style={styles.bulletList}>
+                  {items.map((item) => (
+                    <Text key={item.id} style={styles.bulletItem}>
+                      • {item.itemNumber}. {item.name}
+                      {item.description ? ` - ${item.description}` : ''}
+                    </Text>
+                  ))}
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : proposal.scopeOfWork ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Scope of Work</Text>
             {proposal.scopeOfWork.summary && <Text>{proposal.scopeOfWork.summary}</Text>}
@@ -241,67 +283,186 @@ export const ProposalPDFDocument = ({
               </View>
             )}
           </View>
-        )}
+        ) : null}
 
-        {/* Scope of Supply */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Scope of Supply</Text>
-          <View style={styles.table}>
-            <View style={styles.tableHeader}>
-              <Text style={styles.col1}>#</Text>
-              <Text style={styles.col2}>Description</Text>
-              <Text style={styles.col3}>Qty</Text>
-              <Text style={styles.col4}>Unit Price</Text>
-              <Text style={styles.col5}>Amount</Text>
+        {/* Scope of Supply - New structure (scopeMatrix) or Legacy */}
+        {useNewStructure &&
+        proposal.scopeMatrix?.supply &&
+        proposal.scopeMatrix.supply.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Scope of Supply</Text>
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <Text style={styles.col1}>#</Text>
+                <Text style={styles.col2}>Description</Text>
+                <Text style={styles.col3}>Qty</Text>
+                <Text style={styles.col4}>Unit</Text>
+              </View>
+              {proposal.scopeMatrix.supply.map((item, idx) => (
+                <View key={item.id} style={styles.tableRow}>
+                  <Text style={styles.col1}>{item.itemNumber || idx + 1}</Text>
+                  <Text style={styles.col2}>
+                    {item.name}
+                    {item.description && `\n${item.description}`}
+                  </Text>
+                  <Text style={styles.col3}>{item.quantity || '—'}</Text>
+                  <Text style={styles.col4}>{item.unit || '—'}</Text>
+                </View>
+              ))}
             </View>
-            {proposal.scopeOfSupply.map((item, idx) => (
-              <View key={item.id} style={styles.tableRow}>
-                <Text style={styles.col1}>{idx + 1}</Text>
-                <Text style={styles.col2}>
-                  {item.itemName}
-                  {item.description && `\n${item.description}`}
+          </View>
+        ) : proposal.scopeOfSupply && proposal.scopeOfSupply.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Scope of Supply</Text>
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <Text style={styles.col1}>#</Text>
+                <Text style={styles.col2}>Description</Text>
+                <Text style={styles.col3}>Qty</Text>
+                <Text style={styles.col4}>Unit Price</Text>
+                <Text style={styles.col5}>Amount</Text>
+              </View>
+              {proposal.scopeOfSupply.map((item, idx) => (
+                <View key={item.id} style={styles.tableRow}>
+                  <Text style={styles.col1}>{idx + 1}</Text>
+                  <Text style={styles.col2}>
+                    {item.itemName}
+                    {item.description && `\n${item.description}`}
+                  </Text>
+                  <Text style={styles.col3}>
+                    {item.quantity} {item.unit}
+                  </Text>
+                  <Text style={styles.col4}>
+                    {item.unitPrice ? formatCurrency(item.unitPrice) : 'N/A'}
+                  </Text>
+                  <Text style={styles.col5}>{formatCurrency(item.totalPrice)}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Exclusions - New structure only */}
+        {useNewStructure &&
+          proposal.scopeMatrix?.exclusions &&
+          proposal.scopeMatrix.exclusions.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Exclusions</Text>
+              <View style={styles.bulletList}>
+                {proposal.scopeMatrix.exclusions.map((item) => (
+                  <Text key={item.id} style={styles.bulletItem}>
+                    • {item.itemNumber}. {item.name}
+                    {item.description ? ` - ${item.description}` : ''}
+                  </Text>
+                ))}
+              </View>
+            </View>
+          )}
+
+        {/* Pricing Summary - New structure (pricingConfig) or Legacy */}
+        {useNewStructure && proposal.pricingConfig ? (
+          <View style={styles.costSummary}>
+            <Text style={{ ...styles.sectionTitle, borderBottom: 'none', marginBottom: 10 }}>
+              Commercial Summary
+            </Text>
+            <View style={styles.costRow}>
+              <Text style={styles.costLabel}>Base Cost:</Text>
+              <Text style={styles.costValue}>
+                {formatCurrency(proposal.pricingConfig.estimationSubtotal)}
+              </Text>
+            </View>
+            <View style={styles.costRow}>
+              <Text style={styles.costLabel}>
+                Overhead ({proposal.pricingConfig.overheadPercent}%):
+              </Text>
+              <Text style={styles.costValue}>
+                {formatCurrency(proposal.pricingConfig.overheadAmount)}
+              </Text>
+            </View>
+            <View style={styles.costRow}>
+              <Text style={styles.costLabel}>
+                Contingency ({proposal.pricingConfig.contingencyPercent}%):
+              </Text>
+              <Text style={styles.costValue}>
+                {formatCurrency(proposal.pricingConfig.contingencyAmount)}
+              </Text>
+            </View>
+            <View style={styles.costRow}>
+              <Text style={styles.costLabel}>
+                Profit ({proposal.pricingConfig.profitMarginPercent}%):
+              </Text>
+              <Text style={styles.costValue}>
+                {formatCurrency(proposal.pricingConfig.profitAmount)}
+              </Text>
+            </View>
+            <View
+              style={{
+                ...styles.costRow,
+                marginTop: 6,
+                paddingTop: 6,
+                borderTop: '0.5pt solid #ccc',
+              }}
+            >
+              <Text style={styles.costLabel}>Subtotal:</Text>
+              <Text style={styles.costValue}>
+                {formatCurrency(proposal.pricingConfig.subtotalBeforeTax)}
+              </Text>
+            </View>
+            <View style={styles.costRow}>
+              <Text style={styles.costLabel}>GST ({proposal.pricingConfig.taxPercent}%):</Text>
+              <Text style={styles.costValue}>
+                {formatCurrency(proposal.pricingConfig.taxAmount)}
+              </Text>
+            </View>
+            <View
+              style={{
+                ...styles.costRow,
+                marginTop: 10,
+                paddingTop: 10,
+                borderTop: '1pt solid #ccc',
+              }}
+            >
+              <Text style={styles.costLabel}>Total Amount:</Text>
+              <Text style={styles.totalCost}>
+                {formatCurrency(proposal.pricingConfig.totalPrice)}
+              </Text>
+            </View>
+            <View style={{ marginTop: 10 }}>
+              <Text style={{ fontSize: 9, color: '#666' }}>
+                Validity: {proposal.pricingConfig.validityDays} days from date of issue
+              </Text>
+            </View>
+          </View>
+        ) : proposal.pricing ? (
+          <View style={styles.costSummary}>
+            <Text style={{ ...styles.sectionTitle, borderBottom: 'none', marginBottom: 10 }}>
+              Pricing Summary
+            </Text>
+            <View style={styles.costRow}>
+              <Text style={styles.costLabel}>Subtotal:</Text>
+              <Text style={styles.costValue}>{formatCurrency(proposal.pricing.subtotal)}</Text>
+            </View>
+            {proposal.pricing.taxItems?.map((tax) => (
+              <View key={tax.id} style={styles.costRow}>
+                <Text style={styles.costLabel}>
+                  {tax.taxType} ({tax.taxRate}%):
                 </Text>
-                <Text style={styles.col3}>
-                  {item.quantity} {item.unit}
-                </Text>
-                <Text style={styles.col4}>
-                  {item.unitPrice ? formatCurrency(item.unitPrice) : 'N/A'}
-                </Text>
-                <Text style={styles.col5}>{formatCurrency(item.totalPrice)}</Text>
+                <Text style={styles.costValue}>{formatCurrency(tax.taxAmount)}</Text>
               </View>
             ))}
-          </View>
-        </View>
-
-        {/* Pricing Summary */}
-        <View style={styles.costSummary}>
-          <Text style={{ ...styles.sectionTitle, borderBottom: 'none', marginBottom: 10 }}>
-            Pricing Summary
-          </Text>
-          <View style={styles.costRow}>
-            <Text style={styles.costLabel}>Subtotal:</Text>
-            <Text style={styles.costValue}>{formatCurrency(proposal.pricing.subtotal)}</Text>
-          </View>
-          {proposal.pricing.taxItems.map((tax) => (
-            <View key={tax.id} style={styles.costRow}>
-              <Text style={styles.costLabel}>
-                {tax.taxType} ({tax.taxRate}%):
-              </Text>
-              <Text style={styles.costValue}>{formatCurrency(tax.taxAmount)}</Text>
+            <View
+              style={{
+                ...styles.costRow,
+                marginTop: 10,
+                paddingTop: 10,
+                borderTop: '1pt solid #ccc',
+              }}
+            >
+              <Text style={styles.costLabel}>Total Amount:</Text>
+              <Text style={styles.totalCost}>{formatCurrency(proposal.pricing.totalAmount)}</Text>
             </View>
-          ))}
-          <View
-            style={{
-              ...styles.costRow,
-              marginTop: 10,
-              paddingTop: 10,
-              borderTop: '1pt solid #ccc',
-            }}
-          >
-            <Text style={styles.costLabel}>Total Amount:</Text>
-            <Text style={styles.totalCost}>{formatCurrency(proposal.pricing.totalAmount)}</Text>
           </View>
-        </View>
+        ) : null}
 
         {/* Delivery Schedule */}
         {includeDeliverySchedule && proposal.deliveryPeriod && (
@@ -325,7 +486,7 @@ export const ProposalPDFDocument = ({
         )}
 
         {/* Payment Terms */}
-        {proposal.pricing.paymentTerms && (
+        {proposal.pricing?.paymentTerms && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Payment Terms</Text>
             <Text>{proposal.pricing.paymentTerms}</Text>
@@ -342,6 +503,24 @@ export const ProposalPDFDocument = ({
                 <Text>{proposal.terms.warranty}</Text>
               </View>
             )}
+            {proposal.terms.liquidatedDamages && (
+              <View style={{ marginBottom: 6 }}>
+                <Text style={{ fontWeight: 'bold' }}>Liquidated Damages:</Text>
+                <Text>{proposal.terms.liquidatedDamages}</Text>
+              </View>
+            )}
+            {proposal.terms.forceMajeure && (
+              <View style={{ marginBottom: 6 }}>
+                <Text style={{ fontWeight: 'bold' }}>Force Majeure:</Text>
+                <Text>{proposal.terms.forceMajeure}</Text>
+              </View>
+            )}
+            {proposal.terms.disputeResolution && (
+              <View style={{ marginBottom: 6 }}>
+                <Text style={{ fontWeight: 'bold' }}>Dispute Resolution:</Text>
+                <Text>{proposal.terms.disputeResolution}</Text>
+              </View>
+            )}
             {proposal.terms.customTerms && proposal.terms.customTerms.length > 0 && (
               <View style={styles.bulletList}>
                 {proposal.terms.customTerms.map((term, idx) => (
@@ -356,9 +535,7 @@ export const ProposalPDFDocument = ({
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text>
-            This is a computer-generated document. Generated on {formatDate(new Date())}
-          </Text>
+          <Text>This is a computer-generated document. Generated on {formatDate(new Date())}</Text>
           <Text>Vapour Desal Technologies | info@vapourdesal.com | www.vapourdesal.com</Text>
         </View>
       </Page>
