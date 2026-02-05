@@ -4,6 +4,7 @@
  * Scope Item List Component
  *
  * Displays scope items grouped by project phase with inline editing and BOM linking.
+ * Supports drag-and-drop reordering within phase groups.
  */
 
 import { useState } from 'react';
@@ -31,6 +32,23 @@ import {
   Receipt as BOMIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { ScopeItem, ScopeItemType, ProjectPhase, LinkedBOM } from '@vapour/types';
 import { PROJECT_PHASE_LABELS, PROJECT_PHASE_ORDER } from '@vapour/types';
 import { LinkBOMDialog } from './LinkBOMDialog';
@@ -55,6 +73,7 @@ interface PhaseGroupProps {
   type: ScopeItemType;
   onUpdate: (item: ScopeItem) => void;
   onDelete: (itemId: string) => void;
+  onReorderPhase: (phaseItems: ScopeItem[]) => void;
   allItems: ScopeItem[];
   proposalId?: string;
   proposalNumber?: string;
@@ -62,9 +81,36 @@ interface PhaseGroupProps {
   enquiryNumber?: string;
 }
 
-function PhaseGroup({ phase, items, type, onUpdate, onDelete, allItems, proposalId, proposalNumber, enquiryId, enquiryNumber }: PhaseGroupProps) {
+function PhaseGroup({
+  phase,
+  items,
+  type,
+  onUpdate,
+  onDelete,
+  onReorderPhase,
+  allItems,
+  proposalId,
+  proposalNumber,
+  enquiryId,
+  enquiryNumber,
+}: PhaseGroupProps) {
   const [expanded, setExpanded] = useState(true);
   const phaseLabel = phase === 'UNASSIGNED' ? 'Unassigned' : PROJECT_PHASE_LABELS[phase];
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = items.findIndex((item) => item.id === active.id);
+      const newIndex = items.findIndex((item) => item.id === over.id);
+      const reordered = arrayMove(items, oldIndex, newIndex);
+      onReorderPhase(reordered);
+    }
+  };
 
   if (items.length === 0) return null;
 
@@ -90,20 +136,31 @@ function PhaseGroup({ phase, items, type, onUpdate, onDelete, allItems, proposal
       </Box>
       <Collapse in={expanded}>
         <Box sx={{ p: 1 }}>
-          {items.map((item) => (
-            <ScopeItemCard
-              key={item.id}
-              item={item}
-              type={type}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-              allItems={allItems}
-              proposalId={proposalId}
-              proposalNumber={proposalNumber}
-              enquiryId={enquiryId}
-              enquiryNumber={enquiryNumber}
-            />
-          ))}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={items.map((item) => item.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {items.map((item) => (
+                <SortableScopeItemCard
+                  key={item.id}
+                  item={item}
+                  type={type}
+                  onUpdate={onUpdate}
+                  onDelete={onDelete}
+                  allItems={allItems}
+                  proposalId={proposalId}
+                  proposalNumber={proposalNumber}
+                  enquiryId={enquiryId}
+                  enquiryNumber={enquiryNumber}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
         </Box>
       </Collapse>
     </Paper>
@@ -120,9 +177,21 @@ interface ScopeItemCardProps {
   proposalNumber?: string;
   enquiryId?: string;
   enquiryNumber?: string;
+  dragHandleProps?: Record<string, unknown>;
 }
 
-function ScopeItemCard({ item, type, onUpdate, onDelete, allItems, proposalId, proposalNumber, enquiryId, enquiryNumber }: ScopeItemCardProps) {
+function ScopeItemCard({
+  item,
+  type,
+  onUpdate,
+  onDelete,
+  allItems,
+  proposalId,
+  proposalNumber,
+  enquiryId,
+  enquiryNumber,
+  dragHandleProps,
+}: ScopeItemCardProps) {
   const [editing, setEditing] = useState(false);
   const [editedItem, setEditedItem] = useState(item);
   const [linkBOMDialogOpen, setLinkBOMDialogOpen] = useState(false);
@@ -166,12 +235,13 @@ function ScopeItemCard({ item, type, onUpdate, onDelete, allItems, proposalId, p
     const updatedItem: ScopeItem = {
       ...item,
       linkedBOMs: remainingBOMs.length > 0 ? remainingBOMs : undefined,
-      estimationSummary: remainingBOMs.length > 0
-        ? {
-            totalCost: { amount: totalCost, currency },
-            bomCount: remainingBOMs.length,
-          }
-        : undefined,
+      estimationSummary:
+        remainingBOMs.length > 0
+          ? {
+              totalCost: { amount: totalCost, currency },
+              bomCount: remainingBOMs.length,
+            }
+          : undefined,
     };
 
     onUpdate(updatedItem);
@@ -198,10 +268,7 @@ function ScopeItemCard({ item, type, onUpdate, onDelete, allItems, proposalId, p
 
   if (editing) {
     return (
-      <Paper
-        variant="outlined"
-        sx={{ p: 2, mb: 1, bgcolor: 'background.default' }}
-      >
+      <Paper variant="outlined" sx={{ p: 2, mb: 1, bgcolor: 'background.default' }}>
         <Stack spacing={2}>
           <TextField
             label="Name"
@@ -226,7 +293,9 @@ function ScopeItemCard({ item, type, onUpdate, onDelete, allItems, proposalId, p
                 label="Quantity"
                 type="number"
                 value={editedItem.quantity || ''}
-                onChange={(e) => setEditedItem({ ...editedItem, quantity: Number(e.target.value) || undefined })}
+                onChange={(e) =>
+                  setEditedItem({ ...editedItem, quantity: Number(e.target.value) || undefined })
+                }
                 size="small"
                 sx={{ width: 120 }}
               />
@@ -287,7 +356,10 @@ function ScopeItemCard({ item, type, onUpdate, onDelete, allItems, proposalId, p
           '&:hover': { bgcolor: 'action.hover' },
         }}
       >
-        <Box sx={{ mr: 1, color: 'text.secondary', cursor: 'grab' }}>
+        <Box
+          sx={{ mr: 1, color: 'text.secondary', cursor: 'grab', touchAction: 'none' }}
+          {...dragHandleProps}
+        >
           <DragIcon fontSize="small" />
         </Box>
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -326,7 +398,11 @@ function ScopeItemCard({ item, type, onUpdate, onDelete, allItems, proposalId, p
           {/* Show linked BOMs */}
           {linkedBOMs.length > 0 && (
             <Box sx={{ mt: 1 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mb: 0.5, display: 'block' }}
+              >
                 Linked BOMs ({linkedBOMs.length}):
               </Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
@@ -379,11 +455,7 @@ function ScopeItemCard({ item, type, onUpdate, onDelete, allItems, proposalId, p
               ))}
               {relatedItems.map((related) => (
                 <Tooltip key={related.id} title={`Related: ${related.name}`}>
-                  <Chip
-                    label={related.itemNumber}
-                    size="small"
-                    variant="outlined"
-                  />
+                  <Chip label={related.itemNumber} size="small" variant="outlined" />
                 </Tooltip>
               ))}
             </Box>
@@ -417,18 +489,44 @@ function ScopeItemCard({ item, type, onUpdate, onDelete, allItems, proposalId, p
   );
 }
 
+/**
+ * Sortable wrapper for ScopeItemCard that enables drag-and-drop
+ */
+function SortableScopeItemCard(props: ScopeItemCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.item.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <ScopeItemCard {...props} dragHandleProps={{ ...attributes, ...listeners }} />
+    </div>
+  );
+}
+
 export function ScopeItemList({
   items,
   type,
   onUpdate,
   onDelete,
-  onReorder: _onReorder, // TODO: Implement drag-and-drop reordering
+  onReorder,
   allItems,
   proposalId,
   proposalNumber,
   enquiryId,
   enquiryNumber,
 }: ScopeItemListProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
   // Group items by phase
   const groupedItems: Record<ProjectPhase | 'UNASSIGNED', ScopeItem[]> = {
     ENGINEERING: [],
@@ -446,35 +544,76 @@ export function ScopeItemList({
     groupedItems[phase].push(item);
   });
 
+  /**
+   * Handle reordering within a phase group
+   * Updates the order of items within the phase and calls onReorder with the full list
+   */
+  const handlePhaseReorder = (
+    phase: ProjectPhase | 'UNASSIGNED',
+    reorderedPhaseItems: ScopeItem[]
+  ) => {
+    // Build the new complete list by replacing items in this phase
+    const newItems: ScopeItem[] = [];
+
+    // Add items in phase order
+    for (const p of [...PROJECT_PHASE_ORDER, 'UNASSIGNED' as const]) {
+      if (p === phase) {
+        newItems.push(...reorderedPhaseItems);
+      } else {
+        newItems.push(...groupedItems[p]);
+      }
+    }
+
+    onReorder(newItems);
+  };
+
   // For exclusions, don't group by phase (they typically don't have phases)
   if (type === 'EXCLUSION') {
+    const handleExclusionDragEnd = (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (over && active.id !== over.id) {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        const reordered = arrayMove(items, oldIndex, newIndex);
+        onReorder(reordered);
+      }
+    };
+
     return (
       <Box>
         {items.length === 0 ? (
-          <Paper
-            variant="outlined"
-            sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}
-          >
+          <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
             <Typography variant="body2">
               No exclusions defined. Add items that are explicitly NOT included in the scope.
             </Typography>
           </Paper>
         ) : (
           <Paper variant="outlined" sx={{ p: 1 }}>
-            {items.map((item) => (
-              <ScopeItemCard
-                key={item.id}
-                item={item}
-                type={type}
-                onUpdate={onUpdate}
-                onDelete={(id) => onDelete(id, type)}
-                allItems={allItems}
-                proposalId={proposalId}
-                proposalNumber={proposalNumber}
-                enquiryId={enquiryId}
-                enquiryNumber={enquiryNumber}
-              />
-            ))}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleExclusionDragEnd}
+            >
+              <SortableContext
+                items={items.map((item) => item.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {items.map((item) => (
+                  <SortableScopeItemCard
+                    key={item.id}
+                    item={item}
+                    type={type}
+                    onUpdate={onUpdate}
+                    onDelete={(id) => onDelete(id, type)}
+                    allItems={allItems}
+                    proposalId={proposalId}
+                    proposalNumber={proposalNumber}
+                    enquiryId={enquiryId}
+                    enquiryNumber={enquiryNumber}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
           </Paper>
         )}
       </Box>
@@ -487,10 +626,7 @@ export function ScopeItemList({
   return (
     <Box>
       {!hasItems ? (
-        <Paper
-          variant="outlined"
-          sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}
-        >
+        <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
           <Typography variant="body2">
             {type === 'SERVICE'
               ? 'No services defined. Add work activities performed by VDT.'
@@ -507,6 +643,7 @@ export function ScopeItemList({
               type={type}
               onUpdate={onUpdate}
               onDelete={(id) => onDelete(id, type)}
+              onReorderPhase={(reordered) => handlePhaseReorder(phase, reordered)}
               allItems={allItems}
               proposalId={proposalId}
               proposalNumber={proposalNumber}
@@ -521,6 +658,7 @@ export function ScopeItemList({
               type={type}
               onUpdate={onUpdate}
               onDelete={(id) => onDelete(id, type)}
+              onReorderPhase={(reordered) => handlePhaseReorder('UNASSIGNED', reordered)}
               allItems={allItems}
               proposalId={proposalId}
               proposalNumber={proposalNumber}

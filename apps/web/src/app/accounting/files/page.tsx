@@ -7,19 +7,21 @@
  * Shows all accounting-related documents with folder navigation
  */
 
-import { useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Box, Typography, Breadcrumbs, Link } from '@mui/material';
 import { Home as HomeIcon } from '@mui/icons-material';
 import { PageHeader } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasAnyPermission, PermissionFlag } from '@vapour/types';
-import { DocumentBrowser } from '@/components/documents/browser';
+import { DocumentBrowser, UploadDocumentDialog } from '@/components/documents/browser';
 import type { DocumentRecord } from '@vapour/types';
 import { useRouter } from 'next/navigation';
 
 export default function AccountingFilesPage() {
   const router = useRouter();
   const { claims } = useAuth();
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Check permissions - accounting users need VIEW_REPORTS or CREATE_TRANSACTIONS
   const hasViewAccess = claims?.permissions
@@ -49,7 +51,12 @@ export default function AccountingFilesPage() {
 
   // Handle upload click
   const handleUploadClick = useCallback(() => {
-    // TODO: Open upload dialog - integrate with existing upload component
+    setUploadDialogOpen(true);
+  }, []);
+
+  // Handle upload success - refresh the browser
+  const handleUploadSuccess = useCallback(() => {
+    setRefreshKey((k) => k + 1);
   }, []);
 
   if (!hasViewAccess) {
@@ -94,6 +101,7 @@ export default function AccountingFilesPage() {
 
       <Box sx={{ height: 'calc(100% - 80px)' }}>
         <DocumentBrowser
+          key={refreshKey}
           module="ACCOUNTING"
           showViewToggle={true}
           allowFolderCreation={true}
@@ -103,6 +111,14 @@ export default function AccountingFilesPage() {
           onUploadClick={handleUploadClick}
         />
       </Box>
+
+      {/* Upload Dialog */}
+      <UploadDocumentDialog
+        open={uploadDialogOpen}
+        onClose={() => setUploadDialogOpen(false)}
+        onSuccess={handleUploadSuccess}
+        module="ACCOUNTING"
+      />
     </Box>
   );
 }

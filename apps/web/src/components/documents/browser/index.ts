@@ -10,6 +10,7 @@ export { FileList } from './FileList';
 export { BreadcrumbNav } from './BreadcrumbNav';
 export { ViewModeToggle } from './ViewModeToggle';
 export { CreateFolderDialog } from './CreateFolderDialog';
+export { UploadDocumentDialog } from './UploadDocumentDialog';
 export { useDocumentBrowser } from './hooks/useDocumentBrowser';
 
 // Re-export types for convenience

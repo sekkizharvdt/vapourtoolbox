@@ -7,19 +7,21 @@
  * Shows all procurement-related documents with folder navigation
  */
 
-import { useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Box, Typography, Breadcrumbs, Link } from '@mui/material';
 import { Home as HomeIcon } from '@mui/icons-material';
 import { PageHeader } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewProcurement } from '@vapour/constants';
-import { DocumentBrowser } from '@/components/documents/browser';
+import { DocumentBrowser, UploadDocumentDialog } from '@/components/documents/browser';
 import type { DocumentRecord } from '@vapour/types';
 
 export default function ProcurementFilesPage() {
   const router = useRouter();
   const { claims } = useAuth();
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Check permissions
   const hasViewAccess = claims?.permissions ? canViewProcurement(claims.permissions) : false;
@@ -43,7 +45,12 @@ export default function ProcurementFilesPage() {
 
   // Handle upload click
   const handleUploadClick = useCallback(() => {
-    // TODO: Open upload dialog - integrate with existing upload component
+    setUploadDialogOpen(true);
+  }, []);
+
+  // Handle upload success - refresh the browser
+  const handleUploadSuccess = useCallback(() => {
+    setRefreshKey((k) => k + 1);
   }, []);
 
   if (!hasViewAccess) {
@@ -88,6 +95,7 @@ export default function ProcurementFilesPage() {
 
       <Box sx={{ height: 'calc(100vh - 200px)' }}>
         <DocumentBrowser
+          key={refreshKey}
           module="PROCUREMENT"
           showViewToggle={true}
           allowFolderCreation={true}
@@ -97,6 +105,14 @@ export default function ProcurementFilesPage() {
           onUploadClick={handleUploadClick}
         />
       </Box>
+
+      {/* Upload Dialog */}
+      <UploadDocumentDialog
+        open={uploadDialogOpen}
+        onClose={() => setUploadDialogOpen(false)}
+        onSuccess={handleUploadSuccess}
+        module="PROCUREMENT"
+      />
     </>
   );
 }

@@ -7,19 +7,21 @@
  * Shows all proposal-related documents with folder navigation
  */
 
-import { useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Container, Box, Typography, Breadcrumbs, Link } from '@mui/material';
 import { Home as HomeIcon } from '@mui/icons-material';
 import { PageHeader } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewProposals } from '@vapour/constants';
-import { DocumentBrowser } from '@/components/documents/browser';
+import { DocumentBrowser, UploadDocumentDialog } from '@/components/documents/browser';
 import type { DocumentRecord } from '@vapour/types';
 
 export default function ProposalsFilesPage() {
   const router = useRouter();
   const { claims } = useAuth();
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Check permissions
   const hasViewAccess = claims?.permissions ? canViewProposals(claims.permissions) : false;
@@ -43,7 +45,12 @@ export default function ProposalsFilesPage() {
 
   // Handle upload click
   const handleUploadClick = useCallback(() => {
-    // TODO: Open upload dialog - integrate with existing upload component
+    setUploadDialogOpen(true);
+  }, []);
+
+  // Handle upload success - refresh the browser
+  const handleUploadSuccess = useCallback(() => {
+    setRefreshKey((k) => k + 1);
   }, []);
 
   if (!hasViewAccess) {
@@ -87,6 +94,7 @@ export default function ProposalsFilesPage() {
 
       <Box sx={{ height: 'calc(100% - 80px)' }}>
         <DocumentBrowser
+          key={refreshKey}
           module="PROPOSALS"
           showViewToggle={true}
           allowFolderCreation={true}
@@ -96,6 +104,14 @@ export default function ProposalsFilesPage() {
           onUploadClick={handleUploadClick}
         />
       </Box>
+
+      {/* Upload Dialog */}
+      <UploadDocumentDialog
+        open={uploadDialogOpen}
+        onClose={() => setUploadDialogOpen(false)}
+        onSuccess={handleUploadSuccess}
+        module="PROPOSALS"
+      />
     </Container>
   );
 }

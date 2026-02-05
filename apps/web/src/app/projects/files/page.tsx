@@ -7,19 +7,21 @@
  * Shows documents across all projects with folder navigation
  */
 
-import { useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Box, Breadcrumbs, Link, Typography } from '@mui/material';
 import { Home as HomeIcon } from '@mui/icons-material';
 import { PageHeader } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewProjects } from '@vapour/constants';
-import { DocumentBrowser } from '@/components/documents/browser';
+import { DocumentBrowser, UploadDocumentDialog } from '@/components/documents/browser';
 import type { DocumentRecord } from '@vapour/types';
 
 export default function ProjectsFilesPage() {
   const { claims } = useAuth();
   const router = useRouter();
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Check permissions
   const hasViewAccess = claims?.permissions ? canViewProjects(claims.permissions) : false;
@@ -43,7 +45,12 @@ export default function ProjectsFilesPage() {
 
   // Handle upload click
   const handleUploadClick = useCallback(() => {
-    // TODO: Open upload dialog - integrate with existing upload component
+    setUploadDialogOpen(true);
+  }, []);
+
+  // Handle upload success - refresh the browser
+  const handleUploadSuccess = useCallback(() => {
+    setRefreshKey((k) => k + 1);
   }, []);
 
   if (!hasViewAccess) {
@@ -87,6 +94,7 @@ export default function ProjectsFilesPage() {
 
       <Box sx={{ height: 'calc(100vh - 200px)' }}>
         <DocumentBrowser
+          key={refreshKey}
           module="PROJECTS"
           showViewToggle={true}
           allowFolderCreation={true}
@@ -96,6 +104,14 @@ export default function ProjectsFilesPage() {
           onUploadClick={handleUploadClick}
         />
       </Box>
+
+      {/* Upload Dialog */}
+      <UploadDocumentDialog
+        open={uploadDialogOpen}
+        onClose={() => setUploadDialogOpen(false)}
+        onSuccess={handleUploadSuccess}
+        module="PROJECTS"
+      />
     </>
   );
 }

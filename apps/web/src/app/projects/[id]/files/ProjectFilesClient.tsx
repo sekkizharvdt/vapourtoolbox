@@ -13,7 +13,7 @@ import { Container, Box, Typography, Alert } from '@mui/material';
 import { PageHeader, LoadingState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasAnyPermission, PermissionFlag } from '@vapour/types';
-import { DocumentBrowser } from '@/components/documents/browser';
+import { DocumentBrowser, UploadDocumentDialog } from '@/components/documents/browser';
 import { getFirebase } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -27,6 +27,8 @@ export default function ProjectFilesClient() {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Extract project ID from pathname
   const projectId = pathname?.split('/projects/')[1]?.split('/')[0] || '';
@@ -90,7 +92,12 @@ export default function ProjectFilesClient() {
 
   // Handle upload click
   const handleUploadClick = useCallback(() => {
-    // TODO: Open upload dialog - integrate with existing upload component
+    setUploadDialogOpen(true);
+  }, []);
+
+  // Handle upload success - refresh the browser
+  const handleUploadSuccess = useCallback(() => {
+    setRefreshKey((k) => k + 1);
   }, []);
 
   if (loading) {
@@ -142,6 +149,7 @@ export default function ProjectFilesClient() {
 
       <Box sx={{ height: 'calc(100% - 80px)' }}>
         <DocumentBrowser
+          key={refreshKey}
           module="PROJECTS"
           projectId={projectId}
           showViewToggle={false}
@@ -152,6 +160,15 @@ export default function ProjectFilesClient() {
           onUploadClick={handleUploadClick}
         />
       </Box>
+
+      {/* Upload Dialog */}
+      <UploadDocumentDialog
+        open={uploadDialogOpen}
+        onClose={() => setUploadDialogOpen(false)}
+        onSuccess={handleUploadSuccess}
+        module="PROJECTS"
+        projectId={projectId}
+      />
     </Container>
   );
 }
