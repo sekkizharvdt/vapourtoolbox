@@ -590,3 +590,151 @@ export interface TaskMention {
   read: boolean;
   createdAt: Timestamp;
 }
+
+// ============================================================================
+// MANUAL TASK TYPES (User-created tasks for team task tracking)
+// ============================================================================
+
+/**
+ * Manual Task Status
+ */
+export type ManualTaskStatus = 'todo' | 'in_progress' | 'done' | 'cancelled';
+
+/**
+ * Manual Task Priority
+ */
+export type ManualTaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+/**
+ * Manual Task
+ * User-created task for team task tracking (separate from system notifications)
+ */
+export interface ManualTask {
+  id: string;
+  title: string;
+  description?: string;
+  createdBy: string;
+  createdByName: string;
+  assigneeId: string;
+  assigneeName: string;
+  status: ManualTaskStatus;
+  priority: ManualTaskPriority;
+  dueDate?: Timestamp;
+  completedAt?: Timestamp;
+  projectId?: string;
+  projectName?: string;
+  proposalId?: string;
+  meetingId?: string;
+  tags?: string[];
+  entityId: string;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+/**
+ * Create Manual Task Input
+ */
+export interface CreateManualTaskInput {
+  title: string;
+  description?: string;
+  assigneeId: string;
+  assigneeName: string;
+  priority?: ManualTaskPriority;
+  dueDate?: Timestamp;
+  projectId?: string;
+  projectName?: string;
+  proposalId?: string;
+  meetingId?: string;
+  tags?: string[];
+}
+
+/**
+ * Manual Task Filters
+ */
+export interface ManualTaskFilters {
+  assigneeId?: string;
+  status?: ManualTaskStatus;
+  priority?: ManualTaskPriority;
+  projectId?: string;
+  meetingId?: string;
+  limit?: number;
+}
+
+// ============================================================================
+// MEETING TYPES (Minutes of Meeting with action items)
+// ============================================================================
+
+/**
+ * Meeting Status
+ */
+export type MeetingStatus = 'draft' | 'finalized';
+
+/**
+ * Meeting
+ * Minutes of meeting record with attendees, notes, and action items
+ */
+export interface Meeting {
+  id: string;
+  title: string;
+  date: Timestamp;
+  duration?: number;
+  location?: string;
+  createdBy: string;
+  createdByName: string;
+  attendeeIds: string[];
+  attendeeNames: string[];
+  agenda?: string;
+  notes?: string;
+  status: MeetingStatus;
+  finalizedAt?: Timestamp;
+  projectId?: string;
+  projectName?: string;
+  entityId: string;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+/**
+ * Meeting Action Item
+ * Row from the MoM table — becomes a ManualTask on finalization
+ */
+export interface MeetingActionItem {
+  id: string;
+  meetingId: string;
+  description: string;
+  action: string;
+  assigneeId: string;
+  assigneeName: string;
+  dueDate?: Timestamp;
+  priority: ManualTaskPriority;
+  generatedTaskId?: string;
+  createdAt: Timestamp;
+}
+
+/**
+ * Create Meeting Input
+ */
+export interface CreateMeetingInput {
+  title: string;
+  date: Timestamp;
+  duration?: number;
+  location?: string;
+  attendeeIds: string[];
+  attendeeNames: string[];
+  agenda?: string;
+  notes?: string;
+  projectId?: string;
+  projectName?: string;
+}
+
+/**
+ * Meeting Action Item Input (for creating action items in the MoM table)
+ */
+export interface MeetingActionItemInput {
+  description: string;
+  action: string;
+  assigneeId: string;
+  assigneeName: string;
+  dueDate?: Timestamp;
+  priority?: ManualTaskPriority;
+}

@@ -1,214 +1,78 @@
 'use client';
 
 /**
- * Tasks Page
+ * Flow Module - Hub Dashboard
  *
- * Slack-like task management with project channels, threaded discussions,
- * and real-time updates. Shows tasks filtered by selected workspace/channel.
+ * Card-based navigation organized by workflow sections:
+ * - Daily Work: Tasks and system notifications
+ * - Collaboration: Team board and meeting minutes
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { Box, Alert, Snackbar } from '@mui/material';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { useAuth } from '@/contexts/AuthContext';
-import { useTasksLayout } from './context';
-import { ChannelView } from './components/ChannelView';
-import { TaskThreadPanel, MentionsView } from '@/components/tasks/thread';
-import { completeActionableTask } from '@/lib/tasks/taskNotificationService';
-import { getFirebase } from '@/lib/firebase';
-import { COLLECTIONS } from '@vapour/firebase';
-import type { TaskNotification, User, TaskMention } from '@vapour/types';
+import {
+  CheckCircle as TasksIcon,
+  Inbox as InboxIcon,
+  Groups as TeamIcon,
+  EventNote as MeetingsIcon,
+} from '@mui/icons-material';
+import { ModuleLandingPage, type ModuleSection } from '@/components/modules';
 
-export default function TasksPage() {
-  const { user } = useAuth();
-  const {
-    tasks,
-    selectedWorkspaceId,
-    selectedChannelId,
-    selectedView,
-    selectedWorkspaceName,
-    tasksByWorkspace,
-    isLoading,
-    onToggleSidebar,
-    showSidebarToggle,
-  } = useTasksLayout();
-
-  // Error state
-  const [error, setError] = useState<string | null>(null);
-
-  // Loading state to prevent race conditions (double-clicks)
-  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
-
-  // Thread panel state (Phase C)
-  const [selectedTaskForThread, setSelectedTaskForThread] = useState<TaskNotification | null>(null);
-  const [threadPanelOpen, setThreadPanelOpen] = useState(false);
-
-  // Users for @mention autocomplete (Phase C)
-  const [users, setUsers] = useState<User[]>([]);
-
-  // Stable userId reference for useCallback dependencies
-  const userId = user?.uid;
-
-  // Load users for @mention autocomplete (Phase C)
-  useEffect(() => {
-    const { db } = getFirebase();
-    const usersRef = collection(db, COLLECTIONS.USERS);
-    const q = query(usersRef, where('isActive', '==', true), orderBy('displayName', 'asc'));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const usersData: User[] = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          usersData.push({
-            uid: doc.id,
-            email: data.email || '',
-            displayName: data.displayName || data.email || 'Unknown',
-            photoURL: data.photoURL,
-            department: data.department,
-            permissions: data.permissions || 0,
-            allowedModules: data.allowedModules,
-            jobTitle: data.jobTitle,
-            phone: data.phone,
-            mobile: data.mobile,
-            status: data.status || 'active',
-            isActive: data.isActive ?? true,
-            assignedProjects: data.assignedProjects || [],
-            preferences: data.preferences,
-            lastLoginAt: data.lastLoginAt,
-            createdAt: data.createdAt,
-            updatedAt: data.updatedAt,
-          });
-        });
-        setUsers(usersData);
-      },
-      () => {
-        // Silently handle - @mentions will show limited user list
-      }
-    );
-
-    return () => unsubscribe();
-  }, []);
-
-  // Get tasks for current view
-  const currentTasks = React.useMemo(() => {
-    if (selectedView === 'my-tasks') {
-      // Show all pending/in-progress tasks
-      return tasks.filter((t) => t.status === 'pending' || t.status === 'in_progress');
-    }
-    if (selectedView === 'mentions') {
-      // Placeholder for Phase C
-      return [];
-    }
-    // Channel view - tasks are filtered by ChannelView component
-    if (selectedWorkspaceId) {
-      return tasksByWorkspace[selectedWorkspaceId] || [];
-    }
-    return [];
-  }, [selectedView, selectedWorkspaceId, tasks, tasksByWorkspace]);
-
-  // Handlers - with race condition protection
-  const handleCompleteTask = useCallback(
-    async (taskId: string) => {
-      if (!userId || actionInProgress) return;
-
-      setActionInProgress(taskId);
-      try {
-        // Complete the task manually (for tasks without auto-completion)
-        await completeActionableTask(taskId, userId, false);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to complete task');
-      } finally {
-        setActionInProgress(null);
-      }
+export default function FlowPage() {
+  const sections: ModuleSection[] = [
+    {
+      id: 'daily-work',
+      title: 'Daily Work',
+      description: 'Your tasks and system notifications in one place',
+      items: [
+        {
+          id: 'tasks',
+          title: 'My Tasks',
+          description: 'View and manage your personal task list',
+          icon: <TasksIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+          path: '/flow/tasks',
+        },
+        {
+          id: 'inbox',
+          title: 'Inbox',
+          description: 'System notifications from procurement, documents, HR, and more',
+          icon: <InboxIcon sx={{ fontSize: 48, color: 'info.main' }} />,
+          path: '/flow/inbox',
+        },
+      ],
     },
-    [userId, actionInProgress]
-  );
-
-  const handleViewThread = useCallback(
-    (taskId: string) => {
-      const task = tasks.find((t) => t.id === taskId);
-      if (task) {
-        setSelectedTaskForThread(task);
-        setThreadPanelOpen(true);
-      }
+    {
+      id: 'collaboration',
+      title: 'Collaboration',
+      description: 'Team visibility and meeting management',
+      items: [
+        {
+          id: 'team',
+          title: 'Team Board',
+          description: 'See what everyone on the team is working on',
+          icon: <TeamIcon sx={{ fontSize: 48, color: 'success.main' }} />,
+          path: '/flow/team',
+          comingSoon: true,
+        },
+        {
+          id: 'meetings',
+          title: 'Meeting Minutes',
+          description: 'Record meetings and auto-generate action items as tasks',
+          icon: <MeetingsIcon sx={{ fontSize: 48, color: 'warning.main' }} />,
+          path: '/flow/meetings',
+          comingSoon: true,
+        },
+      ],
     },
-    [tasks]
-  );
-
-  // Handle closing thread panel
-  const handleCloseThreadPanel = useCallback(() => {
-    setThreadPanelOpen(false);
-    setSelectedTaskForThread(null);
-  }, []);
-
-  // Handle mention click - navigate to the thread (Phase C)
-  const handleSelectMention = useCallback(
-    (mention: TaskMention) => {
-      // Find the task associated with this mention
-      const task = tasks.find((t) => t.id === mention.taskNotificationId);
-      if (task) {
-        setSelectedTaskForThread(task);
-        setThreadPanelOpen(true);
-      }
-    },
-    [tasks]
-  );
-
-  // Clear error
-  const handleCloseError = useCallback(() => {
-    setError(null);
-  }, []);
-
-  if (!user) {
-    return (
-      <Box sx={{ p: 4 }}>
-        <Alert severity="warning">Please log in to view your tasks.</Alert>
-      </Box>
-    );
-  }
+  ];
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Mentions View - shown when 'mentions' view is selected */}
-      {selectedView === 'mentions' ? (
-        <MentionsView onSelectMention={handleSelectMention} />
-      ) : (
-        /* Channel View - default view */
-        <ChannelView
-          workspaceName={selectedWorkspaceName || 'All Projects'}
-          channelId={selectedChannelId || undefined}
-          view={selectedView}
-          tasks={currentTasks}
-          isLoading={isLoading}
-          error={error}
-          onCompleteTask={handleCompleteTask}
-          onViewThread={handleViewThread}
-          onToggleSidebar={onToggleSidebar}
-          showSidebarToggle={showSidebarToggle}
-        />
-      )}
-
-      {/* Thread Panel - slides in from right (Phase C) */}
-      <TaskThreadPanel
-        task={selectedTaskForThread}
-        open={threadPanelOpen}
-        onClose={handleCloseThreadPanel}
-        users={users}
-      />
-
-      {/* Error Snackbar */}
-      <Snackbar
-        open={!!error}
-        autoHideDuration={6000}
-        onClose={handleCloseError}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={handleCloseError} severity="error" sx={{ width: '100%' }}>
-          {error}
-        </Alert>
-      </Snackbar>
-    </Box>
+    <ModuleLandingPage
+      title="Flow"
+      description="Tasks, notifications, and team collaboration"
+      sections={sections}
+      newAction={{
+        label: 'New Task',
+        path: '/flow/tasks?new=true',
+      }}
+    />
   );
 }

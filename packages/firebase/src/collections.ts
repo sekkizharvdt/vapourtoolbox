@@ -138,6 +138,11 @@ export const COLLECTIONS = {
   ENQUIRIES: 'enquiries',
   PROPOSALS: 'proposals',
 
+  // Manual Tasks & Meetings (Flow module)
+  MANUAL_TASKS: 'manualTasks',
+  MEETINGS: 'meetings',
+  MEETING_ACTION_ITEMS: 'meetingActionItems',
+
   // Module Integration Management (Super Admin)
   MODULE_INTEGRATIONS: 'moduleIntegrations',
 
