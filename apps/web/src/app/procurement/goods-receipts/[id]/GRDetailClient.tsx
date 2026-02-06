@@ -37,8 +37,10 @@ import {
   Payment as PaymentIcon,
   Warning as WarningIcon,
   Receipt as ReceiptIcon,
+  Send as SendIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
+import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { GoodsReceipt, GoodsReceiptItem } from '@vapour/types';
 import {
   getGRById,
@@ -46,8 +48,12 @@ import {
   completeGR,
   approveGRForPayment,
 } from '@/lib/procurement/goodsReceiptService';
-import { createBillFromGoodsReceipt } from '@/lib/procurement/accountingIntegration';
+import {
+  createBillFromGoodsReceipt,
+  sendGRToAccounting,
+} from '@/lib/procurement/accountingIntegration';
 import { getFirebase } from '@/lib/firebase';
+import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
 import {
   getGRStatusText,
   getGRStatusColor,
@@ -63,7 +69,7 @@ import { formatDate } from '@/lib/utils/formatters';
 export default function GRDetailClient() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -75,6 +81,14 @@ export default function GRDetailClient() {
   // Dialog states
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [sendToAccountingOpen, setSendToAccountingOpen] = useState(false);
+  const [selectedAccountingUserId, setSelectedAccountingUserId] = useState<string | null>(null);
+  const [selectedAccountingUserName, setSelectedAccountingUserName] = useState('');
+
+  const isAccountingUser = hasPermission(
+    claims?.permissions ?? 0,
+    PERMISSION_FLAGS.MANAGE_ACCOUNTING
+  );
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -146,6 +160,33 @@ export default function GRDetailClient() {
       setError(
         'Failed to create bill. Please try again or create a bill manually from the Accounting module.'
       );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSendToAccounting = async () => {
+    if (!user || !gr || !grId || !selectedAccountingUserId) return;
+
+    setActionLoading(true);
+    setError('');
+    try {
+      const { db } = getFirebase();
+      await sendGRToAccounting(
+        db,
+        gr,
+        selectedAccountingUserId,
+        selectedAccountingUserName,
+        user.uid,
+        user.displayName || user.email || ''
+      );
+      setSendToAccountingOpen(false);
+      setSelectedAccountingUserId(null);
+      setSelectedAccountingUserName('');
+      await loadGR();
+    } catch (err) {
+      console.error('[GRDetailClient] Error sending to accounting:', err);
+      setError('Failed to send to accounting. Please try again.');
     } finally {
       setActionLoading(false);
     }
@@ -255,7 +296,7 @@ export default function GRDetailClient() {
                   Complete GR
                 </Button>
               )}
-              {actions.canCreateBill && (
+              {actions.canCreateBill && isAccountingUser && (
                 <Button
                   variant="contained"
                   color="warning"
@@ -265,6 +306,24 @@ export default function GRDetailClient() {
                 >
                   Create Bill
                 </Button>
+              )}
+              {actions.canSendToAccounting && !isAccountingUser && (
+                <Button
+                  variant="contained"
+                  color="warning"
+                  startIcon={<SendIcon />}
+                  onClick={() => setSendToAccountingOpen(true)}
+                  disabled={actionLoading}
+                >
+                  Send to Accounting
+                </Button>
+              )}
+              {gr.sentToAccountingAt && !gr.paymentRequestId && !isAccountingUser && (
+                <Chip
+                  label={`Sent to Accounting — ${gr.accountingAssigneeName || 'Pending'}`}
+                  color="info"
+                  variant="outlined"
+                />
               )}
               {actions.canApprovePayment && (
                 <Button
@@ -505,8 +564,8 @@ export default function GRDetailClient() {
         <DialogTitle>Complete Goods Receipt</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to mark this goods receipt as completed? This will automatically
-            create a vendor bill in the accounting module.
+            Are you sure you want to mark this goods receipt as completed? You can then send it to
+            the accounting team for bill creation.
           </Typography>
           {gr.hasIssues && (
             <Alert severity="warning" sx={{ mt: 2 }}>
@@ -556,6 +615,47 @@ export default function GRDetailClient() {
             startIcon={actionLoading ? <CircularProgress size={20} /> : <PaymentIcon />}
           >
             Approve Payment
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Send to Accounting Dialog */}
+      <Dialog
+        open={sendToAccountingOpen}
+        onClose={() => setSendToAccountingOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Send to Accounting</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>
+            Select an accounting team member to create the vendor bill for this goods receipt.
+          </Typography>
+          <ApproverSelector
+            value={selectedAccountingUserId}
+            onChange={setSelectedAccountingUserId}
+            onChangeWithName={(id, name) => {
+              setSelectedAccountingUserId(id);
+              setSelectedAccountingUserName(name);
+            }}
+            label="Accounting User"
+            approvalType="transaction"
+            required
+            placeholder="Select accounting team member..."
+            excludeUserIds={user ? [user.uid] : []}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSendToAccountingOpen(false)} disabled={actionLoading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSendToAccounting}
+            variant="contained"
+            disabled={actionLoading || !selectedAccountingUserId}
+            startIcon={actionLoading ? <CircularProgress size={20} /> : <SendIcon />}
+          >
+            Send
           </Button>
         </DialogActions>
       </Dialog>

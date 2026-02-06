@@ -38,6 +38,11 @@ const logger = createLogger({ context: 'accountingIntegration' });
 import { generateBillGLEntries, type BillGLInput } from '../accounting/glEntry';
 import { createPaymentWithAllocationsAtomic } from '../accounting/paymentHelpers';
 import { saveTransaction } from '../accounting/transactionService';
+import {
+  createTaskNotification,
+  findTaskNotificationByEntity,
+  completeActionableTask,
+} from '../tasks/taskNotificationService';
 
 /**
  * Error types for integration failures
@@ -287,6 +292,24 @@ export async function createBillFromGoodsReceipt(
       updatedAt: Timestamp.now(),
     });
 
+    // Auto-complete the GR_BILL_REQUIRED task notification if one exists
+    try {
+      const notification = await findTaskNotificationByEntity(
+        'GOODS_RECEIPT',
+        goodsReceipt.id,
+        'GR_BILL_REQUIRED'
+      );
+      if (notification) {
+        await completeActionableTask(notification.id, userId, true);
+        logger.info('Auto-completed GR_BILL_REQUIRED notification', {
+          notificationId: notification.id,
+        });
+      }
+    } catch (notifError) {
+      // Don't fail bill creation if notification auto-complete fails
+      logger.warn('Failed to auto-complete GR_BILL_REQUIRED notification', { notifError });
+    }
+
     logger.info('Created bill from goods receipt', {
       billId,
       goodsReceiptId: goodsReceipt.id,
@@ -303,6 +326,69 @@ export async function createBillFromGoodsReceipt(
       error
     );
   }
+}
+
+/**
+ * Send a completed Goods Receipt to the accounting team for bill creation.
+ * Updates the GR with sent-to-accounting fields and creates a task notification.
+ */
+export async function sendGRToAccounting(
+  db: Firestore,
+  goodsReceipt: GoodsReceipt,
+  accountingUserId: string,
+  accountingUserName: string,
+  currentUserId: string,
+  currentUserName: string
+): Promise<string> {
+  // Update GR with sent-to-accounting fields
+  const grRef = doc(db, COLLECTIONS.GOODS_RECEIPTS, goodsReceipt.id);
+  await updateDoc(grRef, {
+    sentToAccountingAt: Timestamp.now(),
+    accountingAssigneeId: accountingUserId,
+    accountingAssigneeName: accountingUserName,
+    updatedAt: Timestamp.now(),
+  });
+
+  // Create actionable task notification for accounting user
+  const notificationId = await createTaskNotification({
+    type: 'actionable',
+    category: 'GR_BILL_REQUIRED',
+    userId: accountingUserId,
+    assignedBy: currentUserId,
+    assignedByName: currentUserName,
+    title: `Create Bill for ${goodsReceipt.number}`,
+    message: `Goods receipt ${goodsReceipt.number} (PO: ${goodsReceipt.poNumber}) is completed and requires a vendor bill. Project: ${goodsReceipt.projectName}`,
+    entityType: 'GOODS_RECEIPT',
+    entityId: goodsReceipt.id,
+    linkUrl: '/accounting/grn-bills',
+    priority: 'HIGH',
+    autoCompletable: true,
+  });
+
+  logger.info('Sent GR to accounting for bill creation', {
+    goodsReceiptId: goodsReceipt.id,
+    accountingUserId,
+    notificationId,
+  });
+
+  return notificationId;
+}
+
+/**
+ * Get all completed GRNs that are pending bill creation.
+ * Used by the accounting GRN Bills page.
+ */
+export async function getGRNsPendingBilling(db: Firestore): Promise<GoodsReceipt[]> {
+  const q = query(
+    collection(db, COLLECTIONS.GOODS_RECEIPTS),
+    where('status', '==', 'COMPLETED'),
+    where('sentToAccountingAt', '!=', null)
+  );
+
+  const snapshot = await getDocs(q);
+  return snapshot.docs
+    .map((d) => docToTyped<GoodsReceipt>(d.id, d.data()))
+    .filter((gr) => !gr.paymentRequestId); // Exclude GRs that already have bills
 }
 
 /**

@@ -142,6 +142,11 @@ export interface GoodsReceipt {
   paymentApprovedAt?: Timestamp;
   paymentRequestId?: string; // Link to accounting
 
+  // Sent to accounting for bill creation
+  sentToAccountingAt?: Timestamp;
+  accountingAssigneeId?: string;
+  accountingAssigneeName?: string;
+
   // Workflow
   inspectedBy: string;
   inspectedByName: string; // Denormalized

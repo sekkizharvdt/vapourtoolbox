@@ -18,6 +18,7 @@ import {
   Handshake as LoanIcon,
   HealthAndSafety as DataHealthIcon,
   DeleteSweep as TrashIcon,
+  ReceiptLong as GRNBillsIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting } from '@vapour/constants';
@@ -97,6 +98,13 @@ export default function AccountingPage() {
           description: 'Fix data issues: unapplied payments, missing GL entries, unmapped accounts',
           icon: <DataHealthIcon sx={{ fontSize: 48, color: 'warning.main' }} />,
           path: '/accounting/data-health',
+        },
+        {
+          id: 'grn-bills',
+          title: 'GRN Bills',
+          description: 'Create vendor bills from completed goods receipts',
+          icon: <GRNBillsIcon sx={{ fontSize: 48, color: 'warning.main' }} />,
+          path: '/accounting/grn-bills',
         },
         {
           id: 'payment-batches',
