@@ -231,6 +231,35 @@ export function subscribeToMyTasks(
   );
 }
 
+/**
+ * Subscribe to all active tasks for the entity (team board, real-time)
+ */
+export function subscribeToTeamTasks(
+  db: Firestore,
+  entityId: string,
+  callback: (tasks: ManualTask[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, COLLECTIONS.MANUAL_TASKS),
+    where('entityId', '==', entityId),
+    where('status', 'in', ['todo', 'in_progress']),
+    orderBy('createdAt', 'desc')
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const tasks = snapshot.docs.map((d) => docToManualTask(d.id, d.data()));
+      callback(tasks);
+    },
+    (error) => {
+      console.error('[manualTaskService] subscribeToTeamTasks error:', error);
+      onError?.(error);
+    }
+  );
+}
+
 // ============================================================================
 // UPDATE
 // ============================================================================

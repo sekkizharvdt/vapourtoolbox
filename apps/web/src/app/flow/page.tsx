@@ -50,7 +50,6 @@ export default function FlowPage() {
           description: 'See what everyone on the team is working on',
           icon: <TeamIcon sx={{ fontSize: 48, color: 'success.main' }} />,
           path: '/flow/team',
-          comingSoon: true,
         },
         {
           id: 'meetings',
