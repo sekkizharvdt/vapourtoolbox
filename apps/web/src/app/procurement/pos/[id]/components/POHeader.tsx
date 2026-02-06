@@ -14,6 +14,7 @@ import {
   Check as CheckIcon,
   Close as CloseIcon,
   Cancel as CancelIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import type { PurchaseOrder } from '@vapour/types';
 import {
@@ -37,6 +38,8 @@ interface POHeaderProps {
   onReject: () => void;
   onIssue: () => void;
   onCancel: () => void;
+  onDownloadPDF?: () => void;
+  pdfLoading?: boolean;
 }
 
 export function POHeader({
@@ -48,6 +51,8 @@ export function POHeader({
   onReject,
   onIssue,
   onCancel,
+  onDownloadPDF,
+  pdfLoading = false,
 }: POHeaderProps) {
   const advancePaymentStatus = getAdvancePaymentStatus(po);
 
@@ -79,6 +84,16 @@ export function POHeader({
           </Stack>
         </Box>
         <Stack direction="row" spacing={1}>
+          {onDownloadPDF && (
+            <Button
+              variant="outlined"
+              startIcon={<PdfIcon />}
+              onClick={onDownloadPDF}
+              disabled={pdfLoading}
+            >
+              {pdfLoading ? 'Generating...' : 'Download PDF'}
+            </Button>
+          )}
           {canEditPO(po) && (
             <Button variant="outlined" startIcon={<EditIcon />} onClick={onEdit}>
               Edit

@@ -30,6 +30,7 @@ import {
   issuePO,
   updatePOStatus,
 } from '@/lib/procurement/purchaseOrderService';
+import { downloadPOPDF } from '@/lib/procurement/poPDF';
 import { useWorkflowDialogs } from './components/useWorkflowDialogs';
 import { POHeader } from './components/POHeader';
 import { POProgressIndicators } from './components/POProgressIndicators';
@@ -50,6 +51,7 @@ export default function PODetailPage() {
   const [po, setPO] = useState<PurchaseOrder | null>(null);
   const [items, setItems] = useState<PurchaseOrderItem[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [poId, setPoId] = useState<string | null>(null);
 
   const dialogState = useWorkflowDialogs();
@@ -197,6 +199,20 @@ export default function PODetailPage() {
     }
   };
 
+  const handleDownloadPDF = async () => {
+    if (!po) return;
+
+    setPdfLoading(true);
+    try {
+      await downloadPOPDF(po, items);
+    } catch (err) {
+      console.error('[PODetailPage] Error generating PDF:', err);
+      setError('Failed to generate PDF');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -245,6 +261,8 @@ export default function PODetailPage() {
           onReject={() => dialogState.setRejectDialogOpen(true)}
           onIssue={() => dialogState.setIssueDialogOpen(true)}
           onCancel={() => dialogState.setCancelDialogOpen(true)}
+          onDownloadPDF={handleDownloadPDF}
+          pdfLoading={pdfLoading}
         />
 
         {error && <Alert severity="error">{error}</Alert>}

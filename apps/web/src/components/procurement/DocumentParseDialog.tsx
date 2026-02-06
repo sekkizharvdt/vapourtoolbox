@@ -40,7 +40,7 @@ import {
   Description as DescriptionIcon,
   Edit as EditIcon,
 } from '@mui/icons-material';
-import { httpsCallable } from 'firebase/functions';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import { ref, uploadBytes } from 'firebase/storage';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -149,7 +149,8 @@ export default function DocumentParseDialog({
 
     try {
       // Upload file to Firebase Storage
-      const { storage, functions } = getFirebase();
+      const { storage, app } = getFirebase();
+      const functionsAsiaSouth1 = getFunctions(app, 'asia-south1');
       const timestamp = Date.now();
       const storagePath = `parsing/${user.uid}/${timestamp}_${file.name}`;
       const storageRef = ref(storage, storagePath);
@@ -172,7 +173,7 @@ export default function DocumentParseDialog({
           };
         },
         ParseResult
-      >(functions, 'parseDocumentForPR');
+      >(functionsAsiaSouth1, 'parseDocumentForPR');
 
       setProgress(60);
       const result = await parseDocumentFn({
