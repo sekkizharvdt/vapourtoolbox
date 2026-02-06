@@ -1,0 +1,378 @@
+/**
+ * Meeting Service
+ *
+ * CRUD operations for meetings and action items.
+ * Finalization creates ManualTasks from action items via batch write.
+ *
+ * **Required Firestore Composite Indexes:**
+ * - meetings: (entityId, status, date DESC)
+ * - meetingActionItems: (meetingId, createdAt ASC)
+ */
+
+import {
+  collection,
+  doc,
+  addDoc,
+  getDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  writeBatch,
+  Timestamp,
+  type Firestore,
+  type DocumentData,
+  type Unsubscribe,
+} from 'firebase/firestore';
+import { COLLECTIONS } from '@vapour/firebase';
+import type {
+  Meeting,
+  MeetingActionItem,
+  CreateMeetingInput,
+  MeetingActionItemInput,
+  ManualTaskPriority,
+} from '@vapour/types';
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+function docToMeeting(id: string, data: DocumentData): Meeting {
+  return {
+    id,
+    title: data.title,
+    date: data.date,
+    duration: data.duration,
+    location: data.location,
+    createdBy: data.createdBy,
+    createdByName: data.createdByName,
+    attendeeIds: data.attendeeIds || [],
+    attendeeNames: data.attendeeNames || [],
+    agenda: data.agenda,
+    notes: data.notes,
+    status: data.status,
+    finalizedAt: data.finalizedAt,
+    projectId: data.projectId,
+    projectName: data.projectName,
+    entityId: data.entityId,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+  };
+}
+
+function docToActionItem(id: string, data: DocumentData): MeetingActionItem {
+  return {
+    id,
+    meetingId: data.meetingId,
+    description: data.description,
+    action: data.action,
+    assigneeId: data.assigneeId,
+    assigneeName: data.assigneeName,
+    dueDate: data.dueDate,
+    priority: data.priority,
+    generatedTaskId: data.generatedTaskId,
+    createdAt: data.createdAt,
+  };
+}
+
+// ============================================================================
+// MEETING CRUD
+// ============================================================================
+
+/**
+ * Create a new meeting
+ */
+export async function createMeeting(
+  db: Firestore,
+  input: CreateMeetingInput,
+  userId: string,
+  userName: string,
+  entityId: string
+): Promise<Meeting> {
+  const now = Timestamp.now();
+
+  const meetingData: Record<string, unknown> = {
+    title: input.title,
+    date: input.date,
+    ...(input.duration && { duration: input.duration }),
+    ...(input.location && { location: input.location }),
+    createdBy: userId,
+    createdByName: userName,
+    attendeeIds: input.attendeeIds,
+    attendeeNames: input.attendeeNames,
+    ...(input.agenda && { agenda: input.agenda }),
+    ...(input.notes && { notes: input.notes }),
+    status: 'draft',
+    ...(input.projectId && { projectId: input.projectId }),
+    ...(input.projectName && { projectName: input.projectName }),
+    entityId,
+    createdAt: now,
+  };
+
+  const docRef = await addDoc(collection(db, COLLECTIONS.MEETINGS), meetingData);
+
+  return {
+    id: docRef.id,
+    title: input.title,
+    date: input.date,
+    duration: input.duration,
+    location: input.location,
+    createdBy: userId,
+    createdByName: userName,
+    attendeeIds: input.attendeeIds,
+    attendeeNames: input.attendeeNames,
+    agenda: input.agenda,
+    notes: input.notes,
+    status: 'draft',
+    projectId: input.projectId,
+    projectName: input.projectName,
+    entityId,
+    createdAt: now,
+  };
+}
+
+/**
+ * Get a meeting by ID
+ */
+export async function getMeetingById(db: Firestore, meetingId: string): Promise<Meeting | null> {
+  const docRef = doc(db, COLLECTIONS.MEETINGS, meetingId);
+  const docSnap = await getDoc(docRef);
+
+  if (!docSnap.exists()) return null;
+  return docToMeeting(docSnap.id, docSnap.data());
+}
+
+/**
+ * Update a meeting (only while in draft status)
+ */
+export async function updateMeeting(
+  db: Firestore,
+  meetingId: string,
+  updates: Partial<
+    Pick<
+      Meeting,
+      | 'title'
+      | 'date'
+      | 'duration'
+      | 'location'
+      | 'attendeeIds'
+      | 'attendeeNames'
+      | 'agenda'
+      | 'notes'
+      | 'projectId'
+      | 'projectName'
+    >
+  >
+): Promise<void> {
+  const docRef = doc(db, COLLECTIONS.MEETINGS, meetingId);
+  await updateDoc(docRef, {
+    ...updates,
+    updatedAt: Timestamp.now(),
+  });
+}
+
+/**
+ * Delete a draft meeting and its action items
+ */
+export async function deleteMeeting(db: Firestore, meetingId: string): Promise<void> {
+  const batch = writeBatch(db);
+
+  // Delete action items
+  const itemsQuery = query(
+    collection(db, COLLECTIONS.MEETING_ACTION_ITEMS),
+    where('meetingId', '==', meetingId)
+  );
+  const itemsSnapshot = await getDocs(itemsQuery);
+  itemsSnapshot.docs.forEach((d) => batch.delete(d.ref));
+
+  // Delete meeting
+  batch.delete(doc(db, COLLECTIONS.MEETINGS, meetingId));
+
+  await batch.commit();
+}
+
+/**
+ * Subscribe to meetings for the entity (real-time)
+ */
+export function subscribeToMeetings(
+  db: Firestore,
+  entityId: string,
+  callback: (meetings: Meeting[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, COLLECTIONS.MEETINGS),
+    where('entityId', '==', entityId),
+    orderBy('date', 'desc')
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const meetings = snapshot.docs.map((d) => docToMeeting(d.id, d.data()));
+      callback(meetings);
+    },
+    (error) => {
+      console.error('[meetingService] subscribeToMeetings error:', error);
+      onError?.(error);
+    }
+  );
+}
+
+// ============================================================================
+// ACTION ITEMS
+// ============================================================================
+
+/**
+ * Add an action item to a meeting
+ */
+export async function addActionItem(
+  db: Firestore,
+  meetingId: string,
+  input: MeetingActionItemInput
+): Promise<MeetingActionItem> {
+  const now = Timestamp.now();
+
+  const itemData: Record<string, unknown> = {
+    meetingId,
+    description: input.description,
+    action: input.action,
+    assigneeId: input.assigneeId,
+    assigneeName: input.assigneeName,
+    ...(input.dueDate && { dueDate: input.dueDate }),
+    priority: input.priority || 'MEDIUM',
+    createdAt: now,
+  };
+
+  const docRef = await addDoc(collection(db, COLLECTIONS.MEETING_ACTION_ITEMS), itemData);
+
+  return {
+    id: docRef.id,
+    meetingId,
+    description: input.description,
+    action: input.action,
+    assigneeId: input.assigneeId,
+    assigneeName: input.assigneeName,
+    dueDate: input.dueDate,
+    priority: input.priority || 'MEDIUM',
+    createdAt: now,
+  };
+}
+
+/**
+ * Get action items for a meeting
+ */
+export async function getActionItems(
+  db: Firestore,
+  meetingId: string
+): Promise<MeetingActionItem[]> {
+  const q = query(
+    collection(db, COLLECTIONS.MEETING_ACTION_ITEMS),
+    where('meetingId', '==', meetingId),
+    orderBy('createdAt', 'asc')
+  );
+
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => docToActionItem(d.id, d.data()));
+}
+
+/**
+ * Subscribe to action items for a meeting (real-time)
+ */
+export function subscribeToActionItems(
+  db: Firestore,
+  meetingId: string,
+  callback: (items: MeetingActionItem[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, COLLECTIONS.MEETING_ACTION_ITEMS),
+    where('meetingId', '==', meetingId),
+    orderBy('createdAt', 'asc')
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const items = snapshot.docs.map((d) => docToActionItem(d.id, d.data()));
+      callback(items);
+    },
+    (error) => {
+      console.error('[meetingService] subscribeToActionItems error:', error);
+      onError?.(error);
+    }
+  );
+}
+
+/**
+ * Delete an action item
+ */
+export async function deleteActionItem(db: Firestore, itemId: string): Promise<void> {
+  const docRef = doc(db, COLLECTIONS.MEETING_ACTION_ITEMS, itemId);
+  await deleteDoc(docRef);
+}
+
+// ============================================================================
+// FINALIZATION
+// ============================================================================
+
+/**
+ * Finalize a meeting: create ManualTasks from action items in a batch write.
+ * Each action item with an action + assignee becomes a task.
+ * Sets generatedTaskId on the action item and marks meeting as finalized.
+ */
+export async function finalizeMeeting(
+  db: Firestore,
+  meetingId: string,
+  userId: string,
+  userName: string,
+  entityId: string
+): Promise<number> {
+  const now = Timestamp.now();
+  const batch = writeBatch(db);
+
+  // Get action items
+  const items = await getActionItems(db, meetingId);
+  const actionableItems = items.filter((item) => item.action && item.assigneeId);
+
+  // Create tasks from action items
+  actionableItems.forEach((item) => {
+    const taskRef = doc(collection(db, COLLECTIONS.MANUAL_TASKS));
+
+    const taskData: Record<string, unknown> = {
+      title: item.action,
+      ...(item.description && { description: item.description }),
+      createdBy: userId,
+      createdByName: userName,
+      assigneeId: item.assigneeId,
+      assigneeName: item.assigneeName,
+      status: 'todo',
+      priority: item.priority || ('MEDIUM' as ManualTaskPriority),
+      ...(item.dueDate && { dueDate: item.dueDate }),
+      meetingId,
+      entityId,
+      createdAt: now,
+    };
+
+    batch.set(taskRef, taskData);
+
+    // Update action item with generated task ID
+    const itemRef = doc(db, COLLECTIONS.MEETING_ACTION_ITEMS, item.id);
+    batch.update(itemRef, { generatedTaskId: taskRef.id });
+  });
+
+  // Mark meeting as finalized
+  const meetingRef = doc(db, COLLECTIONS.MEETINGS, meetingId);
+  batch.update(meetingRef, {
+    status: 'finalized',
+    finalizedAt: now,
+    updatedAt: now,
+  });
+
+  await batch.commit();
+
+  return actionableItems.length;
+}

@@ -57,7 +57,6 @@ export default function FlowPage() {
           description: 'Record meetings and auto-generate action items as tasks',
           icon: <MeetingsIcon sx={{ fontSize: 48, color: 'warning.main' }} />,
           path: '/flow/meetings',
-          comingSoon: true,
         },
       ],
     },
