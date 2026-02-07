@@ -19,6 +19,8 @@ import type { PurchaseOrder, PurchaseOrderChange, PurchaseOrderAmendment } from 
 import { determineAmendmentType } from './helpers';
 import { getAmendmentHistory } from './queries';
 import { createVersionSnapshot } from './versioning';
+import { PERMISSION_FLAGS } from '@vapour/constants';
+import { requirePermission, preventSelfApproval } from '@/lib/auth/authorizationService';
 
 const logger = createLogger({ context: 'amendmentService' });
 
@@ -181,8 +183,19 @@ export async function approveAmendment(
   userName: string,
   comments?: string,
   ipAddress?: string,
-  userAgent?: string
+  userAgent?: string,
+  userPermissions?: number
 ): Promise<void> {
+  // Authorization check (PR-4)
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+      userId,
+      'approve amendment'
+    );
+  }
+
   try {
     const amendmentRef = doc(db, COLLECTIONS.PURCHASE_ORDER_AMENDMENTS, amendmentId);
     const amendmentDoc = await getDoc(amendmentRef);
@@ -196,6 +209,9 @@ export async function approveAmendment(
     if (amendment.status !== 'PENDING_APPROVAL') {
       throw new Error('Only pending amendments can be approved');
     }
+
+    // Prevent self-approval (PR-6): requester cannot approve their own amendment
+    preventSelfApproval(userId, amendment.requestedBy, 'approve amendment');
 
     // Create version snapshot before applying changes
     await createVersionSnapshot(db, amendment.purchaseOrderId, amendmentId, userId);
@@ -273,8 +289,19 @@ export async function rejectAmendment(
   userName: string,
   reason: string,
   ipAddress?: string,
-  userAgent?: string
+  userAgent?: string,
+  userPermissions?: number
 ): Promise<void> {
+  // Authorization check (PR-4)
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+      userId,
+      'reject amendment'
+    );
+  }
+
   try {
     const amendmentRef = doc(db, COLLECTIONS.PURCHASE_ORDER_AMENDMENTS, amendmentId);
     const amendmentDoc = await getDoc(amendmentRef);

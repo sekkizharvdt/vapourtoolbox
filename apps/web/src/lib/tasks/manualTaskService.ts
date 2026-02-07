@@ -36,6 +36,7 @@ import type {
   CreateManualTaskInput,
   ManualTaskFilters,
 } from '@vapour/types';
+import { AuthorizationError } from '@/lib/auth/authorizationService';
 
 // ============================================================================
 // HELPERS
@@ -283,8 +284,22 @@ export async function updateManualTask(
       | 'projectName'
       | 'tags'
     >
-  >
+  >,
+  userId?: string
 ): Promise<void> {
+  // Authorization check (FL-2): verify caller is task creator or current assignee
+  if (userId) {
+    const task = await getManualTaskById(db, taskId);
+    if (task && task.createdBy !== userId && task.assigneeId !== userId) {
+      throw new AuthorizationError(
+        'Only the task creator or current assignee can update this task',
+        undefined,
+        userId,
+        'update task'
+      );
+    }
+  }
+
   const docRef = doc(db, COLLECTIONS.MANUAL_TASKS, taskId);
   await updateDoc(docRef, {
     ...updates,

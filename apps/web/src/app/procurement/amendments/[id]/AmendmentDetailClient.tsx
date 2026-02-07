@@ -61,7 +61,7 @@ import { formatDate } from '@/lib/utils/formatters';
 export default function AmendmentDetailClient() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -144,7 +144,16 @@ export default function AmendmentDetailClient() {
     setActionLoading(true);
     try {
       const { db } = getFirebase();
-      await approveAmendment(db, amendmentId, user.uid, user.displayName || '', approvalComments);
+      await approveAmendment(
+        db,
+        amendmentId,
+        user.uid,
+        user.displayName || '',
+        approvalComments,
+        undefined,
+        undefined,
+        claims?.permissions || 0
+      );
       setApproveDialogOpen(false);
       setApprovalComments('');
       await loadAmendment();
@@ -162,7 +171,16 @@ export default function AmendmentDetailClient() {
     setActionLoading(true);
     try {
       const { db } = getFirebase();
-      await rejectAmendment(db, amendmentId, user.uid, user.displayName || '', rejectionReason);
+      await rejectAmendment(
+        db,
+        amendmentId,
+        user.uid,
+        user.displayName || '',
+        rejectionReason,
+        undefined,
+        undefined,
+        claims?.permissions || 0
+      );
       setRejectDialogOpen(false);
       setRejectionReason('');
       await loadAmendment();

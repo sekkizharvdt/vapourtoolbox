@@ -35,6 +35,7 @@ import type {
   MeetingActionItemInput,
   ManualTaskPriority,
 } from '@vapour/types';
+import { AuthorizationError } from '@/lib/auth/authorizationService';
 
 // ============================================================================
 // HELPERS
@@ -165,8 +166,22 @@ export async function updateMeeting(
       | 'projectId'
       | 'projectName'
     >
-  >
+  >,
+  userId?: string
 ): Promise<void> {
+  // Authorization check (FL-5): verify caller is meeting creator
+  if (userId) {
+    const meeting = await getMeetingById(db, meetingId);
+    if (meeting && meeting.createdBy !== userId && !meeting.attendeeIds?.includes(userId)) {
+      throw new AuthorizationError(
+        'Only the meeting creator or an attendee can update the meeting',
+        undefined,
+        userId,
+        'update meeting'
+      );
+    }
+  }
+
   const docRef = doc(db, COLLECTIONS.MEETINGS, meetingId);
   await updateDoc(docRef, {
     ...updates,
@@ -177,7 +192,24 @@ export async function updateMeeting(
 /**
  * Delete a draft meeting and its action items
  */
-export async function deleteMeeting(db: Firestore, meetingId: string): Promise<void> {
+export async function deleteMeeting(
+  db: Firestore,
+  meetingId: string,
+  userId?: string
+): Promise<void> {
+  // Authorization check (FL-5): verify caller is meeting creator
+  if (userId) {
+    const meeting = await getMeetingById(db, meetingId);
+    if (meeting && meeting.createdBy !== userId) {
+      throw new AuthorizationError(
+        'Only the meeting creator can delete the meeting',
+        undefined,
+        userId,
+        'delete meeting'
+      );
+    }
+  }
+
   const batch = writeBatch(db);
 
   // Delete action items
@@ -331,6 +363,27 @@ export async function finalizeMeeting(
   userName: string,
   entityId: string
 ): Promise<number> {
+  // Verify meeting exists and is in draft status (FL-11)
+  const meeting = await getMeetingById(db, meetingId);
+  if (!meeting) {
+    throw new Error('Meeting not found');
+  }
+  if (meeting.status !== 'draft') {
+    throw new Error('Meeting has already been finalized');
+  }
+
+  // Authorization check (FL-5): caller must be creator or attendee
+  const isCreator = meeting.createdBy === userId;
+  const isAttendee = meeting.attendeeIds?.includes(userId);
+  if (!isCreator && !isAttendee) {
+    throw new AuthorizationError(
+      'Only the meeting creator or an attendee can finalize the meeting',
+      undefined,
+      userId,
+      'finalize meeting'
+    );
+  }
+
   const now = Timestamp.now();
   const batch = writeBatch(db);
 

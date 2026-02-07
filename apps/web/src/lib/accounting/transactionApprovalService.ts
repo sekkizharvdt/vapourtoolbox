@@ -24,6 +24,8 @@ import {
   completeTaskNotificationsByEntity,
 } from '@/lib/tasks/taskNotificationService';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
+import { PERMISSION_FLAGS } from '@vapour/constants';
+import { requirePermission, preventSelfApproval } from '@/lib/auth/authorizationService';
 
 // Validation constants
 const MAX_COMMENT_LENGTH = 2000;
@@ -137,7 +139,8 @@ export async function submitTransactionForApproval(
   approverName: string,
   userId: string,
   userName: string,
-  comments?: string
+  comments?: string,
+  userPermissions?: number
 ): Promise<void> {
   const config = TRANSACTION_CONFIGS[transactionType];
 
@@ -148,6 +151,16 @@ export async function submitTransactionForApproval(
   validateRequiredId(userId, 'User ID');
   validateUserName(userName, 'User name');
   validateComment(comments);
+
+  // Authorization check
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+      userId,
+      `submit ${config.entityLabelLower} for approval`
+    );
+  }
 
   try {
     const transactionRef = doc(db, COLLECTIONS.TRANSACTIONS, transactionId);
@@ -259,7 +272,8 @@ export async function approveTransaction(
   transactionId: string,
   userId: string,
   userName: string,
-  comments?: string
+  comments?: string,
+  userPermissions?: number
 ): Promise<void> {
   const config = TRANSACTION_CONFIGS[transactionType];
 
@@ -268,6 +282,16 @@ export async function approveTransaction(
   validateRequiredId(userId, 'User ID');
   validateUserName(userName, 'User name');
   validateComment(comments);
+
+  // Authorization check
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+      userId,
+      `approve ${config.entityLabelLower}`
+    );
+  }
 
   try {
     const transactionRef = doc(db, COLLECTIONS.TRANSACTIONS, transactionId);
@@ -283,6 +307,12 @@ export async function approveTransaction(
       throw new Error(
         `Cannot approve ${config.entityLabelLower} with status: ${transaction.status}`
       );
+    }
+
+    // Prevent self-approval (AC-4): creator cannot approve their own transaction
+    const submittedByUserId = transaction.submittedByUserId as string | undefined;
+    if (submittedByUserId) {
+      preventSelfApproval(userId, submittedByUserId, `approve ${config.entityLabelLower}`);
     }
 
     const approvalRecord: TransactionApprovalRecord = {
@@ -385,7 +415,8 @@ export async function rejectTransaction(
   transactionId: string,
   userId: string,
   userName: string,
-  comments: string
+  comments: string,
+  userPermissions?: number
 ): Promise<void> {
   const config = TRANSACTION_CONFIGS[transactionType];
 
@@ -394,6 +425,16 @@ export async function rejectTransaction(
   validateRequiredId(userId, 'User ID');
   validateUserName(userName, 'User name');
   validateComment(comments, true); // Required for rejection
+
+  // Authorization check
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+      userId,
+      `reject ${config.entityLabelLower}`
+    );
+  }
 
   try {
     const transactionRef = doc(db, COLLECTIONS.TRANSACTIONS, transactionId);

@@ -36,6 +36,8 @@ import {
   createBillFromGoodsReceipt,
   createPaymentFromApprovedReceipt,
 } from './accountingIntegration';
+import { PERMISSION_FLAGS } from '@vapour/constants';
+import { requirePermission } from '@/lib/auth/authorizationService';
 
 // ============================================================================
 // CREATE GR
@@ -303,8 +305,19 @@ export async function completeGR(
   grId: string,
   userId: string,
   userEmail: string,
-  userName?: string
+  userName?: string,
+  userPermissions?: number
 ): Promise<void> {
+  // Authorization check (PR-2)
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+      userId,
+      'complete goods receipt'
+    );
+  }
+
   const { db } = getFirebase();
 
   const gr = await getGRById(grId);
@@ -427,8 +440,19 @@ export async function approveGRForPayment(
   bankAccountId: string,
   userId: string,
   userEmail: string,
-  userName?: string
+  userName?: string,
+  userPermissions?: number
 ): Promise<void> {
+  // Authorization check (PR-1): payment approval requires accounting permission
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+      userId,
+      'approve GR for payment'
+    );
+  }
+
   const { db } = getFirebase();
 
   // Atomically approve GR for payment

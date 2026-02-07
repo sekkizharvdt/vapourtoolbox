@@ -135,7 +135,13 @@ export default function GRDetailClient() {
 
     setActionLoading(true);
     try {
-      await completeGR(grId, user.uid, user.email || '');
+      await completeGR(
+        grId,
+        user.uid,
+        user.email || '',
+        user.displayName || '',
+        claims?.permissions || 0
+      );
       setCompleteDialogOpen(false);
       await loadGR();
     } catch (err) {
@@ -198,7 +204,14 @@ export default function GRDetailClient() {
     setActionLoading(true);
     try {
       // Bank account selection can be added in future; using default for now
-      await approveGRForPayment(grId, '', user.uid, user.email || '');
+      await approveGRForPayment(
+        grId,
+        '',
+        user.uid,
+        user.email || '',
+        user.displayName || '',
+        claims?.permissions || 0
+      );
       setPaymentDialogOpen(false);
       await loadGR();
     } catch (err) {

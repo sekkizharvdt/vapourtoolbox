@@ -115,6 +115,7 @@ export default function TrashPage() {
         transactionId: txn.id,
         userId: user?.uid || 'unknown',
         userName: user?.displayName || user?.email || 'Unknown',
+        userPermissions: claims?.permissions || 0,
       });
       if (!result.success) {
         alert(result.error || 'Failed to restore transaction');
@@ -139,6 +140,7 @@ export default function TrashPage() {
         transactionId: txn.id,
         userId: user?.uid || 'unknown',
         userName: user?.displayName || user?.email || 'Unknown',
+        userPermissions: claims?.permissions || 0,
       });
       if (!result.success) {
         alert(result.error || 'Failed to permanently delete transaction');

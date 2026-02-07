@@ -23,6 +23,8 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { TransactionStatus, TransactionType } from '@vapour/types';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
+import { PERMISSION_FLAGS } from '@vapour/constants';
+import { requirePermission } from '@/lib/auth/authorizationService';
 
 const logger = createLogger({ context: 'transactionDeleteService' });
 
@@ -33,6 +35,7 @@ export interface SoftDeleteInput {
   reason: string;
   userId: string;
   userName: string;
+  userPermissions?: number;
 }
 
 export interface SoftDeleteResult {
@@ -45,6 +48,7 @@ export interface RestoreInput {
   transactionId: string;
   userId: string;
   userName: string;
+  userPermissions?: number;
 }
 
 export interface RestoreResult {
@@ -57,6 +61,7 @@ export interface HardDeleteInput {
   transactionId: string;
   userId: string;
   userName: string;
+  userPermissions?: number;
 }
 
 export interface HardDeleteResult {
@@ -102,7 +107,17 @@ export async function softDeleteTransaction(
   db: Firestore,
   input: SoftDeleteInput
 ): Promise<SoftDeleteResult> {
-  const { transactionId, reason, userId, userName } = input;
+  const { transactionId, reason, userId, userName, userPermissions } = input;
+
+  // Authorization check
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+      userId,
+      'delete transaction'
+    );
+  }
 
   try {
     const txnRef = doc(db, COLLECTIONS.TRANSACTIONS, transactionId);
@@ -187,7 +202,17 @@ export async function restoreTransaction(
   db: Firestore,
   input: RestoreInput
 ): Promise<RestoreResult> {
-  const { transactionId, userId, userName } = input;
+  const { transactionId, userId, userName, userPermissions } = input;
+
+  // Authorization check
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+      userId,
+      'restore transaction'
+    );
+  }
 
   try {
     const txnRef = doc(db, COLLECTIONS.TRANSACTIONS, transactionId);
@@ -266,7 +291,17 @@ export async function hardDeleteTransaction(
   db: Firestore,
   input: HardDeleteInput
 ): Promise<HardDeleteResult> {
-  const { transactionId, userId, userName } = input;
+  const { transactionId, userId, userName, userPermissions } = input;
+
+  // Authorization check
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+      userId,
+      'permanently delete transaction'
+    );
+  }
 
   try {
     const txnRef = doc(db, COLLECTIONS.TRANSACTIONS, transactionId);

@@ -248,6 +248,7 @@ export default function BillsPage() {
         reason: 'Moved to trash by user',
         userId: user?.uid || 'unknown',
         userName: user?.displayName || user?.email || 'Unknown',
+        userPermissions: claims?.permissions || 0,
       });
       if (!result.success) {
         alert(result.error || 'Failed to move bill to trash');

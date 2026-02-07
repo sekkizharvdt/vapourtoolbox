@@ -101,6 +101,7 @@ export default function JournalEntriesPage() {
         reason: 'Moved to trash by user',
         userId: user?.uid || 'unknown',
         userName: user?.displayName || user?.email || 'Unknown',
+        userPermissions: claims?.permissions || 0,
       });
       if (!result.success) {
         alert(result.error || 'Failed to move journal entry to trash');

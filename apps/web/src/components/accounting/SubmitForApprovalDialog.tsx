@@ -56,7 +56,7 @@ export function SubmitForApprovalDialog({
   onSuccess,
   showAmountSummary = false,
 }: SubmitForApprovalDialogProps) {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const [approverId, setApproverId] = useState<string | null>(null);
   const [approverName, setApproverName] = useState<string>('');
   const [comments, setComments] = useState('');
@@ -93,7 +93,8 @@ export function SubmitForApprovalDialog({
         approverName,
         user.uid,
         userName,
-        comments || undefined
+        comments || undefined,
+        claims?.permissions || 0
       );
 
       // Reset form

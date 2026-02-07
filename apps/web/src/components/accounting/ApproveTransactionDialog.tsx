@@ -58,7 +58,7 @@ export function ApproveTransactionDialog({
   transactionType,
   onSuccess,
 }: ApproveTransactionDialogProps) {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const [comments, setComments] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -90,7 +90,8 @@ export function ApproveTransactionDialog({
         transaction.id,
         user.uid,
         userName,
-        comments || undefined
+        comments || undefined,
+        claims?.permissions || 0
       );
 
       // Reset form
@@ -123,7 +124,15 @@ export function ApproveTransactionDialog({
       const { db } = getFirebase();
       const userName = user.displayName || user.email || 'Unknown';
 
-      await rejectTransaction(db, transactionType, transaction.id, user.uid, userName, comments);
+      await rejectTransaction(
+        db,
+        transactionType,
+        transaction.id,
+        user.uid,
+        userName,
+        comments,
+        claims?.permissions || 0
+      );
 
       // Reset form
       setComments('');
