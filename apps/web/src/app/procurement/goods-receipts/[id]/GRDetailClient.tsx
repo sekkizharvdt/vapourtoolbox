@@ -318,7 +318,7 @@ export default function GRDetailClient() {
                   Send to Accounting
                 </Button>
               )}
-              {gr.sentToAccountingAt && !gr.paymentRequestId && !isAccountingUser && (
+              {gr.sentToAccountingAt && !gr.paymentRequestId && (
                 <Chip
                   label={`Sent to Accounting — ${gr.accountingAssigneeName || 'Pending'}`}
                   color="info"

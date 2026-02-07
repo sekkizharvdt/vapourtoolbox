@@ -342,28 +342,46 @@ export async function sendGRToAccounting(
 ): Promise<string> {
   // Update GR with sent-to-accounting fields
   const grRef = doc(db, COLLECTIONS.GOODS_RECEIPTS, goodsReceipt.id);
+  const sentAt = Timestamp.now();
   await updateDoc(grRef, {
-    sentToAccountingAt: Timestamp.now(),
+    sentToAccountingAt: sentAt,
     accountingAssigneeId: accountingUserId,
     accountingAssigneeName: accountingUserName,
+    sentToAccountingByName: currentUserName,
     updatedAt: Timestamp.now(),
   });
 
   // Create actionable task notification for accounting user
-  const notificationId = await createTaskNotification({
-    type: 'actionable',
-    category: 'GR_BILL_REQUIRED',
-    userId: accountingUserId,
-    assignedBy: currentUserId,
-    assignedByName: currentUserName,
-    title: `Create Bill for ${goodsReceipt.number}`,
-    message: `Goods receipt ${goodsReceipt.number} (PO: ${goodsReceipt.poNumber}) is completed and requires a vendor bill. Project: ${goodsReceipt.projectName}`,
-    entityType: 'GOODS_RECEIPT',
-    entityId: goodsReceipt.id,
-    linkUrl: '/accounting/grn-bills',
-    priority: 'HIGH',
-    autoCompletable: true,
-  });
+  // If notification fails, roll back the GR update to avoid orphaned state
+  let notificationId: string;
+  try {
+    notificationId = await createTaskNotification({
+      type: 'actionable',
+      category: 'GR_BILL_REQUIRED',
+      userId: accountingUserId,
+      assignedBy: currentUserId,
+      assignedByName: currentUserName,
+      title: `Create Bill for ${goodsReceipt.number}`,
+      message: `Goods receipt ${goodsReceipt.number} (PO: ${goodsReceipt.poNumber}) is completed and requires a vendor bill. Project: ${goodsReceipt.projectName}`,
+      entityType: 'GOODS_RECEIPT',
+      entityId: goodsReceipt.id,
+      projectId: goodsReceipt.projectId,
+      linkUrl: '/accounting/grn-bills',
+      priority: 'HIGH',
+      autoCompletable: true,
+    });
+  } catch (notifError) {
+    // Roll back the GR update so user can retry
+    logger.error('Failed to create notification, rolling back GR update', { notifError });
+    await updateDoc(grRef, {
+      sentToAccountingAt: null,
+      accountingAssigneeId: null,
+      accountingAssigneeName: null,
+      sentToAccountingByName: null,
+      updatedAt: Timestamp.now(),
+    });
+    throw notifError;
+  }
 
   logger.info('Sent GR to accounting for bill creation', {
     goodsReceiptId: goodsReceipt.id,
@@ -375,10 +393,20 @@ export async function sendGRToAccounting(
 }
 
 /**
- * Get all completed GRNs that are pending bill creation.
- * Used by the accounting GRN Bills page.
+ * GRN with denormalized PO data for the accounting GRN Bills page.
  */
-export async function getGRNsPendingBilling(db: Firestore): Promise<GoodsReceipt[]> {
+export interface GRNPendingBill {
+  gr: GoodsReceipt;
+  vendorName: string;
+  poTotalAmount: number;
+  currency: string;
+}
+
+/**
+ * Get all completed GRNs that are pending bill creation,
+ * enriched with vendor and amount data from the PO.
+ */
+export async function getGRNsPendingBilling(db: Firestore): Promise<GRNPendingBill[]> {
   const q = query(
     collection(db, COLLECTIONS.GOODS_RECEIPTS),
     where('status', '==', 'COMPLETED'),
@@ -386,9 +414,35 @@ export async function getGRNsPendingBilling(db: Firestore): Promise<GoodsReceipt
   );
 
   const snapshot = await getDocs(q);
-  return snapshot.docs
+  const grs = snapshot.docs
     .map((d) => docToTyped<GoodsReceipt>(d.id, d.data()))
     .filter((gr) => !gr.paymentRequestId); // Exclude GRs that already have bills
+
+  if (grs.length === 0) return [];
+
+  // Batch-fetch PO docs for vendor name and amount
+  const uniquePOIds = [...new Set(grs.map((gr) => gr.purchaseOrderId))];
+  const poMap = new Map<string, PurchaseOrder>();
+
+  // Firestore getDoc in parallel (no in-query needed since PO IDs are unique)
+  const poDocs = await Promise.all(
+    uniquePOIds.map((poId) => getDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId)))
+  );
+  for (const poDoc of poDocs) {
+    if (poDoc.exists()) {
+      poMap.set(poDoc.id, docToTyped<PurchaseOrder>(poDoc.id, poDoc.data()));
+    }
+  }
+
+  return grs.map((gr) => {
+    const po = poMap.get(gr.purchaseOrderId);
+    return {
+      gr,
+      vendorName: po?.vendorName || '—',
+      poTotalAmount: po?.grandTotal || 0,
+      currency: po?.currency || 'INR',
+    };
+  });
 }
 
 /**

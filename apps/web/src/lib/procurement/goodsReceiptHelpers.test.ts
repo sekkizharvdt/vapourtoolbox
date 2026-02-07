@@ -254,12 +254,26 @@ describe('goodsReceiptHelpers', () => {
       expect(actions.canApprovePayment).toBe(true);
     });
 
-    it('can create bill when COMPLETED without bill', () => {
-      const gr = createMockGR({ status: 'COMPLETED', approvedForPayment: false });
+    it('can create bill when COMPLETED, sent to accounting, without bill', () => {
+      const gr = createMockGR({
+        status: 'COMPLETED',
+        approvedForPayment: false,
+        sentToAccountingAt: {
+          seconds: Date.now() / 1000,
+          nanoseconds: 0,
+        } as unknown as GoodsReceipt['sentToAccountingAt'],
+      });
       const actions = getGRAvailableActions(gr);
 
       expect(actions.canCreateBill).toBe(true);
       expect(actions.canApprovePayment).toBe(false);
+    });
+
+    it('cannot create bill when COMPLETED but not sent to accounting', () => {
+      const gr = createMockGR({ status: 'COMPLETED', approvedForPayment: false });
+      const actions = getGRAvailableActions(gr);
+
+      expect(actions.canCreateBill).toBe(false);
     });
 
     it('cannot approve payment when already approved', () => {

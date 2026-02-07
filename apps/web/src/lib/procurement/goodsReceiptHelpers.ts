@@ -133,7 +133,7 @@ export function getGRAvailableActions(gr: GoodsReceipt): {
 } {
   return {
     canComplete: gr.status === 'IN_PROGRESS',
-    canCreateBill: gr.status === 'COMPLETED' && !gr.paymentRequestId,
+    canCreateBill: gr.status === 'COMPLETED' && !gr.paymentRequestId && !!gr.sentToAccountingAt,
     canSendToAccounting:
       gr.status === 'COMPLETED' && !gr.paymentRequestId && !gr.sentToAccountingAt,
     canApprovePayment: gr.status === 'COMPLETED' && !gr.approvedForPayment && !!gr.paymentRequestId,

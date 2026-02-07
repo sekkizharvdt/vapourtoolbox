@@ -25,6 +25,10 @@ import {
   Breadcrumbs,
   Link,
   Stack,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Home as HomeIcon,
@@ -38,8 +42,8 @@ import { getFirebase } from '@/lib/firebase';
 import {
   getGRNsPendingBilling,
   createBillFromGoodsReceipt,
+  type GRNPendingBill,
 } from '@/lib/procurement/accountingIntegration';
-import type { GoodsReceipt } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
 
 export default function GRNBillsPage() {
@@ -48,9 +52,10 @@ export default function GRNBillsPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [pendingGRs, setPendingGRs] = useState<GoodsReceipt[]>([]);
+  const [pendingGRs, setPendingGRs] = useState<GRNPendingBill[]>([]);
   const [creatingBillFor, setCreatingBillFor] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [confirmGR, setConfirmGR] = useState<GRNPendingBill | null>(null);
 
   useEffect(() => {
     loadPendingGRs();
@@ -71,26 +76,34 @@ export default function GRNBillsPage() {
     }
   };
 
-  const handleCreateBill = async (gr: GoodsReceipt) => {
+  const handleCreateBill = async (item: GRNPendingBill) => {
     if (!user) return;
 
-    setCreatingBillFor(gr.id);
+    setConfirmGR(null);
+    setCreatingBillFor(item.gr.id);
     setError('');
     setSuccessMessage('');
     try {
       const { db } = getFirebase();
-      const billId = await createBillFromGoodsReceipt(db, gr, user.uid, user.email || '');
-      setSuccessMessage(`Bill created successfully for ${gr.number} (ID: ${billId})`);
-      // Remove the GR from the list
-      setPendingGRs((prev) => prev.filter((g) => g.id !== gr.id));
+      const billId = await createBillFromGoodsReceipt(db, item.gr, user.uid, user.email || '');
+      setSuccessMessage(`Bill created successfully for ${item.gr.number} (ID: ${billId})`);
+      setPendingGRs((prev) => prev.filter((g) => g.gr.id !== item.gr.id));
     } catch (err) {
       console.error('[GRNBillsPage] Error creating bill:', err);
       setError(
-        `Failed to create bill for ${gr.number}. Please check system accounts are configured in Chart of Accounts.`
+        `Failed to create bill for ${item.gr.number}. Please check system accounts are configured in Chart of Accounts.`
       );
     } finally {
       setCreatingBillFor(null);
     }
+  };
+
+  const formatAmount = (amount: number, currency: string) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(amount);
   };
 
   return (
@@ -158,22 +171,24 @@ export default function GRNBillsPage() {
                   <TableRow>
                     <TableCell>GR Number</TableCell>
                     <TableCell>PO Number</TableCell>
+                    <TableCell>Vendor</TableCell>
                     <TableCell>Project</TableCell>
+                    <TableCell align="right">PO Amount</TableCell>
                     <TableCell>Condition</TableCell>
-                    <TableCell>Sent By</TableCell>
+                    <TableCell>Assigned To</TableCell>
                     <TableCell>Date Sent</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {pendingGRs.map((gr) => (
-                    <TableRow key={gr.id}>
+                  {pendingGRs.map((item) => (
+                    <TableRow key={item.gr.id}>
                       <TableCell>
                         <Link
-                          href={`/procurement/goods-receipts/${gr.id}`}
+                          href={`/procurement/goods-receipts/${item.gr.id}`}
                           onClick={(e: React.MouseEvent) => {
                             e.preventDefault();
-                            router.push(`/procurement/goods-receipts/${gr.id}`);
+                            router.push(`/procurement/goods-receipts/${item.gr.id}`);
                           }}
                           sx={{
                             cursor: 'pointer',
@@ -182,39 +197,43 @@ export default function GRNBillsPage() {
                             gap: 0.5,
                           }}
                         >
-                          {gr.number}
+                          {item.gr.number}
                           <OpenInNewIcon fontSize="small" sx={{ fontSize: 14 }} />
                         </Link>
                       </TableCell>
-                      <TableCell>{gr.poNumber}</TableCell>
-                      <TableCell>{gr.projectName}</TableCell>
+                      <TableCell>{item.gr.poNumber}</TableCell>
+                      <TableCell>{item.vendorName}</TableCell>
+                      <TableCell>{item.gr.projectName}</TableCell>
+                      <TableCell align="right">
+                        {formatAmount(item.poTotalAmount, item.currency)}
+                      </TableCell>
                       <TableCell>
                         <Chip
-                          label={gr.overallCondition.replace('_', ' ')}
+                          label={item.gr.overallCondition.replace('_', ' ')}
                           color={
-                            gr.overallCondition === 'ACCEPTED'
+                            item.gr.overallCondition === 'ACCEPTED'
                               ? 'success'
-                              : gr.overallCondition === 'CONDITIONALLY_ACCEPTED'
+                              : item.gr.overallCondition === 'CONDITIONALLY_ACCEPTED'
                                 ? 'warning'
                                 : 'error'
                           }
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>{gr.accountingAssigneeName || '—'}</TableCell>
-                      <TableCell>{formatDate(gr.sentToAccountingAt)}</TableCell>
+                      <TableCell>{item.gr.accountingAssigneeName || '—'}</TableCell>
+                      <TableCell>{formatDate(item.gr.sentToAccountingAt)}</TableCell>
                       <TableCell align="right">
                         <Button
                           variant="contained"
                           size="small"
                           startIcon={
-                            creatingBillFor === gr.id ? (
+                            creatingBillFor === item.gr.id ? (
                               <CircularProgress size={16} />
                             ) : (
                               <ReceiptIcon />
                             )
                           }
-                          onClick={() => handleCreateBill(gr)}
+                          onClick={() => setConfirmGR(item)}
                           disabled={creatingBillFor !== null}
                         >
                           Create Bill
@@ -228,6 +247,39 @@ export default function GRNBillsPage() {
           </Paper>
         )}
       </Stack>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={!!confirmGR} onClose={() => setConfirmGR(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create Vendor Bill</DialogTitle>
+        <DialogContent>
+          {confirmGR && (
+            <Stack spacing={1} sx={{ mt: 1 }}>
+              <Typography>This will create a vendor bill with GL entries for:</Typography>
+              <Typography variant="body2" color="text.secondary">
+                GR: {confirmGR.gr.number} &bull; PO: {confirmGR.gr.poNumber}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Vendor: {confirmGR.vendorName} &bull; Amount:{' '}
+                {formatAmount(confirmGR.poTotalAmount, confirmGR.currency)}
+              </Typography>
+              <Alert severity="info" sx={{ mt: 1 }}>
+                The bill amount will be calculated based on accepted quantities in the goods
+                receipt, which may differ from the PO total shown above.
+              </Alert>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmGR(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            startIcon={<ReceiptIcon />}
+            onClick={() => confirmGR && handleCreateBill(confirmGR)}
+          >
+            Create Bill
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
