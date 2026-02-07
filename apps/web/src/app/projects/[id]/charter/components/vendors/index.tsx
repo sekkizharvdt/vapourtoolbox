@@ -50,8 +50,8 @@ export function VendorsTab({ project }: VendorsTabProps) {
       const entitiesRef = collection(db, COLLECTIONS.ENTITIES);
       const q = query(
         entitiesRef,
-        where('entityType', '==', 'VENDOR'),
-        where('status', '==', 'ACTIVE')
+        where('roles', 'array-contains', 'VENDOR'),
+        where('isActive', '==', true)
       );
       const snapshot = await getDocs(q);
       const entities = snapshot.docs.map((doc) => ({

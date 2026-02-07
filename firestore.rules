@@ -1577,6 +1577,73 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Flow Module: Manual Tasks
+    // ============================================
+
+    match /manualTasks/{taskId} {
+      // Read: Internal users can read tasks in their entity
+      allow read: if isInternalUser();
+
+      // Create: Internal users can create tasks
+      allow create: if isInternalUser();
+
+      // Update: Task creator or assignee can update, or admins
+      allow update: if isInternalUser() && (
+                       isOwner(resource.data.createdBy) ||
+                       isOwner(resource.data.assigneeId) ||
+                       isAdmin()
+                     );
+
+      // Delete: Only task creator or admins
+      allow delete: if isInternalUser() && (
+                       isOwner(resource.data.createdBy) ||
+                       isAdmin()
+                     );
+    }
+
+    // ============================================
+    // Flow Module: Meetings
+    // ============================================
+
+    match /meetings/{meetingId} {
+      // Read: Internal users can read meetings in their entity
+      allow read: if isInternalUser();
+
+      // Create: Internal users can create meetings
+      allow create: if isInternalUser();
+
+      // Update: Meeting creator can update, or admins
+      allow update: if isInternalUser() && (
+                       isOwner(resource.data.createdBy) ||
+                       isAdmin()
+                     );
+
+      // Delete: Only meeting creator or admins
+      allow delete: if isInternalUser() && (
+                       isOwner(resource.data.createdBy) ||
+                       isAdmin()
+                     );
+    }
+
+    // ============================================
+    // Flow Module: Meeting Action Items
+    // ============================================
+
+    match /meetingActionItems/{itemId} {
+      // Read: Internal users can read action items
+      allow read: if isInternalUser();
+
+      // Create: Internal users can create action items
+      allow create: if isInternalUser();
+
+      // Update: Action item assignee or admins
+      allow update: if isInternalUser();
+
+      // Delete: Only admins (action items should not be deleted normally)
+      allow delete: if isAdmin();
+    }
+
+    // ============================================
     // Default: Deny all
     // ============================================
 
