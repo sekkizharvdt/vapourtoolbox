@@ -214,7 +214,7 @@ describe('AuthContext', () => {
       });
 
       expect(result.current.user).toBe(mockUser);
-      expect(result.current.claims).toEqual(mockClaims);
+      expect(result.current.claims).toMatchObject(mockClaims);
     });
 
     it('should sign out user with invalid claims (missing domain)', async () => {
@@ -412,7 +412,7 @@ describe('AuthContext', () => {
 
       // Should still set user with cached token
       expect(result.current.user).toBe(mockUser);
-      expect(result.current.claims).toEqual(mockClaims);
+      expect(result.current.claims).toMatchObject(mockClaims);
     });
   });
 

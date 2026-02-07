@@ -16,7 +16,8 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import { PermissionFlag, type MatchDiscrepancy } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
+import type { MatchDiscrepancy } from '@vapour/types';
 import { requireAnyPermission, type AuthorizationContext } from '@/lib/auth/authorizationService';
 
 const logger = createLogger({ context: 'threeWayMatchService' });
@@ -69,7 +70,7 @@ export async function resolveDiscrepancy(
   if (auth) {
     requireAnyPermission(
       auth.userPermissions,
-      [PermissionFlag.CREATE_PO, PermissionFlag.APPROVE_PO],
+      [PERMISSION_FLAGS.MANAGE_PROCUREMENT],
       auth.userId,
       'resolve match discrepancy'
     );

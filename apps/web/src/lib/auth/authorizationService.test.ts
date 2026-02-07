@@ -5,7 +5,7 @@
  * ownership checks, and self-approval prevention.
  */
 
-import { PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 
 // Mock Firebase before imports
 jest.mock('@vapour/firebase', () => ({
@@ -56,14 +56,14 @@ describe('authorizationService', () => {
     it('has correct name and properties', () => {
       const error = new AuthorizationError(
         'Permission denied',
-        PermissionFlag.MANAGE_USERS,
+        PERMISSION_FLAGS.MANAGE_USERS,
         'user-1',
         'create user'
       );
 
       expect(error.name).toBe('AuthorizationError');
       expect(error.message).toBe('Permission denied');
-      expect(error.requiredPermission).toBe(PermissionFlag.MANAGE_USERS);
+      expect(error.requiredPermission).toBe(PERMISSION_FLAGS.MANAGE_USERS);
       expect(error.userId).toBe('user-1');
       expect(error.operation).toBe('create user');
       expect(error instanceof Error).toBe(true);
@@ -81,11 +81,15 @@ describe('authorizationService', () => {
     it('returns permissions for existing user', async () => {
       mockGetDoc.mockResolvedValue({
         exists: () => true,
-        data: () => ({ permissions: 2048 | 4096 }), // CREATE_TRANSACTIONS | APPROVE_TRANSACTIONS
+        data: () => ({
+          permissions: PERMISSION_FLAGS.MANAGE_ACCOUNTING | PERMISSION_FLAGS.MANAGE_ESTIMATION,
+        }),
       });
 
       const permissions = await getUserPermissions(mockDb, 'user-1');
-      expect(permissions).toBe(2048 | 4096);
+      expect(permissions).toBe(
+        PERMISSION_FLAGS.MANAGE_ACCOUNTING | PERMISSION_FLAGS.MANAGE_ESTIMATION
+      );
     });
 
     it('throws AuthorizationError when user not found', async () => {
@@ -124,12 +128,12 @@ describe('authorizationService', () => {
 
   describe('requirePermission', () => {
     it('does not throw when user has the permission', () => {
-      const permissions = PermissionFlag.CREATE_TRANSACTIONS | PermissionFlag.APPROVE_TRANSACTIONS;
+      const permissions = PERMISSION_FLAGS.MANAGE_ACCOUNTING | PERMISSION_FLAGS.MANAGE_ESTIMATION;
 
       expect(() => {
         requirePermission(
           permissions,
-          PermissionFlag.CREATE_TRANSACTIONS,
+          PERMISSION_FLAGS.MANAGE_ACCOUNTING,
           'user-1',
           'create invoice'
         );
@@ -137,12 +141,12 @@ describe('authorizationService', () => {
     });
 
     it('throws AuthorizationError when permission is missing', () => {
-      const permissions = PermissionFlag.CREATE_TRANSACTIONS; // only CREATE, not APPROVE
+      const permissions = PERMISSION_FLAGS.MANAGE_ACCOUNTING; // only CREATE, not APPROVE
 
       expect(() => {
         requirePermission(
           permissions,
-          PermissionFlag.APPROVE_TRANSACTIONS,
+          PERMISSION_FLAGS.MANAGE_ESTIMATION,
           'user-1',
           'approve invoice'
         );
@@ -151,31 +155,31 @@ describe('authorizationService', () => {
 
     it('includes operation name in error message', () => {
       expect(() => {
-        requirePermission(0, PermissionFlag.MANAGE_USERS, 'user-1', 'manage users');
+        requirePermission(0, PERMISSION_FLAGS.MANAGE_USERS, 'user-1', 'manage users');
       }).toThrow('manage users requires MANAGE_USERS');
     });
 
     it('works without operation name', () => {
       expect(() => {
-        requirePermission(0, PermissionFlag.MANAGE_USERS, 'user-1');
+        requirePermission(0, PERMISSION_FLAGS.MANAGE_USERS, 'user-1');
       }).toThrow('requires MANAGE_USERS');
     });
 
     it('throws when permissions is 0', () => {
       expect(() => {
-        requirePermission(0, PermissionFlag.CREATE_TRANSACTIONS, 'user-1');
+        requirePermission(0, PERMISSION_FLAGS.MANAGE_ACCOUNTING, 'user-1');
       }).toThrow(AuthorizationError);
     });
   });
 
   describe('requireAnyPermission', () => {
     it('does not throw when user has one of the permissions', () => {
-      const permissions = PermissionFlag.CREATE_TRANSACTIONS;
+      const permissions = PERMISSION_FLAGS.MANAGE_ACCOUNTING;
 
       expect(() => {
         requireAnyPermission(
           permissions,
-          [PermissionFlag.CREATE_TRANSACTIONS, PermissionFlag.APPROVE_TRANSACTIONS],
+          [PERMISSION_FLAGS.MANAGE_ACCOUNTING, PERMISSION_FLAGS.MANAGE_ESTIMATION],
           'user-1',
           'transaction operation'
         );
@@ -183,12 +187,12 @@ describe('authorizationService', () => {
     });
 
     it('throws when user has none of the permissions', () => {
-      const permissions = PermissionFlag.MANAGE_ENTITIES; // unrelated permission
+      const permissions = PERMISSION_FLAGS.EDIT_ENTITIES; // unrelated permission
 
       expect(() => {
         requireAnyPermission(
           permissions,
-          [PermissionFlag.CREATE_TRANSACTIONS, PermissionFlag.APPROVE_TRANSACTIONS],
+          [PERMISSION_FLAGS.MANAGE_ACCOUNTING, PERMISSION_FLAGS.MANAGE_ESTIMATION],
           'user-1',
           'transaction operation'
         );
@@ -199,20 +203,20 @@ describe('authorizationService', () => {
       try {
         requireAnyPermission(
           0,
-          [PermissionFlag.CREATE_TRANSACTIONS, PermissionFlag.APPROVE_TRANSACTIONS],
+          [PERMISSION_FLAGS.MANAGE_ACCOUNTING, PERMISSION_FLAGS.MANAGE_ESTIMATION],
           'user-1',
           'test op'
         );
         fail('Should have thrown');
       } catch (error) {
-        expect((error as AuthorizationError).message).toContain('CREATE_TRANSACTIONS');
-        expect((error as AuthorizationError).message).toContain('APPROVE_TRANSACTIONS');
+        expect((error as AuthorizationError).message).toContain('MANAGE_ACCOUNTING');
+        expect((error as AuthorizationError).message).toContain('MANAGE_ESTIMATION');
       }
     });
 
     it('works without operation name', () => {
       expect(() => {
-        requireAnyPermission(0, [PermissionFlag.MANAGE_USERS], 'user-1');
+        requireAnyPermission(0, [PERMISSION_FLAGS.MANAGE_USERS], 'user-1');
       }).toThrow('requires one of: MANAGE_USERS');
     });
   });
@@ -250,7 +254,7 @@ describe('authorizationService', () => {
           'user-1',
           'user-1',
           0, // no permissions needed if owner
-          PermissionFlag.MANAGE_USERS,
+          PERMISSION_FLAGS.MANAGE_USERS,
           'edit profile'
         );
       }).not.toThrow();
@@ -261,8 +265,8 @@ describe('authorizationService', () => {
         requireOwnerOrPermission(
           'user-2',
           'user-1',
-          PermissionFlag.MANAGE_USERS,
-          PermissionFlag.MANAGE_USERS,
+          PERMISSION_FLAGS.MANAGE_USERS,
+          PERMISSION_FLAGS.MANAGE_USERS,
           'edit profile'
         );
       }).not.toThrow();
@@ -274,7 +278,7 @@ describe('authorizationService', () => {
           'user-2',
           'user-1',
           0,
-          PermissionFlag.MANAGE_USERS,
+          PERMISSION_FLAGS.MANAGE_USERS,
           'edit profile'
         );
       }).toThrow(AuthorizationError);
@@ -282,13 +286,13 @@ describe('authorizationService', () => {
 
     it('includes ownership info in error message', () => {
       expect(() => {
-        requireOwnerOrPermission('user-2', 'user-1', 0, PermissionFlag.MANAGE_USERS, 'edit');
+        requireOwnerOrPermission('user-2', 'user-1', 0, PERMISSION_FLAGS.MANAGE_USERS, 'edit');
       }).toThrow('ownership or MANAGE_USERS');
     });
 
     it('works without operation name', () => {
       expect(() => {
-        requireOwnerOrPermission('user-2', 'user-1', 0, PermissionFlag.MANAGE_USERS);
+        requireOwnerOrPermission('user-2', 'user-1', 0, PERMISSION_FLAGS.MANAGE_USERS);
       }).toThrow('Must be owner or have MANAGE_USERS permission');
     });
   });
@@ -315,54 +319,54 @@ describe('authorizationService', () => {
 
   describe('checkPermission', () => {
     it('returns true when permission is granted', () => {
-      const permissions = PermissionFlag.CREATE_TRANSACTIONS | PermissionFlag.APPROVE_TRANSACTIONS;
-      expect(checkPermission(permissions, PermissionFlag.CREATE_TRANSACTIONS)).toBe(true);
+      const permissions = PERMISSION_FLAGS.MANAGE_ACCOUNTING | PERMISSION_FLAGS.MANAGE_ESTIMATION;
+      expect(checkPermission(permissions, PERMISSION_FLAGS.MANAGE_ACCOUNTING)).toBe(true);
     });
 
     it('returns false when permission is not granted', () => {
-      const permissions = PermissionFlag.CREATE_TRANSACTIONS;
-      expect(checkPermission(permissions, PermissionFlag.APPROVE_TRANSACTIONS)).toBe(false);
+      const permissions = PERMISSION_FLAGS.MANAGE_ACCOUNTING;
+      expect(checkPermission(permissions, PERMISSION_FLAGS.MANAGE_ESTIMATION)).toBe(false);
     });
 
     it('returns false for zero permissions', () => {
-      expect(checkPermission(0, PermissionFlag.MANAGE_USERS)).toBe(false);
+      expect(checkPermission(0, PERMISSION_FLAGS.MANAGE_USERS)).toBe(false);
     });
   });
 
   describe('canPerformOperation', () => {
     it('returns true when required permission is granted', () => {
-      const ctx = createAuthContext('user-1', PermissionFlag.CREATE_TRANSACTIONS);
+      const ctx = createAuthContext('user-1', PERMISSION_FLAGS.MANAGE_ACCOUNTING);
       expect(
-        canPerformOperation(ctx, { requiredPermission: PermissionFlag.CREATE_TRANSACTIONS })
+        canPerformOperation(ctx, { requiredPermission: PERMISSION_FLAGS.MANAGE_ACCOUNTING })
       ).toBe(true);
     });
 
     it('returns false when required permission is missing', () => {
       const ctx = createAuthContext('user-1', 0);
       expect(
-        canPerformOperation(ctx, { requiredPermission: PermissionFlag.CREATE_TRANSACTIONS })
+        canPerformOperation(ctx, { requiredPermission: PERMISSION_FLAGS.MANAGE_ACCOUNTING })
       ).toBe(false);
     });
 
     it('returns true when any of required permissions is granted', () => {
-      const ctx = createAuthContext('user-1', PermissionFlag.APPROVE_TRANSACTIONS);
+      const ctx = createAuthContext('user-1', PERMISSION_FLAGS.MANAGE_ESTIMATION);
       expect(
         canPerformOperation(ctx, {
           requiredAnyPermission: [
-            PermissionFlag.CREATE_TRANSACTIONS,
-            PermissionFlag.APPROVE_TRANSACTIONS,
+            PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+            PERMISSION_FLAGS.MANAGE_ESTIMATION,
           ],
         })
       ).toBe(true);
     });
 
     it('returns false when none of required permissions is granted', () => {
-      const ctx = createAuthContext('user-1', PermissionFlag.MANAGE_ENTITIES);
+      const ctx = createAuthContext('user-1', PERMISSION_FLAGS.EDIT_ENTITIES);
       expect(
         canPerformOperation(ctx, {
           requiredAnyPermission: [
-            PermissionFlag.CREATE_TRANSACTIONS,
-            PermissionFlag.APPROVE_TRANSACTIONS,
+            PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+            PERMISSION_FLAGS.MANAGE_ESTIMATION,
           ],
         })
       ).toBe(false);
@@ -386,13 +390,13 @@ describe('authorizationService', () => {
     it('checks all conditions together', () => {
       const ctx = createAuthContext(
         'user-1',
-        PermissionFlag.CREATE_TRANSACTIONS | PermissionFlag.APPROVE_TRANSACTIONS
+        PERMISSION_FLAGS.MANAGE_ACCOUNTING | PERMISSION_FLAGS.MANAGE_ESTIMATION
       );
 
       // All conditions met
       expect(
         canPerformOperation(ctx, {
-          requiredPermission: PermissionFlag.CREATE_TRANSACTIONS,
+          requiredPermission: PERMISSION_FLAGS.MANAGE_ACCOUNTING,
           approverIds: ['user-1'],
         })
       ).toBe(true);
@@ -400,7 +404,7 @@ describe('authorizationService', () => {
       // Permission met but not in approver list
       expect(
         canPerformOperation(ctx, {
-          requiredPermission: PermissionFlag.CREATE_TRANSACTIONS,
+          requiredPermission: PERMISSION_FLAGS.MANAGE_ACCOUNTING,
           approverIds: ['user-2'],
         })
       ).toBe(false);

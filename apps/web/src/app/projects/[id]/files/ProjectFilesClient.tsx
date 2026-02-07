@@ -12,7 +12,7 @@ import { usePathname } from 'next/navigation';
 import { Container, Box, Typography, Alert } from '@mui/material';
 import { PageHeader, LoadingState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
-import { hasAnyPermission, PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS, hasAnyPermission } from '@vapour/constants';
 import { DocumentBrowser, UploadDocumentDialog } from '@/components/documents/browser';
 import { getFirebase } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -37,8 +37,8 @@ export default function ProjectFilesClient() {
   const hasViewAccess = claims?.permissions
     ? hasAnyPermission(
         claims.permissions,
-        PermissionFlag.VIEW_ALL_PROJECTS,
-        PermissionFlag.ASSIGN_PROJECTS
+        PERMISSION_FLAGS.VIEW_PROJECTS,
+        PERMISSION_FLAGS.MANAGE_PROJECTS
       )
     : false;
 

@@ -15,7 +15,8 @@ import {
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
-import { PermissionFlag, type ThreeWayMatch } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
+import type { ThreeWayMatch } from '@vapour/types';
 import { requirePermission, type AuthorizationContext } from '@/lib/auth/authorizationService';
 
 const logger = createLogger({ context: 'threeWayMatchService' });
@@ -43,7 +44,7 @@ export async function approveMatch(
   if (auth) {
     requirePermission(
       auth.userPermissions,
-      PermissionFlag.APPROVE_PO,
+      PERMISSION_FLAGS.MANAGE_PROCUREMENT,
       auth.userId,
       'approve three-way match'
     );
@@ -143,7 +144,7 @@ export async function rejectMatch(
   if (auth) {
     requirePermission(
       auth.userPermissions,
-      PermissionFlag.APPROVE_PO,
+      PERMISSION_FLAGS.MANAGE_PROCUREMENT,
       auth.userId,
       'reject three-way match'
     );

@@ -7,7 +7,7 @@
 
 import { collection, query, where, getDocs, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
-import { hasPermission, PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS, hasPermission } from '@vapour/constants';
 import type { User } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 
@@ -24,7 +24,7 @@ const logger = createLogger({ context: 'proposalUserHelpers' });
 export async function getUsersWithPermission(
   db: Firestore,
   entityId: string,
-  permission: PermissionFlag
+  permission: number
 ): Promise<string[]> {
   try {
     // Query active users in the entity
@@ -66,7 +66,7 @@ export async function getUsersWithPermission(
  * @returns Array of user IDs who can approve proposals
  */
 export async function getProposalApprovers(db: Firestore, entityId: string): Promise<string[]> {
-  return getUsersWithPermission(db, entityId, PermissionFlag.APPROVE_ESTIMATES);
+  return getUsersWithPermission(db, entityId, PERMISSION_FLAGS.MANAGE_ESTIMATION);
 }
 
 /**

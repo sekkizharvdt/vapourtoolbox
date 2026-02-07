@@ -73,47 +73,17 @@ export const PERMISSION_FLAGS = {
 } as const;
 
 /**
- * Permission bit positions (for Firestore rules)
- * Used with modulo arithmetic: floor(permissions / permissionBit) % 2 == 1
- */
-export const PERMISSION_BITS = {
-  MANAGE_USERS: 1,
-  /** @deprecated User management module is admin-only. Kept for backward compatibility. */
-  VIEW_USERS: 2, // DEPRECATED
-  /** @deprecated Role system has been removed. Kept for backward compatibility. */
-  MANAGE_ROLES: 4, // DEPRECATED
-  MANAGE_PROJECTS: 8,
-  VIEW_PROJECTS: 16,
-  VIEW_ENTITIES: 32,
-  CREATE_ENTITIES: 64,
-  EDIT_ENTITIES: 128,
-  DELETE_ENTITIES: 256,
-  MANAGE_COMPANY_SETTINGS: 512,
-  VIEW_ANALYTICS: 1024,
-  EXPORT_DATA: 2048,
-  /** @deprecated Flow module is now open to everyone. Kept for backward compatibility. */
-  MANAGE_TIME_TRACKING: 4096, // DEPRECATED
-  VIEW_TIME_TRACKING: 8192,
-  MANAGE_ACCOUNTING: 16384,
-  VIEW_ACCOUNTING: 32768,
-  MANAGE_PROCUREMENT: 65536,
-  VIEW_PROCUREMENT: 131072,
-  MANAGE_ESTIMATION: 262144,
-  VIEW_ESTIMATION: 524288,
-  VIEW_PROPOSALS: 1048576,
-  MANAGE_PROPOSALS: 2097152,
-  // Document Management
-  MANAGE_DOCUMENTS: 134217728,
-  SUBMIT_DOCUMENTS: 268435456,
-  REVIEW_DOCUMENTS: 536870912,
-  APPROVE_DOCUMENTS: 1073741824,
-} as const;
-
-/**
  * Helper function to check if a permission is included
  */
 export function hasPermission(userPermissions: number, requiredPermission: number): boolean {
   return (userPermissions & requiredPermission) === requiredPermission;
+}
+
+/**
+ * Check if user has ANY of the specified permissions
+ */
+export function hasAnyPermission(userPermissions: number, ...permissions: number[]): boolean {
+  return permissions.some((perm) => hasPermission(userPermissions, perm));
 }
 
 /**
@@ -343,29 +313,6 @@ export const PERMISSION_FLAGS_2 = {
   MANAGE_HR_SETTINGS: 1 << 13, // 8192 - Configure leave types, policies
   APPROVE_LEAVES: 1 << 14, // 16384 - Approve/reject leave requests
   MANAGE_HR_PROFILES: 1 << 15, // 32768 - Edit employee HR profiles
-} as const;
-
-/**
- * Permission bit positions for permissions2 (for Firestore rules)
- */
-export const PERMISSION_BITS_2 = {
-  VIEW_MATERIAL_DB: 1,
-  MANAGE_MATERIAL_DB: 2,
-  VIEW_SHAPE_DB: 4,
-  MANAGE_SHAPE_DB: 8,
-  VIEW_BOUGHT_OUT_DB: 16,
-  MANAGE_BOUGHT_OUT_DB: 32,
-  VIEW_THERMAL_DESAL: 64,
-  MANAGE_THERMAL_DESAL: 128,
-  VIEW_THERMAL_CALCS: 256,
-  MANAGE_THERMAL_CALCS: 512,
-  VIEW_SSOT: 1024,
-  MANAGE_SSOT: 2048,
-  // HR Module
-  VIEW_HR: 4096,
-  MANAGE_HR_SETTINGS: 8192,
-  APPROVE_LEAVES: 16384,
-  MANAGE_HR_PROFILES: 32768,
 } as const;
 
 /**

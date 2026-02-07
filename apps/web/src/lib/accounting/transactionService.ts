@@ -39,7 +39,8 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import { PermissionFlag, type LedgerEntry } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
+import type { LedgerEntry } from '@vapour/types';
 import { validateLedgerEntries } from './ledgerValidator';
 import { requirePermission, type AuthorizationContext } from '@/lib/auth/authorizationService';
 import { isPeriodOpen } from './fiscalYearService';
@@ -59,7 +60,7 @@ const logger = createLogger({ context: 'transactionService' });
 function requireTransactionPermission(auth: AuthorizationContext, operation: string): void {
   requirePermission(
     auth.userPermissions,
-    PermissionFlag.CREATE_TRANSACTIONS,
+    PERMISSION_FLAGS.MANAGE_ACCOUNTING,
     auth.userId,
     operation
   );

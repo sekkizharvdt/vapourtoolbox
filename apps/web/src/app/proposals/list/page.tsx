@@ -45,7 +45,7 @@ import { listProposals } from '@/lib/proposals/proposalService';
 import type { Proposal, ProposalStatus } from '@vapour/types';
 import { Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
-import { PermissionFlag, hasPermission } from '@vapour/types';
+import { PERMISSION_FLAGS, hasPermission } from '@vapour/constants';
 
 const STATUS_OPTIONS = [
   { value: 'DRAFT', label: 'Draft' },
@@ -101,7 +101,7 @@ export default function ProposalListPage() {
 
     // Check if user has permission to manage entities (Superadmin/Director)
     const canManageEntities = claims?.permissions
-      ? hasPermission(claims.permissions, PermissionFlag.MANAGE_ENTITIES)
+      ? hasPermission(claims.permissions, PERMISSION_FLAGS.EDIT_ENTITIES)
       : false;
 
     // If user has no entity ID and cannot manage entities, stop loading

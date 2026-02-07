@@ -3,7 +3,7 @@
 import { ReactNode } from 'react';
 import { Box, Alert, AlertTitle, Typography, Stack } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAllPermissions } from '@vapour/constants';
+import { getAllPermissions, getAllPermissions2 } from '@vapour/constants';
 
 interface SuperAdminLayoutProps {
   children: ReactNode;
@@ -12,10 +12,16 @@ interface SuperAdminLayoutProps {
 export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
   const { claims, user } = useAuth();
 
-  // Check if user has SUPER_ADMIN permissions (all permissions)
+  // Check if user has SUPER_ADMIN permissions (all permissions in both fields)
   const requiredPermissions = getAllPermissions();
+  const requiredPermissions2 = getAllPermissions2();
   const currentPermissions = claims?.permissions || 0;
-  const isSuperAdmin = currentPermissions === requiredPermissions;
+  const currentPermissions2 = claims?.permissions2 || 0;
+  // Use bitwise AND to check all required bits are set (not strict equality)
+  // This ensures adding new permissions doesn't break existing super admins
+  const hasAllPerms1 = (currentPermissions & requiredPermissions) === requiredPermissions;
+  const hasAllPerms2 = (currentPermissions2 & requiredPermissions2) === requiredPermissions2;
+  const isSuperAdmin = hasAllPerms1 && hasAllPerms2;
 
   if (!isSuperAdmin) {
     return (

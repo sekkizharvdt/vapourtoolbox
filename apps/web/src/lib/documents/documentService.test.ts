@@ -24,7 +24,7 @@ import {
   deleteDocument,
 } from './documentService';
 import type { DocumentUploadRequest, DocumentSearchFilters } from '@vapour/types';
-import { PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 
 // Mock Firebase
 const mockGetDoc = jest.fn();
@@ -712,7 +712,7 @@ describe('deleteDocument', () => {
     });
     mockUpdateDoc.mockResolvedValue(undefined);
 
-    await deleteDocument('doc-1', 'user-1', PermissionFlag.MANAGE_MASTER_DOCUMENT_LIST);
+    await deleteDocument('doc-1', 'user-1', PERMISSION_FLAGS.MANAGE_DOCUMENTS);
 
     expect(mockUpdateDoc).toHaveBeenCalledWith(
       expect.anything(),
@@ -738,7 +738,7 @@ describe('deleteDocument', () => {
     await deleteDocument(
       'doc-1',
       'user-1',
-      PermissionFlag.MANAGE_MASTER_DOCUMENT_LIST,
+      PERMISSION_FLAGS.MANAGE_DOCUMENTS,
       'Duplicate document'
     );
 
@@ -766,7 +766,7 @@ describe('deleteDocument', () => {
       'user-1',
       'other-user',
       0,
-      PermissionFlag.MANAGE_MASTER_DOCUMENT_LIST,
+      PERMISSION_FLAGS.MANAGE_DOCUMENTS,
       'delete document'
     );
   });

@@ -14,7 +14,7 @@ import {
   isTerminalStatus,
   getTransitionLabels,
 } from './stateMachines';
-import { PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 
 describe('purchaseOrderStateMachine', () => {
   describe('valid transitions', () => {
@@ -95,13 +95,13 @@ describe('purchaseOrderStateMachine', () => {
   describe('permissions', () => {
     it('should require APPROVE_PO for approval', () => {
       expect(purchaseOrderStateMachine.getRequiredPermission('PENDING_APPROVAL', 'APPROVED')).toBe(
-        PermissionFlag.APPROVE_PO
+        PERMISSION_FLAGS.MANAGE_PROCUREMENT
       );
     });
 
     it('should require APPROVE_PO for rejection', () => {
       expect(purchaseOrderStateMachine.getRequiredPermission('PENDING_APPROVAL', 'REJECTED')).toBe(
-        PermissionFlag.APPROVE_PO
+        PERMISSION_FLAGS.MANAGE_PROCUREMENT
       );
     });
   });
@@ -156,7 +156,7 @@ describe('proposalStateMachine', () => {
   describe('permissions', () => {
     it('should require APPROVE_ESTIMATES for approval', () => {
       expect(proposalStateMachine.getRequiredPermission('PENDING_APPROVAL', 'APPROVED')).toBe(
-        PermissionFlag.APPROVE_ESTIMATES
+        PERMISSION_FLAGS.MANAGE_ESTIMATION
       );
     });
   });
@@ -292,10 +292,10 @@ describe('purchaseRequestStateMachine', () => {
   describe('permissions', () => {
     it('should require APPROVE_PR for approval transitions', () => {
       expect(purchaseRequestStateMachine.getRequiredPermission('UNDER_REVIEW', 'APPROVED')).toBe(
-        PermissionFlag.APPROVE_PR
+        PERMISSION_FLAGS.MANAGE_PROCUREMENT
       );
       expect(purchaseRequestStateMachine.getRequiredPermission('SUBMITTED', 'APPROVED')).toBe(
-        PermissionFlag.APPROVE_PR
+        PERMISSION_FLAGS.MANAGE_PROCUREMENT
       );
     });
   });

@@ -9,7 +9,7 @@
  */
 
 import { Timestamp } from 'firebase/firestore';
-import { PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 import type { PurchaseOrder, PurchaseOrderItem, PurchaseOrderStatus } from '@vapour/types';
 
 // Mock Firebase
@@ -445,7 +445,7 @@ describe('purchaseOrderService', () => {
   // approvePO Tests
   // ========================================================================
   describe('approvePO', () => {
-    const APPROVE_PO_PERMISSION = PermissionFlag.APPROVE_PO;
+    const APPROVE_PO_PERMISSION = PERMISSION_FLAGS.MANAGE_PROCUREMENT;
 
     beforeEach(() => {
       mockRunTransaction.mockImplementation(async (_db, callback) => {
@@ -619,7 +619,7 @@ describe('purchaseOrderService', () => {
   // rejectPO Tests
   // ========================================================================
   describe('rejectPO', () => {
-    const APPROVE_PO_PERMISSION = PermissionFlag.APPROVE_PO;
+    const APPROVE_PO_PERMISSION = PERMISSION_FLAGS.MANAGE_PROCUREMENT;
 
     it('should require APPROVE_PO permission', async () => {
       mockRequirePermission.mockImplementation(() => {
@@ -701,7 +701,7 @@ describe('purchaseOrderService', () => {
   // issuePO Tests
   // ========================================================================
   describe('issuePO', () => {
-    const APPROVE_PO_PERMISSION = PermissionFlag.APPROVE_PO;
+    const APPROVE_PO_PERMISSION = PERMISSION_FLAGS.MANAGE_PROCUREMENT;
 
     it('should require APPROVE_PO permission', async () => {
       mockRequirePermission.mockImplementation(() => {
@@ -859,7 +859,7 @@ describe('purchaseOrderService', () => {
       });
 
       // First approval should succeed
-      await approvePO('po-1', 'user-1', 'John Doe', PermissionFlag.APPROVE_PO);
+      await approvePO('po-1', 'user-1', 'John Doe', PERMISSION_FLAGS.MANAGE_PROCUREMENT);
 
       // Second call - state machine should block
       mockValidateTransition.mockReturnValue({
@@ -868,7 +868,7 @@ describe('purchaseOrderService', () => {
       });
 
       await expect(
-        approvePO('po-1', 'user-2', 'Jane Doe', PermissionFlag.APPROVE_PO)
+        approvePO('po-1', 'user-2', 'Jane Doe', PERMISSION_FLAGS.MANAGE_PROCUREMENT)
       ).rejects.toThrow('Cannot approve');
     });
 

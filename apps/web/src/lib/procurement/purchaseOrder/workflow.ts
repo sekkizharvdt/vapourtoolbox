@@ -9,16 +9,11 @@
  * - General status updates
  */
 
-import {
-  doc,
-  updateDoc,
-  Timestamp,
-  runTransaction,
-} from 'firebase/firestore';
+import { doc, updateDoc, Timestamp, runTransaction } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { PurchaseOrderStatus } from '@vapour/types';
-import { PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 import { createLogger } from '@vapour/logger';
 import { formatCurrency } from '../purchaseOrderHelpers';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
@@ -112,7 +107,12 @@ export async function approvePO(
   const { db } = getFirebase();
 
   // Authorization: Require APPROVE_PO permission
-  requirePermission(userPermissions, PermissionFlag.APPROVE_PO, userId, 'approve purchase order');
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'approve purchase order'
+  );
 
   // Atomically approve PO to prevent race conditions
   const po = await runTransaction(db, async (transaction) => {
@@ -124,7 +124,11 @@ export async function approvePO(
       throw new Error('Purchase Order not found');
     }
 
-    const poData = { id: poDoc.id, ...poDoc.data() } as ReturnType<typeof getPOById> extends Promise<infer T> ? NonNullable<T> : never;
+    const poData = { id: poDoc.id, ...poDoc.data() } as ReturnType<
+      typeof getPOById
+    > extends Promise<infer T>
+      ? NonNullable<T>
+      : never;
 
     // Validate state machine transition
     const transitionResult = purchaseOrderStateMachine.validateTransition(
@@ -226,7 +230,12 @@ export async function rejectPO(
   const { db } = getFirebase();
 
   // Authorization: Require APPROVE_PO permission
-  requirePermission(userPermissions, PermissionFlag.APPROVE_PO, userId, 'reject purchase order');
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'reject purchase order'
+  );
 
   // Get PO for validation and audit log
   const po = await getPOById(poId);
@@ -290,7 +299,12 @@ export async function issuePO(
   const { db } = getFirebase();
 
   // Authorization: Require APPROVE_PO permission to issue
-  requirePermission(userPermissions, PermissionFlag.APPROVE_PO, userId, 'issue purchase order');
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'issue purchase order'
+  );
 
   // Get PO for validation and audit log
   const po = await getPOById(poId);

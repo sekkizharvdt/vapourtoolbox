@@ -11,7 +11,7 @@
  */
 
 import type { Proposal, ProposalStatus } from '@vapour/types';
-import { PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 import type { Firestore } from 'firebase/firestore';
 
 // Mock Firebase before imports
@@ -101,7 +101,7 @@ describe('approvalWorkflow', () => {
   const mockDb = {} as unknown as Firestore;
   const mockUserId = 'user-123';
   const mockUserName = 'Test User';
-  const mockPermissions = PermissionFlag.APPROVE_ESTIMATES;
+  const mockPermissions = PERMISSION_FLAGS.MANAGE_ESTIMATION;
 
   const mockProposal: Partial<Proposal> = {
     id: 'proposal-123',
@@ -180,7 +180,7 @@ describe('approvalWorkflow', () => {
 
       expect(requirePermission).toHaveBeenCalledWith(
         mockPermissions,
-        PermissionFlag.APPROVE_ESTIMATES,
+        PERMISSION_FLAGS.MANAGE_ESTIMATION,
         mockUserId,
         'approve proposal'
       );
@@ -263,7 +263,7 @@ describe('approvalWorkflow', () => {
 
       expect(requirePermission).toHaveBeenCalledWith(
         mockPermissions,
-        PermissionFlag.APPROVE_ESTIMATES,
+        PERMISSION_FLAGS.MANAGE_ESTIMATION,
         mockUserId,
         'reject proposal'
       );

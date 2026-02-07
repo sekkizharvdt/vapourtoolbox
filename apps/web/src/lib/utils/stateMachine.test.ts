@@ -9,7 +9,7 @@ import {
   type StateTransitionConfig,
   type StateMachine,
 } from './stateMachine';
-import { PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 
 // Test status type
 type TestStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'COMPLETED' | 'CANCELLED';
@@ -24,8 +24,8 @@ const testConfig: StateTransitionConfig<TestStatus> = {
     CANCELLED: [],
   },
   transitionPermissions: {
-    SUBMITTED_APPROVED: PermissionFlag.APPROVE_PR,
-    SUBMITTED_REJECTED: PermissionFlag.APPROVE_PR,
+    SUBMITTED_APPROVED: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    SUBMITTED_REJECTED: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
   },
   terminalStates: ['COMPLETED', 'CANCELLED'],
 };
@@ -158,10 +158,10 @@ describe('stateMachine', () => {
   describe('getRequiredPermission', () => {
     it('should return permission for protected transitions', () => {
       expect(stateMachine.getRequiredPermission('SUBMITTED', 'APPROVED')).toBe(
-        PermissionFlag.APPROVE_PR
+        PERMISSION_FLAGS.MANAGE_PROCUREMENT
       );
       expect(stateMachine.getRequiredPermission('SUBMITTED', 'REJECTED')).toBe(
-        PermissionFlag.APPROVE_PR
+        PERMISSION_FLAGS.MANAGE_PROCUREMENT
       );
     });
 

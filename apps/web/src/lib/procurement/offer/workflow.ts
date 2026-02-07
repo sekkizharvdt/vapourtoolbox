@@ -8,7 +8,7 @@ import { doc, updateDoc, Timestamp, writeBatch } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import { PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 import { getOfferById } from './crud';
 import { getOffersByRFQ } from './queries';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
@@ -31,7 +31,7 @@ export async function selectOffer(
   const { db } = getFirebase();
 
   // Authorization: Require APPROVE_PO permission (offers lead to PO creation)
-  requirePermission(userPermissions, PermissionFlag.APPROVE_PO, userId, 'select offer');
+  requirePermission(userPermissions, PERMISSION_FLAGS.MANAGE_PROCUREMENT, userId, 'select offer');
 
   const offer = await getOfferById(offerId);
   if (!offer) {
@@ -120,7 +120,7 @@ export async function rejectOffer(
   const { db } = getFirebase();
 
   // Authorization: Require APPROVE_PO permission (offers lead to PO creation)
-  requirePermission(userPermissions, PermissionFlag.APPROVE_PO, userId, 'reject offer');
+  requirePermission(userPermissions, PERMISSION_FLAGS.MANAGE_PROCUREMENT, userId, 'reject offer');
 
   // Get offer for audit trail and validation
   const offer = await getOfferById(offerId);
@@ -179,7 +179,7 @@ export async function withdrawOffer(
   const { db } = getFirebase();
 
   // Authorization: Require APPROVE_PO permission (offers lead to PO creation)
-  requirePermission(userPermissions, PermissionFlag.APPROVE_PO, userId, 'withdraw offer');
+  requirePermission(userPermissions, PERMISSION_FLAGS.MANAGE_PROCUREMENT, userId, 'withdraw offer');
 
   // Get offer for audit trail and validation
   const offer = await getOfferById(offerId);

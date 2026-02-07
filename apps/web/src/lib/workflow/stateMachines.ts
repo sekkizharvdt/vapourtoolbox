@@ -31,7 +31,7 @@ import type {
   PurchaseRequestStatus,
 } from '@vapour/types';
 import type { ProposalStatus } from '@vapour/types';
-import { PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 
 // ============================================================================
 // Purchase Order State Machine
@@ -62,9 +62,9 @@ export const purchaseOrderStateMachine: StateMachine<PurchaseOrderStatus> = crea
   },
   transitionPermissions: {
     // Key format: "FROM_TO"
-    PENDING_APPROVAL_APPROVED: PermissionFlag.APPROVE_PO,
-    PENDING_APPROVAL_REJECTED: PermissionFlag.APPROVE_PO,
-    APPROVED_ISSUED: PermissionFlag.APPROVE_PO, // Or could be CREATE_PO
+    PENDING_APPROVAL_APPROVED: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    PENDING_APPROVAL_REJECTED: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    APPROVED_ISSUED: PERMISSION_FLAGS.MANAGE_PROCUREMENT, // Or could be CREATE_PO
   },
   terminalStates: ['COMPLETED', 'CANCELLED'],
 });
@@ -93,8 +93,8 @@ export const proposalStateMachine: StateMachine<ProposalStatus> = createStateMac
     EXPIRED: [], // Terminal
   },
   transitionPermissions: {
-    PENDING_APPROVAL_APPROVED: PermissionFlag.APPROVE_ESTIMATES,
-    PENDING_APPROVAL_DRAFT: PermissionFlag.APPROVE_ESTIMATES, // Return for revision
+    PENDING_APPROVAL_APPROVED: PERMISSION_FLAGS.MANAGE_ESTIMATION,
+    PENDING_APPROVAL_DRAFT: PERMISSION_FLAGS.MANAGE_ESTIMATION, // Return for revision
   },
   terminalStates: ['ACCEPTED', 'EXPIRED', 'REJECTED'],
 });
@@ -190,10 +190,10 @@ const prConfig: StateTransitionConfig<PurchaseRequestStatus> = {
     CONVERTED_TO_RFQ: [], // Terminal
   },
   transitionPermissions: {
-    UNDER_REVIEW_APPROVED: PermissionFlag.APPROVE_PR,
-    UNDER_REVIEW_REJECTED: PermissionFlag.APPROVE_PR,
-    SUBMITTED_APPROVED: PermissionFlag.APPROVE_PR,
-    SUBMITTED_REJECTED: PermissionFlag.APPROVE_PR,
+    UNDER_REVIEW_APPROVED: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    UNDER_REVIEW_REJECTED: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    SUBMITTED_APPROVED: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    SUBMITTED_REJECTED: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
   },
   terminalStates: ['CONVERTED_TO_RFQ'],
 };

@@ -62,7 +62,13 @@ function validateClaims(claims: unknown): ClaimsValidationResult {
     return { status: 'invalid' };
   }
 
-  return { status: 'valid', claims: claimsObj as unknown as CustomClaims };
+  // Ensure permissions2 defaults to 0 if not present in claims
+  const validClaims: CustomClaims = {
+    ...(claimsObj as unknown as CustomClaims),
+    permissions2: typeof claimsObj.permissions2 === 'number' ? claimsObj.permissions2 : 0,
+  };
+
+  return { status: 'valid', claims: validClaims };
 }
 
 interface AuthContextType {

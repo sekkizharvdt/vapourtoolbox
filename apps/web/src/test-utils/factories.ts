@@ -6,8 +6,38 @@
 
 import { User as FirebaseUser } from 'firebase/auth';
 import type { CustomClaims, User } from '@vapour/types';
-import { RolePermissions } from '@vapour/types';
+import { PERMISSION_FLAGS, getAllPermissions } from '@vapour/constants';
 import { Timestamp } from 'firebase/firestore';
+
+/**
+ * Role → permission bitmask mapping for test factories.
+ * Uses the canonical PERMISSION_FLAGS from @vapour/constants.
+ */
+export const ROLE_PERMISSIONS = {
+  SUPER_ADMIN: getAllPermissions(),
+  DIRECTOR: getAllPermissions(),
+  PROJECT_MANAGER:
+    PERMISSION_FLAGS.VIEW_PROJECTS |
+    PERMISSION_FLAGS.MANAGE_PROJECTS |
+    PERMISSION_FLAGS.MANAGE_ESTIMATION |
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT |
+    PERMISSION_FLAGS.VIEW_ACCOUNTING,
+  PROCUREMENT_MANAGER: PERMISSION_FLAGS.MANAGE_PROCUREMENT | PERMISSION_FLAGS.VIEW_PROJECTS,
+  ACCOUNTANT: PERMISSION_FLAGS.MANAGE_ACCOUNTING | PERMISSION_FLAGS.VIEW_ACCOUNTING,
+  FINANCE_MANAGER:
+    PERMISSION_FLAGS.MANAGE_ACCOUNTING |
+    PERMISSION_FLAGS.VIEW_ACCOUNTING |
+    PERMISSION_FLAGS.VIEW_PROJECTS,
+  ENGINEERING_HEAD:
+    PERMISSION_FLAGS.VIEW_PROJECTS |
+    PERMISSION_FLAGS.MANAGE_PROJECTS |
+    PERMISSION_FLAGS.MANAGE_ESTIMATION |
+    PERMISSION_FLAGS.MANAGE_DOCUMENTS,
+  ENGINEER: PERMISSION_FLAGS.VIEW_PROJECTS | PERMISSION_FLAGS.SUBMIT_DOCUMENTS,
+  SITE_ENGINEER: PERMISSION_FLAGS.VIEW_PROJECTS | PERMISSION_FLAGS.SUBMIT_DOCUMENTS,
+  TEAM_MEMBER: PERMISSION_FLAGS.VIEW_PROJECTS,
+  CLIENT_PM: PERMISSION_FLAGS.VIEW_PROJECTS,
+} as const;
 
 /**
  * Create a mock Firebase User
@@ -51,10 +81,10 @@ export function createMockFirebaseUser(overrides?: Partial<FirebaseUser>): Fireb
  * Create mock Custom Claims
  */
 export function createMockCustomClaims(
-  role: keyof typeof RolePermissions = 'TEAM_MEMBER',
+  role: keyof typeof ROLE_PERMISSIONS = 'TEAM_MEMBER',
   overrides?: Partial<CustomClaims>
 ): CustomClaims {
-  const permissions = RolePermissions[role];
+  const permissions = ROLE_PERMISSIONS[role];
 
   return {
     permissions,
@@ -68,7 +98,7 @@ export function createMockCustomClaims(
  * Create a mock Firebase User with Custom Claims
  */
 export function createMockAuthenticatedUser(
-  role: keyof typeof RolePermissions = 'TEAM_MEMBER',
+  role: keyof typeof ROLE_PERMISSIONS = 'TEAM_MEMBER',
   userOverrides?: Partial<FirebaseUser>,
   claimsOverrides?: Partial<CustomClaims>
 ): FirebaseUser {
@@ -188,10 +218,10 @@ export const UserRoles = {
  * Create a mock User document (Firestore)
  */
 export function createMockUser(
-  role: keyof typeof RolePermissions = 'TEAM_MEMBER',
+  role: keyof typeof ROLE_PERMISSIONS = 'TEAM_MEMBER',
   overrides?: Partial<User>
 ): User {
-  const permissions = RolePermissions[role];
+  const permissions = ROLE_PERMISSIONS[role];
   const now = Timestamp.now();
 
   return {

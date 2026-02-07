@@ -7,12 +7,8 @@
 import { collection, doc, addDoc, type Firestore, Timestamp, writeBatch } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import {
-  PermissionFlag,
-  type ThreeWayMatch,
-  type MatchLineItem,
-  type MatchDiscrepancy,
-} from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
+import type { ThreeWayMatch, MatchLineItem, MatchDiscrepancy } from '@vapour/types';
 import { requireAnyPermission, type AuthorizationContext } from '@/lib/auth/authorizationService';
 import {
   getPurchaseOrder,
@@ -37,7 +33,7 @@ const CURRENCY_EPSILON = 0.005;
  * Procurement permission flags for three-way match operations
  * User must have either CREATE_PO or APPROVE_PO permissions
  */
-const MATCH_PERMISSIONS = [PermissionFlag.CREATE_PO, PermissionFlag.APPROVE_PO] as const;
+const MATCH_PERMISSIONS = [PERMISSION_FLAGS.MANAGE_PROCUREMENT] as const;
 
 /**
  * Perform 3-way match between PO, GR, and Vendor Invoice

@@ -10,8 +10,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { CustomClaims } from '@vapour/types';
-import { UserRoles } from './factories';
-import { RolePermissions } from '@vapour/types';
+import { UserRoles, ROLE_PERMISSIONS } from './factories';
 
 // Create local AuthContext type matching the real one
 interface AuthContextType {
@@ -89,7 +88,7 @@ function AuthWrapper({
 export function renderWithAuth(
   ui: ReactElement,
   options: {
-    role?: keyof typeof RolePermissions;
+    role?: keyof typeof ROLE_PERMISSIONS;
     user?: FirebaseUser;
     claims?: CustomClaims;
     loading?: boolean;
@@ -103,7 +102,7 @@ export function renderWithAuth(
   let claims: CustomClaims | null = null;
 
   if (role) {
-    const userFactory = UserRoles[role.toLowerCase() as keyof typeof UserRoles];
+    const userFactory = UserRoles[String(role).toLowerCase() as keyof typeof UserRoles];
     if (userFactory) {
       user = userFactory();
       // Extract claims from user's getIdTokenResult mock

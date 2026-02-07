@@ -29,8 +29,6 @@
  * ```
  */
 
-import { PermissionFlag } from '@vapour/types';
-
 /**
  * Configuration for a state machine
  */
@@ -41,8 +39,9 @@ export interface StateTransitionConfig<TStatus extends string> {
   /**
    * Optional permission required for specific transitions
    * Key format: "FROM_STATUS_TO_STATUS" (e.g., "PENDING_APPROVAL_APPROVED")
+   * Values are permission flag numbers from PERMISSION_FLAGS constants
    */
-  transitionPermissions?: Record<string, PermissionFlag>;
+  transitionPermissions?: Record<string, number>;
 
   /** Terminal states (no further transitions allowed) */
   terminalStates?: TStatus[];
@@ -104,7 +103,7 @@ export interface StateMachine<TStatus extends string> {
   /**
    * Get permission required for a transition (if any)
    */
-  getRequiredPermission(from: TStatus, to: TStatus): PermissionFlag | undefined;
+  getRequiredPermission(from: TStatus, to: TStatus): number | undefined;
 }
 
 /**
@@ -187,7 +186,7 @@ export function createStateMachine<TStatus extends string>(
       return !transitions || transitions.length === 0;
     },
 
-    getRequiredPermission(from: TStatus, to: TStatus): PermissionFlag | undefined {
+    getRequiredPermission(from: TStatus, to: TStatus): number | undefined {
       if (!config.transitionPermissions) {
         return undefined;
       }

@@ -19,7 +19,6 @@ export * from './invitation';
 export * from './material';
 export * from './notification';
 export * from './pdf';
-export * from './permissions';
 export * from './procurement';
 export * from './project';
 export * from './proposal';

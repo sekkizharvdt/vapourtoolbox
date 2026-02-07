@@ -15,7 +15,8 @@ import {
   saveTransactionBatch,
   createTransactionWithUpdates,
 } from './transactionService';
-import { PermissionFlag, type LedgerEntry } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
+import type { LedgerEntry } from '@vapour/types';
 import { AuthorizationError } from '@/lib/auth/authorizationService';
 
 // Mock firebase/firestore
@@ -344,7 +345,7 @@ describe('Transaction Service', () => {
     // User with CREATE_TRANSACTIONS permission
     const authorizedAuth = {
       userId: 'user-001',
-      userPermissions: PermissionFlag.CREATE_TRANSACTIONS,
+      userPermissions: PERMISSION_FLAGS.MANAGE_ACCOUNTING,
     };
 
     // User without CREATE_TRANSACTIONS permission
@@ -461,7 +462,7 @@ describe('Transaction Service', () => {
         } catch (error) {
           expect(error).toBeInstanceOf(AuthorizationError);
           if (error instanceof AuthorizationError) {
-            expect(error.requiredPermission).toBe(PermissionFlag.CREATE_TRANSACTIONS);
+            expect(error.requiredPermission).toBe(PERMISSION_FLAGS.MANAGE_ACCOUNTING);
             expect(error.userId).toBe('user-002');
             expect(error.operation).toContain('create accounting transaction');
           }

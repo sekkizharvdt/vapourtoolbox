@@ -17,8 +17,8 @@ import {
   CreateBoughtOutItemInput,
   UpdateBoughtOutItemInput,
   ListBoughtOutItemsOptions,
-  PermissionFlag,
 } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 import { requirePermission } from '@/lib/auth';
 
 const COLLECTIONS = {
@@ -182,7 +182,7 @@ export async function deleteBoughtOutItem(
   // Authorization: Require MANAGE_ENTITIES permission
   requirePermission(
     userPermissions,
-    PermissionFlag.MANAGE_ENTITIES,
+    PERMISSION_FLAGS.EDIT_ENTITIES,
     userId,
     'delete bought-out item'
   );

@@ -2,7 +2,7 @@
  * Authorization Service
  *
  * Centralized authorization checks for service layer operations.
- * Uses the existing PermissionFlag system from @vapour/types.
+ * Uses the PERMISSION_FLAGS system from @vapour/constants.
  *
  * Usage:
  * - Use these functions in service layer functions to validate permissions
@@ -14,8 +14,28 @@
 
 import { doc, getDoc, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
-import { hasPermission, hasAnyPermission, PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS, hasPermission, PERMISSION_FLAGS_2 } from '@vapour/constants';
 import { createLogger } from '@vapour/logger';
+
+/**
+ * Check if any of the given permissions are granted
+ */
+function hasAnyPermission(permissions: number, ...flags: number[]): boolean {
+  return flags.some((flag) => hasPermission(permissions, flag));
+}
+
+/**
+ * Look up a permission flag name from its numeric value
+ */
+function getPermissionName(flag: number): string {
+  for (const [key, value] of Object.entries(PERMISSION_FLAGS)) {
+    if (value === flag) return key;
+  }
+  for (const [key, value] of Object.entries(PERMISSION_FLAGS_2)) {
+    if (value === flag) return key;
+  }
+  return `PERMISSION(${flag})`;
+}
 
 const logger = createLogger({ context: 'authorizationService' });
 
@@ -25,7 +45,7 @@ const logger = createLogger({ context: 'authorizationService' });
 export class AuthorizationError extends Error {
   constructor(
     message: string,
-    public readonly requiredPermission?: PermissionFlag,
+    public readonly requiredPermission?: number,
     public readonly userId?: string,
     public readonly operation?: string
   ) {
@@ -87,12 +107,12 @@ export function createAuthContext(
  */
 export function requirePermission(
   permissions: number,
-  flag: PermissionFlag,
+  flag: number,
   userId: string,
   operation?: string
 ): void {
   if (!hasPermission(permissions, flag)) {
-    const flagName = PermissionFlag[flag];
+    const flagName = getPermissionName(flag);
     const message = operation
       ? `Permission denied: ${operation} requires ${flagName}`
       : `Permission denied: requires ${flagName}`;
@@ -113,12 +133,12 @@ export function requirePermission(
  */
 export function requireAnyPermission(
   permissions: number,
-  flags: PermissionFlag[],
+  flags: number[],
   userId: string,
   operation?: string
 ): void {
   if (!hasAnyPermission(permissions, ...flags)) {
-    const flagNames = flags.map((f) => PermissionFlag[f]).join(', ');
+    const flagNames = flags.map((f) => getPermissionName(f)).join(', ');
     const message = operation
       ? `Permission denied: ${operation} requires one of: ${flagNames}`
       : `Permission denied: requires one of: ${flagNames}`;
@@ -170,11 +190,11 @@ export function requireOwnerOrPermission(
   userId: string,
   ownerId: string,
   permissions: number,
-  adminPermission: PermissionFlag,
+  adminPermission: number,
   operation?: string
 ): void {
   if (userId !== ownerId && !hasPermission(permissions, adminPermission)) {
-    const flagName = PermissionFlag[adminPermission];
+    const flagName = getPermissionName(adminPermission);
     const message = operation
       ? `Permission denied: ${operation} requires ownership or ${flagName}`
       : `Must be owner or have ${flagName} permission`;
@@ -222,7 +242,7 @@ export function preventSelfApproval(
  * @param flag - Permission flag to check
  * @returns true if permission is granted
  */
-export function checkPermission(permissions: number, flag: PermissionFlag): boolean {
+export function checkPermission(permissions: number, flag: number): boolean {
   return hasPermission(permissions, flag);
 }
 
@@ -236,8 +256,8 @@ export function checkPermission(permissions: number, flag: PermissionFlag): bool
 export function canPerformOperation(
   ctx: AuthorizationContext,
   options: {
-    requiredPermission?: PermissionFlag;
-    requiredAnyPermission?: PermissionFlag[];
+    requiredPermission?: number;
+    requiredAnyPermission?: number[];
     ownerId?: string;
     approverIds?: string[];
   }

@@ -33,7 +33,7 @@ import type {
   DocumentVersionHistory,
   EquipmentDocumentSummary,
 } from '@vapour/types';
-import { PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 import { requireOwnerOrPermission } from '@/lib/auth';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 
@@ -552,7 +552,7 @@ export async function deleteDocument(
       userId,
       document.uploadedBy,
       userPermissions,
-      PermissionFlag.MANAGE_MASTER_DOCUMENT_LIST,
+      PERMISSION_FLAGS.MANAGE_DOCUMENTS,
       'delete document'
     );
 

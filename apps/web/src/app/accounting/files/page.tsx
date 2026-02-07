@@ -12,7 +12,7 @@ import { Box, Typography, Breadcrumbs, Link } from '@mui/material';
 import { Home as HomeIcon } from '@mui/icons-material';
 import { PageHeader } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
-import { hasAnyPermission, PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS, hasAnyPermission } from '@vapour/constants';
 import { DocumentBrowser, UploadDocumentDialog } from '@/components/documents/browser';
 import type { DocumentRecord } from '@vapour/types';
 import { useRouter } from 'next/navigation';
@@ -27,8 +27,8 @@ export default function AccountingFilesPage() {
   const hasViewAccess = claims?.permissions
     ? hasAnyPermission(
         claims.permissions,
-        PermissionFlag.VIEW_REPORTS,
-        PermissionFlag.CREATE_TRANSACTIONS
+        PERMISSION_FLAGS.VIEW_ACCOUNTING,
+        PERMISSION_FLAGS.MANAGE_ACCOUNTING
       )
     : false;
 

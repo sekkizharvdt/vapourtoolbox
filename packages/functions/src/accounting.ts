@@ -9,6 +9,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import { validateOrThrow } from './utils/validation';
+import { PERMISSION_FLAGS } from './constants/permissions';
 import { z } from 'zod';
 
 const db = admin.firestore();
@@ -78,12 +79,14 @@ export const createJournalEntry = onCall(async (request) => {
     throw new HttpsError('unauthenticated', 'Authentication required');
   }
 
-  // 2. Permission check (use actual permission bit from your system)
+  // 2. Permission check — requires MANAGE_ACCOUNTING
   const userPermissions = (request.auth.token.permissions as number) || 0;
-  const CREATE_JOURNAL_ENTRIES = 256; // Example bit, adjust to your permission system
 
-  if ((userPermissions & CREATE_JOURNAL_ENTRIES) !== CREATE_JOURNAL_ENTRIES) {
-    throw new HttpsError('permission-denied', 'CREATE_JOURNAL_ENTRIES permission required');
+  if (
+    (userPermissions & PERMISSION_FLAGS.MANAGE_ACCOUNTING) !==
+    PERMISSION_FLAGS.MANAGE_ACCOUNTING
+  ) {
+    throw new HttpsError('permission-denied', 'MANAGE_ACCOUNTING permission required');
   }
 
   // 3. Validate input data

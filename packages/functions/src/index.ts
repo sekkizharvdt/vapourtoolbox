@@ -8,6 +8,7 @@ import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
+import { PERMISSION_FLAGS } from './constants/permissions';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -46,7 +47,8 @@ export { onFeedbackResolved } from './feedback';
  *
  * Custom Claims Structure:
  * {
- *   permissions: number,      // Bitwise permission flags
+ *   permissions: number,       // Bitwise permission flags (bits 0-30)
+ *   permissions2: number,      // Extended permission flags (Material, Shape, Thermal, HR, etc.)
  *   domain: 'internal' | 'external'  // User domain
  * }
  */
@@ -72,7 +74,7 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
     return null;
   }
 
-  const { status, isActive, email, permissions } = userData;
+  const { status, isActive, email, permissions, permissions2 } = userData;
 
   // Validate required fields
   if (!email) {
@@ -83,12 +85,19 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
   // Determine domain from email
   const domain = email.endsWith('@vapourdesal.com') ? 'internal' : 'external';
 
+  // Normalize permissions2 to 0 if not set (Firestore may not have this field)
+  const perms2 = typeof permissions2 === 'number' ? permissions2 : 0;
+
   // Only set claims for active users with permissions
   if (status === 'active' && isActive === true && typeof permissions === 'number') {
-    const customClaims = {
+    const customClaims: Record<string, unknown> = {
       permissions,
       domain,
     };
+    // Only include permissions2 if non-zero (saves space in claims)
+    if (perms2 > 0) {
+      customClaims.permissions2 = perms2;
+    }
 
     try {
       // Get current user to check existing claims
@@ -96,14 +105,18 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
 
       // Check if claims actually changed (avoid unnecessary updates)
       const currentClaims = user.customClaims || {};
+      const currentPerms2 = (currentClaims.permissions2 as number) || 0;
       const claimsChanged =
-        currentClaims.permissions !== permissions || currentClaims.domain !== domain;
+        currentClaims.permissions !== permissions ||
+        currentClaims.domain !== domain ||
+        currentPerms2 !== perms2;
 
       if (claimsChanged) {
         await admin.auth().setCustomUserClaims(userId, customClaims);
         logger.info(`Updated claims for user ${userId}:`, {
           email,
           permissions,
+          permissions2: perms2,
           domain,
         });
       } else {
@@ -149,9 +162,8 @@ export const syncUserClaims = onCall(async (request) => {
   }
 
   const userPermissions = request.auth.token.permissions as number;
-  const MANAGE_USERS = 1; // PERMISSION_FLAGS.MANAGE_USERS
 
-  if ((userPermissions & MANAGE_USERS) !== MANAGE_USERS) {
+  if ((userPermissions & PERMISSION_FLAGS.MANAGE_USERS) !== PERMISSION_FLAGS.MANAGE_USERS) {
     throw new HttpsError(
       'permission-denied',
       'MANAGE_USERS permission required to sync user claims'
@@ -177,19 +189,25 @@ export const syncUserClaims = onCall(async (request) => {
       throw new HttpsError('internal', 'User document has no data');
     }
 
-    const { status, isActive, email, permissions } = userData;
+    const { status, isActive, email, permissions, permissions2 } = userData;
 
     if (!email) {
       throw new HttpsError('failed-precondition', 'User has no email address');
     }
 
     const domain = email.endsWith('@vapourdesal.com') ? 'internal' : 'external';
+    const perms2 = typeof permissions2 === 'number' ? permissions2 : 0;
 
     if (status === 'active' && isActive === true && typeof permissions === 'number') {
-      await admin.auth().setCustomUserClaims(userId, {
+      const customClaims: Record<string, unknown> = {
         permissions,
         domain,
-      });
+      };
+      if (perms2 > 0) {
+        customClaims.permissions2 = perms2;
+      }
+
+      await admin.auth().setCustomUserClaims(userId, customClaims);
 
       logger.info(`Manually synced claims for user ${userId}`, {
         triggeredBy: request.auth.uid,
@@ -198,7 +216,7 @@ export const syncUserClaims = onCall(async (request) => {
       return {
         success: true,
         message: 'Claims synced successfully',
-        claims: { permissions, domain },
+        claims: { permissions, permissions2: perms2, domain },
       };
     } else {
       await admin.auth().setCustomUserClaims(userId, null);

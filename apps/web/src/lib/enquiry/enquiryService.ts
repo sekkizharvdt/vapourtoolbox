@@ -31,7 +31,7 @@ import type {
   BidEvaluationCriteria,
   BidDecisionRecord,
 } from '@vapour/types';
-import { PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 import { ref, uploadBytes, getDownloadURL, deleteObject, FirebaseStorage } from 'firebase/storage';
 import { requireOwnerOrPermission } from '@/lib/auth';
 
@@ -391,7 +391,7 @@ export async function deleteEnquiry(
       userId,
       enquiry.createdBy,
       userPermissions,
-      PermissionFlag.MANAGE_ENTITIES,
+      PERMISSION_FLAGS.EDIT_ENTITIES,
       'delete enquiry'
     );
 
@@ -530,7 +530,9 @@ export async function recordBidDecision(
       },
       commercialViability: {
         rating: evaluation.commercialViability.rating,
-        ...(evaluation.commercialViability.notes && { notes: evaluation.commercialViability.notes }),
+        ...(evaluation.commercialViability.notes && {
+          notes: evaluation.commercialViability.notes,
+        }),
       },
       riskExposure: {
         rating: evaluation.riskExposure.rating,
@@ -630,9 +632,7 @@ export async function reviseBidDecision(
     // Cannot revise if in terminal state
     const terminalStatuses: EnquiryStatus[] = ['WON', 'LOST', 'CANCELLED'];
     if (terminalStatuses.includes(enquiry.status)) {
-      throw new Error(
-        `Cannot revise bid decision for enquiry in ${enquiry.status} status`
-      );
+      throw new Error(`Cannot revise bid decision for enquiry in ${enquiry.status} status`);
     }
 
     // Check if a proposal already exists for this enquiry
@@ -661,7 +661,9 @@ export async function reviseBidDecision(
       },
       commercialViability: {
         rating: evaluation.commercialViability.rating,
-        ...(evaluation.commercialViability.notes && { notes: evaluation.commercialViability.notes }),
+        ...(evaluation.commercialViability.notes && {
+          notes: evaluation.commercialViability.notes,
+        }),
       },
       riskExposure: {
         rating: evaluation.riskExposure.rating,

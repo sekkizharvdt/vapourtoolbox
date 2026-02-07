@@ -9,7 +9,7 @@ import { doc, updateDoc, getDoc, Timestamp, type Firestore } from 'firebase/fire
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { Proposal, ApprovalRecord, ProposalStatus } from '@vapour/types';
-import { PermissionFlag } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 import {
   createTaskNotification,
   findTaskNotificationByEntity,
@@ -113,7 +113,7 @@ export async function approveProposal(
     // Authorization: Require APPROVE_ESTIMATES permission
     requirePermission(
       userPermissions,
-      PermissionFlag.APPROVE_ESTIMATES,
+      PERMISSION_FLAGS.MANAGE_ESTIMATION,
       userId,
       'approve proposal'
     );
@@ -207,7 +207,12 @@ export async function rejectProposal(
 ): Promise<void> {
   try {
     // Authorization: Require APPROVE_ESTIMATES permission
-    requirePermission(userPermissions, PermissionFlag.APPROVE_ESTIMATES, userId, 'reject proposal');
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_ESTIMATION,
+      userId,
+      'reject proposal'
+    );
 
     const proposalRef = doc(db, COLLECTIONS.PROPOSALS, proposalId);
     const proposalSnap = await getDoc(proposalRef);
@@ -293,7 +298,7 @@ export async function requestProposalChanges(
     // Authorization: Require APPROVE_ESTIMATES permission
     requirePermission(
       userPermissions,
-      PermissionFlag.APPROVE_ESTIMATES,
+      PERMISSION_FLAGS.MANAGE_ESTIMATION,
       userId,
       'request changes to proposal'
     );
