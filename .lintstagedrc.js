@@ -30,8 +30,21 @@ module.exports = {
 
   // Run tests for changed test files
   'apps/web/**/*.test.{ts,tsx}': ['pnpm --filter @vapour/web test -- --passWithNoTests --bail'],
-  // Package tests run through web app's jest which imports packages
-  'packages/**/*.test.{ts,tsx}': ['pnpm --filter @vapour/web test -- --passWithNoTests --bail'],
+  // Package tests run through each package's own jest config
+  'packages/**/*.test.{ts,tsx}': (filenames) => {
+    const byPkg = {};
+    filenames.forEach((f) => {
+      const m = f.match(/packages\/([^/]+)\//);
+      if (m) {
+        if (!byPkg[m[1]]) byPkg[m[1]] = [];
+        byPkg[m[1]].push(f);
+      }
+    });
+    return Object.entries(byPkg).map(
+      ([pkg, files]) =>
+        `pnpm --filter @vapour/${pkg} exec jest --passWithNoTests --bail ${files.join(' ')}`
+    );
+  },
 
   // Format E2E tests (no eslint, just prettier)
   'apps/**/e2e/**/*.{ts,tsx}': ['pnpm exec prettier --write'],
