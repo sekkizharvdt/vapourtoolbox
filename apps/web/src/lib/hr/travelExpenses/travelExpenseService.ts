@@ -18,6 +18,7 @@ import {
   where,
   orderBy,
   Timestamp,
+  runTransaction,
   type QueryConstraint,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
@@ -546,76 +547,83 @@ export async function updateExpenseItem(
   const { db } = getFirebase();
 
   try {
-    const report = await getTravelExpenseReport(reportId);
+    // Use a transaction to atomically read status + update items (prevents race condition
+    // where report status changes between read and write)
+    await runTransaction(db, async (transaction) => {
+      const docRef = doc(db, COLLECTIONS.HR_TRAVEL_EXPENSES, reportId);
+      const reportSnap = await transaction.get(docRef);
 
-    if (!report) {
-      throw new Error('Travel expense report not found');
-    }
+      if (!reportSnap.exists()) {
+        throw new Error('Travel expense report not found');
+      }
 
-    if (report.status !== 'DRAFT') {
-      throw new Error('Can only update items in reports in DRAFT status');
-    }
+      const reportData = reportSnap.data() as Omit<TravelExpenseReport, 'id'>;
+      const report: TravelExpenseReport = { id: reportSnap.id, ...reportData };
 
-    if (report.employeeId !== userId) {
-      throw new Error('You can only modify your own travel expense reports');
-    }
+      if (report.status !== 'DRAFT') {
+        throw new Error('Can only update items in reports in DRAFT status');
+      }
 
-    const itemIndex = report.items.findIndex((item) => item.id === itemId);
-    if (itemIndex === -1) {
-      throw new Error('Expense item not found');
-    }
+      if (report.employeeId !== userId) {
+        throw new Error('You can only modify your own travel expense reports');
+      }
 
-    const existingItem = report.items[itemIndex]!;
-    const updatedItem: TravelExpenseItem = {
-      id: existingItem.id,
-      category: updates.category ?? existingItem.category,
-      description: updates.description ?? existingItem.description,
-      expenseDate: updates.expenseDate
-        ? Timestamp.fromDate(updates.expenseDate)
-        : existingItem.expenseDate,
-      amount: updates.amount ?? existingItem.amount,
-      currency: updates.currency ?? existingItem.currency,
-      hasReceipt: existingItem.hasReceipt,
-      receiptAttachmentId: existingItem.receiptAttachmentId,
-      receiptFileName: existingItem.receiptFileName,
-      receiptUrl: existingItem.receiptUrl,
-      vendorName: updates.vendorName !== undefined ? updates.vendorName : existingItem.vendorName,
-      invoiceNumber:
-        updates.invoiceNumber !== undefined ? updates.invoiceNumber : existingItem.invoiceNumber,
-      // GST fields
-      gstRate: updates.gstRate !== undefined ? updates.gstRate : existingItem.gstRate,
-      gstAmount: updates.gstAmount !== undefined ? updates.gstAmount : existingItem.gstAmount,
-      cgstAmount: updates.cgstAmount !== undefined ? updates.cgstAmount : existingItem.cgstAmount,
-      sgstAmount: updates.sgstAmount !== undefined ? updates.sgstAmount : existingItem.sgstAmount,
-      igstAmount: updates.igstAmount !== undefined ? updates.igstAmount : existingItem.igstAmount,
-      taxableAmount:
-        updates.taxableAmount !== undefined ? updates.taxableAmount : existingItem.taxableAmount,
-      vendorGstin:
-        updates.vendorGstin !== undefined ? updates.vendorGstin : existingItem.vendorGstin,
-      ourGstinUsed:
-        updates.ourGstinUsed !== undefined ? updates.ourGstinUsed : existingItem.ourGstinUsed,
-      // Location fields
-      fromLocation:
-        updates.fromLocation !== undefined ? updates.fromLocation : existingItem.fromLocation,
-      toLocation: updates.toLocation !== undefined ? updates.toLocation : existingItem.toLocation,
-      isApproved: existingItem.isApproved,
-      approvedAmount: existingItem.approvedAmount,
-      rejectionReason: existingItem.rejectionReason,
-    };
+      const itemIndex = report.items.findIndex((item) => item.id === itemId);
+      if (itemIndex === -1) {
+        throw new Error('Expense item not found');
+      }
 
-    const updatedItems = [...report.items];
-    updatedItems[itemIndex] = updatedItem;
+      const existingItem = report.items[itemIndex]!;
+      const updatedItem: TravelExpenseItem = {
+        id: existingItem.id,
+        category: updates.category ?? existingItem.category,
+        description: updates.description ?? existingItem.description,
+        expenseDate: updates.expenseDate
+          ? Timestamp.fromDate(updates.expenseDate)
+          : existingItem.expenseDate,
+        amount: updates.amount ?? existingItem.amount,
+        currency: updates.currency ?? existingItem.currency,
+        hasReceipt: existingItem.hasReceipt,
+        receiptAttachmentId: existingItem.receiptAttachmentId,
+        receiptFileName: existingItem.receiptFileName,
+        receiptUrl: existingItem.receiptUrl,
+        vendorName: updates.vendorName !== undefined ? updates.vendorName : existingItem.vendorName,
+        invoiceNumber:
+          updates.invoiceNumber !== undefined ? updates.invoiceNumber : existingItem.invoiceNumber,
+        // GST fields
+        gstRate: updates.gstRate !== undefined ? updates.gstRate : existingItem.gstRate,
+        gstAmount: updates.gstAmount !== undefined ? updates.gstAmount : existingItem.gstAmount,
+        cgstAmount: updates.cgstAmount !== undefined ? updates.cgstAmount : existingItem.cgstAmount,
+        sgstAmount: updates.sgstAmount !== undefined ? updates.sgstAmount : existingItem.sgstAmount,
+        igstAmount: updates.igstAmount !== undefined ? updates.igstAmount : existingItem.igstAmount,
+        taxableAmount:
+          updates.taxableAmount !== undefined ? updates.taxableAmount : existingItem.taxableAmount,
+        vendorGstin:
+          updates.vendorGstin !== undefined ? updates.vendorGstin : existingItem.vendorGstin,
+        ourGstinUsed:
+          updates.ourGstinUsed !== undefined ? updates.ourGstinUsed : existingItem.ourGstinUsed,
+        // Location fields
+        fromLocation:
+          updates.fromLocation !== undefined ? updates.fromLocation : existingItem.fromLocation,
+        toLocation: updates.toLocation !== undefined ? updates.toLocation : existingItem.toLocation,
+        isApproved: existingItem.isApproved,
+        approvedAmount: existingItem.approvedAmount,
+        rejectionReason: existingItem.rejectionReason,
+      };
 
-    const categoryTotals = calculateCategoryTotals(updatedItems);
-    const { totalAmount, totalGstAmount } = calculateTotals(updatedItems);
+      const updatedItems = [...report.items];
+      updatedItems[itemIndex] = updatedItem;
 
-    const docRef = doc(db, COLLECTIONS.HR_TRAVEL_EXPENSES, reportId);
-    await updateDoc(docRef, {
-      items: updatedItems,
-      categoryTotals,
-      totalAmount,
-      totalGstAmount,
-      updatedAt: Timestamp.now(),
+      const categoryTotals = calculateCategoryTotals(updatedItems);
+      const { totalAmount, totalGstAmount } = calculateTotals(updatedItems);
+
+      transaction.update(docRef, {
+        items: updatedItems,
+        categoryTotals,
+        totalAmount,
+        totalGstAmount,
+        updatedAt: Timestamp.now(),
+      });
     });
 
     logger.info('Updated expense item', { reportId, itemId });

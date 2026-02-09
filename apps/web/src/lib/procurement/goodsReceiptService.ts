@@ -135,6 +135,32 @@ export async function createGoodsReceipt(
         );
         const poItemDocs = await Promise.all(poItemRefs.map((ref) => transaction.get(ref)));
 
+        // Validate quantities against PO items (prevent over-delivery)
+        input.items.forEach((item) => {
+          const poItemDoc = poItemDocs.find((d) => d.id === item.poItemId);
+          if (poItemDoc?.exists()) {
+            const currentPoItem = poItemDoc.data() as PurchaseOrderItem;
+            const remainingQuantity =
+              (currentPoItem.quantity || 0) - (currentPoItem.quantityDelivered || 0);
+
+            if (item.receivedQuantity > remainingQuantity) {
+              throw new Error(
+                `Over-delivery not allowed: item "${currentPoItem.description || item.poItemId}" received ${item.receivedQuantity} but only ${remainingQuantity} remaining`
+              );
+            }
+            if (item.acceptedQuantity > item.receivedQuantity) {
+              throw new Error(
+                `Accepted quantity (${item.acceptedQuantity}) cannot exceed received quantity (${item.receivedQuantity}) for item "${currentPoItem.description || item.poItemId}"`
+              );
+            }
+            if (item.rejectedQuantity > item.receivedQuantity) {
+              throw new Error(
+                `Rejected quantity (${item.rejectedQuantity}) cannot exceed received quantity (${item.receivedQuantity}) for item "${currentPoItem.description || item.poItemId}"`
+              );
+            }
+          }
+        });
+
         // Create GR document
         const grRef = doc(collection(db, COLLECTIONS.GOODS_RECEIPTS));
         const grData: Omit<GoodsReceipt, 'id'> = {

@@ -32,6 +32,7 @@ import { createLogger } from '@vapour/logger';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
 import type { InterprojectLoan, RepaymentSchedule, LedgerEntry, CostCentre } from '@vapour/types';
 import { generateTransactionNumber } from './transactionNumberGenerator';
+import { getSystemAccountIds } from './systemAccountResolver';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 
 const logger = createLogger({ context: 'interprojectLoanService' });
@@ -277,6 +278,15 @@ export async function createInterprojectLoan(
     // Generate journal entry number
     const journalEntryNumber = await generateTransactionNumber('JOURNAL_ENTRY');
 
+    // Resolve intercompany accounts from Chart of Accounts
+    const systemAccounts = await getSystemAccountIds(db);
+    if (!systemAccounts.intercompanyReceivable || !systemAccounts.intercompanyPayable) {
+      throw new InterprojectLoanError(
+        'Intercompany accounts (1400, 2400) not found in Chart of Accounts. Please set up Intercompany Loan Receivable and Payable accounts.',
+        'MISSING_INTERCOMPANY_ACCOUNTS'
+      );
+    }
+
     // Create loan and journal entry atomically
     const result = await runTransaction(db, async (transaction) => {
       // Create journal entry for loan disbursement
@@ -285,7 +295,7 @@ export async function createInterprojectLoan(
       const journalEntryRef = doc(collection(db, COLLECTIONS.TRANSACTIONS));
       const entries: LedgerEntry[] = [
         {
-          accountId: 'intercompany-receivable', // Will need to resolve actual account
+          accountId: systemAccounts.intercompanyReceivable!,
           accountCode: '1400',
           accountName: 'Intercompany Loan Receivable',
           debit: principalAmount,
@@ -294,7 +304,7 @@ export async function createInterprojectLoan(
           costCentreId: lendingProjectId,
         },
         {
-          accountId: 'intercompany-payable', // Will need to resolve actual account
+          accountId: systemAccounts.intercompanyPayable!,
           accountCode: '2400',
           accountName: 'Intercompany Loan Payable',
           debit: 0,
@@ -505,6 +515,15 @@ export async function recordRepayment(
 
     const journalEntryNumber = await generateTransactionNumber('JOURNAL_ENTRY');
 
+    // Resolve intercompany accounts from Chart of Accounts
+    const systemAccounts = await getSystemAccountIds(db);
+    if (!systemAccounts.intercompanyReceivable || !systemAccounts.intercompanyPayable) {
+      throw new InterprojectLoanError(
+        'Intercompany accounts (1400, 2400) not found in Chart of Accounts',
+        'MISSING_INTERCOMPANY_ACCOUNTS'
+      );
+    }
+
     // Create repayment journal entry and update loan
     const result = await runTransaction(db, async (transaction) => {
       // Create journal entry
@@ -517,7 +536,7 @@ export async function recordRepayment(
       // Principal repayment
       if (principalAmount > 0) {
         entries.push({
-          accountId: 'intercompany-payable',
+          accountId: systemAccounts.intercompanyPayable!,
           accountCode: '2400',
           accountName: 'Intercompany Loan Payable',
           debit: principalAmount,
@@ -526,7 +545,7 @@ export async function recordRepayment(
           costCentreId: loan.borrowingProjectId,
         });
         entries.push({
-          accountId: 'intercompany-receivable',
+          accountId: systemAccounts.intercompanyReceivable!,
           accountCode: '1400',
           accountName: 'Intercompany Loan Receivable',
           debit: 0,
@@ -539,7 +558,7 @@ export async function recordRepayment(
       // Interest payment
       if (interestAmount > 0) {
         entries.push({
-          accountId: 'interest-expense',
+          accountId: systemAccounts.interestExpense || 'interest-expense',
           accountCode: '6100',
           accountName: 'Interest Expense',
           debit: interestAmount,
@@ -548,7 +567,7 @@ export async function recordRepayment(
           costCentreId: loan.borrowingProjectId,
         });
         entries.push({
-          accountId: 'interest-income',
+          accountId: systemAccounts.interestIncome || 'interest-income',
           accountCode: '4200',
           accountName: 'Interest Income',
           debit: 0,

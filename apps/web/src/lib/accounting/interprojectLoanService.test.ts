@@ -44,6 +44,16 @@ jest.mock('./transactionNumberGenerator', () => ({
   generateTransactionNumber: jest.fn().mockResolvedValue('JE-2024-0001'),
 }));
 
+// Mock system account resolver
+jest.mock('./systemAccountResolver', () => ({
+  getSystemAccountIds: jest.fn().mockResolvedValue({
+    intercompanyReceivable: 'acc-ic-receivable',
+    intercompanyPayable: 'acc-ic-payable',
+    interestIncome: 'acc-interest-income',
+    interestExpense: 'acc-interest-expense',
+  }),
+}));
+
 // Mock audit logging
 jest.mock('@/lib/audit', () => ({
   logAuditEvent: jest.fn().mockResolvedValue(undefined),

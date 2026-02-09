@@ -28,6 +28,12 @@ export interface SystemAccountIds {
   igstInput?: string;
   tdsPayable?: string;
 
+  // Intercompany
+  intercompanyReceivable?: string;
+  intercompanyPayable?: string;
+  interestIncome?: string;
+  interestExpense?: string;
+
   // Cash & Bank
   cashInHand?: string;
   bankAccounts?: Map<string, string>; // id -> name mapping
@@ -69,6 +75,10 @@ export async function getSystemAccountIds(
       '1302', // SGST Input
       '1303', // IGST Input
       '2300', // TDS Payable
+      '1400', // Intercompany Loan Receivable
+      '2400', // Intercompany Loan Payable
+      '4200', // Interest Income
+      '6100', // Interest Expense
     ];
 
     const q = query(accountsRef, where('code', 'in', systemCodes));
@@ -127,6 +137,18 @@ export async function getSystemAccountIds(
 
     const tds = docsByCode.get('2300');
     if (tds && tds.data.isTDSAccount) accounts.tdsPayable = tds.id;
+
+    const icReceivable = docsByCode.get('1400');
+    if (icReceivable) accounts.intercompanyReceivable = icReceivable.id;
+
+    const icPayable = docsByCode.get('2400');
+    if (icPayable) accounts.intercompanyPayable = icPayable.id;
+
+    const intIncome = docsByCode.get('4200');
+    if (intIncome) accounts.interestIncome = intIncome.id;
+
+    const intExpense = docsByCode.get('6100');
+    if (intExpense) accounts.interestExpense = intExpense.id;
 
     // Cache the results
     cachedAccounts = accounts;

@@ -43,6 +43,16 @@ export async function regenerateCustomerPaymentGL(
       return { success: false, entries: [], error: 'Transaction is not a customer payment' };
     }
 
+    // Prevent modification of voided transaction entries
+    const rawData = paymentSnap.data();
+    if (payment.status === 'VOID' || rawData?.entriesLocked) {
+      return {
+        success: false,
+        entries: [],
+        error: 'Cannot regenerate GL entries for a voided transaction',
+      };
+    }
+
     // Check if bank account is specified
     const bankAccountId = payment.bankAccountId || payment.depositedToBankAccountId;
     if (!bankAccountId) {
@@ -100,10 +110,20 @@ export async function regenerateVendorPaymentGL(
       return { success: false, entries: [], error: 'Payment not found' };
     }
 
-    const payment = paymentSnap.data() as VendorPayment;
+    const vendorRawData = paymentSnap.data();
+    const payment = vendorRawData as VendorPayment;
 
     if (payment.type !== 'VENDOR_PAYMENT') {
       return { success: false, entries: [], error: 'Transaction is not a vendor payment' };
+    }
+
+    // Prevent modification of voided transaction entries
+    if (payment.status === 'VOID' || vendorRawData?.entriesLocked) {
+      return {
+        success: false,
+        entries: [],
+        error: 'Cannot regenerate GL entries for a voided transaction',
+      };
     }
 
     // Check if bank account is specified

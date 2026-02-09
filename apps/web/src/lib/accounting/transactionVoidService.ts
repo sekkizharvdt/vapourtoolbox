@@ -200,6 +200,7 @@ export async function voidTransaction(
     const reversingEntries = entries ? generateReversingEntries(entries, voidDate) : [];
 
     // Update transaction to voided status
+    // Lock original entries to prevent modification after voiding
     await updateDoc(transactionRef, {
       status: 'VOID' as TransactionStatus,
       voidedAt: Timestamp.fromDate(voidDate),
@@ -207,6 +208,7 @@ export async function voidTransaction(
       voidedByName: userName,
       voidReason: reason,
       reversalEntries: reversingEntries,
+      entriesLocked: true,
       updatedAt: Timestamp.now(),
       updatedBy: userId,
     });
@@ -377,6 +379,7 @@ export async function voidAndRecreateTransaction(
       const newTransactionRef = doc(collection(db, COLLECTIONS.TRANSACTIONS));
 
       // Update original transaction to voided status
+      // Lock original entries to prevent modification after voiding
       firestoreTransaction.update(transactionRef, {
         status: 'VOID' as TransactionStatus,
         voidedAt: Timestamp.fromDate(voidDate),
@@ -384,6 +387,7 @@ export async function voidAndRecreateTransaction(
         voidedByName: userName,
         voidReason: `${config.counterpartyLabel} correction: Changed from "${oldEntityName}" to "${newEntityName}"`,
         reversalEntries: reversingEntries,
+        entriesLocked: true,
         [config.recreatedIdField]: newTransactionRef.id,
         [config.recreatedNumberField]: newTransactionNumber,
         updatedAt: Timestamp.now(),
