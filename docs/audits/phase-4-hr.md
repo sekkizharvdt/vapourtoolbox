@@ -102,7 +102,7 @@
 - **Issue**: Comp-offs should expire 1 year from grant, but no individual grant records with metadata are stored. `findExpiringCompOffs` is a TODO placeholder returning empty array.
 - **Recommendation**: Create `compOffGrants` subcollection with grant dates and expiry tracking. Implement scheduled Cloud Function for auto-expiry.
 
-#### HR-9: No Validation That Half-Day Leaves Are Single-Day Only (UX) — FIXED
+#### HR-9: No Validation That Half-Day Leaves Are Single-Day Only (UX) — FIXED `024218c`
 
 - **Category**: UX
 - **File**: `apps/web/src/lib/hr/leaves/leaveRequestService.ts` (lines 270-279)
@@ -110,7 +110,7 @@
 - **Recommendation**: Improve error message to include date range and day count.
 - **Resolution**: Improved error message to include the selected date range, day count, and clear instruction to select same start/end date for half-day leave.
 
-#### HR-10: Employee Directory Leaks All Internal User Emails — FIXED
+#### HR-10: Employee Directory Leaks All Internal User Emails — FIXED `024218c`
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/hr/employees/employeeService.ts` (lines 30-50, 258-268)

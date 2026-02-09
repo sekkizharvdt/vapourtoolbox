@@ -78,7 +78,7 @@
 
 ### HIGH
 
-#### PR-7: Amendment Changes Applied Without Field Validation — FIXED
+#### PR-7: Amendment Changes Applied Without Field Validation — FIXED `024218c`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/procurement/amendment/crud.ts` (lines 227-232)

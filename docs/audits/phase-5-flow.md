@@ -146,7 +146,7 @@
 - **Issue**: `startActionableTask()` and `completeActionableTask()` don't validate current status before transitioning. Can complete already-completed tasks.
 - **Recommendation**: Add status validation before state transitions.
 
-#### FL-15: Missing Visibility Check in Team Board — FIXED
+#### FL-15: Missing Visibility Check in Team Board — FIXED `024218c`
 
 - **Category**: Security
 - **File**: `apps/web/src/app/flow/team/page.tsx` (lines 73-101)

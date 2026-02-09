@@ -58,7 +58,7 @@ Each module is audited against these categories:
 | `e063816` | Types, permissions, and validation fixes         | BP-1, BP-2, BP-4, BP-5, FL-4, PE-2, PE-17, Phase 0 (entityId) | 8     |
 | `5bafc70` | Permission flag, validation & conflict checks    | AA-18, PR-8, PR-9, FL-7, HR-6, HR-7                           | 6     |
 | `58f8d40` | Task auth, project validation, approver config   | FL-3, PR-10, FL-10, HR-5                                      | 4     |
-| pending   | Field validation, entityId filters, UX fixes     | PR-7, HR-9, HR-10, FL-15                                      | 4     |
+| `024218c` | Field validation, entityId filters, UX fixes     | PR-7, HR-9, HR-10, FL-15                                      | 4     |
 | verified  | Already resolved (indexes exist, code has fixes) | FL-9, HR-3, HR-4, AA-3, AA-12, AA-2, AA-19                    | 7     |
 
 ### By Severity
