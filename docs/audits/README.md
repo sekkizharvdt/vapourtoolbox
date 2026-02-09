@@ -46,7 +46,7 @@ Each module is audited against these categories:
 
 ## Fix Progress
 
-**58 of 190 findings fixed** (31%) across 10 commits + 8 verified as already resolved.
+**58 of 190 findings fixed** (31%) across 11 commits + 8 verified as already resolved.
 
 | Commit    | Description                                      | Findings Fixed                                                | Count |
 | --------- | ------------------------------------------------ | ------------------------------------------------------------- | ----- |
@@ -59,7 +59,7 @@ Each module is audited against these categories:
 | `5bafc70` | Permission flag, validation & conflict checks    | AA-18, PR-8, PR-9, FL-7, HR-6, HR-7                           | 6     |
 | `58f8d40` | Task auth, project validation, approver config   | FL-3, PR-10, FL-10, HR-5                                      | 4     |
 | `024218c` | Field validation, entityId filters, UX fixes     | PR-7, HR-9, HR-10, FL-15                                      | 4     |
-| pending   | Allocation validation, entity filtering, SSOT    | AC-7, PE-5, PE-9, PE-12                                       | 4     |
+| `4c49436` | Allocation validation, entity filtering, SSOT    | AC-7, PE-5, PE-9, PE-12                                       | 4     |
 | verified  | Already resolved (indexes exist, code has fixes) | FL-9, HR-3, HR-4, AA-3, AA-12, AA-2, AA-19, AC-9              | 8     |
 
 ### By Severity
