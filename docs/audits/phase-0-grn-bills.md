@@ -14,12 +14,12 @@
 
 ### CRITICAL
 
-| #   | Issue                                                                          | Resolution                                                                                     |
-| --- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| 1   | "Sent to Accounting" status chip hidden for accounting users                   | Fixed: removed `!isAccountingUser` condition from chip render                                  |
-| 2   | Missing `entityId` filter in `getGRNsPendingBilling()` (multi-tenancy)         | Deferred: GoodsReceipt type lacks `entityId` field entirely. Tracked as cross-cutting concern. |
-| 3   | Missing Firestore composite index for `status + sentToAccountingAt`            | Fixed: added index to `firestore.indexes.json`                                                 |
-| 4   | Non-atomic `sendGRToAccounting()` — GR update + notification not transactional | Fixed: added try/catch with rollback of GR fields if notification creation fails               |
+| #   | Issue                                                                          | Resolution                                                                                                       |
+| --- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| 1   | "Sent to Accounting" status chip hidden for accounting users                   | Fixed: removed `!isAccountingUser` condition from chip render                                                    |
+| 2   | Missing `entityId` filter in `getGRNsPendingBilling()` (multi-tenancy)         | Fixed (`e063816`): `entityId` made required on `GoodsReceipt` type, populated from PO in `createGoodsReceipt()`. |
+| 3   | Missing Firestore composite index for `status + sentToAccountingAt`            | Fixed: added index to `firestore.indexes.json`                                                                   |
+| 4   | Non-atomic `sendGRToAccounting()` — GR update + notification not transactional | Fixed: added try/catch with rollback of GR fields if notification creation fails                                 |
 
 ### HIGH
 
@@ -46,7 +46,7 @@
 
 These items are tracked for future work:
 
-1. **entityId on GoodsReceipt** — requires schema migration across GR creation flow
+1. ~~**entityId on GoodsReceipt**~~ — FIXED (`e063816`): `entityId` made required on type, populated from PO
 2. **Race condition on bill creation** — needs Firestore transaction wrapping
 3. **Reverse notification to procurement** — needs new notification category
 4. **Rejection workflow** — needs design for send-back flow

@@ -243,6 +243,42 @@ function getFiscalYearFromDate(date: Date): number {
 }
 
 /**
+ * HR-6: Check for overlapping leave requests
+ * Queries for user's active requests where dates overlap the requested range.
+ */
+async function checkForOverlappingLeaves(
+  userId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<{ hasOverlap: boolean; overlappingRequest?: string }> {
+  const { db } = getFirebase();
+
+  // Query for user's non-cancelled/rejected requests where endDate >= requested startDate
+  const constraints: QueryConstraint[] = [
+    where('userId', '==', userId),
+    where('status', 'in', ['DRAFT', 'PENDING_APPROVAL', 'APPROVED']),
+    where('endDate', '>=', Timestamp.fromDate(startDate)),
+  ];
+
+  const q = query(collection(db, COLLECTIONS.HR_LEAVE_REQUESTS), ...constraints);
+  const snapshot = await getDocs(q);
+
+  // Client-side filter: check startDate <= requested endDate (completes the overlap check)
+  const requestedEnd = Timestamp.fromDate(endDate);
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data();
+    if (data.startDate <= requestedEnd) {
+      return {
+        hasOverlap: true,
+        overlappingRequest: `${data.requestNumber || docSnap.id} (${data.leaveTypeName})`,
+      };
+    }
+  }
+
+  return { hasOverlap: false };
+}
+
+/**
  * Create a new leave request
  */
 export async function createLeaveRequest(
@@ -277,6 +313,14 @@ export async function createLeaveRequest(
       if (start.getTime() !== end.getTime()) {
         throw new Error('Half-day leave can only be for a single day');
       }
+    }
+
+    // HR-6: Check for overlapping leave requests
+    const overlapCheck = await checkForOverlappingLeaves(userId, input.startDate, input.endDate);
+    if (overlapCheck.hasOverlap) {
+      throw new Error(
+        `You already have a leave request (${overlapCheck.overlappingRequest}) overlapping these dates`
+      );
     }
 
     // Check leave balance

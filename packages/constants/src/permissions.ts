@@ -313,6 +313,9 @@ export const PERMISSION_FLAGS_2 = {
   MANAGE_HR_SETTINGS: 1 << 13, // 8192 - Configure leave types, policies
   APPROVE_LEAVES: 1 << 14, // 16384 - Approve/reject leave requests
   MANAGE_HR_PROFILES: 1 << 15, // 32768 - Edit employee HR profiles
+
+  // Admin Module (bit 16)
+  MANAGE_ADMIN: 1 << 16, // 65536 - Access admin panel, manage system settings
 } as const;
 
 /**
@@ -412,6 +415,13 @@ export function canApproveLeaves(permissions2: number): boolean {
 
 export function canManageHRProfiles(permissions2: number): boolean {
   return hasPermission2(permissions2, PERMISSION_FLAGS_2.MANAGE_HR_PROFILES);
+}
+
+/**
+ * Admin Module permission helpers
+ */
+export function canManageAdmin(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.MANAGE_ADMIN);
 }
 
 /**
@@ -767,6 +777,13 @@ export const ALL_PERMISSIONS: PermissionItem[] = [
     field: 'permissions2',
     adminOnly: true,
   },
+  {
+    flag: PERMISSION_FLAGS_2.MANAGE_ADMIN,
+    label: 'Manage Admin Panel',
+    description: 'Access admin panel and manage system settings',
+    field: 'permissions2',
+    adminOnly: true,
+  },
 ];
 
 /**
@@ -815,6 +832,20 @@ export interface PermissionModuleDef {
  * - Authorization checks throughout the app
  */
 export const MODULE_PERMISSIONS: PermissionModuleDef[] = [
+  {
+    id: 'admin',
+    name: 'Admin Panel',
+    description: 'System administration and settings',
+    permissions: [
+      {
+        flag: PERMISSION_FLAGS_2.MANAGE_ADMIN,
+        label: 'Manage',
+        description: 'Access admin panel and manage system settings',
+        category: 'manage',
+        field: 'permissions2',
+      },
+    ],
+  },
   {
     id: 'user-management',
     name: 'User Management',

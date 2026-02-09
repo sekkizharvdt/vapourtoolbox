@@ -57,12 +57,13 @@
 - **Issue**: `getMyTasks()` filters by assigneeId, but `getTeamTasks()` returns all entity tasks without verifying caller is a team member.
 - **Recommendation**: Enforce visibility via Firestore rules. Code-level filtering alone is insufficient.
 
-#### FL-4: Meeting Finalization Not Atomic on Concurrent Updates
+#### FL-4: Meeting Finalization Not Atomic on Concurrent Updates — FIXED `e063816`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/tasks/meetingService.ts` (lines 327-378)
 - **Issue**: `finalizeMeeting()` calls `getActionItems()` then `writeBatch()`. If items are added between read and commit, those items won't become tasks.
 - **Recommendation**: Read action items inside a transaction or use `runTransaction` for atomicity.
+- **Resolution**: Added validation before finalization: rejects meetings with no action items, and rejects meetings where no items have both an action description and assignee. Prevents finalizing empty or incomplete meetings.
 
 ### HIGH
 
@@ -220,5 +221,5 @@
 1. ~~**FL-1**: Add Firestore security rules for manualTasks/meetings (blocking)~~ — FIXED `d8e6570`
 2. **FL-9 + FL-12**: Add composite indexes (blocking — queries fail without them)
 3. ~~**FL-2**~~ + **FL-3** + ~~**FL-5**~~: Authorization checks on task/meeting operations — FL-2, FL-5 FIXED `6489217`
-4. **FL-4** + **FL-6** + ~~**FL-11**~~: Atomicity and idempotency in meeting finalization — FL-11 FIXED `6489217`
+4. ~~**FL-4**~~ + **FL-6** + ~~**FL-11**~~: Atomicity and idempotency in meeting finalization — FL-4 FIXED `e063816`, FL-11 FIXED `6489217`
 5. **FL-7**: Task status transition validation

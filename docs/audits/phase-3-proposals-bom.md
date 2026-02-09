@@ -66,33 +66,37 @@
 
 ### HIGH
 
-#### BP-1: Missing Type Definition Fields (Approval Workflow)
+#### BP-1: Missing Type Definition Fields (Approval Workflow) — FIXED `e063816`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/proposals/approvalWorkflow.ts` (lines 399, 444)
 - **Issue**: Code writes `submittedToClientAt` and `statusChangeReason` fields to Firestore, but these fields are NOT defined in the `Proposal` type in `packages/types/src/proposal.ts`.
 - **Recommendation**: Add optional fields to the `Proposal` interface: `submittedToClientAt?: Timestamp`, `statusChangeReason?: string`.
+- **Resolution**: Added `submittedToClientAt?: Timestamp` and `statusChangeReason?: string` to the `Proposal` interface in `packages/types/src/proposal.ts`.
 
-#### BP-2: Missing Type Definition Fields (Project Conversion)
+#### BP-2: Missing Type Definition Fields (Project Conversion) — FIXED `e063816`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/proposals/projectConversion.ts` (lines 192-193)
 - **Issue**: Code writes `convertedToProjectAt` and `convertedToProjectBy` fields to Firestore, but these fields are NOT defined in the `Proposal` type.
 - **Recommendation**: Add optional fields: `convertedToProjectAt?: Timestamp`, `convertedToProjectBy?: string`.
+- **Resolution**: Added `convertedToProjectAt?: Timestamp` and `convertedToProjectBy?: string` to the `Proposal` interface in `packages/types/src/proposal.ts`.
 
-#### BP-4: No Permission Check on Proposal List Page
+#### BP-4: No Permission Check on Proposal List Page — FIXED `e063816`
 
 - **Category**: Security
 - **File**: `apps/web/src/app/proposals/list/page.tsx` (lines 99-111)
 - **Issue**: Page filters by entityId but doesn't validate user has permission to VIEW proposals. No CRUD permissions checked.
 - **Recommendation**: Add explicit `hasPermission(claims?.permissions, PermissionFlag.VIEW_PROPOSALS)` check.
+- **Resolution**: Added `VIEW_PROPOSALS` permission check using `hasPermission()` from `@vapour/constants`. Unauthorized users see a warning Alert instead of proposal data. Permission checked both in `fetchProposals` callback and as a UI guard.
 
-#### BP-5: Missing entityId Validation in BOM Service
+#### BP-5: Missing entityId Validation in BOM Service — FIXED `e063816`
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/bom/bomService.ts` (line 308)
 - **Issue**: `listBOMs` requires entityId in options but doesn't validate that it's provided. Calling without entityId would return empty or incorrect results.
 - **Recommendation**: Add validation: `if (!options.entityId) throw new Error('entityId is required')`.
+- **Resolution**: Added explicit `if (!options.entityId) throw new Error('entityId is required to list BOMs')` at the start of `listBOMs()`.
 
 ### MEDIUM
 
@@ -215,7 +219,7 @@
 ## Priority Fix Order
 
 1. ~~**BP-3**: Multi-tenancy fallback entity ID (security bypass)~~ — FIXED `3cb25cc`
-2. **BP-1 + BP-2**: Missing type definitions for workflow fields
-3. **BP-4 + BP-5**: Permission checks + entityId validation
+2. ~~**BP-1 + BP-2**: Missing type definitions for workflow fields~~ — FIXED `e063816`
+3. ~~**BP-4 + BP-5**: Permission checks + entityId validation~~ — FIXED `e063816`
 4. **BP-11 + BP-12**: Race condition + financial validation
 5. **BP-8 + BP-9**: Referential integrity for revisions and BOM items

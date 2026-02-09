@@ -210,6 +210,11 @@ export async function approveAmendment(
       throw new Error('Only pending amendments can be approved');
     }
 
+    // Idempotency guard (PR-8): prevent double-approval of already-applied amendments
+    if (amendment.applied) {
+      throw new Error('Amendment has already been applied');
+    }
+
     // Prevent self-approval (PR-6): requester cannot approve their own amendment
     preventSelfApproval(userId, amendment.requestedBy, 'approve amendment');
 

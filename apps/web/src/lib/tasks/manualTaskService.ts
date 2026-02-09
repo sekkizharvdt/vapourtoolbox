@@ -307,15 +307,34 @@ export async function updateManualTask(
   });
 }
 
+// FL-7: Valid task status transitions
+const ALLOWED_TRANSITIONS: Record<ManualTaskStatus, ManualTaskStatus[]> = {
+  todo: ['in_progress', 'done', 'cancelled'],
+  in_progress: ['todo', 'done', 'cancelled'],
+  done: [], // Terminal state
+  cancelled: [], // Terminal state
+};
+
 /**
- * Update task status with auto-timestamping
+ * Update task status with auto-timestamping and transition validation (FL-7)
  */
 export async function updateTaskStatus(
   db: Firestore,
   taskId: string,
   status: ManualTaskStatus
 ): Promise<void> {
+  // FL-7: Validate status transition
   const docRef = doc(db, COLLECTIONS.MANUAL_TASKS, taskId);
+  const taskDoc = await getDoc(docRef);
+  if (!taskDoc.exists()) {
+    throw new Error('Task not found');
+  }
+  const currentStatus = taskDoc.data().status as ManualTaskStatus;
+  const allowed = ALLOWED_TRANSITIONS[currentStatus];
+  if (!allowed || !allowed.includes(status)) {
+    throw new Error(`Cannot transition task from '${currentStatus}' to '${status}'`);
+  }
+
   const now = Timestamp.now();
 
   const updates: Record<string, unknown> = {

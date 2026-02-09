@@ -44,6 +44,7 @@ jest.mock('@vapour/firebase', () => ({
     GOODS_RECEIPT_ITEMS: 'goodsReceiptItems',
     PURCHASE_ORDERS: 'purchaseOrders',
     PURCHASE_ORDER_ITEMS: 'purchaseOrderItems',
+    ACCOUNTS: 'accounts',
     COUNTERS: 'counters',
   },
 }));
@@ -436,7 +437,19 @@ describe('goodsReceiptService', () => {
   });
 
   describe('approveGRForPayment', () => {
+    // PR-9: Bank account mock — all tests need a valid bank account for the validation check
+    const mockBankAccount = {
+      exists: () => true,
+      data: () => ({ isBankAccount: true, name: 'SBI Current' }),
+    };
+
     it('should approve if completed and billed', async () => {
+      // First getDoc: bank account, second getDoc: GR re-fetch after approval
+      mockGetDoc.mockResolvedValueOnce(mockBankAccount).mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ status: 'COMPLETED', paymentRequestId: 'bill-1' }),
+      });
+
       mockRunTransaction.mockImplementation(async (_db, callback) => {
         const txn = {
           get: jest.fn().mockResolvedValue({
@@ -453,11 +466,6 @@ describe('goodsReceiptService', () => {
         return callback(txn);
       });
 
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ status: 'COMPLETED', paymentRequestId: 'bill-1' }),
-      });
-
       await approveGRForPayment('gr-1', 'bank-1', 'user-1', 'email');
 
       expect(mockUpdateDoc).toHaveBeenCalledWith(
@@ -468,6 +476,8 @@ describe('goodsReceiptService', () => {
     });
 
     it('should fail if not completed', async () => {
+      mockGetDoc.mockResolvedValueOnce(mockBankAccount);
+
       mockRunTransaction.mockImplementation(async (_db, callback) => {
         const txn = {
           get: jest.fn().mockResolvedValue({
@@ -482,6 +492,8 @@ describe('goodsReceiptService', () => {
     });
 
     it('should fail if already approved for payment', async () => {
+      mockGetDoc.mockResolvedValueOnce(mockBankAccount);
+
       mockRunTransaction.mockImplementation(async (_db, callback) => {
         const txn = {
           get: jest.fn().mockResolvedValue({
@@ -499,6 +511,8 @@ describe('goodsReceiptService', () => {
     });
 
     it('should fail if no bill exists', async () => {
+      mockGetDoc.mockResolvedValueOnce(mockBankAccount);
+
       mockRunTransaction.mockImplementation(async (_db, callback) => {
         const txn = {
           get: jest.fn().mockResolvedValue({
@@ -514,6 +528,25 @@ describe('goodsReceiptService', () => {
       });
 
       await expect(approveGRForPayment('gr-1', 'b', 'u', 'e')).rejects.toThrow(/Create bill first/);
+    });
+
+    it('should fail if bank account not found (PR-9)', async () => {
+      mockGetDoc.mockResolvedValueOnce({ exists: () => false });
+
+      await expect(approveGRForPayment('gr-1', 'bad-bank', 'u', 'e')).rejects.toThrow(
+        'Bank account not found'
+      );
+    });
+
+    it('should fail if account is not a bank account (PR-9)', async () => {
+      mockGetDoc.mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ isBankAccount: false, name: 'Revenue Account' }),
+      });
+
+      await expect(approveGRForPayment('gr-1', 'non-bank', 'u', 'e')).rejects.toThrow(
+        'not a bank account'
+      );
     });
   });
 });

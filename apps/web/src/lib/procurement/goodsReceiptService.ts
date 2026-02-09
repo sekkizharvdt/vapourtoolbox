@@ -482,6 +482,17 @@ export async function approveGRForPayment(
 
   const { db } = getFirebase();
 
+  // PR-9: Validate bank account exists and is a bank account
+  const bankAccountRef = doc(db, COLLECTIONS.ACCOUNTS, bankAccountId);
+  const bankAccountDoc = await getDoc(bankAccountRef);
+  if (!bankAccountDoc.exists()) {
+    throw new Error('Bank account not found');
+  }
+  const bankAccountData = bankAccountDoc.data();
+  if (!bankAccountData?.isBankAccount) {
+    throw new Error('Selected account is not a bank account');
+  }
+
   // Atomically approve GR for payment
   // This prevents race conditions where multiple users try to approve
   const gr = await runTransaction(db, async (transaction) => {

@@ -128,6 +128,35 @@ function getFiscalYearFromDate(date: Date): number {
 }
 
 /**
+ * HR-7: Check for conflicting approved leave on the same date
+ * Queries for user's approved leave requests where the on-duty date falls within the leave range.
+ */
+async function checkForConflictingLeave(userId: string, holidayDate: Date): Promise<string | null> {
+  const { db } = getFirebase();
+
+  // Query for approved leaves where endDate >= holidayDate
+  const holidayTs = Timestamp.fromDate(startOfDay(holidayDate));
+  const constraints: QueryConstraint[] = [
+    where('userId', '==', userId),
+    where('status', '==', 'APPROVED'),
+    where('endDate', '>=', holidayTs),
+  ];
+
+  const q = query(collection(db, COLLECTIONS.HR_LEAVE_REQUESTS), ...constraints);
+  const snapshot = await getDocs(q);
+
+  // Client-side: check startDate <= holidayDate (completes the range check)
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data();
+    if (data.startDate <= holidayTs) {
+      return `${data.requestNumber || docSnap.id} (${data.leaveTypeName})`;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Create a new on-duty request
  */
 export async function createOnDutyRequest(
@@ -163,6 +192,14 @@ export async function createOnDutyRequest(
 
     if (existingRequests.length > 0) {
       throw new Error('You already have an on-duty request for this date');
+    }
+
+    // HR-7: Check for conflicting approved leaves on the same date
+    const conflictingLeave = await checkForConflictingLeave(userId, input.holidayDate);
+    if (conflictingLeave) {
+      throw new Error(
+        `You have an approved leave (${conflictingLeave}) on this date. Cancel the leave before requesting on-duty.`
+      );
     }
 
     // Generate request number

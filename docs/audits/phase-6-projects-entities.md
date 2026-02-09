@@ -56,12 +56,13 @@
 - **Recommendation**: Change to `where('roles', 'array-contains', 'VENDOR')` and `where('isActive', '==', true)`.
 - **Resolution**: Fixed query to use correct field names: `where('roles', 'array-contains', 'VENDOR')` and `where('isActive', '==', true)`.
 
-#### PE-2: No Validation That Archived Entities Can Be Selected as Vendors
+#### PE-2: No Validation That Archived Entities Can Be Selected as Vendors — FIXED `e063816`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/app/projects/[id]/charter/components/vendors/index.tsx` (lines 46-67)
 - **Issue**: Vendor entity loader doesn't filter for non-archived entities. BusinessEntity has `isArchived?: boolean` but query doesn't exclude archived vendors.
 - **Recommendation**: Add `where('isArchived', '!=', true)` to vendor entity query.
+- **Resolution**: Added client-side filter `!e.isArchived` after fetching vendor entities (client-side because `isArchived` may be `undefined` on older docs, which Firestore `!= true` doesn't match correctly).
 
 #### PE-6: No Scoping of SSOT Data to Project Access Control
 
@@ -70,12 +71,13 @@
 - **Issue**: SSOT module loads all projects for current user without permission checks. No verification of access before allowing SSOT data view/edit.
 - **Recommendation**: Add permission checks to verify user can access selected project.
 
-#### PE-17: Missing Validation That Entity Roles Include VENDOR Before Assignment
+#### PE-17: Missing Validation That Entity Roles Include VENDOR Before Assignment — FIXED `e063816`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/app/projects/[id]/charter/components/vendors/index.tsx` (lines 151-167)
 - **Issue**: After selecting a vendor entity, code doesn't verify entity actually has 'VENDOR' role. Could assign CUSTOMER-only entities as vendors.
 - **Recommendation**: Validate `selectedEntity.roles.includes('VENDOR')` before allowing assignment.
+- **Resolution**: Added `roles?.includes('VENDOR')` validation in `handleSubmit`. Shows error message if selected entity does not have the VENDOR role.
 
 ### HIGH
 
@@ -206,8 +208,8 @@
 
 ## Priority Fix Order
 
-1. **PE-1**: Fix vendor entity query field names (blocking — broken functionality)
-2. **PE-2 + PE-17**: Archived entity and role validation
+1. ~~**PE-1**: Fix vendor entity query field names (blocking — broken functionality)~~ — FIXED `d8e6570`
+2. ~~**PE-2 + PE-17**: Archived entity and role validation~~ — FIXED `e063816`
 3. **PE-6 + PE-9**: SSOT access control and project validation
 4. **PE-12**: Validate vendor references in procurement documents
 5. **PE-8 + PE-10**: Document visibility enforcement
