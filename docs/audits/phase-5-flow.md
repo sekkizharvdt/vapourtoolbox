@@ -32,21 +32,23 @@
 
 ### CRITICAL
 
-#### FL-1: Missing Firestore Security Rules for Manual Tasks and Meetings
+#### FL-1: Missing Firestore Security Rules for Manual Tasks and Meetings — FIXED `d8e6570`
 
 - **Category**: Security
 - **File**: `firestore.rules` (end of file — catch-all rule)
 - **Issue**: Collections `manualTasks` and `meetings` have no explicit security rules and fall through to the default `match /{document=**} { allow read, write: if false; }` deny-all rule.
 - **Impact**: All task and meeting operations will fail on production Firebase. Feature is completely broken without rules.
 - **Recommendation**: Add explicit rules for `manualTasks`, `meetings`, `meetingActionItems`, and `projectChannels` collections.
+- **Resolution**: Added Firestore security rules for `manualTasks`, `meetings`, `meetingActionItems`, and `projectChannels` collections.
 
-#### FL-2: Task Reassignment Lacks Authorization Checks
+#### FL-2: Task Reassignment Lacks Authorization Checks — FIXED `6489217`
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/tasks/manualTaskService.ts` (lines 270-293)
 - **Issue**: `updateManualTask()` allows changing `assigneeId` and `assigneeName` without verifying the caller has permission to reassign tasks.
 - **Impact**: Any user can reassign any task to themselves or others, breaking task access control.
 - **Recommendation**: Check that user is task creator, admin, or has reassignment permission.
+- **Resolution**: Added creator/assignee verification on task update — only task creator or current assignee can modify tasks.
 
 #### FL-3: Task Visibility Not Enforced in Code
 
@@ -64,12 +66,13 @@
 
 ### HIGH
 
-#### FL-5: No Permission Check on Meeting Operations
+#### FL-5: No Permission Check on Meeting Operations — FIXED `6489217`
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/tasks/meetingService.ts` (lines 88-135, 151-175, 327-378)
 - **Issue**: All meeting CRUD operations lack authorization checks. No verification that caller is meeting creator or attendee.
 - **Recommendation**: Add permission checks. Only creator or admin can update/finalize meetings.
+- **Resolution**: Added creator/attendee verification on meeting finalize, update, and delete operations.
 
 #### FL-6: Meeting Action Items Orphaned if Task Creation Fails
 
@@ -107,12 +110,13 @@
 - **Issue**: Attendee list loaded from active users, but no validation at finalization that attendees still exist. Deactivated users create invalid references.
 - **Recommendation**: Validate all attendeeIds still exist in users collection during finalization.
 
-#### FL-11: No Check for Meeting Draft Status Before Finalization
+#### FL-11: No Check for Meeting Draft Status Before Finalization — FIXED `6489217`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/app/flow/meetings/[id]/MeetingDetailClient.tsx` (lines 94-118)
 - **Issue**: `finalizeMeeting()` called without checking `meeting.status == 'draft'`. Double-click creates duplicate tasks.
 - **Recommendation**: Add status check in service: throw error if status is not 'draft'.
+- **Resolution**: Added draft status verification before meeting finalization to prevent double-finalization.
 
 ### MEDIUM
 
@@ -213,8 +217,8 @@
 
 ## Priority Fix Order
 
-1. **FL-1**: Add Firestore security rules for manualTasks/meetings (blocking)
+1. ~~**FL-1**: Add Firestore security rules for manualTasks/meetings (blocking)~~ — FIXED `d8e6570`
 2. **FL-9 + FL-12**: Add composite indexes (blocking — queries fail without them)
-3. **FL-2 + FL-3 + FL-5**: Authorization checks on task/meeting operations
-4. **FL-4 + FL-6 + FL-11**: Atomicity and idempotency in meeting finalization
+3. ~~**FL-2**~~ + **FL-3** + ~~**FL-5**~~: Authorization checks on task/meeting operations — FL-2, FL-5 FIXED `6489217`
+4. **FL-4** + **FL-6** + ~~**FL-11**~~: Atomicity and idempotency in meeting finalization — FL-11 FIXED `6489217`
 5. **FL-7**: Task status transition validation

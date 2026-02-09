@@ -34,21 +34,23 @@
 
 ### CRITICAL
 
-#### HR-1: Missing Multi-Tenancy Filtering on All HR Collections
+#### HR-1: Missing Multi-Tenancy Filtering on All HR Collections — FIXED `3cb25cc`
 
 - **Category**: Security
 - **Files**: `apps/web/src/lib/hr/leaves/leaveRequestService.ts`, `travelExpenses/travelExpenseService.ts`, `onDuty/onDutyRequestService.ts`
 - **Issue**: All HR service queries do not filter by `entityId` or tenant identifier. Queries only filter by `userId`, `status`, `fiscalYear`, etc., with no organizational/tenant isolation.
 - **Impact**: In a multi-tenant deployment, users could potentially access or modify another organization's HR records.
 - **Recommendation**: Add `entityId` to all HR documents and include `where('entityId', '==', currentEntityId)` in all queries.
+- **Resolution**: Added `entityId` to `LeaveRequest`, `TravelExpenseReport`, `OnDutyRequest` types and their filter types. Added entityId filtering to `listLeaveRequests`, `getTeamCalendar`, `listTravelExpenseReports`, `listOnDutyRequests`. Callers (TeamRequestsTab, calendar page) pass `claims?.entityId`.
 
-#### HR-2: Travel Expense Amount Modification After Approval Not Prevented
+#### HR-2: Travel Expense Amount Modification After Approval Not Prevented — FIXED `0443df1`
 
 - **Category**: Security / Data Integrity
 - **File**: `apps/web/src/lib/hr/travelExpenses/travelExpenseService.ts` (lines 536-625)
 - **Issue**: `updateExpenseItem` allows modifying amounts. No transaction-based check verifies parent report is still DRAFT before modification. Race conditions could bypass status check.
 - **Impact**: Approved expense amounts could theoretically be modified through race conditions or bypassing client-side checks.
 - **Recommendation**: Add transaction-based status check in `updateExpenseItem`. Consider immutable item records once report is submitted.
+- **Resolution**: Wrapped `updateExpenseItem` in a Firestore `runTransaction()` that reads the report status atomically within the transaction, preventing race conditions where status changes between read and write.
 
 ### HIGH
 
@@ -194,8 +196,8 @@
 
 ## Priority Fix Order
 
-1. **HR-1**: Multi-tenancy filtering on all HR queries
-2. **HR-2**: Prevent expense modification after approval
+1. ~~**HR-1**: Multi-tenancy filtering on all HR queries~~ — FIXED `3cb25cc`
+2. ~~**HR-2**: Prevent expense modification after approval~~ — FIXED `0443df1`
 3. **HR-4**: Wrap approval workflows in transactions
 4. **HR-6 + HR-7**: Implement leave overlap and on-duty conflict detection
 5. **HR-5**: Remove hard-coded approver emails

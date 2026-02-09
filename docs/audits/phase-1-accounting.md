@@ -25,40 +25,45 @@
 
 ### CRITICAL
 
-#### AC-1: Hardcoded Account Codes in Interproject Loans
+#### AC-1: Hardcoded Account Codes in Interproject Loans — FIXED `0443df1`
 
 - **Category**: Code Quality / Data Integrity
 - **File**: `apps/web/src/lib/accounting/interprojectLoanService.ts` (lines 289, 299, 521-557)
 - **Issue**: Account codes ('1400', '2400', '6100', '4200') are hardcoded. If Chart of Accounts codes differ, GL entries will post to wrong accounts.
 - **Recommendation**: Use `systemAccountResolver.getSystemAccountIds()` to fetch actual account IDs from Firestore.
+- **Resolution**: Extended `systemAccountResolver` with intercompany fields. Both `createInterprojectLoan()` and `recordRepayment()` now resolve accounts dynamically via `getSystemAccountIds()`, throwing if accounts not found in Chart of Accounts.
 
-#### AC-2: Missing Multi-Tenancy Filtering in Queries
+#### AC-2: Missing Multi-Tenancy Filtering in Queries — FIXED `3cb25cc`
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/accounting/paymentBatchService.ts` (lines 231-252, 671-681)
 - **Issue**: `listPaymentBatches()` and `getOutstandingBillsForProject()` do NOT filter by entityId. Cross-tenant data exposure.
 - **Recommendation**: Add required `entityId` parameter to all queries.
+- **Resolution**: Added `entityId` to `PaymentBatch`, `CreatePaymentBatchInput`, `ListPaymentBatchesOptions` types. Added entityId filtering to `listPaymentBatches`, `getOutstandingBillsForProject`, `getOutstandingBillsByProject`, `getPaymentBatchStats`. Callers pass `claims?.entityId`.
 
-#### AC-3: Missing Permission Checks on Approval/Deletion
+#### AC-3: Missing Permission Checks on Approval/Deletion — FIXED `6489217`
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/accounting/transactionApprovalService.ts`, `transactionDeleteService.ts`
 - **Issue**: `approveBatch()`, `approveBill()`, `softDeleteTransaction()`, `hardDeleteTransaction()` accept userId but never validate permissions.
 - **Recommendation**: Add `requirePermission()` calls for APPROVE_TRANSACTIONS and DELETE_TRANSACTIONS.
+- **Resolution**: Added MANAGE_ACCOUNTING permission checks to approve, reject, submit, soft-delete, restore, and hard-delete operations. All UI callers updated to pass `claims.permissions`.
 
-#### AC-4: Self-Approval Vulnerability
+#### AC-4: Self-Approval Vulnerability — FIXED `6489217`
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/accounting/transactionApprovalService.ts`
 - **Issue**: No check prevents users from approving transactions they created. Violates segregation of duties.
 - **Recommendation**: Add `if (createdBy === userId) throw new Error('Cannot self-approve')`.
+- **Resolution**: Added self-approval prevention — transaction creator cannot approve their own submission.
 
-#### AC-5: Voided Transaction GL Entries Still Modifiable
+#### AC-5: Voided Transaction GL Entries Still Modifiable — FIXED `0443df1`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/accounting/transactionVoidService.ts` (lines 165-260)
 - **Issue**: After voiding, `reversalEntries` are stored but original `entries` array remains editable. Direct DB access could alter original entries.
 - **Recommendation**: Lock entries after voiding or clear original entries field. Enforce via Firestore Rules.
+- **Resolution**: Added `entriesLocked: true` flag to both `voidTransaction()` and `voidAndRecreateTransaction()`. Added guard in `glEntryRegeneration.ts` to reject GL regeneration on voided/locked transactions.
 
 ### HIGH
 
@@ -210,9 +215,9 @@
 
 ## Priority Fix Order
 
-1. **AC-2**: Multi-tenancy filtering (security)
-2. **AC-3 + AC-4**: Permission checks + self-approval prevention (security)
-3. **AC-1**: Remove hardcoded account codes (data integrity)
+1. ~~**AC-2**: Multi-tenancy filtering (security)~~ — FIXED `3cb25cc`
+2. ~~**AC-3 + AC-4**: Permission checks + self-approval prevention (security)~~ — FIXED `6489217`
+3. ~~**AC-1**: Remove hardcoded account codes (data integrity)~~ — FIXED `0443df1`
 4. **AC-7**: Validate payment allocations before creation (data integrity)
 5. **AC-9**: Verify/add composite indexes (reliability)
-6. **AC-5**: Lock voided transaction entries (audit trail)
+6. ~~**AC-5**: Lock voided transaction entries (audit trail)~~ — FIXED `0443df1`

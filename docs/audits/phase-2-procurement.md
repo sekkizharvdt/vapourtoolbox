@@ -25,35 +25,39 @@
 
 ### CRITICAL
 
-#### PR-1: No Authorization Check on GR Payment Approval
+#### PR-1: No Authorization Check on GR Payment Approval — FIXED `6489217`
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/procurement/goodsReceiptService.ts` (lines 425-522)
 - **Issue**: `approveGRForPayment()` has NO permission checks. Any authenticated user can approve payment for any GR, enabling unauthorized payments.
 - **Recommendation**: Add `requirePermission(userPermissions, PERMISSION_FLAGS.APPROVE_PAYMENT)` at function start.
+- **Resolution**: Added MANAGE_ACCOUNTING permission check to `approveGRForPayment()`.
 
-#### PR-2: No Authorization on Goods Receipt Completion
+#### PR-2: No Authorization on Goods Receipt Completion — FIXED `6489217`
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/procurement/goodsReceiptService.ts` (lines 302-423)
 - **Issue**: `completeGR()` has no authorization checks. Any user can mark GRs as complete, bypassing inspection workflow.
 - **Recommendation**: Add permission check requiring `INSPECT_GOODS` or `APPROVE_GR` permission flag.
+- **Resolution**: Added MANAGE_PROCUREMENT permission check to `completeGR()`.
 
-#### PR-3: No Multi-Tenancy Filtering on GR Queries
+#### PR-3: No Multi-Tenancy Filtering on GR Queries — FIXED `3cb25cc`
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/procurement/goodsReceiptService.ts` (lines 535-572)
 - **Issue**: `listGoodsReceipts()` queries the entire collection with NO entityId filter. Cross-tenant data exposure.
 - **Recommendation**: Add mandatory `where('entityId', '==', entityId)` to all queries. Requires adding `entityId` to GoodsReceipt schema first.
+- **Resolution**: Added `entityId` to `GoodsReceipt` type and `ListGoodsReceiptsFilters`. Added entityId filtering to `listGoodsReceipts()`. Goods receipts page passes `claims?.entityId`.
 
-#### PR-4: Amendment Approval Lacks Authorization
+#### PR-4: Amendment Approval Lacks Authorization — FIXED `6489217`
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/procurement/amendment/crud.ts` (lines 177-264)
 - **Issue**: `approveAmendment()` has NO permission checks. Any user can approve amendments that change PO amounts.
 - **Recommendation**: Require `APPROVE_AMENDMENT` permission and validate financial thresholds.
+- **Resolution**: Added MANAGE_PROCUREMENT permission checks to `approveAmendment()` and `rejectAmendment()`.
 
-#### PR-5: GR Quantity Can Exceed PO Quantity
+#### PR-5: GR Quantity Can Exceed PO Quantity — FIXED `0443df1`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/procurement/goodsReceiptService.ts` (lines 68-263)
@@ -62,13 +66,15 @@
   - `receivedQuantity <= (poItem.quantity - poItem.quantityDelivered)`
   - `acceptedQuantity <= receivedQuantity`
   - `rejectedQuantity <= receivedQuantity`
+- **Resolution**: Added all three quantity validations within the Firestore transaction, after PO items are read and before GR items are created. Throws descriptive error with item name and quantities.
 
-#### PR-6: Self-Approval Possible on Amendments
+#### PR-6: Self-Approval Possible on Amendments — FIXED `6489217`
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/procurement/amendment/crud.ts` (lines 177-213)
 - **Issue**: No check preventing amendment requester from approving their own amendment. Violates segregation of duties.
 - **Recommendation**: Add `if (userId === amendment.requestedBy) throw new Error('Cannot self-approve')`.
+- **Resolution**: Added self-approval prevention — amendment requester cannot approve their own amendment.
 
 ### HIGH
 
@@ -101,12 +107,13 @@
 - **Issue**: `createBillFromGoodsReceipt()` blindly uses `purchaseOrder.projectIds[0]` without checking project exists or belongs to entity.
 - **Recommendation**: Validate project exists before creating GL entries.
 
-#### PR-11: Missing Firestore Indexes for Procurement Queries
+#### PR-11: Missing Firestore Indexes for Procurement Queries — FIXED `82fc756`
 
 - **Category**: Performance / Reliability
 - **File**: `firestore.indexes.json`
 - **Issue**: Missing indexes for: `purchaseOrderId + status` on amendments, `projectId + status` on GRs, `entityId + status` on POs. Compound queries may fail at runtime.
 - **Recommendation**: Add indexes for all multi-field WHERE clauses.
+- **Resolution**: Added 3 procurement indexes (amendments: purchaseOrderId+status+date, goodsReceipts: projectId+status+createdAt, purchaseOrders: entityId+status+createdAt) plus 8 entityId indexes for Cluster A queries.
 
 ### MEDIUM
 
@@ -199,12 +206,12 @@
 
 ## Priority Fix Order
 
-1. **PR-1 + PR-2**: Authorization checks on GR operations (security)
-2. **PR-4 + PR-6**: Amendment authorization + self-approval prevention (security)
-3. **PR-3**: Multi-tenancy filtering (requires schema change — entityId on GR)
-4. **PR-5**: GR quantity validation against PO (data integrity)
+1. ~~**PR-1 + PR-2**: Authorization checks on GR operations (security)~~ — FIXED `6489217`
+2. ~~**PR-4 + PR-6**: Amendment authorization + self-approval prevention (security)~~ — FIXED `6489217`
+3. ~~**PR-3**: Multi-tenancy filtering (requires schema change — entityId on GR)~~ — FIXED `3cb25cc`
+4. ~~**PR-5**: GR quantity validation against PO (data integrity)~~ — FIXED `0443df1`
 5. **PR-7 + PR-8**: Amendment field validation + idempotency (data integrity)
-6. **PR-11**: Add missing Firestore indexes (reliability)
+6. ~~**PR-11**: Add missing Firestore indexes (reliability)~~ — FIXED `82fc756`
 
 ## Cross-References
 

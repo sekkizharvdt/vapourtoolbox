@@ -53,13 +53,14 @@
 
 ### HIGH
 
-#### SP-1: Duplicate Permission Systems
+#### SP-1: Duplicate Permission Systems — FIXED `29f684f`
 
 - **Category**: Code Quality / Security
 - **Files**: `packages/types/src/permissions.ts` and `packages/constants/src/permissions.ts`
 - **Issue**: Two incompatible permission systems. Types uses `PermissionFlag` enum; constants uses `PERMISSION_FLAGS` object with different values. Both imported in different parts of the app.
 - **Impact**: Permission checks could fail inconsistently, potential privilege escalation if values don't align.
 - **Recommendation**: Consolidate to single source in `constants/permissions.ts`, delete `types/permissions.ts`.
+- **Resolution**: Consolidated to single `PERMISSION_FLAGS` in `@vapour/constants`. Removed `types/permissions.ts`.
 
 #### SP-2: Missing Permission Validation in Cloud Functions
 
@@ -68,12 +69,13 @@
 - **Issue**: Cloud function `createJournalEntry` hardcodes permission bit value as 256 with comment "Example bit, adjust to your permission system" instead of importing `PERMISSION_FLAGS`.
 - **Recommendation**: Import and use `PERMISSION_FLAGS` from `@vapour/constants`.
 
-#### SP-7: Permission Constants Mismatch in Cloud Functions Utils
+#### SP-7: Permission Constants Mismatch in Cloud Functions Utils — FIXED `29f684f`
 
 - **Category**: Security
 - **File**: `packages/functions/src/utils/permissions.ts`
 - **Issue**: Cloud Functions define own `ROLE_PERMISSIONS` mapping separate from `packages/constants/src/permissions.ts`. Values may diverge.
 - **Recommendation**: Import directly from `@vapour/constants`, don't define separate copy.
+- **Resolution**: Updated Cloud Functions to import from `@vapour/constants` instead of maintaining separate permission definitions.
 
 #### SP-19: Inconsistent Collection Names
 
@@ -140,12 +142,13 @@
 - **Issue**: `calculatePermissions()` in Cloud Functions only handles `PERMISSION_FLAGS`, not `permissions2`.
 - **Recommendation**: Update to process both `permissions` and `permissions2` fields.
 
-#### SP-13: Duplicate Permission Constants in Same File
+#### SP-13: Duplicate Permission Constants in Same File — FIXED `29f684f`
 
 - **Category**: Code Quality
 - **File**: `packages/constants/src/permissions.ts`
 - **Issue**: File defines both `PERMISSION_FLAGS` and `PERMISSION_BITS` with same values duplicated. Three representations of same concept across codebase.
 - **Recommendation**: Keep only `PERMISSION_FLAGS`, delete `PERMISSION_BITS`.
+- **Resolution**: Removed `PERMISSION_BITS` duplicate. Consolidated to single `PERMISSION_FLAGS` definition.
 
 #### SP-14: Missing Security Rule Enforcement Documentation
 
@@ -251,7 +254,7 @@
 
 ## Priority Fix Order
 
-1. **SP-1 + SP-7 + SP-13**: Consolidate duplicate permission systems
+1. ~~**SP-1 + SP-7 + SP-13**: Consolidate duplicate permission systems~~ — FIXED `29f684f`
 2. **SP-2**: Fix hardcoded permission bits in Cloud Functions
 3. **SP-4 + SP-12**: Sync `permissions2` to custom claims
 4. **SP-15**: Add sensitive data masking to logger

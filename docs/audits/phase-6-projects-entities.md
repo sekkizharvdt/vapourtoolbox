@@ -47,13 +47,14 @@
 
 ### CRITICAL
 
-#### PE-1: Vendor Entity Query Uses Incorrect Field Names
+#### PE-1: Vendor Entity Query Uses Incorrect Field Names — FIXED `d8e6570`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/app/projects/[id]/charter/components/vendors/index.tsx` (lines 51-55)
 - **Issue**: Query filters by `where('entityType', '==', 'VENDOR')` and `where('status', '==', 'ACTIVE')`, but BusinessEntity type uses `roles: EntityRole[]` (array) and `isActive: boolean`. Field names `entityType` and `status` don't exist.
 - **Impact**: Vendor entity lookup returns empty results, breaking entire vendor assignment workflow.
 - **Recommendation**: Change to `where('roles', 'array-contains', 'VENDOR')` and `where('isActive', '==', true)`.
+- **Resolution**: Fixed query to use correct field names: `where('roles', 'array-contains', 'VENDOR')` and `where('isActive', '==', true)`.
 
 #### PE-2: No Validation That Archived Entities Can Be Selected as Vendors
 

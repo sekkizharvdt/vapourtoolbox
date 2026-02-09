@@ -55,13 +55,14 @@
 
 ### CRITICAL
 
-#### BP-3: Weak Entity ID Filtering on Estimation List Page
+#### BP-3: Weak Entity ID Filtering on Estimation List Page — FIXED `3cb25cc`
 
 - **Category**: Security
 - **File**: `apps/web/src/app/estimation/page.tsx` (line 55)
 - **Issue**: Uses `FALLBACK_ENTITY_ID = 'default-entity'` when user has no entityId assigned. Multi-tenancy bypass allowing cross-entity data access.
 - **Impact**: Users without proper entity assignment could access/modify BOMs from other entities.
 - **Recommendation**: Require valid entityId; redirect unauthenticated users to error page instead of using fallback.
+- **Resolution**: Removed `FALLBACK_ENTITY_ID` constant. Page now shows error message if user has no entity assigned instead of using fallback.
 
 ### HIGH
 
@@ -213,7 +214,7 @@
 
 ## Priority Fix Order
 
-1. **BP-3**: Multi-tenancy fallback entity ID (security bypass)
+1. ~~**BP-3**: Multi-tenancy fallback entity ID (security bypass)~~ — FIXED `3cb25cc`
 2. **BP-1 + BP-2**: Missing type definitions for workflow fields
 3. **BP-4 + BP-5**: Permission checks + entityId validation
 4. **BP-11 + BP-12**: Race condition + financial validation

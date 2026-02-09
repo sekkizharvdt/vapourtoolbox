@@ -69,13 +69,14 @@
 
 ### HIGH
 
-#### AA-1: Inconsistent Permission Constants Between Packages
+#### AA-1: Inconsistent Permission Constants Between Packages — FIXED `29f684f`
 
 - **Category**: Code Quality / Security
 - **Files**: `packages/types/src/permissions.ts` and `packages/constants/src/permissions.ts`
 - **Issue**: Two incompatible permission systems: `types` uses `PermissionFlag` enum, `constants` uses `PERMISSION_FLAGS` object with different values. Cloud Functions use constants; app uses both.
 - **Impact**: Permission checks could fail inconsistently, potential privilege escalation if values don't align.
 - **Recommendation**: Consolidate to single source of truth in `constants/permissions.ts`. Remove `types/permissions.ts`.
+- **Resolution**: Consolidated to single `PERMISSION_FLAGS` source in `@vapour/constants`. Removed duplicate `PermissionFlag` enum from `@vapour/types`. Updated all imports across the codebase.
 
 ### MEDIUM
 
