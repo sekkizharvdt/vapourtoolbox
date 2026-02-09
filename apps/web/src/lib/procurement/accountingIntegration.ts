@@ -111,6 +111,20 @@ export async function createBillFromGoodsReceipt(
 
     const purchaseOrder = docToTyped<PurchaseOrder>(poDoc.id, poDoc.data());
 
+    // PR-10: Validate project ID exists before creating bill with GL entries
+    const projectId = purchaseOrder.projectIds?.[0] || goodsReceipt.projectId;
+    if (projectId) {
+      const projectRef = doc(db, COLLECTIONS.PROJECTS, projectId);
+      const projectDoc = await getDoc(projectRef);
+      if (!projectDoc.exists()) {
+        throw new AccountingIntegrationError(
+          'Referenced project not found. Verify the project exists before creating a bill.',
+          'PROJECT_NOT_FOUND',
+          { projectId }
+        );
+      }
+    }
+
     // Fetch goods receipt items and purchase order items in parallel (avoid sequential queries)
     const [grItemsSnapshot, poItemsSnapshot] = await Promise.all([
       getDocs(

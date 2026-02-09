@@ -36,9 +36,8 @@ import { format } from 'date-fns';
 
 const logger = createLogger({ context: 'leaveApprovalService' });
 
-// Fallback approvers if Firestore config is not set up
+// HR-5: Approvers must be configured in Firestore — no hard-coded fallbacks.
 // To configure: create document hrConfig/leaveSettings with { leaveApprovers: ['email1', 'email2'] }
-const DEFAULT_LEAVE_APPROVERS = ['revathi@vapourdesal.com', 'sekkizhar@vapourdesal.com'];
 
 /**
  * HR Config document structure
@@ -51,7 +50,7 @@ interface HRConfig {
 
 /**
  * Get leave approver emails from HR config
- * Falls back to default approvers if config is not set up
+ * Throws if config is not set up (HR-5: no hard-coded fallback emails)
  */
 async function getLeaveApproverEmails(): Promise<string[]> {
   const { db } = getFirebase();
@@ -67,14 +66,18 @@ async function getLeaveApproverEmails(): Promise<string[]> {
       }
     }
 
-    // Fallback to defaults if config not found
-    logger.warn(
-      'HR config not found, using default approvers. Configure hrConfig/leaveSettings in Firestore.'
+    // HR-5: Fail explicitly instead of using hard-coded emails
+    throw new Error(
+      'Leave approvers not configured. Please set up hrConfig/leaveSettings in Firestore with { leaveApprovers: [...] }.'
     );
-    return DEFAULT_LEAVE_APPROVERS;
   } catch (error) {
+    if (error instanceof Error && error.message.includes('not configured')) {
+      throw error;
+    }
     logger.error('Failed to fetch leave approver config', { error });
-    return DEFAULT_LEAVE_APPROVERS;
+    throw new Error(
+      'Failed to load leave approver configuration. Please contact an administrator.'
+    );
   }
 }
 

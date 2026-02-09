@@ -82,12 +82,13 @@
 - **Issue**: During finalization, if `batch.commit()` fails partially, some tasks are created but some action items aren't marked with `generatedTaskId`. No rollback.
 - **Recommendation**: Use Firestore transaction instead of batch for all-or-nothing atomicity.
 
-#### FL-7: No Validation of Task Status Transitions
+#### FL-7: No Validation of Task Status Transitions — FIXED `5bafc70`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/tasks/manualTaskService.ts` (lines 298-316)
 - **Issue**: `updateTaskStatus()` allows direct transition to ANY status. No state machine validation.
 - **Recommendation**: Implement state machine validation with defined `ALLOWED_TRANSITIONS`.
+- **Resolution**: Added `ALLOWED_TRANSITIONS` map defining valid state transitions. `done` and `cancelled` are terminal states. `updateTaskStatus()` now reads current status and validates the transition before updating.
 
 #### FL-8: Task Auto-Completion Doesn't Update Parent Task Status
 
@@ -222,4 +223,4 @@
 2. **FL-9 + FL-12**: Add composite indexes (blocking — queries fail without them)
 3. ~~**FL-2**~~ + **FL-3** + ~~**FL-5**~~: Authorization checks on task/meeting operations — FL-2, FL-5 FIXED `6489217`
 4. ~~**FL-4**~~ + **FL-6** + ~~**FL-11**~~: Atomicity and idempotency in meeting finalization — FL-4 FIXED `e063816`, FL-11 FIXED `6489217`
-5. **FL-7**: Task status transition validation
+5. ~~**FL-7**: Task status transition validation~~ — FIXED `5bafc70`

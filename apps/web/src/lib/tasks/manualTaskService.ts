@@ -355,8 +355,27 @@ export async function updateTaskStatus(
 
 /**
  * Delete a manual task
+ * FL-3: Only the task creator can delete a task
  */
-export async function deleteManualTask(db: Firestore, taskId: string): Promise<void> {
+export async function deleteManualTask(
+  db: Firestore,
+  taskId: string,
+  userId?: string
+): Promise<void> {
   const docRef = doc(db, COLLECTIONS.MANUAL_TASKS, taskId);
+
+  // FL-3: Authorization check — only creator can delete
+  if (userId) {
+    const taskDoc = await getDoc(docRef);
+    if (taskDoc.exists() && taskDoc.data().createdBy !== userId) {
+      throw new AuthorizationError(
+        'Only the task creator can delete this task',
+        undefined,
+        userId,
+        'delete task'
+      );
+    }
+  }
+
   await deleteDoc(docRef);
 }

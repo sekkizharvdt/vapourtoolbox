@@ -27,9 +27,8 @@ import {
 
 const logger = createLogger({ context: 'travelExpenseApprovalService' });
 
-// Fallback approvers if Firestore config is not set up
+// HR-5: Approvers must be configured in Firestore — no hard-coded fallbacks.
 // To configure: create document hrConfig/travelExpenseSettings with { expenseApprovers: ['email1', 'email2'] }
-const DEFAULT_EXPENSE_APPROVERS = ['revathi@vapourdesal.com'];
 
 /**
  * HR Config document structure
@@ -42,7 +41,8 @@ interface TravelExpenseConfig {
 
 /**
  * Get travel expense approver emails from HR config
- * Falls back to leave approvers if travel expense specific config is not set up
+ * Falls back to leave settings if travel-specific config not found.
+ * Throws if no config exists (HR-5: no hard-coded fallback emails).
  */
 async function getTravelExpenseApproverEmails(): Promise<string[]> {
   const { db } = getFirebase();
@@ -70,14 +70,18 @@ async function getTravelExpenseApproverEmails(): Promise<string[]> {
       }
     }
 
-    // Fallback to defaults if config not found
-    logger.warn(
-      'HR config not found, using default approvers. Configure hrConfig/travelExpenseSettings in Firestore.'
+    // HR-5: Fail explicitly instead of using hard-coded emails
+    throw new Error(
+      'Expense approvers not configured. Please set up hrConfig/travelExpenseSettings or hrConfig/leaveSettings in Firestore.'
     );
-    return DEFAULT_EXPENSE_APPROVERS;
   } catch (error) {
+    if (error instanceof Error && error.message.includes('not configured')) {
+      throw error;
+    }
     logger.error('Failed to fetch travel expense approver config', { error });
-    return DEFAULT_EXPENSE_APPROVERS;
+    throw new Error(
+      'Failed to load expense approver configuration. Please contact an administrator.'
+    );
   }
 }
 

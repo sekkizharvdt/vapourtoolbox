@@ -75,20 +75,22 @@
 - **Issue**: Default approver emails are hard-coded (e.g., internal company emails). Falls back to these if Firestore config is missing.
 - **Recommendation**: Move defaults to environment variables. Always require config in Firestore during deployment.
 
-#### HR-6: No Validation of Leave Overlap
+#### HR-6: No Validation of Leave Overlap — FIXED `5bafc70`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/hr/leaves/leaveRequestService.ts` (lines 247-338)
 - **Issue**: `createLeaveRequest` validates holidays and balance, but does NOT check for overlapping approved leave requests on the same dates.
 - **Impact**: User could submit overlapping requests (Feb 1-5 and Feb 3-7); if both approved, double leave on same days.
 - **Recommendation**: Add `checkForOverlappingLeaves()` function to reject overlapping requests.
+- **Resolution**: Added `checkForOverlappingLeaves()` that queries DRAFT/PENDING_APPROVAL/APPROVED requests where `endDate >= requestedStart`, then client-side filters for `startDate <= requestedEnd`. Called before balance check in `createLeaveRequest()`.
 
-#### HR-7: On-Duty Requests Don't Check for Conflicting Approved Leaves
+#### HR-7: On-Duty Requests Don't Check for Conflicting Approved Leaves — FIXED `5bafc70`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/hr/onDuty/onDutyRequestService.ts` (lines 133-212)
 - **Issue**: Validates date is a holiday and checks for duplicate on-duty requests, but does NOT check if user has an approved leave for that date.
 - **Recommendation**: Query for approved leave requests on the same date before creating on-duty request.
+- **Resolution**: Added `checkForConflictingLeave()` that queries APPROVED leave requests where `endDate >= holidayDate`, then client-side filters for `startDate <= holidayDate`. Called after duplicate on-duty check in `createOnDutyRequest()`.
 
 #### HR-8: Comp-Off Balance Not Tracked with Expiry Metadata
 
@@ -199,6 +201,6 @@
 1. ~~**HR-1**: Multi-tenancy filtering on all HR queries~~ — FIXED `3cb25cc`
 2. ~~**HR-2**: Prevent expense modification after approval~~ — FIXED `0443df1`
 3. **HR-4**: Wrap approval workflows in transactions
-4. **HR-6 + HR-7**: Implement leave overlap and on-duty conflict detection
+4. ~~**HR-6 + HR-7**: Implement leave overlap and on-duty conflict detection~~ — FIXED `5bafc70`
 5. **HR-5**: Remove hard-coded approver emails
 6. **HR-8**: Implement comp-off expiry tracking

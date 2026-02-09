@@ -86,19 +86,21 @@
 - **Evidence**: `updateData[change.field] = change.newValue;` — no whitelist of allowed fields.
 - **Recommendation**: Implement whitelist of allowed fields for amendment changes. Validate PO schema after applying.
 
-#### PR-8: No Idempotency Guard on Amendment Approval
+#### PR-8: No Idempotency Guard on Amendment Approval — FIXED `5bafc70`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/procurement/amendment/crud.ts` (lines 45-48)
 - **Issue**: No check preventing the same amendment from being applied twice. If `approveAmendment()` is called again with the same ID, changes are re-applied.
 - **Recommendation**: Add `if (amendment.applied === true) throw new Error('Amendment already applied')`.
+- **Resolution**: Added idempotency guard in `approveAmendment()` — checks `amendment.applied` flag after status check and throws if amendment was already applied.
 
-#### PR-9: Bank Account ID Not Validated in Payment Approval
+#### PR-9: Bank Account ID Not Validated in Payment Approval — FIXED `5bafc70`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/procurement/goodsReceiptService.ts` (line 201)
 - **Issue**: `approveGRForPayment()` accepts `bankAccountId` but never validates it exists or belongs to the organization.
 - **Recommendation**: Validate bank account exists and belongs to current entity before creating payment.
+- **Resolution**: Added bank account validation before the transaction — fetches account doc, checks existence and `isBankAccount` flag. Includes test coverage for both failure scenarios.
 
 #### PR-10: Bill Creation Uses Unvalidated Project ID
 
@@ -210,8 +212,10 @@
 2. ~~**PR-4 + PR-6**: Amendment authorization + self-approval prevention (security)~~ — FIXED `6489217`
 3. ~~**PR-3**: Multi-tenancy filtering (requires schema change — entityId on GR)~~ — FIXED `3cb25cc`
 4. ~~**PR-5**: GR quantity validation against PO (data integrity)~~ — FIXED `0443df1`
-5. **PR-7 + PR-8**: Amendment field validation + idempotency (data integrity)
-6. ~~**PR-11**: Add missing Firestore indexes (reliability)~~ — FIXED `82fc756`
+5. ~~**PR-8**: Amendment idempotency guard~~ — FIXED `5bafc70`
+6. ~~**PR-9**: Bank account validation in payment approval~~ — FIXED `5bafc70`
+7. **PR-7**: Amendment field validation (data integrity)
+8. ~~**PR-11**: Add missing Firestore indexes (reliability)~~ — FIXED `82fc756`
 
 ## Cross-References
 

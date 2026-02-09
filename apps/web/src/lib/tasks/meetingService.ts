@@ -399,6 +399,23 @@ export async function finalizeMeeting(
     );
   }
 
+  // FL-10: Validate all assignees are active users before creating tasks
+  const uniqueAssigneeIds = [...new Set(actionableItems.map((item) => item.assigneeId!))];
+  for (const assigneeId of uniqueAssigneeIds) {
+    const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, assigneeId));
+    if (!userDoc.exists()) {
+      throw new Error(
+        `Assigned user no longer exists (ID: ${assigneeId}). Please reassign the action item.`
+      );
+    }
+    const userData = userDoc.data();
+    if (userData.isActive === false || userData.status === 'inactive') {
+      throw new Error(
+        `Assigned user "${userData.displayName || assigneeId}" is inactive. Please reassign the action item.`
+      );
+    }
+  }
+
   // Create tasks from action items
   actionableItems.forEach((item) => {
     const taskRef = doc(collection(db, COLLECTIONS.MANUAL_TASKS));

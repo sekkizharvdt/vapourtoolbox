@@ -109,13 +109,17 @@ function TaskListInner() {
     async (taskId: string) => {
       if (!db) return;
       try {
-        await deleteManualTask(db, taskId);
+        await deleteManualTask(db, taskId, user?.uid);
         toast.success('Task deleted');
-      } catch {
-        toast.error('Failed to delete task');
+      } catch (err) {
+        toast.error(
+          err instanceof Error && err.message.includes('creator')
+            ? err.message
+            : 'Failed to delete task'
+        );
       }
     },
-    [db, toast]
+    [db, toast, user]
   );
 
   if (loading) {

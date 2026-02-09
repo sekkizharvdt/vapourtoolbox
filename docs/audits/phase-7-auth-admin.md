@@ -59,13 +59,14 @@
 
 ### CRITICAL
 
-#### AA-18: Missing MANAGE_ADMIN Permission Flag
+#### AA-18: Missing MANAGE_ADMIN Permission Flag — FIXED `5bafc70`
 
 - **Category**: Security
 - **File**: `packages/constants/src/permissions.ts`
 - **Issue**: No distinct `MANAGE_ADMIN` permission flag exists. All admin operations check for `MANAGE_USERS`. Admin panel access is conflated with user management.
 - **Impact**: Users managing users get access to ALL admin features (company settings, feedback, activity logs). Violates principle of least privilege.
 - **Recommendation**: Add separate `MANAGE_ADMIN` permission flag or create domain-specific permissions for different admin functions.
+- **Resolution**: Added `MANAGE_ADMIN: 1 << 16` to `PERMISSION_FLAGS_2`, `canManageAdmin()` helper, added to `ALL_PERMISSIONS` array (adminOnly: true), and added 'admin' module to `MODULE_PERMISSIONS`.
 
 ### HIGH
 
@@ -222,5 +223,5 @@
 1. **AA-3 + AA-12**: Add `permissions2` to custom claims sync (high impact, low effort)
 2. **AA-5 + AA-7**: Implement immediate session revocation on deactivation/permission change
 3. **AA-1**: Consolidate permission constants to single source of truth
-4. **AA-18**: Add proper MANAGE_ADMIN permission structure
+4. ~~**AA-18**: Add proper MANAGE_ADMIN permission structure~~ — FIXED `5bafc70`
 5. **AA-8**: Add audit logging for permission changes
