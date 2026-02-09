@@ -152,6 +152,9 @@ export interface TravelExpenseReport extends TimestampFields {
   employeeEmail: string;
   department?: string;
 
+  // Entity (for multi-tenancy)
+  entityId?: string;
+
   // Expenses
   items: TravelExpenseItem[];
 
@@ -228,6 +231,7 @@ export interface UpdateTravelExpenseInput {
  * Filters for listing travel expense reports
  */
 export interface TravelExpenseFilters {
+  entityId?: string;
   employeeId?: string;
   status?: TravelExpenseStatus | TravelExpenseStatus[];
   projectId?: string;

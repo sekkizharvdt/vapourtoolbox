@@ -72,13 +72,15 @@ export default function PaymentBatchesPage() {
         const statusOptions: PaymentBatchStatus[] | undefined =
           statusFilter === 'ALL' ? undefined : [statusFilter as PaymentBatchStatus];
 
+        const entityId = claims?.entityId;
         const [batchList, batchStats] = await Promise.all([
           listPaymentBatches(db, {
+            entityId,
             status: statusOptions ? statusOptions[0] : undefined,
             orderBy: 'createdAt',
             orderDirection: 'desc',
           }),
-          getPaymentBatchStats(db),
+          getPaymentBatchStats(db, entityId),
         ]);
 
         setBatches(batchList);

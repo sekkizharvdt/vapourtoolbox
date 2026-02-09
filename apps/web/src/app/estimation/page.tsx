@@ -27,9 +27,6 @@ import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 const logger = createLogger({ context: 'EstimationPage' });
 
-// Fallback entity ID for users without entity assignment
-const FALLBACK_ENTITY_ID = 'default-entity';
-
 // Category labels
 const categoryLabels: Record<BOMCategory, string> = {
   HEAT_EXCHANGER: 'Heat Exchanger',
@@ -51,8 +48,7 @@ export default function EstimationPage() {
   const { db } = getFirebase();
   const { confirm } = useConfirmDialog();
 
-  // Get entity ID from claims or use fallback
-  const entityId = claims?.entityId || FALLBACK_ENTITY_ID;
+  const entityId = claims?.entityId;
 
   const [boms, setBOMs] = useState<BOM[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +61,12 @@ export default function EstimationPage() {
 
   const loadBOMs = async () => {
     if (!user || !db) return;
+
+    if (!entityId) {
+      setLoading(false);
+      setError('No entity assigned to your account. Please contact your administrator.');
+      return;
+    }
 
     try {
       setLoading(true);

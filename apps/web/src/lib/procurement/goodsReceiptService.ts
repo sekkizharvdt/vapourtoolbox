@@ -550,6 +550,7 @@ export async function approveGRForPayment(
 // ============================================================================
 
 export interface ListGoodsReceiptsFilters {
+  entityId?: string;
   status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'ISSUES_FOUND';
   purchaseOrderId?: string;
   projectId?: string;
@@ -563,6 +564,9 @@ export async function listGoodsReceipts(
 
   const constraints: ReturnType<typeof where>[] = [];
 
+  if (filters.entityId) {
+    constraints.push(where('entityId', '==', filters.entityId));
+  }
   if (filters.status) {
     constraints.push(where('status', '==', filters.status));
   }

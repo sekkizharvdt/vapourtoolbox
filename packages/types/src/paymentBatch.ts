@@ -183,6 +183,10 @@ export interface PaymentBatch {
   /** Bank account name for display */
   bankAccountName: string;
 
+  // Entity (for multi-tenancy)
+  /** Entity ID for tenant isolation */
+  entityId?: string;
+
   // Status and workflow
   /** Current batch status */
   status: PaymentBatchStatus;
@@ -252,6 +256,8 @@ export interface CreatePaymentBatchInput {
   bankAccountId: string;
   /** Bank account name for display */
   bankAccountName: string;
+  /** Entity ID for tenant isolation */
+  entityId?: string;
   /** Initial notes */
   notes?: string;
 }
@@ -322,6 +328,8 @@ export interface AddBatchPaymentInput {
  * Options for listing payment batches
  */
 export interface ListPaymentBatchesOptions {
+  /** Filter by entity (for multi-tenancy) */
+  entityId?: string;
   /** Filter by status */
   status?: PaymentBatchStatus | PaymentBatchStatus[];
   /** Filter by creator */

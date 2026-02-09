@@ -246,6 +246,10 @@ export async function listOnDutyRequests(
   try {
     const constraints: QueryConstraint[] = [];
 
+    if (filters.entityId) {
+      constraints.push(where('entityId', '==', filters.entityId));
+    }
+
     if (filters.userId) {
       constraints.push(where('userId', '==', filters.userId));
     }

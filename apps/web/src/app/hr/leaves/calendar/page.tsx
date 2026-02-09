@@ -24,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { getTeamCalendar, getAllHolidaysInRange, type HolidayInfo } from '@/lib/hr';
+import { useAuth } from '@/contexts/AuthContext';
 import type { LeaveRequest } from '@vapour/types';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -53,6 +54,7 @@ interface CalendarDay {
 
 export default function LeaveCalendarPage() {
   const router = useRouter();
+  const { claims } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [holidays, setHolidays] = useState<HolidayInfo[]>([]);
@@ -72,7 +74,7 @@ export default function LeaveCalendarPage() {
       const end = new Date(year, month + 1, 0);
 
       const [leaveData, holidayData] = await Promise.all([
-        getTeamCalendar(start, end),
+        getTeamCalendar(start, end, claims?.entityId),
         getAllHolidaysInRange(start, end),
       ]);
 

@@ -51,6 +51,7 @@ export interface CreateLeaveRequestInput {
  * Filters for listing leave requests
  */
 export interface ListLeaveRequestsFilters {
+  entityId?: string;
   userId?: string;
   status?: LeaveRequestStatus;
   leaveTypeCode?: LeaveTypeCode;
@@ -373,6 +374,10 @@ export async function listLeaveRequests(
   try {
     const constraints: QueryConstraint[] = [];
 
+    if (filters.entityId) {
+      constraints.push(where('entityId', '==', filters.entityId));
+    }
+
     if (filters.userId) {
       constraints.push(where('userId', '==', filters.userId));
     }
@@ -548,17 +553,26 @@ export async function deleteLeaveRequest(requestId: string, userId: string): Pro
 /**
  * Get team calendar data (approved leaves for a date range)
  */
-export async function getTeamCalendar(startDate: Date, endDate: Date): Promise<LeaveRequest[]> {
+export async function getTeamCalendar(
+  startDate: Date,
+  endDate: Date,
+  entityId?: string
+): Promise<LeaveRequest[]> {
   const { db } = getFirebase();
 
   try {
     // Query for approved leaves that overlap with the date range
-    const q = query(
-      collection(db, COLLECTIONS.HR_LEAVE_REQUESTS),
+    const constraints: QueryConstraint[] = [
       where('status', '==', 'APPROVED'),
       where('startDate', '<=', Timestamp.fromDate(endDate)),
-      orderBy('startDate', 'asc')
-    );
+      orderBy('startDate', 'asc'),
+    ];
+
+    if (entityId) {
+      constraints.push(where('entityId', '==', entityId));
+    }
+
+    const q = query(collection(db, COLLECTIONS.HR_LEAVE_REQUESTS), ...constraints);
 
     const snapshot = await getDocs(q);
 

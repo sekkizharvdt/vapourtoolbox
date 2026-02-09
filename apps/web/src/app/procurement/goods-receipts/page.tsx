@@ -40,6 +40,7 @@ import {
   Home as HomeIcon,
 } from '@mui/icons-material';
 import type { GoodsReceipt, GoodsReceiptStatus } from '@vapour/types';
+import { useAuth } from '@/contexts/AuthContext';
 import { listGoodsReceipts } from '@/lib/procurement/goodsReceiptService';
 import {
   getGRStatusText,
@@ -53,6 +54,7 @@ import { formatDate } from '@/lib/utils/formatters';
 
 export default function GoodsReceiptsPage() {
   const router = useRouter();
+  const { claims } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -79,7 +81,10 @@ export default function GoodsReceiptsPage() {
     setLoading(true);
     setError('');
     try {
-      const filters = statusFilter !== 'ALL' ? { status: statusFilter } : {};
+      const filters = {
+        ...(claims?.entityId ? { entityId: claims.entityId } : {}),
+        ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
+      };
       const data = await listGoodsReceipts(filters);
       setGoodsReceipts(data);
     } catch (err) {

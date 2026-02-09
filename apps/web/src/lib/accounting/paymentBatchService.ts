@@ -186,7 +186,8 @@ export async function createPaymentBatch(
     status: 'DRAFT' as PaymentBatchStatus,
     createdBy: userId,
     createdAt: now,
-    // Only include notes if it has a value (Firestore doesn't accept undefined)
+    // Only include optional fields if they have values (Firestore doesn't accept undefined)
+    ...(input.entityId ? { entityId: input.entityId } : {}),
     ...(input.notes ? { notes: input.notes } : {}),
     updatedAt: now,
   };
@@ -231,6 +232,11 @@ export async function listPaymentBatches(
     collection(db, COLLECTIONS.PAYMENT_BATCHES),
     orderBy(options.orderBy || 'createdAt', options.orderDirection || 'desc')
   );
+
+  // Apply entity filter (multi-tenancy)
+  if (options.entityId) {
+    q = query(q, where('entityId', '==', options.entityId));
+  }
 
   // Apply status filter
   if (options.status) {
@@ -666,14 +672,21 @@ export async function cancelBatch(db: Firestore, batchId: string): Promise<void>
 export async function getOutstandingBillsForProject(
   db: Firestore,
   projectId?: string,
-  includeAllProjects: boolean = false
+  includeAllProjects: boolean = false,
+  entityId?: string
 ): Promise<VendorBill[]> {
-  const q = query(
-    collection(db, COLLECTIONS.TRANSACTIONS),
+  const constraints = [
     where('type', '==', 'VENDOR_BILL'),
     where('paymentStatus', 'in', ['UNPAID', 'PARTIALLY_PAID']),
-    orderBy('dueDate', 'asc')
-  );
+    orderBy('dueDate', 'asc'),
+  ];
+
+  // Apply entity filter (multi-tenancy)
+  if (entityId) {
+    constraints.push(where('entityId', '==', entityId));
+  }
+
+  const q = query(collection(db, COLLECTIONS.TRANSACTIONS), ...constraints);
 
   // If projectId specified and not including all, filter by project
   // Note: Firestore doesn't support optional where clauses, so we filter in memory
@@ -701,9 +714,10 @@ export async function getOutstandingBillsForProject(
  * Get outstanding bills for all projects (grouped by project)
  */
 export async function getOutstandingBillsByProject(
-  db: Firestore
+  db: Firestore,
+  entityId?: string
 ): Promise<Map<string, VendorBill[]>> {
-  const bills = await getOutstandingBillsForProject(db, undefined, true);
+  const bills = await getOutstandingBillsForProject(db, undefined, true, entityId);
   const grouped = new Map<string, VendorBill[]>();
 
   for (const bill of bills) {
@@ -768,8 +782,14 @@ export function detectCrossProjectPayments(batch: PaymentBatch): Array<{
 /**
  * Get payment batch statistics
  */
-export async function getPaymentBatchStats(db: Firestore): Promise<PaymentBatchStats> {
-  const snapshot = await getDocs(collection(db, COLLECTIONS.PAYMENT_BATCHES));
+export async function getPaymentBatchStats(
+  db: Firestore,
+  entityId?: string
+): Promise<PaymentBatchStats> {
+  const q = entityId
+    ? query(collection(db, COLLECTIONS.PAYMENT_BATCHES), where('entityId', '==', entityId))
+    : query(collection(db, COLLECTIONS.PAYMENT_BATCHES));
+  const snapshot = await getDocs(q);
 
   const stats: PaymentBatchStats = {
     byStatus: {

@@ -25,6 +25,7 @@ import {
   LEAVE_STATUS_LABELS,
   formatLeaveDate,
 } from '@/lib/hr';
+import { useAuth } from '@/contexts/AuthContext';
 import type { LeaveRequest, LeaveRequestStatus } from '@vapour/types';
 
 const STATUS_COLORS = LEAVE_STATUS_COLORS;
@@ -35,6 +36,7 @@ type FilterTabValue = 'pending' | 'approved' | 'rejected' | 'all';
 
 export default function TeamRequestsTab() {
   const router = useRouter();
+  const { claims } = useAuth();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +57,7 @@ export default function TeamRequestsTab() {
               : undefined;
 
       const data = await listLeaveRequests({
+        entityId: claims?.entityId,
         status: statusFilter,
         limit: 50,
       });
