@@ -23,14 +23,14 @@
 
 ### HIGH
 
-| #   | Issue                                                     | Resolution                                                                                          |
-| --- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| 5   | Race condition on bill creation (concurrent clicks)       | Deferred: needs Firestore transaction with optimistic locking                                       |
-| 6   | "Sent By" column mislabeled (showed assignee, not sender) | Fixed: renamed to "Assigned To" + added `sentToAccountingByName` field to type                      |
-| 7   | Missing vendor name and amount columns                    | Fixed: `getGRNsPendingBilling` now returns `GRNPendingBill` with PO data (vendor, amount, currency) |
-| 8   | No confirmation dialog before bill creation               | Fixed: added confirmation dialog with GR/PO/vendor/amount details                                   |
-| 9   | No notification back to procurement when bill created     | Deferred: needs reverse notification flow                                                           |
-| 10  | No pagination/filter/sort on GRN Bills page               | Deferred: add when volume warrants it                                                               |
+| #   | Issue                                                     | Resolution                                                                                                                                                                          |
+| --- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5   | Race condition on bill creation (concurrent clicks)       | Fixed (`b71b085`): `runTransaction` atomically claims GR (sets `paymentRequestId: 'CREATING'`) before bill creation. Rollback on failure clears the lock.                           |
+| 6   | "Sent By" column mislabeled (showed assignee, not sender) | Fixed: renamed to "Assigned To" + added `sentToAccountingByName` field to type                                                                                                      |
+| 7   | Missing vendor name and amount columns                    | Fixed: `getGRNsPendingBilling` now returns `GRNPendingBill` with PO data (vendor, amount, currency)                                                                                 |
+| 8   | No confirmation dialog before bill creation               | Fixed: added confirmation dialog with GR/PO/vendor/amount details                                                                                                                   |
+| 9   | No notification back to procurement when bill created     | Fixed (`b71b085`): Added `GR_BILL_CREATED` informational notification sent to `sentToAccountingById` when bill is created. Added `sentToAccountingById` field to GoodsReceipt type. |
+| 10  | No pagination/filter/sort on GRN Bills page               | Deferred: add when volume warrants it                                                                                                                                               |
 
 ### MEDIUM
 
@@ -47,7 +47,7 @@
 These items are tracked for future work:
 
 1. ~~**entityId on GoodsReceipt**~~ — FIXED (`e063816`): `entityId` made required on type, populated from PO
-2. **Race condition on bill creation** — needs Firestore transaction wrapping
-3. **Reverse notification to procurement** — needs new notification category
+2. ~~**Race condition on bill creation**~~ — FIXED (`b71b085`): `runTransaction` with atomic claim + rollback
+3. ~~**Reverse notification to procurement**~~ — FIXED (`b71b085`): `GR_BILL_CREATED` notification
 4. **Rejection workflow** — needs design for send-back flow
 5. **Pagination on GRN Bills** — add when data volume grows

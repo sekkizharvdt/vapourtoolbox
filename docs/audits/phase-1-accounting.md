@@ -83,12 +83,13 @@
 - **Recommendation**: Call `validatePaymentAllocation()` for each allocation before creating payment.
 - **Resolution**: Added `validatePaymentAllocation()` calls for each non-zero allocation before batch creation. Validates allocation doesn't exceed outstanding amount per invoice/bill.
 
-#### AC-8: Floating Point in Financial Calculations
+#### AC-8: Floating Point in Financial Calculations — FIXED `b71b085`
 
 - **Category**: Code Quality
 - **File**: `apps/web/src/lib/accounting/interprojectLoanService.ts` (lines 196-206)
 - **Issue**: Interest calculations use floating point arithmetic with `Math.round(x * 100) / 100` at the end. Intermediate calculations can accumulate errors across thousands of transactions.
 - **Recommendation**: Use integer arithmetic (paisa) or a decimal library. Convert only for display.
+- **Resolution**: Added `roundToPaisa()` helper applied at each intermediate calculation step — `calculateSimpleInterest`, `calculateCompoundInterest`, `principalPerPayment`, and `remainingPrincipal` updates. Last payment absorbs rounding remainder to prevent drift. GST split in `accountingIntegration.ts` also fixed (cgst rounds first, sgst gets remainder).
 
 #### AC-9: Missing Composite Index for Period Validation — VERIFIED RESOLVED
 

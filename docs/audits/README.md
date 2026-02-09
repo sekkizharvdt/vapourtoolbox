@@ -24,8 +24,8 @@ Each module is audited against these categories:
 
 | Phase | Module(s)                    | Status                           | Report                                                       |
 | ----- | ---------------------------- | -------------------------------- | ------------------------------------------------------------ |
-| 0     | GRN Bills (narrow)           | COMPLETE (15 findings, 9 fixed)  | [phase-0-grn-bills.md](phase-0-grn-bills.md)                 |
-| 1     | Accounting                   | COMPLETE (24 findings, 9 fixed)  | [phase-1-accounting.md](phase-1-accounting.md)               |
+| 0     | GRN Bills (narrow)           | COMPLETE (15 findings, 11 fixed) | [phase-0-grn-bills.md](phase-0-grn-bills.md)                 |
+| 1     | Accounting                   | COMPLETE (24 findings, 10 fixed) | [phase-1-accounting.md](phase-1-accounting.md)               |
 | 2     | Procurement                  | COMPLETE (22 findings, 11 fixed) | [phase-2-procurement.md](phase-2-procurement.md)             |
 | 3     | Proposals + Estimation/BOM   | COMPLETE (20 findings, 5 fixed)  | [phase-3-proposals-bom.md](phase-3-proposals-bom.md)         |
 | 4     | HR                           | COMPLETE (20 findings, 11 fixed) | [phase-4-hr.md](phase-4-hr.md)                               |
@@ -46,7 +46,7 @@ Each module is audited against these categories:
 
 ## Fix Progress
 
-**64 of 190 findings fixed** (34%) across 12 commits + 8 verified as already resolved.
+**67 of 190 findings fixed** (35%) across 13 commits + 8 verified as already resolved.
 
 | Commit    | Description                                      | Findings Fixed                                                | Count |
 | --------- | ------------------------------------------------ | ------------------------------------------------------------- | ----- |
@@ -61,6 +61,7 @@ Each module is audited against these categories:
 | `024218c` | Field validation, entityId filters, UX fixes     | PR-7, HR-9, HR-10, FL-15                                      | 4     |
 | `4c49436` | Allocation validation, entity filtering, SSOT    | AC-7, PE-5, PE-9, PE-12                                       | 4     |
 | `efadb87` | CRITICAL/HIGH audit fixes batch 3                | PE-6, FL-6, FL-8, AC-10, AC-6, HR-8                           | 6     |
+| `b71b085` | Final 3 HIGH audit fixes                         | Phase0#5, Phase0#9, AC-8                                      | 3     |
 | verified  | Already resolved (indexes exist, code has fixes) | FL-9, HR-3, HR-4, AA-3, AA-12, AA-2, AA-19, AC-9              | 8     |
 
 ### By Severity
@@ -68,18 +69,14 @@ Each module is audited against these categories:
 | Severity  | Total   | Fixed  | Remaining |
 | --------- | ------- | ------ | --------- |
 | CRITICAL  | 27      | 17     | 10        |
-| HIGH      | 43      | 39     | 4         |
+| HIGH      | 43      | **43** | **0**     |
 | MEDIUM    | 82      | 8      | 74        |
 | LOW       | 38      | 0      | 38        |
-| **Total** | **190** | **64** | **126**   |
+| **Total** | **190** | **67** | **123**   |
 
 ### Remaining CRITICAL & HIGH Findings
 
-| ID       | Phase | Severity | Issue                                                 |
-| -------- | ----- | -------- | ----------------------------------------------------- |
-| Phase0#5 | 0     | HIGH     | Race condition on bill creation (concurrent clicks)   |
-| Phase0#9 | 0     | HIGH     | No notification back to procurement when bill created |
-| AC-8     | 1     | HIGH     | Floating point in financial calculations              |
+All CRITICAL and HIGH findings have been resolved.
 
 ## Cross-Cutting Concerns
 
