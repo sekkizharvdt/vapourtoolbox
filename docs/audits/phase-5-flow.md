@@ -76,12 +76,13 @@
 - **Recommendation**: Add permission checks. Only creator or admin can update/finalize meetings.
 - **Resolution**: Added creator/attendee verification on meeting finalize, update, and delete operations.
 
-#### FL-6: Meeting Action Items Orphaned if Task Creation Fails
+#### FL-6: Meeting Action Items Orphaned if Task Creation Fails — FIXED `efadb87`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/tasks/meetingService.ts` (lines 327-378)
 - **Issue**: During finalization, if `batch.commit()` fails partially, some tasks are created but some action items aren't marked with `generatedTaskId`. No rollback.
 - **Recommendation**: Use Firestore transaction instead of batch for all-or-nothing atomicity.
+- **Resolution**: Replaced `writeBatch()` with `runTransaction()` in `finalizeMeeting()`. All reads (user docs, action items) now happen inside the transaction, ensuring atomicity — either all tasks + action item updates succeed or nothing is committed.
 
 #### FL-7: No Validation of Task Status Transitions — FIXED `5bafc70`
 
@@ -91,12 +92,13 @@
 - **Recommendation**: Implement state machine validation with defined `ALLOWED_TRANSITIONS`.
 - **Resolution**: Added `ALLOWED_TRANSITIONS` map defining valid state transitions. `done` and `cancelled` are terminal states. `updateTaskStatus()` now reads current status and validates the transition before updating.
 
-#### FL-8: Task Auto-Completion Doesn't Update Parent Task Status
+#### FL-8: Task Auto-Completion Doesn't Update Parent Task Status — FIXED `efadb87`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/tasks/taskNotificationService.ts` (lines 570-623)
 - **Issue**: When task notifications are auto-completed, the related manual task (if from meeting) is NOT automatically completed. Two parallel systems not synchronized.
 - **Recommendation**: When auto-completing notifications, check for and update related manual tasks.
+- **Resolution**: Added bidirectional sync: (1) `completeActionableTask()` now finds and completes the related ManualTask when `entityType === 'TASK'`. (2) `updateTaskStatus()` in manualTaskService now calls `completeTaskNotificationsByEntity()` when status is 'done'. Both wrapped in non-critical try/catch to prevent cascading failures.
 
 #### FL-9: Task Notification Query Missing Index — VERIFIED RESOLVED
 

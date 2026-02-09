@@ -95,12 +95,13 @@
 - **Recommendation**: Query for approved leave requests on the same date before creating on-duty request.
 - **Resolution**: Added `checkForConflictingLeave()` that queries APPROVED leave requests where `endDate >= holidayDate`, then client-side filters for `startDate <= holidayDate`. Called after duplicate on-duty check in `createOnDutyRequest()`.
 
-#### HR-8: Comp-Off Balance Not Tracked with Expiry Metadata
+#### HR-8: Comp-Off Balance Not Tracked with Expiry Metadata — FIXED `efadb87`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/hr/onDuty/compOffService.ts` (lines 170-187, 264-279)
 - **Issue**: Comp-offs should expire 1 year from grant, but no individual grant records with metadata are stored. `findExpiringCompOffs` is a TODO placeholder returning empty array.
 - **Recommendation**: Create `compOffGrants` subcollection with grant dates and expiry tracking. Implement scheduled Cloud Function for auto-expiry.
+- **Resolution**: Added `CompOffGrant` type with fields for userId, source, holidayDate, grantDate, expiryDate, status (active/used/expired). Added `HR_COMP_OFF_GRANTS` collection. `addCompOffBalance()` now creates individual grant records inside the same transaction. `findExpiringCompOffs()` replaced placeholder with real query against `hrCompOffGrants` collection filtering by status=active and expiryDate within threshold.
 
 #### HR-9: No Validation That Half-Day Leaves Are Single-Day Only (UX) — FIXED `024218c`
 

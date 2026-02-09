@@ -25,12 +25,12 @@ Each module is audited against these categories:
 | Phase | Module(s)                    | Status                           | Report                                                       |
 | ----- | ---------------------------- | -------------------------------- | ------------------------------------------------------------ |
 | 0     | GRN Bills (narrow)           | COMPLETE (15 findings, 9 fixed)  | [phase-0-grn-bills.md](phase-0-grn-bills.md)                 |
-| 1     | Accounting                   | COMPLETE (24 findings, 7 fixed)  | [phase-1-accounting.md](phase-1-accounting.md)               |
+| 1     | Accounting                   | COMPLETE (24 findings, 9 fixed)  | [phase-1-accounting.md](phase-1-accounting.md)               |
 | 2     | Procurement                  | COMPLETE (22 findings, 11 fixed) | [phase-2-procurement.md](phase-2-procurement.md)             |
 | 3     | Proposals + Estimation/BOM   | COMPLETE (20 findings, 5 fixed)  | [phase-3-proposals-bom.md](phase-3-proposals-bom.md)         |
-| 4     | HR                           | COMPLETE (20 findings, 10 fixed) | [phase-4-hr.md](phase-4-hr.md)                               |
-| 5     | Flow (Tasks/Inbox/Meetings)  | COMPLETE (23 findings, 10 fixed) | [phase-5-flow.md](phase-5-flow.md)                           |
-| 6     | Projects + Entities + SSOT   | COMPLETE (20 findings, 6 fixed)  | [phase-6-projects-entities.md](phase-6-projects-entities.md) |
+| 4     | HR                           | COMPLETE (20 findings, 11 fixed) | [phase-4-hr.md](phase-4-hr.md)                               |
+| 5     | Flow (Tasks/Inbox/Meetings)  | COMPLETE (23 findings, 12 fixed) | [phase-5-flow.md](phase-5-flow.md)                           |
+| 6     | Projects + Entities + SSOT   | COMPLETE (20 findings, 7 fixed)  | [phase-6-projects-entities.md](phase-6-projects-entities.md) |
 | 7     | Auth/Permissions + Admin     | COMPLETE (20 findings, 6 fixed)  | [phase-7-auth-admin.md](phase-7-auth-admin.md)               |
 | 8     | Shared Packages + API Routes | COMPLETE (26 findings, 3 fixed)  | [phase-8-shared-packages.md](phase-8-shared-packages.md)     |
 
@@ -46,7 +46,7 @@ Each module is audited against these categories:
 
 ## Fix Progress
 
-**58 of 190 findings fixed** (31%) across 11 commits + 8 verified as already resolved.
+**64 of 190 findings fixed** (34%) across 12 commits + 8 verified as already resolved.
 
 | Commit    | Description                                      | Findings Fixed                                                | Count |
 | --------- | ------------------------------------------------ | ------------------------------------------------------------- | ----- |
@@ -60,37 +60,32 @@ Each module is audited against these categories:
 | `58f8d40` | Task auth, project validation, approver config   | FL-3, PR-10, FL-10, HR-5                                      | 4     |
 | `024218c` | Field validation, entityId filters, UX fixes     | PR-7, HR-9, HR-10, FL-15                                      | 4     |
 | `4c49436` | Allocation validation, entity filtering, SSOT    | AC-7, PE-5, PE-9, PE-12                                       | 4     |
+| `efadb87` | CRITICAL/HIGH audit fixes batch 3                | PE-6, FL-6, FL-8, AC-10, AC-6, HR-8                           | 6     |
 | verified  | Already resolved (indexes exist, code has fixes) | FL-9, HR-3, HR-4, AA-3, AA-12, AA-2, AA-19, AC-9              | 8     |
 
 ### By Severity
 
 | Severity  | Total   | Fixed  | Remaining |
 | --------- | ------- | ------ | --------- |
-| CRITICAL  | 27      | 16     | 11        |
-| HIGH      | 43      | 34     | 9         |
+| CRITICAL  | 27      | 17     | 10        |
+| HIGH      | 43      | 39     | 4         |
 | MEDIUM    | 82      | 8      | 74        |
 | LOW       | 38      | 0      | 38        |
-| **Total** | **190** | **58** | **132**   |
+| **Total** | **190** | **64** | **126**   |
 
 ### Remaining CRITICAL & HIGH Findings
 
-| ID       | Phase | Severity | Issue                                                        |
-| -------- | ----- | -------- | ------------------------------------------------------------ |
-| Phase0#5 | 0     | HIGH     | Race condition on bill creation (concurrent clicks)          |
-| Phase0#9 | 0     | HIGH     | No notification back to procurement when bill created        |
-| AC-6     | 1     | HIGH     | Recurring transaction edge cases (month-end, leap year, DST) |
-| AC-8     | 1     | HIGH     | Floating point in financial calculations                     |
-| AC-10    | 1     | HIGH     | GL validation only checks balance, not business logic        |
-| FL-6     | 5     | HIGH     | Meeting action items orphaned if task creation fails         |
-| FL-8     | 5     | HIGH     | Task auto-completion doesn't update parent task status       |
-| PE-6     | 6     | CRITICAL | No SSOT access control scoping                               |
-| HR-8     | 4     | HIGH     | Comp-off balance not tracked with expiry metadata            |
+| ID       | Phase | Severity | Issue                                                 |
+| -------- | ----- | -------- | ----------------------------------------------------- |
+| Phase0#5 | 0     | HIGH     | Race condition on bill creation (concurrent clicks)   |
+| Phase0#9 | 0     | HIGH     | No notification back to procurement when bill created |
+| AC-8     | 1     | HIGH     | Floating point in financial calculations              |
 
 ## Cross-Cutting Concerns
 
 Issues that span multiple modules are tracked separately:
 
-- **Multi-tenancy (entityId)**: ~~Most Firestore queries lack entityId filtering.~~ **Mostly fixed** (`3cb25cc`, `e063816`): Added entityId filtering to Accounting (AC-2), Procurement (PR-3), HR (HR-1, HR-10), Proposals (BP-3), Flow (FL-15). GoodsReceipt `entityId` made required and populated from PO (`e063816`). **Remaining**: Projects (PE-6) still needs filtering.
+- **Multi-tenancy (entityId)**: ~~Most Firestore queries lack entityId filtering.~~ **Fixed** (`3cb25cc`, `e063816`, `efadb87`): Added entityId filtering to Accounting (AC-2), Procurement (PR-3), HR (HR-1, HR-10), Proposals (BP-3), Flow (FL-15). GoodsReceipt `entityId` made required and populated from PO (`e063816`). SSOT project access scoped to user's `assignedProjects` (PE-6, `efadb87`).
 - **Firestore indexes**: ~~Missing indexes~~ **Mostly resolved** (`3cb25cc`): Added missing composite indexes for Procurement (PR-11). FL-9, HR-3, and AC-9 verified as already present in `firestore.indexes.json`. **Remaining**: HR (HR-11), Flow (FL-12), Proposals (BP-10).
 - **Permission checks**: ~~Client-side only in most modules.~~ **Mostly fixed** (`6489217`, `58f8d40`): Added authorization checks in Procurement (PR-1, PR-2, PR-4), Flow (FL-2, FL-5, FL-3). **Remaining**: HR (HR-18).
 - **Duplicate permission systems**: ~~Incompatible systems in types and constants.~~ **Fixed** (`29f684f`): Consolidated to single `PERMISSION_FLAGS` in `@vapour/constants`. Removed duplicate `PermissionFlag` enum (AA-1, SP-1, SP-7, SP-13).

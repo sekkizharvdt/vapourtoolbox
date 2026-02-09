@@ -64,12 +64,13 @@
 - **Recommendation**: Add `where('isArchived', '!=', true)` to vendor entity query.
 - **Resolution**: Added client-side filter `!e.isArchived` after fetching vendor entities (client-side because `isArchived` may be `undefined` on older docs, which Firestore `!= true` doesn't match correctly).
 
-#### PE-6: No Scoping of SSOT Data to Project Access Control
+#### PE-6: No Scoping of SSOT Data to Project Access Control — FIXED `efadb87`
 
 - **Category**: Security
 - **File**: `apps/web/src/app/ssot/page.tsx` (lines 82-88)
 - **Issue**: SSOT module loads all projects for current user without permission checks. No verification of access before allowing SSOT data view/edit.
 - **Recommendation**: Add permission checks to verify user can access selected project.
+- **Resolution**: Added `getProjectsForUser(userId, permissions)` to `projectService.ts` — users with `MANAGE_PROJECTS` see all projects, others see only their `assignedProjects`. SSOT page now uses this scoped query instead of `getProjects()`.
 
 #### PE-17: Missing Validation That Entity Roles Include VENDOR Before Assignment — FIXED `e063816`
 
