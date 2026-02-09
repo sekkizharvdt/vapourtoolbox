@@ -1,0 +1,239 @@
+# Phase 9: MEDIUM & LOW Findings Fix Plan
+
+**Status**: PLANNED
+**Scope**: All remaining 110 findings (72 MEDIUM + 38 LOW) from Phases 0-8
+**Prerequisite**: All 27 CRITICAL and 43 HIGH findings are resolved.
+
+---
+
+## Fix Clusters
+
+Findings are grouped into 8 clusters, ordered by impact. Each cluster can be implemented and committed independently.
+
+---
+
+### Cluster A: State Machine Enforcement (6 MEDIUM)
+
+Enforce valid status transitions in services that currently allow arbitrary state jumps.
+
+| ID    | Phase | Issue                                                | Fix Approach                                                   |
+| ----- | ----- | ---------------------------------------------------- | -------------------------------------------------------------- |
+| AC-11 | 1     | Payment batch status transitions not enforced        | Add `VALID_TRANSITIONS` map, validate in `updateBatchStatus()` |
+| PR-12 | 2     | GR state machine used inconsistently                 | Re-validate status inside transaction in GR update functions   |
+| BP-13 | 3     | No validation of proposal status transitions         | Add transition map to proposalService                          |
+| HR-12 | 4     | Travel expense status transitions not validated      | Add state machine to travelExpenseService                      |
+| FL-14 | 5     | Task notification status transitions not validated   | Guard `completeActionableTask()` against re-completion         |
+| FL-18 | 5     | ManualTaskCard status cycle doesn't handle cancelled | Skip cancelled status in cycle, add explicit reactivation      |
+
+**Effort**: Moderate — pattern is the same across all 6, can create a reusable `validateTransition()` helper.
+
+---
+
+### Cluster B: Audit Logging Infrastructure (6 MEDIUM)
+
+Add audit trail for sensitive operations. Requires establishing a reusable `createAuditEntry()` pattern.
+
+| ID    | Phase | Issue                                                         | Fix Approach                                               |
+| ----- | ----- | ------------------------------------------------------------- | ---------------------------------------------------------- |
+| AA-8  | 7     | No audit log for permission changes                           | Log to `auditLogs` collection on permission update         |
+| AA-14 | 7     | Missing admin permission for audit log access (LOW)           | Add Firestore rule: deny write except from Cloud Functions |
+| HR-14 | 4     | Employee update functions lack audit logging                  | Add audit entry on sensitive field changes                 |
+| AC-12 | 1     | Recurring transaction hard-deleted without audit trail        | Move to `deletedTransactions` archive before delete        |
+| PR-17 | 2     | Amendment audit trail missing field-level details             | Log before/after values in amendment history               |
+| SP-26 | 8     | Missing audit trail for permission changes in Cloud Functions | Log `syncUserClaims` and `onUserUpdate` operations         |
+
+**Effort**: Moderate — first item establishes the pattern, rest follow it.
+
+---
+
+### Cluster C: Auth & Session Hardening (10 MEDIUM)
+
+Close the gap where client-side permission checks can be bypassed.
+
+| ID    | Phase | Issue                                                         | Fix Approach                                     |
+| ----- | ----- | ------------------------------------------------------------- | ------------------------------------------------ |
+| AA-4  | 7     | Client-side permission claims not validated against Firestore | Add periodic claim refresh (e.g., every 15 min)  |
+| AA-5  | 7     | User deactivation not immediately revoking session            | Call `revokeRefreshTokens()` on deactivation     |
+| AA-6  | 7     | Missing validation of isActive in Firestore Rules             | Add `isActive == true` check to security rules   |
+| AA-7  | 7     | Permission changes don't force token refresh                  | Bump a `claimsVersion` field, check on client    |
+| HR-18 | 4     | Missing permissions check on HR service function calls        | Add `assertPermission()` to HR service functions |
+| PE-8  | 6     | Company documents not scoped by module/project permissions    | Add visibility check in document query           |
+| PE-10 | 6     | Document visibility enforced only at client                   | Add service-layer visibility filter              |
+| PE-14 | 6     | No explicit permission check for SSOT editors                 | Check `assignedProjects` before allowing edits   |
+| PE-18 | 6     | SSOT data not validated against project ownership             | Validate user has project access                 |
+| PR-16 | 2     | Missing dedicated permission flags for GR operations          | Add `APPROVE_GR` / `INSPECT_GOODS` flags         |
+
+**Effort**: High — AA-4/5/6/7 require coordinated auth infrastructure changes. PE/HR/PR items are simpler service-layer guards.
+
+---
+
+### Cluster D: Cloud Functions Hardening (16 MEDIUM, 4 LOW)
+
+Harden Cloud Functions for production deployment.
+
+| ID    | Phase | Sev | Issue                                                   |
+| ----- | ----- | --- | ------------------------------------------------------- |
+| SP-3  | 8     | M   | Untyped array fields in validation schemas              |
+| SP-4  | 8     | M   | Inconsistent CustomClaims field names                   |
+| SP-5  | 8     | M   | Cloud Functions silently continue on validation failure |
+| SP-6  | 8     | M   | Missing input validation (userId != auth.uid)           |
+| SP-8  | 8     | M   | Empty API routes directory                              |
+| SP-9  | 8     | M   | Firestore emulator exposure in testing                  |
+| SP-11 | 8     | M   | Rate limiter not distributed (in-memory only)           |
+| SP-12 | 8     | M   | Missing permissions2 helper functions                   |
+| SP-14 | 8     | M   | Missing security rule enforcement documentation         |
+| SP-15 | 8     | M   | Logger doesn't mask sensitive data                      |
+| SP-16 | 8     | M   | Validation schemas don't match type definitions         |
+| SP-18 | 8     | M   | Missing auth check in public Cloud Functions            |
+| SP-20 | 8     | M   | No cross-tenant data access validation                  |
+| SP-21 | 8     | M   | Missing error response standardization                  |
+| SP-23 | 8     | M   | No input size limits                                    |
+| SP-24 | 8     | M   | Timestamp handling inconsistency                        |
+| SP-10 | 8     | L   | Missing environment variable validation                 |
+| SP-17 | 8     | L   | Unused permission flags in types package                |
+| SP-22 | 8     | L   | TODOs left in production code                           |
+| SP-25 | 8     | L   | Missing rate limiter cleanup after reset                |
+
+**Effort**: Moderate-High — 20 items but many are small validation/documentation fixes. SP-11 (distributed rate limiter) and SP-15 (log masking) are the larger items.
+
+---
+
+### Cluster E: Service-Layer Validation (15 MEDIUM)
+
+Add missing validation checks in service functions (field existence, referential integrity, financial calculations).
+
+| ID    | Phase | Issue                                                             |
+| ----- | ----- | ----------------------------------------------------------------- |
+| BP-6  | 3     | Missing validation on proposal approval actions                   |
+| BP-8  | 3     | No validation of revision chain integrity                         |
+| BP-9  | 3     | No validation of BOM item hierarchy                               |
+| BP-11 | 3     | Race condition in BOM summary calculation                         |
+| BP-12 | 3     | Missing financial calculation validation                          |
+| PE-3  | 6     | No validation that referenced vendor entity still exists          |
+| PE-4  | 6     | Incomplete required field validation for outsourcing vendors      |
+| PE-11 | 6     | Entity archive status not checked when creating procurement items |
+| PE-19 | 6     | Supply items can reference non-existent documents                 |
+| PR-13 | 2     | Bill fallback to PO amounts when no items accepted                |
+| PR-15 | 2     | GR items lack uniqueness constraint                               |
+| AC-14 | 1     | Cost centre auto-creation race condition                          |
+| AC-15 | 1     | Fiscal year "current" not exclusive                               |
+| HR-13 | 4     | Holiday duplicate detection not enforced at database level        |
+| FL-19 | 5     | No validation of assignee permissions on task creation            |
+
+**Effort**: Moderate — each is a targeted validation addition in a single service function.
+
+---
+
+### Cluster F: Denormalized Data Sync (3 MEDIUM)
+
+Add Cloud Function triggers to propagate name changes to denormalized copies.
+
+| ID    | Phase | Issue                                                     | Scope                           |
+| ----- | ----- | --------------------------------------------------------- | ------------------------------- |
+| PE-7  | 6     | Denormalized vendor names not updated when entity changes | Entity → POs, GRs, RFQs, Offers |
+| PE-13 | 6     | Denormalized equipment names not synchronized             | Equipment → SSOT references     |
+| PE-20 | 6     | Project name denormalization not kept in sync             | Projects → Tasks, GRs, POs      |
+
+**Effort**: High — requires new Cloud Function triggers with batch update logic. Could alternatively add a "display name resolver" pattern at query time, but that has performance cost.
+
+---
+
+### Cluster G: UX Polish & Pagination (15 MEDIUM, 6 LOW)
+
+UI improvements: pagination on lists, missing indexes, confirmation dialogs, filter fixes.
+
+| ID     | Phase | Sev | Issue                                                             |
+| ------ | ----- | --- | ----------------------------------------------------------------- |
+| FL-12  | 5     | M   | Missing composite index for Team Board query                      |
+| FL-13  | 5     | M   | Inbox filter double-counts approval tasks                         |
+| FL-16  | 5     | M   | Due date overdue indicator doesn't account for time zones         |
+| FL-17  | 5     | M   | Task completion from inbox has UX flicker                         |
+| FL-20  | 5     | M   | Meeting list not paginated                                        |
+| AC-13  | 1     | M   | No pagination on recurring transaction list                       |
+| AC-16  | 1     | M   | TODO left in production code (PENDING_APPROVAL edit guard)        |
+| PE-16  | 6     | M   | No default values for optional vendor contact fields              |
+| HR-11  | 4     | M   | Missing Firestore indexes documentation                           |
+| HR-15  | 4     | M   | Leave balance recalculation not automatic at fiscal year boundary |
+| HR-16  | 4     | M   | Approval email configuration not validated on app startup         |
+| HR-17  | 4     | M   | Travel expense self-approval handled differently from leave       |
+| GRN-12 | 0     | M   | No rejection/refusal workflow                                     |
+| GRN-14 | 0     | M   | ApproverSelector callback not memoized                            |
+| GRN-15 | 0     | M   | No "Sent to Accounting" filter on GR list page                    |
+| FL-21  | 5     | L   | Action item table doesn't validate empty required fields          |
+| FL-22  | 5     | L   | Meeting action items lack completion status tracking              |
+| FL-23  | 5     | L   | No confirmation dialog before meeting deletion                    |
+| AC-20  | 1     | L   | View Details button non-functional                                |
+| AC-23  | 1     | L   | GRN Bills error message not actionable                            |
+| BP-10  | 3     | L   | No index validation for complex queries                           |
+
+**Effort**: Low-Moderate — mostly UI tweaks and config changes.
+
+---
+
+### Cluster H: Code Quality & Cleanup (5 MEDIUM, 28 LOW)
+
+Minor improvements: error messages, hardcoded values, unused imports, naming consistency.
+
+| ID    | Phase | Sev | Issue                                                                       |
+| ----- | ----- | --- | --------------------------------------------------------------------------- |
+| AC-17 | 1     | M   | Cascading updates not fully atomic                                          |
+| BP-7  | 3     | M   | Inconsistent undefined field handling                                       |
+| HR-19 | 4     | M   | Inconsistent naming "leaveRequests" vs "hrLeaveRequests" in Firestore Rules |
+| PR-14 | 2     | M   | Amendment submission not idempotent                                         |
+| SP-8  | 8     | M   | Empty API routes directory (documentation decision)                         |
+| AC-18 | 1     | L   | System account codes hardcoded in resolver                                  |
+| AC-19 | 1     | L   | Floating point tolerance hardcoded                                          |
+| AC-21 | 1     | L   | No confirmation dialog before hard delete                                   |
+| AC-22 | 1     | L   | Payment batch query orderBy not validated                                   |
+| AC-24 | 1     | L   | Max payment amount arbitrary                                                |
+| PR-18 | 2     | L   | sendGRToAccounting rollback may fail                                        |
+| PR-19 | 2     | L   | canCreateBill vs UI logic confusion                                         |
+| PR-20 | 2     | L   | Amendment number generation not atomic                                      |
+| PR-21 | 2     | L   | Bill line items use PO quantities, not GR accepted                          |
+| PR-22 | 2     | L   | Missing amount validation before bill GL generation                         |
+| BP-14 | 3     | L   | Inefficient BOM code generation fallback                                    |
+| BP-15 | 3     | L   | Missing error context in batch operations                                   |
+| BP-16 | 3     | L   | Incomplete error messages in service layer                                  |
+| BP-17 | 3     | L   | No validation of proposal totals                                            |
+| BP-18 | 3     | L   | Fallible material price retrieval                                           |
+| BP-19 | 3     | L   | Missing null coalescing in optional field reads                             |
+| BP-20 | 3     | L   | Inconsistent cost currency handling                                         |
+| HR-20 | 4     | L   | Hardcoded currency "INR"                                                    |
+| PE-15 | 6     | L   | Company document isLatest flag not managed                                  |
+| AA-9  | 7     | L   | PERMISSION_PRESETS imported but unused                                      |
+| AA-10 | 7     | L   | isAdmin variable name misleading                                            |
+| AA-11 | 7     | L   | console.error leaks error details to browser                                |
+| AA-13 | 7     | L   | getAllPermissions missing from types package                                |
+| AA-15 | 7     | L   | E2E testing helpers expose auth methods to window                           |
+| AA-16 | 7     | L   | No rate limiting on permission update endpoints                             |
+| AA-17 | 7     | L   | permissions2 field lacks type check in Cloud Function                       |
+| AA-20 | 7     | L   | Rejection of users doesn't set explicit reason                              |
+| SP-9  | 8     | L   | Firestore emulator exposure in testing                                      |
+
+**Effort**: Low — mostly one-line to few-line fixes.
+
+---
+
+## Recommended Fix Order
+
+| Batch | Cluster               | Count | Why First                                         |
+| ----- | --------------------- | ----- | ------------------------------------------------- |
+| 1     | A: State Machines     | 6     | Prevents data corruption from invalid transitions |
+| 2     | B: Audit Logging      | 6     | Compliance foundation, enables debugging          |
+| 3     | C: Auth Hardening     | 10    | Closes "bypass the UI" attack surface             |
+| 4     | E: Service Validation | 15    | Referential integrity and data quality            |
+| 5     | D: Cloud Functions    | 20    | Backend production readiness                      |
+| 6     | F: Data Sync          | 3     | Eliminates stale denormalized data                |
+| 7     | G: UX Polish          | 21    | User-facing improvements                          |
+| 8     | H: Code Cleanup       | 33    | Maintainability                                   |
+
+**Total**: 110 findings across 8 batches.
+
+---
+
+## Notes
+
+- SP-8 appears in both Cluster D and H — it's a documentation decision, not a code fix. Track once.
+- Cluster C (Auth Hardening) has the highest complexity due to coordinated changes across Firestore rules, Cloud Functions, and client auth context.
+- Cluster F (Data Sync) may warrant an alternative approach (query-time name resolution) to avoid the complexity of Cloud Function triggers with batch updates.
+- Some LOW items in Cluster H may be intentionally deferred indefinitely if the cost/benefit doesn't justify the change.

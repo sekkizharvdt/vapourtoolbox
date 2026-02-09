@@ -324,7 +324,6 @@ export default function NewLeaveRequestPage() {
                       helperText: 'Sundays and 1st/3rd Saturdays are disabled',
                     },
                   }}
-                  minDate={new Date()}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
@@ -340,7 +339,7 @@ export default function NewLeaveRequestPage() {
                       required: true,
                     },
                   }}
-                  minDate={startDate || new Date()}
+                  minDate={startDate ?? undefined}
                 />
               </Grid>
 

@@ -389,7 +389,11 @@ export function POPDFDocument({
               <Text style={styles.value}>
                 {po.commercialTerms.deliveryUnit === 'READY_STOCK'
                   ? 'Ready Stock'
-                  : `${po.commercialTerms.deliveryPeriod} ${po.commercialTerms.deliveryUnit.toLowerCase()} from ${po.commercialTerms.deliveryTrigger === 'PO_DATE' ? 'PO date' : po.commercialTerms.deliveryTrigger === 'ADVANCE_PAYMENT' ? 'advance payment' : 'drawing approval'}`}
+                  : po.commercialTerms.deliveryUnit
+                    ? `${po.commercialTerms.deliveryPeriod} ${po.commercialTerms.deliveryUnit.toLowerCase()} from ${po.commercialTerms.deliveryTrigger === 'PO_DATE' ? 'PO date' : po.commercialTerms.deliveryTrigger === 'ADVANCE_PAYMENT' ? 'advance payment' : 'drawing approval'}`
+                    : po.commercialTerms.deliveryWeeks
+                      ? `${po.commercialTerms.deliveryWeeks} weeks`
+                      : '—'}
               </Text>
             </View>
 
