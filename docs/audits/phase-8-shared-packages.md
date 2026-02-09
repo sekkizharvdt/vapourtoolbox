@@ -62,12 +62,13 @@
 - **Recommendation**: Consolidate to single source in `constants/permissions.ts`, delete `types/permissions.ts`.
 - **Resolution**: Consolidated to single `PERMISSION_FLAGS` in `@vapour/constants`. Removed `types/permissions.ts`.
 
-#### SP-2: Missing Permission Validation in Cloud Functions
+#### SP-2: Missing Permission Validation in Cloud Functions — VERIFIED RESOLVED
 
 - **Category**: Security
 - **File**: `packages/functions/src/accounting.ts` (line 83)
 - **Issue**: Cloud function `createJournalEntry` hardcodes permission bit value as 256 with comment "Example bit, adjust to your permission system" instead of importing `PERMISSION_FLAGS`.
 - **Recommendation**: Import and use `PERMISSION_FLAGS` from `@vapour/constants`.
+- **Resolution**: Verified — `createJournalEntry` already uses `PERMISSION_FLAGS.MANAGE_ACCOUNTING` from local constants (fixed as part of SP-7 permission consolidation work in `29f684f`).
 
 #### SP-7: Permission Constants Mismatch in Cloud Functions Utils — FIXED `29f684f`
 
@@ -77,12 +78,13 @@
 - **Recommendation**: Import directly from `@vapour/constants`, don't define separate copy.
 - **Resolution**: Updated Cloud Functions to import from `@vapour/constants` instead of maintaining separate permission definitions.
 
-#### SP-19: Inconsistent Collection Names
+#### SP-19: Inconsistent Collection Names — FIXED
 
 - **Category**: Data Integrity
 - **File**: `packages/firebase/src/collections.ts` (lines 8-10)
 - **Issue**: Duplicate/alias collection name definitions creating confusion (e.g., `COMPANY` and `COMPANIES`).
 - **Recommendation**: Remove duplicates, keep consistent naming pattern.
+- **Resolution**: Removed unused `COMPANY` alias (zero references in codebase). Only `COMPANIES` retained.
 
 ### MEDIUM
 

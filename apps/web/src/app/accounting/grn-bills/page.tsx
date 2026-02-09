@@ -7,7 +7,7 @@
  * Accounting users can create bills directly from this page.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -17,6 +17,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
+  TableSortLabel,
   Button,
   Typography,
   Chip,
@@ -29,12 +31,15 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
 import {
   Home as HomeIcon,
   Receipt as ReceiptIcon,
   CheckCircle as CheckCircleIcon,
   OpenInNew as OpenInNewIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -46,6 +51,28 @@ import {
 } from '@/lib/procurement/accountingIntegration';
 import { formatDate } from '@/lib/utils/formatters';
 
+type SortField = 'grNumber' | 'poNumber' | 'vendor' | 'project' | 'amount' | 'dateSent';
+type SortDirection = 'asc' | 'desc';
+
+function getSortValue(item: GRNPendingBill, field: SortField): string | number {
+  switch (field) {
+    case 'grNumber':
+      return item.gr.number || '';
+    case 'poNumber':
+      return item.gr.poNumber || '';
+    case 'vendor':
+      return item.vendorName || '';
+    case 'project':
+      return item.gr.projectName || '';
+    case 'amount':
+      return item.poTotalAmount || 0;
+    case 'dateSent':
+      return item.gr.sentToAccountingAt?.seconds ?? 0;
+    default:
+      return '';
+  }
+}
+
 export default function GRNBillsPage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -56,6 +83,13 @@ export default function GRNBillsPage() {
   const [creatingBillFor, setCreatingBillFor] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [confirmGR, setConfirmGR] = useState<GRNPendingBill | null>(null);
+
+  // Phase0#10: Sort, filter, and pagination state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState<SortField>('dateSent');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
 
   useEffect(() => {
     loadPendingGRs();
@@ -73,6 +107,51 @@ export default function GRNBillsPage() {
       setError('Failed to load pending goods receipts');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Phase0#10: Filtered and sorted data
+  const filteredAndSorted = useMemo(() => {
+    let result = pendingGRs;
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (item) =>
+          item.gr.number?.toLowerCase().includes(q) ||
+          item.gr.poNumber?.toLowerCase().includes(q) ||
+          item.vendorName?.toLowerCase().includes(q) ||
+          item.gr.projectName?.toLowerCase().includes(q) ||
+          item.gr.accountingAssigneeName?.toLowerCase().includes(q)
+      );
+    }
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      const aVal = getSortValue(a, sortField);
+      const bVal = getSortValue(b, sortField);
+      const cmp =
+        typeof aVal === 'number'
+          ? aVal - (bVal as number)
+          : String(aVal).localeCompare(String(bVal));
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+
+    return result;
+  }, [pendingGRs, searchQuery, sortField, sortDirection]);
+
+  const paginatedData = useMemo(
+    () => filteredAndSorted.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+    [filteredAndSorted, page, rowsPerPage]
+  );
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
     }
   };
 
@@ -165,23 +244,99 @@ export default function GRNBillsPage() {
           </Paper>
         ) : (
           <Paper>
+            {/* Phase0#10: Search filter */}
+            <Box sx={{ p: 2, pb: 0 }}>
+              <TextField
+                size="small"
+                placeholder="Search by GR number, PO, vendor, or project..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(0);
+                }}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+                sx={{ width: 400 }}
+              />
+              {searchQuery && (
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+                  {filteredAndSorted.length} of {pendingGRs.length} results
+                </Typography>
+              )}
+            </Box>
+
             <TableContainer>
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>GR Number</TableCell>
-                    <TableCell>PO Number</TableCell>
-                    <TableCell>Vendor</TableCell>
-                    <TableCell>Project</TableCell>
-                    <TableCell align="right">PO Amount</TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'grNumber'}
+                        direction={sortField === 'grNumber' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('grNumber')}
+                      >
+                        GR Number
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'poNumber'}
+                        direction={sortField === 'poNumber' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('poNumber')}
+                      >
+                        PO Number
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'vendor'}
+                        direction={sortField === 'vendor' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('vendor')}
+                      >
+                        Vendor
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'project'}
+                        direction={sortField === 'project' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('project')}
+                      >
+                        Project
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell align="right">
+                      <TableSortLabel
+                        active={sortField === 'amount'}
+                        direction={sortField === 'amount' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('amount')}
+                      >
+                        PO Amount
+                      </TableSortLabel>
+                    </TableCell>
                     <TableCell>Condition</TableCell>
                     <TableCell>Assigned To</TableCell>
-                    <TableCell>Date Sent</TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'dateSent'}
+                        direction={sortField === 'dateSent' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('dateSent')}
+                      >
+                        Date Sent
+                      </TableSortLabel>
+                    </TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {pendingGRs.map((item) => (
+                  {paginatedData.map((item) => (
                     <TableRow key={item.gr.id}>
                       <TableCell>
                         <Link
@@ -241,9 +396,30 @@ export default function GRNBillsPage() {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {paginatedData.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          No results match your search.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
+            <TablePagination
+              component="div"
+              count={filteredAndSorted.length}
+              page={page}
+              onPageChange={(_e, newPage) => setPage(newPage)}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+              }}
+              rowsPerPageOptions={[10, 25, 50]}
+            />
           </Paper>
         )}
       </Stack>

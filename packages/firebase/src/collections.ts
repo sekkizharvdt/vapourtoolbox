@@ -7,7 +7,6 @@ export const COLLECTIONS = {
   // Core collections
   USERS: 'users',
   COMPANIES: 'companies',
-  COMPANY: 'companies', // Alias for single company access
   DEPARTMENTS: 'departments',
   ENTITIES: 'entities',
   ENTITY_CONTACTS: 'entity_contacts',

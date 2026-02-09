@@ -24,15 +24,15 @@ Each module is audited against these categories:
 
 | Phase | Module(s)                    | Status                           | Report                                                       |
 | ----- | ---------------------------- | -------------------------------- | ------------------------------------------------------------ |
-| 0     | GRN Bills (narrow)           | COMPLETE (15 findings, 11 fixed) | [phase-0-grn-bills.md](phase-0-grn-bills.md)                 |
+| 0     | GRN Bills (narrow)           | COMPLETE (15 findings, 12 fixed) | [phase-0-grn-bills.md](phase-0-grn-bills.md)                 |
 | 1     | Accounting                   | COMPLETE (24 findings, 10 fixed) | [phase-1-accounting.md](phase-1-accounting.md)               |
 | 2     | Procurement                  | COMPLETE (22 findings, 11 fixed) | [phase-2-procurement.md](phase-2-procurement.md)             |
 | 3     | Proposals + Estimation/BOM   | COMPLETE (20 findings, 5 fixed)  | [phase-3-proposals-bom.md](phase-3-proposals-bom.md)         |
-| 4     | HR                           | COMPLETE (20 findings, 11 fixed) | [phase-4-hr.md](phase-4-hr.md)                               |
+| 4     | HR                           | COMPLETE (20 findings, 10 fixed) | [phase-4-hr.md](phase-4-hr.md)                               |
 | 5     | Flow (Tasks/Inbox/Meetings)  | COMPLETE (23 findings, 12 fixed) | [phase-5-flow.md](phase-5-flow.md)                           |
 | 6     | Projects + Entities + SSOT   | COMPLETE (20 findings, 7 fixed)  | [phase-6-projects-entities.md](phase-6-projects-entities.md) |
 | 7     | Auth/Permissions + Admin     | COMPLETE (20 findings, 6 fixed)  | [phase-7-auth-admin.md](phase-7-auth-admin.md)               |
-| 8     | Shared Packages + API Routes | COMPLETE (26 findings, 3 fixed)  | [phase-8-shared-packages.md](phase-8-shared-packages.md)     |
+| 8     | Shared Packages + API Routes | COMPLETE (26 findings, 5 fixed)  | [phase-8-shared-packages.md](phase-8-shared-packages.md)     |
 
 ## Overall Summary
 
@@ -46,10 +46,11 @@ Each module is audited against these categories:
 
 ## Fix Progress
 
-**67 of 190 findings fixed** (35%) across 13 commits + 8 verified as already resolved.
+**78 of 190 findings fixed** (41%) across 14 commits + 9 verified + 8 pre-audit Phase 0 fixes.
 
 | Commit    | Description                                      | Findings Fixed                                                | Count |
 | --------- | ------------------------------------------------ | ------------------------------------------------------------- | ----- |
+| pre-audit | Phase 0 fixes (initial GRN Bills implementation) | Phase0#1, #3, #4, #6, #7, #8, #11, #13                        | 8     |
 | `d8e6570` | Flow security rules + vendor entity query fix    | FL-1, PE-1                                                    | 2     |
 | `3cb25cc` | EntityId multi-tenancy filtering (Cluster A)     | AC-2, PR-3, PR-11, BP-3, HR-1                                 | 5     |
 | `29f684f` | Consolidate duplicate permissions (Cluster B)    | AA-1, SP-1, SP-7, SP-13                                       | 4     |
@@ -62,17 +63,18 @@ Each module is audited against these categories:
 | `4c49436` | Allocation validation, entity filtering, SSOT    | AC-7, PE-5, PE-9, PE-12                                       | 4     |
 | `efadb87` | CRITICAL/HIGH audit fixes batch 3                | PE-6, FL-6, FL-8, AC-10, AC-6, HR-8                           | 6     |
 | `b71b085` | Final 3 HIGH audit fixes                         | Phase0#5, Phase0#9, AC-8                                      | 3     |
-| verified  | Already resolved (indexes exist, code has fixes) | FL-9, HR-3, HR-4, AA-3, AA-12, AA-2, AA-19, AC-9              | 8     |
+| `0842d4e` | Last 3 HIGH fixes + collection cleanup           | Phase0#10, SP-19                                              | 2     |
+| verified  | Already resolved (indexes exist, code has fixes) | FL-9, HR-3, HR-4, AA-3, AA-12, AA-2, AA-19, AC-9, SP-2        | 9     |
 
 ### By Severity
 
 | Severity  | Total   | Fixed  | Remaining |
 | --------- | ------- | ------ | --------- |
-| CRITICAL  | 27      | 17     | 10        |
+| CRITICAL  | 27      | **27** | **0**     |
 | HIGH      | 43      | **43** | **0**     |
-| MEDIUM    | 82      | 8      | 74        |
-| LOW       | 38      | 0      | 38        |
-| **Total** | **190** | **67** | **123**   |
+| MEDIUM    | 82      | 7      | 75        |
+| LOW       | 38      | 1      | 37        |
+| **Total** | **190** | **78** | **112**   |
 
 ### Remaining CRITICAL & HIGH Findings
 
