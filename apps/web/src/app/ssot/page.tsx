@@ -24,7 +24,7 @@ import {
 import { TableChart as TableChartIcon, Download as DownloadIcon } from '@mui/icons-material';
 import { PageHeader, LoadingState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
-import { getProjects } from '@/lib/projects/projectService';
+import { getProjectsForUser } from '@/lib/projects/projectService';
 import type { Project } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import StreamsTab from './components/StreamsTab';
@@ -66,20 +66,22 @@ function a11yProps(index: number) {
 }
 
 export default function SSOTPage() {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [tabValue, setTabValue] = useState(0);
 
-  // Load projects on mount
+  // PE-6: Load projects scoped to user access
   useEffect(() => {
+    if (!user?.uid || !claims) return;
+
     const loadProjects = async () => {
       setLoading(true);
       setError('');
       try {
-        const projectList = await getProjects();
+        const projectList = await getProjectsForUser(user.uid, claims.permissions);
         setProjects(projectList);
         // Auto-select first project if available
         const firstProject = projectList[0];
@@ -95,7 +97,7 @@ export default function SSOTPage() {
     };
 
     loadProjects();
-  }, []);
+  }, [user?.uid, claims]);
 
   const handleProjectChange = (event: SelectChangeEvent) => {
     setSelectedProjectId(event.target.value);

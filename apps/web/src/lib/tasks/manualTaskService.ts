@@ -37,6 +37,10 @@ import type {
   ManualTaskFilters,
 } from '@vapour/types';
 import { AuthorizationError } from '@/lib/auth/authorizationService';
+import { createLogger } from '@vapour/logger';
+import { completeTaskNotificationsByEntity } from './taskNotificationService';
+
+const logger = createLogger({ context: 'manualTaskService' });
 
 // ============================================================================
 // HELPERS
@@ -347,6 +351,16 @@ export async function updateTaskStatus(
   }
 
   await updateDoc(docRef, updates);
+
+  // FL-8: When a ManualTask is completed, auto-complete related task notifications
+  if (status === 'done') {
+    try {
+      await completeTaskNotificationsByEntity('TASK', taskId, 'system');
+    } catch (err) {
+      // Non-critical — don't fail the task update if notification sync fails
+      logger.warn('Failed to auto-complete related task notifications', { taskId, error: err });
+    }
+  }
 }
 
 // ============================================================================

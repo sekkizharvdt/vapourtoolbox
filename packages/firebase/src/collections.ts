@@ -34,6 +34,7 @@ export const COLLECTIONS = {
   HR_HOLIDAYS: 'hrHolidays', // Company holidays (Diwali, Pongal, etc.)
   HR_ON_DUTY_REQUESTS: 'onDutyRecords', // On-duty requests to work on holidays
   HR_HOLIDAY_WORKING_OVERRIDES: 'holidayWorkingOverrides', // Admin bulk conversion of holidays to working days
+  HR_COMP_OFF_GRANTS: 'hrCompOffGrants', // Individual comp-off grant records with expiry tracking
 
   // Slack-like Task Channels (Phase A-C)
   PROJECT_CHANNELS: 'projectChannels', // Custom channels per project

@@ -510,6 +510,31 @@ export async function completeActionableTask(
     }
 
     await updateDoc(doc(db, COLLECTIONS.TASK_NOTIFICATIONS, taskNotificationId), updates);
+
+    // FL-8: When completing a notification linked to a ManualTask, also mark the task as done
+    if (taskNotification.entityType === 'TASK' && taskNotification.entityId) {
+      try {
+        const taskRef = doc(db, COLLECTIONS.MANUAL_TASKS, taskNotification.entityId);
+        const taskDoc = await getDoc(taskRef);
+        if (taskDoc.exists()) {
+          const taskData = taskDoc.data();
+          if (taskData.status !== 'done' && taskData.status !== 'cancelled') {
+            await updateDoc(taskRef, {
+              status: 'done',
+              completedAt: Timestamp.now(),
+              updatedAt: Timestamp.now(),
+            });
+          }
+        }
+      } catch (syncError) {
+        // Non-critical — don't fail notification completion if task sync fails
+        logger.warn('Failed to sync ManualTask completion', {
+          taskNotificationId,
+          manualTaskId: taskNotification.entityId,
+          error: syncError,
+        });
+      }
+    }
   } catch (error) {
     logger.error('Failed to complete actionable task', { error, taskNotificationId, userId });
     throw error;

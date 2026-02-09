@@ -434,6 +434,7 @@ export async function addCompOffBalance(
     grantDate: Date;
     expiryDate: Date;
     grantedBy: string;
+    userName?: string;
   }
 ): Promise<void> {
   const fiscalYear = getCurrentFiscalYear();
@@ -445,8 +446,6 @@ export async function addCompOffBalance(
     );
   }
 
-  // For now, just update the entitled field (which represents earned comp-offs)
-  // In future, we can add metadata field to track individual grants with expiry
   const { db } = getFirebase();
   const docRef = doc(db, COLLECTIONS.HR_LEAVE_BALANCES, balance.id);
 
@@ -469,12 +468,31 @@ export async function addCompOffBalance(
       updatedBy: metadata.grantedBy,
     });
 
+    // HR-8: Create individual grant record for expiry tracking
+    const grantRef = doc(collection(db, COLLECTIONS.HR_COMP_OFF_GRANTS));
+    transaction.set(grantRef, {
+      userId,
+      userName: metadata.userName || '',
+      source: metadata.source,
+      ...(metadata.onDutyRequestId && { onDutyRequestId: metadata.onDutyRequestId }),
+      ...(metadata.holidayWorkingId && { holidayWorkingId: metadata.holidayWorkingId }),
+      holidayName: metadata.holidayName,
+      holidayDate: Timestamp.fromDate(metadata.holidayDate),
+      grantDate: Timestamp.fromDate(metadata.grantDate),
+      expiryDate: Timestamp.fromDate(metadata.expiryDate),
+      grantedBy: metadata.grantedBy,
+      fiscalYear,
+      status: 'active',
+      createdAt: Timestamp.now(),
+    });
+
     logger.info('Comp-off balance added', {
       userId,
       amount,
       source: metadata.source,
       newEntitled,
       newAvailable,
+      grantId: grantRef.id,
     });
   });
 }

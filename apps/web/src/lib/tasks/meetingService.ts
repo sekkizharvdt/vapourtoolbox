@@ -22,6 +22,7 @@ import {
   orderBy,
   onSnapshot,
   writeBatch,
+  runTransaction,
   Timestamp,
   type Firestore,
   type DocumentData,
@@ -384,73 +385,74 @@ export async function finalizeMeeting(
     );
   }
 
-  const now = Timestamp.now();
-  const batch = writeBatch(db);
+  // FL-6: Use runTransaction instead of writeBatch so reads + writes are atomic.
+  // If any task creation fails, the entire operation rolls back — no orphaned items.
+  return runTransaction(db, async (transaction) => {
+    const now = Timestamp.now();
 
-  // Get action items and validate before finalization (FL-4)
-  const items = await getActionItems(db, meetingId);
-  if (items.length === 0) {
-    throw new Error('Cannot finalize meeting with no action items');
-  }
-  const actionableItems = items.filter((item) => item.action && item.assigneeId);
-  if (actionableItems.length === 0) {
-    throw new Error(
-      'No actionable items found. Each action item must have an action description and an assigned person.'
-    );
-  }
-
-  // FL-10: Validate all assignees are active users before creating tasks
-  const uniqueAssigneeIds = [...new Set(actionableItems.map((item) => item.assigneeId!))];
-  for (const assigneeId of uniqueAssigneeIds) {
-    const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, assigneeId));
-    if (!userDoc.exists()) {
+    // Read action items inside transaction for consistency
+    const items = await getActionItems(db, meetingId);
+    if (items.length === 0) {
+      throw new Error('Cannot finalize meeting with no action items');
+    }
+    const actionableItems = items.filter((item) => item.action && item.assigneeId);
+    if (actionableItems.length === 0) {
       throw new Error(
-        `Assigned user no longer exists (ID: ${assigneeId}). Please reassign the action item.`
+        'No actionable items found. Each action item must have an action description and an assigned person.'
       );
     }
-    const userData = userDoc.data();
-    if (userData.isActive === false || userData.status === 'inactive') {
-      throw new Error(
-        `Assigned user "${userData.displayName || assigneeId}" is inactive. Please reassign the action item.`
-      );
+
+    // FL-10: Validate all assignees are active users before creating tasks
+    const uniqueAssigneeIds = [...new Set(actionableItems.map((item) => item.assigneeId!))];
+    for (const assigneeId of uniqueAssigneeIds) {
+      const userDoc = await transaction.get(doc(db, COLLECTIONS.USERS, assigneeId));
+      if (!userDoc.exists()) {
+        throw new Error(
+          `Assigned user no longer exists (ID: ${assigneeId}). Please reassign the action item.`
+        );
+      }
+      const userData = userDoc.data();
+      if (userData.isActive === false || userData.status === 'inactive') {
+        throw new Error(
+          `Assigned user "${userData.displayName || assigneeId}" is inactive. Please reassign the action item.`
+        );
+      }
     }
-  }
 
-  // Create tasks from action items
-  actionableItems.forEach((item) => {
-    const taskRef = doc(collection(db, COLLECTIONS.MANUAL_TASKS));
+    // Create tasks from action items
+    actionableItems.forEach((item) => {
+      const taskRef = doc(collection(db, COLLECTIONS.MANUAL_TASKS));
 
-    const taskData: Record<string, unknown> = {
-      title: item.action,
-      ...(item.description && { description: item.description }),
-      createdBy: userId,
-      createdByName: userName,
-      assigneeId: item.assigneeId,
-      assigneeName: item.assigneeName,
-      status: 'todo',
-      priority: item.priority || ('MEDIUM' as ManualTaskPriority),
-      ...(item.dueDate && { dueDate: item.dueDate }),
-      meetingId,
-      entityId,
-      createdAt: now,
-    };
+      const taskData: Record<string, unknown> = {
+        title: item.action,
+        ...(item.description && { description: item.description }),
+        createdBy: userId,
+        createdByName: userName,
+        assigneeId: item.assigneeId,
+        assigneeName: item.assigneeName,
+        status: 'todo',
+        priority: item.priority || ('MEDIUM' as ManualTaskPriority),
+        ...(item.dueDate && { dueDate: item.dueDate }),
+        meetingId,
+        entityId,
+        createdAt: now,
+      };
 
-    batch.set(taskRef, taskData);
+      transaction.set(taskRef, taskData);
 
-    // Update action item with generated task ID
-    const itemRef = doc(db, COLLECTIONS.MEETING_ACTION_ITEMS, item.id);
-    batch.update(itemRef, { generatedTaskId: taskRef.id });
+      // Update action item with generated task ID
+      const itemRef = doc(db, COLLECTIONS.MEETING_ACTION_ITEMS, item.id);
+      transaction.update(itemRef, { generatedTaskId: taskRef.id });
+    });
+
+    // Mark meeting as finalized
+    const meetingRef = doc(db, COLLECTIONS.MEETINGS, meetingId);
+    transaction.update(meetingRef, {
+      status: 'finalized',
+      finalizedAt: now,
+      updatedAt: now,
+    });
+
+    return actionableItems.length;
   });
-
-  // Mark meeting as finalized
-  const meetingRef = doc(db, COLLECTIONS.MEETINGS, meetingId);
-  batch.update(meetingRef, {
-    status: 'finalized',
-    finalizedAt: now,
-    updatedAt: now,
-  });
-
-  await batch.commit();
-
-  return actionableItems.length;
 }

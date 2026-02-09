@@ -111,3 +111,29 @@ export interface OnDutyRequestFilters {
   dateTo?: Date;
   approverId?: string; // Filter for approver's pending requests
 }
+
+// ============================================
+// Comp-Off Grant (HR-8)
+// ============================================
+
+/**
+ * Individual comp-off grant record with expiry tracking.
+ * Each grant is stored separately to enable expiry queries and FIFO consumption.
+ */
+export interface CompOffGrant {
+  id: string;
+  userId: string;
+  userName: string;
+  source: 'ON_DUTY_REQUEST' | 'HOLIDAY_WORKING';
+  onDutyRequestId?: string;
+  holidayWorkingId?: string;
+  holidayName: string;
+  holidayDate: Timestamp;
+  grantDate: Timestamp;
+  expiryDate: Timestamp; // 1 year from grant
+  grantedBy: string;
+  fiscalYear: number;
+  status: 'active' | 'used' | 'expired';
+  usedByLeaveRequestId?: string;
+  createdAt: Timestamp;
+}

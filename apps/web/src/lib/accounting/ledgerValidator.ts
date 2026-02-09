@@ -165,6 +165,85 @@ export function validateSingleEntry(entry: LedgerEntryWithEntity): ValidationRes
   };
 }
 
+// ============================================================================
+// AC-10: TRANSACTION-TYPE BUSINESS LOGIC VALIDATION
+// ============================================================================
+
+/**
+ * Expected account patterns for each transaction type.
+ *
+ * Account codes follow Indian Accounting Standards:
+ * - 1200: Accounts Receivable (Trade Receivables / Debtors)
+ * - 2100: Accounts Payable (Trade Payables / Creditors)
+ * - 4100: Sales Revenue
+ * - 5100: Cost of Goods Sold / Expenses
+ */
+const EXPECTED_PATTERNS: Record<
+  string,
+  { requiredDebitCodes?: string[]; requiredCreditCodes?: string[]; description: string }
+> = {
+  CUSTOMER_INVOICE: {
+    requiredDebitCodes: ['1200'],
+    requiredCreditCodes: ['4100'],
+    description: 'Customer Invoice must debit Accounts Receivable (1200) and credit Revenue (4100)',
+  },
+  VENDOR_BILL: {
+    requiredCreditCodes: ['2100'],
+    requiredDebitCodes: ['5100'],
+    description: 'Vendor Bill must debit Expenses (5100) and credit Accounts Payable (2100)',
+  },
+  CUSTOMER_PAYMENT: {
+    requiredCreditCodes: ['1200'],
+    description: 'Customer Payment must credit Accounts Receivable (1200)',
+  },
+  VENDOR_PAYMENT: {
+    requiredDebitCodes: ['2100'],
+    description: 'Vendor Payment must debit Accounts Payable (2100)',
+  },
+};
+
+/**
+ * Validate GL entries against expected business rules for a transaction type.
+ * Returns warnings (not errors) since GST/TDS entries may alter expected patterns.
+ */
+export function validateTransactionBusinessRules(
+  entries: LedgerEntryWithEntity[],
+  transactionType: string
+): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  const pattern = EXPECTED_PATTERNS[transactionType];
+  if (!pattern) {
+    return { isValid: true, errors, warnings };
+  }
+
+  const debitCodes = entries.filter((e) => e.debit > 0).map((e) => e.accountCode);
+  const creditCodes = entries.filter((e) => e.credit > 0).map((e) => e.accountCode);
+
+  if (pattern.requiredDebitCodes) {
+    for (const code of pattern.requiredDebitCodes) {
+      if (!debitCodes.includes(code)) {
+        warnings.push(
+          `Expected debit entry for account ${code} in ${transactionType}. ${pattern.description}`
+        );
+      }
+    }
+  }
+
+  if (pattern.requiredCreditCodes) {
+    for (const code of pattern.requiredCreditCodes) {
+      if (!creditCodes.includes(code)) {
+        warnings.push(
+          `Expected credit entry for account ${code} in ${transactionType}. ${pattern.description}`
+        );
+      }
+    }
+  }
+
+  return { isValid: errors.length === 0, errors, warnings };
+}
+
 /**
  * Format ledger entries for display
  */

@@ -174,6 +174,69 @@ describe('calculateNextOccurrence', () => {
       expect(result.getMonth()).toBe(0); // January
       expect(result.getFullYear()).toBe(2027);
     });
+
+    // AC-6: Leap year edge cases
+    it('should handle leap year Feb 29 correctly', () => {
+      // 2028 is a leap year
+      const jan31_2028 = new Date('2028-01-31T00:00:00.000Z');
+      const result = calculateNextOccurrence('MONTHLY', jan31_2028, undefined, 31);
+      expect(result.getDate()).toBe(29); // Feb 29 in leap year
+      expect(result.getMonth()).toBe(1); // February
+      expect(result.getFullYear()).toBe(2028);
+    });
+
+    it('should handle non-leap year Feb 28 correctly', () => {
+      // 2026 is NOT a leap year
+      const jan31_2026 = new Date('2026-01-31T00:00:00.000Z');
+      const result = calculateNextOccurrence('MONTHLY', jan31_2026, undefined, 31);
+      expect(result.getDate()).toBe(28); // Feb 28 in non-leap year
+      expect(result.getMonth()).toBe(1);
+    });
+
+    it('should handle sequential month-end calculations (dayOfMonth=31)', () => {
+      // Jan 31 → Feb 28 → Mar 31 → Apr 30
+      const jan31 = new Date('2026-01-31T00:00:00.000Z');
+      const feb = calculateNextOccurrence('MONTHLY', jan31, undefined, 31);
+      expect(feb.getDate()).toBe(28);
+      expect(feb.getMonth()).toBe(1);
+
+      const mar = calculateNextOccurrence('MONTHLY', jan31, feb, 31);
+      expect(mar.getDate()).toBe(31);
+      expect(mar.getMonth()).toBe(2);
+
+      const apr = calculateNextOccurrence('MONTHLY', jan31, mar, 31);
+      expect(apr.getDate()).toBe(30);
+      expect(apr.getMonth()).toBe(3);
+    });
+
+    it('should handle last-day-of-month (dayOfMonth=0) across varying months', () => {
+      const jan15 = new Date('2026-01-15T00:00:00.000Z');
+      const feb = calculateNextOccurrence('MONTHLY', jan15, undefined, 0);
+      expect(feb.getDate()).toBe(28); // Last day of Feb 2026
+      expect(feb.getMonth()).toBe(1);
+
+      const mar = calculateNextOccurrence('MONTHLY', jan15, feb, 0);
+      expect(mar.getDate()).toBe(31); // Last day of March
+      expect(mar.getMonth()).toBe(2);
+    });
+
+    it('should handle quarterly across year boundary', () => {
+      const nov15 = new Date('2026-11-15T00:00:00.000Z');
+      const result = calculateNextOccurrence('QUARTERLY', nov15);
+      expect(result.getMonth()).toBe(1); // February 2027
+      expect(result.getFullYear()).toBe(2027);
+    });
+
+    it('should handle yearly from leap day (Feb 29) to non-leap year', () => {
+      // Feb 29, 2028 (leap year) → yearly should go to Feb 28, 2029 (or Mar 1)
+      const feb29 = new Date('2028-02-29T00:00:00.000Z');
+      const result = calculateNextOccurrence('YEARLY', feb29);
+      // JS Date handles this: setting year+1 on Feb 29 → Mar 1 in non-leap year
+      expect(result.getFullYear()).toBe(2029);
+      // The behavior is browser-dependent but should not crash
+      expect(result).toBeInstanceOf(Date);
+      expect(isNaN(result.getTime())).toBe(false);
+    });
   });
 });
 

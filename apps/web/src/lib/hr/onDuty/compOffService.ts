@@ -184,6 +184,7 @@ export async function grantCompOff(
       grantDate,
       expiryDate,
       grantedBy,
+      userName: userInfo?.userName,
     });
 
     logger.info('Comp-off granted successfully', {
@@ -257,7 +258,7 @@ export async function useCompOff(userId: string, leaveRequestId: string): Promis
 
 /**
  * Find comp-offs expiring within specified days
- * This is a placeholder for future implementation of expiry tracking
+ * Queries individual grant records to find active grants nearing expiry.
  *
  * @param withinDays - Number of days to look ahead for expiring comp-offs
  */
@@ -269,13 +270,47 @@ export async function findExpiringCompOffs(withinDays: number): Promise<
     daysRemaining: number;
   }>
 > {
-  // Placeholder - in future, this will query balance metadata to find expiring grants
-  // For MVP, we'll handle expiry manually or via a scheduled Cloud Function
+  const { db } = getFirebase();
+  const now = new Date();
+  const cutoff = new Date(now.getTime() + withinDays * 24 * 60 * 60 * 1000);
 
-  logger.info('Finding expiring comp-offs', { withinDays });
+  try {
+    const q = query(
+      collection(db, COLLECTIONS.HR_COMP_OFF_GRANTS),
+      where('status', '==', 'active'),
+      where('expiryDate', '<=', Timestamp.fromDate(cutoff))
+    );
 
-  // TODO: Implement when metadata tracking is added to leaveBalances
-  return [];
+    const snapshot = await getDocs(q);
+    const results: Array<{
+      userId: string;
+      userName: string;
+      expiryDate: Date;
+      daysRemaining: number;
+    }> = [];
+
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      const expiryDate = data.expiryDate?.toDate?.() || new Date();
+      const daysRemaining = Math.max(
+        0,
+        Math.ceil((expiryDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+      );
+
+      results.push({
+        userId: data.userId,
+        userName: data.userName || '',
+        expiryDate,
+        daysRemaining,
+      });
+    });
+
+    logger.info('Found expiring comp-offs', { withinDays, count: results.length });
+    return results;
+  } catch (error) {
+    logger.error('Failed to find expiring comp-offs', { error, withinDays });
+    return [];
+  }
 }
 
 /**
