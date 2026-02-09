@@ -96,6 +96,11 @@ export default function ProposalListPage() {
     end: null,
   });
 
+  // BP-4: Check if user has permission to view proposals
+  const canViewProposals = claims?.permissions
+    ? hasPermission(claims.permissions, PERMISSION_FLAGS.VIEW_PROPOSALS)
+    : false;
+
   const fetchProposals = useCallback(async () => {
     if (!db) return;
 
@@ -103,6 +108,15 @@ export default function ProposalListPage() {
     const canManageEntities = claims?.permissions
       ? hasPermission(claims.permissions, PERMISSION_FLAGS.EDIT_ENTITIES)
       : false;
+
+    // Require VIEW_PROPOSALS permission
+    if (
+      !claims?.permissions ||
+      !hasPermission(claims.permissions, PERMISSION_FLAGS.VIEW_PROPOSALS)
+    ) {
+      setLoading(false);
+      return;
+    }
 
     // If user has no entity ID and cannot manage entities, stop loading
     if (!claims?.entityId && !canManageEntities) {
@@ -146,6 +160,16 @@ export default function ProposalListPage() {
   const handleEditProposal = (id: string) => {
     router.push(`/proposals/${id}/edit`);
   };
+
+  if (!canViewProposals && !loading) {
+    return (
+      <Container maxWidth="xl">
+        <Alert severity="warning" sx={{ mt: 4 }}>
+          You do not have permission to view proposals. Please contact your administrator.
+        </Alert>
+      </Container>
+    );
+  }
 
   if (loading && proposals.length === 0) {
     return <LoadingState message="Loading proposals..." />;

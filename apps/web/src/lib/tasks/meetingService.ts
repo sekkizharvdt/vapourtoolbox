@@ -387,9 +387,17 @@ export async function finalizeMeeting(
   const now = Timestamp.now();
   const batch = writeBatch(db);
 
-  // Get action items
+  // Get action items and validate before finalization (FL-4)
   const items = await getActionItems(db, meetingId);
+  if (items.length === 0) {
+    throw new Error('Cannot finalize meeting with no action items');
+  }
   const actionableItems = items.filter((item) => item.action && item.assigneeId);
+  if (actionableItems.length === 0) {
+    throw new Error(
+      'No actionable items found. Each action item must have an action description and an assigned person.'
+    );
+  }
 
   // Create tasks from action items
   actionableItems.forEach((item) => {

@@ -301,6 +301,10 @@ export async function listBOMs(
     limit?: number;
   }
 ): Promise<BOM[]> {
+  if (!options.entityId) {
+    throw new Error('entityId is required to list BOMs');
+  }
+
   try {
     logger.info('Listing BOMs', options);
 

@@ -496,6 +496,10 @@ export interface Proposal extends TimestampFields {
   submittedByUserName?: string;
   approvalHistory: ApprovalRecord[];
 
+  // Client submission tracking
+  submittedToClientAt?: Timestamp;
+  statusChangeReason?: string;
+
   // Outcome
   acceptedAt?: Timestamp;
   rejectedAt?: Timestamp;
@@ -505,6 +509,8 @@ export interface Proposal extends TimestampFields {
   // Project Link (if accepted)
   projectId?: string;
   projectNumber?: string;
+  convertedToProjectAt?: Timestamp;
+  convertedToProjectBy?: string;
 
   // Documents & Attachments
   attachments: ProposalAttachment[];

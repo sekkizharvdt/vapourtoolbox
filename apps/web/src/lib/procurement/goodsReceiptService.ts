@@ -171,6 +171,7 @@ export async function createGoodsReceipt(
           packingListNumber: undefined,
           projectId: input.projectId,
           projectName: input.projectName,
+          entityId: poDoc.data()?.entityId || '',
           inspectionType: input.inspectionType,
           inspectionLocation: input.inspectionLocation,
           inspectionDate: Timestamp.fromDate(input.inspectionDate),

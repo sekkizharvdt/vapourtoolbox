@@ -120,8 +120,8 @@ export interface GoodsReceipt {
   projectId: string;
   projectName: string; // Denormalized
 
-  // Entity (for multi-tenancy)
-  entityId?: string;
+  // Entity (for multi-tenancy) — required for tenant isolation
+  entityId: string;
 
   // Inspection details
   inspectionType: 'VENDOR_SITE' | 'DELIVERY_SITE' | 'THIRD_PARTY';

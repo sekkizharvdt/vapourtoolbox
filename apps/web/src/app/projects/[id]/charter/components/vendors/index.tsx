@@ -48,16 +48,19 @@ export function VendorsTab({ project }: VendorsTabProps) {
     try {
       const { db } = getFirebase();
       const entitiesRef = collection(db, COLLECTIONS.ENTITIES);
+      // PE-2: Exclude archived entities from vendor selection
       const q = query(
         entitiesRef,
         where('roles', 'array-contains', 'VENDOR'),
         where('isActive', '==', true)
       );
       const snapshot = await getDocs(q);
-      const entities = snapshot.docs.map((doc) => ({
+      const allEntities = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       })) as BusinessEntity[];
+      // PE-2: Filter out archived entities (isArchived may be undefined for older docs)
+      const entities = allEntities.filter((e) => !e.isArchived);
       setVendorEntities(entities);
     } catch (err) {
       console.error('[VendorsTab] Error loading vendor entities:', err);
@@ -179,6 +182,15 @@ export function VendorsTab({ project }: VendorsTabProps) {
     if (!formData.contactPerson.trim() || !formData.contactEmail.trim()) {
       setError('Contact person and email are required');
       return;
+    }
+
+    // PE-17: Validate selected entity actually has VENDOR role
+    if (formData.vendorEntityId) {
+      const selectedEntity = vendorEntities.find((e) => e.id === formData.vendorEntityId);
+      if (selectedEntity && !selectedEntity.roles?.includes('VENDOR')) {
+        setError('Selected entity does not have the VENDOR role');
+        return;
+      }
     }
 
     setLoading(true);
