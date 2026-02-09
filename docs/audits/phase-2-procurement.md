@@ -102,12 +102,13 @@
 - **Recommendation**: Validate bank account exists and belongs to current entity before creating payment.
 - **Resolution**: Added bank account validation before the transaction — fetches account doc, checks existence and `isBankAccount` flag. Includes test coverage for both failure scenarios.
 
-#### PR-10: Bill Creation Uses Unvalidated Project ID
+#### PR-10: Bill Creation Uses Unvalidated Project ID — FIXED `58f8d40`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/procurement/accountingIntegration.ts` (line 204)
 - **Issue**: `createBillFromGoodsReceipt()` blindly uses `purchaseOrder.projectIds[0]` without checking project exists or belongs to entity.
 - **Recommendation**: Validate project exists before creating GL entries.
+- **Resolution**: Added project ID validation after PO fetch — checks project doc exists in Firestore before proceeding with bill creation. Includes test for project not found scenario.
 
 #### PR-11: Missing Firestore Indexes for Procurement Queries — FIXED `82fc756`
 
@@ -215,7 +216,8 @@
 5. ~~**PR-8**: Amendment idempotency guard~~ — FIXED `5bafc70`
 6. ~~**PR-9**: Bank account validation in payment approval~~ — FIXED `5bafc70`
 7. **PR-7**: Amendment field validation (data integrity)
-8. ~~**PR-11**: Add missing Firestore indexes (reliability)~~ — FIXED `82fc756`
+8. ~~**PR-10**: Project ID validation in bill creation~~ — FIXED `58f8d40`
+9. ~~**PR-11**: Add missing Firestore indexes (reliability)~~ — FIXED `82fc756`
 
 ## Cross-References
 

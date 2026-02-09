@@ -88,12 +88,13 @@
 - **Issue**: `const isSuperAdmin = currentPermissions === requiredPermissions;` — strict equality means adding new permissions to `getAllPermissions()` breaks existing super admins.
 - **Recommendation**: Change to `(currentPermissions & requiredPermissions) === requiredPermissions`.
 
-#### AA-3: Missing permissions2 in Cloud Function Claims Sync
+#### AA-3: Missing permissions2 in Cloud Function Claims Sync — VERIFIED RESOLVED
 
 - **Category**: Security
 - **File**: `packages/functions/src/index.ts` (lines 87-91)
 - **Issue**: `onUserUpdate` Cloud Function only sets `permissions` in custom claims, never `permissions2`. Users with extended permissions (HR, SSOT, etc.) can't exercise them in Firestore rules.
 - **Recommendation**: Add `permissions2: userData.permissions2 || 0` to custom claims.
+- **Resolution**: Verified — `onUserUpdate` already destructures `permissions2` from userData (line 77), normalizes it with null-check (line 89), and includes it in custom claims when non-zero (lines 97-100).
 
 #### AA-4: Client-Side Permission Claims Not Validated Against Firestore
 
@@ -160,12 +161,13 @@
 - **Issue**: `console.error('Error approving user:', err)` logs full error objects which could contain sensitive information.
 - **Recommendation**: Use `logger.error()` instead, which handles sanitization.
 
-#### AA-12: Missing permissions2 in Manual syncUserClaims
+#### AA-12: Missing permissions2 in Manual syncUserClaims — VERIFIED RESOLVED
 
 - **Category**: Security
 - **File**: `packages/functions/src/index.ts` (lines 188-192)
 - **Issue**: Manual `syncUserClaims` callable function also doesn't include `permissions2` in custom claims (same as AA-3).
 - **Recommendation**: Add `permissions2` to custom claims in syncUserClaims as well.
+- **Resolution**: Verified — `syncUserClaims` already destructures `permissions2` (line 192), normalizes it (line 199), and includes it in custom claims when non-zero (lines 206-208).
 
 #### AA-13: getAllPermissions Missing from Types Package
 
@@ -220,8 +222,8 @@
 
 ## Priority Fix Order
 
-1. **AA-3 + AA-12**: Add `permissions2` to custom claims sync (high impact, low effort)
+1. ~~**AA-3 + AA-12**: Add `permissions2` to custom claims sync~~ — VERIFIED RESOLVED (already implemented)
 2. **AA-5 + AA-7**: Implement immediate session revocation on deactivation/permission change
-3. **AA-1**: Consolidate permission constants to single source of truth
+3. ~~**AA-1**: Consolidate permission constants to single source of truth~~ — FIXED `29f684f`
 4. ~~**AA-18**: Add proper MANAGE_ADMIN permission structure~~ — FIXED `5bafc70`
 5. **AA-8**: Add audit logging for permission changes

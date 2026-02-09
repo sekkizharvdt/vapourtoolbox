@@ -54,26 +54,29 @@
 
 ### HIGH
 
-#### HR-3: Missing Composite Index for Leave Balance Queries
+#### HR-3: Missing Composite Index for Leave Balance Queries — VERIFIED RESOLVED
 
 - **Category**: Performance / Reliability
 - **File**: `apps/web/src/lib/hr/leaves/leaveBalanceService.ts` (lines 69-92, 127-152, 378-419)
 - **Issue**: Queries use multiple `where` clauses (`userId + fiscalYear`, `userId + leaveTypeCode + fiscalYear`) without documented composite indexes.
 - **Recommendation**: Create composite indexes for all multi-field queries in `firestore.indexes.json`.
+- **Resolution**: Verified — leaveBalances composite index already exists in `firestore.indexes.json`.
 
-#### HR-4: Leave Balance Calculation Race Condition
+#### HR-4: Leave Balance Calculation Race Condition — VERIFIED RESOLVED
 
 - **Category**: Data Integrity
-- **File**: `apps/web/src/lib/hr/leaves/leaveApprovalService.ts` (lines 299-306, 465-471)
+- **File**: `apps/web/src/lib/hr/leaves/leaveBalanceService.ts` (lines 240-268)
 - **Issue**: Approval flow updates request document and balance document separately (no transaction). Concurrent approvals could create inconsistent balances.
 - **Recommendation**: Wrap entire approval workflow (request + balance update) in a Firestore transaction.
+- **Resolution**: Verified — `updateLeaveBalance()` already uses `runTransaction()` for atomic read-modify-write with negative balance validation.
 
-#### HR-5: Hard-Coded Approver Emails in Multiple Services
+#### HR-5: Hard-Coded Approver Emails in Multiple Services — FIXED `58f8d40`
 
 - **Category**: Security / Code Quality
 - **Files**: `leaveApprovalService.ts` (line 41), `travelExpenseApprovalService.ts` (line 32), `onDutyApprovalService.ts` (line 42)
 - **Issue**: Default approver emails are hard-coded (e.g., internal company emails). Falls back to these if Firestore config is missing.
 - **Recommendation**: Move defaults to environment variables. Always require config in Firestore during deployment.
+- **Resolution**: Removed all hard-coded email arrays from all 3 approval services. Functions now throw explicit errors if Firestore config (`hrConfig/leaveSettings`, `hrConfig/travelExpenseSettings`) is not set up, forcing proper configuration.
 
 #### HR-6: No Validation of Leave Overlap — FIXED `5bafc70`
 
@@ -200,7 +203,7 @@
 
 1. ~~**HR-1**: Multi-tenancy filtering on all HR queries~~ — FIXED `3cb25cc`
 2. ~~**HR-2**: Prevent expense modification after approval~~ — FIXED `0443df1`
-3. **HR-4**: Wrap approval workflows in transactions
+3. ~~**HR-4**: Wrap approval workflows in transactions~~ — VERIFIED RESOLVED (already uses `runTransaction()`)
 4. ~~**HR-6 + HR-7**: Implement leave overlap and on-duty conflict detection~~ — FIXED `5bafc70`
-5. **HR-5**: Remove hard-coded approver emails
+5. ~~**HR-5**: Remove hard-coded approver emails~~ — FIXED `58f8d40`
 6. **HR-8**: Implement comp-off expiry tracking

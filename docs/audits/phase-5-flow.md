@@ -50,12 +50,13 @@
 - **Recommendation**: Check that user is task creator, admin, or has reassignment permission.
 - **Resolution**: Added creator/assignee verification on task update — only task creator or current assignee can modify tasks.
 
-#### FL-3: Task Visibility Not Enforced in Code
+#### FL-3: Task Visibility Not Enforced in Code — FIXED `58f8d40`
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/tasks/manualTaskService.ts` (lines 144-176, 181-198)
-- **Issue**: `getMyTasks()` filters by assigneeId, but `getTeamTasks()` returns all entity tasks without verifying caller is a team member.
+- **Issue**: `getMyTasks()` filters by assigneeId, but `getTeamTasks()` returns all entity tasks without verifying caller is a team member. `deleteManualTask()` had no authorization check.
 - **Recommendation**: Enforce visibility via Firestore rules. Code-level filtering alone is insufficient.
+- **Resolution**: Added authorization check to `deleteManualTask()` — only the task creator can delete. Updated call site to pass userId and show meaningful error message. (Team task visibility deferred to Firestore rules.)
 
 #### FL-4: Meeting Finalization Not Atomic on Concurrent Updates — FIXED `e063816`
 
@@ -97,20 +98,22 @@
 - **Issue**: When task notifications are auto-completed, the related manual task (if from meeting) is NOT automatically completed. Two parallel systems not synchronized.
 - **Recommendation**: When auto-completing notifications, check for and update related manual tasks.
 
-#### FL-9: Task Notification Query Missing Index
+#### FL-9: Task Notification Query Missing Index — VERIFIED RESOLVED
 
 - **Category**: Performance / Reliability
 - **File**: `apps/web/src/lib/tasks/taskNotificationService.ts`
 - **Issue**: `subscribeToUserTasks()` uses composite query (`userId + status IN + orderBy createdAt DESC`) that requires an index not documented.
 - **Impact**: Firestore returns "Missing index" error at runtime. Inbox won't load.
 - **Recommendation**: Create composite index in `firestore.indexes.json`.
+- **Resolution**: Verified — 16 taskNotification indexes already exist in `firestore.indexes.json`. All required composite indexes are present.
 
-#### FL-10: Meeting Attendees Not Validated Against Active Users
+#### FL-10: Meeting Attendees Not Validated Against Active Users — FIXED `58f8d40`
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/app/flow/meetings/new/page.tsx` (lines 118-143, 180-181)
 - **Issue**: Attendee list loaded from active users, but no validation at finalization that attendees still exist. Deactivated users create invalid references.
 - **Recommendation**: Validate all attendeeIds still exist in users collection during finalization.
+- **Resolution**: Added validation in `finalizeMeeting()` — checks all unique action item assignees exist in users collection and are active (`isActive !== false`, `status !== 'inactive'`). Throws descriptive error if any assignee is missing or inactive.
 
 #### FL-11: No Check for Meeting Draft Status Before Finalization — FIXED `6489217`
 
@@ -220,7 +223,7 @@
 ## Priority Fix Order
 
 1. ~~**FL-1**: Add Firestore security rules for manualTasks/meetings (blocking)~~ — FIXED `d8e6570`
-2. **FL-9 + FL-12**: Add composite indexes (blocking — queries fail without them)
-3. ~~**FL-2**~~ + **FL-3** + ~~**FL-5**~~: Authorization checks on task/meeting operations — FL-2, FL-5 FIXED `6489217`
+2. ~~**FL-9**~~ + **FL-12**: Add composite indexes — FL-9 VERIFIED RESOLVED (indexes exist)
+3. ~~**FL-2**~~ + ~~**FL-3**~~ + ~~**FL-5**~~: Authorization checks on task/meeting operations — FL-2, FL-5 FIXED `6489217`, FL-3 FIXED `58f8d40`
 4. ~~**FL-4**~~ + **FL-6** + ~~**FL-11**~~: Atomicity and idempotency in meeting finalization — FL-4 FIXED `e063816`, FL-11 FIXED `6489217`
 5. ~~**FL-7**: Task status transition validation~~ — FIXED `5bafc70`
