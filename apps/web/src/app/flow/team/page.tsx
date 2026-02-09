@@ -66,13 +66,14 @@ export default function TeamBoardPage() {
 
   const entityId = claims?.entityId || 'default-entity';
 
-  // Load active users
+  // FL-15: Load active users filtered by entity
   useEffect(() => {
     if (!db) return;
 
     const q = query(
       collection(db, COLLECTIONS.USERS),
       where('isActive', '==', true),
+      where('entityId', '==', entityId),
       orderBy('displayName', 'asc')
     );
 
@@ -98,7 +99,7 @@ export default function TeamBoardPage() {
     );
 
     return () => unsubscribe();
-  }, [db]);
+  }, [db, entityId]);
 
   // Subscribe to all active team tasks
   useEffect(() => {

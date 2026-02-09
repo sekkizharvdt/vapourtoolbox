@@ -26,12 +26,12 @@ Each module is audited against these categories:
 | ----- | ---------------------------- | -------------------------------- | ------------------------------------------------------------ |
 | 0     | GRN Bills (narrow)           | COMPLETE (15 findings, 9 fixed)  | [phase-0-grn-bills.md](phase-0-grn-bills.md)                 |
 | 1     | Accounting                   | COMPLETE (24 findings, 5 fixed)  | [phase-1-accounting.md](phase-1-accounting.md)               |
-| 2     | Procurement                  | COMPLETE (22 findings, 10 fixed) | [phase-2-procurement.md](phase-2-procurement.md)             |
+| 2     | Procurement                  | COMPLETE (22 findings, 11 fixed) | [phase-2-procurement.md](phase-2-procurement.md)             |
 | 3     | Proposals + Estimation/BOM   | COMPLETE (20 findings, 5 fixed)  | [phase-3-proposals-bom.md](phase-3-proposals-bom.md)         |
-| 4     | HR                           | COMPLETE (20 findings, 8 fixed)  | [phase-4-hr.md](phase-4-hr.md)                               |
-| 5     | Flow (Tasks/Inbox/Meetings)  | COMPLETE (23 findings, 9 fixed)  | [phase-5-flow.md](phase-5-flow.md)                           |
+| 4     | HR                           | COMPLETE (20 findings, 10 fixed) | [phase-4-hr.md](phase-4-hr.md)                               |
+| 5     | Flow (Tasks/Inbox/Meetings)  | COMPLETE (23 findings, 10 fixed) | [phase-5-flow.md](phase-5-flow.md)                           |
 | 6     | Projects + Entities + SSOT   | COMPLETE (20 findings, 3 fixed)  | [phase-6-projects-entities.md](phase-6-projects-entities.md) |
-| 7     | Auth/Permissions + Admin     | COMPLETE (20 findings, 4 fixed)  | [phase-7-auth-admin.md](phase-7-auth-admin.md)               |
+| 7     | Auth/Permissions + Admin     | COMPLETE (20 findings, 6 fixed)  | [phase-7-auth-admin.md](phase-7-auth-admin.md)               |
 | 8     | Shared Packages + API Routes | COMPLETE (26 findings, 3 fixed)  | [phase-8-shared-packages.md](phase-8-shared-packages.md)     |
 
 ## Overall Summary
@@ -46,7 +46,7 @@ Each module is audited against these categories:
 
 ## Fix Progress
 
-**47 of 190 findings fixed** (25%) across 8 commits + 5 verified as already resolved.
+**53 of 190 findings fixed** (28%) across 9 commits + 7 verified as already resolved.
 
 | Commit    | Description                                      | Findings Fixed                                                | Count |
 | --------- | ------------------------------------------------ | ------------------------------------------------------------- | ----- |
@@ -58,38 +58,41 @@ Each module is audited against these categories:
 | `e063816` | Types, permissions, and validation fixes         | BP-1, BP-2, BP-4, BP-5, FL-4, PE-2, PE-17, Phase 0 (entityId) | 8     |
 | `5bafc70` | Permission flag, validation & conflict checks    | AA-18, PR-8, PR-9, FL-7, HR-6, HR-7                           | 6     |
 | `58f8d40` | Task auth, project validation, approver config   | FL-3, PR-10, FL-10, HR-5                                      | 4     |
-| verified  | Already resolved (indexes exist, code has fixes) | FL-9, HR-3, HR-4, AA-3, AA-12                                 | 5     |
+| pending   | Field validation, entityId filters, UX fixes     | PR-7, HR-9, HR-10, FL-15                                      | 4     |
+| verified  | Already resolved (indexes exist, code has fixes) | FL-9, HR-3, HR-4, AA-3, AA-12, AA-2, AA-19                    | 7     |
 
 ### By Severity
 
 | Severity  | Total   | Fixed  | Remaining |
 | --------- | ------- | ------ | --------- |
 | CRITICAL  | 27      | 16     | 11        |
-| HIGH      | 43      | 27     | 16        |
-| MEDIUM    | 82      | 4      | 78        |
+| HIGH      | 43      | 30     | 13        |
+| MEDIUM    | 82      | 7      | 75        |
 | LOW       | 38      | 0      | 38        |
-| **Total** | **190** | **47** | **143**   |
+| **Total** | **190** | **53** | **137**   |
 
 ### Remaining CRITICAL & HIGH Findings
 
-| ID    | Phase | Severity | Issue                                                                                                   |
-| ----- | ----- | -------- | ------------------------------------------------------------------------------------------------------- |
-| AC-6  | 1     | CRITICAL | Missing GL balance validation on fiscal year close                                                      |
-| AC-7  | 1     | CRITICAL | No trial balance reconciliation before period close                                                     |
-| AC-8  | 1     | CRITICAL | Void transaction doesn't lock original GL entries (partial — entriesLocked added but no cascading lock) |
-| PR-7  | 2     | HIGH     | No PO amount validation against budget                                                                  |
-| FL-6  | 5     | HIGH     | Meeting action items orphaned if task creation fails                                                    |
-| FL-8  | 5     | HIGH     | Task auto-completion doesn't update parent task status                                                  |
-| PE-6  | 6     | CRITICAL | No SSOT access control scoping                                                                          |
-| HR-8  | 4     | HIGH     | Comp-off balance not tracked with expiry metadata                                                       |
-| HR-9  | 4     | HIGH     | No validation that half-day leaves are single-day only                                                  |
-| HR-10 | 4     | HIGH     | Employee directory leaks all internal user emails                                                       |
+| ID    | Phase | Severity | Issue                                                        |
+| ----- | ----- | -------- | ------------------------------------------------------------ |
+| AC-6  | 1     | HIGH     | Recurring transaction edge cases (month-end, leap year, DST) |
+| AC-7  | 1     | HIGH     | Payment allocations not validated before creation            |
+| AC-8  | 1     | HIGH     | Floating point in financial calculations                     |
+| AC-9  | 1     | HIGH     | Missing composite index for period validation                |
+| AC-10 | 1     | HIGH     | GL validation only checks balance, not business logic        |
+| FL-6  | 5     | HIGH     | Meeting action items orphaned if task creation fails         |
+| FL-8  | 5     | HIGH     | Task auto-completion doesn't update parent task status       |
+| PE-6  | 6     | CRITICAL | No SSOT access control scoping                               |
+| PE-5  | 6     | HIGH     | Entity roles query not server-side filtered                  |
+| PE-9  | 6     | HIGH     | No validation that project exists before SSOT operations     |
+| PE-12 | 6     | HIGH     | Orphaned entity references in procurement documents          |
+| HR-8  | 4     | HIGH     | Comp-off balance not tracked with expiry metadata            |
 
 ## Cross-Cutting Concerns
 
 Issues that span multiple modules are tracked separately:
 
-- **Multi-tenancy (entityId)**: ~~Most Firestore queries lack entityId filtering.~~ **Mostly fixed** (`3cb25cc`, `e063816`): Added entityId filtering to Accounting (AC-2), Procurement (PR-3), HR (HR-1), Proposals (BP-3). GoodsReceipt `entityId` made required and populated from PO (`e063816`). **Remaining**: Projects (PE-6) and Flow (FL-15) still need filtering.
+- **Multi-tenancy (entityId)**: ~~Most Firestore queries lack entityId filtering.~~ **Mostly fixed** (`3cb25cc`, `e063816`): Added entityId filtering to Accounting (AC-2), Procurement (PR-3), HR (HR-1, HR-10), Proposals (BP-3), Flow (FL-15). GoodsReceipt `entityId` made required and populated from PO (`e063816`). **Remaining**: Projects (PE-6) still needs filtering.
 - **Firestore indexes**: ~~Missing indexes~~ **Mostly resolved** (`3cb25cc`): Added missing composite indexes for Procurement (PR-11). FL-9 and HR-3 verified as already present in `firestore.indexes.json`. **Remaining**: HR (HR-11), Flow (FL-12), Proposals (BP-10), Accounting (AC-9).
 - **Permission checks**: ~~Client-side only in most modules.~~ **Mostly fixed** (`6489217`, `58f8d40`): Added authorization checks in Procurement (PR-1, PR-2, PR-4), Flow (FL-2, FL-5, FL-3). **Remaining**: HR (HR-18).
 - **Duplicate permission systems**: ~~Incompatible systems in types and constants.~~ **Fixed** (`29f684f`): Consolidated to single `PERMISSION_FLAGS` in `@vapour/constants`. Removed duplicate `PermissionFlag` enum (AA-1, SP-1, SP-7, SP-13).

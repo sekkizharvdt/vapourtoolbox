@@ -81,12 +81,13 @@
 
 ### MEDIUM
 
-#### AA-2: Super Admin Check Uses Strict Equality
+#### AA-2: Super Admin Check Uses Strict Equality — VERIFIED RESOLVED
 
 - **Category**: Security
 - **File**: `apps/web/src/app/super-admin/layout.tsx` (line 18)
 - **Issue**: `const isSuperAdmin = currentPermissions === requiredPermissions;` — strict equality means adding new permissions to `getAllPermissions()` breaks existing super admins.
 - **Recommendation**: Change to `(currentPermissions & requiredPermissions) === requiredPermissions`.
+- **Resolution**: Verified — already uses bitwise AND with `getAllPermissions2()` check: `(currentPermissions & requiredPermissions) === requiredPermissions` and `(currentPermissions2 & requiredPermissions2) === requiredPermissions2`.
 
 #### AA-3: Missing permissions2 in Cloud Function Claims Sync — VERIFIED RESOLVED
 
@@ -131,12 +132,13 @@
 - **Issue**: Permission updates and user approvals don't create audit log entries. Sensitive operations untracked.
 - **Recommendation**: Add `logAuditEvent()` call with old/new permission values after successful updates.
 
-#### AA-19: Claims Validation Doesn't Check permissions2 Existence
+#### AA-19: Claims Validation Doesn't Check permissions2 Existence — VERIFIED RESOLVED
 
 - **Category**: Security
 - **File**: `apps/web/src/contexts/AuthContext.tsx` (lines 50-57)
 - **Issue**: `validateClaims` checks `permissions` is a number but doesn't validate `permissions2`. Extended permissions unavailable client-side.
 - **Recommendation**: Default `permissions2` to 0 if not present in claims.
+- **Resolution**: Verified — `validateClaims()` already defaults `permissions2` to 0: `permissions2: typeof claimsObj.permissions2 === 'number' ? claimsObj.permissions2 : 0`.
 
 ### LOW
 

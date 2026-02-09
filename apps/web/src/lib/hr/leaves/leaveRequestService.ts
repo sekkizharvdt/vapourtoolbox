@@ -304,14 +304,18 @@ export async function createLeaveRequest(
       throw new Error(`${leaveType.name} does not allow half-day leaves`);
     }
 
-    // Check if half day is only for single day
+    // HR-9: Validate half-day leave is single-day only with descriptive error
     if (input.isHalfDay) {
       const start = new Date(input.startDate);
       const end = new Date(input.endDate);
       start.setHours(0, 0, 0, 0);
       end.setHours(0, 0, 0, 0);
       if (start.getTime() !== end.getTime()) {
-        throw new Error('Half-day leave can only be for a single day');
+        const formatDate = (d: Date) =>
+          d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+        throw new Error(
+          `Half-day leave can only be for a single day. You selected ${formatDate(start)} to ${formatDate(end)} (${Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1} days). Please select the same start and end date for half-day leave.`
+        );
       }
     }
 

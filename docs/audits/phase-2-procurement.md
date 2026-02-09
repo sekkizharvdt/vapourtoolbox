@@ -78,13 +78,14 @@
 
 ### HIGH
 
-#### PR-7: Amendment Changes Applied Without Field Validation
+#### PR-7: Amendment Changes Applied Without Field Validation — FIXED
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/procurement/amendment/crud.ts` (lines 227-232)
 - **Issue**: Amendment applies field changes directly to PO without validating that PO remains in a valid state. Could set invalid status, corrupt data, or delete required fields.
 - **Evidence**: `updateData[change.field] = change.newValue;` — no whitelist of allowed fields.
 - **Recommendation**: Implement whitelist of allowed fields for amendment changes. Validate PO schema after applying.
+- **Resolution**: Added `ALLOWED_AMENDMENT_FIELDS` whitelist (financial, terms, delivery, header fields). Amendment approval now validates each field change against the whitelist and throws a descriptive error for disallowed fields.
 
 #### PR-8: No Idempotency Guard on Amendment Approval — FIXED `5bafc70`
 
@@ -215,7 +216,7 @@
 4. ~~**PR-5**: GR quantity validation against PO (data integrity)~~ — FIXED `0443df1`
 5. ~~**PR-8**: Amendment idempotency guard~~ — FIXED `5bafc70`
 6. ~~**PR-9**: Bank account validation in payment approval~~ — FIXED `5bafc70`
-7. **PR-7**: Amendment field validation (data integrity)
+7. ~~**PR-7**: Amendment field validation (data integrity)~~ — FIXED
 8. ~~**PR-10**: Project ID validation in bill creation~~ — FIXED `58f8d40`
 9. ~~**PR-11**: Add missing Firestore indexes (reliability)~~ — FIXED `82fc756`
 

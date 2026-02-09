@@ -36,6 +36,7 @@ import {
   Home as HomeIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { getAllEmployees, getDepartments } from '@/lib/hr';
 import type { EmployeeListItem } from '@vapour/types';
 
@@ -52,6 +53,7 @@ const BLOOD_GROUP_COLORS: Record<string, 'error' | 'warning' | 'info' | 'success
 
 export default function EmployeeDirectoryPage() {
   const router = useRouter();
+  const { claims } = useAuth();
   const [employees, setEmployees] = useState<EmployeeListItem[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +67,7 @@ export default function EmployeeDirectoryPage() {
 
     try {
       const [employeesData, departmentsData] = await Promise.all([
-        getAllEmployees(),
+        getAllEmployees(claims?.entityId),
         getDepartments(),
       ]);
       setEmployees(employeesData);

@@ -102,19 +102,21 @@
 - **Issue**: Comp-offs should expire 1 year from grant, but no individual grant records with metadata are stored. `findExpiringCompOffs` is a TODO placeholder returning empty array.
 - **Recommendation**: Create `compOffGrants` subcollection with grant dates and expiry tracking. Implement scheduled Cloud Function for auto-expiry.
 
-#### HR-9: No Validation That Half-Day Leaves Are Single-Day Only (UX)
+#### HR-9: No Validation That Half-Day Leaves Are Single-Day Only (UX) — FIXED
 
 - **Category**: UX
 - **File**: `apps/web/src/lib/hr/leaves/leaveRequestService.ts` (lines 270-279)
 - **Issue**: Half-day validation correctly rejects multi-day requests, but the error message doesn't explain which dates are problematic.
 - **Recommendation**: Improve error message to include date range and day count.
+- **Resolution**: Improved error message to include the selected date range, day count, and clear instruction to select same start/end date for half-day leave.
 
-#### HR-10: Employee Directory Leaks All Internal User Emails
+#### HR-10: Employee Directory Leaks All Internal User Emails — FIXED
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/hr/employees/employeeService.ts` (lines 30-50, 258-268)
 - **Issue**: `getAllEmployees` and `searchEmployees` return all employees without permission checks. No field-level filtering for sensitive data.
 - **Recommendation**: Add permission check requiring `MANAGE_HR_PROFILES` or restrict sensitive fields for non-HR users.
+- **Resolution**: Added optional `entityId` parameter to `getAllEmployees()` and `searchEmployees()` for multi-tenancy isolation. Employee directory page now passes `claims?.entityId` to filter employees by organization.
 
 ### MEDIUM
 

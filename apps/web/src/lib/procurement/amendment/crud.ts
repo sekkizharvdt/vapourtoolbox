@@ -25,6 +25,39 @@ import { requirePermission, preventSelfApproval } from '@/lib/auth/authorization
 const logger = createLogger({ context: 'amendmentService' });
 
 /**
+ * PR-7: Whitelist of PO fields that amendments are allowed to modify.
+ * Fields not in this list cannot be changed via amendments — this prevents
+ * corruption of status, workflow, or structural fields.
+ */
+const ALLOWED_AMENDMENT_FIELDS = new Set([
+  // Financial
+  'subtotal',
+  'cgst',
+  'sgst',
+  'igst',
+  'totalTax',
+  'grandTotal',
+  'currency',
+  // Terms
+  'paymentTerms',
+  'deliveryTerms',
+  'warrantyTerms',
+  'penaltyClause',
+  'otherClauses',
+  'commercialTerms',
+  // Delivery
+  'deliveryAddress',
+  'expectedDeliveryDate',
+  // Header
+  'title',
+  'description',
+  // Advance payment
+  'advancePaymentRequired',
+  'advancePercentage',
+  'advanceAmount',
+]);
+
+/**
  * Create a new purchase order amendment
  */
 export async function createAmendment(
@@ -245,11 +278,22 @@ export async function approveAmendment(
       updatedBy: userId,
     };
 
-    // Apply individual field changes
+    // PR-7: Apply individual field changes with whitelist validation
     amendment.changes.forEach((change) => {
-      if (!change.field.startsWith('items[')) {
-        updateData[change.field] = change.newValue;
+      if (change.field.startsWith('items[')) {
+        // Item-level changes are handled separately
+        return;
       }
+      if (!ALLOWED_AMENDMENT_FIELDS.has(change.field)) {
+        logger.warn('Amendment attempted to modify disallowed field', {
+          amendmentId,
+          field: change.field,
+        });
+        throw new Error(
+          `Amendment cannot modify field "${change.field}". Only financial, terms, delivery, and header fields can be amended.`
+        );
+      }
+      updateData[change.field] = change.newValue;
     });
 
     batch.update(poRef, updateData);

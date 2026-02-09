@@ -146,12 +146,13 @@
 - **Issue**: `startActionableTask()` and `completeActionableTask()` don't validate current status before transitioning. Can complete already-completed tasks.
 - **Recommendation**: Add status validation before state transitions.
 
-#### FL-15: Missing Visibility Check in Team Board
+#### FL-15: Missing Visibility Check in Team Board — FIXED
 
 - **Category**: Security
 - **File**: `apps/web/src/app/flow/team/page.tsx` (lines 73-101)
 - **Issue**: Team Board loads all active users without filtering by entity. External users or users from other entities may be shown.
 - **Recommendation**: Add `where('entityId', '==', entityId)` filter to users query.
+- **Resolution**: Added `where('entityId', '==', entityId)` filter to the team board users query and added `entityId` to the useEffect dependency array.
 
 #### FL-16: Due Date Overdue Indicator Doesn't Account for Time Zones
 

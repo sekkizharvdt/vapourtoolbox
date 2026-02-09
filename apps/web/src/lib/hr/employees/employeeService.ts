@@ -26,16 +26,19 @@ const logger = createLogger({ context: 'employeeService' });
 
 /**
  * Get all employees (active users with internal domain)
+ * HR-10: Added optional entityId filter for multi-tenancy isolation
  */
-export async function getAllEmployees(): Promise<EmployeeListItem[]> {
+export async function getAllEmployees(entityId?: string): Promise<EmployeeListItem[]> {
   const { db } = getFirebase();
 
   try {
-    const q = query(
-      collection(db, COLLECTIONS.USERS),
+    const constraints = [
       where('isActive', '==', true),
-      orderBy('displayName', 'asc')
-    );
+      ...(entityId ? [where('entityId', '==', entityId)] : []),
+      orderBy('displayName', 'asc'),
+    ];
+
+    const q = query(collection(db, COLLECTIONS.USERS), ...constraints);
 
     const snapshot = await getDocs(q);
 
@@ -254,9 +257,13 @@ export async function getDepartments(): Promise<string[]> {
 
 /**
  * Search employees by name or email
+ * HR-10: Added optional entityId filter for multi-tenancy isolation
  */
-export async function searchEmployees(searchQuery: string): Promise<EmployeeListItem[]> {
-  const employees = await getAllEmployees();
+export async function searchEmployees(
+  searchQuery: string,
+  entityId?: string
+): Promise<EmployeeListItem[]> {
+  const employees = await getAllEmployees(entityId);
   const query = searchQuery.toLowerCase();
 
   return employees.filter(
