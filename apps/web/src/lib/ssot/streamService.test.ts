@@ -48,6 +48,9 @@ jest.mock('@vapour/firebase', () => ({
   SSOT_COLLECTIONS: {
     STREAMS: (projectId: string) => `projects/${projectId}/streams`,
   },
+  COLLECTIONS: {
+    PROJECTS: 'projects',
+  },
 }));
 
 jest.mock('@vapour/logger', () => ({
@@ -285,6 +288,7 @@ describe('streamService', () => {
 
   describe('createStream', () => {
     it('should create a new stream and return its ID', async () => {
+      mockGetDoc.mockResolvedValueOnce({ exists: () => true }); // project exists
       mockAddDoc.mockResolvedValue({ id: 'new-stream-id' });
 
       const input: ProcessStreamInput = {
@@ -306,6 +310,7 @@ describe('streamService', () => {
     });
 
     it('should include projectId and user metadata', async () => {
+      mockGetDoc.mockResolvedValueOnce({ exists: () => true }); // project exists
       mockAddDoc.mockResolvedValue({ id: 'new-stream-id' });
 
       const input: ProcessStreamInput = {
@@ -333,6 +338,7 @@ describe('streamService', () => {
     });
 
     it('should enrich input with calculated properties', async () => {
+      mockGetDoc.mockResolvedValueOnce({ exists: () => true }); // project exists
       mockAddDoc.mockResolvedValue({ id: 'new-stream-id' });
 
       const input: ProcessStreamInput = {
@@ -458,6 +464,7 @@ describe('streamService', () => {
 
   describe('createStreamsInBulk', () => {
     it('should create multiple streams and return their IDs', async () => {
+      mockGetDoc.mockResolvedValue({ exists: () => true }); // project exists
       let callCount = 0;
       mockAddDoc.mockImplementation(() => {
         callCount++;
@@ -497,6 +504,7 @@ describe('streamService', () => {
     });
 
     it('should process all streams sequentially', async () => {
+      mockGetDoc.mockResolvedValue({ exists: () => true }); // project exists
       const callOrder: string[] = [];
       mockAddDoc.mockImplementation(async (_, data) => {
         callOrder.push(data.lineTag);

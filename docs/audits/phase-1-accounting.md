@@ -74,12 +74,13 @@
 - **Issue**: Month-end handling fragile. dayOfMonth=31 in Feb uses `Math.min(dayOfMonth, lastDay)` but no comprehensive tests for leap years, DST transitions, or `daysBeforeToGenerate` exceeding period length.
 - **Recommendation**: Add edge case test coverage. Document expected behavior.
 
-#### AC-7: Payment Allocations Not Validated Before Creation
+#### AC-7: Payment Allocations Not Validated Before Creation — FIXED
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/accounting/paymentHelpers.ts` (lines 353-453)
 - **Issue**: `createPaymentWithAllocationsAtomic()` does NOT validate allocation amounts against invoice outstanding before creating payment. `validatePaymentAllocation()` exists but is never called during creation.
 - **Recommendation**: Call `validatePaymentAllocation()` for each allocation before creating payment.
+- **Resolution**: Added `validatePaymentAllocation()` calls for each non-zero allocation before batch creation. Validates allocation doesn't exceed outstanding amount per invoice/bill.
 
 #### AC-8: Floating Point in Financial Calculations
 
@@ -88,12 +89,13 @@
 - **Issue**: Interest calculations use floating point arithmetic with `Math.round(x * 100) / 100` at the end. Intermediate calculations can accumulate errors across thousands of transactions.
 - **Recommendation**: Use integer arithmetic (paisa) or a decimal library. Convert only for display.
 
-#### AC-9: Missing Composite Index for Period Validation
+#### AC-9: Missing Composite Index for Period Validation — VERIFIED RESOLVED
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/accounting/fiscalYearService.ts` (lines 143-148)
 - **Issue**: `isPeriodOpen()` queries `fiscalYearId + startDate + endDate` which requires a composite index that may not exist. Runtime failure in production.
 - **Recommendation**: Verify all composite indexes in `firestore.indexes.json`.
+- **Resolution**: Verified — composite index for `accountingPeriods` with fields `fiscalYearId + startDate + endDate` already exists in `firestore.indexes.json` (line 3338).
 
 #### AC-10: GL Validation Only Checks Balance, Not Business Logic
 

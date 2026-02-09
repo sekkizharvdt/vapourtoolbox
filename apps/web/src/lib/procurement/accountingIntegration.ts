@@ -125,6 +125,19 @@ export async function createBillFromGoodsReceipt(
       }
     }
 
+    // PE-12: Validate vendor entity exists before creating accounting documents
+    if (purchaseOrder.vendorId) {
+      const vendorRef = doc(db, COLLECTIONS.ENTITIES, purchaseOrder.vendorId);
+      const vendorDoc = await getDoc(vendorRef);
+      if (!vendorDoc.exists()) {
+        throw new AccountingIntegrationError(
+          'Referenced vendor entity not found. Verify the vendor exists before creating a bill.',
+          'VENDOR_NOT_FOUND',
+          { vendorId: purchaseOrder.vendorId }
+        );
+      }
+    }
+
     // Fetch goods receipt items and purchase order items in parallel (avoid sequential queries)
     const [grItemsSnapshot, poItemsSnapshot] = await Promise.all([
       getDocs(

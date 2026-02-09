@@ -55,6 +55,7 @@ jest.mock('@vapour/firebase', () => ({
     GOODS_RECEIPT_ITEMS: 'goodsReceiptItems',
     TRANSACTIONS: 'transactions',
     PROJECTS: 'projects',
+    ENTITIES: 'entities',
   },
 }));
 
@@ -245,6 +246,20 @@ describe('createBillFromGoodsReceipt', () => {
     );
   });
 
+  it('should throw error if referenced vendor not found (PE-12)', async () => {
+    const gr = createMockGoodsReceipt();
+    const po = createMockPurchaseOrder();
+
+    mockGetDoc
+      .mockResolvedValueOnce({ exists: () => true, id: po.id, data: () => po })
+      .mockResolvedValueOnce({ exists: () => true }) // project exists
+      .mockResolvedValueOnce({ exists: () => false }); // vendor not found
+
+    await expect(createBillFromGoodsReceipt(mockDb, gr, 'user-1', 'user@test.com')).rejects.toThrow(
+      'Referenced vendor entity not found'
+    );
+  });
+
   it('should create bill from goods receipt successfully', async () => {
     const gr = createMockGoodsReceipt();
     const po = createMockPurchaseOrder();
@@ -253,7 +268,8 @@ describe('createBillFromGoodsReceipt', () => {
 
     mockGetDoc
       .mockResolvedValueOnce({ exists: () => true, id: po.id, data: () => po })
-      .mockResolvedValueOnce({ exists: () => true }); // PR-10: project validation
+      .mockResolvedValueOnce({ exists: () => true }) // PR-10: project validation
+      .mockResolvedValueOnce({ exists: () => true }); // PE-12: vendor validation
 
     mockGetDocs
       .mockResolvedValueOnce({
@@ -278,7 +294,8 @@ describe('createBillFromGoodsReceipt', () => {
 
     mockGetDoc
       .mockResolvedValueOnce({ exists: () => true, id: po.id, data: () => po })
-      .mockResolvedValueOnce({ exists: () => true }); // PR-10: project validation
+      .mockResolvedValueOnce({ exists: () => true }) // PR-10: project validation
+      .mockResolvedValueOnce({ exists: () => true }); // PE-12: vendor validation
 
     mockGetDocs
       .mockResolvedValueOnce({
@@ -311,7 +328,8 @@ describe('createBillFromGoodsReceipt', () => {
 
     mockGetDoc
       .mockResolvedValueOnce({ exists: () => true, id: po.id, data: () => po })
-      .mockResolvedValueOnce({ exists: () => true }); // PR-10: project validation
+      .mockResolvedValueOnce({ exists: () => true }) // PR-10: project validation
+      .mockResolvedValueOnce({ exists: () => true }); // PE-12: vendor validation
 
     mockGetDocs
       .mockResolvedValueOnce({
@@ -340,7 +358,8 @@ describe('createBillFromGoodsReceipt', () => {
 
     mockGetDoc
       .mockResolvedValueOnce({ exists: () => true, id: po.id, data: () => po })
-      .mockResolvedValueOnce({ exists: () => true }); // PR-10: project validation
+      .mockResolvedValueOnce({ exists: () => true }) // PR-10: project validation
+      .mockResolvedValueOnce({ exists: () => true }); // PE-12: vendor validation
 
     mockGetDocs.mockResolvedValueOnce({ docs: [] }).mockResolvedValueOnce({ docs: [] });
 
@@ -360,7 +379,8 @@ describe('createBillFromGoodsReceipt', () => {
 
     mockGetDoc
       .mockResolvedValueOnce({ exists: () => true, id: po.id, data: () => po })
-      .mockResolvedValueOnce({ exists: () => true }); // PR-10: project validation
+      .mockResolvedValueOnce({ exists: () => true }) // PR-10: project validation
+      .mockResolvedValueOnce({ exists: () => true }); // PE-12: vendor validation
 
     mockGetDocs.mockResolvedValueOnce({ docs: [] }).mockResolvedValueOnce({ docs: [] });
 

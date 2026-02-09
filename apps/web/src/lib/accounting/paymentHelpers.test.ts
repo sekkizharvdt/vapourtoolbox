@@ -20,6 +20,8 @@ jest.mock('firebase/firestore', () => ({
   })),
   doc: jest.fn((_db, collection, id) => ({ id, path: `${collection}/${id || 'new'}` })),
   collection: jest.fn((_db, collectionName) => ({ path: collectionName })),
+  query: jest.fn((...args: unknown[]) => args[0]),
+  where: jest.fn(),
   getDoc: jest.fn().mockResolvedValue({
     exists: () => true,
     data: () => ({
@@ -28,6 +30,7 @@ jest.mock('firebase/firestore', () => ({
       status: 'UNPAID',
     }),
   }),
+  getDocs: jest.fn().mockResolvedValue({ forEach: jest.fn() }),
   Timestamp: {
     now: jest.fn(() => ({ seconds: Date.now() / 1000, nanoseconds: 0 })),
     fromDate: jest.fn((date) => ({ seconds: date.getTime() / 1000, nanoseconds: 0 })),

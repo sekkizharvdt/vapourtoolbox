@@ -359,11 +359,26 @@ export async function createPaymentWithAllocationsAtomic(
   validatePaymentData(paymentData);
   validateAllocations(allocations, paymentData.amount || 0);
 
+  // AC-7: Validate each allocation against actual outstanding amounts
+  const paymentType = paymentData.type as 'CUSTOMER_PAYMENT' | 'VENDOR_PAYMENT';
+  const invoiceType = paymentType === 'CUSTOMER_PAYMENT' ? 'CUSTOMER_INVOICE' : 'VENDOR_BILL';
+  const validAllocationsForCheck = allocations.filter((a) => a.allocatedAmount > 0);
+  for (const allocation of validAllocationsForCheck) {
+    const result = await validatePaymentAllocation(
+      db,
+      allocation.invoiceId,
+      allocation.allocatedAmount,
+      invoiceType
+    );
+    if (!result.valid) {
+      throw new Error(`Invalid allocation for ${allocation.invoiceId}: ${result.error}`);
+    }
+  }
+
   const batch = writeBatch(db);
 
   try {
     // 1. Generate GL entries for the payment
-    const paymentType = paymentData.type as 'CUSTOMER_PAYMENT' | 'VENDOR_PAYMENT';
     const glInput: PaymentGLInput = {
       transactionId: '', // Will be set after payment creation
       transactionNumber: paymentData.transactionNumber || '',

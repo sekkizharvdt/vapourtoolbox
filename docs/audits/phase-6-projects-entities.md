@@ -81,26 +81,29 @@
 
 ### HIGH
 
-#### PE-5: Entity Roles Query Not Server-Side Filtered
+#### PE-5: Entity Roles Query Not Server-Side Filtered — FIXED
 
 - **Category**: Performance / Security
 - **File**: `apps/web/src/app/entities/page.tsx` (lines 105-107)
 - **Issue**: Entities page loads all entities without role-based filtering at Firestore query level. Filters roles client-side only.
 - **Recommendation**: Apply role filtering at Firestore query level for efficiency and security.
+- **Resolution**: Added server-side `where('roles', 'array-contains', selectedRole)` filter to the Firestore query when a role filter is selected. Query now depends on `roleFilter` state.
 
-#### PE-9: No Validation That Project Exists Before SSOT Operations
+#### PE-9: No Validation That Project Exists Before SSOT Operations — FIXED
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/ssot/streamService.ts` (lines 89-99)
 - **Issue**: SSOT service functions accept projectId but don't validate project exists or user has access. Could query SSOT data for non-existent or unauthorized projects.
 - **Recommendation**: Validate project existence and user access before SSOT queries.
+- **Resolution**: Added `validateProjectExists()` helper that checks project document exists before write operations. Called in `createStream()` (and transitively in `createStreamsInBulk()`).
 
-#### PE-12: Orphaned Entity References in Procurement Documents
+#### PE-12: Orphaned Entity References in Procurement Documents — FIXED
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/procurement/accountingIntegration.ts` (lines 203, 237, 513, 661)
 - **Issue**: When creating accounting transactions from procurement, vendorId isn't validated against entity existence. Archived/deleted vendors create broken references.
 - **Recommendation**: Validate vendor entity existence before creating accounting transactions.
+- **Resolution**: Added vendor entity validation in `createBillFromGoodsReceipt()` — checks entity exists before creating accounting documents. New test added for vendor not found case.
 
 ### MEDIUM
 

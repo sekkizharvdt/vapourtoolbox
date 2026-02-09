@@ -33,7 +33,7 @@ import {
   Archive as ArchiveIcon,
   Unarchive as UnarchiveIcon,
 } from '@mui/icons-material';
-import { collection, query, orderBy, limit as firestoreLimit } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import {
   PageHeader,
@@ -97,16 +97,23 @@ export default function EntitiesPage() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
 
-  // Firestore query using custom hook
+  // PE-5: Firestore query with server-side role filtering when a role is selected
   const { db } = getFirebase();
   const entitiesQuery = useMemo(
     () =>
-      query(
-        collection(db, COLLECTIONS.ENTITIES),
-        orderBy('createdAt', 'desc'),
-        firestoreLimit(100)
-      ),
-    [db]
+      roleFilter !== 'all'
+        ? query(
+            collection(db, COLLECTIONS.ENTITIES),
+            where('roles', 'array-contains', roleFilter.toUpperCase()),
+            orderBy('createdAt', 'desc'),
+            firestoreLimit(100)
+          )
+        : query(
+            collection(db, COLLECTIONS.ENTITIES),
+            orderBy('createdAt', 'desc'),
+            firestoreLimit(100)
+          ),
+    [db, roleFilter]
   );
 
   const { data: allEntities, loading, error } = useFirestoreQuery<BusinessEntity>(entitiesQuery);

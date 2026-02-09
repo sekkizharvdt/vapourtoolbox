@@ -21,7 +21,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
-import { SSOT_COLLECTIONS } from '@vapour/firebase';
+import { SSOT_COLLECTIONS, COLLECTIONS } from '@vapour/firebase';
 import type { ProcessStream, ProcessStreamInput } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import { enrichStreamInput } from './streamCalculations';
@@ -77,6 +77,19 @@ function docToStream(docSnapshot: {
     updatedAt: data.updatedAt as Timestamp,
     updatedBy: data.updatedBy as string,
   };
+}
+
+/**
+ * PE-9: Validate that a project exists before SSOT operations
+ */
+async function validateProjectExists(projectId: string): Promise<void> {
+  const { db } = getFirebase();
+  const projectDoc = await getDoc(doc(db, COLLECTIONS.PROJECTS, projectId));
+  if (!projectDoc.exists()) {
+    throw new Error(
+      `Project "${projectId}" not found. Cannot perform SSOT operation on a non-existent project.`
+    );
+  }
 }
 
 // ============================================================================
@@ -161,6 +174,9 @@ export async function createStream(
   userId: string
 ): Promise<string> {
   logger.debug('createStream', { projectId, input });
+
+  // PE-9: Validate project exists before creating SSOT data
+  await validateProjectExists(projectId);
 
   // Enrich input with calculated properties
   const enrichedInput = enrichStreamInput(input);
