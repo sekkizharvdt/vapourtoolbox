@@ -20,6 +20,7 @@ import {
   getDocs,
   collection,
   Timestamp,
+  runTransaction,
   type Firestore,
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -90,14 +91,28 @@ export async function createBillFromGoodsReceipt(
       );
     }
 
-    // Check if bill already exists for this receipt
-    if (goodsReceipt.paymentRequestId) {
-      throw new AccountingIntegrationError(
-        'Bill already exists for this goods receipt',
-        'BILL_EXISTS',
-        { billId: goodsReceipt.paymentRequestId }
-      );
-    }
+    // Phase0#5: Atomically claim the GR for bill creation to prevent race conditions
+    // (e.g. two users clicking "Create Bill" at the same time)
+    const grRef = doc(db, COLLECTIONS.GOODS_RECEIPTS, goodsReceipt.id);
+    await runTransaction(db, async (transaction) => {
+      const grSnap = await transaction.get(grRef);
+      if (!grSnap.exists()) {
+        throw new AccountingIntegrationError('Goods receipt not found', 'GR_NOT_FOUND');
+      }
+      const grData = grSnap.data();
+      if (grData.paymentRequestId) {
+        throw new AccountingIntegrationError(
+          'Bill already exists or is being created for this goods receipt',
+          'BILL_EXISTS',
+          { billId: grData.paymentRequestId }
+        );
+      }
+      // Set a lock to prevent concurrent bill creation
+      transaction.update(grRef, {
+        paymentRequestId: 'CREATING',
+        updatedAt: Timestamp.now(),
+      });
+    });
 
     // Fetch the purchase order for vendor and project details
     const poRef = doc(db, COLLECTIONS.PURCHASE_ORDERS, goodsReceipt.purchaseOrderId);
@@ -200,9 +215,9 @@ export async function createBillFromGoodsReceipt(
       // Interstate - all IGST
       igstAmount = totalGST;
     } else {
-      // Intrastate - split CGST/SGST
-      cgstAmount = totalGST / 2;
-      sgstAmount = totalGST / 2;
+      // Intrastate - split CGST/SGST (round to avoid odd paisa)
+      cgstAmount = Math.round((totalGST / 2) * 100) / 100;
+      sgstAmount = Math.round((totalGST - cgstAmount) * 100) / 100;
     }
 
     // Generate transaction number
@@ -310,10 +325,19 @@ export async function createBillFromGoodsReceipt(
 
     // Create the bill with double-entry validation
     // This will throw UnbalancedEntriesError if entries don't balance
-    const billId = await saveTransaction(db, billData);
+    let billId: string;
+    try {
+      billId = await saveTransaction(db, billData);
+    } catch (billError) {
+      // Phase0#5: Clear the lock on failure so user can retry
+      await updateDoc(grRef, {
+        paymentRequestId: null,
+        updatedAt: Timestamp.now(),
+      });
+      throw billError;
+    }
 
-    // Update goods receipt with bill reference
-    const grRef = doc(db, COLLECTIONS.GOODS_RECEIPTS, goodsReceipt.id);
+    // Update goods receipt with actual bill reference (replaces 'CREATING' lock)
     await updateDoc(grRef, {
       paymentRequestId: billId,
       updatedAt: Timestamp.now(),
@@ -335,6 +359,27 @@ export async function createBillFromGoodsReceipt(
     } catch (notifError) {
       // Don't fail bill creation if notification auto-complete fails
       logger.warn('Failed to auto-complete GR_BILL_REQUIRED notification', { notifError });
+    }
+
+    // Phase0#9: Notify procurement user that the bill has been created
+    if (goodsReceipt.sentToAccountingById) {
+      try {
+        await createTaskNotification({
+          type: 'informational',
+          category: 'GR_BILL_CREATED',
+          userId: goodsReceipt.sentToAccountingById,
+          assignedBy: userId,
+          title: `Bill Created for ${goodsReceipt.number}`,
+          message: `Vendor bill ${transactionNumber} has been created for goods receipt ${goodsReceipt.number} (PO: ${goodsReceipt.poNumber}).`,
+          entityType: 'GOODS_RECEIPT',
+          entityId: goodsReceipt.id,
+          projectId: goodsReceipt.projectId,
+          linkUrl: `/procurement/goods-receipts/${goodsReceipt.id}`,
+          priority: 'MEDIUM',
+        });
+      } catch (notifError) {
+        logger.warn('Failed to notify procurement of bill creation', { notifError });
+      }
     }
 
     logger.info('Created bill from goods receipt', {
@@ -374,6 +419,7 @@ export async function sendGRToAccounting(
     sentToAccountingAt: sentAt,
     accountingAssigneeId: accountingUserId,
     accountingAssigneeName: accountingUserName,
+    sentToAccountingById: currentUserId,
     sentToAccountingByName: currentUserName,
     updatedAt: Timestamp.now(),
   });
@@ -404,6 +450,7 @@ export async function sendGRToAccounting(
       sentToAccountingAt: null,
       accountingAssigneeId: null,
       accountingAssigneeName: null,
+      sentToAccountingById: null,
       sentToAccountingByName: null,
       updatedAt: Timestamp.now(),
     });

@@ -31,6 +31,7 @@ export type TaskNotificationCategory =
   | 'GOODS_RECEIVED' // Informational: Goods received for PO
   | 'GR_READY_FOR_PAYMENT' // Actionable: Review GR and approve payment
   | 'GR_BILL_REQUIRED' // Actionable: Create vendor bill from completed GR
+  | 'GR_BILL_CREATED' // Informational: Bill created for your goods receipt
   | 'GR_PAYMENT_APPROVED' // Informational: Payment approved for GR
   | 'PAYMENT_REQUESTED' // Actionable: Process payment
   | 'WCC_ISSUED' // Informational: Work completion certificate issued
@@ -374,6 +375,7 @@ export const TASK_CHANNEL_DEFINITIONS: Record<DefaultTaskChannelId, TaskChannel>
       'PO_APPROVED',
       'PO_REJECTED',
       'GOODS_RECEIVED',
+      'GR_BILL_CREATED',
       'WCC_ISSUED',
     ],
     isDefault: true,

@@ -112,10 +112,18 @@ async function generateLoanNumber(): Promise<string> {
 }
 
 /**
+ * AC-8: Round to paisa (2 decimal places) to prevent floating point accumulation.
+ * Applied at each intermediate step, not just at the end.
+ */
+function roundToPaisa(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
+
+/**
  * Calculate simple interest
  */
 function calculateSimpleInterest(principal: number, annualRate: number, days: number): number {
-  return (principal * annualRate * days) / (100 * 365);
+  return roundToPaisa((principal * annualRate * days) / (100 * 365));
 }
 
 /**
@@ -124,7 +132,7 @@ function calculateSimpleInterest(principal: number, annualRate: number, days: nu
 function calculateCompoundInterest(principal: number, annualRate: number, months: number): number {
   const monthlyRate = annualRate / 100 / 12;
   const amount = principal * Math.pow(1 + monthlyRate, months);
-  return amount - principal;
+  return roundToPaisa(amount - principal);
 }
 
 /**
@@ -169,7 +177,7 @@ export function generateRepaymentSchedule(
   }
 
   const numberOfPayments = Math.max(1, Math.ceil(totalMonths / periodMonths));
-  const principalPerPayment = principalAmount / numberOfPayments;
+  const principalPerPayment = roundToPaisa(principalAmount / numberOfPayments);
 
   let remainingPrincipal = principalAmount;
   let currentDate = new Date(startDate);
@@ -179,7 +187,7 @@ export function generateRepaymentSchedule(
     const dueDate = new Date(currentDate);
     dueDate.setMonth(dueDate.getMonth() + periodMonths);
 
-    // Calculate interest for this period
+    // Calculate interest for this period (already rounded via roundToPaisa in helpers)
     let interestAmount: number;
     if (interestMethod === 'SIMPLE') {
       const daysInPeriod = Math.ceil(
@@ -191,18 +199,26 @@ export function generateRepaymentSchedule(
     }
 
     // For bullet payment, principal is only paid at maturity
-    const principalPayment =
-      frequency === 'BULLET' && i < numberOfPayments - 1 ? 0 : principalPerPayment;
+    // Last payment absorbs any rounding remainder
+    let principalPayment: number;
+    if (frequency === 'BULLET' && i < numberOfPayments - 1) {
+      principalPayment = 0;
+    } else if (i === numberOfPayments - 1) {
+      // Last payment: use remaining principal to avoid rounding drift
+      principalPayment = roundToPaisa(remainingPrincipal);
+    } else {
+      principalPayment = principalPerPayment;
+    }
 
     schedule.push({
       dueDate,
-      principalAmount: Math.round(principalPayment * 100) / 100,
-      interestAmount: Math.round(interestAmount * 100) / 100,
-      totalAmount: Math.round((principalPayment + interestAmount) * 100) / 100,
+      principalAmount: principalPayment,
+      interestAmount,
+      totalAmount: roundToPaisa(principalPayment + interestAmount),
       status: 'PENDING',
     });
 
-    remainingPrincipal -= principalPayment;
+    remainingPrincipal = roundToPaisa(remainingPrincipal - principalPayment);
     currentDate = dueDate;
   }
 

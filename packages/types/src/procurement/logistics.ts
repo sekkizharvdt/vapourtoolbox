@@ -149,6 +149,7 @@ export interface GoodsReceipt {
   sentToAccountingAt?: Timestamp;
   accountingAssigneeId?: string;
   accountingAssigneeName?: string;
+  sentToAccountingById?: string;
   sentToAccountingByName?: string;
 
   // Workflow

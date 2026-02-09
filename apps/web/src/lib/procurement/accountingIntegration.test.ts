@@ -25,12 +25,14 @@ import type {
 const mockGetDoc = jest.fn();
 const mockGetDocs = jest.fn();
 const mockUpdateDoc = jest.fn();
+const mockRunTransaction = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn(() => 'mock-doc-ref'),
   getDoc: (...args: unknown[]) => mockGetDoc(...args),
   getDocs: (...args: unknown[]) => mockGetDocs(...args),
   updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
+  runTransaction: (...args: unknown[]) => mockRunTransaction(...args),
   collection: jest.fn(() => 'mock-collection'),
   query: jest.fn((...args: unknown[]) => args),
   where: jest.fn(),
@@ -90,6 +92,13 @@ jest.mock('../accounting/paymentHelpers', () => ({
 const mockSaveTransaction = jest.fn();
 jest.mock('../accounting/transactionService', () => ({
   saveTransaction: (...args: unknown[]) => mockSaveTransaction(...args),
+}));
+
+// Mock task notification service
+jest.mock('../tasks/taskNotificationService', () => ({
+  createTaskNotification: jest.fn().mockResolvedValue('notif-1'),
+  findTaskNotificationByEntity: jest.fn().mockResolvedValue(null),
+  completeActionableTask: jest.fn().mockResolvedValue(undefined),
 }));
 
 // Helper to create mock Timestamp
@@ -202,6 +211,20 @@ describe('createBillFromGoodsReceipt', () => {
       ],
     });
     mockSaveTransaction.mockResolvedValue('bill-1');
+
+    // Phase0#5: Default runTransaction mock — GR has no paymentRequestId (not locked)
+    mockRunTransaction.mockImplementation(
+      async (_db: unknown, callback: (t: unknown) => Promise<unknown>) => {
+        const mockTransaction = {
+          get: jest.fn().mockResolvedValue({
+            exists: () => true,
+            data: () => ({ status: 'COMPLETED' }),
+          }),
+          update: jest.fn(),
+        };
+        return callback(mockTransaction);
+      }
+    );
   });
 
   it('should throw error if goods receipt status is not COMPLETED', async () => {
@@ -217,7 +240,21 @@ describe('createBillFromGoodsReceipt', () => {
   });
 
   it('should throw error if bill already exists', async () => {
-    const gr = createMockGoodsReceipt({ paymentRequestId: 'existing-bill' });
+    const gr = createMockGoodsReceipt();
+
+    // Phase0#5: The check now happens inside the transaction
+    mockRunTransaction.mockImplementation(
+      async (_db: unknown, callback: (t: unknown) => Promise<unknown>) => {
+        const mockTransaction = {
+          get: jest.fn().mockResolvedValue({
+            exists: () => true,
+            data: () => ({ status: 'COMPLETED', paymentRequestId: 'existing-bill' }),
+          }),
+          update: jest.fn(),
+        };
+        return callback(mockTransaction);
+      }
+    );
 
     await expect(createBillFromGoodsReceipt(mockDb, gr, 'user-1', 'user@test.com')).rejects.toThrow(
       'Bill already exists'
