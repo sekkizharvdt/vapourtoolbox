@@ -156,12 +156,13 @@
 - **Issue**: No dedicated `APPROVE_GR`, `INSPECT_GOODS`, or `APPROVE_GR_PAYMENT` permission flags. GR operations lack granular access control.
 - **Recommendation**: Add permission flags and enforce in service layer.
 
-#### PR-17: Amendment Audit Trail Missing Field-Level Details
+#### PR-17: Amendment Audit Trail Missing Field-Level Details — FIXED
 
 - **Category**: Data Integrity / Compliance
 - **File**: `apps/web/src/lib/procurement/amendment/crud.ts` (lines 216-234)
 - **Issue**: When amendment is approved, PO fields are updated but the history entry doesn't log field-by-field before/after values.
 - **Recommendation**: Include change details in history for compliance auditing.
+- **Resolution**: Added `fieldChanges` array (field, fieldLabel, oldValue, newValue, display values) and `changeCount` to the approval history entry, using the existing `amendment.changes` data.
 
 ### LOW
 

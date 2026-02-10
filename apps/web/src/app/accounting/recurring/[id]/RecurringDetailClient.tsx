@@ -130,16 +130,17 @@ export default function RecurringDetailClient() {
   const handleDelete = async () => {
     if (!transaction || !user) return;
 
-    if (
-      !confirm(`Are you sure you want to delete "${transaction.name}"? This cannot be undone.`)
-    ) {
+    if (!confirm(`Are you sure you want to delete "${transaction.name}"? This cannot be undone.`)) {
       return;
     }
 
     const { db } = getFirebase();
 
     try {
-      await deleteRecurringTransaction(db, transaction.id, user.uid);
+      await deleteRecurringTransaction(db, transaction.id, user.uid, {
+        userName: user.displayName || '',
+        userEmail: user.email || '',
+      });
       router.push('/accounting/recurring');
     } catch (error) {
       console.error('[RecurringDetail] Error deleting:', error);
@@ -195,9 +196,7 @@ export default function RecurringDetailClient() {
           <Typography variant="h4" component="h1" gutterBottom>
             Recurring Transaction
           </Typography>
-          <Alert severity="error">
-            You do not have permission to view recurring transactions.
-          </Alert>
+          <Alert severity="error">You do not have permission to view recurring transactions.</Alert>
         </Box>
       </>
     );
@@ -285,7 +284,11 @@ export default function RecurringDetailClient() {
                 }
                 size="small"
               />
-              <Chip label={FREQUENCY_LABELS[transaction.frequency]} size="small" variant="outlined" />
+              <Chip
+                label={FREQUENCY_LABELS[transaction.frequency]}
+                size="small"
+                variant="outlined"
+              />
             </Box>
           </Box>
 
@@ -336,7 +339,8 @@ export default function RecurringDetailClient() {
                     {FREQUENCY_LABELS[transaction.frequency]}
                     {transaction.dayOfMonth !== undefined && (
                       <Typography variant="caption" color="text.secondary" display="block">
-                        Day {transaction.dayOfMonth === 0 ? 'Last' : transaction.dayOfMonth} of month
+                        Day {transaction.dayOfMonth === 0 ? 'Last' : transaction.dayOfMonth} of
+                        month
                       </Typography>
                     )}
                   </Typography>
@@ -433,7 +437,9 @@ export default function RecurringDetailClient() {
 
         {/* Occurrences */}
         <Paper sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box
+            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+          >
             <Typography variant="h6">
               <ScheduleIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
               Occurrences

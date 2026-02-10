@@ -298,7 +298,7 @@ export async function approveAmendment(
 
     batch.update(poRef, updateData);
 
-    // Create approval history entry
+    // Create approval history entry (PR-17: include field-level change details)
     const historyData = {
       amendmentId,
       purchaseOrderId: amendment.purchaseOrderId,
@@ -311,6 +311,15 @@ export async function approveAmendment(
       newStatus: 'APPROVED',
       ipAddress,
       userAgent,
+      fieldChanges: amendment.changes.map((change) => ({
+        field: change.field,
+        fieldLabel: change.fieldLabel,
+        oldValue: change.oldValue ?? null,
+        newValue: change.newValue ?? null,
+        ...(change.oldValueDisplay !== undefined && { oldValueDisplay: change.oldValueDisplay }),
+        ...(change.newValueDisplay !== undefined && { newValueDisplay: change.newValueDisplay }),
+      })),
+      changeCount: amendment.changes.length,
     };
 
     const historyRef = doc(collection(db, COLLECTIONS.AMENDMENT_APPROVAL_HISTORY));

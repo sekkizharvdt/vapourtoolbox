@@ -208,12 +208,13 @@
 - **Issue**: Types define `Timestamp` from `firebase/firestore` (client), but Cloud Functions use `admin.firestore.Timestamp` (server). Conversion issues possible.
 - **Recommendation**: Create utility functions for converting between client and admin Timestamps.
 
-#### SP-26: Missing Audit Trail for Permission Changes in Cloud Functions
+#### SP-26: Missing Audit Trail for Permission Changes in Cloud Functions — FIXED
 
 - **Category**: Security / Compliance
 - **File**: `packages/functions/src/index.ts` (lines 59, 103, 124, 189-195)
 - **Issue**: Permission changes logged to Firebase console but not to `auditLogs` collection.
 - **Recommendation**: Add explicit audit log creation for all permission modifications.
+- **Resolution**: Cloud Function already wrote to `auditLogs` but attributed all changes to `actorId: 'system'`. Fixed by reading `updatedBy` from the Firestore document (set by EditUserDialog in AA-8 fix) and using `getActorFromAuth()` to resolve the real admin who made the change.
 
 ### LOW
 

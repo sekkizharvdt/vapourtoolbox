@@ -117,12 +117,13 @@
 - **Recommendation**: Define explicit state machine with `ALLOWED_TRANSITIONS` map.
 - **Resolution**: Added `paymentBatchStateMachine` to `stateMachines.ts` with full transition map. Replaced ad-hoc status checks in `submitBatchForApproval`, `approveBatch`, `rejectBatch`, and `cancelBatch` with `requireValidTransition()`.
 
-#### AC-12: Recurring Transaction Hard-Deleted Without Audit Trail
+#### AC-12: Recurring Transaction Hard-Deleted Without Audit Trail — FIXED
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/accounting/recurringTransactionService.ts` (lines 314-323)
 - **Issue**: `deleteRecurringTransaction()` calls `deleteDoc()` immediately. No soft-delete, no archive, unlike `transactionDeleteService` which archives to DELETED_TRANSACTIONS.
 - **Recommendation**: Implement soft-delete with archive pattern.
+- **Resolution**: Converted to soft-delete (`isDeleted: true`, `deletedAt`, `deletedBy`). Added `logAuditEvent()` with transaction metadata. Added client-side `isDeleted` filtering to list query. Both callers updated to pass auditor info.
 
 #### AC-13: No Pagination on Recurring Transaction List
 

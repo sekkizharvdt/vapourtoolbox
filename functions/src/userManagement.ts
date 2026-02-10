@@ -3,7 +3,12 @@ import type { FirestoreEvent, Change } from 'firebase-functions/v2/firestore';
 import type { DocumentSnapshot } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
 import * as admin from 'firebase-admin';
-import { auditUserAction, auditPermissionChange, calculateFieldChanges } from './utils/audit';
+import {
+  auditUserAction,
+  auditPermissionChange,
+  calculateFieldChanges,
+  getActorFromAuth,
+} from './utils/audit';
 
 /**
  * =====================================================================================
@@ -285,6 +290,22 @@ export const onUserUpdate = onDocumentWritten(
       });
 
       // === AUDIT LOGGING ===
+      // SP-26: Resolve actual actor from updatedBy field (set by EditUserDialog)
+      const updatedByUid = userData.updatedBy as string | undefined;
+      let actorId = 'system';
+      let actorEmail = 'system@vapourdesal.com';
+      let actorName = 'System';
+      if (updatedByUid && updatedByUid !== userId) {
+        try {
+          const actorInfo = await getActorFromAuth(updatedByUid);
+          actorId = actorInfo.actorId;
+          actorEmail = actorInfo.actorEmail;
+          actorName = actorInfo.actorName;
+        } catch {
+          // Fall back to system if actor lookup fails
+        }
+      }
+
       // Track permission changes
       if (!isNewDocument && permissionsChanged) {
         const permissionChanges = calculateFieldChanges(previousData || {}, { permissions }, [
@@ -296,9 +317,9 @@ export const onUserUpdate = onDocumentWritten(
           userId,
           userEmail: userData.email,
           changes: permissionChanges,
-          actorId: 'system',
-          actorEmail: 'system@vapourdesal.com',
-          actorName: 'System',
+          actorId,
+          actorEmail,
+          actorName,
           metadata: {
             previousPermissions: previousData?.permissions || 0,
             newPermissions: permissions,
@@ -318,9 +339,9 @@ export const onUserUpdate = onDocumentWritten(
           userId,
           userEmail: userData.email,
           changes: moduleChanges,
-          actorId: 'system',
-          actorEmail: 'system@vapourdesal.com',
-          actorName: 'System',
+          actorId,
+          actorEmail,
+          actorName,
           metadata: {
             previousAllowedModules: previousData?.allowedModules || [],
             newAllowedModules: allowedModules,
@@ -337,9 +358,9 @@ export const onUserUpdate = onDocumentWritten(
           userId,
           userEmail: userData.email,
           userName: userData.displayName || user.displayName || 'Unknown',
-          actorId: 'system',
-          actorEmail: 'system@vapourdesal.com',
-          actorName: 'System',
+          actorId,
+          actorEmail,
+          actorName,
           changes: [
             {
               field: 'status',

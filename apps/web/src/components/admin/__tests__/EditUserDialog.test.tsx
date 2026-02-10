@@ -26,6 +26,22 @@ jest.mock('@vapour/firebase', () => ({
   },
 }));
 
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: jest.fn(() => ({
+    user: { uid: 'admin-uid', email: 'admin@example.com', displayName: 'Admin User' },
+  })),
+}));
+
+jest.mock('@/lib/audit', () => ({
+  logAuditEvent: jest.fn(),
+  createFieldChanges: jest.fn(() => []),
+  createAuditContext: jest.fn(() => ({
+    userId: 'admin-uid',
+    userEmail: 'admin@example.com',
+    userName: 'Admin User',
+  })),
+}));
+
 // Create a mock user for testing
 const createMockUser = (overrides: Partial<User> = {}): User => ({
   uid: 'test-user-id',

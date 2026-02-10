@@ -172,7 +172,10 @@ export default function RecurringTransactionsPage() {
     const { db } = getFirebase();
 
     try {
-      await deleteRecurringTransaction(db, tx.id, user.uid);
+      await deleteRecurringTransaction(db, tx.id, user.uid, {
+        userName: user.displayName || '',
+        userEmail: user.email || '',
+      });
 
       // Refresh list
       const txList = await getRecurringTransactions(

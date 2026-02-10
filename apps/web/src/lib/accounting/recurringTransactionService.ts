@@ -12,7 +12,6 @@ import {
   getDocs,
   addDoc,
   updateDoc,
-  deleteDoc,
   query,
   where,
   orderBy,
@@ -25,6 +24,7 @@ import {
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
+import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import type {
   RecurringTransaction,
   RecurringTransactionType,
@@ -148,10 +148,12 @@ export async function getRecurringTransactions(
   const q = query(collection(db, COLLECTIONS.RECURRING_TRANSACTIONS), ...constraints);
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as RecurringTransaction[];
+  return (
+    snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as (RecurringTransaction & { isDeleted?: boolean })[]
+  ).filter((tx) => !tx.isDeleted);
 }
 
 /**
@@ -309,17 +311,49 @@ export async function updateRecurringTransactionStatus(
 }
 
 /**
- * Delete a recurring transaction
+ * Soft-delete a recurring transaction (AC-12: audit trail instead of hard delete)
  */
 export async function deleteRecurringTransaction(
   db: Firestore,
   id: string,
-  userId: string
+  userId: string,
+  auditor?: { userName: string; userEmail: string }
 ): Promise<void> {
   const docRef = doc(db, COLLECTIONS.RECURRING_TRANSACTIONS, id);
-  await deleteDoc(docRef);
 
-  logger.info('Deleted recurring transaction', { id, userId });
+  // Fetch before soft-delete to record what was deleted
+  const docSnap = await getDoc(docRef);
+  const txData = docSnap.exists() ? docSnap.data() : null;
+
+  // Soft-delete instead of hard-delete
+  await updateDoc(docRef, {
+    isDeleted: true,
+    deletedAt: Timestamp.now(),
+    deletedBy: userId,
+  });
+
+  // Audit log
+  if (auditor) {
+    const ctx = createAuditContext(userId, auditor.userEmail, auditor.userName);
+    await logAuditEvent(
+      db,
+      ctx,
+      'TRANSACTION_SOFT_DELETED',
+      'TRANSACTION',
+      id,
+      `Soft-deleted recurring transaction ${txData?.name || id}`,
+      {
+        entityName: txData?.name,
+        metadata: {
+          type: txData?.type,
+          frequency: txData?.frequency,
+          amount: txData?.amount,
+        },
+      }
+    );
+  }
+
+  logger.info('Soft-deleted recurring transaction', { id, userId });
 }
 
 /**

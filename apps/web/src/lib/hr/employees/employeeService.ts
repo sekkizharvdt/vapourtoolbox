@@ -21,6 +21,7 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { User } from '@vapour/types';
 import type { HRProfile, EmployeeListItem, EmployeeDetail, BloodGroup } from '@vapour/types';
+import { logAuditEvent, createFieldChanges, createAuditContext } from '@/lib/audit';
 
 const logger = createLogger({ context: 'employeeService' });
 
@@ -147,7 +148,8 @@ export async function getEmployeeById(userId: string): Promise<EmployeeDetail | 
 export async function updateEmployeeHRProfile(
   userId: string,
   hrProfile: Partial<HRProfile>,
-  updatedBy: string
+  updatedBy: string,
+  auditor?: { userName: string; userEmail: string }
 ): Promise<void> {
   const { db } = getFirebase();
 
@@ -175,6 +177,30 @@ export async function updateEmployeeHRProfile(
       updatedBy,
     });
 
+    // HR-14: Audit log for employee profile changes
+    if (auditor) {
+      const changes = createFieldChanges(
+        currentHRProfile as Record<string, unknown>,
+        hrProfile as Record<string, unknown>
+      );
+      if (changes.length > 0) {
+        const ctx = createAuditContext(updatedBy, auditor.userEmail, auditor.userName);
+        await logAuditEvent(
+          db,
+          ctx,
+          'USER_UPDATED',
+          'USER',
+          userId,
+          `Updated HR profile for employee ${currentData.email}`,
+          {
+            entityName: currentData.email,
+            changes,
+            metadata: { section: 'hrProfile' },
+          }
+        );
+      }
+    }
+
     logger.info('Employee HR profile updated', { userId, updatedBy });
   } catch (error) {
     logger.error('Failed to update employee HR profile', { userId, error });
@@ -193,12 +219,17 @@ export async function updateEmployeeBasicInfo(
     jobTitle?: string;
     department?: string;
   },
-  updatedBy: string
+  updatedBy: string,
+  auditor?: { userName: string; userEmail: string }
 ): Promise<void> {
   const { db } = getFirebase();
 
   try {
     const docRef = doc(db, COLLECTIONS.USERS, userId);
+
+    // Get current data for audit comparison
+    const docSnap = auditor ? await getDoc(docRef) : null;
+    const currentData = docSnap?.exists() ? (docSnap.data() as User) : null;
 
     const updateData: Record<string, unknown> = {
       updatedAt: Timestamp.now(),
@@ -211,6 +242,33 @@ export async function updateEmployeeBasicInfo(
     if (updates.department !== undefined) updateData.department = updates.department;
 
     await updateDoc(docRef, updateData);
+
+    // HR-14: Audit log for employee basic info changes
+    if (auditor && currentData) {
+      const oldData: Record<string, unknown> = {
+        phone: currentData.phone,
+        mobile: currentData.mobile,
+        jobTitle: currentData.jobTitle,
+        department: currentData.department,
+      };
+      const changes = createFieldChanges(oldData, updates as Record<string, unknown>);
+      if (changes.length > 0) {
+        const ctx = createAuditContext(updatedBy, auditor.userEmail, auditor.userName);
+        await logAuditEvent(
+          db,
+          ctx,
+          'USER_UPDATED',
+          'USER',
+          userId,
+          `Updated basic info for employee ${currentData.email}`,
+          {
+            entityName: currentData.email,
+            changes,
+            metadata: { section: 'basicInfo' },
+          }
+        );
+      }
+    }
 
     logger.info('Employee basic info updated', { userId, updatedBy });
   } catch (error) {

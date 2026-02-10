@@ -272,6 +272,7 @@ export function EditEmployeeDialog({
 
     try {
       // Update basic info
+      const auditor = { userName: user.displayName || '', userEmail: user.email || '' };
       await updateEmployeeBasicInfo(
         employee.uid,
         {
@@ -280,7 +281,8 @@ export function EditEmployeeDialog({
           jobTitle: jobTitle.trim() || undefined,
           department: department || undefined,
         },
-        user.uid
+        user.uid,
+        auditor
       );
 
       // Build HR profile update - strip undefined values for Firestore
@@ -331,7 +333,7 @@ export function EditEmployeeDialog({
       if (uanNumber.trim()) hrProfileUpdate.uanNumber = uanNumber.trim();
 
       // Update HR profile
-      await updateEmployeeHRProfile(employee.uid, hrProfileUpdate, user.uid);
+      await updateEmployeeHRProfile(employee.uid, hrProfileUpdate, user.uid, auditor);
 
       setSaveSuccess(true);
 

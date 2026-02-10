@@ -143,12 +143,13 @@
 - **Issue**: Deduplicates holidays in memory using Map, but no Firestore-level unique constraint. Concurrent admin creates can produce duplicates.
 - **Recommendation**: Use deterministic document IDs (e.g., `holiday-${year}-${month}-${day}`) to prevent duplicates.
 
-#### HR-14: Employee Update Functions Lack Audit Logging
+#### HR-14: Employee Update Functions Lack Audit Logging — FIXED
 
 - **Category**: Security / Compliance
 - **File**: `apps/web/src/lib/hr/employees/employeeService.ts` (lines 144-180, 185-217)
 - **Issue**: Employee profile updates write `updatedAt`/`updatedBy` but don't create audit log entries. Sensitive fields (salary, department) can change without traceable trail.
 - **Recommendation**: Add `createAuditLog()` call after employee updates.
+- **Resolution**: Added `logAuditEvent()` with `createFieldChanges()` to both `updateEmployeeHRProfile()` and `updateEmployeeBasicInfo()`. Tracks field-level changes with actor attribution via optional `auditor` parameter.
 
 #### HR-15: Leave Balance Recalculation Not Automatic at Fiscal Year Boundary
 

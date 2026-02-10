@@ -125,12 +125,13 @@
 - **Issue**: After admin updates permissions, edited user's session continues with old cached claims for up to 1 hour.
 - **Recommendation**: Trigger Cloud Function to force logout or implement notification to prompt re-login.
 
-#### AA-8: No Audit Log for Permission Changes
+#### AA-8: No Audit Log for Permission Changes — FIXED
 
 - **Category**: Security / Compliance
 - **Files**: `apps/web/src/components/admin/EditUserDialog.tsx`, `ApproveUserDialog.tsx`
 - **Issue**: Permission updates and user approvals don't create audit log entries. Sensitive operations untracked.
 - **Recommendation**: Add `logAuditEvent()` call with old/new permission values after successful updates.
+- **Resolution**: Added `useAuth` + `logAuditEvent()` with `createFieldChanges()` to EditUserDialog. Tracks all field changes (permissions, status, department, etc.) with admin actor attribution. Also writes `updatedBy` for Cloud Function actor resolution (SP-26).
 
 #### AA-19: Claims Validation Doesn't Check permissions2 Existence — VERIFIED RESOLVED
 
@@ -178,12 +179,13 @@
 - **Issue**: Types defines role-based presets but no `getAllPermissions()`. Super-admin layout imports from constants, but consistency is missing.
 - **Recommendation**: Delete duplicate `types/permissions.ts` or add missing function.
 
-#### AA-14: Missing Admin Permission for Audit Log Access
+#### AA-14: Missing Admin Permission for Audit Log Access — VERIFIED RESOLVED
 
 - **Category**: Security
 - **File**: `firestore.rules` (lines 957-960)
 - **Issue**: Audit logs readable by any admin (MANAGE_USERS). No separate AUDIT_READ permission. Write rules might not be restrictive enough.
 - **Recommendation**: Add explicit `allow write: if false;` to ensure audit logs are append-only.
+- **Resolution**: Verified rules are correct: `allow read: if isAdmin()`, `allow create: if isInternalUser()`, `allow update, delete: if false`. Audit logs are immutable (append-only). The `isInternalUser()` create rule is needed for client-side `logAuditEvent()` calls.
 
 #### AA-15: E2E Testing Helpers Expose Auth Methods to window
 

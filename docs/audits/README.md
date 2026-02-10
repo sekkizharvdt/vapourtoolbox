@@ -25,14 +25,14 @@ Each module is audited against these categories:
 | Phase | Module(s)                    | Status                           | Report                                                       |
 | ----- | ---------------------------- | -------------------------------- | ------------------------------------------------------------ |
 | 0     | GRN Bills (narrow)           | COMPLETE (15 findings, 12 fixed) | [phase-0-grn-bills.md](phase-0-grn-bills.md)                 |
-| 1     | Accounting                   | COMPLETE (24 findings, 11 fixed) | [phase-1-accounting.md](phase-1-accounting.md)               |
-| 2     | Procurement                  | COMPLETE (22 findings, 12 fixed) | [phase-2-procurement.md](phase-2-procurement.md)             |
-| 3     | Proposals + Estimation/BOM   | COMPLETE (20 findings, 6 fixed)  | [phase-3-proposals-bom.md](phase-3-proposals-bom.md)         |
-| 4     | HR                           | COMPLETE (20 findings, 11 fixed) | [phase-4-hr.md](phase-4-hr.md)                               |
-| 5     | Flow (Tasks/Inbox/Meetings)  | COMPLETE (23 findings, 14 fixed) | [phase-5-flow.md](phase-5-flow.md)                           |
+| 1     | Accounting                   | COMPLETE (24 findings, 12 fixed) | [phase-1-accounting.md](phase-1-accounting.md)               |
+| 2     | Procurement                  | COMPLETE (22 findings, 13 fixed) | [phase-2-procurement.md](phase-2-procurement.md)             |
+| 3     | Proposals + Estimation/BOM   | COMPLETE (20 findings, 7 fixed)  | [phase-3-proposals-bom.md](phase-3-proposals-bom.md)         |
+| 4     | HR                           | COMPLETE (20 findings, 12 fixed) | [phase-4-hr.md](phase-4-hr.md)                               |
+| 5     | Flow (Tasks/Inbox/Meetings)  | COMPLETE (23 findings, 16 fixed) | [phase-5-flow.md](phase-5-flow.md)                           |
 | 6     | Projects + Entities + SSOT   | COMPLETE (20 findings, 7 fixed)  | [phase-6-projects-entities.md](phase-6-projects-entities.md) |
-| 7     | Auth/Permissions + Admin     | COMPLETE (20 findings, 6 fixed)  | [phase-7-auth-admin.md](phase-7-auth-admin.md)               |
-| 8     | Shared Packages + API Routes | COMPLETE (26 findings, 5 fixed)  | [phase-8-shared-packages.md](phase-8-shared-packages.md)     |
+| 7     | Auth/Permissions + Admin     | COMPLETE (20 findings, 8 fixed)  | [phase-7-auth-admin.md](phase-7-auth-admin.md)               |
+| 8     | Shared Packages + API Routes | COMPLETE (26 findings, 6 fixed)  | [phase-8-shared-packages.md](phase-8-shared-packages.md)     |
 
 ## Overall Summary
 
@@ -46,7 +46,7 @@ Each module is audited against these categories:
 
 ## Fix Progress
 
-**84 of 190 findings fixed** (44%) across 15 commits + 9 verified + 8 pre-audit Phase 0 fixes.
+**96 of 190 findings fixed** (51%) across 17 commits + 9 verified + 8 pre-audit Phase 0 fixes.
 
 | Commit    | Description                                      | Findings Fixed                                                | Count |
 | --------- | ------------------------------------------------ | ------------------------------------------------------------- | ----- |
@@ -65,7 +65,8 @@ Each module is audited against these categories:
 | `b71b085` | Final 3 HIGH audit fixes                         | Phase0#5, Phase0#9, AC-8                                      | 3     |
 | `0842d4e` | Last 3 HIGH fixes + collection cleanup           | Phase0#10, SP-19                                              | 2     |
 | verified  | Already resolved (indexes exist, code has fixes) | FL-9, HR-3, HR-4, AA-3, AA-12, AA-2, AA-19, AC-9, SP-2        | 9     |
-| `TBD`     | Cluster A: State machine enforcement             | AC-11, PR-12, BP-13, HR-12, FL-14, FL-18                      | 6     |
+| `6dbd252` | Cluster A: State machine enforcement             | AC-11, PR-12, BP-13, HR-12, FL-14, FL-18                      | 6     |
+| `TBD`     | Cluster B: Audit logging infrastructure          | AA-8, AA-14, HR-14, AC-12, PR-17, SP-26                       | 6     |
 
 ### By Severity
 
@@ -73,9 +74,9 @@ Each module is audited against these categories:
 | --------- | ------- | ------ | --------- |
 | CRITICAL  | 27      | **27** | **0**     |
 | HIGH      | 43      | **43** | **0**     |
-| MEDIUM    | 82      | 13     | 69        |
-| LOW       | 38      | 1      | 37        |
-| **Total** | **190** | **84** | **106**   |
+| MEDIUM    | 82      | 24     | 58        |
+| LOW       | 38      | 2      | 36        |
+| **Total** | **190** | **96** | **94**    |
 
 ### Remaining CRITICAL & HIGH Findings
 
@@ -91,4 +92,4 @@ Issues that span multiple modules are tracked separately:
 - **Duplicate permission systems**: ~~Incompatible systems in types and constants.~~ **Fixed** (`29f684f`): Consolidated to single `PERMISSION_FLAGS` in `@vapour/constants`. Removed duplicate `PermissionFlag` enum (AA-1, SP-1, SP-7, SP-13).
 - **permissions2 not synced to claims**: ~~Cloud Functions don't include `permissions2` in custom claims (AA-3, AA-12).~~ **Verified as already fixed**: Both `onUserUpdate` and `syncUserClaims` Cloud Functions already include `permissions2` in custom claims with proper null-checking. **Remaining**: SP-4, SP-12 (shared packages audit references — may also be resolved).
 - **Denormalized data staleness**: Vendor names, project names, equipment names stored in documents but never synced when source changes (PE-7, PE-13, PE-20). **Not yet fixed.**
-- **Missing audit logging**: Permission changes (AA-8), employee updates (HR-14), and Cloud Function operations (SP-26) lack audit trail entries. **Not yet fixed.**
+- **Missing audit logging**: ~~Permission changes (AA-8), employee updates (HR-14), and Cloud Function operations (SP-26) lack audit trail entries.~~ **Fixed** (Cluster B): Added audit logging to EditUserDialog (AA-8), employee update functions (HR-14), recurring transaction soft-delete (AC-12), amendment approval history with field changes (PR-17), and Cloud Function actor attribution (SP-26). Firestore audit rules verified adequate (AA-14).

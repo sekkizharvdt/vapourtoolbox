@@ -39,6 +39,8 @@ import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { User, Department, UserStatus } from '@vapour/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { logAuditEvent, createFieldChanges, createAuditContext } from '@/lib/audit';
 import {
   getDepartmentOptions,
   PERMISSION_FLAGS,
@@ -69,6 +71,7 @@ const ADMIN_MODULE_IDS = [
 ];
 
 export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialogProps) {
+  const { user: authUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -230,7 +233,51 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
         permissions,
         permissions2,
         updatedAt: Timestamp.now(),
+        updatedBy: authUser?.uid || 'unknown',
       });
+
+      // Audit log: track what changed (AA-8)
+      const oldData: Record<string, unknown> = {
+        displayName: user.displayName,
+        phone: user.phone || null,
+        mobile: user.mobile || null,
+        jobTitle: user.jobTitle || null,
+        department: user.department || null,
+        status: user.status,
+        permissions: user.permissions || 0,
+        permissions2: user.permissions2 || 0,
+      };
+      const newData: Record<string, unknown> = {
+        displayName: displayName.trim(),
+        phone: phone.trim() || null,
+        mobile: mobile.trim() || null,
+        jobTitle: jobTitle.trim() || null,
+        department: department || null,
+        status,
+        permissions,
+        permissions2,
+      };
+      const changes = createFieldChanges(oldData, newData);
+      if (changes.length > 0) {
+        const auditCtx = createAuditContext(
+          authUser?.uid || 'unknown',
+          authUser?.email || '',
+          authUser?.displayName || ''
+        );
+        await logAuditEvent(
+          db,
+          auditCtx,
+          'USER_UPDATED',
+          'USER',
+          user.uid,
+          `Updated user ${user.email}`,
+          {
+            entityName: user.email,
+            changes,
+            metadata: { section: 'admin-edit' },
+          }
+        );
+      }
 
       // Show success message
       setSaveSuccess(true);
