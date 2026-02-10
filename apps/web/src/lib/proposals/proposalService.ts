@@ -570,31 +570,10 @@ export async function createProposalRevision(
   }
 }
 
-/**
- * Submit proposal for approval
- */
-export async function submitProposalForApproval(
-  db: Firestore,
-  proposalId: string,
-  userId: string
-): Promise<void> {
-  try {
-    await updateDoc(doc(db, COLLECTIONS.PROPOSALS, proposalId), {
-      status: 'PENDING_APPROVAL',
-      updatedAt: Timestamp.now(),
-      updatedBy: userId,
-    });
-
-    logger.info('Proposal submitted for approval', { proposalId });
-  } catch (error) {
-    logger.error('Error submitting proposal for approval', { proposalId, error });
-    throw error;
-  }
-}
-
-// NOTE: recordApprovalAction, submitProposalToClient, acceptProposal, and rejectProposal
-// were removed as dead code - they duplicated functionality in
-// @/lib/proposals/approvalWorkflow.ts which is the actual implementation used
+// NOTE: submitProposalForApproval, recordApprovalAction, submitProposalToClient,
+// acceptProposal, and rejectProposal were removed as dead code — they duplicated
+// functionality in @/lib/proposals/approvalWorkflow.ts which is the actual
+// implementation used (with proper state machine validation).
 
 /**
  * Get all revisions of a proposal

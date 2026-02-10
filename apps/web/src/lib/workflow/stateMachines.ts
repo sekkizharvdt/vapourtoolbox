@@ -29,6 +29,8 @@ import type {
   GoodsReceiptStatus,
   PackingListStatus,
   PurchaseRequestStatus,
+  PaymentBatchStatus,
+  TravelExpenseStatus,
 } from '@vapour/types';
 import type { ProposalStatus } from '@vapour/types';
 import { PERMISSION_FLAGS } from '@vapour/constants';
@@ -199,6 +201,62 @@ const prConfig: StateTransitionConfig<PurchaseRequestStatus> = {
 };
 export const purchaseRequestStateMachine: StateMachine<PurchaseRequestStatus> =
   createStateMachine(prConfig);
+
+// ============================================================================
+// Payment Batch State Machine
+// ============================================================================
+
+/**
+ * Payment Batch workflow states:
+ *
+ * DRAFT -> PENDING_APPROVAL -> APPROVED -> EXECUTING -> COMPLETED
+ *                          \-> REJECTED -> DRAFT (re-submit) or CANCELLED
+ *
+ * CANCELLED is reachable from DRAFT, REJECTED
+ */
+const pbConfig: StateTransitionConfig<PaymentBatchStatus> = {
+  transitions: {
+    DRAFT: ['PENDING_APPROVAL', 'CANCELLED'],
+    PENDING_APPROVAL: ['APPROVED', 'REJECTED'],
+    APPROVED: ['EXECUTING'],
+    EXECUTING: ['COMPLETED'],
+    REJECTED: ['DRAFT', 'CANCELLED'],
+    COMPLETED: [], // Terminal
+    CANCELLED: [], // Terminal
+  },
+  transitionPermissions: {
+    PENDING_APPROVAL_APPROVED: PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+    PENDING_APPROVAL_REJECTED: PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+  },
+  terminalStates: ['COMPLETED', 'CANCELLED'],
+};
+export const paymentBatchStateMachine: StateMachine<PaymentBatchStatus> =
+  createStateMachine(pbConfig);
+
+// ============================================================================
+// Travel Expense State Machine
+// ============================================================================
+
+/**
+ * Travel Expense Report workflow states:
+ *
+ * DRAFT -> SUBMITTED -> UNDER_REVIEW -> APPROVED -> REIMBURSED
+ *                   \-> APPROVED (direct)
+ *                   \-> REJECTED -> DRAFT (re-edit and resubmit)
+ */
+const teConfig: StateTransitionConfig<TravelExpenseStatus> = {
+  transitions: {
+    DRAFT: ['SUBMITTED'],
+    SUBMITTED: ['UNDER_REVIEW', 'APPROVED', 'REJECTED'],
+    UNDER_REVIEW: ['APPROVED', 'REJECTED'],
+    APPROVED: ['REIMBURSED'],
+    REJECTED: ['DRAFT'], // Allow re-edit and resubmission
+    REIMBURSED: [], // Terminal
+  },
+  terminalStates: ['REIMBURSED'],
+};
+export const travelExpenseStateMachine: StateMachine<TravelExpenseStatus> =
+  createStateMachine(teConfig);
 
 // ============================================================================
 // Helper Functions

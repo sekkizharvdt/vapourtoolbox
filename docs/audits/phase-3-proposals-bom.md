@@ -149,12 +149,13 @@
 - **Issue**: Overhead/Contingency/Profit calculations use multiplication without validating intermediate values. Negative costs or infinity could propagate.
 - **Recommendation**: Add `Number.isFinite(value) && value >= 0` validation before updating.
 
-#### BP-13: No Validation of Proposal Status Transitions
+#### BP-13: No Validation of Proposal Status Transitions — FIXED
 
 - **Category**: Code Quality
 - **File**: `apps/web/src/lib/proposals/approvalWorkflow.ts` (lines 29-97, 374)
 - **Issue**: `submitProposalForApproval` uses state machine, but `markProposalAsSubmitted` directly updates status without state machine validation.
 - **Recommendation**: Ensure all status-updating functions use state machine validation consistently.
+- **Resolution**: All 5 functions in `approvalWorkflow.ts` already use `proposalStateMachine.validateTransition()`. Removed dead-code duplicate `submitProposalForApproval` from `proposalService.ts` that bypassed the state machine. Re-exported the proper version from `approvalWorkflow.ts` in the module index.
 
 ### LOW
 

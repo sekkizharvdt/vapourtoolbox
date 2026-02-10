@@ -141,12 +141,13 @@
 - **Issue**: Approval tasks counted in both their primary channel and in 'approvals'. Badge shows inflated count.
 - **Recommendation**: Make approvals an exclusive category or remove double-counting.
 
-#### FL-14: Task Notification Status Transitions Not Validated
+#### FL-14: Task Notification Status Transitions Not Validated — FIXED
 
 - **Category**: Code Quality
 - **File**: `apps/web/src/lib/tasks/taskNotificationService.ts` (lines 438-469, 475-517)
 - **Issue**: `startActionableTask()` and `completeActionableTask()` don't validate current status before transitioning. Can complete already-completed tasks.
 - **Recommendation**: Add status validation before state transitions.
+- **Resolution**: Added idempotency guards — `startActionableTask()` returns early if already `in_progress` or `completed`; `completeActionableTask()` returns early if already `completed`. Prevents duplicate completions from network retries or concurrent calls.
 
 #### FL-15: Missing Visibility Check in Team Board — FIXED `024218c`
 
@@ -170,12 +171,13 @@
 - **Issue**: After completing a task notification, real-time listener latency causes brief flicker. No optimistic update or loading state.
 - **Recommendation**: Optimistically update local state before API call or add loading state.
 
-#### FL-18: ManualTaskCard Status Cycle Doesn't Handle Cancelled Status
+#### FL-18: ManualTaskCard Status Cycle Doesn't Handle Cancelled Status — FIXED
 
 - **Category**: UX
 - **File**: `apps/web/src/app/flow/tasks/components/ManualTaskCard.tsx` (line 33)
 - **Issue**: `STATUS_CYCLE = ['todo', 'in_progress', 'done']` excludes 'cancelled'. Cycling on cancelled task jumps to 'todo', reactivating unexpectedly.
 - **Recommendation**: Disable status toggle for cancelled tasks.
+- **Resolution**: Added `isTerminal` flag for `done`/`cancelled` statuses. Disabled status toggle IconButton for terminal states. Updated tooltip to show "Completed"/"Cancelled" instead of suggesting a next status.
 
 #### FL-19: No Validation of Assignee Permissions on Task Creation
 

@@ -91,7 +91,6 @@ import {
   listProposals,
   updateProposal,
   createProposalRevision,
-  submitProposalForApproval,
   getProposalRevisions,
   getProposalsCountByStatus,
 } from './proposalService';
@@ -552,18 +551,8 @@ describe('proposalService', () => {
     });
   });
 
-  describe('submitProposalForApproval', () => {
-    it('should update status to PENDING_APPROVAL', async () => {
-      mockUpdateDoc.mockResolvedValueOnce(undefined);
-
-      await submitProposalForApproval(mockDb, 'proposal-123', mockUserId);
-
-      expect(mockUpdateDoc).toHaveBeenCalledTimes(1);
-      const updateCall = mockUpdateDoc.mock.calls[0]?.[1];
-      expect(updateCall?.status).toBe('PENDING_APPROVAL');
-      expect(updateCall?.updatedBy).toBe(mockUserId);
-    });
-  });
+  // submitProposalForApproval tests moved to approvalWorkflow.test.ts
+  // (the actual implementation with state machine validation)
 
   describe('getProposalRevisions', () => {
     it('should return all revisions ordered by revision number desc', async () => {

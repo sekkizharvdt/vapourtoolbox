@@ -26,6 +26,8 @@ import {
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import { removeUndefinedValues } from '@/lib/firebase/typeHelpers';
+import { requireValidTransition } from '@/lib/utils/stateMachine';
+import { paymentBatchStateMachine } from '@/lib/workflow/stateMachines';
 import type {
   PaymentBatch,
   PaymentBatchStatus,
@@ -573,9 +575,12 @@ export async function submitBatchForApproval(db: Firestore, batchId: string): Pr
   if (!batch) {
     throw new Error(`Payment batch not found: ${batchId}`);
   }
-  if (batch.status !== 'DRAFT') {
-    throw new Error('Only DRAFT batches can be submitted for approval');
-  }
+  requireValidTransition(
+    paymentBatchStateMachine,
+    batch.status,
+    'PENDING_APPROVAL',
+    'PaymentBatch'
+  );
   if (batch.receipts.length === 0) {
     throw new Error('Cannot submit a batch with no receipts');
   }
@@ -607,9 +612,7 @@ export async function approveBatch(
   if (!batch) {
     throw new Error(`Payment batch not found: ${batchId}`);
   }
-  if (batch.status !== 'PENDING_APPROVAL') {
-    throw new Error('Only PENDING_APPROVAL batches can be approved');
-  }
+  requireValidTransition(paymentBatchStateMachine, batch.status, 'APPROVED', 'PaymentBatch');
 
   await updateDoc(doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId), {
     status: 'APPROVED',
@@ -629,9 +632,7 @@ export async function rejectBatch(db: Firestore, batchId: string, reason: string
   if (!batch) {
     throw new Error(`Payment batch not found: ${batchId}`);
   }
-  if (batch.status !== 'PENDING_APPROVAL') {
-    throw new Error('Only PENDING_APPROVAL batches can be rejected');
-  }
+  requireValidTransition(paymentBatchStateMachine, batch.status, 'REJECTED', 'PaymentBatch');
 
   await updateDoc(doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId), {
     status: 'REJECTED',
@@ -650,9 +651,7 @@ export async function cancelBatch(db: Firestore, batchId: string): Promise<void>
   if (!batch) {
     throw new Error(`Payment batch not found: ${batchId}`);
   }
-  if (!['DRAFT', 'REJECTED'].includes(batch.status)) {
-    throw new Error('Only DRAFT or REJECTED batches can be cancelled');
-  }
+  requireValidTransition(paymentBatchStateMachine, batch.status, 'CANCELLED', 'PaymentBatch');
 
   await updateDoc(doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId), {
     status: 'CANCELLED',

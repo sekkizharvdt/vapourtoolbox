@@ -13,9 +13,7 @@ export {
   listProposals,
   updateProposal,
   getProposalsCountByStatus,
-  // Use proposalService versions for these (they delegate to the specialized modules)
   createProposalRevision,
-  submitProposalForApproval,
   getProposalRevisions,
 } from './proposalService';
 
@@ -23,6 +21,7 @@ export * from './proposalAttachmentService';
 
 // Workflow and conversion - export specific functions to avoid conflicts
 export {
+  submitProposalForApproval,
   approveProposal,
   rejectProposal,
   requestProposalChanges,

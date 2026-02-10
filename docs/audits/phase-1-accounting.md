@@ -109,12 +109,13 @@
 
 ### MEDIUM
 
-#### AC-11: Payment Batch Status Transitions Not Enforced
+#### AC-11: Payment Batch Status Transitions Not Enforced — FIXED
 
 - **Category**: UX/Workflow
 - **File**: `apps/web/src/lib/accounting/paymentBatchService.ts` (lines 565-657)
 - **Issue**: Individual status checks exist but no formal state machine. Invalid manual transitions possible.
 - **Recommendation**: Define explicit state machine with `ALLOWED_TRANSITIONS` map.
+- **Resolution**: Added `paymentBatchStateMachine` to `stateMachines.ts` with full transition map. Replaced ad-hoc status checks in `submitBatchForApproval`, `approveBatch`, `rejectBatch`, and `cancelBatch` with `requireValidTransition()`.
 
 #### AC-12: Recurring Transaction Hard-Deleted Without Audit Trail
 

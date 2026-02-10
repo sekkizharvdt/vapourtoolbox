@@ -68,32 +68,41 @@ function formatDueDate(dueDate?: { toDate: () => Date }): string | null {
 
 export function ManualTaskCard({ task, onStatusChange, onDelete }: ManualTaskCardProps) {
   const dueDateLabel = formatDueDate(task.dueDate as { toDate: () => Date } | undefined);
+  const isTerminal = task.status === 'done' || task.status === 'cancelled';
   const isOverdue =
-    task.dueDate &&
-    task.status !== 'done' &&
-    task.status !== 'cancelled' &&
-    (task.dueDate as { toDate: () => Date }).toDate() < new Date();
+    task.dueDate && !isTerminal && (task.dueDate as { toDate: () => Date }).toDate() < new Date();
 
   return (
     <Card
       variant="outlined"
       sx={{
         mb: 1,
-        opacity: task.status === 'done' || task.status === 'cancelled' ? 0.7 : 1,
+        opacity: isTerminal ? 0.7 : 1,
         '&:hover': { boxShadow: 2 },
       }}
     >
       <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
           {/* Status toggle */}
-          <Tooltip title={`Mark as ${getNextStatus(task.status)}`}>
-            <IconButton
-              size="small"
-              onClick={() => onStatusChange(task.id, getNextStatus(task.status))}
-              sx={{ mt: -0.25 }}
-            >
-              <StatusIcon status={task.status} />
-            </IconButton>
+          <Tooltip
+            title={
+              isTerminal
+                ? task.status === 'done'
+                  ? 'Completed'
+                  : 'Cancelled'
+                : `Mark as ${getNextStatus(task.status)}`
+            }
+          >
+            <span>
+              <IconButton
+                size="small"
+                disabled={isTerminal}
+                onClick={() => onStatusChange(task.id, getNextStatus(task.status))}
+                sx={{ mt: -0.25 }}
+              >
+                <StatusIcon status={task.status} />
+              </IconButton>
+            </span>
           </Tooltip>
 
           {/* Content */}

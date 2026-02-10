@@ -121,12 +121,13 @@
 
 ### MEDIUM
 
-#### PR-12: GR State Machine Used Inconsistently
+#### PR-12: GR State Machine Used Inconsistently — VERIFIED RESOLVED
 
 - **Category**: Code Quality
 - **File**: `apps/web/src/lib/procurement/goodsReceiptService.ts` (lines 302-423)
 - **Issue**: `completeGR()` validates state transition once before the Firestore transaction, but doesn't re-validate inside the transaction. PO workflow uses state machine consistently; GR workflow does not.
 - **Recommendation**: Validate state transition inside the transaction to prevent races.
+- **Resolution**: Already fixed — `completeGR()` now validates with `goodsReceiptStateMachine.validateTransition()` both before (line 356) and inside (lines 380-387) the Firestore transaction.
 
 #### PR-13: Bill Fallback to PO Amounts When No Items Accepted
 

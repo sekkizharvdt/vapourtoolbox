@@ -456,6 +456,11 @@ export async function startActionableTask(
       throw new Error('You cannot start a task assigned to someone else');
     }
 
+    // Idempotent: skip if already started or completed
+    if (taskNotification.status === 'in_progress' || taskNotification.status === 'completed') {
+      return;
+    }
+
     await updateDoc(doc(db, COLLECTIONS.TASK_NOTIFICATIONS, taskNotificationId), {
       timeStarted: Timestamp.now(),
       status: 'in_progress',
@@ -492,6 +497,11 @@ export async function completeActionableTask(
 
     if (taskNotification.userId !== userId) {
       throw new Error('You cannot complete a task assigned to someone else');
+    }
+
+    // Idempotent: skip if already completed
+    if (taskNotification.status === 'completed') {
+      return;
     }
 
     const updates: Partial<TaskNotification> = {

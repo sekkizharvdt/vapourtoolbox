@@ -24,6 +24,8 @@ import {
   createTaskNotification,
   completeTaskNotificationsByEntity,
 } from '@/lib/tasks/taskNotificationService';
+import { requireValidTransition } from '@/lib/utils/stateMachine';
+import { travelExpenseStateMachine } from '@/lib/workflow/stateMachines';
 
 const logger = createLogger({ context: 'travelExpenseApprovalService' });
 
@@ -141,9 +143,7 @@ export async function submitTravelExpenseReport(
       throw new Error('Travel expense report not found');
     }
 
-    if (report.status !== 'DRAFT') {
-      throw new Error('Only DRAFT reports can be submitted for approval');
-    }
+    requireValidTransition(travelExpenseStateMachine, report.status, 'SUBMITTED', 'TravelExpense');
 
     if (report.employeeId !== userId) {
       throw new Error('You can only submit your own travel expense reports');
@@ -244,9 +244,7 @@ export async function approveTravelExpenseReport(
       throw new Error('Travel expense report not found');
     }
 
-    if (report.status !== 'SUBMITTED' && report.status !== 'UNDER_REVIEW') {
-      throw new Error('Only SUBMITTED or UNDER_REVIEW reports can be approved');
-    }
+    requireValidTransition(travelExpenseStateMachine, report.status, 'APPROVED', 'TravelExpense');
 
     if (!report.approverIds?.includes(approverId)) {
       throw new Error('You are not authorized to approve this report');
@@ -348,9 +346,7 @@ export async function rejectTravelExpenseReport(
       throw new Error('Travel expense report not found');
     }
 
-    if (report.status !== 'SUBMITTED' && report.status !== 'UNDER_REVIEW') {
-      throw new Error('Only SUBMITTED or UNDER_REVIEW reports can be rejected');
-    }
+    requireValidTransition(travelExpenseStateMachine, report.status, 'REJECTED', 'TravelExpense');
 
     if (!report.approverIds?.includes(approverId)) {
       throw new Error('You are not authorized to reject this report');

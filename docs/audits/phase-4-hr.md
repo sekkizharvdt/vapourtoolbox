@@ -128,12 +128,13 @@
 - **Issue**: Complex multi-field queries used throughout but no documentation or entries in `firestore.indexes.json` for HR collections.
 - **Recommendation**: Document all required composite indexes for HR collections.
 
-#### HR-12: Travel Expense Report Status Transition Logic Not Validated
+#### HR-12: Travel Expense Report Status Transition Logic Not Validated — FIXED
 
 - **Category**: Code Quality
 - **File**: `apps/web/src/lib/hr/travelExpenses/travelExpenseApprovalService.ts` (lines 240-245, 347-348, 443-444, 524-530)
 - **Issue**: Status transitions hardcoded in each function. No centralized state machine prevents invalid transitions (e.g., REJECTED -> APPROVED without going through DRAFT).
 - **Recommendation**: Create `travelExpenseStatusMachine.ts` with valid transitions map.
+- **Resolution**: Added `travelExpenseStateMachine` to `stateMachines.ts` with full transition map. Replaced ad-hoc status checks in `submitTravelExpenseReport`, `approveTravelExpenseReport`, and `rejectTravelExpenseReport` with `requireValidTransition()`.
 
 #### HR-13: Holiday Duplicate Detection Not Enforced at Database Level
 
