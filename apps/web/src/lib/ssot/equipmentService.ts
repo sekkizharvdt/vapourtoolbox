@@ -24,6 +24,7 @@ import { getFirebase } from '@/lib/firebase';
 import { SSOT_COLLECTIONS } from '@vapour/firebase';
 import type { ProcessEquipment, ProcessEquipmentInput } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
+import { validateSSOTWriteAccess, type SSOTAccessCheck } from './ssotAuth';
 
 const logger = createLogger({ context: 'equipmentService' });
 
@@ -121,9 +122,13 @@ export function subscribeToEquipment(
 export async function createEquipment(
   projectId: string,
   input: ProcessEquipmentInput,
-  userId: string
+  userId: string,
+  accessCheck?: SSOTAccessCheck
 ): Promise<string> {
   logger.debug('createEquipment', { projectId, input });
+
+  // PE-14/PE-18: Validate write access
+  validateSSOTWriteAccess(userId, projectId, accessCheck);
 
   const equipmentRef = getEquipmentCollection(projectId);
   const now = Timestamp.now();
@@ -147,9 +152,13 @@ export async function updateEquipment(
   projectId: string,
   equipmentId: string,
   input: Partial<ProcessEquipmentInput>,
-  userId: string
+  userId: string,
+  accessCheck?: SSOTAccessCheck
 ): Promise<void> {
   logger.debug('updateEquipment', { projectId, equipmentId, input });
+
+  // PE-14/PE-18: Validate write access
+  validateSSOTWriteAccess(userId, projectId, accessCheck);
 
   const docRef = getEquipmentDoc(projectId, equipmentId);
 
@@ -162,8 +171,18 @@ export async function updateEquipment(
   logger.info('Equipment updated', { projectId, equipmentId });
 }
 
-export async function deleteEquipment(projectId: string, equipmentId: string): Promise<void> {
+export async function deleteEquipment(
+  projectId: string,
+  equipmentId: string,
+  userId?: string,
+  accessCheck?: SSOTAccessCheck
+): Promise<void> {
   logger.debug('deleteEquipment', { projectId, equipmentId });
+
+  // PE-14/PE-18: Validate write access
+  if (userId && accessCheck) {
+    validateSSOTWriteAccess(userId, projectId, accessCheck);
+  }
 
   const docRef = getEquipmentDoc(projectId, equipmentId);
   await deleteDoc(docRef);

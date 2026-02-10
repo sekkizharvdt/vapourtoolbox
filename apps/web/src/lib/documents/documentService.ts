@@ -222,7 +222,8 @@ export async function getDocumentById(documentId: string): Promise<DocumentRecor
 // ============================================================================
 
 export async function searchDocuments(
-  filters: DocumentSearchFilters
+  filters: DocumentSearchFilters,
+  userAssignedProjects?: string[]
 ): Promise<DocumentSearchResult> {
   const { db } = getFirebase();
 
@@ -330,6 +331,15 @@ export async function searchDocuments(
       filteredDocuments = filteredDocuments.filter((doc) => {
         return doc.uploadedAt.toMillis() <= beforeTimestamp.toMillis();
       });
+    }
+
+    // PE-8/PE-10: Scope documents to user's assigned projects at service layer.
+    // When no specific projectId filter is applied, restrict to user's projects.
+    // Documents without a projectId (org-level docs) are always visible.
+    if (userAssignedProjects && userAssignedProjects.length > 0 && !filters.projectId) {
+      filteredDocuments = filteredDocuments.filter(
+        (doc) => !doc.projectId || userAssignedProjects.includes(doc.projectId)
+      );
     }
 
     // Determine if there are more results based on limit

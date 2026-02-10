@@ -35,6 +35,8 @@ export interface UseDocumentBrowserOptions {
   projectId?: string;
   initialViewMode?: DocumentBrowserViewMode;
   initialPath?: string;
+  /** PE-8/PE-10: User's assigned projects for service-layer document scoping */
+  userAssignedProjects?: string[];
 }
 
 export interface UseDocumentBrowserReturn {
@@ -87,7 +89,13 @@ export interface UseDocumentBrowserReturn {
 // ============================================================================
 
 export function useDocumentBrowser(options: UseDocumentBrowserOptions): UseDocumentBrowserReturn {
-  const { module, projectId, initialViewMode = 'entity', initialPath } = options;
+  const {
+    module,
+    projectId,
+    initialViewMode = 'entity',
+    initialPath,
+    userAssignedProjects,
+  } = options;
 
   // View mode state
   const [viewMode, setViewMode] = useState<DocumentBrowserViewMode>(initialViewMode);
@@ -156,13 +164,16 @@ export function useDocumentBrowser(options: UseDocumentBrowserOptions): UseDocum
     try {
       // For now, load all documents in the module and filter client-side
       // In the future, we can optimize with folder-based queries
-      const result = await searchDocuments({
-        module,
-        projectId,
-        onlyLatest: true,
-        orderBy: 'uploadedAt',
-        orderDirection: 'desc',
-      });
+      const result = await searchDocuments(
+        {
+          module,
+          projectId,
+          onlyLatest: true,
+          orderBy: 'uploadedAt',
+          orderDirection: 'desc',
+        },
+        userAssignedProjects
+      );
 
       // Filter by folder path if needed
       // TODO: Implement proper folder-based filtering in documentService
@@ -173,7 +184,7 @@ export function useDocumentBrowser(options: UseDocumentBrowserOptions): UseDocum
     } finally {
       setIsLoadingDocuments(false);
     }
-  }, [module, projectId, selectedPath]);
+  }, [module, projectId, selectedPath, userAssignedProjects]);
 
   useEffect(() => {
     loadDocuments();

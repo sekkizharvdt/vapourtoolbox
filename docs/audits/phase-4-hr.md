@@ -172,12 +172,13 @@
 - **Issue**: If submitter is only configured approver, travel expense fails with confusing error. Leave requests handle this with `isSelfApprovalCase` logic.
 - **Recommendation**: Implement `isSelfApprovalCase` logic consistent with leave approval service.
 
-#### HR-18: Missing Permissions Check on HR Service Function Calls
+#### HR-18: Missing Permissions Check on HR Service Function Calls — FIXED
 
 - **Category**: Security
 - **Files**: All HR service files
 - **Issue**: Service layer functions do not check user permissions. Deferred entirely to Firestore security rules, so users only learn they lack permission after Firestore denial.
 - **Recommendation**: Create `hrPermissions.ts` utility for early permission validation with clear messaging.
+- **Resolution**: Added optional `userPermissions2` parameter to `updateEmployeeHRProfile()` and `updateEmployeeBasicInfo()` in employeeService.ts. Both functions now call `requirePermission()` with `PERMISSION_FLAGS_2.MANAGE_HR_PROFILES` before executing updates. Updated EditEmployeeDialog caller to pass `claims.permissions2`.
 
 #### HR-19: Inconsistent Naming: "leaveRequests" vs "hrLeaveRequests" in Firestore Rules
 

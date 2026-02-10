@@ -12,7 +12,7 @@ Findings are grouped into 8 clusters, ordered by impact. Each cluster can be imp
 
 ---
 
-### Cluster A: State Machine Enforcement (6 MEDIUM)
+### Cluster A: State Machine Enforcement (6 MEDIUM) — COMPLETE `6dbd252`
 
 Enforce valid status transitions in services that currently allow arbitrary state jumps.
 
@@ -29,7 +29,7 @@ Enforce valid status transitions in services that currently allow arbitrary stat
 
 ---
 
-### Cluster B: Audit Logging Infrastructure (6 MEDIUM)
+### Cluster B: Audit Logging Infrastructure (6 MEDIUM) — COMPLETE `531e591`
 
 Add audit trail for sensitive operations. Requires establishing a reusable `createAuditEntry()` pattern.
 
@@ -46,7 +46,7 @@ Add audit trail for sensitive operations. Requires establishing a reusable `crea
 
 ---
 
-### Cluster C: Auth & Session Hardening (10 MEDIUM)
+### Cluster C: Auth & Session Hardening (10 MEDIUM) — COMPLETE
 
 Close the gap where client-side permission checks can be bypassed.
 

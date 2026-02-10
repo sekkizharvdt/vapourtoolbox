@@ -420,9 +420,8 @@ export function EditUserDialog({ open, user, onClose, onSuccess }: EditUserDialo
 
         {saveSuccess && (
           <Alert severity="success" sx={{ mb: 2 }}>
-            <strong>User updated successfully!</strong>
-            <br />
-            The user may need to sign out and back in for permission changes to take effect.
+            <strong>User updated successfully!</strong> Permission changes take effect
+            automatically.
           </Alert>
         )}
 

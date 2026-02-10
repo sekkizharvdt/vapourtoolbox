@@ -24,6 +24,7 @@ import { SSOT_COLLECTIONS } from '@vapour/firebase';
 import type { ProcessLine, ProcessLineInput } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import { enrichLineInput } from './lineCalculations';
+import { validateSSOTWriteAccess, type SSOTAccessCheck } from './ssotAuth';
 
 const logger = createLogger({ context: 'lineService' });
 
@@ -122,9 +123,13 @@ export function subscribeToLines(
 export async function createLine(
   projectId: string,
   input: ProcessLineInput,
-  userId: string
+  userId: string,
+  accessCheck?: SSOTAccessCheck
 ): Promise<string> {
   logger.debug('createLine', { projectId, input });
+
+  // PE-14/PE-18: Validate write access
+  validateSSOTWriteAccess(userId, projectId, accessCheck);
 
   // Enrich input with calculated properties
   const enrichedInput = enrichLineInput(input);
@@ -156,9 +161,13 @@ export async function updateLine(
   projectId: string,
   lineId: string,
   input: Partial<ProcessLineInput>,
-  userId: string
+  userId: string,
+  accessCheck?: SSOTAccessCheck
 ): Promise<void> {
   logger.debug('updateLine', { projectId, lineId, input });
+
+  // PE-14/PE-18: Validate write access
+  validateSSOTWriteAccess(userId, projectId, accessCheck);
 
   const docRef = getLineDoc(projectId, lineId);
 
@@ -206,8 +215,18 @@ export async function updateLine(
   logger.info('Line updated', { projectId, lineId });
 }
 
-export async function deleteLine(projectId: string, lineId: string): Promise<void> {
+export async function deleteLine(
+  projectId: string,
+  lineId: string,
+  userId?: string,
+  accessCheck?: SSOTAccessCheck
+): Promise<void> {
   logger.debug('deleteLine', { projectId, lineId });
+
+  // PE-14/PE-18: Validate write access
+  if (userId && accessCheck) {
+    validateSSOTWriteAccess(userId, projectId, accessCheck);
+  }
 
   const docRef = getLineDoc(projectId, lineId);
   await deleteDoc(docRef);

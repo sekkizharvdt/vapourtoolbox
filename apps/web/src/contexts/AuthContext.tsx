@@ -13,6 +13,7 @@ import {
   isSignInWithEmailLink,
   signInWithEmailLink,
 } from 'firebase/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import type { CustomClaims } from '@vapour/types';
 import { isAuthorizedDomain, PERMISSION_PRESETS } from '@vapour/constants';
@@ -274,6 +275,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unsubscribe();
     };
   }, []);
+
+  // AA-7 + AA-4: Listen to user document for claims changes.
+  // When the Cloud Function updates custom claims (and writes lastClaimUpdate),
+  // this listener detects the change and forces a token refresh so the client
+  // immediately picks up new permissions without requiring sign-out/sign-in.
+  useEffect(() => {
+    if (!user) return;
+
+    const { db } = getFirebase();
+    let lastKnownClaimUpdate: number | null = null;
+
+    const unsub = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
+      const data = snapshot.data();
+      const claimUpdate = data?.lastClaimUpdate?.toMillis?.() || null;
+
+      // Only trigger refresh when lastClaimUpdate actually changes (skip initial load)
+      if (
+        lastKnownClaimUpdate !== null &&
+        claimUpdate !== null &&
+        claimUpdate !== lastKnownClaimUpdate
+      ) {
+        logger.debug('Claims updated server-side, refreshing token', {
+          uid: user.uid,
+          lastClaimUpdate: claimUpdate,
+        });
+
+        user
+          .getIdTokenResult(true)
+          .then((result) => {
+            const claimsResult = validateClaims(result.claims);
+            if (claimsResult.status === 'valid') {
+              setClaims(claimsResult.claims);
+            }
+          })
+          .catch(() => {
+            // Refresh failed — tokens may have been revoked (user deactivated)
+            // The auth state change handler will handle sign-out
+          });
+      }
+
+      lastKnownClaimUpdate = claimUpdate;
+    });
+
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
+  }, [user]);
 
   const signInWithGoogle = async () => {
     const { auth, db } = getFirebase();

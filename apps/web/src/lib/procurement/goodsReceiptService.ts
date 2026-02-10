@@ -36,7 +36,7 @@ import {
   createBillFromGoodsReceipt,
   createPaymentFromApprovedReceipt,
 } from './accountingIntegration';
-import { PERMISSION_FLAGS } from '@vapour/constants';
+import { PERMISSION_FLAGS, PERMISSION_FLAGS_2 } from '@vapour/constants';
 import { requirePermission } from '@/lib/auth/authorizationService';
 
 // ============================================================================
@@ -70,8 +70,19 @@ export interface CreateGoodsReceiptInput {
 export async function createGoodsReceipt(
   input: CreateGoodsReceiptInput,
   userId: string,
-  userName: string
+  userName: string,
+  userPermissions2?: number
 ): Promise<string> {
+  // PR-16: Check INSPECT_GOODS permission for GR creation
+  if (userPermissions2 !== undefined) {
+    requirePermission(
+      userPermissions2,
+      PERMISSION_FLAGS_2.INSPECT_GOODS,
+      userId,
+      'create goods receipt'
+    );
+  }
+
   const { db } = getFirebase();
 
   // Generate idempotency key based on PO ID, inspection date, and user
@@ -333,10 +344,18 @@ export async function completeGR(
   userId: string,
   userEmail: string,
   userName?: string,
-  userPermissions?: number
+  userPermissions?: number,
+  userPermissions2?: number
 ): Promise<void> {
-  // Authorization check (PR-2)
-  if (userPermissions !== undefined) {
+  // PR-16: Use granular APPROVE_GR flag when available, fall back to MANAGE_PROCUREMENT
+  if (userPermissions2 !== undefined) {
+    requirePermission(
+      userPermissions2,
+      PERMISSION_FLAGS_2.APPROVE_GR,
+      userId,
+      'complete goods receipt'
+    );
+  } else if (userPermissions !== undefined) {
     requirePermission(
       userPermissions,
       PERMISSION_FLAGS.MANAGE_PROCUREMENT,

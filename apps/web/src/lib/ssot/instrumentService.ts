@@ -23,6 +23,7 @@ import { getFirebase } from '@/lib/firebase';
 import { SSOT_COLLECTIONS } from '@vapour/firebase';
 import type { ProcessInstrument, ProcessInstrumentInput } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
+import { validateSSOTWriteAccess, type SSOTAccessCheck } from './ssotAuth';
 
 const logger = createLogger({ context: 'instrumentService' });
 
@@ -147,9 +148,13 @@ export function subscribeToInstruments(
 export async function createInstrument(
   projectId: string,
   input: ProcessInstrumentInput,
-  userId: string
+  userId: string,
+  accessCheck?: SSOTAccessCheck
 ): Promise<string> {
   logger.debug('createInstrument', { projectId, input });
+
+  // PE-14/PE-18: Validate write access
+  validateSSOTWriteAccess(userId, projectId, accessCheck);
 
   const instrumentsRef = getInstrumentsCollection(projectId);
   const now = Timestamp.now();
@@ -173,9 +178,13 @@ export async function updateInstrument(
   projectId: string,
   instrumentId: string,
   input: Partial<ProcessInstrumentInput>,
-  userId: string
+  userId: string,
+  accessCheck?: SSOTAccessCheck
 ): Promise<void> {
   logger.debug('updateInstrument', { projectId, instrumentId, input });
+
+  // PE-14/PE-18: Validate write access
+  validateSSOTWriteAccess(userId, projectId, accessCheck);
 
   const docRef = getInstrumentDoc(projectId, instrumentId);
 
@@ -188,8 +197,18 @@ export async function updateInstrument(
   logger.info('Instrument updated', { projectId, instrumentId });
 }
 
-export async function deleteInstrument(projectId: string, instrumentId: string): Promise<void> {
+export async function deleteInstrument(
+  projectId: string,
+  instrumentId: string,
+  userId?: string,
+  accessCheck?: SSOTAccessCheck
+): Promise<void> {
   logger.debug('deleteInstrument', { projectId, instrumentId });
+
+  // PE-14/PE-18: Validate write access
+  if (userId && accessCheck) {
+    validateSSOTWriteAccess(userId, projectId, accessCheck);
+  }
 
   const docRef = getInstrumentDoc(projectId, instrumentId);
   await deleteDoc(docRef);

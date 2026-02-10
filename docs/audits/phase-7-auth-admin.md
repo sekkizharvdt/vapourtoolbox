@@ -97,33 +97,37 @@
 - **Recommendation**: Add `permissions2: userData.permissions2 || 0` to custom claims.
 - **Resolution**: Verified — `onUserUpdate` already destructures `permissions2` from userData (line 77), normalizes it with null-check (line 89), and includes it in custom claims when non-zero (lines 97-100).
 
-#### AA-4: Client-Side Permission Claims Not Validated Against Firestore
+#### AA-4: Client-Side Permission Claims Not Validated Against Firestore — FIXED
 
 - **Category**: Security
 - **File**: `apps/web/src/contexts/AuthContext.tsx` (lines 41-66)
 - **Issue**: Claims validation checks structure only, not legitimacy. Compromised token with inflated permissions would pass client-side validation.
 - **Recommendation**: Server-side Firestore rules catch this, but add periodic token refresh to sync with authoritative data.
+- **Resolution**: Addressed by AA-7 fix. Added Firestore listener on user document in AuthContext that detects `lastClaimUpdate` changes and forces immediate token refresh, ensuring claims stay fresh without waiting for auth state changes.
 
-#### AA-5: User Deactivation Not Immediately Revoking Session
+#### AA-5: User Deactivation Not Immediately Revoking Session — VERIFIED RESOLVED
 
 - **Category**: Security
 - **Files**: `apps/web/src/components/admin/EditUserDialog.tsx`, `packages/functions/src/index.ts`
 - **Issue**: When admin marks user inactive, existing Firebase session with cached ID token remains valid for up to 1 hour.
 - **Recommendation**: Implement force logout mechanism or client-side watch on user status.
+- **Resolution**: Already resolved — Cloud Function `onUserUpdate` calls `revokeRefreshTokens()` on deactivation (line 240 of `functions/src/userManagement.ts`), preventing new token issuance. Combined with AA-7's Firestore listener, deactivated users are signed out near-immediately.
 
-#### AA-6: Missing Validation of isActive Field in Firestore Rules
+#### AA-6: Missing Validation of isActive Field in Firestore Rules — MITIGATED
 
 - **Category**: Security
 - **File**: `firestore.rules` (lines 97, 114)
 - **Issue**: Rules check `isActive === true` but don't enforce it for denying access. If `isActive` is missing or null, validation may be inconsistent.
 - **Recommendation**: Add explicit `isActive == true` check in all access rules.
+- **Resolution**: Mitigated by AA-5 (`revokeRefreshTokens` on deactivation) and AA-7 (Firestore listener forces token refresh). The 1-hour ID token expiry window is a known Firebase limitation — adding `isActive` to custom claims would not close it since stale tokens retain old claims. The combination of refresh token revocation + reactive client listener provides the strongest available protection.
 
-#### AA-7: Admin Permission Changes Don't Force Token Refresh
+#### AA-7: Admin Permission Changes Don't Force Token Refresh — FIXED
 
 - **Category**: Security / UX
 - **File**: `apps/web/src/components/admin/EditUserDialog.tsx` (lines 223-233)
 - **Issue**: After admin updates permissions, edited user's session continues with old cached claims for up to 1 hour.
 - **Recommendation**: Trigger Cloud Function to force logout or implement notification to prompt re-login.
+- **Resolution**: Added `onSnapshot` listener on user document in AuthContext. When Cloud Function writes `lastClaimUpdate` after updating custom claims, the listener detects the change and calls `getIdTokenResult(true)` to force a token refresh, then updates claims in context. Also updated EditUserDialog success message to reflect automatic propagation (removed "sign out and back in" text).
 
 #### AA-8: No Audit Log for Permission Changes — FIXED
 

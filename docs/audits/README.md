@@ -26,12 +26,12 @@ Each module is audited against these categories:
 | ----- | ---------------------------- | -------------------------------- | ------------------------------------------------------------ |
 | 0     | GRN Bills (narrow)           | COMPLETE (15 findings, 12 fixed) | [phase-0-grn-bills.md](phase-0-grn-bills.md)                 |
 | 1     | Accounting                   | COMPLETE (24 findings, 12 fixed) | [phase-1-accounting.md](phase-1-accounting.md)               |
-| 2     | Procurement                  | COMPLETE (22 findings, 13 fixed) | [phase-2-procurement.md](phase-2-procurement.md)             |
+| 2     | Procurement                  | COMPLETE (22 findings, 14 fixed) | [phase-2-procurement.md](phase-2-procurement.md)             |
 | 3     | Proposals + Estimation/BOM   | COMPLETE (20 findings, 7 fixed)  | [phase-3-proposals-bom.md](phase-3-proposals-bom.md)         |
-| 4     | HR                           | COMPLETE (20 findings, 12 fixed) | [phase-4-hr.md](phase-4-hr.md)                               |
+| 4     | HR                           | COMPLETE (20 findings, 13 fixed) | [phase-4-hr.md](phase-4-hr.md)                               |
 | 5     | Flow (Tasks/Inbox/Meetings)  | COMPLETE (23 findings, 16 fixed) | [phase-5-flow.md](phase-5-flow.md)                           |
-| 6     | Projects + Entities + SSOT   | COMPLETE (20 findings, 7 fixed)  | [phase-6-projects-entities.md](phase-6-projects-entities.md) |
-| 7     | Auth/Permissions + Admin     | COMPLETE (20 findings, 8 fixed)  | [phase-7-auth-admin.md](phase-7-auth-admin.md)               |
+| 6     | Projects + Entities + SSOT   | COMPLETE (20 findings, 11 fixed) | [phase-6-projects-entities.md](phase-6-projects-entities.md) |
+| 7     | Auth/Permissions + Admin     | COMPLETE (20 findings, 12 fixed) | [phase-7-auth-admin.md](phase-7-auth-admin.md)               |
 | 8     | Shared Packages + API Routes | COMPLETE (26 findings, 6 fixed)  | [phase-8-shared-packages.md](phase-8-shared-packages.md)     |
 
 ## Overall Summary
@@ -46,7 +46,7 @@ Each module is audited against these categories:
 
 ## Fix Progress
 
-**96 of 190 findings fixed** (51%) across 17 commits + 9 verified + 8 pre-audit Phase 0 fixes.
+**106 of 190 findings fixed** (56%) across 18 commits + 12 verified/mitigated + 8 pre-audit Phase 0 fixes.
 
 | Commit    | Description                                      | Findings Fixed                                                | Count |
 | --------- | ------------------------------------------------ | ------------------------------------------------------------- | ----- |
@@ -67,16 +67,18 @@ Each module is audited against these categories:
 | verified  | Already resolved (indexes exist, code has fixes) | FL-9, HR-3, HR-4, AA-3, AA-12, AA-2, AA-19, AC-9, SP-2        | 9     |
 | `6dbd252` | Cluster A: State machine enforcement             | AC-11, PR-12, BP-13, HR-12, FL-14, FL-18                      | 6     |
 | `531e591` | Cluster B: Audit logging infrastructure          | AA-8, AA-14, HR-14, AC-12, PR-17, SP-26                       | 6     |
+| TBD       | Cluster C: Auth & session hardening              | AA-4, AA-7, HR-18, PE-8, PE-10, PE-14, PE-18, PR-16           | 8     |
+| verified  | Cluster C: Verified/mitigated                    | AA-5, AA-6                                                    | 2     |
 
 ### By Severity
 
-| Severity  | Total   | Fixed  | Remaining |
-| --------- | ------- | ------ | --------- |
-| CRITICAL  | 27      | **27** | **0**     |
-| HIGH      | 43      | **43** | **0**     |
-| MEDIUM    | 82      | 24     | 58        |
-| LOW       | 38      | 2      | 36        |
-| **Total** | **190** | **96** | **94**    |
+| Severity  | Total   | Fixed   | Remaining |
+| --------- | ------- | ------- | --------- |
+| CRITICAL  | 27      | **27**  | **0**     |
+| HIGH      | 43      | **43**  | **0**     |
+| MEDIUM    | 82      | **34**  | 48        |
+| LOW       | 38      | 2       | 36        |
+| **Total** | **190** | **106** | **84**    |
 
 ### Remaining CRITICAL & HIGH Findings
 
@@ -88,8 +90,9 @@ Issues that span multiple modules are tracked separately:
 
 - **Multi-tenancy (entityId)**: ~~Most Firestore queries lack entityId filtering.~~ **Fixed** (`3cb25cc`, `e063816`, `efadb87`): Added entityId filtering to Accounting (AC-2), Procurement (PR-3), HR (HR-1, HR-10), Proposals (BP-3), Flow (FL-15). GoodsReceipt `entityId` made required and populated from PO (`e063816`). SSOT project access scoped to user's `assignedProjects` (PE-6, `efadb87`).
 - **Firestore indexes**: ~~Missing indexes~~ **Mostly resolved** (`3cb25cc`): Added missing composite indexes for Procurement (PR-11). FL-9, HR-3, and AC-9 verified as already present in `firestore.indexes.json`. **Remaining**: HR (HR-11), Flow (FL-12), Proposals (BP-10).
-- **Permission checks**: ~~Client-side only in most modules.~~ **Mostly fixed** (`6489217`, `58f8d40`): Added authorization checks in Procurement (PR-1, PR-2, PR-4), Flow (FL-2, FL-5, FL-3). **Remaining**: HR (HR-18).
+- **Permission checks**: ~~Client-side only in most modules.~~ **Fixed** (`6489217`, `58f8d40`, Cluster C): Added authorization checks in Procurement (PR-1, PR-2, PR-4, PR-16), Flow (FL-2, FL-5, FL-3), HR (HR-18), SSOT (PE-14, PE-18), Documents (PE-8, PE-10). Added granular GR permission flags (`INSPECT_GOODS`, `APPROVE_GR`).
 - **Duplicate permission systems**: ~~Incompatible systems in types and constants.~~ **Fixed** (`29f684f`): Consolidated to single `PERMISSION_FLAGS` in `@vapour/constants`. Removed duplicate `PermissionFlag` enum (AA-1, SP-1, SP-7, SP-13).
 - **permissions2 not synced to claims**: ~~Cloud Functions don't include `permissions2` in custom claims (AA-3, AA-12).~~ **Verified as already fixed**: Both `onUserUpdate` and `syncUserClaims` Cloud Functions already include `permissions2` in custom claims with proper null-checking. **Remaining**: SP-4, SP-12 (shared packages audit references — may also be resolved).
 - **Denormalized data staleness**: Vendor names, project names, equipment names stored in documents but never synced when source changes (PE-7, PE-13, PE-20). **Not yet fixed.**
 - **Missing audit logging**: ~~Permission changes (AA-8), employee updates (HR-14), and Cloud Function operations (SP-26) lack audit trail entries.~~ **Fixed** (Cluster B): Added audit logging to EditUserDialog (AA-8), employee update functions (HR-14), recurring transaction soft-delete (AC-12), amendment approval history with field changes (PR-17), and Cloud Function actor attribution (SP-26). Firestore audit rules verified adequate (AA-14).
+- **Auth & session hardening**: ~~Permission changes don't propagate to active sessions (AA-7), claims can be stale (AA-4).~~ **Fixed** (Cluster C): Added `onSnapshot` listener on user document in AuthContext that detects `lastClaimUpdate` changes and forces token refresh (AA-4, AA-7). Session revocation on deactivation verified (AA-5). Firestore `isActive` limitation mitigated by combination of token revocation + reactive listener (AA-6).

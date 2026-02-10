@@ -69,7 +69,7 @@ export function EditEmployeeDialog({
   onClose,
   onSuccess,
 }: EditEmployeeDialogProps) {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -282,7 +282,8 @@ export function EditEmployeeDialog({
           department: department || undefined,
         },
         user.uid,
-        auditor
+        auditor,
+        claims?.permissions2
       );
 
       // Build HR profile update - strip undefined values for Firestore
@@ -333,7 +334,13 @@ export function EditEmployeeDialog({
       if (uanNumber.trim()) hrProfileUpdate.uanNumber = uanNumber.trim();
 
       // Update HR profile
-      await updateEmployeeHRProfile(employee.uid, hrProfileUpdate, user.uid, auditor);
+      await updateEmployeeHRProfile(
+        employee.uid,
+        hrProfileUpdate,
+        user.uid,
+        auditor,
+        claims?.permissions2
+      );
 
       setSaveSuccess(true);
 

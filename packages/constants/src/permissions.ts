@@ -316,6 +316,10 @@ export const PERMISSION_FLAGS_2 = {
 
   // Admin Module (bit 16)
   MANAGE_ADMIN: 1 << 16, // 65536 - Access admin panel, manage system settings
+
+  // Goods Receipt Operations (bits 17-18)
+  INSPECT_GOODS: 1 << 17, // 131072 - Create GRs, inspect received goods
+  APPROVE_GR: 1 << 18, // 262144 - Approve GRs, send to accounting
 } as const;
 
 /**
@@ -422,6 +426,17 @@ export function canManageHRProfiles(permissions2: number): boolean {
  */
 export function canManageAdmin(permissions2: number): boolean {
   return hasPermission2(permissions2, PERMISSION_FLAGS_2.MANAGE_ADMIN);
+}
+
+/**
+ * Goods Receipt permission helpers
+ */
+export function canInspectGoods(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.INSPECT_GOODS);
+}
+
+export function canApproveGR(permissions2: number): boolean {
+  return hasPermission2(permissions2, PERMISSION_FLAGS_2.APPROVE_GR);
 }
 
 /**
@@ -699,6 +714,20 @@ export const ALL_PERMISSIONS: PermissionItem[] = [
     field: 'permissions2',
     adminOnly: false,
   },
+  {
+    flag: PERMISSION_FLAGS_2.INSPECT_GOODS,
+    label: 'Inspect Goods',
+    description: 'Create goods receipts and inspect received items',
+    field: 'permissions2',
+    adminOnly: false,
+  },
+  {
+    flag: PERMISSION_FLAGS_2.APPROVE_GR,
+    label: 'Approve Goods Receipts',
+    description: 'Approve goods receipts and send to accounting',
+    field: 'permissions2',
+    adminOnly: false,
+  },
 
   // ==========================================
   // Admin-Only Permissions (permissions field)
@@ -927,6 +956,20 @@ export const MODULE_PERMISSIONS: PermissionModuleDef[] = [
         label: 'Manage',
         description: 'Create and edit PRs, RFQs, and POs',
         category: 'manage',
+      },
+      {
+        flag: PERMISSION_FLAGS_2.INSPECT_GOODS,
+        label: 'Inspect Goods',
+        description: 'Create goods receipts and inspect received items',
+        category: 'action',
+        field: 'permissions2',
+      },
+      {
+        flag: PERMISSION_FLAGS_2.APPROVE_GR,
+        label: 'Approve GR',
+        description: 'Approve goods receipts and send to accounting',
+        category: 'approve',
+        field: 'permissions2',
       },
     ],
   },

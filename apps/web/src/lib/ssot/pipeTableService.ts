@@ -23,6 +23,7 @@ import { getFirebase } from '@/lib/firebase';
 import { SSOT_COLLECTIONS } from '@vapour/firebase';
 import type { PipeSize, PipeSizeInput } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
+import { validateSSOTWriteAccess, type SSOTAccessCheck } from './ssotAuth';
 
 const logger = createLogger({ context: 'pipeTableService' });
 
@@ -156,9 +157,13 @@ export function calculateInnerDiameter(outerDiameter: number, wallThickness: num
 export async function createPipeSize(
   projectId: string,
   input: PipeSizeInput,
-  userId: string
+  userId: string,
+  accessCheck?: SSOTAccessCheck
 ): Promise<string> {
   logger.debug('createPipeSize', { projectId, input });
+
+  // PE-14/PE-18: Validate write access
+  validateSSOTWriteAccess(userId, projectId, accessCheck);
 
   const pipeTableRef = getPipeTableCollection(projectId);
   const now = Timestamp.now();
@@ -180,9 +185,13 @@ export async function updatePipeSize(
   projectId: string,
   pipeId: string,
   input: Partial<PipeSizeInput>,
-  _userId: string
+  userId: string,
+  accessCheck?: SSOTAccessCheck
 ): Promise<void> {
   logger.debug('updatePipeSize', { projectId, pipeId, input });
+
+  // PE-14/PE-18: Validate write access
+  validateSSOTWriteAccess(userId, projectId, accessCheck);
 
   const docRef = getPipeTableDoc(projectId, pipeId);
 
@@ -193,8 +202,18 @@ export async function updatePipeSize(
   logger.info('PipeSize updated', { projectId, pipeId });
 }
 
-export async function deletePipeSize(projectId: string, pipeId: string): Promise<void> {
+export async function deletePipeSize(
+  projectId: string,
+  pipeId: string,
+  userId?: string,
+  accessCheck?: SSOTAccessCheck
+): Promise<void> {
   logger.debug('deletePipeSize', { projectId, pipeId });
+
+  // PE-14/PE-18: Validate write access
+  if (userId && accessCheck) {
+    validateSSOTWriteAccess(userId, projectId, accessCheck);
+  }
 
   const docRef = getPipeTableDoc(projectId, pipeId);
   await deleteDoc(docRef);

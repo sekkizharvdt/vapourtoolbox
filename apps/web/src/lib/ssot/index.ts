@@ -4,6 +4,9 @@
  * Process data management for thermal desalination projects.
  */
 
+// Auth
+export { type SSOTAccessCheck } from './ssotAuth';
+
 // Services
 export * from './streamService';
 export * from './equipmentService';

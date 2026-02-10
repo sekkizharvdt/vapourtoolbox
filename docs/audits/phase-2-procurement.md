@@ -150,11 +150,12 @@
 - **Issue**: GR items created with auto-generated IDs. No constraint prevents duplicate items with same `goodsReceiptId + lineNumber`. Calling `createGoodsReceipt` twice creates duplicate items.
 - **Recommendation**: Use deterministic document IDs like `{grId}_item_{lineNumber}`.
 
-#### PR-16: Missing Dedicated Permission Flags for GR Operations
+#### PR-16: Missing Dedicated Permission Flags for GR Operations — FIXED
 
 - **Category**: Security
 - **Issue**: No dedicated `APPROVE_GR`, `INSPECT_GOODS`, or `APPROVE_GR_PAYMENT` permission flags. GR operations lack granular access control.
 - **Recommendation**: Add permission flags and enforce in service layer.
+- **Resolution**: Added `INSPECT_GOODS` (bit 17) and `APPROVE_GR` (bit 18) to `PERMISSION_FLAGS_2` with helpers `canInspectGoods()` and `canApproveGR()`. Added to `ALL_PERMISSIONS` and `MODULE_PERMISSIONS.procurement`. Updated `createGoodsReceipt()` to check `INSPECT_GOODS` and `completeGR()` to check `APPROVE_GR` (with fallback to `MANAGE_PROCUREMENT` for backward compatibility).
 
 #### PR-17: Amendment Audit Trail Missing Field-Level Details — FIXED
 

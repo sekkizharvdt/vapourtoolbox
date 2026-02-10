@@ -22,6 +22,8 @@ import { createLogger } from '@vapour/logger';
 import type { User } from '@vapour/types';
 import type { HRProfile, EmployeeListItem, EmployeeDetail, BloodGroup } from '@vapour/types';
 import { logAuditEvent, createFieldChanges, createAuditContext } from '@/lib/audit';
+import { requirePermission } from '@/lib/auth/authorizationService';
+import { PERMISSION_FLAGS_2 } from '@vapour/constants';
 
 const logger = createLogger({ context: 'employeeService' });
 
@@ -149,8 +151,19 @@ export async function updateEmployeeHRProfile(
   userId: string,
   hrProfile: Partial<HRProfile>,
   updatedBy: string,
-  auditor?: { userName: string; userEmail: string }
+  auditor?: { userName: string; userEmail: string },
+  userPermissions2?: number
 ): Promise<void> {
+  // HR-18: Validate caller has MANAGE_HR_PROFILES permission
+  if (userPermissions2 !== undefined) {
+    requirePermission(
+      userPermissions2,
+      PERMISSION_FLAGS_2.MANAGE_HR_PROFILES,
+      updatedBy,
+      'update employee HR profile'
+    );
+  }
+
   const { db } = getFirebase();
 
   try {
@@ -220,8 +233,19 @@ export async function updateEmployeeBasicInfo(
     department?: string;
   },
   updatedBy: string,
-  auditor?: { userName: string; userEmail: string }
+  auditor?: { userName: string; userEmail: string },
+  userPermissions2?: number
 ): Promise<void> {
+  // HR-18: Validate caller has MANAGE_HR_PROFILES permission
+  if (userPermissions2 !== undefined) {
+    requirePermission(
+      userPermissions2,
+      PERMISSION_FLAGS_2.MANAGE_HR_PROFILES,
+      updatedBy,
+      'update employee basic info'
+    );
+  }
+
   const { db } = getFirebase();
 
   try {

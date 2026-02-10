@@ -25,6 +25,7 @@ import { SSOT_COLLECTIONS, COLLECTIONS } from '@vapour/firebase';
 import type { ProcessStream, ProcessStreamInput } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import { enrichStreamInput } from './streamCalculations';
+import { validateSSOTWriteAccess, type SSOTAccessCheck } from './ssotAuth';
 
 const logger = createLogger({ context: 'streamService' });
 
@@ -171,9 +172,13 @@ export function subscribeToStreams(
 export async function createStream(
   projectId: string,
   input: ProcessStreamInput,
-  userId: string
+  userId: string,
+  accessCheck?: SSOTAccessCheck
 ): Promise<string> {
   logger.debug('createStream', { projectId, input });
+
+  // PE-14/PE-18: Validate write access
+  validateSSOTWriteAccess(userId, projectId, accessCheck);
 
   // PE-9: Validate project exists before creating SSOT data
   await validateProjectExists(projectId);
@@ -208,9 +213,13 @@ export async function updateStream(
   projectId: string,
   streamId: string,
   input: Partial<ProcessStreamInput>,
-  userId: string
+  userId: string,
+  accessCheck?: SSOTAccessCheck
 ): Promise<void> {
   logger.debug('updateStream', { projectId, streamId, input });
+
+  // PE-14/PE-18: Validate write access
+  validateSSOTWriteAccess(userId, projectId, accessCheck);
 
   const docRef = getStreamDoc(projectId, streamId);
 
@@ -257,8 +266,18 @@ export async function updateStream(
 /**
  * Delete a stream
  */
-export async function deleteStream(projectId: string, streamId: string): Promise<void> {
+export async function deleteStream(
+  projectId: string,
+  streamId: string,
+  userId?: string,
+  accessCheck?: SSOTAccessCheck
+): Promise<void> {
   logger.debug('deleteStream', { projectId, streamId });
+
+  // PE-14/PE-18: Validate write access
+  if (userId && accessCheck) {
+    validateSSOTWriteAccess(userId, projectId, accessCheck);
+  }
 
   const docRef = getStreamDoc(projectId, streamId);
   await deleteDoc(docRef);

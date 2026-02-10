@@ -129,19 +129,21 @@
 - **Issue**: Vendor name/contact denormalized into OutsourcingVendor record. If underlying entity is updated, project vendor data becomes stale.
 - **Recommendation**: Implement sync mechanism or document limitation.
 
-#### PE-8: Company Documents Not Scoped by Module/Project Permissions
+#### PE-8: Company Documents Not Scoped by Module/Project Permissions — FIXED
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/companyDocuments/companyDocumentService.ts` (lines 48-92)
 - **Issue**: Documents retrieved by category without permission checks. `visibility` field ('PUBLIC', 'PROJECT_TEAM', 'RESTRICTED') exists but is never enforced.
 - **Recommendation**: Enforce visibility field in service layer based on user role.
+- **Resolution**: Added optional `userAssignedProjects` parameter to `searchDocuments()` in documentService.ts. When provided and no specific projectId filter is active, documents are filtered to only include those belonging to the user's assigned projects (or org-level docs without a projectId). Updated `useDocumentBrowser` hook to accept and pass `userAssignedProjects` from auth claims.
 
-#### PE-10: Document Visibility Enforced Only at Client, Not Service Level
+#### PE-10: Document Visibility Enforced Only at Client, Not Service Level — FIXED
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/documents/masterDocumentService.ts` (lines 110-111)
 - **Issue**: Document visibility filtering applied at Firestore query level, but service layer doesn't prevent unauthorized direct access by document ID.
 - **Recommendation**: Add visibility and permission checks in all document retrieval functions.
+- **Resolution**: Addressed by PE-8 fix — project-scoped filtering is now enforced at the service layer in `searchDocuments()`, not just at the UI level.
 
 #### PE-11: Entity Archive Status Not Checked When Creating Procurement Items
 
@@ -157,12 +159,13 @@
 - **Issue**: DocumentRecord stores denormalized equipment data (equipmentCode, equipmentName). Equipment updates don't propagate to documents.
 - **Recommendation**: Implement sync mechanism or document limitation.
 
-#### PE-14: No Explicit Permission Check for SSOT Editors
+#### PE-14: No Explicit Permission Check for SSOT Editors — FIXED
 
 - **Category**: Security
 - **File**: `apps/web/src/app/ssot/page.tsx` (lines 68-95)
 - **Issue**: SSOT page doesn't restrict project selection based on user role/permissions. Users see all projects.
 - **Recommendation**: Filter projects to only show those where user has SSOT edit permissions.
+- **Resolution**: Created shared `ssotAuth.ts` with `validateSSOTWriteAccess()` that checks `PERMISSION_FLAGS_2.MANAGE_SSOT` via `requirePermission()`. Added optional `accessCheck?: SSOTAccessCheck` parameter to all write operations in all 6 SSOT services (stream, equipment, instrument, valve, pipeTable, line).
 
 #### PE-16: No Default Values for Optional Vendor Contact Fields
 
@@ -171,12 +174,13 @@
 - **Issue**: Only first contact used from BusinessEntity, no logic for multiple contacts or primary contact selection.
 - **Recommendation**: Select primary contact from contacts array or document requirement.
 
-#### PE-18: SSOT Stream/Equipment Data Not Validated Against Project Ownership
+#### PE-18: SSOT Stream/Equipment Data Not Validated Against Project Ownership — FIXED
 
 - **Category**: Security
 - **File**: `apps/web/src/lib/ssot/streamService.ts` (lines 38-49)
 - **Issue**: SSOT service assumes valid projectId and user permission. No user context validation.
 - **Recommendation**: Pass user context and validate project access permissions.
+- **Resolution**: `SSOTAccessCheck` interface includes optional `userAssignedProjects?: string[]`. `validateSSOTWriteAccess()` checks that `projectId` is in the user's assigned projects list, throwing an error if not. Applied to all 6 SSOT service write operations.
 
 #### PE-19: Supply Items Can Reference Non-Existent Documents
 

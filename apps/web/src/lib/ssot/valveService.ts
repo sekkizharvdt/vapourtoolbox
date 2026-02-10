@@ -23,6 +23,7 @@ import { getFirebase } from '@/lib/firebase';
 import { SSOT_COLLECTIONS } from '@vapour/firebase';
 import type { ProcessValve, ProcessValveInput } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
+import { validateSSOTWriteAccess, type SSOTAccessCheck } from './ssotAuth';
 
 const logger = createLogger({ context: 'valveService' });
 
@@ -142,9 +143,13 @@ export function subscribeToValves(
 export async function createValve(
   projectId: string,
   input: ProcessValveInput,
-  userId: string
+  userId: string,
+  accessCheck?: SSOTAccessCheck
 ): Promise<string> {
   logger.debug('createValve', { projectId, input });
+
+  // PE-14/PE-18: Validate write access
+  validateSSOTWriteAccess(userId, projectId, accessCheck);
 
   const valvesRef = getValvesCollection(projectId);
   const now = Timestamp.now();
@@ -168,9 +173,13 @@ export async function updateValve(
   projectId: string,
   valveId: string,
   input: Partial<ProcessValveInput>,
-  userId: string
+  userId: string,
+  accessCheck?: SSOTAccessCheck
 ): Promise<void> {
   logger.debug('updateValve', { projectId, valveId, input });
+
+  // PE-14/PE-18: Validate write access
+  validateSSOTWriteAccess(userId, projectId, accessCheck);
 
   const docRef = getValveDoc(projectId, valveId);
 
@@ -183,8 +192,18 @@ export async function updateValve(
   logger.info('Valve updated', { projectId, valveId });
 }
 
-export async function deleteValve(projectId: string, valveId: string): Promise<void> {
+export async function deleteValve(
+  projectId: string,
+  valveId: string,
+  userId?: string,
+  accessCheck?: SSOTAccessCheck
+): Promise<void> {
   logger.debug('deleteValve', { projectId, valveId });
+
+  // PE-14/PE-18: Validate write access
+  if (userId && accessCheck) {
+    validateSSOTWriteAccess(userId, projectId, accessCheck);
+  }
 
   const docRef = getValveDoc(projectId, valveId);
   await deleteDoc(docRef);
