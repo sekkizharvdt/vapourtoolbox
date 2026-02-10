@@ -67,7 +67,7 @@ Each module is audited against these categories:
 | verified  | Already resolved (indexes exist, code has fixes) | FL-9, HR-3, HR-4, AA-3, AA-12, AA-2, AA-19, AC-9, SP-2        | 9     |
 | `6dbd252` | Cluster A: State machine enforcement             | AC-11, PR-12, BP-13, HR-12, FL-14, FL-18                      | 6     |
 | `531e591` | Cluster B: Audit logging infrastructure          | AA-8, AA-14, HR-14, AC-12, PR-17, SP-26                       | 6     |
-| TBD       | Cluster C: Auth & session hardening              | AA-4, AA-7, HR-18, PE-8, PE-10, PE-14, PE-18, PR-16           | 8     |
+| `2068d6e` | Cluster C: Auth & session hardening              | AA-4, AA-7, HR-18, PE-8, PE-10, PE-14, PE-18, PR-16           | 8     |
 | verified  | Cluster C: Verified/mitigated                    | AA-5, AA-6                                                    | 2     |
 
 ### By Severity
