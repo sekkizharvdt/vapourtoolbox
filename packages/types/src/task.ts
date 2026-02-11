@@ -35,6 +35,9 @@ export type TaskNotificationCategory =
   | 'GR_PAYMENT_APPROVED' // Informational: Payment approved for GR
   | 'PAYMENT_REQUESTED' // Actionable: Process payment
   | 'WCC_ISSUED' // Informational: Work completion certificate issued
+  | 'WCC_READY_FOR_BILLING' // Actionable: Create vendor bill from WCC
+  | 'GR_ITEMS_REJECTED' // Actionable: Quality issues found during goods receipt
+  | 'THREE_WAY_MATCH_READY' // Actionable: Verify PO vs GR vs Bill match
   // General Tasks
   | 'TASK_ASSIGNED' // Actionable: Complete assigned task
   | 'TASK_TRANSFERRED' // Informational: Task transferred to you
@@ -376,6 +379,9 @@ export const TASK_CHANNEL_DEFINITIONS: Record<DefaultTaskChannelId, TaskChannel>
       'PO_REJECTED',
       'GOODS_RECEIVED',
       'GR_BILL_CREATED',
+      'GR_READY_FOR_PAYMENT',
+      'GR_PAYMENT_APPROVED',
+      'GR_ITEMS_REJECTED',
       'WCC_ISSUED',
     ],
     isDefault: true,
@@ -420,6 +426,8 @@ export const TASK_CHANNEL_DEFINITIONS: Record<DefaultTaskChannelId, TaskChannel>
       'PAYMENT_COMPLETED',
       'PAYMENT_REQUESTED',
       'GR_BILL_REQUIRED',
+      'WCC_READY_FOR_BILLING',
+      'THREE_WAY_MATCH_READY',
     ],
     isDefault: true,
   },

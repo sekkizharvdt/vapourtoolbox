@@ -23,6 +23,8 @@ import type { WorkCompletionCertificate, PurchaseOrder } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import { generateProcurementNumber, PROCUREMENT_NUMBER_CONFIGS } from './generateProcurementNumber';
 
+import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
+
 const logger = createLogger({ context: 'workCompletionService' });
 
 // ============================================================================
@@ -84,6 +86,25 @@ export async function createWorkCompletionCertificate(
   };
 
   const wccRef = await addDoc(collection(db, COLLECTIONS.WORK_COMPLETION_CERTIFICATES), wccData);
+
+  // GAP 1: Notify accounting team to create bill for WCC
+  createTaskNotification({
+    type: 'actionable',
+    category: 'WCC_READY_FOR_BILLING',
+    userId: po.createdBy || userId,
+    assignedBy: userId,
+    assignedByName: userName,
+    title: `Create Bill for WCC ${wccNumber} — PO ${po.number}`,
+    message: `Work Completion Certificate ${wccNumber} has been issued for PO ${po.number} (${po.vendorName}). Please create a bill in accounting.`,
+    entityType: 'WORK_COMPLETION_CERTIFICATE',
+    entityId: wccRef.id,
+    linkUrl: `/procurement/work-completions/${wccRef.id}`,
+    priority: 'HIGH',
+    autoCompletable: true,
+    projectId: input.projectId,
+  }).catch((err) => {
+    logger.error('Failed to create WCC billing notification', { error: err, wccId: wccRef.id });
+  });
 
   logger.info('Work Completion Certificate created', { wccId: wccRef.id, wccNumber });
 

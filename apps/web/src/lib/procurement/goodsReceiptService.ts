@@ -27,7 +27,7 @@ import type {
 import { createLogger } from '@vapour/logger';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
-import { goodsReceiptStateMachine } from '@/lib/workflow/stateMachines';
+import { goodsReceiptStateMachine, purchaseOrderStateMachine } from '@/lib/workflow/stateMachines';
 import { withIdempotency, generateIdempotencyKey } from '@/lib/utils/idempotencyService';
 import { generateProcurementNumber, PROCUREMENT_NUMBER_CONFIGS } from './generateProcurementNumber';
 
@@ -129,148 +129,195 @@ export async function createGoodsReceipt(
       }
 
       // Execute all writes atomically in a transaction
-      const { grId, poNumber, poVendorName } = await runTransaction(db, async (transaction) => {
-        const now = Timestamp.now();
+      const { grId, poNumber, poVendorName, poCreatedBy } = await runTransaction(
+        db,
+        async (transaction) => {
+          const now = Timestamp.now();
 
-        // Read PO within transaction to ensure consistency
-        const poRef = doc(db, COLLECTIONS.PURCHASE_ORDERS, input.purchaseOrderId);
-        const poDoc = await transaction.get(poRef);
-        if (!poDoc.exists()) {
-          throw new Error('Purchase Order not found');
-        }
-        const po = { id: poDoc.id, ...poDoc.data() } as PurchaseOrder;
-
-        // Read current PO item quantities within transaction
-        const poItemRefs = input.items.map((item) =>
-          doc(db, COLLECTIONS.PURCHASE_ORDER_ITEMS, item.poItemId)
-        );
-        const poItemDocs = await Promise.all(poItemRefs.map((ref) => transaction.get(ref)));
-
-        // Validate quantities against PO items (prevent over-delivery)
-        input.items.forEach((item) => {
-          const poItemDoc = poItemDocs.find((d) => d.id === item.poItemId);
-          if (poItemDoc?.exists()) {
-            const currentPoItem = poItemDoc.data() as PurchaseOrderItem;
-            const remainingQuantity =
-              (currentPoItem.quantity || 0) - (currentPoItem.quantityDelivered || 0);
-
-            if (item.receivedQuantity > remainingQuantity) {
-              throw new Error(
-                `Over-delivery not allowed: item "${currentPoItem.description || item.poItemId}" received ${item.receivedQuantity} but only ${remainingQuantity} remaining`
-              );
-            }
-            if (item.acceptedQuantity > item.receivedQuantity) {
-              throw new Error(
-                `Accepted quantity (${item.acceptedQuantity}) cannot exceed received quantity (${item.receivedQuantity}) for item "${currentPoItem.description || item.poItemId}"`
-              );
-            }
-            if (item.rejectedQuantity > item.receivedQuantity) {
-              throw new Error(
-                `Rejected quantity (${item.rejectedQuantity}) cannot exceed received quantity (${item.receivedQuantity}) for item "${currentPoItem.description || item.poItemId}"`
-              );
-            }
+          // Read PO within transaction to ensure consistency
+          const poRef = doc(db, COLLECTIONS.PURCHASE_ORDERS, input.purchaseOrderId);
+          const poDoc = await transaction.get(poRef);
+          if (!poDoc.exists()) {
+            throw new Error('Purchase Order not found');
           }
-        });
+          const po = { id: poDoc.id, ...poDoc.data() } as PurchaseOrder;
 
-        // Create GR document
-        const grRef = doc(collection(db, COLLECTIONS.GOODS_RECEIPTS));
-        const grData: Omit<GoodsReceipt, 'id'> = {
-          number: grNumber,
-          purchaseOrderId: input.purchaseOrderId,
-          poNumber: po.number,
-          packingListId: input.packingListId,
-          packingListNumber: undefined,
-          projectId: input.projectId,
-          projectName: input.projectName,
-          entityId: poDoc.data()?.entityId || '',
-          inspectionType: input.inspectionType,
-          inspectionLocation: input.inspectionLocation,
-          inspectionDate: Timestamp.fromDate(input.inspectionDate),
-          overallCondition,
-          overallNotes: input.overallNotes,
-          hasIssues,
-          issuesSummary: hasIssues
-            ? input.items
-                .filter((item) => item.hasIssues)
-                .flatMap((item) => item.issues || [])
-                .join('; ')
-            : undefined,
-          status: 'IN_PROGRESS',
-          approvedForPayment: false,
-          inspectedBy: userId,
-          inspectedByName: userName,
-          createdAt: now,
-          updatedAt: now,
-        };
+          // Read current PO item quantities within transaction
+          const poItemRefs = input.items.map((item) =>
+            doc(db, COLLECTIONS.PURCHASE_ORDER_ITEMS, item.poItemId)
+          );
+          const poItemDocs = await Promise.all(poItemRefs.map((ref) => transaction.get(ref)));
 
-        // Remove undefined values before sending to Firestore (Firestore doesn't accept undefined)
-        const cleanedGrData = Object.fromEntries(
-          Object.entries(grData).filter(([, value]) => value !== undefined)
-        );
-        transaction.set(grRef, cleanedGrData);
+          // Validate quantities against PO items (prevent over-delivery)
+          input.items.forEach((item) => {
+            const poItemDoc = poItemDocs.find((d) => d.id === item.poItemId);
+            if (poItemDoc?.exists()) {
+              const currentPoItem = poItemDoc.data() as PurchaseOrderItem;
+              const remainingQuantity =
+                (currentPoItem.quantity || 0) - (currentPoItem.quantityDelivered || 0);
 
-        // Create GR items and update PO items atomically
-        input.items.forEach((item, index) => {
-          const poItem = poItems.find((pi) => pi.id === item.poItemId);
-          const poItemDoc = poItemDocs[index];
+              if (item.receivedQuantity > remainingQuantity) {
+                throw new Error(
+                  `Over-delivery not allowed: item "${currentPoItem.description || item.poItemId}" received ${item.receivedQuantity} but only ${remainingQuantity} remaining`
+                );
+              }
+              if (item.acceptedQuantity > item.receivedQuantity) {
+                throw new Error(
+                  `Accepted quantity (${item.acceptedQuantity}) cannot exceed received quantity (${item.receivedQuantity}) for item "${currentPoItem.description || item.poItemId}"`
+                );
+              }
+              if (item.rejectedQuantity > item.receivedQuantity) {
+                throw new Error(
+                  `Rejected quantity (${item.rejectedQuantity}) cannot exceed received quantity (${item.receivedQuantity}) for item "${currentPoItem.description || item.poItemId}"`
+                );
+              }
+            }
+          });
 
-          // Create GR item
-          const grItemRef = doc(collection(db, COLLECTIONS.GOODS_RECEIPT_ITEMS));
-          const grItemData: Omit<GoodsReceiptItem, 'id'> = {
-            goodsReceiptId: grRef.id,
-            poItemId: item.poItemId,
-            lineNumber: index + 1,
-            description: poItem?.description || 'Unknown Item',
-            equipmentId: poItem?.equipmentId,
-            equipmentCode: poItem?.equipmentCode,
-            orderedQuantity: poItem?.quantity || 0,
-            receivedQuantity: item.receivedQuantity,
-            acceptedQuantity: item.acceptedQuantity,
-            rejectedQuantity: item.rejectedQuantity,
-            unit: poItem?.unit || '',
-            condition: item.condition,
-            conditionNotes: item.conditionNotes,
-            testingRequired: item.testingRequired,
-            testingCompleted: item.testingCompleted || false,
-            testResult: item.testResult,
-            photoCount: 0,
-            hasIssues: item.hasIssues,
-            issues: item.issues,
+          // Create GR document
+          const grRef = doc(collection(db, COLLECTIONS.GOODS_RECEIPTS));
+          const grData: Omit<GoodsReceipt, 'id'> = {
+            number: grNumber,
+            purchaseOrderId: input.purchaseOrderId,
+            poNumber: po.number,
+            packingListId: input.packingListId,
+            packingListNumber: undefined,
+            projectId: input.projectId,
+            projectName: input.projectName,
+            entityId: poDoc.data()?.entityId || '',
+            inspectionType: input.inspectionType,
+            inspectionLocation: input.inspectionLocation,
+            inspectionDate: Timestamp.fromDate(input.inspectionDate),
+            overallCondition,
+            overallNotes: input.overallNotes,
+            hasIssues,
+            issuesSummary: hasIssues
+              ? input.items
+                  .filter((item) => item.hasIssues)
+                  .flatMap((item) => item.issues || [])
+                  .join('; ')
+              : undefined,
+            status: 'IN_PROGRESS',
+            approvedForPayment: false,
+            inspectedBy: userId,
+            inspectedByName: userName,
             createdAt: now,
             updatedAt: now,
           };
-          // Remove undefined values before sending to Firestore
-          const cleanedGrItemData = Object.fromEntries(
-            Object.entries(grItemData).filter(([, value]) => value !== undefined)
+
+          // Remove undefined values before sending to Firestore (Firestore doesn't accept undefined)
+          const cleanedGrData = Object.fromEntries(
+            Object.entries(grData).filter(([, value]) => value !== undefined)
           );
-          transaction.set(grItemRef, cleanedGrItemData);
+          transaction.set(grRef, cleanedGrData);
 
-          // Update PO item quantities (using current values from transaction read)
-          if (poItemDoc?.exists()) {
-            const currentPoItem = poItemDoc.data() as PurchaseOrderItem;
-            const newDelivered = (currentPoItem.quantityDelivered || 0) + item.receivedQuantity;
-            const newAccepted = (currentPoItem.quantityAccepted || 0) + item.acceptedQuantity;
-            const newRejected = (currentPoItem.quantityRejected || 0) + item.rejectedQuantity;
+          // Create GR items and update PO items atomically
+          input.items.forEach((item, index) => {
+            const poItem = poItems.find((pi) => pi.id === item.poItemId);
+            const poItemDoc = poItemDocs[index];
 
-            let deliveryStatus: 'PENDING' | 'PARTIAL' | 'COMPLETE' = 'PARTIAL';
-            if (newDelivered >= (currentPoItem.quantity || 0)) {
-              deliveryStatus = 'COMPLETE';
-            } else if (newDelivered === 0) {
-              deliveryStatus = 'PENDING';
-            }
-
-            transaction.update(doc(db, COLLECTIONS.PURCHASE_ORDER_ITEMS, item.poItemId), {
-              quantityDelivered: newDelivered,
-              quantityAccepted: newAccepted,
-              quantityRejected: newRejected,
-              deliveryStatus,
+            // Create GR item
+            const grItemRef = doc(collection(db, COLLECTIONS.GOODS_RECEIPT_ITEMS));
+            const grItemData: Omit<GoodsReceiptItem, 'id'> = {
+              goodsReceiptId: grRef.id,
+              poItemId: item.poItemId,
+              lineNumber: index + 1,
+              description: poItem?.description || 'Unknown Item',
+              equipmentId: poItem?.equipmentId,
+              equipmentCode: poItem?.equipmentCode,
+              orderedQuantity: poItem?.quantity || 0,
+              receivedQuantity: item.receivedQuantity,
+              acceptedQuantity: item.acceptedQuantity,
+              rejectedQuantity: item.rejectedQuantity,
+              unit: poItem?.unit || '',
+              condition: item.condition,
+              conditionNotes: item.conditionNotes,
+              testingRequired: item.testingRequired,
+              testingCompleted: item.testingCompleted || false,
+              testResult: item.testResult,
+              photoCount: 0,
+              hasIssues: item.hasIssues,
+              issues: item.issues,
+              createdAt: now,
               updatedAt: now,
-            });
-          }
-        });
+            };
+            // Remove undefined values before sending to Firestore
+            const cleanedGrItemData = Object.fromEntries(
+              Object.entries(grItemData).filter(([, value]) => value !== undefined)
+            );
+            transaction.set(grItemRef, cleanedGrItemData);
 
-        return { grId: grRef.id, poNumber: po.number, poVendorName: po.vendorName };
-      });
+            // Update PO item quantities (using current values from transaction read)
+            if (poItemDoc?.exists()) {
+              const currentPoItem = poItemDoc.data() as PurchaseOrderItem;
+              const newDelivered = (currentPoItem.quantityDelivered || 0) + item.receivedQuantity;
+              const newAccepted = (currentPoItem.quantityAccepted || 0) + item.acceptedQuantity;
+              const newRejected = (currentPoItem.quantityRejected || 0) + item.rejectedQuantity;
+
+              let deliveryStatus: 'PENDING' | 'PARTIAL' | 'COMPLETE' = 'PARTIAL';
+              if (newDelivered >= (currentPoItem.quantity || 0)) {
+                deliveryStatus = 'COMPLETE';
+              } else if (newDelivered === 0) {
+                deliveryStatus = 'PENDING';
+              }
+
+              transaction.update(doc(db, COLLECTIONS.PURCHASE_ORDER_ITEMS, item.poItemId), {
+                quantityDelivered: newDelivered,
+                quantityAccepted: newAccepted,
+                quantityRejected: newRejected,
+                deliveryStatus,
+                updatedAt: now,
+              });
+            }
+          });
+
+          // GAP 2: Calculate and update PO-level deliveryProgress
+          const grItemIds = new Set(input.items.map((i) => i.poItemId));
+          let totalOrdered = 0;
+          let totalDelivered = 0;
+
+          for (const poItem of poItems) {
+            totalOrdered += poItem.quantity || 0;
+            if (grItemIds.has(poItem.id)) {
+              const grItem = input.items.find((i) => i.poItemId === poItem.id)!;
+              const txnPoItemDoc = poItemDocs.find((d) => d.id === poItem.id);
+              const currentDelivered = txnPoItemDoc?.exists()
+                ? (txnPoItemDoc.data() as PurchaseOrderItem).quantityDelivered || 0
+                : poItem.quantityDelivered || 0;
+              totalDelivered += currentDelivered + grItem.receivedQuantity;
+            } else {
+              totalDelivered += poItem.quantityDelivered || 0;
+            }
+          }
+
+          const deliveryProgress =
+            totalOrdered > 0 ? Math.min(100, Math.round((totalDelivered / totalOrdered) * 100)) : 0;
+
+          const poUpdateData: Record<string, unknown> = {
+            deliveryProgress,
+            updatedAt: now,
+          };
+
+          // GAP 8: Auto-complete PO when fully delivered and paid
+          if (
+            deliveryProgress === 100 &&
+            (po.paymentProgress || 0) === 100 &&
+            purchaseOrderStateMachine.canTransitionTo(po.status, 'COMPLETED')
+          ) {
+            poUpdateData.status = 'COMPLETED';
+            poUpdateData.completedAt = now;
+          }
+
+          transaction.update(poRef, poUpdateData);
+
+          return {
+            grId: grRef.id,
+            poNumber: po.number,
+            poVendorName: po.vendorName,
+            poCreatedBy: po.createdBy,
+          };
+        }
+      );
 
       // Audit log outside transaction (non-critical, fire-and-forget)
       const auditContext = createAuditContext(userId, '', userName);
@@ -293,6 +340,28 @@ export async function createGoodsReceipt(
           },
         }
       ).catch((err) => logger.error('Failed to log audit event', { error: err }));
+
+      // GAP 4: Notify procurement team when GR has rejected items
+      if (hasIssues) {
+        const rejectedCount = input.items.filter((item) => item.rejectedQuantity > 0).length;
+        createTaskNotification({
+          type: 'actionable',
+          category: 'GR_ITEMS_REJECTED',
+          userId: poCreatedBy || userId,
+          assignedBy: userId,
+          assignedByName: userName,
+          title: `Quality issues on GR ${grNumber} — ${rejectedCount} item(s) rejected`,
+          message: `Goods Receipt ${grNumber} for PO ${poNumber} has ${rejectedCount} item(s) with quality issues. Review and take action.`,
+          entityType: 'GOODS_RECEIPT',
+          entityId: grId,
+          linkUrl: `/procurement/goods-receipts/${grId}`,
+          priority: 'HIGH',
+          autoCompletable: false,
+          projectId: input.projectId,
+        }).catch((err) => {
+          logger.error('Failed to create GR rejection notification', { error: err, grId });
+        });
+      }
 
       logger.info('Goods Receipt created', { grId, grNumber });
 
@@ -437,6 +506,28 @@ export async function completeGR(
       // Log error but don't fail - GR is complete, bill can be created manually
       logger.error('Error creating bill from GR (can be created manually)', { error: err, grId });
     }
+  }
+
+  // GAP 5: Create three-way match notification when GR + bill exist
+  const grAfterBill = await getGRById(grId);
+  if (grAfterBill?.paymentRequestId && po?.createdBy) {
+    createTaskNotification({
+      type: 'actionable',
+      category: 'THREE_WAY_MATCH_READY',
+      userId: po.createdBy,
+      assignedBy: userId,
+      assignedByName: userName || userEmail,
+      title: `Run Three-Way Match for PO ${gr.poNumber}`,
+      message: `GR ${gr.number} is complete and bill created for PO ${gr.poNumber}. Verify the three-way match (PO vs GR vs Bill).`,
+      entityType: 'PURCHASE_ORDER',
+      entityId: gr.purchaseOrderId,
+      linkUrl: `/procurement/pos/${gr.purchaseOrderId}`,
+      priority: 'MEDIUM',
+      autoCompletable: false,
+      projectId: gr.projectId,
+    }).catch((err) => {
+      logger.error('Failed to create three-way match notification', { error: err, grId });
+    });
   }
 
   // Audit log outside transaction (non-critical)
