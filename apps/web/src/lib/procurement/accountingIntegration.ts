@@ -290,17 +290,27 @@ export async function createBillFromGoodsReceipt(
         totalGST,
       },
 
-      // Line items (from purchase order items)
-      lineItems: purchaseOrderItems.map((item, index) => ({
-        id: `item-${index + 1}`,
-        description: item.description || '',
-        quantity: item.quantity || 0,
-        unitPrice: item.unitPrice || 0,
-        amount: item.amount || 0,
-        gstRate: item.gstRate || 0,
-        gstAmount: item.gstAmount || 0,
-        totalAmount: (item.amount || 0) + (item.gstAmount || 0),
-      })),
+      // PR-21: Line items based on GR accepted quantities (consistent with totals above)
+      lineItems: goodsReceiptItems
+        .filter((grItem) => (grItem.acceptedQuantity || 0) > 0)
+        .map((grItem, index) => {
+          const poItem = purchaseOrderItems.find((p) => p.id === grItem.poItemId);
+          const acceptedQty = grItem.acceptedQuantity || 0;
+          const unitPrice = poItem?.unitPrice || 0;
+          const itemAmount = acceptedQty * unitPrice;
+          const gstRate = poItem?.gstRate || 0;
+          const itemGst = (itemAmount * gstRate) / 100;
+          return {
+            id: `item-${index + 1}`,
+            description: poItem?.description || grItem.description || '',
+            quantity: acceptedQty,
+            unitPrice,
+            amount: itemAmount,
+            gstRate,
+            gstAmount: itemGst,
+            totalAmount: itemAmount + itemGst,
+          };
+        }),
 
       // References
       projectId: purchaseOrder.projectIds[0] || goodsReceipt.projectId,

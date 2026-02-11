@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   type Firestore,
   writeBatch,
+  runTransaction,
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
@@ -157,47 +158,56 @@ export async function submitAmendmentForApproval(
 ): Promise<void> {
   try {
     const amendmentRef = doc(db, COLLECTIONS.PURCHASE_ORDER_AMENDMENTS, amendmentId);
-    const amendmentDoc = await getDoc(amendmentRef);
 
-    if (!amendmentDoc.exists()) {
-      throw new Error('Amendment not found');
-    }
+    // PR-14: Use transaction for atomic read-then-write (idempotent submission)
+    await runTransaction(db, async (transaction) => {
+      const amendmentDoc = await transaction.get(amendmentRef);
 
-    const amendment = { id: amendmentDoc.id, ...amendmentDoc.data() } as PurchaseOrderAmendment;
+      if (!amendmentDoc.exists()) {
+        throw new Error('Amendment not found');
+      }
 
-    if (amendment.status !== 'DRAFT') {
-      throw new Error('Only draft amendments can be submitted for approval');
-    }
+      const amendment = {
+        id: amendmentDoc.id,
+        ...amendmentDoc.data(),
+      } as PurchaseOrderAmendment;
 
-    const batch = writeBatch(db);
+      // Idempotency: already-submitted amendments are silently accepted
+      if (amendment.status === 'PENDING_APPROVAL') {
+        logger.info('Amendment already submitted, skipping', { amendmentId });
+        return;
+      }
 
-    // Update amendment status
-    batch.update(amendmentRef, {
-      status: 'PENDING_APPROVAL',
-      submittedForApprovalAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      updatedBy: userId,
+      if (amendment.status !== 'DRAFT') {
+        throw new Error('Only draft amendments can be submitted for approval');
+      }
+
+      // Update amendment status
+      transaction.update(amendmentRef, {
+        status: 'PENDING_APPROVAL',
+        submittedForApprovalAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedBy: userId,
+      });
+
+      // Create approval history entry
+      const historyData = {
+        amendmentId,
+        purchaseOrderId: amendment.purchaseOrderId,
+        action: 'SUBMITTED',
+        actionDate: serverTimestamp(),
+        actionBy: userId,
+        actionByName: userName,
+        comments,
+        previousStatus: 'DRAFT',
+        newStatus: 'PENDING_APPROVAL',
+        ipAddress,
+        userAgent,
+      };
+
+      const historyRef = doc(collection(db, COLLECTIONS.AMENDMENT_APPROVAL_HISTORY));
+      transaction.set(historyRef, historyData);
     });
-
-    // Create approval history entry
-    const historyData = {
-      amendmentId,
-      purchaseOrderId: amendment.purchaseOrderId,
-      action: 'SUBMITTED',
-      actionDate: serverTimestamp(),
-      actionBy: userId,
-      actionByName: userName,
-      comments,
-      previousStatus: 'DRAFT',
-      newStatus: 'PENDING_APPROVAL',
-      ipAddress,
-      userAgent,
-    };
-
-    const historyRef = doc(collection(db, COLLECTIONS.AMENDMENT_APPROVAL_HISTORY));
-    batch.set(historyRef, historyData);
-
-    await batch.commit();
 
     logger.info('Amendment submitted for approval', { amendmentId });
   } catch (error) {

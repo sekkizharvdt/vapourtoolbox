@@ -69,13 +69,9 @@ export async function generateBOMCode(db: Firestore): Promise<string> {
 
     return `EST-${yearStr}-${sequence.toString().padStart(4, '0')}`;
   } catch (error) {
-    // Fallback: generate based on timestamp if counter fails
-    logger.warn('Counter document failed, using timestamp fallback', { error });
-    const timestamp = Date.now().toString().slice(-4);
-    const random = Math.floor(Math.random() * 100)
-      .toString()
-      .padStart(2, '0');
-    return `EST-${yearStr}-${timestamp}${random}`;
+    // BP-14: Fallback with UUID for guaranteed uniqueness
+    logger.warn('Counter document failed, using UUID fallback', { error });
+    return `EST-${yearStr}-${crypto.randomUUID().slice(0, 8)}`;
   }
 }
 

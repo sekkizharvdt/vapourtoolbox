@@ -133,7 +133,7 @@ describe('BOM Service', () => {
       const code = await generateBOMCode(mockDb);
 
       const year = new Date().getFullYear();
-      expect(code).toMatch(new RegExp(`^EST-${year}-\\d{6}$`));
+      expect(code).toMatch(new RegExp(`^EST-${year}-[a-f0-9]{8}$`));
     });
 
     it('should increment counter properly', async () => {
