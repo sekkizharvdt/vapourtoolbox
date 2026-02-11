@@ -147,26 +147,29 @@
 
 ### LOW
 
-#### AA-9: PERMISSION_PRESETS Not Used in EditUserDialog
+#### AA-9: PERMISSION_PRESETS Not Used in EditUserDialog — DEFERRED
 
 - **Category**: UX
 - **File**: `apps/web/src/components/admin/EditUserDialog.tsx` (line 51)
 - **Issue**: `PERMISSION_PRESETS` imported but unused. ApproveUserDialog has quick presets; EditUserDialog requires manual checkbox selection.
 - **Recommendation**: Add "Quick Presets" section to EditUserDialog.
+- **Resolution**: Deferred — UX improvement (presets in EditUserDialog). Nice-to-have feature, not a bug.
 
-#### AA-10: isAdmin Variable Name Misleading in ApproveUserDialog
+#### AA-10: isAdmin Variable Name Misleading in ApproveUserDialog — DEFERRED
 
 - **Category**: Code Quality
 - **File**: `apps/web/src/components/admin/ApproveUserDialog.tsx` (line 92)
 - **Issue**: `const isAdmin = hasPermission(permissions, ...)` checks if the user being approved will be admin, not if the approver is admin. Confusing name.
 - **Recommendation**: Rename to `isBeingApprovedAsAdmin` or `willBeAdmin`.
+- **Resolution**: Deferred — variable naming clarity only. No functional impact.
 
-#### AA-11: console.error Leaks Error Details to Browser Console
+#### AA-11: console.error Leaks Error Details to Browser Console — DEFERRED
 
 - **Category**: Security
 - **Files**: `ApproveUserDialog.tsx` (lines 173, 210, 244), `EditUserDialog.tsx` (line 244)
 - **Issue**: `console.error('Error approving user:', err)` logs full error objects which could contain sensitive information.
 - **Recommendation**: Use `logger.error()` instead, which handles sanitization.
+- **Resolution**: Deferred — `console.error` in admin panels is low risk since these pages are only accessible to admin users.
 
 #### AA-12: Missing permissions2 in Manual syncUserClaims — VERIFIED RESOLVED
 
@@ -176,12 +179,13 @@
 - **Recommendation**: Add `permissions2` to custom claims in syncUserClaims as well.
 - **Resolution**: Verified — `syncUserClaims` already destructures `permissions2` (line 192), normalizes it (line 199), and includes it in custom claims when non-zero (lines 206-208).
 
-#### AA-13: getAllPermissions Missing from Types Package
+#### AA-13: getAllPermissions Missing from Types Package — VERIFIED
 
 - **Category**: Code Quality
 - **File**: `packages/types/src/permissions.ts` (lines 145-166)
 - **Issue**: Types defines role-based presets but no `getAllPermissions()`. Super-admin layout imports from constants, but consistency is missing.
 - **Recommendation**: Delete duplicate `types/permissions.ts` or add missing function.
+- **Resolution**: Removed during permissions consolidation (SP-1/AA-1). The duplicate `types/permissions.ts` file was deleted; `@vapour/constants` is the single source of truth.
 
 #### AA-14: Missing Admin Permission for Audit Log Access — VERIFIED RESOLVED
 
@@ -191,33 +195,37 @@
 - **Recommendation**: Add explicit `allow write: if false;` to ensure audit logs are append-only.
 - **Resolution**: Verified rules are correct: `allow read: if isAdmin()`, `allow create: if isInternalUser()`, `allow update, delete: if false`. Audit logs are immutable (append-only). The `isInternalUser()` create rule is needed for client-side `logAuditEvent()` calls.
 
-#### AA-15: E2E Testing Helpers Expose Auth Methods to window
+#### AA-15: E2E Testing Helpers Expose Auth Methods to window — VERIFIED
 
 - **Category**: Security
 - **File**: `apps/web/src/contexts/AuthContext.tsx` (lines 86-136)
 - **Issue**: When `NEXT_PUBLIC_USE_EMULATOR === 'true'`, test sign-in methods exposed to `window.__e2eSignIn`.
 - **Recommendation**: Add build-time check to ensure flag is never true in production.
+- **Resolution**: E2E helpers are double-guarded — requires BOTH emulator flag AND `NODE_ENV === 'test'`. Neither condition is true in production builds.
 
-#### AA-16: No Rate Limiting on Permission Update Endpoints
+#### AA-16: No Rate Limiting on Permission Update Endpoints — DEFERRED
 
 - **Category**: Security
 - **File**: `apps/web/src/components/admin/EditUserDialog.tsx` (lines 223-233)
 - **Issue**: `updateDoc` called without rate limiting. Rapid updates could create audit log spam.
 - **Recommendation**: Add client-side debouncing or server-side rate limiting.
+- **Resolution**: Deferred — client-side rate limiting is a nice-to-have. Admin permission updates are infrequent by nature.
 
-#### AA-17: Permissions2 Field Lacks Type Check in Cloud Function
+#### AA-17: Permissions2 Field Lacks Type Check in Cloud Function — VERIFIED
 
 - **Category**: Code Quality
 - **File**: `packages/functions/src/index.ts` (line 87)
 - **Issue**: `onUserUpdate` destructures `permissions` without null/undefined checks. Malformed user documents could set claims with undefined values.
 - **Recommendation**: Add explicit null checks for both `permissions` and `permissions2`.
+- **Resolution**: `permissions2` type check already exists — `onUserUpdate` normalizes both `permissions` and `permissions2` with null checks before setting custom claims.
 
-#### AA-20: Rejection of Users Doesn't Set Explicit Reason
+#### AA-20: Rejection of Users Doesn't Set Explicit Reason — DEFERRED
 
 - **Category**: UX
 - **File**: `apps/web/src/components/admin/ApproveUserDialog.tsx` (lines 200-205)
 - **Issue**: Rejecting a user only sets `status: 'inactive'`. No field for rejection reason or notes.
 - **Recommendation**: Add optional `rejectionReason` field and textarea in rejection dialog.
+- **Resolution**: Deferred — feature request (rejection reason field). Nice-to-have UX improvement.
 
 ## Summary
 

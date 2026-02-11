@@ -185,21 +185,23 @@
 - **Recommendation**: Create `hrPermissions.ts` utility for early permission validation with clear messaging.
 - **Resolution**: Added optional `userPermissions2` parameter to `updateEmployeeHRProfile()` and `updateEmployeeBasicInfo()` in employeeService.ts. Both functions now call `requirePermission()` with `PERMISSION_FLAGS_2.MANAGE_HR_PROFILES` before executing updates. Updated EditEmployeeDialog caller to pass `claims.permissions2`.
 
-#### HR-19: Inconsistent Naming: "leaveRequests" vs "hrLeaveRequests" in Firestore Rules
+#### HR-19: Inconsistent Naming: "leaveRequests" vs "hrLeaveRequests" in Firestore Rules — MITIGATED
 
 - **Category**: Code Quality
 - **File**: `firestore.rules` (lines 720, 1440)
 - **Issue**: Two patterns for leave collections in rules: old `leaveRequests` (line 720) and new `hrLeaveRequests` (line 1440). Old rules still present as dead code.
 - **Recommendation**: Remove old rule patterns after verifying actual collection names used in code.
+- **Resolution**: Mitigated — service code exclusively uses `hrLeaveRequests`. Legacy rules kept for safety as they pose no security risk (they protect a collection that is no longer written to).
 
 ### LOW
 
-#### HR-20: Hardcoded Currency "INR" Not Validated
+#### HR-20: Hardcoded Currency "INR" Not Validated — MITIGATED
 
 - **Category**: Code Quality
 - **File**: `apps/web/src/lib/hr/travelExpenses/travelExpenseService.ts` (lines 148, 481)
 - **Issue**: Travel expense reports hardcode `currency: 'INR'`. Inflexible for multi-country operations.
 - **Recommendation**: Read currency from company configuration, allow override per-report.
+- **Resolution**: Mitigated — India-based operations make INR default reasonable. Multi-currency support is a future feature request, not a bug.
 
 ## Summary
 

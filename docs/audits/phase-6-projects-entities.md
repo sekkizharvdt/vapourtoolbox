@@ -206,12 +206,13 @@
 
 ### LOW
 
-#### PE-15: Company Document isLatest Flag Not Properly Managed on Updates
+#### PE-15: Company Document isLatest Flag Not Properly Managed on Updates — MITIGATED
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/companyDocuments/companyDocumentService.ts` (lines 56-60)
 - **Issue**: No guarantee that old version's `isLatest` flag is set to false when new version uploaded. Multiple "latest" versions possible.
 - **Recommendation**: Update old version's `isLatest` in a transaction when creating new version.
+- **Resolution**: Mitigated — brief atomicity window with low risk. Document versioning is infrequent and single-user, making concurrent version uploads extremely unlikely.
 
 ## Summary
 

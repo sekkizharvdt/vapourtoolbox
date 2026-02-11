@@ -157,28 +157,31 @@
 - **Recommendation**: Remove PENDING_APPROVAL from editable statuses or document the decision.
 - **Resolution**: PENDING_APPROVAL TODO no longer exists in codebase.
 
-#### AC-17: Cascading Updates Not Fully Atomic
+#### AC-17: Cascading Updates Not Fully Atomic — VERIFIED
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/accounting/paymentHelpers.ts` (lines 405-440)
 - **Issue**: After creating payment with WriteBatch, invoice status updates could partially fail. WriteBatch is atomic per batch, but if post-batch operations fail, state is inconsistent.
 - **Recommendation**: Use `runTransaction()` instead of WriteBatch for critical multi-document operations.
+- **Resolution**: Already uses `runTransaction()` for atomic operations. Payment creation and invoice status updates are within the same transaction.
 
 ### LOW
 
-#### AC-18: System Account Codes Hardcoded in Resolver
+#### AC-18: System Account Codes Hardcoded in Resolver — MITIGATED
 
 - **Category**: Code Quality
 - **File**: `apps/web/src/lib/accounting/systemAccountResolver.ts` (lines 60-72)
 - **Issue**: Account codes ('1200', '4100', '2201', etc.) are hardcoded in `systemCodes` array.
 - **Recommendation**: Make configuration-driven via a SYSTEM_ACCOUNTS collection.
+- **Resolution**: Mitigated — standard GL codes for a single deployment. Configuration-driven approach would add complexity without benefit for the current single-tenant use case.
 
-#### AC-19: Floating Point Tolerance Hardcoded in Multiple Places
+#### AC-19: Floating Point Tolerance Hardcoded in Multiple Places — MITIGATED
 
 - **Category**: Code Quality
 - **Files**: `paymentHelpers.ts` (line 88), `ledgerValidator.ts` (lines 82-83)
 - **Issue**: Tolerance hardcoded as `0.01` in multiple files. Not derived from currency.
 - **Recommendation**: Define `CURRENCY_TOLERANCE` constant based on currency decimal places.
+- **Resolution**: Mitigated — 0.01 tolerance matches INR smallest denomination (paisa). Single-currency system makes configuration-driven tolerance unnecessary.
 
 #### AC-20: View Details Button Non-Functional — FIXED (Cluster G)
 
@@ -188,19 +191,21 @@
 - **Recommendation**: Implement navigation to transaction detail page.
 - **Resolution**: View Details button now navigates to correct transaction detail page based on type (Cluster G).
 
-#### AC-21: No Confirmation Dialog Before Hard Delete
+#### AC-21: No Confirmation Dialog Before Hard Delete — DEFERRED
 
 - **Category**: UX
 - **File**: `apps/web/src/lib/accounting/transactionDeleteService.ts`
 - **Issue**: Hard delete is irreversible but service function doesn't require explicit confirmation.
 - **Recommendation**: Add confirmation parameter or require UI dialog before calling.
+- **Resolution**: Deferred — service layer doesn't enforce UI confirmation by design. Confirmation dialogs are a UI-layer responsibility.
 
-#### AC-22: Payment Batch Query orderBy Not Validated
+#### AC-22: Payment Batch Query orderBy Not Validated — VERIFIED
 
 - **Category**: Code Quality
 - **File**: `apps/web/src/lib/accounting/paymentBatchService.ts` (lines 226-239)
 - **Issue**: `listPaymentBatches()` accepts arbitrary `orderBy` field name. Invalid field causes Firestore error.
 - **Recommendation**: Validate against allowed fields: `['createdAt', 'submittedAt', 'approvedAt', 'status']`.
+- **Resolution**: Already type-constrained — `orderBy` parameter is typed to valid fields, preventing arbitrary field names at compile time.
 
 #### AC-23: GRN Bills Error Message Not Actionable — FIXED (Cluster G)
 
@@ -210,12 +215,13 @@
 - **Recommendation**: Add link to Chart of Accounts setup page.
 - **Resolution**: Improved error message to include specific missing account info and actionable guidance (Cluster G).
 
-#### AC-24: Max Payment Amount Arbitrary
+#### AC-24: Max Payment Amount Arbitrary — MITIGATED
 
 - **Category**: Code Quality
 - **File**: `apps/web/src/lib/accounting/paymentHelpers.ts` (lines 40-50)
 - **Issue**: MAX_PAYMENT_AMOUNT set to 1 trillion with no documented business justification.
 - **Recommendation**: Move to configuration with documented rationale.
+- **Resolution**: Mitigated — reasonable enterprise threshold with inline comment documenting the rationale.
 
 ## Summary
 
