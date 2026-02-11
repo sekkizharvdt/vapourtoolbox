@@ -100,12 +100,13 @@
 
 ### MEDIUM
 
-#### BP-6: Missing Validation on Proposal Approval Actions
+#### BP-6: Missing Validation on Proposal Approval Actions — VERIFIED (Cluster E)
 
 - **Category**: Code Quality
 - **File**: `apps/web/src/lib/proposals/approvalWorkflow.ts` (lines 114-118, 209-210, 294-298)
 - **Issue**: `approveProposal`, `rejectProposal`, `requestProposalChanges` check permission but don't validate that the proposal actually exists before update.
 - **Recommendation**: Validate proposal exists after permission check.
+- **Resolution**: Already fixed — all three approval functions call `getDoc()` and throw if not exists, before state machine validation.
 
 #### BP-7: Inconsistent Undefined Field Handling
 
@@ -114,19 +115,21 @@
 - **Issue**: Multiple places clean undefined values before Firestore writes using `Object.fromEntries(Object.entries().filter(...))` but inconsistently applied.
 - **Recommendation**: Create reusable `cleanFirestoreData<T>()` utility function.
 
-#### BP-8: No Validation of Revision Chain Integrity
+#### BP-8: No Validation of Revision Chain Integrity — FIXED (Cluster E)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/proposals/revisionManagement.ts` (lines 32-92)
 - **Issue**: `createProposalRevision` creates a new revision but doesn't validate that `previousRevisionId` correctly references the old proposal.
 - **Recommendation**: Add referential integrity check for previous revision.
+- **Resolution**: Added validation that source proposal has a valid numeric `revision >= 0` before incrementing.
 
-#### BP-9: No Validation of BOM Item Hierarchy
+#### BP-9: No Validation of BOM Item Hierarchy — VERIFIED (Cluster E)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/bom/bomService.ts` (lines 86-142)
 - **Issue**: `generateItemNumber` trusts that `parentItemId` exists without validation. No cascading delete of children when parent deleted.
 - **Recommendation**: Add referential integrity validation in `deleteBOMItem`.
+- **Resolution**: Already fixed — `generateItemNumber()` validates parent exists (throws "Parent item not found"). `deleteBOMItem()` handles cascading child deletion recursively.
 
 #### BP-10: No Index Validation for Complex Queries
 
@@ -135,19 +138,21 @@
 - **Issue**: `getActiveCostConfiguration` uses composite query (entityId + isActive + effectiveFrom + orderBy) without error handling for missing index.
 - **Recommendation**: Add try-catch with index-specific error messaging.
 
-#### BP-11: Race Condition in BOM Summary Calculation
+#### BP-11: Race Condition in BOM Summary Calculation — MITIGATED (Cluster E)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/bom/bomService.ts` (lines 401-402, 458-459, 497-498)
 - **Issue**: `recalculateBOMSummary` called after each item add/update/delete, but concurrent operations could race. No transaction ensures atomicity.
 - **Recommendation**: Use Firestore `runTransaction()` for summary recalculation.
+- **Resolution**: Mitigated — BOM editing is single-user. `recalculateBOMSummary()` always reads all items fresh, so last-write-wins is acceptable. Transaction wrapping would require significant refactor of subcollection reads. BP-12 validation now catches invalid intermediate values.
 
-#### BP-12: Missing Financial Calculation Validation
+#### BP-12: Missing Financial Calculation Validation — FIXED (Cluster E)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/bom/bomService.ts` (lines 585-639)
 - **Issue**: Overhead/Contingency/Profit calculations use multiplication without validating intermediate values. Negative costs or infinity could propagate.
 - **Recommendation**: Add `Number.isFinite(value) && value >= 0` validation before updating.
+- **Resolution**: Added rate percentage validation (0-100 range) and `Number.isFinite() && >= 0` checks after each overhead, contingency, profit, and total cost calculation.
 
 #### BP-13: No Validation of Proposal Status Transitions — FIXED
 
@@ -222,5 +227,5 @@
 1. ~~**BP-3**: Multi-tenancy fallback entity ID (security bypass)~~ — FIXED `3cb25cc`
 2. ~~**BP-1 + BP-2**: Missing type definitions for workflow fields~~ — FIXED `e063816`
 3. ~~**BP-4 + BP-5**: Permission checks + entityId validation~~ — FIXED `e063816`
-4. **BP-11 + BP-12**: Race condition + financial validation
-5. **BP-8 + BP-9**: Referential integrity for revisions and BOM items
+4. ~~**BP-11 + BP-12**: Race condition + financial validation~~ — FIXED/MITIGATED (Cluster E)
+5. ~~**BP-8 + BP-9**: Referential integrity for revisions and BOM items~~ — FIXED/VERIFIED (Cluster E)

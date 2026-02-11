@@ -179,12 +179,13 @@
 - **Recommendation**: Disable status toggle for cancelled tasks.
 - **Resolution**: Added `isTerminal` flag for `done`/`cancelled` statuses. Disabled status toggle IconButton for terminal states. Updated tooltip to show "Completed"/"Cancelled" instead of suggesting a next status.
 
-#### FL-19: No Validation of Assignee Permissions on Task Creation
+#### FL-19: No Validation of Assignee Permissions on Task Creation — FIXED (Cluster E)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/app/flow/tasks/components/CreateTaskDialog.tsx` (lines 122-158)
 - **Issue**: Task can be assigned to any user in picker, including deactivated or external users.
 - **Recommendation**: Filter assignee picker to users with same entityId and active status.
+- **Resolution**: Added service-layer validation in `createManualTask()` — verifies assignee user exists and `isActive !== false` before creating task.
 
 #### FL-20: Meeting List Not Paginated
 

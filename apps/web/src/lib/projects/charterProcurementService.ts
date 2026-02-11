@@ -34,6 +34,21 @@ export async function addProcurementItem(
     const project = projectSnap.data() as Project;
     const currentItems = project.procurementItems || [];
 
+    // PE-11: Validate preferred vendors exist and are not archived
+    if (item.preferredVendors && item.preferredVendors.length > 0) {
+      for (const vendorId of item.preferredVendors) {
+        const vendorRef = doc(db, COLLECTIONS.ENTITIES, vendorId);
+        const vendorSnap = await getDoc(vendorRef);
+        if (!vendorSnap.exists()) {
+          throw new Error(`Preferred vendor entity not found: ${vendorId}`);
+        }
+        const vendorData = vendorSnap.data();
+        if (vendorData?.isArchived) {
+          throw new Error(`Preferred vendor "${vendorData?.name || vendorId}" is archived`);
+        }
+      }
+    }
+
     // Generate ID for new item
     const itemId = `PROC-${crypto.randomUUID().slice(0, 8)}`;
 

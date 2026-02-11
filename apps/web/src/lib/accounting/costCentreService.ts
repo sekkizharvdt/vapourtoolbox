@@ -1,6 +1,8 @@
 import {
   collection,
-  addDoc,
+  doc,
+  getDoc,
+  setDoc,
   query,
   where,
   getDocs,
@@ -25,29 +27,24 @@ export async function createProjectCostCentre(
   userName: string
 ): Promise<string> {
   try {
-    // Check if cost centre already exists for this project
-    const existingQuery = query(
-      collection(db, COLLECTIONS.COST_CENTRES),
-      where('projectId', '==', projectId)
-    );
-    const existingSnapshot = await getDocs(existingQuery);
+    // AC-14: Use deterministic ID to prevent race condition from concurrent creation
+    const costCentreId = `CC-${projectId}`;
+    const existingRef = doc(db, COLLECTIONS.COST_CENTRES, costCentreId);
+    const existingDoc = await getDoc(existingRef);
 
-    if (!existingSnapshot.empty) {
-      const existingDoc = existingSnapshot.docs[0];
-      if (existingDoc) {
-        logger.info('Cost centre already exists for project', {
-          projectId,
-          costCentreId: existingDoc.id,
-        });
-        return existingDoc.id;
-      }
+    if (existingDoc.exists()) {
+      logger.info('Cost centre already exists for project', {
+        projectId,
+        costCentreId,
+      });
+      return costCentreId;
     }
 
     // Generate cost centre code from project code
     // Example: Project PRJ-001 -> Cost Centre CC-PRJ-001
     const costCentreCode = `CC-${projectCode}`;
 
-    // Create cost centre
+    // Create cost centre with deterministic ID (setDoc is idempotent on same ID)
     const costCentreData: Omit<CostCentre, 'id'> = {
       code: costCentreCode,
       name: `${projectName} - Cost Centre`,
@@ -67,16 +64,16 @@ export async function createProjectCostCentre(
       updatedBy: userId,
     };
 
-    const costCentreRef = await addDoc(collection(db, COLLECTIONS.COST_CENTRES), costCentreData);
+    await setDoc(existingRef, costCentreData);
 
     logger.info('Cost centre created for project', {
       projectId,
-      costCentreId: costCentreRef.id,
+      costCentreId,
       costCentreCode,
       userName,
     });
 
-    return costCentreRef.id;
+    return costCentreId;
   } catch (error) {
     logger.error('Failed to create cost centre for project', {
       error,

@@ -53,6 +53,11 @@ export async function createProposalRevision(
       ...proposalData,
     };
 
+    // BP-8: Validate revision chain integrity before creating new revision
+    if (typeof currentProposal.revision !== 'number' || currentProposal.revision < 0) {
+      throw new Error(`Invalid revision number on source proposal: ${currentProposal.revision}`);
+    }
+
     // Create new revision
     const newRevision: Omit<Proposal, 'id'> = {
       ...currentProposal,

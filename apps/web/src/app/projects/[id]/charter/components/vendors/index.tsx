@@ -183,6 +183,12 @@ export function VendorsTab({ project }: VendorsTabProps) {
       setError('Contact person and email are required');
       return;
     }
+    // PE-4: Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.contactEmail.trim())) {
+      setError('Please enter a valid email address');
+      return;
+    }
 
     // PE-17: Validate selected entity actually has VENDOR role
     if (formData.vendorEntityId) {

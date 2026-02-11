@@ -78,9 +78,11 @@ export async function createHoliday(
 
   try {
     const now = Timestamp.now();
-    const holidayRef = doc(collection(db, COLLECTIONS.HR_HOLIDAYS));
-
     const year = input.date.getFullYear();
+
+    // HR-13: Deterministic ID prevents duplicate holidays on same date
+    const dateKey = `${year}-${String(input.date.getMonth() + 1).padStart(2, '0')}-${String(input.date.getDate()).padStart(2, '0')}`;
+    const holidayRef = doc(db, COLLECTIONS.HR_HOLIDAYS, `holiday-${dateKey}`);
 
     const holidayData: Omit<Holiday, 'id'> = {
       name: input.name,
@@ -491,7 +493,9 @@ export async function copyHolidaysToYear(
       }
 
       const now = Timestamp.now();
-      const holidayRef = doc(collection(db, COLLECTIONS.HR_HOLIDAYS));
+      // HR-13: Deterministic ID prevents duplicate holidays on same date
+      const targetDateKey = `${targetYear}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+      const holidayRef = doc(db, COLLECTIONS.HR_HOLIDAYS, `holiday-${targetDateKey}`);
 
       const holidayData: Omit<Holiday, 'id'> = {
         name: holiday.name,

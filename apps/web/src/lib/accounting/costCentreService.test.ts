@@ -12,15 +12,21 @@ jest.mock('@vapour/firebase', () => ({
 }));
 
 // Mock Firebase Firestore
-const mockAddDoc = jest.fn().mockResolvedValue({ id: 'new-cost-centre-id' });
+const mockGetDoc = jest.fn();
+const mockSetDoc = jest.fn().mockResolvedValue(undefined);
 const mockGetDocs = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((_db, collectionName) => ({ path: collectionName })),
+  doc: jest.fn((_db, collectionName, docId) => ({
+    path: `${collectionName}/${docId}`,
+    id: docId,
+  })),
   query: jest.fn((...args) => args),
   where: jest.fn((field, op, value) => ({ field, op, value })),
+  getDoc: (...args: unknown[]) => mockGetDoc(...args),
   getDocs: (...args: unknown[]) => mockGetDocs(...args),
-  addDoc: (...args: unknown[]) => mockAddDoc(...args),
+  setDoc: (...args: unknown[]) => mockSetDoc(...args),
   serverTimestamp: jest.fn(() => ({ _serverTimestamp: true })),
 }));
 
@@ -54,9 +60,9 @@ describe('costCentreService', () => {
 
   describe('createProjectCostCentre', () => {
     it('creates a new cost centre when none exists', async () => {
-      mockGetDocs.mockResolvedValue({
-        empty: true,
-        docs: [],
+      // AC-14: getDoc returns not-exists for deterministic ID
+      mockGetDoc.mockResolvedValue({
+        exists: () => false,
       });
 
       const result = await createProjectCostCentre(
@@ -69,27 +75,29 @@ describe('costCentreService', () => {
         'Test User'
       );
 
-      expect(result).toBe('new-cost-centre-id');
-      expect(mockAddDoc).toHaveBeenCalledTimes(1);
+      // AC-14: Deterministic ID based on projectId
+      expect(result).toBe('CC-project-123');
+      expect(mockSetDoc).toHaveBeenCalledTimes(1);
 
       // Verify the created cost centre data
-      const addDocCall = mockAddDoc.mock.calls[0][1];
-      expect(addDocCall.code).toBe('CC-PRJ-001');
-      expect(addDocCall.name).toBe('Test Project - Cost Centre');
-      expect(addDocCall.projectId).toBe('project-123');
-      expect(addDocCall.budgetAmount).toBe(100000);
-      expect(addDocCall.budgetCurrency).toBe('INR');
-      expect(addDocCall.actualSpent).toBe(0);
-      expect(addDocCall.variance).toBe(100000);
-      expect(addDocCall.isActive).toBe(true);
-      expect(addDocCall.autoCreated).toBe(true);
-      expect(addDocCall.createdBy).toBe('user-123');
+      const setDocCall = mockSetDoc.mock.calls[0][1];
+      expect(setDocCall.code).toBe('CC-PRJ-001');
+      expect(setDocCall.name).toBe('Test Project - Cost Centre');
+      expect(setDocCall.projectId).toBe('project-123');
+      expect(setDocCall.budgetAmount).toBe(100000);
+      expect(setDocCall.budgetCurrency).toBe('INR');
+      expect(setDocCall.actualSpent).toBe(0);
+      expect(setDocCall.variance).toBe(100000);
+      expect(setDocCall.isActive).toBe(true);
+      expect(setDocCall.autoCreated).toBe(true);
+      expect(setDocCall.createdBy).toBe('user-123');
     });
 
     it('returns existing cost centre ID if one already exists', async () => {
-      mockGetDocs.mockResolvedValue({
-        empty: false,
-        docs: [{ id: 'existing-cost-centre-id', data: () => ({}) }],
+      // AC-14: getDoc returns exists for deterministic ID
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        id: 'CC-project-123',
       });
 
       const result = await createProjectCostCentre(
@@ -102,14 +110,13 @@ describe('costCentreService', () => {
         'Test User'
       );
 
-      expect(result).toBe('existing-cost-centre-id');
-      expect(mockAddDoc).not.toHaveBeenCalled();
+      expect(result).toBe('CC-project-123');
+      expect(mockSetDoc).not.toHaveBeenCalled();
     });
 
     it('handles null budget amount', async () => {
-      mockGetDocs.mockResolvedValue({
-        empty: true,
-        docs: [],
+      mockGetDoc.mockResolvedValue({
+        exists: () => false,
       });
 
       await createProjectCostCentre(
@@ -122,15 +129,14 @@ describe('costCentreService', () => {
         'Test User'
       );
 
-      const addDocCall = mockAddDoc.mock.calls[0][1];
-      expect(addDocCall.budgetAmount).toBeNull();
-      expect(addDocCall.variance).toBeNull();
+      const setDocCall = mockSetDoc.mock.calls[0][1];
+      expect(setDocCall.budgetAmount).toBeNull();
+      expect(setDocCall.variance).toBeNull();
     });
 
     it('generates correct cost centre code from project code', async () => {
-      mockGetDocs.mockResolvedValue({
-        empty: true,
-        docs: [],
+      mockGetDoc.mockResolvedValue({
+        exists: () => false,
       });
 
       await createProjectCostCentre(
@@ -143,13 +149,13 @@ describe('costCentreService', () => {
         'Test User'
       );
 
-      const addDocCall = mockAddDoc.mock.calls[0][1];
-      expect(addDocCall.code).toBe('CC-DESOLENATOR-2026');
-      expect(addDocCall.description).toBe('Auto-created cost centre for project DESOLENATOR-2026');
+      const setDocCall = mockSetDoc.mock.calls[0][1];
+      expect(setDocCall.code).toBe('CC-DESOLENATOR-2026');
+      expect(setDocCall.description).toBe('Auto-created cost centre for project DESOLENATOR-2026');
     });
 
     it('throws error when Firestore operation fails', async () => {
-      mockGetDocs.mockRejectedValue(new Error('Firestore error'));
+      mockGetDoc.mockRejectedValue(new Error('Firestore error'));
 
       await expect(
         createProjectCostCentre(

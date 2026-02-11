@@ -25,12 +25,12 @@ Each module is audited against these categories:
 | Phase | Module(s)                    | Status                           | Report                                                       |
 | ----- | ---------------------------- | -------------------------------- | ------------------------------------------------------------ |
 | 0     | GRN Bills (narrow)           | COMPLETE (15 findings, 12 fixed) | [phase-0-grn-bills.md](phase-0-grn-bills.md)                 |
-| 1     | Accounting                   | COMPLETE (24 findings, 12 fixed) | [phase-1-accounting.md](phase-1-accounting.md)               |
-| 2     | Procurement                  | COMPLETE (22 findings, 14 fixed) | [phase-2-procurement.md](phase-2-procurement.md)             |
-| 3     | Proposals + Estimation/BOM   | COMPLETE (20 findings, 7 fixed)  | [phase-3-proposals-bom.md](phase-3-proposals-bom.md)         |
-| 4     | HR                           | COMPLETE (20 findings, 13 fixed) | [phase-4-hr.md](phase-4-hr.md)                               |
-| 5     | Flow (Tasks/Inbox/Meetings)  | COMPLETE (23 findings, 16 fixed) | [phase-5-flow.md](phase-5-flow.md)                           |
-| 6     | Projects + Entities + SSOT   | COMPLETE (20 findings, 11 fixed) | [phase-6-projects-entities.md](phase-6-projects-entities.md) |
+| 1     | Accounting                   | COMPLETE (24 findings, 14 fixed) | [phase-1-accounting.md](phase-1-accounting.md)               |
+| 2     | Procurement                  | COMPLETE (22 findings, 16 fixed) | [phase-2-procurement.md](phase-2-procurement.md)             |
+| 3     | Proposals + Estimation/BOM   | COMPLETE (20 findings, 12 fixed) | [phase-3-proposals-bom.md](phase-3-proposals-bom.md)         |
+| 4     | HR                           | COMPLETE (20 findings, 14 fixed) | [phase-4-hr.md](phase-4-hr.md)                               |
+| 5     | Flow (Tasks/Inbox/Meetings)  | COMPLETE (23 findings, 17 fixed) | [phase-5-flow.md](phase-5-flow.md)                           |
+| 6     | Projects + Entities + SSOT   | COMPLETE (20 findings, 15 fixed) | [phase-6-projects-entities.md](phase-6-projects-entities.md) |
 | 7     | Auth/Permissions + Admin     | COMPLETE (20 findings, 12 fixed) | [phase-7-auth-admin.md](phase-7-auth-admin.md)               |
 | 8     | Shared Packages + API Routes | COMPLETE (26 findings, 26 fixed) | [phase-8-shared-packages.md](phase-8-shared-packages.md)     |
 
@@ -46,7 +46,7 @@ Each module is audited against these categories:
 
 ## Fix Progress
 
-**126 of 190 findings fixed** (66%) across 19 commits + 19 verified/mitigated + 8 pre-audit Phase 0 fixes.
+**141 of 190 findings fixed** (74%) across 19 commits + 19 verified/mitigated + 8 pre-audit Phase 0 fixes.
 
 | Commit    | Description                                      | Findings Fixed                                                         | Count |
 | --------- | ------------------------------------------------ | ---------------------------------------------------------------------- | ----- |
@@ -71,6 +71,8 @@ Each module is audited against these categories:
 | verified  | Cluster C: Verified/mitigated                    | AA-5, AA-6                                                             | 2     |
 | `f4b320d` | Cluster D: Cloud Functions hardening             | SP-3, SP-14, SP-15, SP-16, SP-20, SP-22, SP-23, SP-25, SP-10           | 9     |
 | verified  | Cluster D: Verified/mitigated                    | SP-4, SP-5, SP-6, SP-8, SP-9, SP-11, SP-12, SP-17, SP-18, SP-21, SP-24 | 11    |
+| pending   | Cluster E: Service-layer validation              | BP-8, BP-12, PR-13, AC-14, AC-15, HR-13, FL-19, PE-4, PE-11, PE-19     | 10    |
+| verified  | Cluster E: Verified/mitigated                    | BP-6, BP-9, BP-11, PE-3, PR-15                                         | 5     |
 
 ### By Severity
 
@@ -78,9 +80,9 @@ Each module is audited against these categories:
 | --------- | ------- | ------- | --------- |
 | CRITICAL  | 27      | **27**  | **0**     |
 | HIGH      | 43      | **43**  | **0**     |
-| MEDIUM    | 82      | **50**  | 32        |
+| MEDIUM    | 82      | **65**  | 17        |
 | LOW       | 38      | **6**   | 32        |
-| **Total** | **190** | **126** | **64**    |
+| **Total** | **190** | **141** | **49**    |
 
 ### Remaining CRITICAL & HIGH Findings
 

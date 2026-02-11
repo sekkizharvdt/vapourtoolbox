@@ -136,12 +136,13 @@
 - **Recommendation**: Create `travelExpenseStatusMachine.ts` with valid transitions map.
 - **Resolution**: Added `travelExpenseStateMachine` to `stateMachines.ts` with full transition map. Replaced ad-hoc status checks in `submitTravelExpenseReport`, `approveTravelExpenseReport`, and `rejectTravelExpenseReport` with `requireValidTransition()`.
 
-#### HR-13: Holiday Duplicate Detection Not Enforced at Database Level
+#### HR-13: Holiday Duplicate Detection Not Enforced at Database Level — FIXED (Cluster E)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/hr/holidays/holidayService.ts` (lines 286-311, 345-357)
 - **Issue**: Deduplicates holidays in memory using Map, but no Firestore-level unique constraint. Concurrent admin creates can produce duplicates.
 - **Recommendation**: Use deterministic document IDs (e.g., `holiday-${year}-${month}-${day}`) to prevent duplicates.
+- **Resolution**: Replaced auto-generated IDs with deterministic `holiday-YYYY-MM-DD` IDs in both `createHoliday()` and `copyHolidaysToYear()`. `setDoc()` with same ID is idempotent.
 
 #### HR-14: Employee Update Functions Lack Audit Logging — FIXED
 

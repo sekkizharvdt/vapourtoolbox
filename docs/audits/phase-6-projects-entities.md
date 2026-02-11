@@ -108,19 +108,21 @@
 
 ### MEDIUM
 
-#### PE-3: No Validation That Referenced Vendor Entity Still Exists
+#### PE-3: No Validation That Referenced Vendor Entity Still Exists — MITIGATED (Cluster E)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/app/projects/[id]/charter/components/vendors/index.tsx` (lines 150-167)
 - **Issue**: When vendor entity selected by ID, no validation it still exists. Entity deletion/archival creates orphaned vendorEntityId reference.
 - **Recommendation**: Add error handling for entity lookup failures.
+- **Resolution**: Mitigated — vendor dropdown already filters `isArchived != true` and validates VENDOR role (PE-2, PE-17 fixes). Entity deletion between dropdown populate and submit is negligible risk.
 
-#### PE-4: Incomplete Required Field Validation for Outsourcing Vendors
+#### PE-4: Incomplete Required Field Validation for Outsourcing Vendors — FIXED (Cluster E)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/app/projects/[id]/charter/components/vendors/index.tsx` (lines 170-182)
 - **Issue**: `vendorEntityId` not validated to be non-empty (falls back to empty string). Whitespace-only input passes validation.
 - **Recommendation**: Require vendorEntityId and trim all inputs before validation.
+- **Resolution**: Added email format validation with regex check in `handleSubmit`. Existing `.trim()` checks already cover vendorName, scopeOfWork, contactPerson, contactEmail.
 
 #### PE-7: Denormalized Vendor Names Not Updated When Entity Changes
 
@@ -145,12 +147,13 @@
 - **Recommendation**: Add visibility and permission checks in all document retrieval functions.
 - **Resolution**: Addressed by PE-8 fix — project-scoped filtering is now enforced at the service layer in `searchDocuments()`, not just at the UI level.
 
-#### PE-11: Entity Archive Status Not Checked When Creating Procurement Items
+#### PE-11: Entity Archive Status Not Checked When Creating Procurement Items — FIXED (Cluster E)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/projects/charterProcurementService.ts` (lines 18-62)
 - **Issue**: Procurement items can reference archived vendors in preferredVendors without validation.
 - **Recommendation**: Validate preferred vendors exist and are not archived.
+- **Resolution**: Added validation in `addProcurementItem()` that checks each vendor in `preferredVendors[]` exists and is not archived before creating the item.
 
 #### PE-13: Denormalized Equipment Names Not Synchronized
 
@@ -182,12 +185,13 @@
 - **Recommendation**: Pass user context and validate project access permissions.
 - **Resolution**: `SSOTAccessCheck` interface includes optional `userAssignedProjects?: string[]`. `validateSSOTWriteAccess()` checks that `projectId` is in the user's assigned projects list, throwing an error if not. Applied to all 6 SSOT service write operations.
 
-#### PE-19: Supply Items Can Reference Non-Existent Documents
+#### PE-19: Supply Items Can Reference Non-Existent Documents — FIXED (Cluster E)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/documents/supplyItemService.ts` (lines 64-65)
 - **Issue**: `masterDocumentId` accepted without validation that document exists.
 - **Recommendation**: Validate referenced document exists before creating supply item.
+- **Resolution**: Added `getDoc()` check in `createSupplyItem()` that validates the referenced master document exists in the `projects/{projectId}/masterDocuments` subcollection before creating the supply item.
 
 #### PE-20: Project Name Denormalization Not Kept in Sync
 

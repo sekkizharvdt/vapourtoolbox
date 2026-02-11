@@ -392,13 +392,17 @@ describe('createBillFromGoodsReceipt', () => {
   it('should throw error if GL generation fails', async () => {
     const gr = createMockGoodsReceipt();
     const po = createMockPurchaseOrder();
+    const grItem = createMockGRItem();
+    const poItem = createMockPOItem();
 
     mockGetDoc
       .mockResolvedValueOnce({ exists: () => true, id: po.id, data: () => po })
       .mockResolvedValueOnce({ exists: () => true }) // PR-10: project validation
       .mockResolvedValueOnce({ exists: () => true }); // PE-12: vendor validation
 
-    mockGetDocs.mockResolvedValueOnce({ docs: [] }).mockResolvedValueOnce({ docs: [] });
+    mockGetDocs
+      .mockResolvedValueOnce({ docs: [{ id: grItem.id, data: () => grItem }] })
+      .mockResolvedValueOnce({ docs: [{ id: poItem.id, data: () => poItem }] });
 
     mockGenerateBillGLEntries.mockResolvedValueOnce({
       success: false,
@@ -413,13 +417,17 @@ describe('createBillFromGoodsReceipt', () => {
   it('should update goods receipt with bill reference', async () => {
     const gr = createMockGoodsReceipt();
     const po = createMockPurchaseOrder();
+    const grItem = createMockGRItem();
+    const poItem = createMockPOItem();
 
     mockGetDoc
       .mockResolvedValueOnce({ exists: () => true, id: po.id, data: () => po })
       .mockResolvedValueOnce({ exists: () => true }) // PR-10: project validation
       .mockResolvedValueOnce({ exists: () => true }); // PE-12: vendor validation
 
-    mockGetDocs.mockResolvedValueOnce({ docs: [] }).mockResolvedValueOnce({ docs: [] });
+    mockGetDocs
+      .mockResolvedValueOnce({ docs: [{ id: grItem.id, data: () => grItem }] })
+      .mockResolvedValueOnce({ docs: [{ id: poItem.id, data: () => poItem }] });
 
     await createBillFromGoodsReceipt(mockDb, gr, 'user-1', 'user@test.com');
 
@@ -428,6 +436,23 @@ describe('createBillFromGoodsReceipt', () => {
       expect.objectContaining({
         paymentRequestId: 'bill-1',
       })
+    );
+  });
+
+  it('should throw error when no accepted items (PR-13)', async () => {
+    const gr = createMockGoodsReceipt();
+    const po = createMockPurchaseOrder();
+
+    mockGetDoc
+      .mockResolvedValueOnce({ exists: () => true, id: po.id, data: () => po })
+      .mockResolvedValueOnce({ exists: () => true }) // PR-10: project validation
+      .mockResolvedValueOnce({ exists: () => true }); // PE-12: vendor validation
+
+    // No GR items → subtotal will be 0
+    mockGetDocs.mockResolvedValueOnce({ docs: [] }).mockResolvedValueOnce({ docs: [] });
+
+    await expect(createBillFromGoodsReceipt(mockDb, gr, 'user-1', 'user@test.com')).rejects.toThrow(
+      'no accepted items'
     );
   });
 });

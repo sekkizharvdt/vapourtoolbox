@@ -45,6 +45,14 @@ export async function getCurrentFiscalYear(db: Firestore): Promise<FiscalYear | 
       return null;
     }
 
+    // AC-15: Detect multiple current fiscal years (data integrity issue)
+    if (snapshot.size > 1) {
+      logger.error('Data integrity issue: multiple fiscal years marked as current', {
+        count: snapshot.size,
+        ids: snapshot.docs.map((d) => d.id),
+      });
+    }
+
     const firstDoc = snapshot.docs[0];
     if (!firstDoc) {
       logger.warn('No current fiscal year document');

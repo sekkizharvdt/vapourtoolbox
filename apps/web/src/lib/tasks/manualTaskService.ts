@@ -84,6 +84,19 @@ export async function createManualTask(
   userName: string,
   entityId: string
 ): Promise<ManualTask> {
+  // FL-19: Validate assignee exists and is active
+  if (input.assigneeId) {
+    const assigneeRef = doc(db, COLLECTIONS.USERS, input.assigneeId);
+    const assigneeSnap = await getDoc(assigneeRef);
+    if (!assigneeSnap.exists()) {
+      throw new Error(`Assigned user not found: ${input.assigneeId}`);
+    }
+    const assigneeData = assigneeSnap.data();
+    if (assigneeData?.isActive === false) {
+      throw new Error('Cannot assign task to inactive user');
+    }
+  }
+
   const now = Timestamp.now();
 
   const taskData: Record<string, unknown> = {

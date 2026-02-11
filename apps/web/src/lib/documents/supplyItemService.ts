@@ -12,6 +12,7 @@ import {
   collection,
   doc,
   addDoc,
+  getDoc,
   updateDoc,
   deleteDoc,
   getDocs,
@@ -55,6 +56,21 @@ export async function createSupplyItem(
   db: Firestore,
   request: CreateSupplyItemRequest
 ): Promise<string> {
+  // PE-19: Validate referenced master document exists
+  if (request.masterDocumentId) {
+    const masterDocRef = doc(
+      db,
+      'projects',
+      request.projectId,
+      'masterDocuments',
+      request.masterDocumentId
+    );
+    const masterDocSnap = await getDoc(masterDocRef);
+    if (!masterDocSnap.exists()) {
+      throw new Error(`Referenced master document not found: ${request.masterDocumentId}`);
+    }
+  }
+
   // Calculate estimated total cost
   const estimatedTotalCost = request.estimatedUnitCost
     ? request.estimatedUnitCost * request.quantity

@@ -129,12 +129,13 @@
 - **Recommendation**: Validate state transition inside the transaction to prevent races.
 - **Resolution**: Already fixed — `completeGR()` now validates with `goodsReceiptStateMachine.validateTransition()` both before (line 356) and inside (lines 380-387) the Firestore transaction.
 
-#### PR-13: Bill Fallback to PO Amounts When No Items Accepted
+#### PR-13: Bill Fallback to PO Amounts When No Items Accepted — FIXED (Cluster E)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/procurement/accountingIntegration.ts` (lines 159-163)
 - **Issue**: When no GR items are accepted (subtotal=0), falls back to full PO amounts with only a `logger.warn`. Creates incorrect bill silently.
 - **Recommendation**: Reject bill creation if no items accepted rather than falling back.
+- **Resolution**: Replaced `logger.warn` fallback with `throw new AccountingIntegrationError('NO_ACCEPTED_ITEMS')`. Bill creation now requires at least one accepted item.
 
 #### PR-14: Amendment Submission Not Idempotent
 
@@ -143,12 +144,13 @@
 - **Issue**: `submitAmendmentForApproval()` not wrapped in `withIdempotency()` like PO/GR creation. Double-click creates duplicate history entries.
 - **Recommendation**: Wrap in `withIdempotency()` helper.
 
-#### PR-15: GR Items Lack Uniqueness Constraint
+#### PR-15: GR Items Lack Uniqueness Constraint — VERIFIED (Cluster E)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/procurement/goodsReceiptService.ts` (lines 173-206)
 - **Issue**: GR items created with auto-generated IDs. No constraint prevents duplicate items with same `goodsReceiptId + lineNumber`. Calling `createGoodsReceipt` twice creates duplicate items.
 - **Recommendation**: Use deterministic document IDs like `{grId}_item_{lineNumber}`.
+- **Resolution**: Already mitigated — GR items are created atomically inside `runTransaction()` with sequential iteration from the input array. The `withIdempotency()` wrapper prevents duplicate GR creation from double-clicks or network retries.
 
 #### PR-16: Missing Dedicated Permission Flags for GR Operations — FIXED
 

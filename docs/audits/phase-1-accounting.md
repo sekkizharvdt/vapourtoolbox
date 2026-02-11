@@ -132,19 +132,21 @@
 - **Issue**: `getRecurringTransactions()` loads ALL recurring transactions with no `limit()` clause.
 - **Recommendation**: Add pagination with `limit(pageSize)` and cursor-based pagination.
 
-#### AC-14: Cost Centre Auto-Creation Race Condition
+#### AC-14: Cost Centre Auto-Creation Race Condition — FIXED (Cluster E)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/accounting/costCentreService.ts` (lines 18-89)
 - **Issue**: `createProjectCostCentre()` does check-then-create without transaction lock. Concurrent requests can create duplicate cost centres for the same project.
 - **Recommendation**: Use Firestore transaction with `set()` on a deterministic document ID.
+- **Resolution**: Replaced `addDoc()` with `setDoc()` using deterministic ID `CC-${projectId}`. Replaced query-based existence check with direct `getDoc()` on the deterministic ID. Concurrent creates now idempotently overwrite.
 
-#### AC-15: Fiscal Year "Current" Not Exclusive
+#### AC-15: Fiscal Year "Current" Not Exclusive — FIXED (Cluster E)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/accounting/fiscalYearService.ts` (lines 37-59)
 - **Issue**: `getCurrentFiscalYear()` queries `isCurrent == true` but returns only first result if multiple exist. No validation of uniqueness.
 - **Recommendation**: Add validation: `if (docs.length > 1) throw new Error('Multiple current fiscal years found')`.
+- **Resolution**: Added `snapshot.size > 1` check that logs error with count and IDs when multiple current fiscal years detected. Returns first result to avoid breaking UX.
 
 #### AC-16: TODO Left in Production Code
 

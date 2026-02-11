@@ -197,11 +197,12 @@ export async function createBillFromGoodsReceipt(
       totalGST += itemGST;
     }
 
-    // If no items were accepted, use full PO amounts (shouldn't happen but failsafe)
+    // PR-13: Throw error when no accepted items — bill should only reflect accepted quantities
     if (subtotal === 0) {
-      logger.warn('No accepted items found, using full PO amounts');
-      subtotal = purchaseOrder.subtotal;
-      totalGST = purchaseOrder.totalTax;
+      throw new AccountingIntegrationError(
+        'Cannot create bill: no accepted items found in goods receipt. Verify goods receipt items have accepted quantities before creating a bill.',
+        'NO_ACCEPTED_ITEMS'
+      );
     }
 
     const totalAmount = subtotal + totalGST;

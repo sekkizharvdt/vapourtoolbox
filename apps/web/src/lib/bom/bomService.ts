@@ -600,6 +600,18 @@ export async function recalculateBOMSummary(
       summary.costConfigId = costConfig.id;
       summary.lastCalculated = Timestamp.now();
 
+      // BP-12: Validate rate percentages before calculations
+      const rates = [
+        { name: 'overhead', value: costConfig.overhead.ratePercent },
+        { name: 'contingency', value: costConfig.contingency.ratePercent },
+        { name: 'profit', value: costConfig.profit.ratePercent },
+      ];
+      for (const rate of rates) {
+        if (!Number.isFinite(rate.value) || rate.value < 0 || rate.value > 100) {
+          throw new Error(`Invalid ${rate.name} rate: ${rate.value}%. Must be 0-100.`);
+        }
+      }
+
       // Step 1: Calculate Overhead
       if (costConfig.overhead.enabled && costConfig.overhead.ratePercent > 0) {
         let overheadBaseCost = 0;
@@ -621,6 +633,10 @@ export async function recalculateBOMSummary(
         }
 
         summary.overhead.amount = (overheadBaseCost * costConfig.overhead.ratePercent) / 100;
+        // BP-12: Validate calculation result
+        if (!Number.isFinite(summary.overhead.amount) || summary.overhead.amount < 0) {
+          throw new Error(`Invalid overhead calculation: ${summary.overhead.amount}`);
+        }
       }
 
       // Step 2: Calculate Contingency (applied to Direct + Overhead)
@@ -628,6 +644,10 @@ export async function recalculateBOMSummary(
         const contingencyBaseCost = summary.totalDirectCost.amount + summary.overhead.amount;
         summary.contingency.amount =
           (contingencyBaseCost * costConfig.contingency.ratePercent) / 100;
+        // BP-12: Validate calculation result
+        if (!Number.isFinite(summary.contingency.amount) || summary.contingency.amount < 0) {
+          throw new Error(`Invalid contingency calculation: ${summary.contingency.amount}`);
+        }
       }
 
       // Calculate subtotal (Direct + Overhead + Contingency)
@@ -637,10 +657,18 @@ export async function recalculateBOMSummary(
       // Step 3: Calculate Profit (applied to subtotal)
       if (costConfig.profit.enabled && costConfig.profit.ratePercent > 0) {
         summary.profit.amount = (subtotal * costConfig.profit.ratePercent) / 100;
+        // BP-12: Validate calculation result
+        if (!Number.isFinite(summary.profit.amount) || summary.profit.amount < 0) {
+          throw new Error(`Invalid profit calculation: ${summary.profit.amount}`);
+        }
       }
 
       // Final Total Cost
       summary.totalCost.amount = subtotal + summary.profit.amount;
+      // BP-12: Validate final total
+      if (!Number.isFinite(summary.totalCost.amount) || summary.totalCost.amount < 0) {
+        throw new Error(`Invalid total cost calculation: ${summary.totalCost.amount}`);
+      }
     } else {
       // No cost configuration - total cost is just direct costs
       summary.totalCost.amount = summary.totalDirectCost.amount;
