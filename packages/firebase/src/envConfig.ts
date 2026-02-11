@@ -117,17 +117,16 @@ export function validateFirebaseEnvironment(): {
   // Always validate client config (used in web app)
   const client = getFirebaseClientConfig();
 
-  // Only validate admin config if running server-side
+  // Only validate admin config if running server-side.
+  // For static export apps (output: 'export'), admin config is never needed by the
+  // web app — it's only used by Cloud Functions. During next build, this code runs
+  // server-side for prerendering but admin env vars may not be available in CI.
   let admin: FirebaseAdminConfig | undefined;
   if (typeof window === 'undefined') {
     try {
       admin = getFirebaseAdminConfig();
     } catch (error) {
-      // In production server context, missing admin config is fatal
-      if (process.env.NODE_ENV === 'production') {
-        throw error;
-      }
-      logger.warn('Firebase Admin config not available (non-production)', error);
+      logger.warn('Firebase Admin config not available', error);
     }
   }
 
