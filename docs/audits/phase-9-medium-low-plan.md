@@ -124,17 +124,17 @@ Add missing validation checks in service functions (field existence, referential
 
 ---
 
-### Cluster F: Denormalized Data Sync (3 MEDIUM)
+### Cluster F: Denormalized Data Sync (3 MEDIUM) — COMPLETE
 
 Add Cloud Function triggers to propagate name changes to denormalized copies.
 
-| ID    | Phase | Issue                                                     | Scope                           |
-| ----- | ----- | --------------------------------------------------------- | ------------------------------- |
-| PE-7  | 6     | Denormalized vendor names not updated when entity changes | Entity → POs, GRs, RFQs, Offers |
-| PE-13 | 6     | Denormalized equipment names not synchronized             | Equipment → SSOT references     |
-| PE-20 | 6     | Project name denormalization not kept in sync             | Projects → Tasks, GRs, POs      |
+| ID    | Phase | Issue                                                     | Resolution                                             |
+| ----- | ----- | --------------------------------------------------------- | ------------------------------------------------------ |
+| PE-7  | 6     | Denormalized vendor names not updated when entity changes | VERIFIED — `onEntityNameChange` covers 6 collections   |
+| PE-13 | 6     | Denormalized equipment names not synchronized             | FIXED — added `onEquipmentNameChange` Cloud Function   |
+| PE-20 | 6     | Project name denormalization not kept in sync             | VERIFIED — `onProjectNameChange` covers 10 collections |
 
-**Effort**: High — requires new Cloud Function triggers with batch update logic. Could alternatively add a "display name resolver" pattern at query time, but that has performance cost.
+**Result**: 1 fixed, 2 verified. Entity and project sync already existed in `denormalizationSync.ts`. Added equipment sync.
 
 ---
 

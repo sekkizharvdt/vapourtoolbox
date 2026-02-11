@@ -518,3 +518,131 @@ export const onProjectNameChange = onDocumentUpdated(
     }
   }
 );
+
+/**
+ * Sync equipment name/tag changes to denormalized locations
+ *
+ * Triggered when equipment in a project SSOT is updated.
+ * Updates equipmentName and equipmentCode in documents and purchase request items.
+ *
+ * PE-13: Equipment names are denormalized in:
+ * - documents (equipmentName, equipmentCode)
+ * - purchaseRequestItems (equipmentName, equipmentCode)
+ */
+export const onEquipmentNameChange = onDocumentUpdated(
+  'projects/{projectId}/equipment/{equipmentId}',
+  async (
+    event: FirestoreEvent<
+      Change<DocumentSnapshot> | undefined,
+      { projectId: string; equipmentId: string }
+    >
+  ) => {
+    const change = event.data;
+    if (!change) return;
+
+    const before = change.before.data();
+    const after = change.after.data();
+    if (!before || !after) return;
+
+    const equipmentId = event.params.equipmentId;
+    const oldName = before.equipmentName as string;
+    const newName = after.equipmentName as string;
+    const oldTag = before.equipmentTag as string;
+    const newTag = after.equipmentTag as string;
+
+    // Check what changed
+    const nameChanged = oldName !== newName && newName;
+    const tagChanged = oldTag !== newTag && newTag;
+
+    if (!nameChanged && !tagChanged) {
+      return;
+    }
+
+    console.log(`Equipment updated: ${equipmentId}`, {
+      nameChange: nameChanged ? `"${oldName}" -> "${newName}"` : 'unchanged',
+      tagChange: tagChanged ? `"${oldTag}" -> "${newTag}"` : 'unchanged',
+    });
+
+    const updates: Array<{
+      collection: string;
+      docId: string;
+      field: string;
+      value: string;
+    }> = [];
+
+    // Equipment name maps to equipmentName, equipment tag maps to equipmentCode
+    const equipmentMappings = [
+      { collection: 'documents', idField: 'equipmentId' },
+      { collection: 'purchaseRequestItems', idField: 'equipmentId' },
+    ];
+
+    // Query and update name fields
+    if (nameChanged) {
+      for (const mapping of equipmentMappings) {
+        try {
+          const querySnapshot = await db
+            .collection(mapping.collection)
+            .where(mapping.idField, '==', equipmentId)
+            .get();
+
+          for (const doc of querySnapshot.docs) {
+            const currentName = doc.data().equipmentName;
+            if (currentName === oldName) {
+              updates.push({
+                collection: mapping.collection,
+                docId: doc.id,
+                field: 'equipmentName',
+                value: newName,
+              });
+            }
+          }
+        } catch (error) {
+          console.error(
+            `Error querying ${mapping.collection} for equipment ${equipmentId}:`,
+            error
+          );
+        }
+      }
+    }
+
+    // Update equipment code (tag) fields
+    if (tagChanged) {
+      for (const mapping of equipmentMappings) {
+        try {
+          const querySnapshot = await db
+            .collection(mapping.collection)
+            .where(mapping.idField, '==', equipmentId)
+            .get();
+
+          for (const doc of querySnapshot.docs) {
+            const currentCode = doc.data().equipmentCode;
+            if (currentCode === oldTag) {
+              updates.push({
+                collection: mapping.collection,
+                docId: doc.id,
+                field: 'equipmentCode',
+                value: newTag,
+              });
+            }
+          }
+        } catch (error) {
+          console.error(
+            `Error querying ${mapping.collection} for equipment code ${equipmentId}:`,
+            error
+          );
+        }
+      }
+    }
+
+    // Execute batch updates
+    if (updates.length > 0) {
+      const result = await batchUpdate(updates);
+      console.log(`Equipment denormalization sync completed for ${equipmentId}:`, {
+        totalUpdates: updates.length,
+        ...result,
+      });
+    } else {
+      console.log(`No denormalized data to update for equipment ${equipmentId}`);
+    }
+  }
+);

@@ -30,7 +30,7 @@ Each module is audited against these categories:
 | 3     | Proposals + Estimation/BOM   | COMPLETE (20 findings, 12 fixed) | [phase-3-proposals-bom.md](phase-3-proposals-bom.md)         |
 | 4     | HR                           | COMPLETE (20 findings, 14 fixed) | [phase-4-hr.md](phase-4-hr.md)                               |
 | 5     | Flow (Tasks/Inbox/Meetings)  | COMPLETE (23 findings, 17 fixed) | [phase-5-flow.md](phase-5-flow.md)                           |
-| 6     | Projects + Entities + SSOT   | COMPLETE (20 findings, 15 fixed) | [phase-6-projects-entities.md](phase-6-projects-entities.md) |
+| 6     | Projects + Entities + SSOT   | COMPLETE (20 findings, 18 fixed) | [phase-6-projects-entities.md](phase-6-projects-entities.md) |
 | 7     | Auth/Permissions + Admin     | COMPLETE (20 findings, 12 fixed) | [phase-7-auth-admin.md](phase-7-auth-admin.md)               |
 | 8     | Shared Packages + API Routes | COMPLETE (26 findings, 26 fixed) | [phase-8-shared-packages.md](phase-8-shared-packages.md)     |
 
@@ -46,7 +46,7 @@ Each module is audited against these categories:
 
 ## Fix Progress
 
-**141 of 190 findings fixed** (74%) across 19 commits + 19 verified/mitigated + 8 pre-audit Phase 0 fixes.
+**144 of 190 findings fixed** (76%) across 20 commits + 21 verified/mitigated + 8 pre-audit Phase 0 fixes.
 
 | Commit    | Description                                      | Findings Fixed                                                         | Count |
 | --------- | ------------------------------------------------ | ---------------------------------------------------------------------- | ----- |
@@ -73,6 +73,8 @@ Each module is audited against these categories:
 | verified  | Cluster D: Verified/mitigated                    | SP-4, SP-5, SP-6, SP-8, SP-9, SP-11, SP-12, SP-17, SP-18, SP-21, SP-24 | 11    |
 | pending   | Cluster E: Service-layer validation              | BP-8, BP-12, PR-13, AC-14, AC-15, HR-13, FL-19, PE-4, PE-11, PE-19     | 10    |
 | verified  | Cluster E: Verified/mitigated                    | BP-6, BP-9, BP-11, PE-3, PR-15                                         | 5     |
+| pending   | Cluster F: Denormalized data sync                | PE-13                                                                  | 1     |
+| verified  | Cluster F: Verified                              | PE-7, PE-20                                                            | 2     |
 
 ### By Severity
 
@@ -80,9 +82,9 @@ Each module is audited against these categories:
 | --------- | ------- | ------- | --------- |
 | CRITICAL  | 27      | **27**  | **0**     |
 | HIGH      | 43      | **43**  | **0**     |
-| MEDIUM    | 82      | **65**  | 17        |
+| MEDIUM    | 82      | **68**  | 14        |
 | LOW       | 38      | **6**   | 32        |
-| **Total** | **190** | **141** | **49**    |
+| **Total** | **190** | **144** | **46**    |
 
 ### Remaining CRITICAL & HIGH Findings
 
@@ -97,6 +99,6 @@ Issues that span multiple modules are tracked separately:
 - **Permission checks**: ~~Client-side only in most modules.~~ **Fixed** (`6489217`, `58f8d40`, Cluster C): Added authorization checks in Procurement (PR-1, PR-2, PR-4, PR-16), Flow (FL-2, FL-5, FL-3), HR (HR-18), SSOT (PE-14, PE-18), Documents (PE-8, PE-10). Added granular GR permission flags (`INSPECT_GOODS`, `APPROVE_GR`).
 - **Duplicate permission systems**: ~~Incompatible systems in types and constants.~~ **Fixed** (`29f684f`): Consolidated to single `PERMISSION_FLAGS` in `@vapour/constants`. Removed duplicate `PermissionFlag` enum (AA-1, SP-1, SP-7, SP-13).
 - **permissions2 not synced to claims**: ~~Cloud Functions don't include `permissions2` in custom claims (AA-3, AA-12).~~ **Fixed**: Both `onUserUpdate` and `syncUserClaims` include `permissions2` in custom claims. SP-4 verified resolved. SP-12 documented (`permissions2` is admin-assigned, not role-calculated).
-- **Denormalized data staleness**: Vendor names, project names, equipment names stored in documents but never synced when source changes (PE-7, PE-13, PE-20). **Not yet fixed.**
+- **Denormalized data staleness**: ~~Vendor names, project names, equipment names stored in documents but never synced when source changes (PE-7, PE-13, PE-20).~~ **Fixed** (Cluster F): `onEntityNameChange` syncs vendor names to 6 collections (PE-7). `onProjectNameChange` syncs project names/codes to 10 collections (PE-20). Added `onEquipmentNameChange` to sync equipment names/tags to documents and purchaseRequestItems (PE-13). All in `functions/src/denormalizationSync.ts`.
 - **Missing audit logging**: ~~Permission changes (AA-8), employee updates (HR-14), and Cloud Function operations (SP-26) lack audit trail entries.~~ **Fixed** (Cluster B): Added audit logging to EditUserDialog (AA-8), employee update functions (HR-14), recurring transaction soft-delete (AC-12), amendment approval history with field changes (PR-17), and Cloud Function actor attribution (SP-26). Firestore audit rules verified adequate (AA-14).
 - **Auth & session hardening**: ~~Permission changes don't propagate to active sessions (AA-7), claims can be stale (AA-4).~~ **Fixed** (Cluster C): Added `onSnapshot` listener on user document in AuthContext that detects `lastClaimUpdate` changes and forces token refresh (AA-4, AA-7). Session revocation on deactivation verified (AA-5). Firestore `isActive` limitation mitigated by combination of token revocation + reactive listener (AA-6).

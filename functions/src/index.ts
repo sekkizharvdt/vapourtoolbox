@@ -77,7 +77,12 @@ export { parseOfferDocument } from './offerParsing/parseOfferDocument';
 export { compareOfferParsers } from './offerParsing/compareOfferParsers';
 
 // Import denormalization sync functions (keeps denormalized data fresh)
-export { onUserNameChange, onEntityNameChange, onProjectNameChange } from './denormalizationSync';
+export {
+  onUserNameChange,
+  onEntityNameChange,
+  onProjectNameChange,
+  onEquipmentNameChange,
+} from './denormalizationSync';
 
 // Import receipt parsing functions (for travel expenses)
 export { parseReceiptForExpense } from './receiptParsing/parseReceipt';

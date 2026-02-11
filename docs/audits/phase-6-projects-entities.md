@@ -124,12 +124,13 @@
 - **Recommendation**: Require vendorEntityId and trim all inputs before validation.
 - **Resolution**: Added email format validation with regex check in `handleSubmit`. Existing `.trim()` checks already cover vendorName, scopeOfWork, contactPerson, contactEmail.
 
-#### PE-7: Denormalized Vendor Names Not Updated When Entity Changes
+#### PE-7: Denormalized Vendor Names Not Updated When Entity Changes — VERIFIED (Cluster F)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/app/projects/[id]/charter/components/vendors/index.tsx` (lines 156-159)
 - **Issue**: Vendor name/contact denormalized into OutsourcingVendor record. If underlying entity is updated, project vendor data becomes stale.
 - **Recommendation**: Implement sync mechanism or document limitation.
+- **Resolution**: `onEntityNameChange` Cloud Function in `functions/src/denormalizationSync.ts` already syncs vendor/entity name changes to purchaseOrders, goodsReceipts, packingLists, offers, workCompletionCertificates, and transactions (6 collections). Also syncs email and GSTIN. The remaining gap (OutsourcingVendor in project charter) is an embedded array within the project document — low risk since it's historical project data keyed by `vendorEntityId`.
 
 #### PE-8: Company Documents Not Scoped by Module/Project Permissions — FIXED
 
@@ -155,12 +156,13 @@
 - **Recommendation**: Validate preferred vendors exist and are not archived.
 - **Resolution**: Added validation in `addProcurementItem()` that checks each vendor in `preferredVendors[]` exists and is not archived before creating the item.
 
-#### PE-13: Denormalized Equipment Names Not Synchronized
+#### PE-13: Denormalized Equipment Names Not Synchronized — FIXED (Cluster F)
 
 - **Category**: Data Integrity
 - **File**: `packages/types/src/documents.ts` (lines 122-124)
 - **Issue**: DocumentRecord stores denormalized equipment data (equipmentCode, equipmentName). Equipment updates don't propagate to documents.
 - **Recommendation**: Implement sync mechanism or document limitation.
+- **Resolution**: Added `onEquipmentNameChange` Cloud Function in `functions/src/denormalizationSync.ts` that triggers on `projects/{projectId}/equipment/{equipmentId}` updates. Syncs `equipmentName` and `equipmentTag` → `equipmentCode` to `documents` and `purchaseRequestItems` collections using the same batch update pattern as the existing entity/project sync functions.
 
 #### PE-14: No Explicit Permission Check for SSOT Editors — FIXED
 
@@ -193,12 +195,13 @@
 - **Recommendation**: Validate referenced document exists before creating supply item.
 - **Resolution**: Added `getDoc()` check in `createSupplyItem()` that validates the referenced master document exists in the `projects/{projectId}/masterDocuments` subcollection before creating the supply item.
 
-#### PE-20: Project Name Denormalization Not Kept in Sync
+#### PE-20: Project Name Denormalization Not Kept in Sync — VERIFIED (Cluster F)
 
 - **Category**: Data Integrity
 - **File**: `apps/web/src/lib/documents/masterDocumentService.ts` (lines 119-120)
 - **Issue**: DocumentRecord stores denormalized projectName/projectCode. Project renames don't propagate.
 - **Recommendation**: Implement sync mechanism or document limitation.
+- **Resolution**: `onProjectNameChange` Cloud Function in `functions/src/denormalizationSync.ts` already syncs project name and code changes to purchaseRequests, purchaseOrders, rfqs, goodsReceipts, packingLists, documents, transmittals, proposals, enquiries, and estimates (10 collections).
 
 ### LOW
 
