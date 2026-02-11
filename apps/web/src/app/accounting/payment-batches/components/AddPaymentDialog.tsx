@@ -84,11 +84,7 @@ export default function AddPaymentDialog({
       try {
         const { db } = getFirebase();
         const projectId = sourceProjectIds[0];
-        const billList = await getOutstandingBillsForProject(
-          db,
-          projectId,
-          showAllProjects
-        );
+        const billList = await getOutstandingBillsForProject(db, projectId, showAllProjects);
         setBills(billList);
       } catch (err) {
         console.error('[AddPaymentDialog] Error loading bills:', err);
@@ -153,7 +149,7 @@ export default function AddPaymentDialog({
           payeeType: 'VENDOR',
           entityId: bill.entityId,
           entityName: bill.entityName || 'Unknown Vendor',
-          amount: bill.outstandingAmount || bill.totalAmount,
+          amount: bill.outstandingAmount || bill.baseAmount || bill.totalAmount,
           currency: bill.currency || 'INR',
           projectId: bill.projectId || bill.costCentreId,
           projectName: undefined, // Project name will be looked up by the batch detail page
@@ -246,7 +242,9 @@ export default function AddPaymentDialog({
         {/* Bills Tab */}
         {tab === 'bills' && (
           <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+            >
               <Typography variant="body2" color="text.secondary">
                 Select bills to pay from this batch
               </Typography>
@@ -314,7 +312,9 @@ export default function AddPaymentDialog({
                           fontWeight="medium"
                           color={bill.paymentStatus === 'OVERDUE' ? 'error.main' : 'text.primary'}
                         >
-                          {formatCurrency(bill.outstandingAmount || bill.totalAmount)}
+                          {formatCurrency(
+                            bill.outstandingAmount || bill.baseAmount || bill.totalAmount
+                          )}
                         </Typography>
                       </ListItemButton>
                     </ListItem>
@@ -326,12 +326,14 @@ export default function AddPaymentDialog({
             {selectedBills.size > 0 && (
               <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                 <Typography variant="body2">
-                  Selected: {selectedBills.size} bill{selectedBills.size !== 1 ? 's' : ''} |{' '}
-                  Total:{' '}
+                  Selected: {selectedBills.size} bill{selectedBills.size !== 1 ? 's' : ''} | Total:{' '}
                   {formatCurrency(
                     bills
                       .filter((b) => selectedBills.has(b.id))
-                      .reduce((sum, b) => sum + (b.outstandingAmount || b.totalAmount), 0)
+                      .reduce(
+                        (sum, b) => sum + (b.outstandingAmount || b.baseAmount || b.totalAmount),
+                        0
+                      )
                   )}
                 </Typography>
               </Box>
@@ -440,7 +442,9 @@ export default function AddPaymentDialog({
             onClick={handleAddBills}
             disabled={saving || selectedBills.size === 0}
           >
-            {saving ? 'Adding...' : `Add ${selectedBills.size} Bill${selectedBills.size !== 1 ? 's' : ''}`}
+            {saving
+              ? 'Adding...'
+              : `Add ${selectedBills.size} Bill${selectedBills.size !== 1 ? 's' : ''}`}
           </Button>
         ) : (
           <Button

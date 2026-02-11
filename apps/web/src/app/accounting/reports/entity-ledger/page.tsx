@@ -233,8 +233,9 @@ export default function EntityLedgerPage() {
     let balance = entityOpeningBalance;
 
     // Add movement from transactions before the selected start date
+    // Use baseAmount (INR) for foreign currency transactions, fall back to totalAmount for INR-only
     openingBalanceTransactions.forEach((txn) => {
-      const amount = txn.totalAmount || txn.amount || 0;
+      const amount = txn.baseAmount || txn.totalAmount || txn.amount || 0;
       switch (txn.type) {
         case 'CUSTOMER_INVOICE':
           balance += amount; // Customer owes us
@@ -261,20 +262,9 @@ export default function EntityLedgerPage() {
     return balance;
   }, [entityOpeningBalance, openingBalanceTransactions]);
 
-  // Determine the entity's primary currency from their transactions
-  const entityCurrency = useMemo(() => {
-    const invoiceOrBill = allTransactions.find(
-      (txn) => txn.type === 'CUSTOMER_INVOICE' || txn.type === 'VENDOR_BILL'
-    );
-    if (invoiceOrBill?.currency) {
-      return invoiceOrBill.currency;
-    }
-    const firstTransaction = allTransactions[0];
-    if (firstTransaction?.currency) {
-      return firstTransaction.currency;
-    }
-    return 'INR';
-  }, [allTransactions]);
+  // Entity ledger always aggregates in base currency (INR).
+  // Foreign currency transactions are converted via baseAmount.
+  const entityCurrency = 'INR';
 
   // Calculate financial summary for the selected period
   const financialSummary = useMemo((): FinancialSummary => {
@@ -314,7 +304,8 @@ export default function EntityLedgerPage() {
     let periodMovement = 0; // Net movement during the period
 
     periodTransactions.forEach((txn) => {
-      const amount = txn.totalAmount || txn.amount || 0;
+      // Use baseAmount (INR) for foreign currency transactions
+      const amount = txn.baseAmount || txn.totalAmount || txn.amount || 0;
       const outstanding = txn.outstandingAmount || 0;
       const dueDate = txn.dueDate ? new Date(txn.dueDate) : null;
       const daysPastDue = dueDate

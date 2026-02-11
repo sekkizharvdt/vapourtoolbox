@@ -33,7 +33,8 @@ interface TransactionsTableProps {
  * - Vendor Ledger: Bills = Credit (we owe them), Payments = Debit (we paid them)
  */
 function getDebitCredit(txn: EntityTransaction): { debit: number; credit: number } {
-  const amount = txn.totalAmount || txn.amount || 0;
+  // Use baseAmount (INR) for foreign currency transactions, fall back to totalAmount for INR-only
+  const amount = txn.baseAmount || txn.totalAmount || txn.amount || 0;
 
   switch (txn.type) {
     case 'CUSTOMER_INVOICE':
@@ -65,7 +66,8 @@ function getDebitCredit(txn: EntityTransaction): { debit: number; credit: number
  * Negative = decreases receivable (customer paid or we owe vendor more)
  */
 function getBalanceImpact(txn: EntityTransaction): number {
-  const amount = txn.totalAmount || txn.amount || 0;
+  // Use baseAmount (INR) for foreign currency transactions
+  const amount = txn.baseAmount || txn.totalAmount || txn.amount || 0;
   switch (txn.type) {
     case 'CUSTOMER_INVOICE':
       return amount; // Customer owes us more
@@ -176,6 +178,12 @@ export function TransactionsTable({
                     <Typography variant="body2" noWrap sx={{ maxWidth: 250 }}>
                       {txn.description || '-'}
                     </Typography>
+                    {txn.currency && txn.currency !== 'INR' && txn.totalAmount ? (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {formatCurrency(txn.totalAmount, txn.currency)}
+                        {txn.exchangeRate ? ` @ ${txn.exchangeRate}` : ''}
+                      </Typography>
+                    ) : null}
                     {txn.dueDate && (
                       <Typography variant="caption" color="text.secondary" display="block">
                         Due: {formatDate(txn.dueDate)}
@@ -185,7 +193,7 @@ export function TransactionsTable({
                   <TableCell align="right">
                     {debit > 0 ? (
                       <Typography variant="body2" fontWeight="medium">
-                        {formatCurrency(debit, txn.currency || 'INR')}
+                        {formatCurrency(debit, 'INR')}
                       </Typography>
                     ) : (
                       <Typography variant="body2" color="text.secondary">
@@ -196,7 +204,7 @@ export function TransactionsTable({
                   <TableCell align="right">
                     {credit > 0 ? (
                       <Typography variant="body2" fontWeight="medium">
-                        {formatCurrency(credit, txn.currency || 'INR')}
+                        {formatCurrency(credit, 'INR')}
                       </Typography>
                     ) : (
                       <Typography variant="body2" color="text.secondary">

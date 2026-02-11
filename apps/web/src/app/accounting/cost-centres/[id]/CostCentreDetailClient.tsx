@@ -267,12 +267,12 @@ export default function CostCentreDetailClient() {
     return 'error';
   };
 
-  // Calculate totals grouped by currency
+  // Calculate totals always in base currency (INR) for consistent cost centre reporting
   const invoiceTotals = invoices.reduce(
     (acc, inv) => {
-      const currency = inv.currency || 'INR';
-      const amount = inv.totalAmount || inv.amount || 0;
-      acc[currency] = (acc[currency] || 0) + amount;
+      // Use baseAmount (INR) for foreign currency invoices, fallback to totalAmount for INR-only
+      const amount = inv.baseAmount || inv.totalAmount || inv.amount || 0;
+      acc['INR'] = (acc['INR'] || 0) + amount;
       return acc;
     },
     {} as Record<string, number>
@@ -289,11 +289,13 @@ export default function CostCentreDetailClient() {
 
   const billTotals = bills.reduce(
     (acc, bill) => {
-      const currency = bill.currency || 'INR';
-      // Use totalAmount from VendorBill for accurate total
-      const totalAmount =
-        (bill as unknown as { totalAmount?: number }).totalAmount || bill.amount || 0;
-      acc[currency] = (acc[currency] || 0) + totalAmount;
+      // Use baseAmount (INR) for foreign currency bills, fallback to totalAmount for INR-only
+      const amount =
+        bill.baseAmount ||
+        (bill as unknown as { totalAmount?: number }).totalAmount ||
+        bill.amount ||
+        0;
+      acc['INR'] = (acc['INR'] || 0) + amount;
       return acc;
     },
     {} as Record<string, number>

@@ -92,8 +92,8 @@ export function RecordVendorPaymentDialog({
 
         snapshot.forEach((doc) => {
           const data = doc.data() as VendorBill;
-          // Use outstandingAmount for partially paid bills, fallback to totalAmount
-          const outstanding = data.outstandingAmount ?? data.totalAmount ?? 0;
+          // Use outstandingAmount for partially paid bills, fallback to baseAmount (INR) for forex
+          const outstanding = data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
           // Only include bills with outstanding amounts > 0
           if (outstanding > 0) {
             bills.push({ ...data, id: doc.id, outstandingAmount: outstanding });
@@ -118,7 +118,7 @@ export function RecordVendorPaymentDialog({
 
         // Initialize allocations using outstanding amount (not total amount)
         const initialAllocations: PaymentAllocation[] = bills.map((bill) => {
-          const outstanding = bill.outstandingAmount ?? bill.totalAmount ?? 0;
+          const outstanding = bill.outstandingAmount ?? bill.baseAmount ?? bill.totalAmount ?? 0;
           return {
             invoiceId: bill.id!,
             invoiceNumber: bill.transactionNumber || '',
