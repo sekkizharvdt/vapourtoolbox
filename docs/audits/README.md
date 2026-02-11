@@ -1,4 +1,4 @@
-# Codebase Audit Plan
+222# Codebase Audit Plan
 
 Systematic module-by-module audit of the Vapour Toolbox codebase.
 
@@ -32,7 +32,7 @@ Each module is audited against these categories:
 | 5     | Flow (Tasks/Inbox/Meetings)  | COMPLETE (23 findings, 16 fixed) | [phase-5-flow.md](phase-5-flow.md)                           |
 | 6     | Projects + Entities + SSOT   | COMPLETE (20 findings, 11 fixed) | [phase-6-projects-entities.md](phase-6-projects-entities.md) |
 | 7     | Auth/Permissions + Admin     | COMPLETE (20 findings, 12 fixed) | [phase-7-auth-admin.md](phase-7-auth-admin.md)               |
-| 8     | Shared Packages + API Routes | COMPLETE (26 findings, 6 fixed)  | [phase-8-shared-packages.md](phase-8-shared-packages.md)     |
+| 8     | Shared Packages + API Routes | COMPLETE (26 findings, 26 fixed) | [phase-8-shared-packages.md](phase-8-shared-packages.md)     |
 
 ## Overall Summary
 
@@ -46,29 +46,31 @@ Each module is audited against these categories:
 
 ## Fix Progress
 
-**106 of 190 findings fixed** (56%) across 18 commits + 12 verified/mitigated + 8 pre-audit Phase 0 fixes.
+**126 of 190 findings fixed** (66%) across 19 commits + 19 verified/mitigated + 8 pre-audit Phase 0 fixes.
 
-| Commit    | Description                                      | Findings Fixed                                                | Count |
-| --------- | ------------------------------------------------ | ------------------------------------------------------------- | ----- |
-| pre-audit | Phase 0 fixes (initial GRN Bills implementation) | Phase0#1, #3, #4, #6, #7, #8, #11, #13                        | 8     |
-| `d8e6570` | Flow security rules + vendor entity query fix    | FL-1, PE-1                                                    | 2     |
-| `3cb25cc` | EntityId multi-tenancy filtering (Cluster A)     | AC-2, PR-3, PR-11, BP-3, HR-1                                 | 5     |
-| `29f684f` | Consolidate duplicate permissions (Cluster B)    | AA-1, SP-1, SP-7, SP-13                                       | 4     |
-| `6489217` | Authorization checks & self-approval (Cluster F) | AC-3, AC-4, PR-1, PR-2, PR-4, PR-6, FL-2, FL-5, FL-11         | 9     |
-| `0443df1` | Data validation & integrity (Cluster D)          | AC-1, AC-5, PR-5, HR-2                                        | 4     |
-| `e063816` | Types, permissions, and validation fixes         | BP-1, BP-2, BP-4, BP-5, FL-4, PE-2, PE-17, Phase 0 (entityId) | 8     |
-| `5bafc70` | Permission flag, validation & conflict checks    | AA-18, PR-8, PR-9, FL-7, HR-6, HR-7                           | 6     |
-| `58f8d40` | Task auth, project validation, approver config   | FL-3, PR-10, FL-10, HR-5                                      | 4     |
-| `024218c` | Field validation, entityId filters, UX fixes     | PR-7, HR-9, HR-10, FL-15                                      | 4     |
-| `4c49436` | Allocation validation, entity filtering, SSOT    | AC-7, PE-5, PE-9, PE-12                                       | 4     |
-| `efadb87` | CRITICAL/HIGH audit fixes batch 3                | PE-6, FL-6, FL-8, AC-10, AC-6, HR-8                           | 6     |
-| `b71b085` | Final 3 HIGH audit fixes                         | Phase0#5, Phase0#9, AC-8                                      | 3     |
-| `0842d4e` | Last 3 HIGH fixes + collection cleanup           | Phase0#10, SP-19                                              | 2     |
-| verified  | Already resolved (indexes exist, code has fixes) | FL-9, HR-3, HR-4, AA-3, AA-12, AA-2, AA-19, AC-9, SP-2        | 9     |
-| `6dbd252` | Cluster A: State machine enforcement             | AC-11, PR-12, BP-13, HR-12, FL-14, FL-18                      | 6     |
-| `531e591` | Cluster B: Audit logging infrastructure          | AA-8, AA-14, HR-14, AC-12, PR-17, SP-26                       | 6     |
-| `2068d6e` | Cluster C: Auth & session hardening              | AA-4, AA-7, HR-18, PE-8, PE-10, PE-14, PE-18, PR-16           | 8     |
-| verified  | Cluster C: Verified/mitigated                    | AA-5, AA-6                                                    | 2     |
+| Commit    | Description                                      | Findings Fixed                                                         | Count |
+| --------- | ------------------------------------------------ | ---------------------------------------------------------------------- | ----- |
+| pre-audit | Phase 0 fixes (initial GRN Bills implementation) | Phase0#1, #3, #4, #6, #7, #8, #11, #13                                 | 8     |
+| `d8e6570` | Flow security rules + vendor entity query fix    | FL-1, PE-1                                                             | 2     |
+| `3cb25cc` | EntityId multi-tenancy filtering (Cluster A)     | AC-2, PR-3, PR-11, BP-3, HR-1                                          | 5     |
+| `29f684f` | Consolidate duplicate permissions (Cluster B)    | AA-1, SP-1, SP-7, SP-13                                                | 4     |
+| `6489217` | Authorization checks & self-approval (Cluster F) | AC-3, AC-4, PR-1, PR-2, PR-4, PR-6, FL-2, FL-5, FL-11                  | 9     |
+| `0443df1` | Data validation & integrity (Cluster D)          | AC-1, AC-5, PR-5, HR-2                                                 | 4     |
+| `e063816` | Types, permissions, and validation fixes         | BP-1, BP-2, BP-4, BP-5, FL-4, PE-2, PE-17, Phase 0 (entityId)          | 8     |
+| `5bafc70` | Permission flag, validation & conflict checks    | AA-18, PR-8, PR-9, FL-7, HR-6, HR-7                                    | 6     |
+| `58f8d40` | Task auth, project validation, approver config   | FL-3, PR-10, FL-10, HR-5                                               | 4     |
+| `024218c` | Field validation, entityId filters, UX fixes     | PR-7, HR-9, HR-10, FL-15                                               | 4     |
+| `4c49436` | Allocation validation, entity filtering, SSOT    | AC-7, PE-5, PE-9, PE-12                                                | 4     |
+| `efadb87` | CRITICAL/HIGH audit fixes batch 3                | PE-6, FL-6, FL-8, AC-10, AC-6, HR-8                                    | 6     |
+| `b71b085` | Final 3 HIGH audit fixes                         | Phase0#5, Phase0#9, AC-8                                               | 3     |
+| `0842d4e` | Last 3 HIGH fixes + collection cleanup           | Phase0#10, SP-19                                                       | 2     |
+| verified  | Already resolved (indexes exist, code has fixes) | FL-9, HR-3, HR-4, AA-3, AA-12, AA-2, AA-19, AC-9, SP-2                 | 9     |
+| `6dbd252` | Cluster A: State machine enforcement             | AC-11, PR-12, BP-13, HR-12, FL-14, FL-18                               | 6     |
+| `531e591` | Cluster B: Audit logging infrastructure          | AA-8, AA-14, HR-14, AC-12, PR-17, SP-26                                | 6     |
+| `2068d6e` | Cluster C: Auth & session hardening              | AA-4, AA-7, HR-18, PE-8, PE-10, PE-14, PE-18, PR-16                    | 8     |
+| verified  | Cluster C: Verified/mitigated                    | AA-5, AA-6                                                             | 2     |
+| TBD       | Cluster D: Cloud Functions hardening             | SP-3, SP-14, SP-15, SP-16, SP-20, SP-22, SP-23, SP-25, SP-10           | 9     |
+| verified  | Cluster D: Verified/mitigated                    | SP-4, SP-5, SP-6, SP-8, SP-9, SP-11, SP-12, SP-17, SP-18, SP-21, SP-24 | 11    |
 
 ### By Severity
 
@@ -76,9 +78,9 @@ Each module is audited against these categories:
 | --------- | ------- | ------- | --------- |
 | CRITICAL  | 27      | **27**  | **0**     |
 | HIGH      | 43      | **43**  | **0**     |
-| MEDIUM    | 82      | **34**  | 48        |
-| LOW       | 38      | 2       | 36        |
-| **Total** | **190** | **106** | **84**    |
+| MEDIUM    | 82      | **50**  | 32        |
+| LOW       | 38      | **6**   | 32        |
+| **Total** | **190** | **126** | **64**    |
 
 ### Remaining CRITICAL & HIGH Findings
 
@@ -92,7 +94,7 @@ Issues that span multiple modules are tracked separately:
 - **Firestore indexes**: ~~Missing indexes~~ **Mostly resolved** (`3cb25cc`): Added missing composite indexes for Procurement (PR-11). FL-9, HR-3, and AC-9 verified as already present in `firestore.indexes.json`. **Remaining**: HR (HR-11), Flow (FL-12), Proposals (BP-10).
 - **Permission checks**: ~~Client-side only in most modules.~~ **Fixed** (`6489217`, `58f8d40`, Cluster C): Added authorization checks in Procurement (PR-1, PR-2, PR-4, PR-16), Flow (FL-2, FL-5, FL-3), HR (HR-18), SSOT (PE-14, PE-18), Documents (PE-8, PE-10). Added granular GR permission flags (`INSPECT_GOODS`, `APPROVE_GR`).
 - **Duplicate permission systems**: ~~Incompatible systems in types and constants.~~ **Fixed** (`29f684f`): Consolidated to single `PERMISSION_FLAGS` in `@vapour/constants`. Removed duplicate `PermissionFlag` enum (AA-1, SP-1, SP-7, SP-13).
-- **permissions2 not synced to claims**: ~~Cloud Functions don't include `permissions2` in custom claims (AA-3, AA-12).~~ **Verified as already fixed**: Both `onUserUpdate` and `syncUserClaims` Cloud Functions already include `permissions2` in custom claims with proper null-checking. **Remaining**: SP-4, SP-12 (shared packages audit references — may also be resolved).
+- **permissions2 not synced to claims**: ~~Cloud Functions don't include `permissions2` in custom claims (AA-3, AA-12).~~ **Fixed**: Both `onUserUpdate` and `syncUserClaims` include `permissions2` in custom claims. SP-4 verified resolved. SP-12 documented (`permissions2` is admin-assigned, not role-calculated).
 - **Denormalized data staleness**: Vendor names, project names, equipment names stored in documents but never synced when source changes (PE-7, PE-13, PE-20). **Not yet fixed.**
 - **Missing audit logging**: ~~Permission changes (AA-8), employee updates (HR-14), and Cloud Function operations (SP-26) lack audit trail entries.~~ **Fixed** (Cluster B): Added audit logging to EditUserDialog (AA-8), employee update functions (HR-14), recurring transaction soft-delete (AC-12), amendment approval history with field changes (PR-17), and Cloud Function actor attribution (SP-26). Firestore audit rules verified adequate (AA-14).
 - **Auth & session hardening**: ~~Permission changes don't propagate to active sessions (AA-7), claims can be stale (AA-4).~~ **Fixed** (Cluster C): Added `onSnapshot` listener on user document in AuthContext that detects `lastClaimUpdate` changes and forces token refresh (AA-4, AA-7). Session revocation on deactivation verified (AA-5). Firestore `isActive` limitation mitigated by combination of token revocation + reactive listener (AA-6).

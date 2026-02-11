@@ -1,5 +1,11 @@
-// Rate Limiting Utility
-// Protects against denial of service attacks and excessive costs
+/**
+ * Rate Limiting Utility
+ *
+ * In-memory, client-side rate limiter for single-process web applications.
+ * NOT suitable for serverless Cloud Functions (each instance has separate state).
+ * For distributed rate limiting in Cloud Functions, use Firestore-backed counters
+ * or an external store like Redis.
+ */
 
 export interface RateLimitConfig {
   maxRequests: number; // Maximum number of requests
@@ -40,6 +46,8 @@ export class RateLimiter {
 
     // Check if limit exceeded
     if (recentRequests.length >= this.config.maxRequests) {
+      // Persist cleaned-up list so stale timestamps are removed even on rejection
+      this.requests.set(storageKey, recentRequests);
       return false;
     }
 

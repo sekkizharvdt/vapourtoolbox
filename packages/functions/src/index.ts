@@ -49,8 +49,12 @@ export { onFeedbackResolved } from './feedback';
  * {
  *   permissions: number,       // Bitwise permission flags (bits 0-30)
  *   permissions2: number,      // Extended permission flags (Material, Shape, Thermal, HR, etc.)
- *   domain: 'internal' | 'external'  // User domain
+ *   domain: 'internal' | 'external',  // User domain
+ *   entityId: string           // Tenant entity ID for cross-tenant isolation
  * }
+ *
+ * @see firestore.rules — `match /users/{userId}` for read/write security rules
+ * @see packages/constants/src/permissions.ts for PERMISSION_FLAGS and PERMISSION_FLAGS_2 definitions
  */
 export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) => {
   const userId = event.params.userId;
@@ -69,6 +73,9 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
 
   const userData = event.data.after.data();
 
+  // SP-5: Trigger functions return null (not throw) on validation failure.
+  // Throwing from a Firestore trigger causes automatic retries, which would
+  // loop indefinitely for inherently invalid data. Logging + return is correct.
   if (!userData) {
     logger.warn(`No data found for user ${userId}`);
     return null;
@@ -76,7 +83,6 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
 
   const { status, isActive, email, permissions, permissions2 } = userData;
 
-  // Validate required fields
   if (!email) {
     logger.warn(`User ${userId} has no email, skipping claims update`);
     return null;
@@ -93,6 +99,8 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
     const customClaims: Record<string, unknown> = {
       permissions,
       domain,
+      // Include entityId for cross-tenant isolation in callable functions
+      ...(userData.entityId && { entityId: userData.entityId }),
     };
     // Only include permissions2 if non-zero (saves space in claims)
     if (perms2 > 0) {
@@ -147,13 +155,18 @@ export const onUserUpdate = onDocumentWritten('users/{userId}', async (event) =>
 });
 
 /**
- * Optional: Manually trigger claims sync for a user
+ * Manually trigger claims sync for a user
  *
- * Can be called from the admin UI to force a claims update
+ * Can be called from the admin UI to force a claims update.
+ * Requires MANAGE_USERS permission and same-entity access.
  *
  * Usage:
  *   const syncClaims = httpsCallable(functions, 'syncUserClaims');
  *   await syncClaims({ userId: 'abc123' });
+ *
+ * @security Requires MANAGE_USERS permission (checked via custom claims)
+ * @security Cross-entity access prevented by entityId validation
+ * @see firestore.rules — `match /users/{userId}` for read/write security rules
  */
 export const syncUserClaims = onCall(async (request) => {
   // Only users with MANAGE_USERS permission can trigger manual sync
@@ -189,6 +202,16 @@ export const syncUserClaims = onCall(async (request) => {
       throw new HttpsError('internal', 'User document has no data');
     }
 
+    // SP-20: Validate caller's entity matches target user's entity
+    const callerEntityId = request.auth.token.entityId as string | undefined;
+    const targetEntityId = userData.entityId as string | undefined;
+    if (callerEntityId && targetEntityId && callerEntityId !== targetEntityId) {
+      throw new HttpsError(
+        'permission-denied',
+        'Cannot sync claims for users in a different entity'
+      );
+    }
+
     const { status, isActive, email, permissions, permissions2 } = userData;
 
     if (!email) {
@@ -202,6 +225,7 @@ export const syncUserClaims = onCall(async (request) => {
       const customClaims: Record<string, unknown> = {
         permissions,
         domain,
+        ...(userData.entityId && { entityId: userData.entityId }),
       };
       if (perms2 > 0) {
         customClaims.permissions2 = perms2;

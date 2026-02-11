@@ -123,8 +123,11 @@ export function validateFirebaseEnvironment(): {
     try {
       admin = getFirebaseAdminConfig();
     } catch (error) {
-      // Admin config might not be available in some environments
-      logger.warn('Firebase Admin config not available', error);
+      // In production server context, missing admin config is fatal
+      if (process.env.NODE_ENV === 'production') {
+        throw error;
+      }
+      logger.warn('Firebase Admin config not available (non-production)', error);
     }
   }
 

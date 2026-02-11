@@ -770,6 +770,8 @@ export const bomListFiltersSchema = z.object({
 export const enquiryStatusSchema = z.enum([
   'NEW',
   'UNDER_REVIEW',
+  'BID_DECISION_PENDING',
+  'NO_BID',
   'PROPOSAL_IN_PROGRESS',
   'PROPOSAL_SUBMITTED',
   'WON',
@@ -807,6 +809,17 @@ export const enquiryProjectTypeSchema = z.enum([
 export const enquiryUrgencySchema = z.enum(['STANDARD', 'URGENT']);
 
 /**
+ * Enquiry attachment schema (matches EnquiryDocument from types)
+ */
+export const attachmentSchema = z.object({
+  id: z.string().optional(),
+  fileName: z.string().min(1, 'File name is required'),
+  fileUrl: z.string().url('Must be a valid URL'),
+  fileSize: z.number().positive('File size must be positive'),
+  fileType: z.string().min(1, 'File type is required'),
+});
+
+/**
  * Create Enquiry Input schema
  */
 export const createEnquiryInputSchema = z.object({
@@ -830,7 +843,7 @@ export const createEnquiryInputSchema = z.object({
   estimatedBudget: moneySchema.optional(),
   receivedDate: z.date(),
   requirements: z.array(z.string()).default([]),
-  attachments: z.array(z.any()).default([]),
+  attachments: z.array(attachmentSchema).default([]),
   assignedToUserId: z.string().optional(),
 });
 
@@ -860,7 +873,7 @@ export const createEnquiryFormSchema = z.object({
   receivedDate: z.date(), // UI uses Date objects
   requiredDeliveryDate: z.date().optional(),
   requirements: z.array(z.string()).default([]),
-  attachments: z.array(z.any()).default([]),
+  attachments: z.array(attachmentSchema).default([]),
   assignedToUserId: z.string().optional(),
 });
 
@@ -947,6 +960,17 @@ export const scopeOfWorkSchema = z.object({
 });
 
 /**
+ * Proposal Milestone schema
+ */
+export const proposalMilestoneSchema = z.object({
+  milestoneNumber: z.number().int().positive('Milestone number must be positive'),
+  description: z.string().min(1, 'Description is required'),
+  deliverable: z.string().min(1, 'Deliverable is required'),
+  durationInWeeks: z.number().int().positive('Duration must be positive'),
+  paymentPercentage: z.number().min(0).max(100).optional(),
+});
+
+/**
  * Create Proposal Input schema
  */
 export const createProposalSchema = z.object({
@@ -965,7 +989,7 @@ export const createProposalSchema = z.object({
   deliveryPeriod: z.object({
     durationInWeeks: z.number().positive(),
     description: z.string(),
-    milestones: z.array(z.any()).default([]), // TODO: Define milestone schema
+    milestones: z.array(proposalMilestoneSchema).default([]),
   }),
   paymentTerms: z.string().min(10, 'Payment terms are required'),
   terms: z
@@ -982,26 +1006,44 @@ export const createProposalSchema = z.object({
 });
 
 /**
- * Update Proposal Input schema
- */
-/**
- * Proposal Milestone schema
- */
-export const proposalMilestoneSchema = z.object({
-  milestoneNumber: z.number().int().positive('Milestone number must be positive'),
-  description: z.string().min(1, 'Description is required'),
-  deliverable: z.string().min(1, 'Deliverable is required'),
-  durationInWeeks: z.number().int().positive('Duration must be positive'),
-  paymentPercentage: z.number().min(0).max(100).optional(),
-});
-
-/**
  * Delivery Period schema
  */
 export const deliveryPeriodSchema = z.object({
   durationInWeeks: z.number().int().positive('Duration must be at least 1 week'),
   description: z.string().min(1, 'Description is required'),
   milestones: z.array(proposalMilestoneSchema).default([]),
+});
+
+/**
+ * Price line item schema (matches PriceLineItem from types)
+ */
+export const priceLineItemSchema = z.object({
+  id: z.string(),
+  lineNumber: z.string(),
+  description: z.string().min(1, 'Description is required'),
+  amount: moneySchema,
+  category: z.enum([
+    'EQUIPMENT',
+    'MATERIAL',
+    'LABOR',
+    'SERVICES',
+    'OVERHEAD',
+    'CONTINGENCY',
+    'PROFIT',
+    'OTHER',
+  ]),
+  linkedScopeItemId: z.string().optional(),
+});
+
+/**
+ * Tax line item schema (matches TaxLineItem from types)
+ */
+export const taxLineItemSchema = z.object({
+  id: z.string(),
+  taxType: z.string().min(1, 'Tax type is required'),
+  taxRate: z.number().min(0).max(100),
+  taxAmount: moneySchema,
+  appliedTo: z.enum(['SUBTOTAL', 'LINE_ITEM']).optional(),
 });
 
 /**
@@ -1014,10 +1056,10 @@ export const updateProposalSchema = z.object({
   deliveryPeriod: deliveryPeriodSchema.partial().optional(),
   pricing: z
     .object({
-      currency: z.string().optional(), // TODO: Use currency enum
-      lineItems: z.array(z.any()).optional(),
+      currency: moneySchema.shape.currency.optional(),
+      lineItems: z.array(priceLineItemSchema).optional(),
       subtotal: moneySchema.optional(),
-      taxItems: z.array(z.any()).optional(),
+      taxItems: z.array(taxLineItemSchema).optional(),
       totalAmount: moneySchema.optional(),
       paymentTerms: z.string().optional(),
       advancePaymentPercentage: z.number().optional(),

@@ -37,6 +37,7 @@ const createJournalEntrySchema = z.object({
   entries: z
     .array(ledgerEntrySchema)
     .min(2, 'At least 2 entries required for double-entry')
+    .max(500, 'Maximum 500 entries per journal entry')
     .refine(
       (entries) => {
         // Validate each entry has either debit or credit, not both

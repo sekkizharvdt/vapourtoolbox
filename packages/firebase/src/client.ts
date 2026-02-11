@@ -87,7 +87,9 @@ export function initializeFirebase() {
       }
     }
 
-    // Expose Firebase instances to window ONLY for E2E testing
+    // Expose Firebase instances to window ONLY for E2E testing.
+    // Double-guarded: requires BOTH useEmulator flag AND test environment.
+    // Safe in production — neither condition is true outside test setups.
     if (useEmulator && process.env.NODE_ENV === 'test') {
       interface WindowWithFirebase extends Window {
         __firebaseAuth?: Auth;

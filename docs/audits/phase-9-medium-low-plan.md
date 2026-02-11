@@ -67,7 +67,7 @@ Close the gap where client-side permission checks can be bypassed.
 
 ---
 
-### Cluster D: Cloud Functions Hardening (16 MEDIUM, 4 LOW)
+### Cluster D: Cloud Functions Hardening (16 MEDIUM, 4 LOW) — COMPLETE
 
 Harden Cloud Functions for production deployment.
 

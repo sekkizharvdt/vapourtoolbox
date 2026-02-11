@@ -170,6 +170,11 @@ const ROLE_PERMISSIONS: Record<UserRole, number[]> = {
  * Calculate total permissions for a set of roles
  * Uses bitwise OR to combine all permissions
  *
+ * NOTE: This function only calculates `permissions` (bits 0-30 from PERMISSION_FLAGS).
+ * Extended permissions (`permissions2` from PERMISSION_FLAGS_2) are admin-assigned
+ * per-user and stored/synced separately. The onUserUpdate Cloud Function handles
+ * syncing both `permissions` and `permissions2` to custom claims.
+ *
  * @param roles - Array of user roles
  * @returns Combined permission value (bitwise OR of all role permissions)
  */

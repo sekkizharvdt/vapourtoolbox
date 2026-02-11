@@ -93,6 +93,46 @@ export async function withNewCorrelationId<T>(fn: () => Promise<T>): Promise<T> 
   return withCorrelationId(generateCorrelationId(), fn);
 }
 
+/**
+ * Fields that should be masked in log output to prevent credential leakage.
+ * Matching is case-insensitive with separators (-, _) stripped.
+ */
+const SENSITIVE_KEYS = new Set([
+  'password',
+  'token',
+  'apikey',
+  'secret',
+  'ssn',
+  'authorization',
+  'cookie',
+  'session',
+  'creditcard',
+  'cardnumber',
+  'privatekey',
+  'serviceaccountkey',
+  'refreshtoken',
+  'accesstoken',
+]);
+
+/**
+ * Sanitize metadata by masking sensitive field values.
+ * Recurses one level deep into nested objects.
+ */
+export function sanitizeMetadata(metadata: LogMetadata): LogMetadata {
+  const sanitized: LogMetadata = {};
+  for (const [key, value] of Object.entries(metadata)) {
+    const normalizedKey = key.toLowerCase().replace(/[-_]/g, '');
+    if (SENSITIVE_KEYS.has(normalizedKey)) {
+      sanitized[key] = '[REDACTED]';
+    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+      sanitized[key] = sanitizeMetadata(value as LogMetadata);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}
+
 const LOG_LEVELS: Record<LogLevel, number> = {
   debug: 0,
   info: 1,
@@ -206,6 +246,7 @@ export class Logger {
     if (!this.shouldLog(level)) return;
 
     const correlationId = this.getEffectiveCorrelationId();
+    const sanitized = metadata ? sanitizeMetadata(metadata) : undefined;
 
     const entry: LogEntry = {
       level,
@@ -213,25 +254,25 @@ export class Logger {
       timestamp: new Date().toISOString(),
       context: this.context,
       correlationId,
-      metadata: correlationId ? { ...metadata, correlationId } : metadata,
+      metadata: correlationId ? { ...sanitized, correlationId } : sanitized,
       environment: this.environment,
     };
 
     const formattedMessage = this.formatLog(entry);
 
-    // Output to console
+    // Output to console with sanitized metadata
     switch (level) {
       case 'debug':
-        console.debug(formattedMessage, metadata || '');
+        console.debug(formattedMessage, sanitized || '');
         break;
       case 'info':
-        console.info(formattedMessage, metadata || '');
+        console.info(formattedMessage, sanitized || '');
         break;
       case 'warn':
-        console.warn(formattedMessage, metadata || '');
+        console.warn(formattedMessage, sanitized || '');
         break;
       case 'error':
-        console.error(formattedMessage, metadata || '');
+        console.error(formattedMessage, sanitized || '');
         break;
     }
 
