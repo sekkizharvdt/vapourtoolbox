@@ -69,7 +69,7 @@ Each module is audited against these categories:
 | `531e591` | Cluster B: Audit logging infrastructure          | AA-8, AA-14, HR-14, AC-12, PR-17, SP-26                                | 6     |
 | `2068d6e` | Cluster C: Auth & session hardening              | AA-4, AA-7, HR-18, PE-8, PE-10, PE-14, PE-18, PR-16                    | 8     |
 | verified  | Cluster C: Verified/mitigated                    | AA-5, AA-6                                                             | 2     |
-| TBD       | Cluster D: Cloud Functions hardening             | SP-3, SP-14, SP-15, SP-16, SP-20, SP-22, SP-23, SP-25, SP-10           | 9     |
+| `f4b320d` | Cluster D: Cloud Functions hardening             | SP-3, SP-14, SP-15, SP-16, SP-20, SP-22, SP-23, SP-25, SP-10           | 9     |
 | verified  | Cluster D: Verified/mitigated                    | SP-4, SP-5, SP-6, SP-8, SP-9, SP-11, SP-12, SP-17, SP-18, SP-21, SP-24 | 11    |
 
 ### By Severity
