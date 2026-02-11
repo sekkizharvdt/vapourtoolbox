@@ -32,6 +32,8 @@ import {
   TablePagination,
   Breadcrumbs,
   Link,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -62,6 +64,8 @@ export default function GoodsReceiptsPage() {
   const [filteredGRs, setFilteredGRs] = useState<GoodsReceipt[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<GoodsReceiptStatus | 'ALL'>('ALL');
+  // GRN-15: Filter for GRs sent to accounting
+  const [sentToAccountingFilter, setSentToAccountingFilter] = useState(false);
 
   // Pagination state
   const [page, setPage] = useState(0);
@@ -75,7 +79,7 @@ export default function GoodsReceiptsPage() {
   useEffect(() => {
     applyFilters();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [goodsReceipts, searchQuery, statusFilter]);
+  }, [goodsReceipts, searchQuery, statusFilter, sentToAccountingFilter]);
 
   const loadGoodsReceipts = async () => {
     setLoading(true);
@@ -98,6 +102,10 @@ export default function GoodsReceiptsPage() {
   const applyFilters = () => {
     let filtered = [...goodsReceipts];
     filtered = filterGRsBySearch(filtered, searchQuery);
+    // GRN-15: Filter for sent to accounting
+    if (sentToAccountingFilter) {
+      filtered = filtered.filter((gr) => gr.status === 'COMPLETED' && gr.sentToAccountingAt);
+    }
     setFilteredGRs(filtered);
   };
 
@@ -233,6 +241,17 @@ export default function GoodsReceiptsPage() {
                 <MenuItem value="ISSUES_FOUND">Issues Found</MenuItem>
               </Select>
             </FormControl>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={sentToAccountingFilter}
+                  onChange={(e) => setSentToAccountingFilter(e.target.checked)}
+                  size="small"
+                />
+              }
+              label="Sent to Accounting"
+              sx={{ whiteSpace: 'nowrap' }}
+            />
           </Stack>
         </Paper>
 

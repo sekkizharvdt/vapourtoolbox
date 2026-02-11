@@ -153,13 +153,20 @@ export function VendorsTab({ project }: VendorsTabProps) {
   const handleVendorEntityChange = (entityId: string) => {
     const selectedEntity = vendorEntities.find((e) => e.id === entityId);
     if (selectedEntity) {
+      // PE-16: Use primary contact from contacts array, then fall back to legacy fields
+      const primaryContact = selectedEntity.contacts?.find((c) => c.isPrimary);
       setFormData((prev) => ({
         ...prev,
         vendorEntityId: entityId,
         vendorName: selectedEntity.name,
-        contactPerson: selectedEntity.contactPerson || '',
-        contactEmail: selectedEntity.email || '',
-        contactPhone: selectedEntity.phone || '',
+        contactPerson: primaryContact?.name || selectedEntity.contactPerson || '',
+        contactEmail: primaryContact?.email || selectedEntity.email || '',
+        contactPhone:
+          primaryContact?.phone ||
+          primaryContact?.mobile ||
+          selectedEntity.phone ||
+          selectedEntity.mobile ||
+          '',
       }));
     } else {
       setFormData((prev) => ({

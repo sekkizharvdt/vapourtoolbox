@@ -169,8 +169,10 @@ export default function GRNBillsPage() {
       setPendingGRs((prev) => prev.filter((g) => g.gr.id !== item.gr.id));
     } catch (err) {
       console.error('[GRNBillsPage] Error creating bill:', err);
+      const errMsg = err instanceof Error ? err.message : '';
+      // AC-23: Provide actionable error with specific account info
       setError(
-        `Failed to create bill for ${item.gr.number}. Please check system accounts are configured in Chart of Accounts.`
+        `Failed to create bill for ${item.gr.number}. ${errMsg || 'Please verify that Accounts Payable, Purchase, and Tax system accounts are configured in Chart of Accounts.'}`
       );
     } finally {
       setCreatingBillFor(null);

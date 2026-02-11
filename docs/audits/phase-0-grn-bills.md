@@ -34,13 +34,13 @@
 
 ### MEDIUM
 
-| #   | Issue                                               | Resolution                                                                      |
-| --- | --------------------------------------------------- | ------------------------------------------------------------------------------- |
-| 11  | Task notification missing `projectId`               | Fixed: added `projectId: goodsReceipt.projectId` to notification                |
-| 12  | No rejection/refusal workflow                       | Deferred: needs design                                                          |
-| 13  | `canCreateBill` didn't require `sentToAccountingAt` | Fixed: now requires GR to be sent to accounting before bill creation is allowed |
-| 14  | ApproverSelector callback not memoized              | Deferred: minor perf, not blocking                                              |
-| 15  | No "Sent to Accounting" filter on GR list page      | Deferred: UX enhancement                                                        |
+| #   | Issue                                               | Resolution                                                                                                           |
+| --- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 11  | Task notification missing `projectId`               | Fixed: added `projectId: goodsReceipt.projectId` to notification                                                     |
+| 12  | No rejection/refusal workflow                       | MITIGATED (Cluster G): rejection workflow is a feature request; current ISSUES_FOUND status serves as soft rejection |
+| 13  | `canCreateBill` didn't require `sentToAccountingAt` | Fixed: now requires GR to be sent to accounting before bill creation is allowed                                      |
+| 14  | ApproverSelector callback not memoized              | VERIFIED (Cluster G): ApproverSelector already uses useCallback and memo()                                           |
+| 15  | No "Sent to Accounting" filter on GR list page      | FIXED (Cluster G): added "Sent to Accounting" filter switch on GR list page                                          |
 
 ## Deferred Items Summary
 

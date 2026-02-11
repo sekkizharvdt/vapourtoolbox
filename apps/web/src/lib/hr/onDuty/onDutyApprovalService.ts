@@ -34,6 +34,7 @@ import {
   completeTaskNotificationsByEntity,
 } from '@/lib/tasks/taskNotificationService';
 import { format, differenceInDays } from 'date-fns';
+import { preventSelfApproval } from '@/lib/auth/authorizationService';
 
 const logger = createLogger({ context: 'onDutyApprovalService' });
 
@@ -363,6 +364,9 @@ export async function approveOnDutyRequest(
       throw new Error('You are not authorized to approve this request');
     }
 
+    // HR-17: Defense-in-depth self-approval prevention
+    preventSelfApproval(approverId, request.userId, 'approve on-duty request');
+
     // Get approver's email
     const approverEmail = await getUserEmailById(approverId);
 
@@ -558,6 +562,9 @@ export async function rejectOnDutyRequest(
     if (!request.approverIds.includes(approverId)) {
       throw new Error('You are not authorized to reject this request');
     }
+
+    // HR-17: Defense-in-depth self-approval prevention
+    preventSelfApproval(approverId, request.userId, 'reject on-duty request');
 
     const now = Timestamp.now();
 

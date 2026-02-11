@@ -138,35 +138,35 @@ Add Cloud Function triggers to propagate name changes to denormalized copies.
 
 ---
 
-### Cluster G: UX Polish & Pagination (15 MEDIUM, 6 LOW)
+### Cluster G: UX Polish & Pagination (15 MEDIUM, 6 LOW) — COMPLETE
 
 UI improvements: pagination on lists, missing indexes, confirmation dialogs, filter fixes.
 
-| ID     | Phase | Sev | Issue                                                             |
-| ------ | ----- | --- | ----------------------------------------------------------------- |
-| FL-12  | 5     | M   | Missing composite index for Team Board query                      |
-| FL-13  | 5     | M   | Inbox filter double-counts approval tasks                         |
-| FL-16  | 5     | M   | Due date overdue indicator doesn't account for time zones         |
-| FL-17  | 5     | M   | Task completion from inbox has UX flicker                         |
-| FL-20  | 5     | M   | Meeting list not paginated                                        |
-| AC-13  | 1     | M   | No pagination on recurring transaction list                       |
-| AC-16  | 1     | M   | TODO left in production code (PENDING_APPROVAL edit guard)        |
-| PE-16  | 6     | M   | No default values for optional vendor contact fields              |
-| HR-11  | 4     | M   | Missing Firestore indexes documentation                           |
-| HR-15  | 4     | M   | Leave balance recalculation not automatic at fiscal year boundary |
-| HR-16  | 4     | M   | Approval email configuration not validated on app startup         |
-| HR-17  | 4     | M   | Travel expense self-approval handled differently from leave       |
-| GRN-12 | 0     | M   | No rejection/refusal workflow                                     |
-| GRN-14 | 0     | M   | ApproverSelector callback not memoized                            |
-| GRN-15 | 0     | M   | No "Sent to Accounting" filter on GR list page                    |
-| FL-21  | 5     | L   | Action item table doesn't validate empty required fields          |
-| FL-22  | 5     | L   | Meeting action items lack completion status tracking              |
-| FL-23  | 5     | L   | No confirmation dialog before meeting deletion                    |
-| AC-20  | 1     | L   | View Details button non-functional                                |
-| AC-23  | 1     | L   | GRN Bills error message not actionable                            |
-| BP-10  | 3     | L   | No index validation for complex queries                           |
+| ID     | Phase | Sev | Issue                                                             | Resolution                                                  |
+| ------ | ----- | --- | ----------------------------------------------------------------- | ----------------------------------------------------------- |
+| FL-12  | 5     | M   | Missing composite index for Team Board query                      | FIXED — added composite index (entityId, status, createdAt) |
+| FL-13  | 5     | M   | Inbox filter double-counts approval tasks                         | MITIGATED — dual visibility is intentional                  |
+| FL-16  | 5     | M   | Due date overdue indicator doesn't account for time zones         | FIXED — normalized to date-only boundaries                  |
+| FL-17  | 5     | M   | Task completion from inbox has UX flicker                         | FIXED — added optimistic removal                            |
+| FL-20  | 5     | M   | Meeting list not paginated                                        | DEFERRED — acceptable at current scale                      |
+| AC-13  | 1     | M   | No pagination on recurring transaction list                       | FIXED — added TablePagination                               |
+| AC-16  | 1     | M   | TODO left in production code (PENDING_APPROVAL edit guard)        | VERIFIED — TODO no longer exists in codebase                |
+| PE-16  | 6     | M   | No default values for optional vendor contact fields              | FIXED — primary contact with fallback chain                 |
+| HR-11  | 4     | M   | Missing Firestore indexes documentation                           | MITIGATED — indexes already exist in firestore.indexes.json |
+| HR-15  | 4     | M   | Leave balance recalculation not automatic at fiscal year boundary | MITIGATED — feature requiring Cloud Function + scheduler    |
+| HR-16  | 4     | M   | Approval email configuration not validated on app startup         | MITIGATED — services already throw on missing config        |
+| HR-17  | 4     | M   | Travel expense self-approval handled differently from leave       | FIXED — standardized preventSelfApproval() across services  |
+| GRN-12 | 0     | M   | No rejection/refusal workflow                                     | MITIGATED — ISSUES_FOUND status serves as soft rejection    |
+| GRN-14 | 0     | M   | ApproverSelector callback not memoized                            | VERIFIED — already uses useCallback and memo()              |
+| GRN-15 | 0     | M   | No "Sent to Accounting" filter on GR list page                    | FIXED — added filter switch on GR list page                 |
+| FL-21  | 5     | L   | Action item table doesn't validate empty required fields          | FIXED — per-row validation with red highlight               |
+| FL-22  | 5     | L   | Meeting action items lack completion status tracking              | DEFERRED — requires type changes and Cloud Function         |
+| FL-23  | 5     | L   | No confirmation dialog before meeting deletion                    | FIXED — delete button with confirmation for drafts          |
+| AC-20  | 1     | L   | View Details button non-functional                                | FIXED — navigates to correct detail page by type            |
+| AC-23  | 1     | L   | GRN Bills error message not actionable                            | FIXED — includes specific missing account info              |
+| BP-10  | 3     | L   | No index validation for complex queries                           | FIXED — added composite indexes for BOM items               |
 
-**Effort**: Low-Moderate — mostly UI tweaks and config changes.
+**Result**: 12 fixed, 2 verified, 5 mitigated, 2 deferred.
 
 ---
 

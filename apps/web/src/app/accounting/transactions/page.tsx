@@ -284,7 +284,18 @@ export default function TransactionsPage() {
                         {
                           icon: <ViewIcon />,
                           label: 'View Details',
-                          onClick: () => {},
+                          onClick: () => {
+                            const routes: Partial<Record<TransactionType, string>> = {
+                              CUSTOMER_INVOICE: `/accounting/invoices/${txn.id}`,
+                              VENDOR_BILL: `/accounting/bills/${txn.id}`,
+                              JOURNAL_ENTRY: `/accounting/journal-entries/${txn.id}`,
+                              VENDOR_PAYMENT: `/accounting/payments/${txn.id}`,
+                              CUSTOMER_PAYMENT: `/accounting/payments/${txn.id}`,
+                              DIRECT_PAYMENT: `/accounting/payments/${txn.id}`,
+                            };
+                            const route = routes[txn.type];
+                            if (route) router.push(route);
+                          },
                         },
                       ]}
                     />

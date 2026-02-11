@@ -466,91 +466,107 @@ export default function NewMeetingPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.key}>
-                    <TableCell>
-                      <TextField
-                        size="small"
-                        placeholder="What was discussed..."
-                        value={row.description}
-                        onChange={(e) => handleRowChange(row.key, 'description', e.target.value)}
-                        fullWidth
-                        multiline
-                        maxRows={3}
-                        disabled={saving}
-                        variant="standard"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        size="small"
-                        placeholder="Action to take..."
-                        value={row.action}
-                        onChange={(e) => handleRowChange(row.key, 'action', e.target.value)}
-                        fullWidth
-                        multiline
-                        maxRows={3}
-                        disabled={saving}
-                        variant="standard"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Autocomplete
-                        size="small"
-                        options={attendees.length > 0 ? attendees : users}
-                        value={row.assignee}
-                        onChange={(_, val) => handleRowChange(row.key, 'assignee', val)}
-                        getOptionLabel={(o) => o.displayName}
-                        isOptionEqualToValue={(o, v) => o.uid === v.uid}
-                        disabled={saving}
-                        renderInput={(params) => (
-                          <TextField {...params} variant="standard" placeholder="Select..." />
-                        )}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        size="small"
-                        type="date"
-                        value={row.dueDate}
-                        onChange={(e) => handleRowChange(row.key, 'dueDate', e.target.value)}
-                        slotProps={{ inputLabel: { shrink: true } }}
-                        disabled={saving}
-                        variant="standard"
-                        fullWidth
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <FormControl size="small" fullWidth variant="standard">
-                        <Select
-                          value={row.priority}
-                          onChange={(e) =>
-                            handleRowChange(
-                              row.key,
-                              'priority',
-                              e.target.value as ManualTaskPriority
-                            )
-                          }
+                {rows.map((row) => {
+                  // FL-21: Highlight rows where required fields are missing
+                  const hasContent = !!(row.description.trim() || row.assignee || row.dueDate);
+                  const missingAction = hasContent && !row.action.trim();
+                  const missingAssignee = hasContent && !!row.action.trim() && !row.assignee;
+
+                  return (
+                    <TableRow
+                      key={row.key}
+                      sx={
+                        missingAction || missingAssignee
+                          ? { '& .MuiTableCell-root': { bgcolor: 'rgba(211, 47, 47, 0.04)' } }
+                          : undefined
+                      }
+                    >
+                      <TableCell>
+                        <TextField
+                          size="small"
+                          placeholder="What was discussed..."
+                          value={row.description}
+                          onChange={(e) => handleRowChange(row.key, 'description', e.target.value)}
+                          fullWidth
+                          multiline
+                          maxRows={3}
                           disabled={saving}
+                          variant="standard"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          size="small"
+                          placeholder="Action to take..."
+                          value={row.action}
+                          onChange={(e) => handleRowChange(row.key, 'action', e.target.value)}
+                          fullWidth
+                          multiline
+                          maxRows={3}
+                          disabled={saving}
+                          variant="standard"
+                          error={missingAction}
+                          helperText={missingAction ? 'Required' : undefined}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Autocomplete
+                          size="small"
+                          options={attendees.length > 0 ? attendees : users}
+                          value={row.assignee}
+                          onChange={(_, val) => handleRowChange(row.key, 'assignee', val)}
+                          getOptionLabel={(o) => o.displayName}
+                          isOptionEqualToValue={(o, v) => o.uid === v.uid}
+                          disabled={saving}
+                          renderInput={(params) => (
+                            <TextField {...params} variant="standard" placeholder="Select..." />
+                          )}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          size="small"
+                          type="date"
+                          value={row.dueDate}
+                          onChange={(e) => handleRowChange(row.key, 'dueDate', e.target.value)}
+                          slotProps={{ inputLabel: { shrink: true } }}
+                          disabled={saving}
+                          variant="standard"
+                          fullWidth
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <FormControl size="small" fullWidth variant="standard">
+                          <Select
+                            value={row.priority}
+                            onChange={(e) =>
+                              handleRowChange(
+                                row.key,
+                                'priority',
+                                e.target.value as ManualTaskPriority
+                              )
+                            }
+                            disabled={saving}
+                          >
+                            <MenuItem value="LOW">Low</MenuItem>
+                            <MenuItem value="MEDIUM">Medium</MenuItem>
+                            <MenuItem value="HIGH">High</MenuItem>
+                            <MenuItem value="URGENT">Urgent</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </TableCell>
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleRemoveRow(row.key)}
+                          disabled={rows.length <= 1 || saving}
                         >
-                          <MenuItem value="LOW">Low</MenuItem>
-                          <MenuItem value="MEDIUM">Medium</MenuItem>
-                          <MenuItem value="HIGH">High</MenuItem>
-                          <MenuItem value="URGENT">Urgent</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </TableCell>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleRemoveRow(row.key)}
-                        disabled={rows.length <= 1 || saving}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>

@@ -16,6 +16,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   Paper,
   Breadcrumbs,
   Link,
@@ -91,6 +92,10 @@ export default function RecurringTransactionsPage() {
     el: HTMLElement;
     tx: RecurringTransaction;
   } | null>(null);
+
+  // AC-13: Pagination state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
 
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
   const hasManageAccess = claims?.permissions ? canManageAccounting(claims.permissions) : false;
@@ -377,82 +382,96 @@ export default function RecurringTransactionsPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {transactions.map((tx) => (
-                  <TableRow
-                    key={tx.id}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => handleRowClick(tx)}
-                  >
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="medium">
-                        {tx.name}
-                      </Typography>
-                      {tx.description && (
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          {tx.description.length > 50
-                            ? `${tx.description.substring(0, 50)}...`
-                            : tx.description}
+                {transactions
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map((tx) => (
+                    <TableRow
+                      key={tx.id}
+                      hover
+                      sx={{ cursor: 'pointer' }}
+                      onClick={() => handleRowClick(tx)}
+                    >
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="medium">
+                          {tx.name}
                         </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={TYPE_LABELS[tx.type]}
-                        color={TYPE_COLORS[tx.type]}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {FREQUENCY_LABELS[tx.frequency] || tx.frequency}
-                      </Typography>
-                      {tx.dayOfMonth && (
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          Day {tx.dayOfMonth === 0 ? 'Last' : tx.dayOfMonth}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography
-                        variant="body2"
-                        fontWeight="medium"
-                        color={
-                          tx.type === 'CUSTOMER_INVOICE'
-                            ? 'success.main'
-                            : tx.type === 'VENDOR_BILL' || tx.type === 'SALARY'
-                              ? 'error.main'
-                              : 'text.primary'
-                        }
-                      >
-                        {formatCurrency(tx.amount.amount, tx.amount.currency)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{formatDate(tx.nextOccurrence)}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={tx.status} color={getStatusColor(tx.status)} size="small" />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Typography variant="body2">{tx.totalOccurrences}</Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      {hasManageAccess && (
-                        <IconButton
+                        {tx.description && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {tx.description.length > 50
+                              ? `${tx.description.substring(0, 50)}...`
+                              : tx.description}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={TYPE_LABELS[tx.type]}
+                          color={TYPE_COLORS[tx.type]}
                           size="small"
-                          onClick={(e) => handleMenuOpen(e, tx)}
-                          aria-label="actions"
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {FREQUENCY_LABELS[tx.frequency] || tx.frequency}
+                        </Typography>
+                        {tx.dayOfMonth && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Day {tx.dayOfMonth === 0 ? 'Last' : tx.dayOfMonth}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography
+                          variant="body2"
+                          fontWeight="medium"
+                          color={
+                            tx.type === 'CUSTOMER_INVOICE'
+                              ? 'success.main'
+                              : tx.type === 'VENDOR_BILL' || tx.type === 'SALARY'
+                                ? 'error.main'
+                                : 'text.primary'
+                          }
                         >
-                          <MoreIcon fontSize="small" />
-                        </IconButton>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          {formatCurrency(tx.amount.amount, tx.amount.currency)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{formatDate(tx.nextOccurrence)}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={tx.status} color={getStatusColor(tx.status)} size="small" />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Typography variant="body2">{tx.totalOccurrences}</Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        {hasManageAccess && (
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleMenuOpen(e, tx)}
+                            aria-label="actions"
+                          >
+                            <MoreIcon fontSize="small" />
+                          </IconButton>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
+            <TablePagination
+              rowsPerPageOptions={[10, 25, 50]}
+              component="div"
+              count={transactions.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={(_e, newPage) => setPage(newPage)}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+              }}
+            />
           </TableContainer>
         )}
       </Box>

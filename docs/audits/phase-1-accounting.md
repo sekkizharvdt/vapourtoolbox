@@ -125,12 +125,13 @@
 - **Recommendation**: Implement soft-delete with archive pattern.
 - **Resolution**: Converted to soft-delete (`isDeleted: true`, `deletedAt`, `deletedBy`). Added `logAuditEvent()` with transaction metadata. Added client-side `isDeleted` filtering to list query. Both callers updated to pass auditor info.
 
-#### AC-13: No Pagination on Recurring Transaction List
+#### AC-13: No Pagination on Recurring Transaction List — FIXED (Cluster G)
 
 - **Category**: UX/Performance
 - **File**: `apps/web/src/lib/accounting/recurringTransactionService.ts` (lines 120-155)
 - **Issue**: `getRecurringTransactions()` loads ALL recurring transactions with no `limit()` clause.
 - **Recommendation**: Add pagination with `limit(pageSize)` and cursor-based pagination.
+- **Resolution**: Added TablePagination to recurring transactions list (Cluster G).
 
 #### AC-14: Cost Centre Auto-Creation Race Condition — FIXED (Cluster E)
 
@@ -148,12 +149,13 @@
 - **Recommendation**: Add validation: `if (docs.length > 1) throw new Error('Multiple current fiscal years found')`.
 - **Resolution**: Added `snapshot.size > 1` check that logs error with count and IDs when multiple current fiscal years detected. Returns first result to avoid breaking UX.
 
-#### AC-16: TODO Left in Production Code
+#### AC-16: TODO Left in Production Code — VERIFIED (Cluster G)
 
 - **Category**: Code Quality
 - **File**: `apps/web/src/lib/accounting/transactionApprovalService.ts`
 - **Issue**: `TODO: Remove PENDING_APPROVAL from canEdit after testing phase` — transactions in PENDING_APPROVAL can still be edited, violating audit trail integrity.
 - **Recommendation**: Remove PENDING_APPROVAL from editable statuses or document the decision.
+- **Resolution**: PENDING_APPROVAL TODO no longer exists in codebase.
 
 #### AC-17: Cascading Updates Not Fully Atomic
 
@@ -178,12 +180,13 @@
 - **Issue**: Tolerance hardcoded as `0.01` in multiple files. Not derived from currency.
 - **Recommendation**: Define `CURRENCY_TOLERANCE` constant based on currency decimal places.
 
-#### AC-20: View Details Button Non-Functional
+#### AC-20: View Details Button Non-Functional — FIXED (Cluster G)
 
 - **Category**: UX
 - **File**: `apps/web/src/app/accounting/transactions/page.tsx` (lines 281-290)
 - **Issue**: "View Details" button has empty `onClick: () => {}`. User clicks but nothing happens.
 - **Recommendation**: Implement navigation to transaction detail page.
+- **Resolution**: View Details button now navigates to correct transaction detail page based on type (Cluster G).
 
 #### AC-21: No Confirmation Dialog Before Hard Delete
 
@@ -199,12 +202,13 @@
 - **Issue**: `listPaymentBatches()` accepts arbitrary `orderBy` field name. Invalid field causes Firestore error.
 - **Recommendation**: Validate against allowed fields: `['createdAt', 'submittedAt', 'approvedAt', 'status']`.
 
-#### AC-23: GRN Bills Error Message Not Actionable
+#### AC-23: GRN Bills Error Message Not Actionable — FIXED (Cluster G)
 
 - **Category**: UX
 - **File**: `apps/web/src/app/accounting/grn-bills/page.tsx` (lines 92-95)
 - **Issue**: Error says "check system accounts" but doesn't explain how or link to setup.
 - **Recommendation**: Add link to Chart of Accounts setup page.
+- **Resolution**: Improved error message to include specific missing account info and actionable guidance (Cluster G).
 
 #### AC-24: Max Payment Amount Arbitrary
 

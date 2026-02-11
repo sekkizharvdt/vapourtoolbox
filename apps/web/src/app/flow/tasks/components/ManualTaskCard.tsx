@@ -57,8 +57,12 @@ function formatDueDate(dueDate?: { toDate: () => Date }): string | null {
   if (!dueDate) return null;
   const date = dueDate.toDate();
   const now = new Date();
-  const diffMs = date.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+  // FL-16: Normalize to date-only for fair timezone-agnostic comparison
+  const dueDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffMs = dueDay.getTime() - today.getTime();
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
 
   if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`;
   if (diffDays === 0) return 'Due today';
@@ -69,8 +73,14 @@ function formatDueDate(dueDate?: { toDate: () => Date }): string | null {
 export function ManualTaskCard({ task, onStatusChange, onDelete }: ManualTaskCardProps) {
   const dueDateLabel = formatDueDate(task.dueDate as { toDate: () => Date } | undefined);
   const isTerminal = task.status === 'done' || task.status === 'cancelled';
-  const isOverdue =
-    task.dueDate && !isTerminal && (task.dueDate as { toDate: () => Date }).toDate() < new Date();
+  const isOverdue = (() => {
+    if (!task.dueDate || isTerminal) return false;
+    const due = (task.dueDate as { toDate: () => Date }).toDate();
+    const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return dueDay < today;
+  })();
 
   return (
     <Card

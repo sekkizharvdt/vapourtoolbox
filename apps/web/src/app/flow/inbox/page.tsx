@@ -140,16 +140,22 @@ export default function InboxPage() {
       if (!userId || completing) return;
 
       setCompleting(taskId);
+
+      // FL-17: Optimistic removal — hide task immediately, restore on error
+      const previousNotifications = notifications;
+      setNotifications((prev) => prev.filter((n) => n.id !== taskId));
+
       try {
         await completeActionableTask(taskId, userId, false);
         toast.success('Task completed');
       } catch (err) {
+        setNotifications(previousNotifications);
         toast.error(err instanceof Error ? err.message : 'Failed to complete task');
       } finally {
         setCompleting(null);
       }
     },
-    [userId, completing, toast]
+    [userId, completing, toast, notifications]
   );
 
   if (loading) {

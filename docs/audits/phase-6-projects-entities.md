@@ -172,12 +172,13 @@
 - **Recommendation**: Filter projects to only show those where user has SSOT edit permissions.
 - **Resolution**: Created shared `ssotAuth.ts` with `validateSSOTWriteAccess()` that checks `PERMISSION_FLAGS_2.MANAGE_SSOT` via `requirePermission()`. Added optional `accessCheck?: SSOTAccessCheck` parameter to all write operations in all 6 SSOT services (stream, equipment, instrument, valve, pipeTable, line).
 
-#### PE-16: No Default Values for Optional Vendor Contact Fields
+#### PE-16: No Default Values for Optional Vendor Contact Fields — FIXED (Cluster G)
 
 - **Category**: UX
 - **File**: `apps/web/src/app/projects/[id]/charter/components/vendors/index.tsx` (lines 156-159)
 - **Issue**: Only first contact used from BusinessEntity, no logic for multiple contacts or primary contact selection.
 - **Recommendation**: Select primary contact from contacts array or document requirement.
+- **Resolution**: Improved vendor contact field population using primary contact from contacts array with fallback chain (Cluster G).
 
 #### PE-18: SSOT Stream/Equipment Data Not Validated Against Project Ownership — FIXED
 

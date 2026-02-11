@@ -26,6 +26,7 @@ import {
 } from '@/lib/tasks/taskNotificationService';
 import { requireValidTransition } from '@/lib/utils/stateMachine';
 import { travelExpenseStateMachine } from '@/lib/workflow/stateMachines';
+import { preventSelfApproval } from '@/lib/auth/authorizationService';
 
 const logger = createLogger({ context: 'travelExpenseApprovalService' });
 
@@ -250,10 +251,8 @@ export async function approveTravelExpenseReport(
       throw new Error('You are not authorized to approve this report');
     }
 
-    // Prevent self-approval
-    if (report.employeeId === approverId) {
-      throw new Error('You cannot approve your own expense report');
-    }
+    // HR-17: Standardized self-approval prevention
+    preventSelfApproval(approverId, report.employeeId, 'approve expense report');
 
     const now = Timestamp.now();
     const finalApprovedAmount = approvedAmount ?? report.totalAmount;
@@ -352,10 +351,8 @@ export async function rejectTravelExpenseReport(
       throw new Error('You are not authorized to reject this report');
     }
 
-    // Prevent self-rejection
-    if (report.employeeId === approverId) {
-      throw new Error('You cannot reject your own expense report');
-    }
+    // HR-17: Standardized self-approval prevention
+    preventSelfApproval(approverId, report.employeeId, 'reject expense report');
 
     const now = Timestamp.now();
 
@@ -448,10 +445,8 @@ export async function returnTravelExpenseForRevision(
       throw new Error('You are not authorized to return this report');
     }
 
-    // Prevent self-return
-    if (report.employeeId === approverId) {
-      throw new Error('You cannot return your own expense report');
-    }
+    // HR-17: Standardized self-approval prevention
+    preventSelfApproval(approverId, report.employeeId, 'return expense report');
 
     const now = Timestamp.now();
 

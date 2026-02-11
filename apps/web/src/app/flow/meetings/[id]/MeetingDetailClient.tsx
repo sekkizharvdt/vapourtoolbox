@@ -29,12 +29,18 @@ import {
   TableRow,
   Divider,
   Avatar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import {
   Home as HomeIcon,
   CheckCircle as FinalizeIcon,
   Flag as FlagIcon,
   Edit as EditIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useFirestore } from '@/lib/firebase/hooks';
 import { useAuth } from '@/contexts/AuthContext';
@@ -43,6 +49,7 @@ import {
   getMeetingById,
   subscribeToActionItems,
   finalizeMeeting,
+  deleteMeeting,
 } from '@/lib/tasks/meetingService';
 import type { Meeting, MeetingActionItem, ManualTaskPriority } from '@vapour/types';
 
@@ -67,6 +74,8 @@ export default function MeetingDetailClient() {
   const [actionItems, setActionItems] = useState<MeetingActionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [finalizing, setFinalizing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   // Load meeting
   useEffect(() => {
@@ -116,6 +125,22 @@ export default function MeetingDetailClient() {
       setFinalizing(false);
     }
   }, [db, user, meeting, meetingId, entityId, toast]);
+
+  // FL-23: Delete draft meeting with confirmation
+  const handleDelete = useCallback(async () => {
+    if (!db || !user) return;
+
+    try {
+      setDeleting(true);
+      setConfirmDeleteOpen(false);
+      await deleteMeeting(db, meetingId, user.uid);
+      toast.success('Meeting deleted');
+      router.push('/flow/meetings');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete meeting');
+      setDeleting(false);
+    }
+  }, [db, user, meetingId, toast, router]);
 
   if (loading) {
     return (
@@ -196,14 +221,25 @@ export default function MeetingDetailClient() {
         </Box>
 
         {isDraft && (
-          <Button
-            variant="contained"
-            startIcon={<FinalizeIcon />}
-            onClick={handleFinalize}
-            disabled={finalizing || actionableItems.length === 0}
-          >
-            {finalizing ? 'Finalizing...' : `Finalize (${actionableItems.length} tasks)`}
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={finalizing || deleting}
+            >
+              Delete
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<FinalizeIcon />}
+              onClick={handleFinalize}
+              disabled={finalizing || deleting || actionableItems.length === 0}
+            >
+              {finalizing ? 'Finalizing...' : `Finalize (${actionableItems.length} tasks)`}
+            </Button>
+          </Stack>
         )}
       </Stack>
 
@@ -353,6 +389,23 @@ export default function MeetingDetailClient() {
         {meeting.finalizedAt?.toDate?.() &&
           ` — Finalized on ${meeting.finalizedAt.toDate().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`}
       </Typography>
+
+      {/* FL-23: Delete confirmation dialog */}
+      <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
+        <DialogTitle>Delete Meeting</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete &ldquo;{meeting.title}&rdquo;? This action cannot be
+            undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDeleteOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={handleDelete} disabled={deleting}>
+            {deleting ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -33,6 +33,7 @@ import {
   completeTaskNotificationsByEntity,
 } from '@/lib/tasks/taskNotificationService';
 import { format } from 'date-fns';
+import { preventSelfApproval } from '@/lib/auth/authorizationService';
 
 const logger = createLogger({ context: 'leaveApprovalService' });
 
@@ -386,6 +387,9 @@ export async function approveLeaveRequest(
       throw new Error('You are not authorized to approve this request');
     }
 
+    // HR-17: Defense-in-depth self-approval prevention
+    preventSelfApproval(approverId, request.userId, 'approve leave request');
+
     // Get approver's email for the approval entry
     const approverEmail = await getUserEmailById(approverId);
 
@@ -586,6 +590,9 @@ export async function rejectLeaveRequest(
     if (!request.approverIds.includes(approverId)) {
       throw new Error('You are not authorized to reject this request');
     }
+
+    // HR-17: Defense-in-depth self-approval prevention
+    preventSelfApproval(approverId, request.userId, 'reject leave request');
 
     const now = Timestamp.now();
 

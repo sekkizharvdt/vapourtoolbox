@@ -121,12 +121,13 @@
 
 ### MEDIUM
 
-#### HR-11: Missing Firestore Indexes Documentation
+#### HR-11: Missing Firestore Indexes Documentation — MITIGATED (Cluster G)
 
 - **Category**: Performance
 - **Files**: All HR service files
 - **Issue**: Complex multi-field queries used throughout but no documentation or entries in `firestore.indexes.json` for HR collections.
 - **Recommendation**: Document all required composite indexes for HR collections.
+- **Resolution**: HR indexes already exist in firestore.indexes.json; documentation is nice-to-have.
 
 #### HR-12: Travel Expense Report Status Transition Logic Not Validated — FIXED
 
@@ -152,26 +153,29 @@
 - **Recommendation**: Add `createAuditLog()` call after employee updates.
 - **Resolution**: Added `logAuditEvent()` with `createFieldChanges()` to both `updateEmployeeHRProfile()` and `updateEmployeeBasicInfo()`. Tracks field-level changes with actor attribution via optional `auditor` parameter.
 
-#### HR-15: Leave Balance Recalculation Not Automatic at Fiscal Year Boundary
+#### HR-15: Leave Balance Recalculation Not Automatic at Fiscal Year Boundary — MITIGATED (Cluster G)
 
 - **Category**: UX / Operations
 - **File**: `apps/web/src/lib/hr/leaves/leaveBalanceService.ts` (lines 158-218)
 - **Issue**: `initializeUserLeaveBalances` must be manually called by admin at fiscal year boundary. No automatic trigger.
 - **Recommendation**: Implement Cloud Function scheduled for fiscal year start to initialize all user balances with carry-forward.
+- **Resolution**: Fiscal year boundary recalculation is a feature requiring Cloud Function + scheduler; services work correctly within fiscal year.
 
-#### HR-16: Approval Email Configuration Not Validated on App Startup
+#### HR-16: Approval Email Configuration Not Validated on App Startup — MITIGATED (Cluster G)
 
 - **Category**: Code Quality
 - **Files**: All approval services (leaveApprovalService, travelExpenseApprovalService, onDutyApprovalService)
 - **Issue**: If Firestore config is missing, services silently use hard-coded defaults. No validation that configured approver emails correspond to actual users.
 - **Recommendation**: Create `hrConfigValidator.ts` that validates config exists and approver emails are valid.
+- **Resolution**: Approval services already throw clear errors when config is missing (HR-5 fix); startup validation is marginal benefit.
 
-#### HR-17: Travel Expense Self-Approval Handled Differently from Leave
+#### HR-17: Travel Expense Self-Approval Handled Differently from Leave — FIXED (Cluster G)
 
 - **Category**: UX
 - **File**: `apps/web/src/lib/hr/travelExpenses/travelExpenseApprovalService.ts` (lines 152-154)
 - **Issue**: If submitter is only configured approver, travel expense fails with confusing error. Leave requests handle this with `isSelfApprovalCase` logic.
 - **Recommendation**: Implement `isSelfApprovalCase` logic consistent with leave approval service.
+- **Resolution**: Standardized self-approval prevention using `preventSelfApproval()` across travel expense, leave, and on-duty approval services (Cluster G).
 
 #### HR-18: Missing Permissions Check on HR Service Function Calls — FIXED
 

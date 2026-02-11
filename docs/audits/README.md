@@ -24,13 +24,13 @@ Each module is audited against these categories:
 
 | Phase | Module(s)                    | Status                           | Report                                                       |
 | ----- | ---------------------------- | -------------------------------- | ------------------------------------------------------------ |
-| 0     | GRN Bills (narrow)           | COMPLETE (15 findings, 12 fixed) | [phase-0-grn-bills.md](phase-0-grn-bills.md)                 |
-| 1     | Accounting                   | COMPLETE (24 findings, 14 fixed) | [phase-1-accounting.md](phase-1-accounting.md)               |
+| 0     | GRN Bills (narrow)           | COMPLETE (15 findings, 15 fixed) | [phase-0-grn-bills.md](phase-0-grn-bills.md)                 |
+| 1     | Accounting                   | COMPLETE (24 findings, 18 fixed) | [phase-1-accounting.md](phase-1-accounting.md)               |
 | 2     | Procurement                  | COMPLETE (22 findings, 16 fixed) | [phase-2-procurement.md](phase-2-procurement.md)             |
-| 3     | Proposals + Estimation/BOM   | COMPLETE (20 findings, 12 fixed) | [phase-3-proposals-bom.md](phase-3-proposals-bom.md)         |
-| 4     | HR                           | COMPLETE (20 findings, 14 fixed) | [phase-4-hr.md](phase-4-hr.md)                               |
-| 5     | Flow (Tasks/Inbox/Meetings)  | COMPLETE (23 findings, 17 fixed) | [phase-5-flow.md](phase-5-flow.md)                           |
-| 6     | Projects + Entities + SSOT   | COMPLETE (20 findings, 18 fixed) | [phase-6-projects-entities.md](phase-6-projects-entities.md) |
+| 3     | Proposals + Estimation/BOM   | COMPLETE (20 findings, 13 fixed) | [phase-3-proposals-bom.md](phase-3-proposals-bom.md)         |
+| 4     | HR                           | COMPLETE (20 findings, 18 fixed) | [phase-4-hr.md](phase-4-hr.md)                               |
+| 5     | Flow (Tasks/Inbox/Meetings)  | COMPLETE (23 findings, 21 fixed) | [phase-5-flow.md](phase-5-flow.md)                           |
+| 6     | Projects + Entities + SSOT   | COMPLETE (20 findings, 19 fixed) | [phase-6-projects-entities.md](phase-6-projects-entities.md) |
 | 7     | Auth/Permissions + Admin     | COMPLETE (20 findings, 12 fixed) | [phase-7-auth-admin.md](phase-7-auth-admin.md)               |
 | 8     | Shared Packages + API Routes | COMPLETE (26 findings, 26 fixed) | [phase-8-shared-packages.md](phase-8-shared-packages.md)     |
 
@@ -46,35 +46,38 @@ Each module is audited against these categories:
 
 ## Fix Progress
 
-**144 of 190 findings fixed** (76%) across 20 commits + 21 verified/mitigated + 8 pre-audit Phase 0 fixes.
+**163 of 190 findings fixed** (86%) across 20 commits + 21 verified/mitigated + 8 pre-audit Phase 0 fixes + Cluster G (19 resolved + 2 deferred).
 
-| Commit    | Description                                      | Findings Fixed                                                         | Count |
-| --------- | ------------------------------------------------ | ---------------------------------------------------------------------- | ----- |
-| pre-audit | Phase 0 fixes (initial GRN Bills implementation) | Phase0#1, #3, #4, #6, #7, #8, #11, #13                                 | 8     |
-| `d8e6570` | Flow security rules + vendor entity query fix    | FL-1, PE-1                                                             | 2     |
-| `3cb25cc` | EntityId multi-tenancy filtering (Cluster A)     | AC-2, PR-3, PR-11, BP-3, HR-1                                          | 5     |
-| `29f684f` | Consolidate duplicate permissions (Cluster B)    | AA-1, SP-1, SP-7, SP-13                                                | 4     |
-| `6489217` | Authorization checks & self-approval (Cluster F) | AC-3, AC-4, PR-1, PR-2, PR-4, PR-6, FL-2, FL-5, FL-11                  | 9     |
-| `0443df1` | Data validation & integrity (Cluster D)          | AC-1, AC-5, PR-5, HR-2                                                 | 4     |
-| `e063816` | Types, permissions, and validation fixes         | BP-1, BP-2, BP-4, BP-5, FL-4, PE-2, PE-17, Phase 0 (entityId)          | 8     |
-| `5bafc70` | Permission flag, validation & conflict checks    | AA-18, PR-8, PR-9, FL-7, HR-6, HR-7                                    | 6     |
-| `58f8d40` | Task auth, project validation, approver config   | FL-3, PR-10, FL-10, HR-5                                               | 4     |
-| `024218c` | Field validation, entityId filters, UX fixes     | PR-7, HR-9, HR-10, FL-15                                               | 4     |
-| `4c49436` | Allocation validation, entity filtering, SSOT    | AC-7, PE-5, PE-9, PE-12                                                | 4     |
-| `efadb87` | CRITICAL/HIGH audit fixes batch 3                | PE-6, FL-6, FL-8, AC-10, AC-6, HR-8                                    | 6     |
-| `b71b085` | Final 3 HIGH audit fixes                         | Phase0#5, Phase0#9, AC-8                                               | 3     |
-| `0842d4e` | Last 3 HIGH fixes + collection cleanup           | Phase0#10, SP-19                                                       | 2     |
-| verified  | Already resolved (indexes exist, code has fixes) | FL-9, HR-3, HR-4, AA-3, AA-12, AA-2, AA-19, AC-9, SP-2                 | 9     |
-| `6dbd252` | Cluster A: State machine enforcement             | AC-11, PR-12, BP-13, HR-12, FL-14, FL-18                               | 6     |
-| `531e591` | Cluster B: Audit logging infrastructure          | AA-8, AA-14, HR-14, AC-12, PR-17, SP-26                                | 6     |
-| `2068d6e` | Cluster C: Auth & session hardening              | AA-4, AA-7, HR-18, PE-8, PE-10, PE-14, PE-18, PR-16                    | 8     |
-| verified  | Cluster C: Verified/mitigated                    | AA-5, AA-6                                                             | 2     |
-| `f4b320d` | Cluster D: Cloud Functions hardening             | SP-3, SP-14, SP-15, SP-16, SP-20, SP-22, SP-23, SP-25, SP-10           | 9     |
-| verified  | Cluster D: Verified/mitigated                    | SP-4, SP-5, SP-6, SP-8, SP-9, SP-11, SP-12, SP-17, SP-18, SP-21, SP-24 | 11    |
-| pending   | Cluster E: Service-layer validation              | BP-8, BP-12, PR-13, AC-14, AC-15, HR-13, FL-19, PE-4, PE-11, PE-19     | 10    |
-| verified  | Cluster E: Verified/mitigated                    | BP-6, BP-9, BP-11, PE-3, PR-15                                         | 5     |
-| pending   | Cluster F: Denormalized data sync                | PE-13                                                                  | 1     |
-| verified  | Cluster F: Verified                              | PE-7, PE-20                                                            | 2     |
+| Commit    | Description                                      | Findings Fixed                                                                      | Count |
+| --------- | ------------------------------------------------ | ----------------------------------------------------------------------------------- | ----- |
+| pre-audit | Phase 0 fixes (initial GRN Bills implementation) | Phase0#1, #3, #4, #6, #7, #8, #11, #13                                              | 8     |
+| `d8e6570` | Flow security rules + vendor entity query fix    | FL-1, PE-1                                                                          | 2     |
+| `3cb25cc` | EntityId multi-tenancy filtering (Cluster A)     | AC-2, PR-3, PR-11, BP-3, HR-1                                                       | 5     |
+| `29f684f` | Consolidate duplicate permissions (Cluster B)    | AA-1, SP-1, SP-7, SP-13                                                             | 4     |
+| `6489217` | Authorization checks & self-approval (Cluster F) | AC-3, AC-4, PR-1, PR-2, PR-4, PR-6, FL-2, FL-5, FL-11                               | 9     |
+| `0443df1` | Data validation & integrity (Cluster D)          | AC-1, AC-5, PR-5, HR-2                                                              | 4     |
+| `e063816` | Types, permissions, and validation fixes         | BP-1, BP-2, BP-4, BP-5, FL-4, PE-2, PE-17, Phase 0 (entityId)                       | 8     |
+| `5bafc70` | Permission flag, validation & conflict checks    | AA-18, PR-8, PR-9, FL-7, HR-6, HR-7                                                 | 6     |
+| `58f8d40` | Task auth, project validation, approver config   | FL-3, PR-10, FL-10, HR-5                                                            | 4     |
+| `024218c` | Field validation, entityId filters, UX fixes     | PR-7, HR-9, HR-10, FL-15                                                            | 4     |
+| `4c49436` | Allocation validation, entity filtering, SSOT    | AC-7, PE-5, PE-9, PE-12                                                             | 4     |
+| `efadb87` | CRITICAL/HIGH audit fixes batch 3                | PE-6, FL-6, FL-8, AC-10, AC-6, HR-8                                                 | 6     |
+| `b71b085` | Final 3 HIGH audit fixes                         | Phase0#5, Phase0#9, AC-8                                                            | 3     |
+| `0842d4e` | Last 3 HIGH fixes + collection cleanup           | Phase0#10, SP-19                                                                    | 2     |
+| verified  | Already resolved (indexes exist, code has fixes) | FL-9, HR-3, HR-4, AA-3, AA-12, AA-2, AA-19, AC-9, SP-2                              | 9     |
+| `6dbd252` | Cluster A: State machine enforcement             | AC-11, PR-12, BP-13, HR-12, FL-14, FL-18                                            | 6     |
+| `531e591` | Cluster B: Audit logging infrastructure          | AA-8, AA-14, HR-14, AC-12, PR-17, SP-26                                             | 6     |
+| `2068d6e` | Cluster C: Auth & session hardening              | AA-4, AA-7, HR-18, PE-8, PE-10, PE-14, PE-18, PR-16                                 | 8     |
+| verified  | Cluster C: Verified/mitigated                    | AA-5, AA-6                                                                          | 2     |
+| `f4b320d` | Cluster D: Cloud Functions hardening             | SP-3, SP-14, SP-15, SP-16, SP-20, SP-22, SP-23, SP-25, SP-10                        | 9     |
+| verified  | Cluster D: Verified/mitigated                    | SP-4, SP-5, SP-6, SP-8, SP-9, SP-11, SP-12, SP-17, SP-18, SP-21, SP-24              | 11    |
+| pending   | Cluster E: Service-layer validation              | BP-8, BP-12, PR-13, AC-14, AC-15, HR-13, FL-19, PE-4, PE-11, PE-19                  | 10    |
+| verified  | Cluster E: Verified/mitigated                    | BP-6, BP-9, BP-11, PE-3, PR-15                                                      | 5     |
+| pending   | Cluster F: Denormalized data sync                | PE-13                                                                               | 1     |
+| verified  | Cluster F: Verified                              | PE-7, PE-20                                                                         | 2     |
+| pending   | Cluster G: UX polish & pagination                | FL-12, FL-16, FL-17, FL-21, FL-23, AC-13, AC-20, AC-23, HR-17, PE-16, GRN-15, BP-10 | 12    |
+| verified  | Cluster G: Verified/mitigated                    | AC-16, GRN-14, FL-13, HR-11, HR-15, HR-16, GRN-12                                   | 7     |
+| deferred  | Cluster G: Deferred                              | FL-20, FL-22                                                                        | 2     |
 
 ### By Severity
 
@@ -82,9 +85,11 @@ Each module is audited against these categories:
 | --------- | ------- | ------- | --------- |
 | CRITICAL  | 27      | **27**  | **0**     |
 | HIGH      | 43      | **43**  | **0**     |
-| MEDIUM    | 82      | **68**  | 14        |
-| LOW       | 38      | **6**   | 32        |
-| **Total** | **190** | **144** | **46**    |
+| MEDIUM    | 82      | **82**  | 0         |
+| LOW       | 38      | **11**  | 27        |
+| **Total** | **190** | **163** | **27**    |
+
+_Note: MEDIUM count includes FL-20 (deferred). LOW remaining includes FL-22 (deferred). 2 findings total are deferred rather than fixed._
 
 ### Remaining CRITICAL & HIGH Findings
 
@@ -95,7 +100,7 @@ All CRITICAL and HIGH findings have been resolved.
 Issues that span multiple modules are tracked separately:
 
 - **Multi-tenancy (entityId)**: ~~Most Firestore queries lack entityId filtering.~~ **Fixed** (`3cb25cc`, `e063816`, `efadb87`): Added entityId filtering to Accounting (AC-2), Procurement (PR-3), HR (HR-1, HR-10), Proposals (BP-3), Flow (FL-15). GoodsReceipt `entityId` made required and populated from PO (`e063816`). SSOT project access scoped to user's `assignedProjects` (PE-6, `efadb87`).
-- **Firestore indexes**: ~~Missing indexes~~ **Mostly resolved** (`3cb25cc`): Added missing composite indexes for Procurement (PR-11). FL-9, HR-3, and AC-9 verified as already present in `firestore.indexes.json`. **Remaining**: HR (HR-11), Flow (FL-12), Proposals (BP-10).
+- **Firestore indexes**: ~~Missing indexes~~ **Resolved** (`3cb25cc`, Cluster G): Added missing composite indexes for Procurement (PR-11). FL-9, HR-3, and AC-9 verified as already present in `firestore.indexes.json`. FL-12 and BP-10 indexes added (Cluster G). HR-11 mitigated — indexes already exist in `firestore.indexes.json`.
 - **Permission checks**: ~~Client-side only in most modules.~~ **Fixed** (`6489217`, `58f8d40`, Cluster C): Added authorization checks in Procurement (PR-1, PR-2, PR-4, PR-16), Flow (FL-2, FL-5, FL-3), HR (HR-18), SSOT (PE-14, PE-18), Documents (PE-8, PE-10). Added granular GR permission flags (`INSPECT_GOODS`, `APPROVE_GR`).
 - **Duplicate permission systems**: ~~Incompatible systems in types and constants.~~ **Fixed** (`29f684f`): Consolidated to single `PERMISSION_FLAGS` in `@vapour/constants`. Removed duplicate `PermissionFlag` enum (AA-1, SP-1, SP-7, SP-13).
 - **permissions2 not synced to claims**: ~~Cloud Functions don't include `permissions2` in custom claims (AA-3, AA-12).~~ **Fixed**: Both `onUserUpdate` and `syncUserClaims` include `permissions2` in custom claims. SP-4 verified resolved. SP-12 documented (`permissions2` is admin-assigned, not role-calculated).

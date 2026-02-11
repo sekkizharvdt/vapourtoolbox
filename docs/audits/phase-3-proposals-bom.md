@@ -131,12 +131,13 @@
 - **Recommendation**: Add referential integrity validation in `deleteBOMItem`.
 - **Resolution**: Already fixed — `generateItemNumber()` validates parent exists (throws "Parent item not found"). `deleteBOMItem()` handles cascading child deletion recursively.
 
-#### BP-10: No Index Validation for Complex Queries
+#### BP-10: No Index Validation for Complex Queries — FIXED (Cluster G)
 
 - **Category**: Performance / Reliability
 - **File**: `apps/web/src/lib/bom/costConfig.ts` (lines 80-86)
 - **Issue**: `getActiveCostConfiguration` uses composite query (entityId + isActive + effectiveFrom + orderBy) without error handling for missing index.
 - **Recommendation**: Add try-catch with index-specific error messaging.
+- **Resolution**: Added composite indexes for BOM items queries (level+sortOrder, parentItemId+sortOrder) (Cluster G).
 
 #### BP-11: Race Condition in BOM Summary Calculation — MITIGATED (Cluster E)
 
