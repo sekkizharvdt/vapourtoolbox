@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { TextField, Grid, MenuItem, Box, Typography } from '@mui/material';
+import { TextField, Grid, MenuItem, Box, Typography, Alert } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
@@ -234,10 +234,12 @@ export function RecordCustomerPaymentDialog({
     setAllocations((prev) =>
       prev.map((allocation) => {
         if (allocation.invoiceId === invoiceId) {
+          // Cap at outstanding amount to prevent over-allocation per invoice
+          const cappedAmount = Math.min(Math.max(0, allocatedAmount), allocation.originalAmount);
           return {
             ...allocation,
-            allocatedAmount,
-            remainingAmount: allocation.originalAmount - allocatedAmount,
+            allocatedAmount: cappedAmount,
+            remainingAmount: allocation.originalAmount - cappedAmount,
           };
         }
         return allocation;
@@ -669,6 +671,19 @@ export function RecordCustomerPaymentDialog({
             onAutoAllocate={handleAutoAllocate}
             onFillRemaining={handleFillRemaining}
           />
+
+          {unallocated > 0.01 && outstandingInvoices.length > 0 && baseAmount > 0 && (
+            <Grid size={{ xs: 12 }}>
+              <Alert severity="info">
+                Unallocated amount of{' '}
+                {unallocated.toLocaleString('en-IN', {
+                  style: 'currency',
+                  currency: 'INR',
+                })}{' '}
+                will be recorded as advance/credit for this customer.
+              </Alert>
+            </Grid>
+          )}
         </Grid>
       </Box>
 

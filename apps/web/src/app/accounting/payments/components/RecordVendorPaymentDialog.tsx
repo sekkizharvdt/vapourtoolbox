@@ -202,10 +202,12 @@ export function RecordVendorPaymentDialog({
     setAllocations((prev) =>
       prev.map((allocation) => {
         if (allocation.invoiceId === billId) {
+          // Cap at outstanding amount to prevent over-allocation per bill
+          const cappedAmount = Math.min(Math.max(0, allocatedAmount), allocation.originalAmount);
           return {
             ...allocation,
-            allocatedAmount,
-            remainingAmount: allocation.originalAmount - allocatedAmount,
+            allocatedAmount: cappedAmount,
+            remainingAmount: allocation.originalAmount - cappedAmount,
           };
         }
         return allocation;

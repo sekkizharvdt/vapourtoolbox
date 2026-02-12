@@ -63,6 +63,7 @@ export default function ProjectFinancialReportPage() {
   const [error, setError] = useState<string | null>(null);
 
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
+  const entityId = claims?.entityId;
 
   // Set default date range (current month)
   useEffect(() => {
@@ -79,17 +80,17 @@ export default function ProjectFinancialReportPage() {
 
   // Load financial data when project or dates change
   useEffect(() => {
-    if (!selectedProject || !startDate || !endDate) {
+    if (!selectedProject || !startDate || !endDate || !entityId) {
       setFinancials(null);
       return;
     }
 
     loadFinancials();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProject, startDate, endDate]);
+  }, [selectedProject, startDate, endDate, entityId]);
 
   const loadFinancials = async () => {
-    if (!selectedProject) return;
+    if (!selectedProject || !entityId) return;
 
     setLoading(true);
     setError(null);
@@ -104,6 +105,7 @@ export default function ProjectFinancialReportPage() {
       // Query transactions for this project in the date range
       const transactionsQuery = query(
         collection(db, COLLECTIONS.TRANSACTIONS),
+        where('entityId', '==', entityId),
         where('projectId', '==', selectedProject),
         where('date', '>=', startTimestamp),
         where('date', '<=', endTimestamp)
@@ -134,6 +136,7 @@ export default function ProjectFinancialReportPage() {
       // Query cost centres for this project
       const costCentresQuery = query(
         collection(db, COLLECTIONS.COST_CENTRES),
+        where('entityId', '==', entityId),
         where('projectId', '==', selectedProject)
       );
 
