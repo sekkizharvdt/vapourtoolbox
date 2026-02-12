@@ -80,7 +80,7 @@ export default function ProjectFinancialReportPage() {
 
   // Load financial data when project or dates change
   useEffect(() => {
-    if (!selectedProject || !startDate || !endDate || !entityId) {
+    if (!selectedProject || !startDate || !endDate) {
       setFinancials(null);
       return;
     }
@@ -90,7 +90,7 @@ export default function ProjectFinancialReportPage() {
   }, [selectedProject, startDate, endDate, entityId]);
 
   const loadFinancials = async () => {
-    if (!selectedProject || !entityId) return;
+    if (!selectedProject) return;
 
     setLoading(true);
     setError(null);
@@ -103,12 +103,15 @@ export default function ProjectFinancialReportPage() {
       const endTimestamp = Timestamp.fromDate(new Date(endDate + 'T23:59:59'));
 
       // Query transactions for this project in the date range
-      const transactionsQuery = query(
-        collection(db, COLLECTIONS.TRANSACTIONS),
-        where('entityId', '==', entityId),
+      const transactionConstraints = [
+        ...(entityId ? [where('entityId', '==', entityId)] : []),
         where('projectId', '==', selectedProject),
         where('date', '>=', startTimestamp),
-        where('date', '<=', endTimestamp)
+        where('date', '<=', endTimestamp),
+      ];
+      const transactionsQuery = query(
+        collection(db, COLLECTIONS.TRANSACTIONS),
+        ...transactionConstraints
       );
 
       const transactionsSnapshot = await getDocs(transactionsQuery);
@@ -134,10 +137,13 @@ export default function ProjectFinancialReportPage() {
       });
 
       // Query cost centres for this project
+      const costCentreConstraints = [
+        ...(entityId ? [where('entityId', '==', entityId)] : []),
+        where('projectId', '==', selectedProject),
+      ];
       const costCentresQuery = query(
         collection(db, COLLECTIONS.COST_CENTRES),
-        where('entityId', '==', entityId),
-        where('projectId', '==', selectedProject)
+        ...costCentreConstraints
       );
 
       const costCentresSnapshot = await getDocs(costCentresQuery);
