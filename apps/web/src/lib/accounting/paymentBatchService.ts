@@ -384,6 +384,58 @@ export async function removeBatchReceipt(
   logger.info('[removeBatchReceipt] Receipt removed', { batchId, receiptId });
 }
 
+/**
+ * Update a receipt within a batch
+ */
+export async function updateBatchReceipt(
+  db: Firestore,
+  batchId: string,
+  receiptId: string,
+  updates: Partial<AddBatchReceiptInput>
+): Promise<void> {
+  await runTransaction(db, async (transaction) => {
+    const batchRef = doc(db, COLLECTIONS.PAYMENT_BATCHES, batchId);
+    const batchSnap = await transaction.get(batchRef);
+
+    if (!batchSnap.exists()) {
+      throw new Error('Payment batch not found');
+    }
+
+    const batchData = batchSnap.data();
+    if (batchData.status !== 'DRAFT') {
+      throw new Error('Cannot modify a batch that is not in DRAFT status');
+    }
+
+    const currentPayments = (batchData.payments || []) as BatchPayment[];
+    const currentReceipts = (batchData.receipts || []) as BatchReceipt[];
+
+    const receiptIndex = currentReceipts.findIndex((r) => r.id === receiptId);
+    if (receiptIndex === -1) {
+      throw new Error(`Receipt not found: ${receiptId}`);
+    }
+
+    const existingReceipt = currentReceipts[receiptIndex]!;
+    const updatedReceipt = removeUndefinedValues<BatchReceipt>({
+      ...existingReceipt,
+      ...updates,
+      id: existingReceipt.id,
+    });
+
+    const updatedReceipts = [...currentReceipts];
+    updatedReceipts[receiptIndex] = updatedReceipt;
+
+    const totals = calculateBatchTotals({ receipts: updatedReceipts, payments: currentPayments });
+
+    transaction.update(batchRef, {
+      receipts: updatedReceipts,
+      ...totals,
+      updatedAt: Timestamp.now(),
+    });
+  });
+
+  logger.info('[updateBatchReceipt] Receipt updated', { batchId, receiptId });
+}
+
 // ============================================
 // Payment Management
 // ============================================
@@ -427,6 +479,7 @@ export async function addBatchPayment(
     netPayable,
     projectId: input.projectId,
     projectName: input.projectName,
+    category: input.category,
     status: 'PENDING',
     notes: input.notes,
   });

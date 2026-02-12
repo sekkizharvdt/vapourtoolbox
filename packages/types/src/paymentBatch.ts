@@ -40,6 +40,18 @@ export type BatchPaymentLinkedType = 'VENDOR_BILL' | 'RECURRING' | 'MANUAL';
 export type BatchPayeeType = 'VENDOR' | 'EMPLOYEE' | 'OTHER';
 
 /**
+ * Category for classifying batch payments
+ */
+export type BatchPaymentCategory =
+  | 'SALARY'
+  | 'TAXES_DUTIES'
+  | 'PROJECTS'
+  | 'LOANS'
+  | 'ADMINISTRATION'
+  | '3D_PRINTER'
+  | 'OTHER';
+
+/**
  * Status of individual payment within a batch
  */
 export type BatchPaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'SKIPPED';
@@ -140,6 +152,10 @@ export interface BatchPayment {
   paidTransactionId?: string;
   /** Error message if payment failed */
   errorMessage?: string;
+
+  // Classification
+  /** Payment category for grouping */
+  category?: BatchPaymentCategory;
 
   // Notes
   /** Additional notes, e.g., "7500 TDS" */
@@ -316,6 +332,8 @@ export interface AddBatchPaymentInput {
   projectId?: string;
   /** Project name */
   projectName?: string;
+  /** Payment category */
+  category?: BatchPaymentCategory;
   /** Notes */
   notes?: string;
 }

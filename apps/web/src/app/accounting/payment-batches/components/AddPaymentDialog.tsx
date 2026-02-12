@@ -32,9 +32,27 @@ import {
 import { getFirebase } from '@/lib/firebase';
 import {
   addBatchPayment,
+  updateBatchPayment,
   getOutstandingBillsForProject,
 } from '@/lib/accounting/paymentBatchService';
-import type { BatchPayeeType, VendorBill, BusinessEntity, Project } from '@vapour/types';
+
+const PAYMENT_CATEGORIES: { value: BatchPaymentCategory; label: string }[] = [
+  { value: 'SALARY', label: 'Salary' },
+  { value: 'TAXES_DUTIES', label: 'Taxes & Duties' },
+  { value: 'PROJECTS', label: 'Projects' },
+  { value: 'LOANS', label: 'Loans' },
+  { value: 'ADMINISTRATION', label: 'Administration' },
+  { value: '3D_PRINTER', label: '3D Printer' },
+  { value: 'OTHER', label: 'Other' },
+];
+import type {
+  BatchPayeeType,
+  BatchPaymentCategory,
+  BatchPayment,
+  VendorBill,
+  BusinessEntity,
+  Project,
+} from '@vapour/types';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 
@@ -44,6 +62,7 @@ interface AddPaymentDialogProps {
   batchId: string;
   sourceProjectIds: string[];
   onAdded: () => void;
+  editingPayment?: BatchPayment | null;
 }
 
 type TabValue = 'bills' | 'recurring' | 'manual';
@@ -54,7 +73,9 @@ export default function AddPaymentDialog({
   batchId,
   sourceProjectIds,
   onAdded,
+  editingPayment,
 }: AddPaymentDialogProps) {
+  const isEditing = !!editingPayment;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabValue>('bills');
@@ -72,6 +93,7 @@ export default function AddPaymentDialog({
   const [amount, setAmount] = useState('');
   const [tdsAmount, setTdsAmount] = useState('');
   const [tdsSection, setTdsSection] = useState('');
+  const [category, setCategory] = useState<BatchPaymentCategory | ''>('');
   const [notes, setNotes] = useState('');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
@@ -106,10 +128,34 @@ export default function AddPaymentDialog({
     setAmount('');
     setTdsAmount('');
     setTdsSection('');
+    setCategory('');
     setNotes('');
     setSelectedProject(null);
     setError(null);
   };
+
+  // Populate form when editing
+  useEffect(() => {
+    if (open && editingPayment) {
+      setTab('manual');
+      setPayeeType(editingPayment.payeeType);
+      setEntityName(editingPayment.entityName);
+      setAmount(String(editingPayment.amount));
+      setTdsAmount(editingPayment.tdsAmount ? String(editingPayment.tdsAmount) : '');
+      setTdsSection(editingPayment.tdsSection || '');
+      setCategory(editingPayment.category || '');
+      setNotes(editingPayment.notes || '');
+      if (editingPayment.projectId && editingPayment.projectName) {
+        setSelectedProject({
+          id: editingPayment.projectId,
+          name: editingPayment.projectName,
+        } as Project);
+      }
+    } else if (open && !editingPayment) {
+      resetForm();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editingPayment]);
 
   const handleClose = () => {
     resetForm();
@@ -180,8 +226,8 @@ export default function AddPaymentDialog({
 
     try {
       const { db } = getFirebase();
-      await addBatchPayment(db, batchId, {
-        linkedType: 'MANUAL',
+      const paymentInput = {
+        linkedType: editingPayment?.linkedType || ('MANUAL' as const),
         payeeType,
         entityId: selectedEntity?.id,
         entityName: selectedEntity?.name || entityName.trim(),
@@ -191,13 +237,22 @@ export default function AddPaymentDialog({
         tdsSection: tdsSection || undefined,
         projectId: selectedProject?.id,
         projectName: selectedProject?.name,
+        category: category || undefined,
         notes: notes || undefined,
-      });
+      };
+
+      if (isEditing && editingPayment) {
+        await updateBatchPayment(db, batchId, editingPayment.id, paymentInput);
+      } else {
+        await addBatchPayment(db, batchId, paymentInput);
+      }
 
       onAdded();
       handleClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add payment');
+      setError(
+        err instanceof Error ? err.message : `Failed to ${isEditing ? 'update' : 'add'} payment`
+      );
     } finally {
       setSaving(false);
     }
@@ -222,14 +277,14 @@ export default function AddPaymentDialog({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <DialogTitle>Add Payment</DialogTitle>
+      <DialogTitle>{isEditing ? 'Edit Payment' : 'Add Payment'}</DialogTitle>
       <DialogContent>
         <Tabs
           value={tab}
           onChange={(_, v) => setTab(v as TabValue)}
           sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
         >
-          <Tab label="Outstanding Bills" value="bills" />
+          <Tab label="Outstanding Bills" value="bills" disabled={isEditing} />
           <Tab label="Manual Payment" value="manual" />
         </Tabs>
 
@@ -407,6 +462,24 @@ export default function AddPaymentDialog({
               />
             </Box>
 
+            <FormControl fullWidth>
+              <InputLabel>Category</InputLabel>
+              <Select
+                value={category}
+                label="Category"
+                onChange={(e) => setCategory(e.target.value as BatchPaymentCategory)}
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {PAYMENT_CATEGORIES.map((cat) => (
+                  <MenuItem key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
             <ProjectSelector
               value={selectedProject?.id || null}
               onChange={(projectId, projectName) => {
@@ -452,7 +525,7 @@ export default function AddPaymentDialog({
             onClick={handleAddManual}
             disabled={saving || (!entityName.trim() && !selectedEntity) || !amount}
           >
-            {saving ? 'Adding...' : 'Add Payment'}
+            {saving ? 'Saving...' : isEditing ? 'Save Payment' : 'Add Payment'}
           </Button>
         )}
       </DialogActions>

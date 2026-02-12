@@ -33,6 +33,7 @@ import {
   PlayArrow as ExecuteIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
+  Edit as EditIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
@@ -48,7 +49,13 @@ import {
   removeBatchPayment,
   detectCrossProjectPayments,
 } from '@/lib/accounting/paymentBatchService';
-import type { PaymentBatch, PaymentBatchStatus } from '@vapour/types';
+import type {
+  PaymentBatch,
+  PaymentBatchStatus,
+  BatchReceipt,
+  BatchPayment,
+  BatchPaymentCategory,
+} from '@vapour/types';
 import AddReceiptDialog from '../components/AddReceiptDialog';
 import AddPaymentDialog from '../components/AddPaymentDialog';
 
@@ -75,6 +82,16 @@ const STATUS_COLORS: Record<
   CANCELLED: 'default',
 };
 
+const CATEGORY_LABELS: Record<BatchPaymentCategory, string> = {
+  SALARY: 'Salary',
+  TAXES_DUTIES: 'Taxes & Duties',
+  PROJECTS: 'Projects',
+  LOANS: 'Loans',
+  ADMINISTRATION: 'Administration',
+  '3D_PRINTER': '3D Printer',
+  OTHER: 'Other',
+};
+
 export default function PaymentBatchDetailClient() {
   const params = useParams();
   const router = useRouter();
@@ -95,6 +112,8 @@ export default function PaymentBatchDetailClient() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [editingReceipt, setEditingReceipt] = useState<BatchReceipt | null>(null);
+  const [editingPayment, setEditingPayment] = useState<BatchPayment | null>(null);
 
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
   const hasManageAccess = claims?.permissions ? canManageAccounting(claims.permissions) : false;
@@ -258,6 +277,7 @@ export default function PaymentBatchDetailClient() {
     const updated = await getPaymentBatch(db, batch.id);
     if (updated) setBatch(updated);
     setReceiptDialogOpen(false);
+    setEditingReceipt(null);
   };
 
   const handlePaymentAdded = async () => {
@@ -266,6 +286,17 @@ export default function PaymentBatchDetailClient() {
     const updated = await getPaymentBatch(db, batch.id);
     if (updated) setBatch(updated);
     setPaymentDialogOpen(false);
+    setEditingPayment(null);
+  };
+
+  const handleEditReceipt = (receipt: BatchReceipt) => {
+    setEditingReceipt(receipt);
+    setReceiptDialogOpen(true);
+  };
+
+  const handleEditPayment = (payment: BatchPayment) => {
+    setEditingPayment(payment);
+    setPaymentDialogOpen(true);
   };
 
   const formatCurrency = (amount: number) => {
@@ -521,18 +552,27 @@ export default function PaymentBatchDetailClient() {
                   {receipt.projectName || 'No project'} | {formatDate(receipt.receiptDate)}
                 </Typography>
               </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="h6" color="success.main">
                   {formatCurrency(receipt.amount)}
                 </Typography>
                 {isDraft && hasManageAccess && (
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleRemoveReceipt(receipt.id)}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
+                  <>
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={() => handleEditReceipt(receipt)}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => handleRemoveReceipt(receipt.id)}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </>
                 )}
               </Box>
             </Box>
@@ -570,16 +610,26 @@ export default function PaymentBatchDetailClient() {
               }}
             >
               <Box>
-                <Typography variant="body1" fontWeight="medium">
-                  {payment.entityName}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body1" fontWeight="medium">
+                    {payment.entityName}
+                  </Typography>
+                  {payment.category && (
+                    <Chip
+                      label={CATEGORY_LABELS[payment.category] || payment.category}
+                      size="small"
+                      variant="outlined"
+                      color="primary"
+                    />
+                  )}
+                </Box>
                 <Typography variant="body2" color="text.secondary">
                   {payment.linkedReference || payment.payeeType}
                   {payment.projectName && ` | ${payment.projectName}`}
                   {payment.notes && ` | ${payment.notes}`}
                 </Typography>
               </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Box sx={{ textAlign: 'right' }}>
                   <Typography variant="h6" color="error.main">
                     {formatCurrency(payment.amount)}
@@ -591,13 +641,22 @@ export default function PaymentBatchDetailClient() {
                   )}
                 </Box>
                 {isDraft && hasManageAccess && (
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleRemovePayment(payment.id)}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
+                  <>
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={() => handleEditPayment(payment)}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => handleRemovePayment(payment.id)}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </>
                 )}
               </Box>
             </Box>
@@ -605,21 +664,29 @@ export default function PaymentBatchDetailClient() {
         )}
       </Paper>
 
-      {/* Add Receipt Dialog */}
+      {/* Add/Edit Receipt Dialog */}
       <AddReceiptDialog
         open={receiptDialogOpen}
-        onClose={() => setReceiptDialogOpen(false)}
+        onClose={() => {
+          setReceiptDialogOpen(false);
+          setEditingReceipt(null);
+        }}
         batchId={batch.id}
         onAdded={handleReceiptAdded}
+        editingReceipt={editingReceipt}
       />
 
-      {/* Add Payment Dialog */}
+      {/* Add/Edit Payment Dialog */}
       <AddPaymentDialog
         open={paymentDialogOpen}
-        onClose={() => setPaymentDialogOpen(false)}
+        onClose={() => {
+          setPaymentDialogOpen(false);
+          setEditingPayment(null);
+        }}
         batchId={batch.id}
         sourceProjectIds={batch.receipts.filter((r) => r.projectId).map((r) => r.projectId!)}
         onAdded={handlePaymentAdded}
+        editingPayment={editingPayment}
       />
 
       {/* Reject Dialog */}

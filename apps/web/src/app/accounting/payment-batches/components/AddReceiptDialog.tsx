@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -18,8 +18,8 @@ import {
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { getFirebase } from '@/lib/firebase';
-import { addBatchReceipt } from '@/lib/accounting/paymentBatchService';
-import type { BatchReceiptSourceType, Project, BusinessEntity } from '@vapour/types';
+import { addBatchReceipt, updateBatchReceipt } from '@/lib/accounting/paymentBatchService';
+import type { BatchReceiptSourceType, BatchReceipt, Project, BusinessEntity } from '@vapour/types';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 
@@ -28,6 +28,7 @@ interface AddReceiptDialogProps {
   onClose: () => void;
   batchId: string;
   onAdded: () => void;
+  editingReceipt?: BatchReceipt | null;
 }
 
 export default function AddReceiptDialog({
@@ -35,7 +36,9 @@ export default function AddReceiptDialog({
   onClose,
   batchId,
   onAdded,
+  editingReceipt,
 }: AddReceiptDialogProps) {
+  const isEditing = !!editingReceipt;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +61,30 @@ export default function AddReceiptDialog({
     setSelectedEntity(null);
     setError(null);
   };
+
+  // Populate form when editing
+  useEffect(() => {
+    if (open && editingReceipt) {
+      setSourceType(editingReceipt.sourceType);
+      setDescription(editingReceipt.description);
+      setAmount(String(editingReceipt.amount));
+      setCurrency(editingReceipt.currency);
+      const date =
+        editingReceipt.receiptDate instanceof Date
+          ? editingReceipt.receiptDate
+          : new Date(editingReceipt.receiptDate);
+      setReceiptDate(date);
+      if (editingReceipt.projectId && editingReceipt.projectName) {
+        setSelectedProject({
+          id: editingReceipt.projectId,
+          name: editingReceipt.projectName,
+        } as Project);
+      }
+    } else if (open && !editingReceipt) {
+      resetForm();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editingReceipt]);
 
   const handleClose = () => {
     resetForm();
@@ -83,7 +110,7 @@ export default function AddReceiptDialog({
 
     try {
       const { db } = getFirebase();
-      await addBatchReceipt(db, batchId, {
+      const receiptInput = {
         sourceType,
         description: description.trim(),
         amount: parseFloat(amount),
@@ -93,11 +120,19 @@ export default function AddReceiptDialog({
         projectName: selectedProject?.name,
         entityId: selectedEntity?.id,
         entityName: selectedEntity?.name,
-      });
+      };
+
+      if (isEditing && editingReceipt) {
+        await updateBatchReceipt(db, batchId, editingReceipt.id, receiptInput);
+      } else {
+        await addBatchReceipt(db, batchId, receiptInput);
+      }
       onAdded();
       handleClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add receipt');
+      setError(
+        err instanceof Error ? err.message : `Failed to ${isEditing ? 'update' : 'add'} receipt`
+      );
     } finally {
       setSaving(false);
     }
@@ -105,7 +140,7 @@ export default function AddReceiptDialog({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Add Receipt</DialogTitle>
+      <DialogTitle>{isEditing ? 'Edit Receipt' : 'Add Receipt'}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           {error && (
@@ -204,7 +239,7 @@ export default function AddReceiptDialog({
           onClick={handleSubmit}
           disabled={saving || !description.trim() || !amount}
         >
-          {saving ? 'Adding...' : 'Add Receipt'}
+          {saving ? 'Saving...' : isEditing ? 'Save Receipt' : 'Add Receipt'}
         </Button>
       </DialogActions>
     </Dialog>
