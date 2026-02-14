@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import {
   Paper,
   Box,
@@ -16,6 +16,7 @@ import {
   Link,
   Grid,
   Button,
+  CircularProgress,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -23,7 +24,7 @@ import {
   Home as HomeIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
@@ -62,8 +63,9 @@ function toDate(value: unknown): Date | null {
   return null;
 }
 
-export default function EntityLedgerPage() {
+function EntityLedgerInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   useAuth();
   const [entities, setEntities] = useState<BusinessEntity[]>([]);
   const [selectedEntity, setSelectedEntity] = useState<BusinessEntity | null>(null);
@@ -99,6 +101,17 @@ export default function EntityLedgerPage() {
 
     return () => unsubscribe();
   }, []);
+
+  // Auto-select entity from URL query param (deep-link support)
+  useEffect(() => {
+    const entityIdParam = searchParams.get('entityId');
+    if (entityIdParam && entities.length > 0 && !selectedEntity) {
+      const match = entities.find((e) => e.id === entityIdParam);
+      if (match) {
+        setSelectedEntity(match);
+      }
+    }
+  }, [searchParams, entities, selectedEntity]);
 
   // Load ALL transactions when entity is selected (no date filter in query)
   // We filter by date in memory to calculate opening balance
@@ -603,5 +616,19 @@ export default function EntityLedgerPage() {
         </Paper>
       )}
     </Box>
+  );
+}
+
+export default function EntityLedgerPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress />
+        </Box>
+      }
+    >
+      <EntityLedgerInner />
+    </Suspense>
   );
 }

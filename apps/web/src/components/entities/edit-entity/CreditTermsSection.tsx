@@ -15,7 +15,10 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   InputAdornment,
+  Link,
 } from '@mui/material';
+import { OpenInNew as OpenInNewIcon } from '@mui/icons-material';
+import NextLink from 'next/link';
 import type { CreditTermsSectionProps } from './types';
 
 export function CreditTermsSection({
@@ -28,6 +31,7 @@ export function CreditTermsSection({
   openingBalanceType,
   setOpeningBalanceType,
   disabled,
+  entityId,
 }: CreditTermsSectionProps) {
   return (
     <Box>
@@ -66,9 +70,22 @@ export function CreditTermsSection({
         </Grid>
 
         {/* Opening Balance Section */}
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          Opening Balance from Previous Financial Year
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            Opening Balance from Previous Financial Year
+          </Typography>
+          {entityId && (
+            <Link
+              component={NextLink}
+              href={`/accounting/reports/entity-ledger?entityId=${entityId}`}
+              variant="caption"
+              sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+            >
+              View in Ledger
+              <OpenInNewIcon sx={{ fontSize: 14 }} />
+            </Link>
+          )}
+        </Box>
         <Grid container spacing={2} alignItems="flex-start">
           <Grid size={{ xs: 12, sm: 6 }}>
             <TextField

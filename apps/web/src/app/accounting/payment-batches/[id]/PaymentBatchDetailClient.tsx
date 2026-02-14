@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import {
   Typography,
@@ -123,6 +123,34 @@ export default function PaymentBatchDetailClient() {
 
   // Cross-project payments detection
   const crossProjectPayments = batch ? detectCrossProjectPayments(batch) : [];
+
+  // Group payments by category
+  const paymentsByCategory = useMemo(() => {
+    if (!batch) return [];
+    const groups = new Map<string, { label: string; payments: BatchPayment[]; total: number }>();
+
+    batch.payments.forEach((payment) => {
+      const key = payment.category || 'UNCATEGORIZED';
+      const label = payment.category
+        ? CATEGORY_LABELS[payment.category] || payment.category
+        : 'Uncategorized';
+      if (!groups.has(key)) {
+        groups.set(key, { label, payments: [], total: 0 });
+      }
+      const group = groups.get(key)!;
+      group.payments.push(payment);
+      group.total += payment.amount;
+    });
+
+    // Sort: categorized groups first (alphabetical), uncategorized last
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => {
+        if (a === 'UNCATEGORIZED') return 1;
+        if (b === 'UNCATEGORIZED') return -1;
+        return a.localeCompare(b);
+      })
+      .map(([key, group]) => ({ key, ...group }));
+  }, [batch]);
 
   // Load data
   useEffect(() => {
@@ -596,69 +624,85 @@ export default function PaymentBatchDetailClient() {
             No payments added yet. Add payments to allocate funds.
           </Typography>
         ) : (
-          batch.payments.map((payment) => (
-            <Box
-              key={payment.id}
-              sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                py: 1,
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-                '&:last-child': { borderBottom: 'none' },
-              }}
-            >
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body1" fontWeight="medium">
-                    {payment.entityName}
-                  </Typography>
-                  {payment.category && (
-                    <Chip
-                      label={CATEGORY_LABELS[payment.category] || payment.category}
-                      size="small"
-                      variant="outlined"
-                      color="primary"
-                    />
-                  )}
-                </Box>
-                <Typography variant="body2" color="text.secondary">
-                  {payment.linkedReference || payment.payeeType}
-                  {payment.projectName && ` | ${payment.projectName}`}
-                  {payment.notes && ` | ${payment.notes}`}
+          paymentsByCategory.map((group) => (
+            <Box key={group.key} sx={{ mb: 2, '&:last-child': { mb: 0 } }}>
+              {/* Category header with subtotal */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  bgcolor: 'grey.50',
+                  px: 1.5,
+                  py: 0.75,
+                  borderRadius: 1,
+                  mb: 1,
+                }}
+              >
+                <Typography variant="subtitle2" color="text.secondary">
+                  {group.label} ({group.payments.length})
+                </Typography>
+                <Typography variant="subtitle2" color="error.main">
+                  {formatCurrency(group.total)}
                 </Typography>
               </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography variant="h6" color="error.main">
-                    {formatCurrency(payment.amount)}
-                  </Typography>
-                  {payment.tdsAmount && (
-                    <Typography variant="caption" color="text.secondary">
-                      TDS: {formatCurrency(payment.tdsAmount)}
+              {/* Payments in this category */}
+              {group.payments.map((payment) => (
+                <Box
+                  key={payment.id}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    py: 1,
+                    px: 1.5,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    '&:last-child': { borderBottom: 'none' },
+                  }}
+                >
+                  <Box>
+                    <Typography variant="body1" fontWeight="medium">
+                      {payment.entityName}
                     </Typography>
-                  )}
+                    <Typography variant="body2" color="text.secondary">
+                      {payment.linkedReference || payment.payeeType}
+                      {payment.projectName && ` | ${payment.projectName}`}
+                      {payment.notes && ` | ${payment.notes}`}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography variant="h6" color="error.main">
+                        {formatCurrency(payment.amount)}
+                      </Typography>
+                      {payment.tdsAmount && (
+                        <Typography variant="caption" color="text.secondary">
+                          TDS: {formatCurrency(payment.tdsAmount)}
+                        </Typography>
+                      )}
+                    </Box>
+                    {isDraft && hasManageAccess && (
+                      <>
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => handleEditPayment(payment)}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleRemovePayment(payment.id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </>
+                    )}
+                  </Box>
                 </Box>
-                {isDraft && hasManageAccess && (
-                  <>
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={() => handleEditPayment(payment)}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleRemovePayment(payment.id)}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </>
-                )}
-              </Box>
+              ))}
             </Box>
           ))
         )}

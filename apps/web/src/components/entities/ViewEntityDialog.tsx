@@ -24,11 +24,14 @@ import {
   Store as StoreIcon,
   Handshake as PartnerIcon,
   AccountBalance as BankIcon,
+  AccountBalanceWallet as LedgerIcon,
   Person as PersonIcon,
   Star as StarIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
 import type { BusinessEntity, EntityRole } from '@vapour/types';
+import { formatCurrency } from '@/lib/utils/formatters';
 
 interface ViewEntityDialogProps {
   open: boolean;
@@ -49,6 +52,8 @@ export function ViewEntityDialog({
   canEdit,
   canArchive,
 }: ViewEntityDialogProps) {
+  const router = useRouter();
+
   if (!entity) return null;
 
   // Format date for display
@@ -486,6 +491,53 @@ export function ViewEntityDialog({
                 </Card>
               </Grid>
             )}
+
+          {/* Financial Information */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="subtitle2" color="primary" gutterBottom>
+                  Financial Information
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Opening Balance
+                    </Typography>
+                    {entity.openingBalance && entity.openingBalance > 0 ? (
+                      <Typography
+                        variant="body2"
+                        fontWeight="medium"
+                        color={entity.openingBalanceType === 'CR' ? 'error.main' : 'success.main'}
+                      >
+                        {formatCurrency(entity.openingBalance, 'INR')} (
+                        {entity.openingBalanceType === 'CR'
+                          ? 'Credit - We owe them'
+                          : 'Debit - They owe us'}
+                        )
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No opening balance set
+                      </Typography>
+                    )}
+                  </Box>
+                  <Button
+                    variant="outlined"
+                    startIcon={<LedgerIcon />}
+                    onClick={() => {
+                      onClose();
+                      router.push(`/accounting/reports/entity-ledger?entityId=${entity.id}`);
+                    }}
+                    fullWidth
+                  >
+                    View Full Ledger
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
 
           {/* Notes */}
           {entity.notes && (

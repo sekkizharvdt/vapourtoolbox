@@ -543,6 +543,7 @@ export function EditEntityDialog({ open, entity, onClose, onSuccess }: EditEntit
             openingBalanceType={openingBalanceType}
             setOpeningBalanceType={setOpeningBalanceType}
             disabled={loading}
+            entityId={entity?.id}
           />
         </Box>
       </DialogContent>

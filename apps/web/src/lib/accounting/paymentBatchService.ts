@@ -585,7 +585,8 @@ export async function updateBatchPayment(
 
     const paymentIndex = currentPayments.findIndex((p) => p.id === paymentId);
 
-    const updatedPayment: BatchPayment = {
+    // Remove undefined values - Firestore doesn't accept them
+    const updatedPayment = removeUndefinedValues<BatchPayment>({
       ...existingPayment,
       ...updates,
       id: existingPayment.id, // Ensure id is always present
@@ -599,7 +600,7 @@ export async function updateBatchPayment(
           : updates.amount
             ? updates.amount - (existingPayment.tdsAmount || 0)
             : existingPayment.netPayable,
-    };
+    });
 
     const updatedPayments = [...currentPayments];
     updatedPayments[paymentIndex] = updatedPayment;

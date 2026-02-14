@@ -32,7 +32,9 @@ import {
   Visibility as ViewIcon,
   Archive as ArchiveIcon,
   Unarchive as UnarchiveIcon,
+  AccountBalanceWallet as LedgerIcon,
 } from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
 import { collection, query, where, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import {
@@ -46,7 +48,8 @@ import {
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewEntities, canCreateEntities } from '@vapour/constants';
+import { canViewEntities, canCreateEntities, canViewAccounting } from '@vapour/constants';
+import { formatCurrency } from '@/lib/utils/formatters';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 
 // Lazy load heavy dialog components
@@ -74,6 +77,7 @@ const UnarchiveEntityDialog = dynamic(
 
 export default function EntitiesPage() {
   const { claims } = useAuth();
+  const router = useRouter();
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -208,6 +212,7 @@ export default function EntitiesPage() {
   const permissions = claims?.permissions || 0;
   const hasViewPermission = canViewEntities(permissions);
   const hasCreatePermission = canCreateEntities(permissions);
+  const hasAccountingPermission = canViewAccounting(permissions);
 
   // User must at least be able to view entities
   if (!hasViewPermission) {
@@ -316,7 +321,7 @@ export default function EntitiesPage() {
 
         {/* Entities Table */}
         {loading ? (
-          <LoadingState message="Loading entities..." variant="table" colSpan={5} />
+          <LoadingState message="Loading entities..." variant="table" colSpan={6} />
         ) : filteredAndSortedEntities.length === 0 ? (
           <EmptyState
             message={
@@ -325,7 +330,7 @@ export default function EntitiesPage() {
                 : 'No entities match your search criteria.'
             }
             variant="table"
-            colSpan={5}
+            colSpan={6}
           />
         ) : (
           <TableContainer component={Paper}>
@@ -352,6 +357,7 @@ export default function EntitiesPage() {
                     </TableSortLabel>
                   </TableCell>
                   <TableCell>State</TableCell>
+                  <TableCell align="right">Opening Balance</TableCell>
                   <TableCell>
                     <TableSortLabel
                       active={sortField === 'status'}
@@ -413,6 +419,23 @@ export default function EntitiesPage() {
                         {entity.billingAddress?.state || 'Not set'}
                       </Typography>
                     </TableCell>
+                    <TableCell align="right">
+                      {entity.openingBalance && entity.openingBalance > 0 ? (
+                        <Typography
+                          variant="body2"
+                          color={entity.openingBalanceType === 'CR' ? 'error.main' : 'success.main'}
+                        >
+                          {formatCurrency(entity.openingBalance, 'INR')}{' '}
+                          <Typography component="span" variant="caption" color="text.secondary">
+                            {entity.openingBalanceType || 'DR'}
+                          </Typography>
+                        </Typography>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          &mdash;
+                        </Typography>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Chip
                         label={entity.isArchived === true ? 'Archived' : 'Active'}
@@ -423,6 +446,16 @@ export default function EntitiesPage() {
                     <TableCell align="right">
                       <TableActionCell
                         actions={[
+                          {
+                            icon: <LedgerIcon />,
+                            label: 'View Ledger',
+                            onClick: () => {
+                              router.push(
+                                `/accounting/reports/entity-ledger?entityId=${entity.id}`
+                              );
+                            },
+                            show: hasAccountingPermission,
+                          },
                           {
                             icon: <ViewIcon />,
                             label: 'View Details',

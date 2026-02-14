@@ -63,6 +63,7 @@ export interface CreditTermsSectionProps {
   openingBalanceType: 'DR' | 'CR';
   setOpeningBalanceType: (value: 'DR' | 'CR') => void;
   disabled: boolean;
+  entityId?: string;
 }
 
 export const ENTITY_ROLES: EntityRole[] = ['VENDOR', 'CUSTOMER', 'PARTNER'];
