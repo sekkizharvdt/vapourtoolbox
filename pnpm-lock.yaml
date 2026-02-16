@@ -269,8 +269,8 @@ importers:
         specifier: ^4.7.8
         version: 4.7.8
       nodemailer:
-        specifier: ^6.9.0
-        version: 6.10.1
+        specifier: ^7.0.11
+        version: 7.0.13
       puppeteer-core:
         specifier: ^23.11.1
         version: 23.11.1
@@ -285,8 +285,8 @@ importers:
         specifier: ^20.0.0
         version: 20.19.25
       '@types/nodemailer':
-        specifier: ^6.4.0
-        version: 6.4.22
+        specifier: ^7.0.0
+        version: 7.0.10
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.0.0
         version: 6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)(typescript@5.9.3)
@@ -5244,10 +5244,10 @@ packages:
         integrity: sha512-t7frlewr6+cbx+9Ohpl0NOTKXZNV9xHRmNOvql47BFJKcEG1CxtxlPEEe+gR9uhVWM4DwhnvTF110mIL4yP9RA==,
       }
 
-  '@types/nodemailer@6.4.22':
+  '@types/nodemailer@7.0.10':
     resolution:
       {
-        integrity: sha512-HV16KRsW7UyZBITE07B62k8PRAKFqRSFXn1T7vslurVjN761tMDBhk5Lbt17ehyTzK6XcyJnAgUpevrvkcVOzw==,
+        integrity: sha512-tP+9WggTFN22Zxh0XFyst7239H0qwiRCogsk7v9aQS79sYAJY+WEbTHbNYcxUMaalHKmsNpxmoTe35hBEMMd6g==,
       }
 
   '@types/parse-json@4.0.2':
@@ -11907,10 +11907,10 @@ packages:
         integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==,
       }
 
-  nodemailer@6.10.1:
+  nodemailer@7.0.13:
     resolution:
       {
-        integrity: sha512-Z+iLaBGVaSjbIzQ4pX6XV41HrooLsQ10ZWPUehGmuantvzWoDVBnmsdUcOIDM1t+yPor5pDhVlDESgOMEGxhHA==,
+        integrity: sha512-PNDFSJdP+KFgdsG3ZzMXCgquO7I6McjY2vlqILjtJd0hy8wEvtugS9xKRF2NWlPNGxvLCXlTNIae4serI7dinw==,
       }
     engines: { node: '>=6.0.0' }
 
@@ -18995,7 +18995,7 @@ snapshots:
     dependencies:
       undici-types: 7.16.0
 
-  '@types/nodemailer@6.4.22':
+  '@types/nodemailer@7.0.10':
     dependencies:
       '@types/node': 22.19.7
 
@@ -24475,7 +24475,7 @@ snapshots:
 
   node-releases@2.0.27: {}
 
-  nodemailer@6.10.1: {}
+  nodemailer@7.0.13: {}
 
   nopt@8.1.0:
     dependencies:
