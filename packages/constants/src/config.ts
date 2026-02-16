@@ -77,13 +77,13 @@ export const ACCOUNTING = {
 export const APP_META = {
   NAME: 'Vapour Toolbox',
   COMPANY: 'Vapour Desal Technologies',
-  VERSION: '1.0.0',
+  VERSION: '1.5.0',
   DESCRIPTION: 'Unified Business Management Platform',
   /**
    * Last updated date in ISO format (YYYY-MM-DD)
    * Update this whenever significant changes are deployed
    */
-  LAST_UPDATED: '2025-12-26',
+  LAST_UPDATED: '2026-02-16',
   /**
    * Changelog/release notes URL (optional)
    */

@@ -236,15 +236,82 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       });
     }
 
+    // Flow / Task actions
     if (hasModuleAccess('time-tracking', userPermissions)) {
       cmds.push({
-        id: 'log-time',
-        label: 'Log Time Entry',
-        description: 'Record time spent on a task',
-        icon: <ScheduleIcon />,
+        id: 'create-meeting',
+        label: 'New Meeting Minutes',
+        description: 'Create new meeting minutes',
+        icon: <AddIcon />,
         category: 'action',
-        keywords: ['time', 'log', 'entry', 'track', 'hours'],
-        action: () => router.push('/flow'),
+        keywords: ['new', 'meeting', 'minutes', 'mom', 'create'],
+        action: () => router.push('/flow/meetings/new'),
+      });
+    }
+
+    // HR actions
+    if (hasModuleAccess('hr-management', userPermissions)) {
+      cmds.push({
+        id: 'create-leave',
+        label: 'New Leave Request',
+        description: 'Apply for leave',
+        icon: <AddIcon />,
+        category: 'action',
+        keywords: ['new', 'leave', 'request', 'apply', 'vacation', 'sick'],
+        action: () => router.push('/hr/leaves/new'),
+      });
+
+      cmds.push({
+        id: 'create-travel-expense',
+        label: 'New Travel Expense',
+        description: 'Submit a travel expense report',
+        icon: <AddIcon />,
+        category: 'action',
+        keywords: ['new', 'travel', 'expense', 'reimbursement', 'report', 'trip'],
+        action: () => router.push('/hr/travel-expenses/new'),
+      });
+
+      cmds.push({
+        id: 'create-on-duty',
+        label: 'New On-Duty Request',
+        description: 'Apply for on-duty / holiday work',
+        icon: <AddIcon />,
+        category: 'action',
+        keywords: ['new', 'on-duty', 'holiday', 'work', 'comp-off'],
+        action: () => router.push('/hr/on-duty/new'),
+      });
+    }
+
+    // Accounting actions
+    if (hasModuleAccess('accounting', userPermissions)) {
+      cmds.push({
+        id: 'create-invoice',
+        label: 'New Customer Invoice',
+        description: 'Create a customer invoice',
+        icon: <AddIcon />,
+        category: 'action',
+        keywords: ['new', 'invoice', 'customer', 'create', 'sales'],
+        action: () => router.push('/accounting?action=newInvoice'),
+      });
+
+      cmds.push({
+        id: 'create-bill',
+        label: 'New Vendor Bill',
+        description: 'Record a vendor bill',
+        icon: <AddIcon />,
+        category: 'action',
+        keywords: ['new', 'bill', 'vendor', 'create', 'expense'],
+        action: () => router.push('/accounting/bills?action=new'),
+      });
+
+      cmds.push({
+        id: 'create-payment-batch',
+        label: 'New Payment Batch',
+        description: 'Create a batch of payments',
+        icon: <AddIcon />,
+        category: 'action',
+        keywords: ['new', 'payment', 'batch', 'pay', 'create'],
+        action: () => router.push('/accounting/payment-batches?action=new'),
       });
     }
 

@@ -3,23 +3,23 @@
 /**
  * Flow Section
  *
- * Documentation for the Flow module - task inbox and notifications.
+ * Documentation for the Flow module - tasks, inbox, team board, and meeting minutes.
  */
 
 import { Box, Typography, Alert, Divider } from '@mui/material';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CategoryIcon from '@mui/icons-material/Category';
+import InboxIcon from '@mui/icons-material/Inbox';
+import GroupsIcon from '@mui/icons-material/Groups';
+import EventNoteIcon from '@mui/icons-material/EventNote';
 import { FeatureCard, StepGuide } from './helpers';
 
 export function FlowSection() {
   return (
     <Box>
       <Typography variant="body1" paragraph>
-        Flow is your unified task inbox. It shows all pending tasks, approvals, and notifications
-        organized by project and category. Tasks are created automatically when actions are needed
-        across the system.
+        Flow is your unified task and collaboration hub. It brings together your tasks, approvals,
+        team visibility, and meeting minutes in one place. Tasks are created automatically when
+        actions are needed across the system.
       </Typography>
 
       <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
@@ -36,23 +36,23 @@ export function FlowSection() {
       >
         <FeatureCard
           icon={<AssignmentIcon color="primary" />}
-          title="Action-Oriented Tasks"
-          description="Click any task to go directly to where you can take action. Tasks auto-complete when the action is performed."
+          title="My Tasks"
+          description="View all tasks assigned to you with filter chips (All, Pending, Completed). Click any task to take action directly."
         />
         <FeatureCard
-          icon={<CategoryIcon color="primary" />}
-          title="Channel Organization"
-          description="Tasks are organized into channels: Approvals, HR, Procurement, and more. Filter by what matters to you."
+          icon={<InboxIcon color="primary" />}
+          title="Inbox"
+          description="All actionable notifications — approvals, mentions, and assignments in one place."
         />
         <FeatureCard
-          icon={<NotificationsActiveIcon color="primary" />}
-          title="Real-time Updates"
-          description="Tasks appear instantly when someone needs your action. No refresh needed."
+          icon={<GroupsIcon color="primary" />}
+          title="Team Board"
+          description="See team members and their current tasks at a glance. Quickly check workload distribution."
         />
         <FeatureCard
-          icon={<CheckCircleIcon color="success" />}
-          title="Auto-Completion"
-          description="Most tasks complete automatically when you take action on the linked page."
+          icon={<EventNoteIcon color="primary" />}
+          title="Meeting Minutes"
+          description="Create and manage meeting minutes with action items, responsible persons, and due dates."
         />
       </Box>
 
@@ -64,9 +64,9 @@ export function FlowSection() {
       <StepGuide
         steps={[
           {
-            title: 'Task Appears in Flow',
+            title: 'Task Appears in My Tasks',
             description:
-              'When someone submits a leave request, expense report, or any item needing your action, a task is created.',
+              'When someone submits a leave request, expense report, or any item needing your action, a task is automatically created and assigned to you.',
           },
           {
             title: 'Click to Take Action',
@@ -83,51 +83,38 @@ export function FlowSection() {
 
       <Alert severity="info" sx={{ mt: 3 }}>
         <Typography variant="body2">
-          <strong>Tip:</strong> The &quot;Action Required&quot; chip indicates tasks waiting for
-          your action. Click anywhere on the task card to go to the action page.
+          <strong>Tip:</strong> Use the filter chips on My Tasks to quickly switch between All,
+          Pending, and Completed tasks. The default view shows tasks assigned to you.
         </Typography>
       </Alert>
 
       <Divider sx={{ my: 3 }} />
 
       <Typography variant="h6" gutterBottom>
-        Task Channels
+        Meeting Minutes
       </Typography>
       <Typography variant="body2" paragraph>
-        Tasks are organized into channels based on their type:
+        Meeting Minutes follow a two-step workflow:
       </Typography>
-      <Box component="ul" sx={{ pl: 3, mt: 0 }}>
-        <li>
-          <Typography variant="body2">
-            <strong>Approvals</strong> - Leave requests, expense approvals, PO approvals
-          </Typography>
-        </li>
-        <li>
-          <Typography variant="body2">
-            <strong>HR</strong> - Leave and expense related tasks
-          </Typography>
-        </li>
-        <li>
-          <Typography variant="body2">
-            <strong>Procurement</strong> - Purchase requests, RFQs, goods receipts
-          </Typography>
-        </li>
-        <li>
-          <Typography variant="body2">
-            <strong>Accounting</strong> - Invoice approvals, payment tasks
-          </Typography>
-        </li>
-      </Box>
-
-      <Divider sx={{ my: 3 }} />
-
-      <Typography variant="h6" gutterBottom>
-        Mentions
-      </Typography>
-      <Typography variant="body2" paragraph>
-        Use @username to mention team members in messages. They&apos;ll receive a notification and
-        can view their mentions in the Flow module.
-      </Typography>
+      <StepGuide
+        steps={[
+          {
+            title: 'Create Meeting',
+            description:
+              'Start a new meeting by entering the title, date, and attendees. Add agenda items and discussion points.',
+          },
+          {
+            title: 'Add Action Items',
+            description:
+              'Record action items with descriptions, responsible persons, and due dates in a table format.',
+          },
+          {
+            title: 'Finalize',
+            description:
+              'Finalize the meeting to lock it and automatically create tasks for each action item assigned to team members.',
+          },
+        ]}
+      />
     </Box>
   );
 }

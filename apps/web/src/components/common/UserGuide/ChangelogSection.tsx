@@ -24,6 +24,92 @@ interface ChangelogEntry {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: '1.5.0',
+    date: '2026-02-16',
+    changes: [
+      { type: 'feature', description: 'AI Help assistant powered by Claude for in-app guidance' },
+      { type: 'feature', description: 'TDS rate categories with manual override on vendor bills' },
+      { type: 'feature', description: 'Journal Entry balances included in Entity Ledger totals' },
+      { type: 'feature', description: 'Payment batch categories (Salary, Taxes, Projects, etc.)' },
+      {
+        type: 'feature',
+        description: 'Email notifications for 17+ business events via Nodemailer',
+      },
+      { type: 'feature', description: 'Manual backup trigger and backup history in Admin' },
+      { type: 'feature', description: 'Entity opening balance linked to Entity Ledger' },
+      {
+        type: 'improvement',
+        description: 'Command palette updated with HR, Accounting, and Flow actions',
+      },
+      {
+        type: 'improvement',
+        description: 'Data health tools for auditing GL entries and account mappings',
+      },
+      {
+        type: 'fix',
+        description: 'Forex aggregation uses base amount (INR) across accounting pages',
+      },
+    ],
+  },
+  {
+    version: '1.4.0',
+    date: '2026-02-01',
+    changes: [
+      {
+        type: 'feature',
+        description: 'Comprehensive security audit with 50+ fixes across all modules',
+      },
+      { type: 'feature', description: 'Audit logging for sensitive operations' },
+      { type: 'feature', description: 'State machine enforcement for all status transitions' },
+      { type: 'improvement', description: 'Authorization checks and self-approval prevention' },
+      { type: 'improvement', description: 'Multi-tenancy entityId filtering on all queries' },
+      { type: 'fix', description: 'PO PDF generation crash on legacy commercial terms' },
+    ],
+  },
+  {
+    version: '1.3.0',
+    date: '2026-01-20',
+    changes: [
+      {
+        type: 'feature',
+        description: 'Flow module redesign: My Tasks, Inbox, Team Board, Meeting Minutes',
+      },
+      {
+        type: 'feature',
+        description: 'Meeting Minutes with two-step creation and batch finalization',
+      },
+      { type: 'feature', description: 'PO PDF generation and document parse improvements' },
+      { type: 'feature', description: 'GRN Send to Accounting workflow' },
+      { type: 'improvement', description: 'Redesigned task cards for direct action navigation' },
+    ],
+  },
+  {
+    version: '1.2.0',
+    date: '2026-01-10',
+    changes: [
+      { type: 'feature', description: 'On-Duty requests with comp-off leave accrual' },
+      { type: 'feature', description: 'Holiday working overrides for admins' },
+      { type: 'feature', description: 'Contextual help system on page headers' },
+      { type: 'improvement', description: 'Redesigned permissions UI with accordion layout' },
+      { type: 'improvement', description: 'HR module opened to all users' },
+    ],
+  },
+  {
+    version: '1.1.0',
+    date: '2025-12-30',
+    changes: [
+      {
+        type: 'feature',
+        description: 'Leave module redesign with 2-step approval and admin controls',
+      },
+      { type: 'feature', description: 'Enquiry contact person dropdown with auto-fill' },
+      { type: 'feature', description: 'Employee Directory with team details' },
+      { type: 'feature', description: 'Holiday Management with calendar' },
+      { type: 'improvement', description: 'Standardized date format (dd/MM/yyyy) across the app' },
+      { type: 'fix', description: 'Enquiries page infinite loading spinner' },
+    ],
+  },
+  {
     version: '1.0.0',
     date: '2025-12-26',
     changes: [
