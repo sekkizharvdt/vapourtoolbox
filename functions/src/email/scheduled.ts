@@ -10,7 +10,7 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
-import { sendNotificationEmail, sendgridApiKey } from './sendEmail';
+import { sendNotificationEmail, gmailAppPassword } from './sendEmail';
 
 /**
  * Daily overdue items check — sends notification emails for:
@@ -25,7 +25,7 @@ export const checkOverdueItemsAndNotify = onSchedule(
     memory: '256MiB',
     timeoutSeconds: 120,
     maxInstances: 1,
-    secrets: [sendgridApiKey],
+    secrets: [gmailAppPassword],
   },
   async () => {
     const db = admin.firestore();

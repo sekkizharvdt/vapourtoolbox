@@ -3,7 +3,7 @@
 /**
  * Admin Settings Page
  *
- * Configure email delivery (SendGrid) and manage notification recipients.
+ * Configure email delivery (Gmail SMTP) and manage notification recipients.
  * Settings stored in Firestore notificationSettings/emailConfig.
  */
 
@@ -258,7 +258,7 @@ export default function SettingsPage() {
               value={config.fromEmail}
               onChange={(e) => setConfig((prev) => ({ ...prev, fromEmail: e.target.value }))}
               placeholder="notifications@vapourdesal.com"
-              helperText="Must be verified in your SendGrid account"
+              helperText="Google Workspace email with App Password enabled"
               sx={{ flex: 1, minWidth: 280 }}
               size="small"
             />
@@ -291,8 +291,8 @@ export default function SettingsPage() {
 
           <Alert severity="info" variant="outlined" sx={{ mt: 2 }}>
             <Typography variant="body2">
-              The SendGrid API key must be set on the server via:{' '}
-              <code>firebase functions:secrets:set SENDGRID_API_KEY</code>
+              A Gmail App Password must be set on the server via:{' '}
+              <code>firebase functions:secrets:set GMAIL_APP_PASSWORD</code>
             </Typography>
           </Alert>
         </CardContent>

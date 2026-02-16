@@ -1,13 +1,13 @@
 /**
  * Test Email Cloud Function
  *
- * Callable function that sends a test email to verify SendGrid configuration.
+ * Callable function that sends a test email to verify Gmail SMTP configuration.
  * Only accessible by admin users.
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
-import { sendgridApiKey, sendTestEmailToAddress } from './sendEmail';
+import { gmailAppPassword, sendTestEmailToAddress } from './sendEmail';
 
 /**
  * Send a test email to verify email delivery is working.
@@ -18,7 +18,7 @@ export const sendTestEmail = onCall(
     region: 'us-central1',
     memory: '256MiB',
     timeoutSeconds: 30,
-    secrets: [sendgridApiKey],
+    secrets: [gmailAppPassword],
   },
   async (request) => {
     if (!request.auth) {

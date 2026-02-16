@@ -2,17 +2,17 @@
  * Email Notification Triggers
  *
  * Firestore document triggers that detect status changes and send
- * email notifications to configured recipients via SendGrid.
+ * email notifications to configured recipients via Gmail SMTP.
  */
 
 import { onDocumentUpdated, onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions/v2';
-import { sendNotificationEmail, sendgridApiKey } from './sendEmail';
+import { sendNotificationEmail, gmailAppPassword } from './sendEmail';
 
 const FUNCTION_CONFIG = {
   region: 'us-central1' as const,
   memory: '256MiB' as const,
-  secrets: [sendgridApiKey],
+  secrets: [gmailAppPassword],
 };
 
 /**

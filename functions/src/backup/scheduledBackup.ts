@@ -14,7 +14,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
-import { sendNotificationEmail, sendgridApiKey } from '../email/sendEmail';
+import { sendNotificationEmail, gmailAppPassword } from '../email/sendEmail';
 
 const BACKUP_BUCKET = 'vapour-toolbox-backups';
 
@@ -227,7 +227,7 @@ export const scheduledBackup = onSchedule(
     memory: '1GiB',
     timeoutSeconds: 540, // 9 minutes (max for scheduled)
     maxInstances: 1,
-    secrets: [sendgridApiKey],
+    secrets: [gmailAppPassword],
   },
   async () => {
     logger.info('Starting scheduled weekly backup');
@@ -243,7 +243,7 @@ export const manualBackup = onCall(
     region: 'us-central1',
     memory: '1GiB',
     timeoutSeconds: 540,
-    secrets: [sendgridApiKey],
+    secrets: [gmailAppPassword],
   },
   async (request) => {
     // Require authentication

@@ -1,23 +1,26 @@
 /**
- * Email Service — Core SendGrid email sending module
+ * Email Service — Core Nodemailer email sending module
  *
  * Reads notification settings from Firestore, resolves recipient emails,
- * compiles Handlebars templates, and sends via SendGrid.
+ * compiles Handlebars templates, and sends via Gmail SMTP (Google Workspace).
  *
- * SendGrid API key is stored as a Firebase secret:
- *   firebase functions:secrets:set SENDGRID_API_KEY
+ * Gmail App Password is stored as a Firebase secret:
+ *   firebase functions:secrets:set GMAIL_APP_PASSWORD
+ *
+ * The "From Email" address is configured in the admin settings page
+ * (Firestore: notificationSettings/emailConfig).
  */
 
 import { defineSecret } from 'firebase-functions/params';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
-import sgMail from '@sendgrid/mail';
+import nodemailer from 'nodemailer';
 import Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
 
 // Firebase secret — must be set via CLI before deploying
-export const sendgridApiKey = defineSecret('SENDGRID_API_KEY');
+export const gmailAppPassword = defineSecret('GMAIL_APP_PASSWORD');
 
 interface EmailConfig {
   enabled: boolean;
@@ -57,6 +60,22 @@ function compileTemplates(): {
     notificationTemplate = Handlebars.compile(notifSrc);
   }
   return { base: baseTemplate, notification: notificationTemplate };
+}
+
+/**
+ * Create a Nodemailer transporter using Gmail SMTP.
+ * Uses the fromEmail from config as the Gmail account and the App Password for auth.
+ */
+function createTransporter(fromEmail: string) {
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    auth: {
+      user: fromEmail,
+      pass: gmailAppPassword.value(),
+    },
+  });
 }
 
 /**
@@ -141,7 +160,7 @@ async function resolveRecipientEmails(recipientUserIds: string[]): Promise<strin
  * 1. Email config exists and is enabled
  * 2. The specific event is enabled in notification settings
  * 3. Resolves recipient emails, filtering opted-out users
- * 4. Compiles template and sends via SendGrid
+ * 4. Compiles template and sends via Gmail SMTP
  */
 export async function sendNotificationEmail(input: SendNotificationInput): Promise<void> {
   try {
@@ -171,20 +190,17 @@ export async function sendNotificationEmail(input: SendNotificationInput): Promi
       body: bodyHtml,
     });
 
-    // 5. Send via SendGrid
-    sgMail.setApiKey(sendgridApiKey.value());
+    // 5. Send via Gmail SMTP
+    const transporter = createTransporter(emailConfig.fromEmail);
 
-    const messages = recipientEmails.map((to) => ({
-      to,
-      from: {
-        email: emailConfig.fromEmail,
-        name: emailConfig.fromName || 'Vapour Toolbox',
-      },
-      subject: input.subject,
-      html: fullHtml,
-    }));
-
-    await sgMail.send(messages);
+    for (const to of recipientEmails) {
+      await transporter.sendMail({
+        from: `"${emailConfig.fromName || 'Vapour Toolbox'}" <${emailConfig.fromEmail}>`,
+        to,
+        subject: input.subject,
+        html: fullHtml,
+      });
+    }
 
     logger.info(
       `Sent ${input.eventId} email to ${recipientEmails.length} recipients: ${recipientEmails.join(', ')}`
@@ -203,7 +219,7 @@ export async function sendTestEmailToAddress(
   fromEmail: string,
   fromName: string
 ): Promise<void> {
-  sgMail.setApiKey(sendgridApiKey.value());
+  const transporter = createTransporter(fromEmail);
 
   const { base, notification } = compileTemplates();
   const bodyHtml = notification({
@@ -218,9 +234,9 @@ export async function sendTestEmailToAddress(
   });
   const fullHtml = base({ senderName: fromName || 'Vapour Toolbox', body: bodyHtml });
 
-  await sgMail.send({
+  await transporter.sendMail({
+    from: `"${fromName || 'Vapour Toolbox'}" <${fromEmail}>`,
     to: recipientEmail,
-    from: { email: fromEmail, name: fromName || 'Vapour Toolbox' },
     subject: '[Test] Vapour Toolbox Email Notification',
     html: fullHtml,
   });
