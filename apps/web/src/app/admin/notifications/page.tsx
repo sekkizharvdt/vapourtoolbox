@@ -195,6 +195,17 @@ const NOTIFICATION_SECTIONS: NotificationSection[] = [
     ],
   },
   {
+    id: 'feedback',
+    title: 'Feedback',
+    events: [
+      {
+        id: 'feedback_submitted',
+        label: 'New Feedback Submitted',
+        description: 'When a user submits a bug report, feature request, or general feedback',
+      },
+    ],
+  },
+  {
     id: 'system',
     title: 'System',
     events: [

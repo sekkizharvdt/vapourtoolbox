@@ -114,6 +114,7 @@ export {
   onProposalNotify,
   onGoodsReceiptNotify,
   onEnquiryNotify,
+  onFeedbackNotify,
 } from './email/triggers';
 export { checkOverdueItemsAndNotify } from './email/scheduled';
 export { sendTestEmail } from './email/testEmail';

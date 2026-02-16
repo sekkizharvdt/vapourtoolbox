@@ -605,6 +605,41 @@ export const onGoodsReceiptNotify = onDocumentUpdated(
 );
 
 /**
+ * New feedback submitted (bug report, feature request, general)
+ */
+export const onFeedbackNotify = onDocumentCreated(
+  { document: 'feedback/{feedbackId}', ...FUNCTION_CONFIG },
+  async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    const typeLabels: Record<string, string> = {
+      bug: 'Bug Report',
+      feature: 'Feature Request',
+      general: 'General Feedback',
+    };
+
+    const typeLabel = typeLabels[data.type] || 'Feedback';
+    logger.info(`New ${typeLabel}: ${data.title} — sending notification`);
+    await sendNotificationEmail({
+      eventId: 'feedback_submitted',
+      subject: `New ${typeLabel}: ${data.title}`,
+      templateData: {
+        title: `New ${typeLabel}`,
+        message: `A new ${typeLabel.toLowerCase()} has been submitted.`,
+        details: [
+          { label: 'Type', value: typeLabel },
+          { label: 'Title', value: data.title || '-' },
+          { label: 'Submitted By', value: data.userName || data.userEmail || '-' },
+          { label: 'Description', value: (data.description || '-').substring(0, 200) },
+        ],
+        linkUrl: `https://toolbox.vapourdesal.com/feedback/${event.params.feedbackId}`,
+      },
+    });
+  }
+);
+
+/**
  * Enquiry assigned or outcome decided (won/lost)
  */
 export const onEnquiryNotify = onDocumentUpdated(

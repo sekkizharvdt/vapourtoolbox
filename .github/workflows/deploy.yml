@@ -96,6 +96,32 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
 
+      - name: Record deployment metadata
+        run: |
+          node -e "
+          const { execSync } = require('child_process');
+          const admin = require('firebase-admin');
+          admin.initializeApp();
+          const commitMsg = execSync('git log -1 --pretty=%s').toString().trim();
+          const db = admin.firestore();
+          db.doc('systemConfig/deployInfo').set({
+            deployedAt: admin.firestore.FieldValue.serverTimestamp(),
+            commitSha: '${{ github.sha }}',
+            commitMessage: commitMsg,
+            deployedBy: '${{ github.actor }}',
+            runId: '${{ github.run_id }}',
+          }).then(() => {
+            console.log('Deploy metadata written to Firestore');
+            process.exit(0);
+          }).catch(err => {
+            console.error('Failed to write deploy metadata:', err.message);
+            process.exit(0);
+          });
+          "
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
+        continue-on-error: true
+
       - name: Deployment Success
         run: |
           echo "🎉 Deployment successful!"

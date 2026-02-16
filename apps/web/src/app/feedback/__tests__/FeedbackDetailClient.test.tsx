@@ -16,6 +16,7 @@ const mockDoc = jest.fn();
 jest.mock('firebase/firestore', () => ({
   doc: (...args: unknown[]) => mockDoc(...args),
   onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
+  getDoc: jest.fn(() => Promise.resolve({ exists: () => false, data: () => null })),
   Timestamp: {
     now: jest.fn(() => ({ toDate: () => new Date() })),
   },

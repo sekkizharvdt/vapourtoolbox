@@ -38,7 +38,7 @@ import {
   Replay as ReplayIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
-import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthenticatedLayout } from '@/components/layout/AuthenticatedLayout';
@@ -126,6 +126,9 @@ export default function FeedbackDetailClient() {
     }
   }, [pathname]);
 
+  // Deploy info state
+  const [deployedAt, setDeployedAt] = useState<Date | null>(null);
+
   // Follow-up dialog state
   const [followUpDialogOpen, setFollowUpDialogOpen] = useState(false);
   const [followUpComment, setFollowUpComment] = useState('');
@@ -169,6 +172,19 @@ export default function FeedbackDetailClient() {
 
     return () => unsubscribe();
   }, [feedbackId, authLoading]);
+
+  // Fetch deploy info when feedback is resolved (so user knows if fix is live)
+  useEffect(() => {
+    if (!feedback || feedback.status !== 'resolved') return;
+    const { db } = getFirebase();
+    getDoc(doc(db, 'systemConfig', 'deployInfo')).then((snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const ts = data.deployedAt?.toDate?.() || null;
+        setDeployedAt(ts);
+      }
+    });
+  }, [feedback?.status]);
 
   // Handle closing feedback
   const handleCloseFeedback = async () => {
@@ -412,6 +428,30 @@ export default function FeedbackDetailClient() {
               </Typography>
             </CardContent>
           </Card>
+        )}
+
+        {/* Deploy Status — shown for resolved bug reports */}
+        {feedback.status === 'resolved' && feedback.type === 'bug' && (
+          <Alert
+            severity={
+              deployedAt && feedback.updatedAt && deployedAt > feedback.updatedAt.toDate()
+                ? 'success'
+                : 'info'
+            }
+            sx={{ mb: 3 }}
+          >
+            {deployedAt && feedback.updatedAt && deployedAt > feedback.updatedAt.toDate() ? (
+              <>The fix has been deployed (last deployment: {format(deployedAt, 'PPp')}).</>
+            ) : deployedAt ? (
+              <>
+                The fix has not been deployed yet. Last deployment was{' '}
+                {formatDistanceToNow(deployedAt, { addSuffix: true })}. The fix will be available
+                after the next deployment.
+              </>
+            ) : (
+              <>The fix will be available after the next deployment.</>
+            )}
+          </Alert>
         )}
 
         {/* Follow-up Comments */}
