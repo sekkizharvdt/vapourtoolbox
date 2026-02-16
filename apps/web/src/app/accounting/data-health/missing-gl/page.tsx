@@ -36,7 +36,9 @@ import {
   Build as BuildIcon,
   AccountBalance as TotalIcon,
 } from '@mui/icons-material';
+import { Edit as EditIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { PageHeader, LoadingState, StatCard, FilterBar, EmptyState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
@@ -45,6 +47,21 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { CustomerPayment, VendorPayment } from '@vapour/types';
 import { regeneratePaymentGL } from '@/lib/accounting/glEntryRegeneration';
 import { formatCurrency } from '@/lib/utils/formatters';
+
+const RecordCustomerPaymentDialog = dynamic(
+  () =>
+    import('../../payments/components/RecordCustomerPaymentDialog').then(
+      (mod) => mod.RecordCustomerPaymentDialog
+    ),
+  { ssr: false }
+);
+const RecordVendorPaymentDialog = dynamic(
+  () =>
+    import('../../payments/components/RecordVendorPaymentDialog').then(
+      (mod) => mod.RecordVendorPaymentDialog
+    ),
+  { ssr: false }
+);
 
 type MissingGLPayment = (CustomerPayment | VendorPayment) & {
   id: string;
@@ -71,6 +88,32 @@ export default function MissingGLEntriesPage() {
     message: string;
     severity: 'success' | 'error';
   }>({ open: false, message: '', severity: 'success' });
+
+  // Edit dialog state
+  const [editingCustomerPayment, setEditingCustomerPayment] = useState<CustomerPayment | null>(
+    null
+  );
+  const [editingVendorPayment, setEditingVendorPayment] = useState<VendorPayment | null>(null);
+  const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
+  const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
+
+  const handleEditPayment = (payment: MissingGLPayment) => {
+    if (payment.paymentType === 'CUSTOMER_PAYMENT') {
+      setEditingCustomerPayment(payment as CustomerPayment);
+      setCustomerDialogOpen(true);
+    } else {
+      setEditingVendorPayment(payment as VendorPayment);
+      setVendorDialogOpen(true);
+    }
+  };
+
+  const handleEditDialogClose = () => {
+    setCustomerDialogOpen(false);
+    setVendorDialogOpen(false);
+    setEditingCustomerPayment(null);
+    setEditingVendorPayment(null);
+    fetchMissingGLPayments();
+  };
 
   const fetchMissingGLPayments = async () => {
     setLoading(true);
@@ -467,22 +510,32 @@ export default function MissingGLEntriesPage() {
                       )}
                     </TableCell>
                     <TableCell align="center">
-                      <Button
-                        variant="contained"
-                        size="small"
-                        color={payment.hasBankAccount ? 'primary' : 'inherit'}
-                        disabled={!payment.hasBankAccount || regenerating[payment.id]}
-                        onClick={() => handleRegenerate(payment)}
-                        startIcon={
-                          regenerating[payment.id] ? (
-                            <CircularProgress size={16} />
-                          ) : (
-                            <RefreshIcon />
-                          )
-                        }
-                      >
-                        {regenerating[payment.id] ? 'Working...' : 'Regenerate'}
-                      </Button>
+                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<EditIcon />}
+                          onClick={() => handleEditPayment(payment)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          color={payment.hasBankAccount ? 'primary' : 'inherit'}
+                          disabled={!payment.hasBankAccount || regenerating[payment.id]}
+                          onClick={() => handleRegenerate(payment)}
+                          startIcon={
+                            regenerating[payment.id] ? (
+                              <CircularProgress size={16} />
+                            ) : (
+                              <RefreshIcon />
+                            )
+                          }
+                        >
+                          {regenerating[payment.id] ? 'Working...' : 'Regenerate'}
+                        </Button>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))
@@ -502,6 +555,18 @@ export default function MissingGLEntriesPage() {
           rowsPerPageOptions={[10, 25, 50, 100]}
         />
       </TableContainer>
+
+      {/* Edit Dialogs */}
+      <RecordCustomerPaymentDialog
+        open={customerDialogOpen}
+        onClose={handleEditDialogClose}
+        editingPayment={editingCustomerPayment}
+      />
+      <RecordVendorPaymentDialog
+        open={vendorDialogOpen}
+        onClose={handleEditDialogClose}
+        editingPayment={editingVendorPayment}
+      />
 
       <Snackbar
         open={snackbar.open}

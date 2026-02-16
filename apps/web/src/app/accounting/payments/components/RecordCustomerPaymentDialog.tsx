@@ -8,6 +8,7 @@ import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { getFirebase } from '@/lib/firebase';
 import { collection, Timestamp, query, where, getDocs } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { useBankAccounts } from '@/lib/accounting/hooks/useAccounts';
 import type {
   CustomerPayment,
   CustomerInvoice,
@@ -40,6 +41,7 @@ export function RecordCustomerPaymentDialog({
   editingPayment,
 }: RecordCustomerPaymentDialogProps) {
   const { user, claims } = useAuth();
+  const { data: bankAccounts = [] } = useBankAccounts();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -632,11 +634,20 @@ export function RecordCustomerPaymentDialog({
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
+              select
               label="Bank Account (Received in)"
               value={bankAccountId}
               onChange={(e) => setBankAccountId(e.target.value)}
-              placeholder="Select bank account"
-            />
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              {bankAccounts.map((account) => (
+                <MenuItem key={account.id} value={account.id}>
+                  {account.code} - {account.name}
+                </MenuItem>
+              ))}
+            </TextField>
           </Grid>
 
           <Grid size={{ xs: 12, md: 6 }}>

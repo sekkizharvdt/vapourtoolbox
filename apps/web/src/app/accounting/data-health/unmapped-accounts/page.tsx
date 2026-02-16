@@ -33,6 +33,7 @@ import {
   AccountBalance as TotalIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { PageHeader, LoadingState, StatCard, FilterBar, EmptyState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
@@ -40,6 +41,16 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill, CustomerInvoice, InvoiceLineItem } from '@vapour/types';
 import { formatCurrency } from '@/lib/utils/formatters';
+
+const CreateBillDialog = dynamic(
+  () => import('../../bills/components/CreateBillDialog').then((mod) => mod.CreateBillDialog),
+  { ssr: false }
+);
+const CreateInvoiceDialog = dynamic(
+  () =>
+    import('../../invoices/components/CreateInvoiceDialog').then((mod) => mod.CreateInvoiceDialog),
+  { ssr: false }
+);
 
 type UnmappedTransaction = {
   id: string;
@@ -50,6 +61,7 @@ type UnmappedTransaction = {
   totalAmount: number;
   unmappedCount: number;
   totalLineItems: number;
+  fullData: VendorBill | CustomerInvoice;
 };
 
 export default function UnmappedAccountsPage() {
@@ -63,6 +75,12 @@ export default function UnmappedAccountsPage() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [error, setError] = useState<string | null>(null);
+
+  // Edit dialog state
+  const [editingBill, setEditingBill] = useState<VendorBill | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<CustomerInvoice | null>(null);
+  const [billDialogOpen, setBillDialogOpen] = useState(false);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
 
   const fetchUnmappedTransactions = async () => {
     setLoading(true);
@@ -93,6 +111,7 @@ export default function UnmappedAccountsPage() {
             totalAmount: data.totalAmount || 0,
             unmappedCount: unmappedItems.length,
             totalLineItems: lineItems.length,
+            fullData: { ...data, id: doc.id },
           });
         }
       });
@@ -112,6 +131,7 @@ export default function UnmappedAccountsPage() {
             totalAmount: data.totalAmount || 0,
             unmappedCount: unmappedItems.length,
             totalLineItems: lineItems.length,
+            fullData: { ...data, id: doc.id },
           });
         }
       });
@@ -190,10 +210,20 @@ export default function UnmappedAccountsPage() {
 
   const handleEdit = (transaction: UnmappedTransaction) => {
     if (transaction.type === 'VENDOR_BILL') {
-      router.push(`/accounting/bills?edit=${transaction.id}`);
+      setEditingBill(transaction.fullData as VendorBill);
+      setBillDialogOpen(true);
     } else {
-      router.push(`/accounting/invoices?edit=${transaction.id}`);
+      setEditingInvoice(transaction.fullData as CustomerInvoice);
+      setInvoiceDialogOpen(true);
     }
+  };
+
+  const handleDialogClose = () => {
+    setBillDialogOpen(false);
+    setInvoiceDialogOpen(false);
+    setEditingBill(null);
+    setEditingInvoice(null);
+    fetchUnmappedTransactions();
   };
 
   const billCount = filteredTransactions.filter((t) => t.type === 'VENDOR_BILL').length;
@@ -393,6 +423,18 @@ export default function UnmappedAccountsPage() {
           rowsPerPageOptions={[10, 25, 50, 100]}
         />
       </TableContainer>
+
+      {/* Edit Dialogs */}
+      <CreateBillDialog
+        open={billDialogOpen}
+        onClose={handleDialogClose}
+        editingBill={editingBill}
+      />
+      <CreateInvoiceDialog
+        open={invoiceDialogOpen}
+        onClose={handleDialogClose}
+        editingInvoice={editingInvoice}
+      />
     </Box>
   );
 }

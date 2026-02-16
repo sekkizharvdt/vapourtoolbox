@@ -9,6 +9,7 @@ import { getFirebase } from '@/lib/firebase';
 import { Timestamp, query, collection, where, getDocs } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { COLLECTIONS } from '@vapour/firebase';
+import { useBankAccounts } from '@/lib/accounting/hooks/useAccounts';
 import type { VendorPayment, VendorBill, PaymentAllocation, PaymentMethod } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import {
@@ -36,6 +37,7 @@ export function RecordVendorPaymentDialog({
   editingPayment,
 }: RecordVendorPaymentDialogProps) {
   const { user } = useAuth();
+  const { data: bankAccounts = [] } = useBankAccounts();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -590,11 +592,20 @@ export function RecordVendorPaymentDialog({
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
+              select
               label="Bank Account (Paid from)"
               value={bankAccountId}
               onChange={(e) => setBankAccountId(e.target.value)}
-              placeholder="Select bank account"
-            />
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              {bankAccounts.map((account) => (
+                <MenuItem key={account.id} value={account.id}>
+                  {account.code} - {account.name}
+                </MenuItem>
+              ))}
+            </TextField>
           </Grid>
 
           <Grid size={{ xs: 12, md: 6 }}>

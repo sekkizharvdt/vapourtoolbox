@@ -406,12 +406,7 @@ export default function PaymentsPage() {
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <Tooltip title="View">
-                      <IconButton size="small" onClick={() => handleEdit(payment)}>
-                        <ViewIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    {canManage && (
+                    {canManage ? (
                       <>
                         <Tooltip title="Edit">
                           <IconButton size="small" onClick={() => handleEdit(payment)}>
@@ -428,6 +423,12 @@ export default function PaymentsPage() {
                           </IconButton>
                         </Tooltip>
                       </>
+                    ) : (
+                      <Tooltip title="View">
+                        <IconButton size="small" onClick={() => handleEdit(payment)}>
+                          <ViewIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     )}
                   </TableCell>
                 </TableRow>

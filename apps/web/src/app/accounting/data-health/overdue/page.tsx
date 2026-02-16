@@ -26,6 +26,7 @@ import {
   Breadcrumbs,
   Link,
   Paper,
+  Tooltip,
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
@@ -34,8 +35,10 @@ import {
   Receipt as ReceiptIcon,
   Payment as PaymentIcon,
   AccountBalance as TotalIcon,
+  Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { PageHeader, LoadingState, StatCard, FilterBar, EmptyState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
@@ -43,6 +46,16 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill, CustomerInvoice } from '@vapour/types';
 import { formatCurrency } from '@/lib/utils/formatters';
+
+const CreateBillDialog = dynamic(
+  () => import('../../bills/components/CreateBillDialog').then((mod) => mod.CreateBillDialog),
+  { ssr: false }
+);
+const CreateInvoiceDialog = dynamic(
+  () =>
+    import('../../invoices/components/CreateInvoiceDialog').then((mod) => mod.CreateInvoiceDialog),
+  { ssr: false }
+);
 
 type OverdueItem = {
   id: string;
@@ -54,6 +67,7 @@ type OverdueItem = {
   outstandingAmount: number;
   daysOverdue: number;
   status: string;
+  fullData: VendorBill | CustomerInvoice;
 };
 
 function getAgingBucket(daysOverdue: number): string {
@@ -81,6 +95,12 @@ export default function OverdueItemsPage() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [error, setError] = useState<string | null>(null);
+
+  // View dialog state
+  const [viewingBill, setViewingBill] = useState<VendorBill | null>(null);
+  const [viewingInvoice, setViewingInvoice] = useState<CustomerInvoice | null>(null);
+  const [billDialogOpen, setBillDialogOpen] = useState(false);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
 
   const fetchOverdueItems = async () => {
     setLoading(true);
@@ -144,6 +164,7 @@ export default function OverdueItemsPage() {
               outstandingAmount: outstanding,
               daysOverdue,
               status: data.status || '',
+              fullData: { ...data, id: doc.id },
             });
           }
         }
@@ -184,6 +205,7 @@ export default function OverdueItemsPage() {
               outstandingAmount: outstanding,
               daysOverdue,
               status: data.status || '',
+              fullData: { ...data, id: doc.id },
             });
           }
         }
@@ -244,6 +266,23 @@ export default function OverdueItemsPage() {
   const handleClearFilters = () => {
     setSearchTerm('');
     setAgingFilter('all');
+  };
+
+  const handleViewItem = (item: OverdueItem) => {
+    if (item.type === 'VENDOR_BILL') {
+      setViewingBill(item.fullData as VendorBill);
+      setBillDialogOpen(true);
+    } else {
+      setViewingInvoice(item.fullData as CustomerInvoice);
+      setInvoiceDialogOpen(true);
+    }
+  };
+
+  const handleDialogClose = () => {
+    setBillDialogOpen(false);
+    setInvoiceDialogOpen(false);
+    setViewingBill(null);
+    setViewingInvoice(null);
   };
 
   const receivables = items.filter((i) => i.type === 'CUSTOMER_INVOICE');
@@ -430,6 +469,7 @@ export default function OverdueItemsPage() {
               <TableCell>Days Overdue</TableCell>
               <TableCell align="right">Outstanding</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell align="center">Action</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -437,7 +477,7 @@ export default function OverdueItemsPage() {
               <EmptyState
                 message="All invoices and bills are within their due dates."
                 variant="table"
-                colSpan={7}
+                colSpan={8}
               />
             ) : (
               filteredItems
@@ -477,6 +517,18 @@ export default function OverdueItemsPage() {
                     <TableCell>
                       <Chip label={item.status.replace('_', ' ')} size="small" variant="outlined" />
                     </TableCell>
+                    <TableCell align="center">
+                      <Tooltip title="View Details">
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<ViewIcon />}
+                          onClick={() => handleViewItem(item)}
+                        >
+                          View
+                        </Button>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
                 ))
             )}
@@ -495,6 +547,20 @@ export default function OverdueItemsPage() {
           rowsPerPageOptions={[10, 25, 50, 100]}
         />
       </TableContainer>
+
+      {/* View Dialogs */}
+      <CreateBillDialog
+        open={billDialogOpen}
+        onClose={handleDialogClose}
+        editingBill={viewingBill}
+        viewOnly
+      />
+      <CreateInvoiceDialog
+        open={invoiceDialogOpen}
+        onClose={handleDialogClose}
+        editingInvoice={viewingInvoice}
+        viewOnly
+      />
     </Box>
   );
 }
