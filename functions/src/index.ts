@@ -108,6 +108,12 @@ export {
   onAccountingNotify,
   onLeaveNotify,
   onNewUserNotify,
+  onPaymentBatchNotify,
+  onOnDutyNotify,
+  onTravelExpenseNotify,
+  onProposalNotify,
+  onGoodsReceiptNotify,
+  onEnquiryNotify,
 } from './email/triggers';
 export { checkOverdueItemsAndNotify } from './email/scheduled';
 export { sendTestEmail } from './email/testEmail';

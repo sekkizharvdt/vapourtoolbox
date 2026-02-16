@@ -151,6 +151,52 @@ export const onAccountingNotify = onDocumentUpdated(
         },
       });
     }
+
+    // Vendor bill created (DRAFT → POSTED/PENDING_APPROVAL)
+    if (
+      after.type === 'VENDOR_BILL' &&
+      before.status === 'DRAFT' &&
+      (after.status === 'POSTED' || after.status === 'PENDING_APPROVAL')
+    ) {
+      logger.info(`Bill ${after.transactionNumber} created — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'bill_created',
+        subject: `Bill Created: ${after.transactionNumber}`,
+        templateData: {
+          title: 'New Vendor Bill',
+          message: `A new vendor bill has been created.`,
+          details: [
+            { label: 'Bill #', value: after.transactionNumber || event.params.txId },
+            { label: 'Vendor', value: after.entityName || '-' },
+            { label: 'Amount', value: `₹${(after.totalAmount || 0).toLocaleString('en-IN')}` },
+          ],
+          linkUrl: 'https://toolbox.vapourdesal.com/accounting/bills',
+        },
+      });
+    }
+
+    // Journal entry submitted for approval
+    if (
+      after.type === 'JOURNAL_ENTRY' &&
+      before.status === 'DRAFT' &&
+      after.status === 'PENDING_APPROVAL'
+    ) {
+      logger.info(`JE ${after.transactionNumber} submitted — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'journal_entry_submitted',
+        subject: `Journal Entry Submitted: ${after.transactionNumber}`,
+        templateData: {
+          title: 'Journal Entry Submitted for Approval',
+          message: `A journal entry has been submitted for approval.`,
+          details: [
+            { label: 'JE #', value: after.transactionNumber || event.params.txId },
+            { label: 'Description', value: after.description || '-' },
+            { label: 'Amount', value: `₹${(after.totalAmount || 0).toLocaleString('en-IN')}` },
+          ],
+          linkUrl: 'https://toolbox.vapourdesal.com/accounting/journal-entries',
+        },
+      });
+    }
   }
 );
 
@@ -235,5 +281,382 @@ export const onNewUserNotify = onDocumentCreated(
         linkUrl: 'https://toolbox.vapourdesal.com/admin/users',
       },
     });
+  }
+);
+
+/**
+ * Payment batch submitted, approved, or completed
+ */
+export const onPaymentBatchNotify = onDocumentUpdated(
+  { document: 'paymentBatches/{batchId}', ...FUNCTION_CONFIG },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after) return;
+    if (before.status === after.status) return;
+
+    if (after.status === 'PENDING_APPROVAL') {
+      logger.info(`Payment batch ${after.batchNumber} submitted — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'payment_batch_submitted',
+        subject: `Payment Batch Submitted: ${after.batchNumber}`,
+        templateData: {
+          title: 'Payment Batch Submitted for Approval',
+          message: `A payment batch has been submitted for approval.`,
+          details: [
+            { label: 'Batch #', value: after.batchNumber || event.params.batchId },
+            {
+              label: 'Payments',
+              value: `₹${(after.totalPaymentAmount || 0).toLocaleString('en-IN')}`,
+            },
+            {
+              label: 'Receipts',
+              value: `₹${(after.totalReceiptAmount || 0).toLocaleString('en-IN')}`,
+            },
+            { label: 'Bank Account', value: after.bankAccountName || '-' },
+          ],
+          linkUrl: `https://toolbox.vapourdesal.com/accounting/payment-batches/${event.params.batchId}`,
+        },
+      });
+    }
+
+    if (after.status === 'APPROVED') {
+      logger.info(`Payment batch ${after.batchNumber} approved — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'payment_batch_approved',
+        subject: `Payment Batch Approved: ${after.batchNumber}`,
+        templateData: {
+          title: 'Payment Batch Approved',
+          message: `A payment batch has been approved and is ready for execution.`,
+          details: [
+            { label: 'Batch #', value: after.batchNumber || event.params.batchId },
+            {
+              label: 'Payments',
+              value: `₹${(after.totalPaymentAmount || 0).toLocaleString('en-IN')}`,
+            },
+            { label: 'Bank Account', value: after.bankAccountName || '-' },
+          ],
+          linkUrl: `https://toolbox.vapourdesal.com/accounting/payment-batches/${event.params.batchId}`,
+        },
+      });
+    }
+
+    if (after.status === 'COMPLETED') {
+      logger.info(`Payment batch ${after.batchNumber} completed — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'payment_batch_completed',
+        subject: `Payment Batch Completed: ${after.batchNumber}`,
+        templateData: {
+          title: 'Payment Batch Completed',
+          message: `All payments in the batch have been processed.`,
+          details: [
+            { label: 'Batch #', value: after.batchNumber || event.params.batchId },
+            {
+              label: 'Total Paid',
+              value: `₹${(after.totalPaymentAmount || 0).toLocaleString('en-IN')}`,
+            },
+            { label: 'Bank Account', value: after.bankAccountName || '-' },
+          ],
+          linkUrl: `https://toolbox.vapourdesal.com/accounting/payment-batches/${event.params.batchId}`,
+        },
+      });
+    }
+  }
+);
+
+/**
+ * On-duty request submitted or approved/rejected
+ */
+export const onOnDutyNotify = onDocumentUpdated(
+  { document: 'onDutyRecords/{recordId}', ...FUNCTION_CONFIG },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after) return;
+    if (before.status === after.status) return;
+
+    if (after.status === 'PENDING_APPROVAL') {
+      logger.info(`On-duty ${after.requestNumber} submitted — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'on_duty_submitted',
+        subject: `On-Duty Request: ${after.userName || 'Employee'}`,
+        templateData: {
+          title: 'On-Duty Request Submitted',
+          message: `An on-duty request has been submitted for approval.`,
+          details: [
+            { label: 'Request #', value: after.requestNumber || event.params.recordId },
+            { label: 'Employee', value: after.userName || '-' },
+            { label: 'Holiday', value: after.holidayName || '-' },
+            { label: 'Reason', value: after.reason || '-' },
+          ],
+          linkUrl: 'https://toolbox.vapourdesal.com/hr/on-duty',
+        },
+      });
+    }
+
+    if (after.status === 'APPROVED' || after.status === 'REJECTED') {
+      const action = after.status === 'APPROVED' ? 'Approved' : 'Rejected';
+      logger.info(`On-duty ${after.requestNumber} ${action} — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'on_duty_decided',
+        subject: `On-Duty ${action}: ${after.userName || 'Employee'}`,
+        templateData: {
+          title: `On-Duty Request ${action}`,
+          message: `An on-duty request has been ${action.toLowerCase()}.`,
+          details: [
+            { label: 'Request #', value: after.requestNumber || event.params.recordId },
+            { label: 'Employee', value: after.userName || '-' },
+            { label: 'Holiday', value: after.holidayName || '-' },
+            { label: 'Status', value: action },
+          ],
+          linkUrl: 'https://toolbox.vapourdesal.com/hr/on-duty',
+        },
+      });
+    }
+  }
+);
+
+/**
+ * Travel expense submitted, approved/rejected, or reimbursed
+ */
+export const onTravelExpenseNotify = onDocumentUpdated(
+  { document: 'hrTravelExpenses/{expenseId}', ...FUNCTION_CONFIG },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after) return;
+    if (before.status === after.status) return;
+
+    if (after.status === 'SUBMITTED') {
+      logger.info(`Travel expense ${after.reportNumber} submitted — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'travel_expense_submitted',
+        subject: `Travel Expense Submitted: ${after.reportNumber}`,
+        templateData: {
+          title: 'Travel Expense Report Submitted',
+          message: `A travel expense report has been submitted for review.`,
+          details: [
+            { label: 'Report #', value: after.reportNumber || event.params.expenseId },
+            { label: 'Employee', value: after.employeeName || '-' },
+            { label: 'Purpose', value: after.tripPurpose || '-' },
+            { label: 'Amount', value: `₹${(after.totalAmount || 0).toLocaleString('en-IN')}` },
+          ],
+          linkUrl: 'https://toolbox.vapourdesal.com/hr/travel-expenses',
+        },
+      });
+    }
+
+    if (after.status === 'APPROVED' || after.status === 'REJECTED') {
+      const action = after.status === 'APPROVED' ? 'Approved' : 'Rejected';
+      logger.info(`Travel expense ${after.reportNumber} ${action} — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'travel_expense_decided',
+        subject: `Travel Expense ${action}: ${after.reportNumber}`,
+        templateData: {
+          title: `Travel Expense ${action}`,
+          message: `A travel expense report has been ${action.toLowerCase()}.`,
+          details: [
+            { label: 'Report #', value: after.reportNumber || event.params.expenseId },
+            { label: 'Employee', value: after.employeeName || '-' },
+            { label: 'Amount', value: `₹${(after.totalAmount || 0).toLocaleString('en-IN')}` },
+            { label: 'Status', value: action },
+          ],
+          linkUrl: 'https://toolbox.vapourdesal.com/hr/travel-expenses',
+        },
+      });
+    }
+
+    if (after.status === 'REIMBURSED') {
+      logger.info(`Travel expense ${after.reportNumber} reimbursed — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'travel_expense_reimbursed',
+        subject: `Travel Expense Reimbursed: ${after.reportNumber}`,
+        templateData: {
+          title: 'Travel Expense Reimbursed',
+          message: `A travel expense has been reimbursed.`,
+          details: [
+            { label: 'Report #', value: after.reportNumber || event.params.expenseId },
+            { label: 'Employee', value: after.employeeName || '-' },
+            { label: 'Amount', value: `₹${(after.totalAmount || 0).toLocaleString('en-IN')}` },
+          ],
+          linkUrl: 'https://toolbox.vapourdesal.com/hr/travel-expenses',
+        },
+      });
+    }
+  }
+);
+
+/**
+ * Proposal submitted for approval, approved, sent to client, or won/lost
+ */
+export const onProposalNotify = onDocumentUpdated(
+  { document: 'proposals/{proposalId}', ...FUNCTION_CONFIG },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after) return;
+    if (before.status === after.status) return;
+
+    if (after.status === 'PENDING_APPROVAL') {
+      logger.info(`Proposal ${after.proposalNumber} submitted for approval — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'proposal_submitted_for_approval',
+        subject: `Proposal Submitted: ${after.proposalNumber}`,
+        templateData: {
+          title: 'Proposal Submitted for Approval',
+          message: `A proposal has been submitted for internal approval.`,
+          details: [
+            { label: 'Proposal #', value: after.proposalNumber || event.params.proposalId },
+            { label: 'Client', value: after.clientName || '-' },
+            { label: 'Title', value: after.title || '-' },
+          ],
+          linkUrl: `https://toolbox.vapourdesal.com/estimation/proposals/${event.params.proposalId}`,
+        },
+      });
+    }
+
+    if (after.status === 'APPROVED' && before.status === 'PENDING_APPROVAL') {
+      logger.info(`Proposal ${after.proposalNumber} approved — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'proposal_approved',
+        subject: `Proposal Approved: ${after.proposalNumber}`,
+        templateData: {
+          title: 'Proposal Approved',
+          message: `A proposal has been internally approved and can now be sent to the client.`,
+          details: [
+            { label: 'Proposal #', value: after.proposalNumber || event.params.proposalId },
+            { label: 'Client', value: after.clientName || '-' },
+            { label: 'Title', value: after.title || '-' },
+          ],
+          linkUrl: `https://toolbox.vapourdesal.com/estimation/proposals/${event.params.proposalId}`,
+        },
+      });
+    }
+
+    if (after.status === 'SUBMITTED') {
+      logger.info(`Proposal ${after.proposalNumber} sent to client — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'proposal_sent_to_client',
+        subject: `Proposal Sent: ${after.proposalNumber}`,
+        templateData: {
+          title: 'Proposal Sent to Client',
+          message: `A proposal has been submitted to the client.`,
+          details: [
+            { label: 'Proposal #', value: after.proposalNumber || event.params.proposalId },
+            { label: 'Client', value: after.clientName || '-' },
+            { label: 'Title', value: after.title || '-' },
+          ],
+          linkUrl: `https://toolbox.vapourdesal.com/estimation/proposals/${event.params.proposalId}`,
+        },
+      });
+    }
+
+    if (after.status === 'ACCEPTED' || after.status === 'REJECTED') {
+      const outcome = after.status === 'ACCEPTED' ? 'Accepted' : 'Rejected';
+      logger.info(`Proposal ${after.proposalNumber} ${outcome} — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'proposal_outcome',
+        subject: `Proposal ${outcome}: ${after.proposalNumber}`,
+        templateData: {
+          title: `Proposal ${outcome} by Client`,
+          message: `A proposal has been ${outcome.toLowerCase()} by the client.`,
+          details: [
+            { label: 'Proposal #', value: after.proposalNumber || event.params.proposalId },
+            { label: 'Client', value: after.clientName || '-' },
+            { label: 'Outcome', value: outcome },
+          ],
+          linkUrl: `https://toolbox.vapourdesal.com/estimation/proposals/${event.params.proposalId}`,
+        },
+      });
+    }
+  }
+);
+
+/**
+ * Goods receipt completed
+ */
+export const onGoodsReceiptNotify = onDocumentUpdated(
+  { document: 'goodsReceipts/{grId}', ...FUNCTION_CONFIG },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after) return;
+    if (before.status === after.status) return;
+
+    if (after.status === 'COMPLETED') {
+      logger.info(`GR ${after.number} completed — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'gr_completed',
+        subject: `Goods Receipt Completed: ${after.number}`,
+        templateData: {
+          title: 'Goods Receipt Completed',
+          message: `A goods receipt inspection has been completed.`,
+          details: [
+            { label: 'GR #', value: after.number || event.params.grId },
+            { label: 'PO #', value: after.poNumber || '-' },
+            { label: 'Project', value: after.projectName || '-' },
+            { label: 'Condition', value: after.overallCondition || '-' },
+          ],
+          linkUrl: `https://toolbox.vapourdesal.com/procurement/goods-receipts/${event.params.grId}`,
+        },
+      });
+    }
+  }
+);
+
+/**
+ * Enquiry assigned or outcome decided (won/lost)
+ */
+export const onEnquiryNotify = onDocumentUpdated(
+  { document: 'enquiries/{enquiryId}', ...FUNCTION_CONFIG },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after) return;
+
+    // Enquiry assigned (moved to UNDER_REVIEW with assignedToUserName change)
+    if (
+      after.status === 'UNDER_REVIEW' &&
+      before.status !== after.status &&
+      after.assignedToUserName
+    ) {
+      logger.info(`Enquiry ${after.enquiryNumber} assigned — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'enquiry_assigned',
+        subject: `Enquiry Assigned: ${after.enquiryNumber}`,
+        templateData: {
+          title: 'Enquiry Assigned',
+          message: `An enquiry has been assigned for review.`,
+          details: [
+            { label: 'Enquiry #', value: after.enquiryNumber || event.params.enquiryId },
+            { label: 'Client', value: after.clientName || '-' },
+            { label: 'Title', value: after.title || '-' },
+            { label: 'Assigned To', value: after.assignedToUserName || '-' },
+          ],
+          linkUrl: `https://toolbox.vapourdesal.com/estimation/enquiries/${event.params.enquiryId}`,
+        },
+      });
+    }
+
+    // Enquiry won or lost
+    if ((after.status === 'WON' || after.status === 'LOST') && before.status !== after.status) {
+      const outcome = after.status === 'WON' ? 'Won' : 'Lost';
+      logger.info(`Enquiry ${after.enquiryNumber} ${outcome} — sending notification`);
+      await sendNotificationEmail({
+        eventId: 'enquiry_won_lost',
+        subject: `Enquiry ${outcome}: ${after.enquiryNumber}`,
+        templateData: {
+          title: `Enquiry ${outcome}`,
+          message: `An enquiry has been marked as ${outcome.toLowerCase()}.`,
+          details: [
+            { label: 'Enquiry #', value: after.enquiryNumber || event.params.enquiryId },
+            { label: 'Client', value: after.clientName || '-' },
+            { label: 'Title', value: after.title || '-' },
+            { label: 'Outcome', value: outcome },
+          ],
+          linkUrl: `https://toolbox.vapourdesal.com/estimation/enquiries/${event.params.enquiryId}`,
+        },
+      });
+    }
   }
 );

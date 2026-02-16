@@ -64,6 +64,11 @@ const NOTIFICATION_SECTIONS: NotificationSection[] = [
         label: 'Delivery Overdue',
         description: 'When a purchase order delivery is past due date',
       },
+      {
+        id: 'gr_completed',
+        label: 'Goods Receipt Completed',
+        description: 'When a goods receipt inspection is completed',
+      },
     ],
   },
   {
@@ -76,14 +81,39 @@ const NOTIFICATION_SECTIONS: NotificationSection[] = [
         description: 'When a new customer invoice is created',
       },
       {
+        id: 'bill_created',
+        label: 'Bill Created',
+        description: 'When a new vendor bill is created',
+      },
+      {
         id: 'payment_approved',
         label: 'Payment Approved',
         description: 'When a payment is approved for processing',
       },
       {
+        id: 'journal_entry_submitted',
+        label: 'Journal Entry Submitted',
+        description: 'When a journal entry is submitted for approval',
+      },
+      {
         id: 'bill_overdue',
         label: 'Bill Overdue',
         description: 'When a vendor bill is past its due date',
+      },
+      {
+        id: 'payment_batch_submitted',
+        label: 'Payment Batch Submitted',
+        description: 'When a payment batch is submitted for approval',
+      },
+      {
+        id: 'payment_batch_approved',
+        label: 'Payment Batch Approved',
+        description: 'When a payment batch is approved for execution',
+      },
+      {
+        id: 'payment_batch_completed',
+        label: 'Payment Batch Completed',
+        description: 'When all payments in a batch are processed',
       },
     ],
   },
@@ -100,6 +130,67 @@ const NOTIFICATION_SECTIONS: NotificationSection[] = [
         id: 'leave_approved',
         label: 'Leave Approved/Rejected',
         description: 'When a leave request is approved or rejected',
+      },
+      {
+        id: 'on_duty_submitted',
+        label: 'On-Duty Request Submitted',
+        description: 'When an on-duty request is submitted for approval',
+      },
+      {
+        id: 'on_duty_decided',
+        label: 'On-Duty Approved/Rejected',
+        description: 'When an on-duty request is approved or rejected',
+      },
+      {
+        id: 'travel_expense_submitted',
+        label: 'Travel Expense Submitted',
+        description: 'When a travel expense report is submitted for review',
+      },
+      {
+        id: 'travel_expense_decided',
+        label: 'Travel Expense Approved/Rejected',
+        description: 'When a travel expense is approved or rejected',
+      },
+      {
+        id: 'travel_expense_reimbursed',
+        label: 'Travel Expense Reimbursed',
+        description: 'When a travel expense reimbursement is completed',
+      },
+    ],
+  },
+  {
+    id: 'proposals',
+    title: 'Proposals & Business',
+    events: [
+      {
+        id: 'enquiry_assigned',
+        label: 'Enquiry Assigned',
+        description: 'When an enquiry is assigned for review',
+      },
+      {
+        id: 'enquiry_won_lost',
+        label: 'Enquiry Won/Lost',
+        description: 'When an enquiry outcome is decided',
+      },
+      {
+        id: 'proposal_submitted_for_approval',
+        label: 'Proposal Submitted',
+        description: 'When a proposal is submitted for internal approval',
+      },
+      {
+        id: 'proposal_approved',
+        label: 'Proposal Approved',
+        description: 'When a proposal is internally approved',
+      },
+      {
+        id: 'proposal_sent_to_client',
+        label: 'Proposal Sent to Client',
+        description: 'When a proposal is submitted to the client',
+      },
+      {
+        id: 'proposal_outcome',
+        label: 'Proposal Accepted/Rejected',
+        description: 'When a client accepts or rejects a proposal',
       },
     ],
   },
@@ -239,7 +330,7 @@ export default function NotificationSettingsPage() {
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
           These settings control which events should trigger notifications. To configure email
-          delivery (SendGrid), sender details, and recipients, go to{' '}
+          delivery, sender details, and recipients, go to{' '}
           <NextLink href="/admin/settings" style={{ color: 'inherit' }}>
             Settings
           </NextLink>
