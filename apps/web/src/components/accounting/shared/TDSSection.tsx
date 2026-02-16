@@ -2,15 +2,10 @@
 
 import React from 'react';
 import { Grid, Paper, FormControlLabel, Checkbox, TextField, MenuItem } from '@mui/material';
-import { type TDSSection as TDSSectionType } from '@/lib/accounting/tdsCalculator';
+import { type TDSSection as TDSSectionType, TDS_SECTIONS } from '@/lib/accounting/tdsCalculator';
+import { ACCOUNTING } from '@vapour/constants';
 
-const COMMON_TDS_SECTIONS: TDSSectionType[] = [
-  '194C',
-  '194H',
-  '194I',
-  '194J',
-  '194Q',
-];
+const COMMON_TDS_SECTIONS: TDSSectionType[] = ['194C', '194H', '194I', '194J', '194Q'];
 
 /**
  * Returns common TDS section codes for India
@@ -45,6 +40,14 @@ interface TDSSectionProps {
    */
   onVendorPANChange: (pan: string) => void;
   /**
+   * Manual TDS rate override (null = auto from section)
+   */
+  tdsRateOverride: number | null;
+  /**
+   * Callback to update TDS rate override
+   */
+  onTdsRateOverrideChange: (rate: number | null) => void;
+  /**
    * Whether fields are disabled (read-only mode)
    */
   disabled?: boolean;
@@ -52,19 +55,7 @@ interface TDSSectionProps {
 
 /**
  * Reusable TDS section component for bill dialogs.
- * Displays TDS checkbox and collects TDS section + vendor PAN when enabled.
- *
- * @example
- * ```tsx
- * <TDSSection
- *   tdsDeducted={tdsDeducted}
- *   onTdsDeductedChange={setTdsDeducted}
- *   tdsSection={tdsSection}
- *   onTdsSectionChange={setTdsSection}
- *   vendorPAN={vendorPAN}
- *   onVendorPANChange={setVendorPAN}
- * />
- * ```
+ * Displays TDS checkbox and collects TDS section, rate, and vendor PAN when enabled.
  */
 export function TDSSection({
   tdsDeducted,
@@ -73,8 +64,13 @@ export function TDSSection({
   onTdsSectionChange,
   vendorPAN,
   onVendorPANChange,
+  tdsRateOverride,
+  onTdsRateOverrideChange,
   disabled = false,
 }: TDSSectionProps) {
+  const sectionInfo = TDS_SECTIONS[tdsSection];
+  const autoRate = !vendorPAN ? 20 : (sectionInfo?.rate ?? 0);
+
   return (
     <Grid size={{ xs: 12 }}>
       <Paper variant="outlined" sx={{ p: 2 }}>
@@ -90,7 +86,7 @@ export function TDSSection({
         />
         {tdsDeducted && (
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 fullWidth
                 label="TDS Section"
@@ -107,13 +103,38 @@ export function TDSSection({
                 ))}
               </TextField>
             </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <TextField
+                fullWidth
+                label="TDS Rate (%)"
+                select
+                value={tdsRateOverride != null ? String(tdsRateOverride) : 'auto'}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  onTdsRateOverrideChange(val === 'auto' ? null : Number(val));
+                }}
+                helperText={
+                  tdsRateOverride == null
+                    ? `Auto: ${autoRate}%${!vendorPAN ? ' (no PAN)' : ` (Section ${tdsSection})`}`
+                    : undefined
+                }
+                disabled={disabled}
+              >
+                <MenuItem value="auto">Auto (from section)</MenuItem>
+                {ACCOUNTING.TDS_RATES.map((rate) => (
+                  <MenuItem key={rate} value={String(rate)}>
+                    {rate}%
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 fullWidth
                 label="Vendor PAN"
                 value={vendorPAN}
                 onChange={(e) => onVendorPANChange(e.target.value.toUpperCase())}
-                helperText="Required for correct TDS calculation"
+                helperText="If empty, auto rate defaults to 20%"
                 disabled={disabled}
               />
             </Grid>

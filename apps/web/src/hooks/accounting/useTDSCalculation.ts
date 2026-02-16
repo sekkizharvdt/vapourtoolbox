@@ -38,6 +38,14 @@ interface UseTDSCalculationReturn {
    */
   setVendorPAN: (pan: string) => void;
   /**
+   * Manual TDS rate override (null = auto from section)
+   */
+  tdsRateOverride: number | null;
+  /**
+   * Set manual TDS rate override
+   */
+  setTdsRateOverride: (rate: number | null) => void;
+  /**
    * Calculated TDS details (rate, amount)
    */
   tdsDetails: TDSDetails | undefined;
@@ -49,32 +57,15 @@ interface UseTDSCalculationReturn {
 
 /**
  * Custom hook for managing TDS calculation state and logic.
- * Handles TDS checkbox state, section selection, PAN input, and automatic calculation.
- *
- * @example
- * ```tsx
- * const {
- *   tdsDeducted,
- *   setTdsDeducted,
- *   tdsSection,
- *   setTdsSection,
- *   vendorPAN,
- *   setVendorPAN,
- *   tdsDetails,
- *   tdsAmount,
- * } = useTDSCalculation({
- *   amount: subtotal + gstAmount,
- * });
- * ```
+ * Handles TDS checkbox state, section selection, PAN input, rate override, and automatic calculation.
  */
-export function useTDSCalculation(
-  options: UseTDSCalculationOptions
-): UseTDSCalculationReturn {
+export function useTDSCalculation(options: UseTDSCalculationOptions): UseTDSCalculationReturn {
   const { amount, enabled = true } = options;
 
   const [tdsDeducted, setTdsDeducted] = useState(false);
   const [tdsSection, setTdsSection] = useState<TDSSection>('194C');
   const [vendorPAN, setVendorPAN] = useState('');
+  const [tdsRateOverride, setTdsRateOverride] = useState<number | null>(null);
 
   // Calculate TDS details
   const tdsDetails = useMemo(() => {
@@ -86,8 +77,9 @@ export function useTDSCalculation(
       amount,
       section: tdsSection,
       panNumber: vendorPAN,
+      rateOverride: tdsRateOverride,
     });
-  }, [enabled, tdsDeducted, amount, tdsSection, vendorPAN]);
+  }, [enabled, tdsDeducted, amount, tdsSection, vendorPAN, tdsRateOverride]);
 
   // Calculate TDS amount
   const tdsAmount = useMemo(() => {
@@ -101,6 +93,8 @@ export function useTDSCalculation(
     setTdsSection,
     vendorPAN,
     setVendorPAN,
+    tdsRateOverride,
+    setTdsRateOverride,
     tdsDetails,
     tdsAmount,
   };

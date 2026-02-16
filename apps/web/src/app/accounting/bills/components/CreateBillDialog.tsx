@@ -94,6 +94,8 @@ export function CreateBillDialog({
     setTdsSection,
     vendorPAN,
     setVendorPAN,
+    tdsRateOverride,
+    setTdsRateOverride,
     tdsDetails,
     tdsAmount,
   } = useTDSCalculation({
@@ -119,11 +121,15 @@ export function CreateBillDialog({
         setTdsDeducted(true);
         setTdsSection((editingBill.tdsDetails?.section as TDSSectionType) || '194C');
         setVendorPAN(editingBill.tdsDetails?.panNumber || '');
+        // Restore rate override if the saved rate differs from auto
+        if (editingBill.tdsDetails?.tdsRate != null) {
+          setTdsRateOverride(editingBill.tdsDetails.tdsRate);
+        }
       }
     } else if (open) {
       setVendorBillNumber('');
     }
-  }, [open, editingBill, setTdsDeducted, setTdsSection, setVendorPAN]);
+  }, [open, editingBill, setTdsDeducted, setTdsSection, setVendorPAN, setTdsRateOverride]);
 
   const handleSave = async () => {
     try {
@@ -391,6 +397,8 @@ export function CreateBillDialog({
           onTdsSectionChange={setTdsSection}
           vendorPAN={vendorPAN}
           onVendorPANChange={setVendorPAN}
+          tdsRateOverride={tdsRateOverride}
+          onTdsRateOverrideChange={setTdsRateOverride}
           disabled={viewOnly}
         />
       </Grid>

@@ -43,13 +43,14 @@ export interface TDSCalculationParams {
   section: TDSSection;
   panNumber?: string;
   isSeniorCitizen?: boolean;
+  rateOverride?: number | null;
 }
 
 /**
  * Calculate TDS amount based on section
  */
 export function calculateTDS(params: TDSCalculationParams): TDSDetails {
-  const { amount, section, panNumber, isSeniorCitizen = false } = params;
+  const { amount, section, panNumber, isSeniorCitizen = false, rateOverride } = params;
 
   const sectionInfo = TDS_SECTIONS[section];
 
@@ -57,11 +58,16 @@ export function calculateTDS(params: TDSCalculationParams): TDSDetails {
     throw new Error(`Invalid TDS section: ${section}`);
   }
 
-  let tdsRate = sectionInfo.rate;
+  let tdsRate: number;
 
-  // If PAN is not provided, TDS rate is 20% (higher rate)
-  if (!panNumber) {
+  if (rateOverride != null) {
+    // Use manually selected rate
+    tdsRate = rateOverride;
+  } else if (!panNumber) {
+    // If PAN is not provided, TDS rate is 20% (higher rate)
     tdsRate = 20;
+  } else {
+    tdsRate = sectionInfo.rate;
   }
 
   // Special handling for senior citizens (Section 194A)

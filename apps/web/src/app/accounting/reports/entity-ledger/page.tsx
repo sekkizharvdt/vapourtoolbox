@@ -361,6 +361,15 @@ function EntityLedgerInner() {
           const jCredit =
             (txn as EntityTransaction & { _journalCredit?: number })._journalCredit || 0;
           periodMovement += jDebit - jCredit;
+          // Include JE amounts in summary totals based on entity role
+          if (selectedEntity?.roles.includes('CUSTOMER')) {
+            totalInvoiced += jDebit; // Debit = receivable adjustment (like invoice)
+            totalReceived += jCredit; // Credit = receipt adjustment (like payment)
+          }
+          if (selectedEntity?.roles.includes('VENDOR')) {
+            totalPaid += jDebit; // Debit = payable reduction (like payment)
+            totalBilled += jCredit; // Credit = payable increase (like bill)
+          }
           break;
         }
       }
