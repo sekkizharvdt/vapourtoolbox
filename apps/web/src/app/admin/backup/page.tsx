@@ -7,7 +7,7 @@
  * Supports browser-based JSON download of selected collections.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -22,16 +22,29 @@ import {
   Divider,
   Chip,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  CircularProgress,
 } from '@mui/material';
 import {
   Download as DownloadIcon,
   Cloud as CloudIcon,
   CheckCircle as CheckCircleIcon,
+  CloudUpload as CloudUploadIcon,
+  Schedule as ScheduleIcon,
+  Error as ErrorIcon,
 } from '@mui/icons-material';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { format } from 'date-fns';
+import { formatFileSize } from '@/lib/utils/formatters';
+import { Timestamp } from 'firebase/firestore';
 
 interface CollectionGroup {
   label: string;
@@ -132,12 +145,93 @@ const EXPORTABLE_COLLECTIONS: CollectionGroup[] = [
   },
 ];
 
+interface BackupRecord {
+  id: string;
+  timestamp: Timestamp | null;
+  triggeredBy: string;
+  backupPath: string;
+  totalCollections: number;
+  totalDocuments: number;
+  totalSizeBytes: number;
+  durationMs: number;
+  successCount: number;
+  errorCount: number;
+  status: string;
+}
+
 export default function BackupPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, currentName: '' });
   const [results, setResults] = useState<{ name: string; count: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Cloud backup state
+  const [triggeringBackup, setTriggeringBackup] = useState(false);
+  const [backupError, setBackupError] = useState<string | null>(null);
+  const [backupSuccess, setBackupSuccess] = useState<string | null>(null);
+  const [backupHistory, setBackupHistory] = useState<BackupRecord[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
+  // Load backup history
+  const loadBackupHistory = useCallback(async () => {
+    try {
+      const { db } = getFirebase();
+      const q = query(collection(db, 'backups'), orderBy('timestamp', 'desc'), limit(20));
+      const snapshot = await getDocs(q);
+      const records: BackupRecord[] = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Omit<BackupRecord, 'id'>),
+      }));
+      setBackupHistory(records);
+    } catch (err) {
+      console.error('Failed to load backup history:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadBackupHistory();
+  }, [loadBackupHistory]);
+
+  // Trigger manual backup
+  const triggerManualBackup = useCallback(async () => {
+    setTriggeringBackup(true);
+    setBackupError(null);
+    setBackupSuccess(null);
+
+    try {
+      const { functions } = getFirebase();
+      const manualBackup = httpsCallable<
+        Record<string, never>,
+        {
+          success: boolean;
+          totalDocuments: number;
+          totalSizeBytes: number;
+          durationMs: number;
+          collections: number;
+          errors: number;
+        }
+      >(functions, 'manualBackup');
+
+      const result = await manualBackup({});
+      const data = result.data;
+
+      setBackupSuccess(
+        `Backup completed: ${data.totalDocuments.toLocaleString()} documents (${formatFileSize(data.totalSizeBytes)}) across ${data.collections} collections in ${(data.durationMs / 1000).toFixed(1)}s` +
+          (data.errors > 0 ? ` with ${data.errors} error(s)` : '')
+      );
+
+      // Refresh history
+      await loadBackupHistory();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to trigger backup';
+      setBackupError(message);
+    } finally {
+      setTriggeringBackup(false);
+    }
+  }, [loadBackupHistory]);
 
   const allCollectionKeys = EXPORTABLE_COLLECTIONS.flatMap((g) => g.collections.map((c) => c.key));
 
@@ -344,25 +438,104 @@ export default function BackupPage() {
       </Card>
 
       {/* Cloud Backup Section */}
-      <Card variant="outlined" sx={{ opacity: 0.85 }}>
+      <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-            <CloudIcon color="primary" />
-            <Typography variant="h6">Cloud Backup</Typography>
-            <Chip label="Requires Setup" size="small" color="warning" />
+          <Box
+            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <CloudIcon color="primary" />
+              <Typography variant="h6">Cloud Backup</Typography>
+            </Box>
+            <Button
+              variant="contained"
+              startIcon={
+                triggeringBackup ? (
+                  <CircularProgress size={18} color="inherit" />
+                ) : (
+                  <CloudUploadIcon />
+                )
+              }
+              onClick={triggerManualBackup}
+              disabled={triggeringBackup}
+            >
+              {triggeringBackup ? 'Backing up...' : 'Backup Now'}
+            </Button>
           </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Automated cloud backups to Google Cloud Storage with scheduled exports and retention
-            policies.
-          </Typography>
-          <Alert severity="info" variant="outlined">
-            <Typography variant="body2">To enable cloud backups, you need to:</Typography>
-            <Typography variant="body2" component="ol" sx={{ pl: 2, mt: 0.5, mb: 0 }}>
-              <li>Create a Google Cloud Storage bucket for backups</li>
-              <li>Deploy the backup Cloud Function with appropriate IAM permissions</li>
-              <li>Configure a Cloud Scheduler job for automated backups</li>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <ScheduleIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+            <Typography variant="body2" color="text.secondary">
+              Automated backup runs every Sunday at 2:00 AM IST
             </Typography>
-          </Alert>
+          </Box>
+
+          {backupError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setBackupError(null)}>
+              {backupError}
+            </Alert>
+          )}
+
+          {backupSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }} onClose={() => setBackupSuccess(null)}>
+              {backupSuccess}
+            </Alert>
+          )}
+
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            Backup History
+          </Typography>
+
+          {loadingHistory ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+              <CircularProgress size={24} />
+            </Box>
+          ) : backupHistory.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+              No cloud backups found. Click &ldquo;Backup Now&rdquo; to create the first backup.
+            </Typography>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Triggered By</TableCell>
+                    <TableCell align="right">Documents</TableCell>
+                    <TableCell align="right">Size</TableCell>
+                    <TableCell align="right">Duration</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {backupHistory.map((backup) => (
+                    <TableRow key={backup.id}>
+                      <TableCell>
+                        {backup.timestamp
+                          ? format(backup.timestamp.toDate(), 'dd MMM yyyy, hh:mm a')
+                          : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={backup.status === 'COMPLETED' ? 'Success' : 'Partial'}
+                          size="small"
+                          color={backup.status === 'COMPLETED' ? 'success' : 'warning'}
+                          icon={backup.status === 'COMPLETED' ? <CheckCircleIcon /> : <ErrorIcon />}
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {backup.triggeredBy === 'scheduled' ? 'Scheduled' : 'Manual'}
+                      </TableCell>
+                      <TableCell align="right">{backup.totalDocuments.toLocaleString()}</TableCell>
+                      <TableCell align="right">{formatFileSize(backup.totalSizeBytes)}</TableCell>
+                      <TableCell align="right">{(backup.durationMs / 1000).toFixed(1)}s</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </CardContent>
       </Card>
     </Box>
