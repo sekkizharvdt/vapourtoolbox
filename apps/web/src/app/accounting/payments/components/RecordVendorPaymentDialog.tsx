@@ -5,11 +5,11 @@ import { TextField, Grid, MenuItem, Box, Typography } from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
+import { AccountSelector } from '@/components/common/forms/AccountSelector';
 import { getFirebase } from '@/lib/firebase';
 import { Timestamp, query, collection, where, getDocs } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { COLLECTIONS } from '@vapour/firebase';
-import { useBankAccounts } from '@/lib/accounting/hooks/useAccounts';
 import type { VendorPayment, VendorBill, PaymentAllocation, PaymentMethod } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import {
@@ -37,7 +37,6 @@ export function RecordVendorPaymentDialog({
   editingPayment,
 }: RecordVendorPaymentDialogProps) {
   const { user } = useAuth();
-  const { data: bankAccounts = [] } = useBankAccounts();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -593,22 +592,14 @@ export function RecordVendorPaymentDialog({
           )}
 
           <Grid size={{ xs: 12, md: 6 }}>
-            <TextField
-              fullWidth
-              select
+            <AccountSelector
+              value={bankAccountId || null}
+              onChange={(id) => setBankAccountId(id || '')}
               label="Bank Account (Paid from)"
-              value={bankAccountId}
-              onChange={(e) => setBankAccountId(e.target.value)}
-            >
-              <MenuItem value="">
-                <em>None</em>
-              </MenuItem>
-              {bankAccounts.map((account) => (
-                <MenuItem key={account.id} value={account.id}>
-                  {account.code} - {account.name}
-                </MenuItem>
-              ))}
-            </TextField>
+              filterByBankAccount
+              excludeGroups
+              placeholder="Search bank accounts..."
+            />
           </Grid>
 
           <Grid size={{ xs: 12, md: 6 }}>

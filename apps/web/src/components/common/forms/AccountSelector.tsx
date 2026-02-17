@@ -10,6 +10,7 @@ import type { Account, AccountType } from '@vapour/types';
 interface AccountSelectorProps {
   value: string | null;
   onChange: (accountId: string | null) => void;
+  onAccountSelect?: (account: Account | null) => void;
   label?: string;
   placeholder?: string;
   required?: boolean;
@@ -17,6 +18,7 @@ interface AccountSelectorProps {
   error?: boolean;
   helperText?: string;
   filterByType?: AccountType | AccountType[];
+  filterByBankAccount?: boolean;
   excludeGroups?: boolean;
   size?: 'small' | 'medium';
 }
@@ -32,6 +34,7 @@ interface AccountSelectorProps {
 export function AccountSelector({
   value,
   onChange,
+  onAccountSelect,
   label = 'Account',
   placeholder = 'Search accounts...',
   required = false,
@@ -39,6 +42,7 @@ export function AccountSelector({
   error = false,
   helperText,
   filterByType,
+  filterByBankAccount = false,
   excludeGroups = false,
   size = 'small',
 }: AccountSelectorProps) {
@@ -101,6 +105,11 @@ export function AccountSelector({
         filteredAccounts = filteredAccounts.filter((acc) => types.includes(acc.accountType));
       }
 
+      // Filter by bank account flag
+      if (filterByBankAccount) {
+        filteredAccounts = filteredAccounts.filter((acc) => acc.isBankAccount);
+      }
+
       // Exclude groups
       if (excludeGroups) {
         filteredAccounts = filteredAccounts.filter((acc) => !acc.isGroup);
@@ -111,7 +120,7 @@ export function AccountSelector({
     });
 
     return () => unsubscribe();
-  }, [filterByType, excludeGroups]);
+  }, [filterByType, filterByBankAccount, excludeGroups]);
 
   // Update selected account when value changes
   useEffect(() => {
@@ -128,6 +137,7 @@ export function AccountSelector({
       value={selectedAccount}
       onChange={(_, newValue) => {
         onChange(newValue?.id || null);
+        onAccountSelect?.(newValue || null);
       }}
       options={accounts}
       getOptionLabel={(option) => `${option.code} - ${option.name}`}

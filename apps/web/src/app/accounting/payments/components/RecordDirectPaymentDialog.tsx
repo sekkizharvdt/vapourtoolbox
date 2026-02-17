@@ -11,7 +11,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { PaymentMethod, LedgerEntry } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
-import { useBankAccounts } from '@/lib/accounting/hooks/useAccounts';
 import { logAuditEvent, createAuditContext } from '@/lib/audit/clientAuditService';
 
 const PAYMENT_METHODS: PaymentMethod[] = [
@@ -70,11 +69,9 @@ export function RecordDirectPaymentDialog({
   const [reference, setReference] = useState<string>('');
   const [projectId, setProjectId] = useState<string | null>(null);
 
-  // Fetch bank accounts for the selector
-  const { data: bankAccounts = [] } = useBankAccounts();
-
-  // Get bank account name from selected ID
-  const selectedBankAccount = bankAccounts.find((acc) => acc.id === bankAccountId);
+  // Track selected bank account details for GL entries
+  const [bankAccountCode, setBankAccountCode] = useState<string>('');
+  const [bankAccountName, setBankAccountName] = useState<string>('');
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -177,8 +174,8 @@ export function RecordDirectPaymentDialog({
         },
         {
           accountId: bankAccountId,
-          accountCode: selectedBankAccount?.code || '',
-          accountName: selectedBankAccount?.name || 'Bank Account',
+          accountCode: bankAccountCode,
+          accountName: bankAccountName || 'Bank Account',
           debit: 0,
           credit: amount,
           description: description || 'Direct payment',
@@ -368,20 +365,19 @@ export function RecordDirectPaymentDialog({
           </Grid>
 
           <Grid size={{ xs: 12, md: 6 }}>
-            <TextField
-              fullWidth
-              select
+            <AccountSelector
+              value={bankAccountId}
+              onChange={setBankAccountId}
+              onAccountSelect={(account) => {
+                setBankAccountCode(account?.code || '');
+                setBankAccountName(account?.name || '');
+              }}
               label="Bank Account (Paid from)"
-              value={bankAccountId || ''}
-              onChange={(e) => setBankAccountId(e.target.value || null)}
+              filterByBankAccount
+              excludeGroups
               required
-            >
-              {bankAccounts.map((account) => (
-                <MenuItem key={account.id} value={account.id}>
-                  {account.code} - {account.name}
-                </MenuItem>
-              ))}
-            </TextField>
+              placeholder="Search bank accounts..."
+            />
           </Grid>
 
           {/* Payment Method */}
