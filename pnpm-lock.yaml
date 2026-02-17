@@ -249,7 +249,7 @@ importers:
     dependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.71.2
-        version: 0.71.2(zod@3.25.76)
+        version: 0.71.2(zod@4.1.12)
       '@google-cloud/documentai':
         specifier: ^9.5.0
         version: 9.5.0
@@ -274,9 +274,6 @@ importers:
       puppeteer-core:
         specifier: ^23.11.1
         version: 23.11.1
-      zod:
-        specifier: ^3.25.0
-        version: 3.25.76
     devDependencies:
       '@types/archiver':
         specifier: ^6.0.3
@@ -15338,12 +15335,6 @@ packages:
 
 snapshots:
   '@adobe/css-tools@4.4.4': {}
-
-  '@anthropic-ai/sdk@0.71.2(zod@3.25.76)':
-    dependencies:
-      json-schema-to-ts: 3.1.1
-    optionalDependencies:
-      zod: 3.25.76
 
   '@anthropic-ai/sdk@0.71.2(zod@4.1.12)':
     dependencies:
