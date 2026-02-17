@@ -24,6 +24,21 @@ import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import type { GSTR1Data } from '@/lib/accounting/gstReportGenerator';
 import { exportGSTR1ToJSON } from '@/lib/accounting/gstReportGenerator';
 
+/** Safely convert a value that may be a Firestore Timestamp, Date, or string to a locale date string */
+function formatDate(value: unknown): string {
+  if (!value) return '';
+  if (typeof value === 'object' && value !== null && 'toDate' in value) {
+    return (value as { toDate: () => Date }).toDate().toLocaleDateString();
+  }
+  if (value instanceof Date) {
+    return value.toLocaleDateString();
+  }
+  if (typeof value === 'string') {
+    return new Date(value).toLocaleDateString();
+  }
+  return '';
+}
+
 interface GSTR1ReportProps {
   data: GSTR1Data;
 }
@@ -246,7 +261,7 @@ export function GSTR1Report({ data }: GSTR1ReportProps) {
                 data.b2b.invoices.map((inv) => (
                   <TableRow key={inv.id}>
                     <TableCell>{inv.invoiceNumber}</TableCell>
-                    <TableCell>{inv.invoiceDate.toLocaleDateString()}</TableCell>
+                    <TableCell>{formatDate(inv.invoiceDate)}</TableCell>
                     <TableCell>{inv.customerName}</TableCell>
                     <TableCell>{inv.customerGSTIN}</TableCell>
                     <TableCell align="right">{formatCurrency(inv.taxableValue)}</TableCell>
@@ -294,7 +309,7 @@ export function GSTR1Report({ data }: GSTR1ReportProps) {
                 data.b2c.invoices.map((inv) => (
                   <TableRow key={inv.id}>
                     <TableCell>{inv.invoiceNumber}</TableCell>
-                    <TableCell>{inv.invoiceDate.toLocaleDateString()}</TableCell>
+                    <TableCell>{formatDate(inv.invoiceDate)}</TableCell>
                     <TableCell>{inv.placeOfSupply || 'N/A'}</TableCell>
                     <TableCell align="right">{inv.gstRate}%</TableCell>
                     <TableCell align="right">{formatCurrency(inv.taxableValue)}</TableCell>

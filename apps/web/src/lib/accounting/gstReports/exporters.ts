@@ -6,6 +6,21 @@
 
 import type { GSTR1Data, GSTR3BData } from './types';
 
+/** Safely convert a value that may be a Firestore Timestamp, Date, or string to YYYY-MM-DD */
+function toDateString(value: unknown): string {
+  if (!value) return '';
+  if (typeof value === 'object' && value !== null && 'toDate' in value) {
+    return (value as { toDate: () => Date }).toDate().toISOString().split('T')[0] || '';
+  }
+  if (value instanceof Date) {
+    return value.toISOString().split('T')[0] || '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  return '';
+}
+
 /**
  * Export GSTR-1 to JSON format compatible with GST portal
  */
@@ -18,7 +33,7 @@ export function exportGSTR1ToJSON(data: GSTR1Data): string {
       inv: [
         {
           inum: inv.invoiceNumber,
-          idt: inv.invoiceDate.toISOString().split('T')[0],
+          idt: toDateString(inv.invoiceDate),
           val: inv.invoiceValue,
           pos: inv.placeOfSupply,
           rchrg: inv.reverseCharge ? 'Y' : 'N',
@@ -46,7 +61,7 @@ export function exportGSTR1ToJSON(data: GSTR1Data): string {
         inv: [
           {
             inum: inv.invoiceNumber,
-            idt: inv.invoiceDate.toISOString().split('T')[0],
+            idt: toDateString(inv.invoiceDate),
             val: inv.invoiceValue,
             itms: [
               {
