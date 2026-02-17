@@ -100,15 +100,20 @@ export default function DataHealthPage() {
         }
       });
 
-      // Count missing GL entries
+      // Count missing GL entries (check all transaction types, not just payments)
       let missingGLCount = 0;
-      paymentsSnap.forEach((doc) => {
-        const data = doc.data();
-        if (data.status === 'POSTED' && (!data.entries || data.entries.length === 0)) {
-          missingGLCount++;
-          transactionsWithIssues.add(doc.id);
-        }
-      });
+      const checkMissingGL = (snap: typeof paymentsSnap) => {
+        snap.forEach((doc) => {
+          const data = doc.data();
+          if (data.status === 'POSTED' && (!data.entries || data.entries.length === 0)) {
+            missingGLCount++;
+            transactionsWithIssues.add(doc.id);
+          }
+        });
+      };
+      checkMissingGL(paymentsSnap);
+      checkMissingGL(billsSnap);
+      checkMissingGL(invoicesSnap);
 
       // Count unmapped accounts in line items
       let unmappedCount = 0;
@@ -136,37 +141,26 @@ export default function DataHealthPage() {
       let overdueCount = 0;
       let overdueTotal = 0;
 
-      billsSnap.forEach((doc) => {
-        const data = doc.data();
-        if (
-          data.paymentStatus !== 'PAID' &&
-          data.status !== 'CANCELLED' &&
-          data.status !== 'VOIDED'
-        ) {
-          const dueDate = data.dueDate?.toDate?.() || new Date(data.dueDate);
-          if (dueDate && dueDate < now) {
-            overdueCount++;
-            // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
-            overdueTotal += data.outstandingAmount || data.baseAmount || data.totalAmount || 0;
+      const checkOverdue = (snap: typeof billsSnap) => {
+        snap.forEach((doc) => {
+          const data = doc.data();
+          if (
+            data.paymentStatus !== 'PAID' &&
+            data.status !== 'CANCELLED' &&
+            data.status !== 'VOIDED'
+          ) {
+            const dueDate = data.dueDate?.toDate?.() || new Date(data.dueDate);
+            if (dueDate && dueDate < now) {
+              overdueCount++;
+              // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
+              overdueTotal += data.outstandingAmount || data.baseAmount || data.totalAmount || 0;
+              transactionsWithIssues.add(doc.id);
+            }
           }
-        }
-      });
-
-      invoicesSnap.forEach((doc) => {
-        const data = doc.data();
-        if (
-          data.paymentStatus !== 'PAID' &&
-          data.status !== 'CANCELLED' &&
-          data.status !== 'VOIDED'
-        ) {
-          const dueDate = data.dueDate?.toDate?.() || new Date(data.dueDate);
-          if (dueDate && dueDate < now) {
-            overdueCount++;
-            // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
-            overdueTotal += data.outstandingAmount || data.baseAmount || data.totalAmount || 0;
-          }
-        }
-      });
+        });
+      };
+      checkOverdue(billsSnap);
+      checkOverdue(invoicesSnap);
 
       const totalTransactions = paymentsSnap.size + billsSnap.size + invoicesSnap.size;
 
