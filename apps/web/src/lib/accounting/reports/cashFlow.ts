@@ -72,7 +72,9 @@ export async function generateCashFlowStatement(
   }[] = [];
 
   snapshot.forEach((doc) => {
-    transactions.push({ id: doc.id, ...doc.data() });
+    const data = doc.data();
+    if (data.isDeleted) return; // Skip soft-deleted transactions
+    transactions.push({ id: doc.id, ...data });
   });
 
   // Get bank/cash accounts

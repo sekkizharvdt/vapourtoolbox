@@ -49,7 +49,9 @@ export async function generateGSTR1(
   const b2cSummary = createEmptyGSTSummary();
 
   snapshot.forEach((doc) => {
-    const invoice = doc.data() as FirestoreInvoiceDocument;
+    const rawInvoice = doc.data();
+    if (rawInvoice.isDeleted) return; // Skip soft-deleted
+    const invoice = rawInvoice as FirestoreInvoiceDocument;
     const gst = calculateGSTFromLineItems(invoice.gstDetails);
 
     // Convert Timestamp to Date if needed
@@ -200,7 +202,9 @@ export async function generateGSTR2(
   const reverseChargeSummary = createEmptyGSTSummary();
 
   snapshot.forEach((doc) => {
-    const bill = doc.data() as FirestoreBillDocument;
+    const rawBill = doc.data();
+    if (rawBill.isDeleted) return; // Skip soft-deleted
+    const bill = rawBill as FirestoreBillDocument;
     const gst = calculateGSTFromLineItems(bill.gstDetails);
 
     // Convert Timestamp to Date if needed

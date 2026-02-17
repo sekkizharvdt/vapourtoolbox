@@ -389,6 +389,7 @@ export async function generateReceiptsPaymentsReport(
   // Add historical transaction impacts
   historicalSnapshot.forEach((doc) => {
     const data = doc.data();
+    if (data.isDeleted) return; // Skip soft-deleted transactions
     const txn: TransactionDoc = {
       id: doc.id,
       type: data.type || '',
@@ -422,6 +423,7 @@ export async function generateReceiptsPaymentsReport(
 
   transactionsSnapshot.forEach((doc) => {
     const data = doc.data();
+    if (data.isDeleted) return; // Skip soft-deleted transactions
     const txn: TransactionDoc = {
       id: doc.id,
       type: data.type || '',

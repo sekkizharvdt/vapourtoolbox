@@ -78,13 +78,18 @@ export default function DataHealthPage() {
         getDocs(query(transactionsRef, where('type', '==', 'CUSTOMER_INVOICE'))),
       ]);
 
+      // Filter out soft-deleted transactions from all snapshots
+      const payments = paymentsSnap.docs.filter((doc) => !doc.data().isDeleted);
+      const bills = billsSnap.docs.filter((doc) => !doc.data().isDeleted);
+      const invoices = invoicesSnap.docs.filter((doc) => !doc.data().isDeleted);
+
       // Track unique transactions with any issue for health score
       const transactionsWithIssues = new Set<string>();
 
       // Count unapplied payments
       let unappliedCount = 0;
       let unappliedTotal = 0;
-      paymentsSnap.forEach((doc) => {
+      payments.forEach((doc) => {
         const data = doc.data();
         const allocations =
           data.type === 'CUSTOMER_PAYMENT'
@@ -102,8 +107,8 @@ export default function DataHealthPage() {
 
       // Count missing GL entries (check all transaction types, not just payments)
       let missingGLCount = 0;
-      const checkMissingGL = (snap: typeof paymentsSnap) => {
-        snap.forEach((doc) => {
+      const checkMissingGL = (docs: typeof payments) => {
+        docs.forEach((doc) => {
           const data = doc.data();
           if (data.status === 'POSTED' && (!data.entries || data.entries.length === 0)) {
             missingGLCount++;
@@ -111,13 +116,13 @@ export default function DataHealthPage() {
           }
         });
       };
-      checkMissingGL(paymentsSnap);
-      checkMissingGL(billsSnap);
-      checkMissingGL(invoicesSnap);
+      checkMissingGL(payments);
+      checkMissingGL(bills);
+      checkMissingGL(invoices);
 
       // Count unmapped accounts in line items
       let unmappedCount = 0;
-      billsSnap.forEach((doc) => {
+      bills.forEach((doc) => {
         const data = doc.data();
         const lineItems = data.lineItems || [];
         const hasUnmapped = lineItems.some((item: { accountId?: string }) => !item.accountId);
@@ -126,7 +131,7 @@ export default function DataHealthPage() {
           transactionsWithIssues.add(doc.id);
         }
       });
-      invoicesSnap.forEach((doc) => {
+      invoices.forEach((doc) => {
         const data = doc.data();
         const lineItems = data.lineItems || [];
         const hasUnmapped = lineItems.some((item: { accountId?: string }) => !item.accountId);
@@ -141,8 +146,8 @@ export default function DataHealthPage() {
       let overdueCount = 0;
       let overdueTotal = 0;
 
-      const checkOverdue = (snap: typeof billsSnap) => {
-        snap.forEach((doc) => {
+      const checkOverdue = (docs: typeof bills) => {
+        docs.forEach((doc) => {
           const data = doc.data();
           if (
             data.paymentStatus !== 'PAID' &&
@@ -159,10 +164,10 @@ export default function DataHealthPage() {
           }
         });
       };
-      checkOverdue(billsSnap);
-      checkOverdue(invoicesSnap);
+      checkOverdue(bills);
+      checkOverdue(invoices);
 
-      const totalTransactions = paymentsSnap.size + billsSnap.size + invoicesSnap.size;
+      const totalTransactions = payments.length + bills.length + invoices.length;
 
       // Health score = % of transactions with no issues
       const cleanTransactions = totalTransactions - transactionsWithIssues.size;

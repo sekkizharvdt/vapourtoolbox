@@ -121,6 +121,7 @@ export async function generateProfitLossReport(
 
     transactionsSnapshot.forEach((doc) => {
       const transaction = doc.data();
+      if (transaction.isDeleted) return; // Skip soft-deleted transactions
       const glEntries = transaction.entries || [];
 
       glEntries.forEach((entry: { accountId: string; debit: number; credit: number }) => {

@@ -254,7 +254,9 @@ async function extractTDSTransactions(
     const billsSnapshot = await getDocs(billsQuery);
 
     for (const doc of billsSnapshot.docs) {
-      const bill = doc.data() as FirestoreTDSBillDocument;
+      const rawBill = doc.data();
+      if (rawBill.isDeleted) continue; // Skip soft-deleted
+      const bill = rawBill as FirestoreTDSBillDocument;
 
       // Check if bill has TDS
       if (bill.tdsAmount && bill.tdsAmount > 0) {

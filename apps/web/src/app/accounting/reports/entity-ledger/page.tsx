@@ -160,7 +160,9 @@ function EntityLedgerInner() {
     const unsub1 = onSnapshot(entityQuery, (snapshot) => {
       entityTxns = [];
       snapshot.forEach((doc) => {
-        entityTxns.push({ id: doc.id, ...doc.data() } as EntityTransaction);
+        const data = doc.data();
+        if (data.isDeleted) return; // Skip soft-deleted transactions
+        entityTxns.push({ id: doc.id, ...data } as EntityTransaction);
       });
       entityLoaded = true;
       mergeAndSet();
@@ -170,6 +172,7 @@ function EntityLedgerInner() {
       journalTxns = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
+        if (data.isDeleted) return; // Skip soft-deleted transactions
         const entries = (data.entries || []) as LedgerEntry[];
         // Filter journal entries that have lines referencing this entity
         const entityLines = entries.filter((entry) => entry.entityId === selectedEntity.id);
