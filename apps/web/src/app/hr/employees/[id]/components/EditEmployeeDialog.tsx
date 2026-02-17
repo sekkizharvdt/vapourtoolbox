@@ -207,10 +207,18 @@ export function EditEmployeeDialog({
     }
   }, [employee, open]);
 
-  const formatDateForInput = (timestamp: { toDate: () => Date }): string => {
-    const date = timestamp.toDate();
-    const parts = date.toISOString().split('T');
-    return parts[0] || '';
+  const formatDateForInput = (value: unknown): string => {
+    if (!value) return '';
+    if (typeof value === 'object' && value !== null && 'toDate' in value) {
+      return (value as { toDate: () => Date }).toDate().toISOString().split('T')[0] || '';
+    }
+    if (value instanceof Date) {
+      return value.toISOString().split('T')[0] || '';
+    }
+    if (typeof value === 'string') {
+      return value;
+    }
+    return '';
   };
 
   const parseInputDate = (dateStr: string): Timestamp | undefined => {

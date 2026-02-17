@@ -428,7 +428,10 @@ export async function createPaymentWithAllocationsAtomic(
       const invoiceRef = invoiceRefs[index];
 
       if (!invoiceDoc || !invoiceDoc.exists() || !invoiceRef) {
-        throw new Error(`Invoice ${allocation.invoiceId} not found`);
+        const label = allocation.invoiceNumber || allocation.invoiceId;
+        throw new Error(
+          `Bill/invoice ${label} no longer exists. Please remove it from your allocations and try again.`
+        );
       }
 
       const invoiceData = invoiceDoc.data();
@@ -565,13 +568,34 @@ export async function updatePaymentWithAllocationsAtomic(
       invoiceChanges.set(allocation.invoiceId, current + allocation.allocatedAmount);
     }
 
+    // Build lookup for friendly invoice/bill numbers
+    const allAllocations = [...oldAllocations, ...newAllocations];
+    const invoiceNumberMap = new Map<string, string>();
+    for (const a of allAllocations) {
+      if (a.invoiceNumber) invoiceNumberMap.set(a.invoiceId, a.invoiceNumber);
+    }
+
+    // Build set of new allocation invoice IDs for validation
+    const newAllocationIds = new Set(
+      newAllocations.filter((a) => a.allocatedAmount > 0).map((a) => a.invoiceId)
+    );
+
     // Apply changes to each invoice
     for (const [invoiceId, netChange] of invoiceChanges) {
       if (netChange === 0) continue;
 
       const invoiceData = invoiceDataMap.get(invoiceId);
       if (!invoiceData) {
-        throw new Error(`Invoice ${invoiceId} not found`);
+        // If this invoice is only in old allocations (being removed), skip it —
+        // the document was deleted so there's nothing to reverse
+        if (!newAllocationIds.has(invoiceId)) {
+          logger.warn('Skipping missing invoice from old allocations', { invoiceId, netChange });
+          continue;
+        }
+        const label = invoiceNumberMap.get(invoiceId) || invoiceId;
+        throw new Error(
+          `Bill/invoice ${label} no longer exists. Please remove it from your allocations and try again.`
+        );
       }
 
       // Use baseAmount (INR) for forex invoices, fall back to totalAmount for INR invoices

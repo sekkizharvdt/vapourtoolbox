@@ -69,10 +69,13 @@ export default function AddReceiptDialog({
       setDescription(editingReceipt.description);
       setAmount(String(editingReceipt.amount));
       setCurrency(editingReceipt.currency);
+      const rawDate = editingReceipt.receiptDate;
       const date =
-        editingReceipt.receiptDate instanceof Date
-          ? editingReceipt.receiptDate
-          : new Date(editingReceipt.receiptDate);
+        rawDate && typeof rawDate === 'object' && 'toDate' in rawDate
+          ? (rawDate as { toDate: () => Date }).toDate()
+          : rawDate instanceof Date
+            ? rawDate
+            : new Date(rawDate as string);
       setReceiptDate(date);
       if (editingReceipt.projectId && editingReceipt.projectName) {
         setSelectedProject({

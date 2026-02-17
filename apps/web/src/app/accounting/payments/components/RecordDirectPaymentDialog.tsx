@@ -86,6 +86,8 @@ export function RecordDirectPaymentDialog({
           if (typeof (dateVal as { toDate?: () => Date }).toDate === 'function') {
             dateStr =
               (dateVal as { toDate: () => Date }).toDate().toISOString().split('T')[0] || '';
+          } else if (dateVal instanceof Date) {
+            dateStr = dateVal.toISOString().split('T')[0] || '';
           } else if (typeof dateVal === 'string') {
             dateStr = dateVal;
           }
