@@ -105,6 +105,7 @@ export default function PODetailPage() {
         poId,
         user.uid,
         user.displayName || 'Unknown',
+        claims?.permissions || 0,
         dialogState.selectedApproverId || undefined
       );
       dialogState.resetSubmitForm();

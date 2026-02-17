@@ -50,7 +50,7 @@ import { CommercialTermsForm } from '@/components/procurement';
 export default function NewPOPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const offerId = searchParams.get('offerId');
 
   const [loading, setLoading] = useState(true);
@@ -236,7 +236,8 @@ export default function NewPOPage() {
           commercialTerms: commercialTerms,
         },
         user.uid,
-        user.displayName || 'Unknown'
+        user.displayName || 'Unknown',
+        claims?.permissions || 0
       );
 
       router.push(`/procurement/pos/${poId}`);

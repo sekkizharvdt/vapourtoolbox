@@ -275,10 +275,9 @@ service cloud.firestore {
                      (isOwner(resource.data.userId) ||
                       isOwner(resource.data.assigneeId));
 
-      // Create: Any authenticated user can create task notifications
-      // Task notifications are created by app code as part of approval workflows
-      // Security is enforced by app logic - only workflows can trigger task creation
-      allow create: if isAuthenticated();
+      // Create: Only internal users can create task notifications
+      // Notifications are created as part of approval/assignment workflows
+      allow create: if isInternalUser();
 
       // Update: Users can update their own notifications (mark read, complete, etc.)
       allow update: if isAuthenticated() &&
@@ -1349,11 +1348,11 @@ service cloud.firestore {
     // ============================================
 
     match /counters/{counterId} {
-      // Read: All authenticated users
-      allow read: if isAuthenticated();
+      // Read: All internal users
+      allow read: if isInternalUser();
 
-      // Write: All authenticated users (for incrementing counters)
-      allow write: if isAuthenticated();
+      // Write: Only internal users (for incrementing sequence counters)
+      allow write: if isInternalUser();
     }
 
     // ============================================
@@ -1361,9 +1360,13 @@ service cloud.firestore {
     // ============================================
 
     match /idempotency_keys/{keyId} {
-      // Read/Write: All authenticated users
-      // These keys are used to prevent duplicate operations (e.g., double-click on PO creation)
-      allow read, write: if isAuthenticated();
+      // Read: Internal users only
+      allow read: if isInternalUser();
+
+      // Write: Internal users only, must include their own userId
+      allow create: if isInternalUser();
+      allow update: if isInternalUser();
+      allow delete: if false; // Keys expire via TTL, never manually deleted
     }
 
     // ============================================

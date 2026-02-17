@@ -287,6 +287,10 @@ export async function getOutstandingAmount(
 
     paymentsSnapshot.forEach((doc) => {
       const paymentData = doc.data();
+
+      // Skip soft-deleted payments
+      if (paymentData.isDeleted) return;
+
       const allocationsField =
         transactionType === 'CUSTOMER_INVOICE' ? 'invoiceAllocations' : 'billAllocations';
       const allocations = paymentData[allocationsField] || [];

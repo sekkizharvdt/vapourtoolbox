@@ -50,7 +50,7 @@ import { CommercialTermsForm } from '@/components/procurement';
 export default function EditPOClient() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -248,7 +248,8 @@ export default function EditPOClient() {
           commercialTerms: commercialTerms,
         },
         user.uid,
-        user.displayName || 'Unknown'
+        user.displayName || 'Unknown',
+        claims?.permissions || 0
       );
 
       router.push(`/procurement/pos/${poId}`);

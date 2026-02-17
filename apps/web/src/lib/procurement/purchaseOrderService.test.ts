@@ -389,7 +389,7 @@ describe('purchaseOrderService', () => {
         data: () => mockPO,
       });
 
-      await submitPOForApproval('po-1', 'user-1', 'John Doe');
+      await submitPOForApproval('po-1', 'user-1', 'John Doe', PERMISSION_FLAGS.MANAGE_PROCUREMENT);
 
       expect(mockUpdateDoc).toHaveBeenCalled();
       const updateCall = mockUpdateDoc.mock.calls[0][1];
@@ -400,9 +400,14 @@ describe('purchaseOrderService', () => {
     it('should throw error when PO not found', async () => {
       mockGetDoc.mockResolvedValue({ exists: () => false });
 
-      await expect(submitPOForApproval('non-existent', 'user-1', 'John Doe')).rejects.toThrow(
-        'Purchase Order not found'
-      );
+      await expect(
+        submitPOForApproval(
+          'non-existent',
+          'user-1',
+          'John Doe',
+          PERMISSION_FLAGS.MANAGE_PROCUREMENT
+        )
+      ).rejects.toThrow('Purchase Order not found');
     });
 
     it('should set approverId when provided', async () => {
@@ -413,7 +418,13 @@ describe('purchaseOrderService', () => {
         data: () => mockPO,
       });
 
-      await submitPOForApproval('po-1', 'user-1', 'John Doe', 'approver-1');
+      await submitPOForApproval(
+        'po-1',
+        'user-1',
+        'John Doe',
+        PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+        'approver-1'
+      );
 
       const updateCall = mockUpdateDoc.mock.calls[0][1];
       expect(updateCall.approverId).toBe('approver-1');
@@ -427,7 +438,7 @@ describe('purchaseOrderService', () => {
         data: () => mockPO,
       });
 
-      await submitPOForApproval('po-1', 'user-1', 'John Doe');
+      await submitPOForApproval('po-1', 'user-1', 'John Doe', PERMISSION_FLAGS.MANAGE_PROCUREMENT);
 
       expect(mockLogAuditEvent).toHaveBeenCalledWith(
         expect.anything(),

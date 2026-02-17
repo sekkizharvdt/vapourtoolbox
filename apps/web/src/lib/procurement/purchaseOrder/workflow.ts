@@ -31,9 +31,18 @@ export async function submitPOForApproval(
   poId: string,
   userId: string,
   userName: string,
+  userPermissions: number,
   approverId?: string
 ): Promise<void> {
   const { db } = getFirebase();
+
+  // Authorization: Require MANAGE_PROCUREMENT permission
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'submit purchase order for approval'
+  );
 
   // Get PO for notification details
   const po = await getPOById(poId);

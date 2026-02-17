@@ -40,6 +40,8 @@ import {
   generateProcurementNumber,
   PROCUREMENT_NUMBER_CONFIGS,
 } from '../generateProcurementNumber';
+import { PERMISSION_FLAGS } from '@vapour/constants';
+import { requirePermission } from '@/lib/auth';
 
 const logger = createLogger({ context: 'purchaseOrder/crud' });
 
@@ -118,9 +120,18 @@ export async function createPOFromOffer(
   offerId: string,
   terms: CreatePOFromOfferTerms,
   userId: string,
-  userName: string
+  userName: string,
+  userPermissions: number
 ): Promise<string> {
   const { db } = getFirebase();
+
+  // Authorization: Require MANAGE_PROCUREMENT permission
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'create purchase order'
+  );
 
   // Generate idempotency key based on offer ID and user
   // This prevents duplicate PO creation from double-clicks or network retries
@@ -463,9 +474,18 @@ export async function updateDraftPO(
   poId: string,
   terms: UpdateDraftPOTerms,
   userId: string,
-  userName: string
+  userName: string,
+  userPermissions: number
 ): Promise<void> {
   const { db } = getFirebase();
+
+  // Authorization: Require MANAGE_PROCUREMENT permission
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+    userId,
+    'update purchase order'
+  );
 
   const poDoc = await getDoc(doc(db, COLLECTIONS.PURCHASE_ORDERS, poId));
   if (!poDoc.exists()) {

@@ -72,6 +72,10 @@ export async function calculateProjectBudgetActualCosts(
 
     transactionsSnapshot.forEach((doc) => {
       const transaction = doc.data() as DocumentData;
+
+      // Skip soft-deleted transactions
+      if (transaction.isDeleted) return;
+
       const budgetLineItemId = transaction.budgetLineItemId as string | undefined;
       const amount = transaction.totalAmount || transaction.amount || 0;
 
@@ -184,6 +188,7 @@ export async function calculateBudgetLineItemActualCost(
     let actualCost = 0;
     transactionsSnapshot.forEach((doc) => {
       const transaction = doc.data() as DocumentData;
+      if (transaction.isDeleted) return;
       const amount = transaction.totalAmount || transaction.amount || 0;
       actualCost += amount;
     });
