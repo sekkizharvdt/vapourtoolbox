@@ -188,12 +188,15 @@ export function RecordCustomerPaymentDialog({
   useEffect(() => {
     if (open) {
       if (editingPayment) {
+        const rawDate = editingPayment.paymentDate;
         const dateStr =
-          editingPayment.paymentDate instanceof Date
-            ? editingPayment.paymentDate.toISOString().split('T')[0] || ''
-            : typeof editingPayment.paymentDate === 'string'
-              ? editingPayment.paymentDate
-              : '';
+          rawDate && typeof rawDate === 'object' && 'toDate' in rawDate
+            ? (rawDate as { toDate: () => Date }).toDate().toISOString().split('T')[0]
+            : rawDate instanceof Date
+              ? rawDate.toISOString().split('T')[0]
+              : typeof rawDate === 'string'
+                ? rawDate
+                : '';
         setPaymentDate(dateStr || new Date().toISOString().split('T')[0] || '');
         setEntityId(editingPayment.entityId ?? null);
         setEntityName(editingPayment.entityName || '');
