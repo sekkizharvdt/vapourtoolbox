@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import type { LineItem, GSTDetails } from '@vapour/types';
+import type { LineItem, GSTDetails, AccountType } from '@vapour/types';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
 
 const GST_RATE_SUGGESTIONS = [0, 5, 12, 18, 28];
@@ -79,6 +79,10 @@ interface LineItemsTableProps {
    * Show account selector column for Chart of Accounts mapping
    */
   showAccountSelector?: boolean;
+  /**
+   * Account type filter for the account selector (e.g., 'EXPENSE' for bills, 'INCOME' for invoices)
+   */
+  accountFilterType?: AccountType | AccountType[];
 }
 
 /**
@@ -111,6 +115,7 @@ export function LineItemsTable({
   minItems = 1,
   readOnly = false,
   showAccountSelector = false,
+  accountFilterType = 'EXPENSE',
 }: LineItemsTableProps) {
   // Calculate column count for colspan in summary rows
   const baseColCount = showAccountSelector ? 7 : 6;
@@ -121,9 +126,7 @@ export function LineItemsTable({
           <TableHead>
             <TableRow>
               <TableCell width={showAccountSelector ? '20%' : '30%'}>Description</TableCell>
-              {showAccountSelector && (
-                <TableCell width="18%">Account</TableCell>
-              )}
+              {showAccountSelector && <TableCell width="18%">Account</TableCell>}
               <TableCell width="8%" align="right">
                 Qty
               </TableCell>
@@ -162,7 +165,7 @@ export function LineItemsTable({
                     <AccountSelector
                       value={item.accountId || null}
                       onChange={(accountId) => onUpdateLineItem(index, 'accountId', accountId)}
-                      filterByType="EXPENSE"
+                      filterByType={accountFilterType}
                       excludeGroups
                       size="small"
                       disabled={readOnly}

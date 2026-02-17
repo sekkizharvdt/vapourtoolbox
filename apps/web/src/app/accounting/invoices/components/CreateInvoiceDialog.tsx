@@ -455,6 +455,8 @@ export function CreateInvoiceDialog({
               subtotal={subtotal}
               gstDetails={gstDetails}
               totalAmount={grandTotal}
+              showAccountSelector
+              accountFilterType="INCOME"
               readOnly={viewOnly}
             />
           </Box>

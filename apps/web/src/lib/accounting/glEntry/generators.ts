@@ -75,16 +75,49 @@ export async function generateInvoiceGLEntries(
       costCentreId: input.projectId,
     });
 
-    // Entry 2: Credit Revenue (Income increases)
-    entries.push({
-      accountId: accounts.revenue!,
-      accountCode: '4100',
-      accountName: 'Sales Revenue',
-      debit: 0,
-      credit: input.subtotal,
-      description: 'Revenue from invoice',
-      costCentreId: input.projectId,
-    });
+    // Revenue entries: Use per-line-item accounts if specified, otherwise use default
+    const lineItemsWithAccounts = input.lineItems?.filter(
+      (item) => item.accountId && item.amount > 0
+    );
+    const lineItemsWithoutAccounts = input.lineItems?.filter(
+      (item) => !item.accountId && item.amount > 0
+    );
+
+    // Calculate amounts for items with and without specific accounts
+    const amountWithSpecificAccounts =
+      lineItemsWithAccounts?.reduce((sum, item) => sum + item.amount, 0) || 0;
+    const amountWithDefaultAccount = input.subtotal - amountWithSpecificAccounts;
+
+    // Create entries for line items with specific revenue accounts
+    if (lineItemsWithAccounts && lineItemsWithAccounts.length > 0) {
+      for (const item of lineItemsWithAccounts) {
+        entries.push({
+          accountId: item.accountId!,
+          accountCode: item.accountCode || '',
+          accountName: item.accountName || item.description,
+          debit: 0,
+          credit: item.amount,
+          description: item.description || 'Revenue from invoice',
+          costCentreId: input.projectId,
+        });
+      }
+    }
+
+    // Create single entry for items without specific accounts (use default revenue account)
+    if (amountWithDefaultAccount > 0) {
+      entries.push({
+        accountId: accounts.revenue!,
+        accountCode: '4100',
+        accountName: 'Sales Revenue',
+        debit: 0,
+        credit: amountWithDefaultAccount,
+        description:
+          lineItemsWithoutAccounts && lineItemsWithoutAccounts.length > 0
+            ? lineItemsWithoutAccounts.map((i) => i.description).join(', ')
+            : 'Revenue from invoice',
+        costCentreId: input.projectId,
+      });
+    }
 
     // Entry 3-5: Credit GST accounts (if GST applicable)
     if (input.gstDetails) {
