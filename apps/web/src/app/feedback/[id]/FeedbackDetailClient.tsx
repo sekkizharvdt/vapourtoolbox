@@ -184,7 +184,7 @@ export default function FeedbackDetailClient() {
         setDeployedAt(ts);
       }
     });
-  }, [feedback?.status]);
+  }, [feedback]);
 
   // Handle closing feedback
   const handleCloseFeedback = async () => {

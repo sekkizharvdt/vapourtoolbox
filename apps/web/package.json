@@ -6,7 +6,7 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "npx serve@latest out -l 3001",
-    "lint": "next lint --max-warnings=100",
+    "lint": "next lint --max-warnings=0",
     "type-check": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",

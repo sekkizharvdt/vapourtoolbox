@@ -819,13 +819,8 @@ export async function cloneProposal(
 function stripScopeItemForTemplate(
   item: ScopeItem
 ): Omit<ScopeItem, 'id' | 'itemNumber' | 'linkedBOMs' | 'estimationSummary'> {
-  const {
-    id: _id,
-    itemNumber: _itemNumber,
-    linkedBOMs: _linkedBOMs,
-    estimationSummary: _estimationSummary,
-    ...rest
-  } = item;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id, itemNumber, linkedBOMs, estimationSummary, ...rest } = item;
   return rest;
 }
 

@@ -93,7 +93,7 @@ export default function PaymentBatchesPage() {
     };
 
     loadData();
-  }, [hasViewAccess, statusFilter]);
+  }, [hasViewAccess, statusFilter, claims?.entityId]);
 
   const handleCreate = () => {
     router.push('/accounting/payment-batches/new');
