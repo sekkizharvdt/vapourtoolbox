@@ -1400,6 +1400,22 @@ service cloud.firestore {
     // ============================================
 
     /**
+     * HR Config - Module configuration (approver lists, policies, etc.)
+     * Documents: leaveSettings, travelExpenseSettings
+     * Read by all internal users (needed during leave/on-duty/expense submission)
+     */
+    match /hrConfig/{configId} {
+      // Read: All internal users (needed to load approver config when submitting requests)
+      allow read: if isInternalUser();
+
+      // Create/Update: Only users with MANAGE_HR_SETTINGS permission
+      allow create, update: if isInternalUser() && hasPermission2(8192); // MANAGE_HR_SETTINGS
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
+    /**
      * HR Leave Types - Configuration for leave categories
      * Permission bits (from @vapour/constants PERMISSION_FLAGS_2):
      *   VIEW_HR = 4096 (bit 12)
