@@ -34,6 +34,9 @@ export interface SystemAccountIds {
   interestIncome?: string;
   interestExpense?: string;
 
+  // Fixed Assets
+  depreciationExpense?: string; // 5208
+
   // Cash & Bank
   cashInHand?: string;
   bankAccounts?: Map<string, string>; // id -> name mapping
@@ -79,6 +82,7 @@ export async function getSystemAccountIds(
       '2400', // Intercompany Loan Payable
       '4200', // Interest Income
       '6100', // Interest Expense
+      '5208', // Depreciation Expense
     ];
 
     const q = query(accountsRef, where('code', 'in', systemCodes));
@@ -149,6 +153,9 @@ export async function getSystemAccountIds(
 
     const intExpense = docsByCode.get('6100');
     if (intExpense) accounts.interestExpense = intExpense.id;
+
+    const depExpense = docsByCode.get('5208');
+    if (depExpense && depExpense.data.isSystemAccount) accounts.depreciationExpense = depExpense.id;
 
     // Cache the results
     cachedAccounts = accounts;

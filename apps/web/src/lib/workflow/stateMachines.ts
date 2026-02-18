@@ -31,6 +31,7 @@ import type {
   PurchaseRequestStatus,
   PaymentBatchStatus,
   TravelExpenseStatus,
+  AssetStatus,
 } from '@vapour/types';
 import type { ProposalStatus } from '@vapour/types';
 import { PERMISSION_FLAGS } from '@vapour/constants';
@@ -259,6 +260,30 @@ export const travelExpenseStateMachine: StateMachine<TravelExpenseStatus> =
   createStateMachine(teConfig);
 
 // ============================================================================
+// Fixed Asset State Machine
+// ============================================================================
+
+/**
+ * Fixed Asset lifecycle states:
+ *
+ * ACTIVE -> DISPOSED (sale/transfer)
+ * ACTIVE -> WRITTEN_OFF (damage/loss/obsolescence)
+ */
+const faConfig: StateTransitionConfig<AssetStatus> = {
+  transitions: {
+    ACTIVE: ['DISPOSED', 'WRITTEN_OFF'],
+    DISPOSED: [], // Terminal
+    WRITTEN_OFF: [], // Terminal
+  },
+  transitionPermissions: {
+    ACTIVE_DISPOSED: PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+    ACTIVE_WRITTEN_OFF: PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+  },
+  terminalStates: ['DISPOSED', 'WRITTEN_OFF'],
+};
+export const fixedAssetStateMachine: StateMachine<AssetStatus> = createStateMachine(faConfig);
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
@@ -299,6 +324,9 @@ export function getTransitionLabels(transitions: string[]): Record<string, strin
     EVALUATED: 'Mark Evaluated',
     SELECTED: 'Select Offer',
     WITHDRAWN: 'Withdraw',
+    // Fixed Asset
+    DISPOSED: 'Dispose Asset',
+    WRITTEN_OFF: 'Write Off',
     // GR
     PENDING: 'Pending',
     ISSUES_FOUND: 'Report Issues',
