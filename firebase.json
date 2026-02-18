@@ -176,6 +176,18 @@
         "destination": "/proposals/placeholder/edit.html"
       },
       {
+        "source": "/proposals/*/scope",
+        "destination": "/proposals/placeholder/scope.html"
+      },
+      {
+        "source": "/proposals/*/pricing",
+        "destination": "/proposals/placeholder/pricing.html"
+      },
+      {
+        "source": "/proposals/*/preview",
+        "destination": "/proposals/placeholder/preview.html"
+      },
+      {
         "source": "/proposals/*",
         "destination": "/proposals/placeholder.html"
       },
