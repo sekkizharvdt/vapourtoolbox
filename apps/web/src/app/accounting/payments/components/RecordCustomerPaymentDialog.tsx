@@ -83,101 +83,108 @@ export function RecordCustomerPaymentDialog({
         return;
       }
 
-      const { db } = getFirebase();
-      const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-      const q = query(
-        transactionsRef,
-        where('type', '==', 'CUSTOMER_INVOICE'),
-        where('entityId', '==', entityId),
-        where('status', 'in', ['APPROVED', 'POSTED'])
-      );
+      try {
+        const { db } = getFirebase();
+        const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
+        const q = query(
+          transactionsRef,
+          where('type', '==', 'CUSTOMER_INVOICE'),
+          where('entityId', '==', entityId),
+          where('status', 'in', ['APPROVED', 'POSTED'])
+        );
 
-      const snapshot = await getDocs(q);
-      const invoices: CustomerInvoice[] = [];
+        const snapshot = await getDocs(q);
+        const invoices: CustomerInvoice[] = [];
 
-      // Helper to calculate outstanding in INR
-      // Handles both new invoices (outstandingAmount in INR) and old invoices (outstandingAmount in foreign currency)
-      const calculateOutstandingINR = (data: CustomerInvoice): number => {
-        const invoiceCurrency = data.currency || 'INR';
-        const invoiceExchangeRate = data.exchangeRate ?? 1;
-        const totalAmount = data.totalAmount ?? 0;
+        // Helper to calculate outstanding in INR
+        // Handles both new invoices (outstandingAmount in INR) and old invoices (outstandingAmount in foreign currency)
+        const calculateOutstandingINR = (data: CustomerInvoice): number => {
+          const invoiceCurrency = data.currency || 'INR';
+          const invoiceExchangeRate = data.exchangeRate ?? 1;
+          const totalAmount = data.totalAmount ?? 0;
 
-        // INR invoices - straightforward
-        if (invoiceCurrency === 'INR') {
-          return data.outstandingAmount ?? data.baseAmount ?? totalAmount;
-        }
+          // INR invoices - straightforward
+          if (invoiceCurrency === 'INR') {
+            return data.outstandingAmount ?? data.baseAmount ?? totalAmount;
+          }
 
-        // Forex invoice - need to determine if outstandingAmount is in INR or foreign currency
-        // New invoices (after fix): outstandingAmount is in INR (equals baseAmount initially)
-        // Old invoices (before fix): outstandingAmount is in foreign currency (equals totalAmount initially)
+          // Forex invoice - need to determine if outstandingAmount is in INR or foreign currency
+          // New invoices (after fix): outstandingAmount is in INR (equals baseAmount initially)
+          // Old invoices (before fix): outstandingAmount is in foreign currency (equals totalAmount initially)
 
-        // If baseAmount exists, it's the correct INR total
-        const baseAmountINR = data.baseAmount ?? totalAmount * invoiceExchangeRate;
+          // If baseAmount exists, it's the correct INR total
+          const baseAmountINR = data.baseAmount ?? totalAmount * invoiceExchangeRate;
 
-        if (data.outstandingAmount !== undefined && data.outstandingAmount !== null) {
-          const outstanding = data.outstandingAmount;
+          if (data.outstandingAmount !== undefined && data.outstandingAmount !== null) {
+            const outstanding = data.outstandingAmount;
 
-          // Determine if outstandingAmount is in INR or foreign currency by checking
-          // which reference value it's closer to (as a ratio)
-          // - If closer to baseAmount: it's stored in INR
-          // - If closer to totalAmount: it's stored in foreign currency
-          const ratioToBase = baseAmountINR > 0 ? outstanding / baseAmountINR : 0;
-          const ratioToTotal = totalAmount > 0 ? outstanding / totalAmount : 0;
+            // Determine if outstandingAmount is in INR or foreign currency by checking
+            // which reference value it's closer to (as a ratio)
+            // - If closer to baseAmount: it's stored in INR
+            // - If closer to totalAmount: it's stored in foreign currency
+            const ratioToBase = baseAmountINR > 0 ? outstanding / baseAmountINR : 0;
+            const ratioToTotal = totalAmount > 0 ? outstanding / totalAmount : 0;
 
-          // Outstanding should be <= 1.0 of its reference (can't owe more than original)
-          // If ratio to base is reasonable (0-1), outstanding is likely in INR
-          // If ratio to total is reasonable (0-1), outstanding is likely in foreign currency
-          const isLikelyINR = ratioToBase >= 0 && ratioToBase <= 1.01; // Allow small tolerance
-          const isLikelyForex = ratioToTotal >= 0 && ratioToTotal <= 1.01;
+            // Outstanding should be <= 1.0 of its reference (can't owe more than original)
+            // If ratio to base is reasonable (0-1), outstanding is likely in INR
+            // If ratio to total is reasonable (0-1), outstanding is likely in foreign currency
+            const isLikelyINR = ratioToBase >= 0 && ratioToBase <= 1.01; // Allow small tolerance
+            const isLikelyForex = ratioToTotal >= 0 && ratioToTotal <= 1.01;
 
-          if (isLikelyINR && !isLikelyForex) {
-            // Outstanding is already in INR
-            return outstanding;
-          } else if (isLikelyForex && !isLikelyINR) {
-            // Outstanding is in foreign currency - convert to INR
-            return outstanding * invoiceExchangeRate;
-          } else if (isLikelyINR && isLikelyForex) {
-            // Both ratios are valid - use the one closer to the original
-            // For unpaid invoices: outstanding equals baseAmount (INR) or totalAmount (forex)
-            const distToBase = Math.abs(outstanding - baseAmountINR);
-            const distToTotal = Math.abs(outstanding - totalAmount);
-            if (distToBase <= distToTotal) {
-              // Closer to baseAmount - stored in INR
+            if (isLikelyINR && !isLikelyForex) {
+              // Outstanding is already in INR
               return outstanding;
-            } else {
-              // Closer to totalAmount - stored in foreign currency
+            } else if (isLikelyForex && !isLikelyINR) {
+              // Outstanding is in foreign currency - convert to INR
               return outstanding * invoiceExchangeRate;
+            } else if (isLikelyINR && isLikelyForex) {
+              // Both ratios are valid - use the one closer to the original
+              // For unpaid invoices: outstanding equals baseAmount (INR) or totalAmount (forex)
+              const distToBase = Math.abs(outstanding - baseAmountINR);
+              const distToTotal = Math.abs(outstanding - totalAmount);
+              if (distToBase <= distToTotal) {
+                // Closer to baseAmount - stored in INR
+                return outstanding;
+              } else {
+                // Closer to totalAmount - stored in foreign currency
+                return outstanding * invoiceExchangeRate;
+              }
             }
           }
-        }
 
-        // Fallback to baseAmount
-        return baseAmountINR;
-      };
-
-      snapshot.forEach((doc) => {
-        const data = doc.data() as CustomerInvoice;
-        const outstandingINR = calculateOutstandingINR(data);
-        // Only include invoices with outstanding amounts > 0
-        if (outstandingINR > 0) {
-          invoices.push({ ...data, id: doc.id });
-        }
-      });
-
-      setOutstandingInvoices(invoices);
-
-      // Initialize allocations using INR amounts
-      const initialAllocations: PaymentAllocation[] = invoices.map((invoice) => {
-        const outstandingInINR = calculateOutstandingINR(invoice);
-        return {
-          invoiceId: invoice.id!,
-          invoiceNumber: invoice.transactionNumber || '',
-          originalAmount: outstandingInINR,
-          allocatedAmount: 0,
-          remainingAmount: outstandingInINR,
+          // Fallback to baseAmount
+          return baseAmountINR;
         };
-      });
-      setAllocations(initialAllocations);
+
+        snapshot.forEach((doc) => {
+          const data = doc.data() as CustomerInvoice;
+          // Filter soft-deleted invoices (client-side per CLAUDE.md rule #3)
+          if ('isDeleted' in data && data.isDeleted) return;
+          const outstandingINR = calculateOutstandingINR(data);
+          // Only include invoices with outstanding amounts > 0
+          if (outstandingINR > 0) {
+            invoices.push({ ...data, id: doc.id });
+          }
+        });
+
+        setOutstandingInvoices(invoices);
+
+        // Initialize allocations using INR amounts
+        const initialAllocations: PaymentAllocation[] = invoices.map((invoice) => {
+          const outstandingInINR = calculateOutstandingINR(invoice);
+          return {
+            invoiceId: invoice.id!,
+            invoiceNumber: invoice.transactionNumber || '',
+            originalAmount: outstandingInINR,
+            allocatedAmount: 0,
+            remainingAmount: outstandingInINR,
+          };
+        });
+        setAllocations(initialAllocations);
+      } catch (err) {
+        console.error('[RecordCustomerPaymentDialog] Error fetching outstanding invoices:', err);
+        setError('Failed to load outstanding invoices. Please try again.');
+      }
     }
 
     fetchOutstandingInvoices();

@@ -93,6 +93,8 @@ export function RecordVendorPaymentDialog({
 
         snapshot.forEach((doc) => {
           const data = doc.data() as VendorBill;
+          // Filter soft-deleted bills (client-side per CLAUDE.md rule #3)
+          if ('isDeleted' in data && data.isDeleted) return;
           // Use outstandingAmount for partially paid bills, fallback to baseAmount (INR) for forex
           const outstanding = data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
           // Only include bills with outstanding amounts > 0
