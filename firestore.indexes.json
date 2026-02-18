@@ -3904,7 +3904,6 @@
         }
       ]
     },
-
     {
       "collectionGroup": "purchaseOrderAmendments",
       "queryScope": "COLLECTION",
@@ -3923,7 +3922,6 @@
         }
       ]
     },
-
     {
       "collectionGroup": "goodsReceipts",
       "queryScope": "COLLECTION",
@@ -3956,7 +3954,6 @@
         }
       ]
     },
-
     {
       "collectionGroup": "purchaseOrders",
       "queryScope": "COLLECTION",
@@ -3975,7 +3972,6 @@
         }
       ]
     },
-
     {
       "collectionGroup": "paymentBatches",
       "queryScope": "COLLECTION",
@@ -4008,7 +4004,6 @@
         }
       ]
     },
-
     {
       "collectionGroup": "hrLeaveRequests",
       "queryScope": "COLLECTION",
@@ -4041,7 +4036,6 @@
         }
       ]
     },
-
     {
       "collectionGroup": "hrTravelExpenses",
       "queryScope": "COLLECTION",
@@ -4056,7 +4050,6 @@
         }
       ]
     },
-
     {
       "collectionGroup": "onDutyRecords",
       "queryScope": "COLLECTION",
@@ -4071,7 +4064,6 @@
         }
       ]
     },
-
     {
       "collectionGroup": "manualTasks",
       "queryScope": "COLLECTION",
@@ -4090,7 +4082,6 @@
         }
       ]
     },
-
     {
       "collectionGroup": "items",
       "queryScope": "COLLECTION",
@@ -4105,7 +4096,6 @@
         }
       ]
     },
-
     {
       "collectionGroup": "items",
       "queryScope": "COLLECTION",
@@ -4116,6 +4106,60 @@
         },
         {
           "fieldPath": "sortOrder",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "fixedAssets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "entityId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "fixedAssets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "entityId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "fixedAssets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "entityId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isDeleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
           "order": "DESCENDING"
         }
       ]

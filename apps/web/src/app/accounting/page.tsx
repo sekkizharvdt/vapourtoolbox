@@ -19,6 +19,7 @@ import {
   HealthAndSafety as DataHealthIcon,
   DeleteSweep as TrashIcon,
   ReceiptLong as GRNBillsIcon,
+  Business as AssetIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting } from '@vapour/constants';
@@ -154,6 +155,13 @@ export default function AccountingPage() {
           description: 'Track loans between projects with interest and repayment schedules',
           icon: <LoanIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
           path: '/accounting/interproject-loans',
+        },
+        {
+          id: 'fixed-assets',
+          title: 'Fixed Assets',
+          description: 'Asset register, depreciation tracking, and disposal management',
+          icon: <AssetIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+          path: '/accounting/fixed-assets',
         },
         {
           id: 'transactions',

@@ -37,3 +37,4 @@ export * from './companyDocuments';
 export * from './recurringTransaction';
 export * from './paymentPlanning';
 export * from './paymentBatch';
+export * from './fixedAsset';

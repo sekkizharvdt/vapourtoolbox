@@ -28,6 +28,10 @@
         "destination": "/accounting/cost-centres/placeholder.html"
       },
       {
+        "source": "/accounting/fixed-assets/*",
+        "destination": "/accounting/fixed-assets/placeholder.html"
+      },
+      {
         "source": "/accounting/recurring/*",
         "destination": "/accounting/recurring/placeholder.html"
       },

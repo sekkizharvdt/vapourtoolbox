@@ -416,6 +416,13 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    match /fixedAssets/{assetId} {
+      // Fixed Asset Register - Capital asset tracking and depreciation
+      allow read: if hasPermission(32768) && isInternalUser(); // VIEW_ACCOUNTING (bit 15)
+      allow create, update: if hasPermission(16384) && isInternalUser(); // MANAGE_ACCOUNTING (bit 14)
+      allow delete: if isSuperAdmin();
+    }
+
     // ============================================
     // Recurring Transactions (Accounting Module)
     // ============================================

@@ -54,6 +54,9 @@ export const COLLECTIONS = {
   INTERPROJECT_LOANS: 'interprojectLoans',
   DELETED_TRANSACTIONS: 'deletedTransactions', // Archive for hard-deleted transactions
 
+  // Fixed Assets
+  FIXED_ASSETS: 'fixedAssets',
+
   // Recurring Transactions
   RECURRING_TRANSACTIONS: 'recurringTransactions',
   RECURRING_OCCURRENCES: 'recurringOccurrences',
