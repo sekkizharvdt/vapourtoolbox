@@ -1043,18 +1043,18 @@ service cloud.firestore {
     // ============================================
 
     match /enquiries/{enquiryId} {
-      // Read: Users with VIEW_ESTIMATION permission
-      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+      // Read: Users with VIEW_PROPOSALS permission
+      allow read: if isInternalUser() && hasPermission(1048576); // VIEW_PROPOSALS (bit 20)
 
-      // Create: Users with MANAGE_ESTIMATION permission
-      allow create: if hasPermission(262144) && isInternalUser() &&
-                       request.resource.data.createdBy == request.auth.uid; // MANAGE_ESTIMATION (bit 18)
+      // Create: Users with MANAGE_PROPOSALS permission
+      allow create: if hasPermission(2097152) && isInternalUser() &&
+                       request.resource.data.createdBy == request.auth.uid; // MANAGE_PROPOSALS (bit 21)
 
-      // Update: Users with MANAGE_ESTIMATION permission
-      allow update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+      // Update: Users with MANAGE_PROPOSALS permission
+      allow update: if hasPermission(2097152) && isInternalUser(); // MANAGE_PROPOSALS (bit 21)
 
       // Delete: Soft delete only (update status to CANCELLED)
-      allow delete: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+      allow delete: if hasPermission(2097152) && isInternalUser(); // MANAGE_PROPOSALS (bit 21)
     }
 
     // ============================================
