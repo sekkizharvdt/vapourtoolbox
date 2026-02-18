@@ -43,6 +43,7 @@ import {
   Check as CheckIcon,
   Block as VoidIcon,
   Home as HomeIcon,
+  Business as AssetIcon,
 } from '@mui/icons-material';
 import {
   PageHeader,
@@ -85,6 +86,10 @@ const ApproveBillDialog = dynamic(
 const VoidAndRecreateBillDialog = dynamic(
   () =>
     import('./components/VoidAndRecreateBillDialog').then((mod) => mod.VoidAndRecreateBillDialog),
+  { ssr: false }
+);
+const CreateAssetDialog = dynamic(
+  () => import('../fixed-assets/components/CreateAssetDialog').then((mod) => mod.CreateAssetDialog),
   { ssr: false }
 );
 
@@ -132,6 +137,10 @@ export default function BillsPage() {
   // Void dialog state
   const [voidDialogOpen, setVoidDialogOpen] = useState(false);
   const [selectedBillForVoid, setSelectedBillForVoid] = useState<VendorBill | null>(null);
+
+  // Register as asset dialog state
+  const [assetDialogOpen, setAssetDialogOpen] = useState(false);
+  const [billForAsset, setBillForAsset] = useState<VendorBill | null>(null);
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
 
@@ -638,6 +647,15 @@ export default function BillsPage() {
                             bill.paymentStatus !== 'PARTIALLY_PAID',
                         },
                         {
+                          icon: <AssetIcon />,
+                          label: 'Register as Asset',
+                          onClick: () => {
+                            setBillForAsset(bill);
+                            setAssetDialogOpen(true);
+                          },
+                          show: canManage && bill.status !== 'VOID' && bill.status !== 'DRAFT',
+                        },
+                        {
                           icon: <DeleteIcon />,
                           label: 'Move to Trash',
                           onClick: () => handleDelete(bill.id!),
@@ -728,6 +746,38 @@ export default function BillsPage() {
         onClose={handleCloseVoidDialog}
         bill={selectedBillForVoid}
       />
+
+      {/* Register as Asset Dialog */}
+      {assetDialogOpen && billForAsset && (
+        <CreateAssetDialog
+          open={assetDialogOpen}
+          onClose={() => {
+            setAssetDialogOpen(false);
+            setBillForAsset(null);
+          }}
+          onCreated={() => {
+            setAssetDialogOpen(false);
+            setBillForAsset(null);
+          }}
+          prefill={{
+            vendor: billForAsset.entityName ?? undefined,
+            vendorId: billForAsset.entityId ?? undefined,
+            purchaseAmount: billForAsset.subtotal,
+            purchaseDate: billForAsset.billDate
+              ? typeof billForAsset.billDate === 'object' && 'toDate' in billForAsset.billDate
+                ? (billForAsset.billDate as unknown as { toDate: () => Date })
+                    .toDate()
+                    .toISOString()
+                    .slice(0, 10)
+                : billForAsset.billDate instanceof Date
+                  ? billForAsset.billDate.toISOString().slice(0, 10)
+                  : undefined
+              : undefined,
+            sourceBillId: billForAsset.id,
+            sourceBillNumber: billForAsset.transactionNumber,
+          }}
+        />
+      )}
     </>
   );
 }

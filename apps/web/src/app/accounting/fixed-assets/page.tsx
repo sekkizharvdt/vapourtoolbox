@@ -32,6 +32,7 @@ import {
   TrendingDown as DepreciationIcon,
   AccountBalance as BookValueIcon,
   Inventory as CountIcon,
+  PlayArrow as RunDepIcon,
 } from '@mui/icons-material';
 import { PageHeader, LoadingState, EmptyState, StatCard, FilterBar } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
@@ -158,13 +159,22 @@ export default function FixedAssetsPage() {
         title="Fixed Asset Register"
         action={
           canManage ? (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateDialogOpen(true)}
-            >
-              Register Asset
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant="outlined"
+                startIcon={<RunDepIcon />}
+                onClick={() => router.push('/accounting/fixed-assets/depreciation')}
+              >
+                Run Depreciation
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateDialogOpen(true)}
+              >
+                Register Asset
+              </Button>
+            </Box>
           ) : undefined
         }
       />

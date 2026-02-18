@@ -16,6 +16,7 @@ import {
   limit,
   Timestamp,
   runTransaction,
+  writeBatch,
 } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
@@ -23,6 +24,8 @@ import { createLogger } from '@vapour/logger';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
 import { requirePermission } from '@/lib/auth/authorizationService';
 import { PERMISSION_FLAGS } from '@vapour/constants';
+import { saveTransaction } from '@/lib/accounting/transactionService';
+import type { LedgerEntry } from '@vapour/types';
 import type {
   FixedAsset,
   CreateFixedAssetInput,
@@ -509,4 +512,200 @@ export function getDepreciationSchedule(asset: FixedAsset): Array<{
   }
 
   return schedule;
+}
+
+// ---------------------------------------------------------------------------
+// Depreciation Run (Batch Processing)
+// ---------------------------------------------------------------------------
+
+export interface DepreciationPreviewItem {
+  assetId: string;
+  assetNumber: string;
+  name: string;
+  category: AssetCategory;
+  writtenDownValue: number;
+  depreciationAmount: number;
+  newWDV: number;
+  depExpenseAccountId: string;
+  accumDepAccountId: string;
+  accumDepAccountCode: string;
+}
+
+/**
+ * Preview depreciation for all active assets.
+ * Returns per-asset amounts without posting anything.
+ */
+export async function previewDepreciation(
+  entityId: string
+): Promise<{ items: DepreciationPreviewItem[]; totalDepreciation: number }> {
+  const assets = await listFixedAssets({ entityId, status: 'ACTIVE' });
+  const items: DepreciationPreviewItem[] = [];
+  let totalDepreciation = 0;
+
+  for (const asset of assets) {
+    const amount = calculateMonthlyDepreciation(asset);
+    if (amount <= 0) continue;
+
+    const rounded = Math.round(amount * 100) / 100;
+    totalDepreciation += rounded;
+
+    items.push({
+      assetId: asset.id,
+      assetNumber: asset.assetNumber,
+      name: asset.name,
+      category: asset.category,
+      writtenDownValue: asset.writtenDownValue,
+      depreciationAmount: rounded,
+      newWDV: Math.round((asset.writtenDownValue - rounded) * 100) / 100,
+      depExpenseAccountId: asset.depreciationExpenseAccountId,
+      accumDepAccountId: asset.accumulatedDepAccountId,
+      accumDepAccountCode: asset.accumulatedDepAccountCode,
+    });
+  }
+
+  return { items, totalDepreciation: Math.round(totalDepreciation * 100) / 100 };
+}
+
+/**
+ * Run monthly depreciation: posts a single journal entry for all active assets
+ * and updates each asset's totalDepreciation and writtenDownValue.
+ */
+export async function runDepreciation(
+  entityId: string,
+  month: number,
+  year: number,
+  userId: string,
+  userPermissions: number
+): Promise<{ journalEntryId: string; assetsProcessed: number; totalAmount: number }> {
+  requirePermission(
+    userPermissions,
+    PERMISSION_FLAGS.MANAGE_ACCOUNTING,
+    userId,
+    'run depreciation'
+  );
+
+  // Fetch all active assets fresh
+  const assets = await listFixedAssets({ entityId, status: 'ACTIVE' });
+  const depItems: Array<{ asset: FixedAsset; amount: number }> = [];
+  let totalDepreciation = 0;
+
+  for (const asset of assets) {
+    const amount = calculateMonthlyDepreciation(asset);
+    if (amount <= 0) continue;
+    const rounded = Math.round(amount * 100) / 100;
+    totalDepreciation += rounded;
+    depItems.push({ asset, amount: rounded });
+  }
+
+  totalDepreciation = Math.round(totalDepreciation * 100) / 100;
+
+  if (depItems.length === 0) {
+    throw new Error('No active assets to depreciate');
+  }
+
+  const { db } = getFirebase();
+  const monthName = new Date(year, month - 1).toLocaleString('en-IN', {
+    month: 'long',
+    year: 'numeric',
+  });
+
+  // Resolve depreciation expense account
+  const depExpenseAccount = await resolveAccountByCode(DEPRECIATION_EXPENSE_CODE);
+  if (!depExpenseAccount) {
+    throw new Error(
+      'Depreciation expense account (5208) not found. Please add it to your Chart of Accounts.'
+    );
+  }
+
+  // Aggregate credits by accumulated depreciation account
+  const accumDepTotals = new Map<
+    string,
+    { accountId: string; accountCode: string; total: number }
+  >();
+  for (const { asset, amount } of depItems) {
+    const key = asset.accumulatedDepAccountId;
+    const existing = accumDepTotals.get(key);
+    if (existing) {
+      existing.total += amount;
+    } else {
+      accumDepTotals.set(key, {
+        accountId: asset.accumulatedDepAccountId,
+        accountCode: asset.accumulatedDepAccountCode,
+        total: amount,
+      });
+    }
+  }
+
+  const entries: LedgerEntry[] = [
+    {
+      accountId: depExpenseAccount.id,
+      accountCode: depExpenseAccount.code,
+      accountName: depExpenseAccount.name,
+      debit: totalDepreciation,
+      credit: 0,
+      description: `Depreciation - ${monthName}`,
+    },
+    ...Array.from(accumDepTotals.values()).map((acc) => ({
+      accountId: acc.accountId,
+      accountCode: acc.accountCode,
+      debit: 0,
+      credit: Math.round(acc.total * 100) / 100,
+      description: `Accum. depreciation - ${monthName}`,
+    })),
+  ];
+
+  const jeNumber = `DEP-${year}-${String(month).padStart(2, '0')}`;
+  const depDate = new Date(year, month - 1, 28);
+
+  const journalEntryId = await saveTransaction(db, {
+    type: 'JOURNAL_ENTRY',
+    transactionNumber: jeNumber,
+    date: depDate,
+    description: `Monthly depreciation - ${monthName} (${depItems.length} assets)`,
+    amount: totalDepreciation,
+    baseAmount: totalDepreciation,
+    currency: 'INR',
+    status: 'POSTED',
+    entityId,
+    entries,
+    journalType: 'ADJUSTING',
+    journalDate: depDate,
+    isReversed: false,
+    attachments: [],
+    sourceModule: 'fixedAssets',
+    createdBy: userId,
+  });
+
+  // Update each asset
+  const batch = writeBatch(db);
+  const now = Timestamp.now();
+
+  for (const { asset, amount } of depItems) {
+    const newTotalDep = Math.round((asset.totalDepreciation + amount) * 100) / 100;
+    const newWDV = Math.round((asset.writtenDownValue - amount) * 100) / 100;
+
+    batch.update(doc(db, COLLECTIONS.FIXED_ASSETS, asset.id), {
+      totalDepreciation: newTotalDep,
+      writtenDownValue: newWDV,
+      lastDepreciationDate: depDate,
+      updatedAt: now,
+      updatedBy: userId,
+    });
+  }
+
+  await batch.commit();
+
+  logger.info('Depreciation run completed', {
+    journalEntryId,
+    month,
+    year,
+    assetsProcessed: depItems.length,
+    totalAmount: totalDepreciation,
+  });
+
+  return {
+    journalEntryId,
+    assetsProcessed: depItems.length,
+    totalAmount: totalDepreciation,
+  };
 }
