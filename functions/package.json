@@ -35,5 +35,8 @@
     "eslint": "^8.50.0",
     "typescript": "^5.2.0"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "fast-xml-parser": ">=5.3.6"
+  }
 }
