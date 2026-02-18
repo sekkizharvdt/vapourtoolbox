@@ -1062,19 +1062,19 @@ service cloud.firestore {
     // ============================================
 
     match /proposals/{proposalId} {
-      // Read: Users with VIEW_ESTIMATION permission
-      allow read: if isInternalUser() && hasPermission(524288); // VIEW_ESTIMATION (bit 19)
+      // Read: Users with VIEW_PROPOSALS permission
+      allow read: if isInternalUser() && hasPermission(1048576); // VIEW_PROPOSALS (bit 20)
 
-      // Create: Users with MANAGE_ESTIMATION permission
-      allow create: if hasPermission(262144) && isInternalUser() &&
+      // Create: Users with MANAGE_PROPOSALS permission
+      allow create: if hasPermission(2097152) && isInternalUser() &&
                        request.resource.data.entityId == request.auth.token.entityId &&
                        request.resource.data.createdBy == request.auth.uid &&
                        request.resource.data.status == 'DRAFT' &&
-                       request.resource.data.revision >= 1; // MANAGE_ESTIMATION (bit 18)
+                       request.resource.data.revision >= 1; // MANAGE_PROPOSALS (bit 21)
 
-      // Update: Users with MANAGE_ESTIMATION permission
+      // Update: Users with MANAGE_PROPOSALS permission
       // Approval workflow: users with approval permissions can update approvalHistory
-      allow update: if hasPermission(262144) && isInternalUser(); // MANAGE_ESTIMATION (bit 18)
+      allow update: if hasPermission(2097152) && isInternalUser(); // MANAGE_PROPOSALS (bit 21)
 
       // Delete: Super admins only (proposals should not be deleted, use revisions)
       allow delete: if isSuperAdmin();
