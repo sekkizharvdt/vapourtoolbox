@@ -432,9 +432,9 @@ export function ActivityDashboard() {
               variant="outlined"
               size="small"
               endIcon={<ArrowForwardIcon />}
-              onClick={() => router.push('/proposals/new')}
+              onClick={() => router.push('/proposals/enquiries')}
             >
-              New Proposal
+              View Enquiries
             </Button>
             <Button
               variant="outlined"

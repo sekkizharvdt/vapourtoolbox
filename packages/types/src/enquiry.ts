@@ -205,15 +205,13 @@ export const COMMERCIAL_VIABILITY_LABELS: Record<
 /**
  * Risk Exposure Rating Labels
  */
-export const RISK_EXPOSURE_LABELS: Record<
-  BidEvaluationCriteria['riskExposure']['rating'],
-  string
-> = {
-  LOW_RISK: 'Low Risk',
-  MODERATE_RISK: 'Moderate Risk',
-  HIGH_RISK: 'High Risk',
-  UNACCEPTABLE_RISK: 'Unacceptable Risk',
-};
+export const RISK_EXPOSURE_LABELS: Record<BidEvaluationCriteria['riskExposure']['rating'], string> =
+  {
+    LOW_RISK: 'Low Risk',
+    MODERATE_RISK: 'Moderate Risk',
+    HIGH_RISK: 'High Risk',
+    UNACCEPTABLE_RISK: 'Unacceptable Risk',
+  };
 
 /**
  * Capacity Capability Rating Labels
@@ -258,6 +256,15 @@ export const ENQUIRY_URGENCY_LABELS: Record<EnquiryUrgency, string> = {
   STANDARD: 'Standard',
   URGENT: 'Urgent',
 };
+
+/**
+ * Pre-proposal statuses — enquiries that haven't yet progressed to a proposal
+ */
+export const ENQUIRY_PRE_PROPOSAL_STATUSES: EnquiryStatus[] = [
+  'NEW',
+  'UNDER_REVIEW',
+  'BID_DECISION_PENDING',
+];
 
 /**
  * Enquiry Entity

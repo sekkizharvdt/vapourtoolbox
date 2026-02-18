@@ -36,8 +36,8 @@ export default function ScopeEditorClient() {
           <MuiLink component={Link} href="/proposals" color="inherit">
             Proposals
           </MuiLink>
-          <MuiLink component={Link} href="/proposals/scope-matrix" color="inherit">
-            Scope Matrix
+          <MuiLink component={Link} href="/proposals/list" color="inherit">
+            All Proposals
           </MuiLink>
           <Typography color="text.primary">Edit Scope</Typography>
         </Breadcrumbs>

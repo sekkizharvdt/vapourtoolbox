@@ -8,7 +8,7 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import type { Proposal, ScopeItem, Money } from '@vapour/types';
-import { PROJECT_PHASE_LABELS } from '@vapour/types';
+import { PROJECT_PHASE_LABELS, MILESTONE_TAX_TYPE_LABELS } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
 
 const styles = StyleSheet.create({
@@ -165,8 +165,14 @@ export const ProposalPDFDocument = ({
     }).format(money.amount);
   };
 
-  // Check if using new data structure (scopeMatrix + pricingConfig) or legacy
-  const useNewStructure = Boolean(proposal.scopeMatrix && proposal.pricingConfig);
+  // Check each new data structure independently
+  const hasScopeMatrix = Boolean(
+    proposal.scopeMatrix &&
+    (proposal.scopeMatrix.services.length > 0 ||
+      proposal.scopeMatrix.supply.length > 0 ||
+      proposal.scopeMatrix.exclusions.length > 0)
+  );
+  const hasPricingConfig = Boolean(proposal.pricingConfig?.isComplete);
 
   // Group scope items by phase for new structure
   const groupByPhase = (items: ScopeItem[]) => {
@@ -228,8 +234,8 @@ export const ProposalPDFDocument = ({
           </View>
         </View>
 
-        {/* Scope of Work - Legacy or from scopeMatrix services */}
-        {useNewStructure &&
+        {/* Scope of Work - scopeMatrix services or legacy */}
+        {hasScopeMatrix &&
         proposal.scopeMatrix?.services &&
         proposal.scopeMatrix.services.length > 0 ? (
           <View style={styles.section}>
@@ -285,8 +291,8 @@ export const ProposalPDFDocument = ({
           </View>
         ) : null}
 
-        {/* Scope of Supply - New structure (scopeMatrix) or Legacy */}
-        {useNewStructure &&
+        {/* Scope of Supply - scopeMatrix or legacy */}
+        {hasScopeMatrix &&
         proposal.scopeMatrix?.supply &&
         proposal.scopeMatrix.supply.length > 0 ? (
           <View style={styles.section}>
@@ -342,8 +348,8 @@ export const ProposalPDFDocument = ({
           </View>
         ) : null}
 
-        {/* Exclusions - New structure only */}
-        {useNewStructure &&
+        {/* Exclusions */}
+        {hasScopeMatrix &&
           proposal.scopeMatrix?.exclusions &&
           proposal.scopeMatrix.exclusions.length > 0 && (
             <View style={styles.section}>
@@ -359,8 +365,8 @@ export const ProposalPDFDocument = ({
             </View>
           )}
 
-        {/* Pricing Summary - New structure (pricingConfig) or Legacy */}
-        {useNewStructure && proposal.pricingConfig ? (
+        {/* Pricing Summary - pricingConfig or legacy */}
+        {hasPricingConfig && proposal.pricingConfig ? (
           <View style={styles.costSummary}>
             <Text style={{ ...styles.sectionTitle, borderBottom: 'none', marginBottom: 10 }}>
               Commercial Summary
@@ -473,11 +479,28 @@ export const ProposalPDFDocument = ({
               proposal.deliveryPeriod.milestones.length > 0 && (
                 <View style={{ marginTop: 8 }}>
                   <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Milestones:</Text>
-                  <View style={styles.bulletList}>
+                  <View style={styles.table}>
+                    <View style={styles.tableHeader}>
+                      <Text style={{ width: '8%' }}>#</Text>
+                      <Text style={{ width: '37%' }}>Description</Text>
+                      <Text style={{ width: '20%' }}>Deliverable</Text>
+                      <Text style={{ width: '12%' }}>Duration</Text>
+                      <Text style={{ width: '12%' }}>Payment</Text>
+                      <Text style={{ width: '11%' }}>Tax</Text>
+                    </View>
                     {proposal.deliveryPeriod.milestones.map((milestone, idx) => (
-                      <Text key={idx} style={styles.bulletItem}>
-                        • {milestone.description}: {milestone.durationInWeeks} weeks
-                      </Text>
+                      <View key={idx} style={styles.tableRow}>
+                        <Text style={{ width: '8%' }}>{milestone.milestoneNumber || idx + 1}</Text>
+                        <Text style={{ width: '37%' }}>{milestone.description}</Text>
+                        <Text style={{ width: '20%' }}>{milestone.deliverable || '—'}</Text>
+                        <Text style={{ width: '12%' }}>{milestone.durationInWeeks} wks</Text>
+                        <Text style={{ width: '12%' }}>
+                          {milestone.paymentPercentage ? `${milestone.paymentPercentage}%` : '—'}
+                        </Text>
+                        <Text style={{ width: '11%' }}>
+                          {milestone.taxType ? MILESTONE_TAX_TYPE_LABELS[milestone.taxType] : '—'}
+                        </Text>
+                      </View>
                     ))}
                   </View>
                 </View>

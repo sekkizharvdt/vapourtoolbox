@@ -53,10 +53,18 @@ import { createLogger } from '@vapour/logger';
 
 const logger = createLogger({ context: 'PricingEditorClient' });
 
-export default function PricingEditorClient() {
+interface PricingEditorProps {
+  proposalId?: string;
+  embedded?: boolean;
+}
+
+export default function PricingEditorClient({
+  proposalId: propId,
+  embedded,
+}: PricingEditorProps = {}) {
   const router = useRouter();
   const params = useParams();
-  const proposalId = params.id as string;
+  const proposalId = propId || (params.id as string);
   const db = useFirestore();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -314,89 +322,98 @@ export default function PricingEditorClient() {
     }
   };
 
+  const Wrapper: React.ElementType = embedded ? Box : Container;
+  const wrapperProps = embedded ? {} : { maxWidth: 'lg' as const };
+
   if (loading) {
     return (
-      <Container maxWidth="lg">
+      <Wrapper {...wrapperProps}>
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
-      </Container>
+      </Wrapper>
     );
   }
 
   if (error && !proposal) {
     return (
-      <Container maxWidth="lg">
+      <Wrapper {...wrapperProps}>
         <Alert severity="error">{error}</Alert>
-      </Container>
+      </Wrapper>
     );
   }
 
   if (!proposal) {
     return (
-      <Container maxWidth="lg">
+      <Wrapper {...wrapperProps}>
         <Alert severity="error">Proposal not found</Alert>
-      </Container>
+      </Wrapper>
     );
   }
 
   const hasEstimation = estimationBreakdown.total > 0;
 
   return (
-    <Container maxWidth="lg">
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/proposals"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/proposals');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Proposals
-        </Link>
-        <Link
-          color="inherit"
-          href="/proposals/pricing"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/proposals/pricing');
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          Pricing
-        </Link>
-        <Typography color="text.primary">{proposal.proposalNumber}</Typography>
-      </Breadcrumbs>
+    <Wrapper {...wrapperProps}>
+      {!embedded && (
+        <>
+          <Breadcrumbs sx={{ mb: 2 }}>
+            <Link
+              color="inherit"
+              href="/proposals"
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                router.push('/proposals');
+              }}
+              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+            >
+              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+              Proposals
+            </Link>
+            <Link
+              color="inherit"
+              href={`/proposals/${proposalId}`}
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                router.push(`/proposals/${proposalId}`);
+              }}
+              sx={{ cursor: 'pointer' }}
+            >
+              {proposal.proposalNumber}
+            </Link>
+            <Typography color="text.primary">Pricing</Typography>
+          </Breadcrumbs>
 
-      <Box sx={{ mb: 4 }}>
-        <Button
-          startIcon={<BackIcon />}
-          onClick={() => router.push('/proposals/pricing')}
-          sx={{ mb: 2 }}
-        >
-          Back to Pricing
-        </Button>
+          <Box sx={{ mb: 4 }}>
+            <Button
+              startIcon={<BackIcon />}
+              onClick={() => router.push(`/proposals/${proposalId}`)}
+              sx={{ mb: 2 }}
+            >
+              Back to Proposal
+            </Button>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Box>
-            <Typography variant="h4" component="h1" gutterBottom>
-              Pricing Configuration
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              {proposal.proposalNumber} - {proposal.title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Client: {proposal.clientName}
-            </Typography>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
+            >
+              <Box>
+                <Typography variant="h4" component="h1" gutterBottom>
+                  Pricing Configuration
+                </Typography>
+                <Typography variant="body1" color="text.secondary">
+                  {proposal.proposalNumber} - {proposal.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Client: {proposal.clientName}
+                </Typography>
+              </Box>
+              {proposal.pricingConfig?.isComplete && (
+                <Chip icon={<CompleteIcon />} label="Pricing Complete" color="success" />
+              )}
+            </Box>
           </Box>
-          {proposal.pricingConfig?.isComplete && (
-            <Chip icon={<CompleteIcon />} label="Pricing Complete" color="success" />
-          )}
-        </Box>
-      </Box>
+        </>
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
@@ -658,6 +675,6 @@ export default function PricingEditorClient() {
           </Box>
         </Box>
       )}
-    </Container>
+    </Wrapper>
   );
 }

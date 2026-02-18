@@ -185,12 +185,12 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     if (hasModuleAccess('proposal-management', userPermissions)) {
       cmds.push({
         id: 'create-proposal',
-        label: 'Create New Proposal',
-        description: 'Start a new proposal',
+        label: 'View Enquiries',
+        description: 'Create proposals from enquiries',
         icon: <AddIcon />,
         category: 'action',
-        keywords: ['new', 'proposal', 'create', 'add'],
-        action: () => router.push('/proposals/new'),
+        keywords: ['new', 'proposal', 'create', 'add', 'enquiry'],
+        action: () => router.push('/proposals/enquiries'),
       });
 
       cmds.push({

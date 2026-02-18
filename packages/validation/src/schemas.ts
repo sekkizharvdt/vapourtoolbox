@@ -968,6 +968,7 @@ export const proposalMilestoneSchema = z.object({
   deliverable: z.string().min(1, 'Deliverable is required'),
   durationInWeeks: z.number().int().positive('Duration must be positive'),
   paymentPercentage: z.number().min(0).max(100).optional(),
+  taxType: z.enum(['INCLUSIVE', 'EXCLUSIVE', 'NOT_APPLICABLE']).optional(),
 });
 
 /**
@@ -989,9 +990,23 @@ export const createProposalSchema = z.object({
   deliveryPeriod: z.object({
     durationInWeeks: z.number().positive(),
     description: z.string(),
-    milestones: z.array(proposalMilestoneSchema).default([]),
+    milestones: z
+      .array(proposalMilestoneSchema)
+      .default([])
+      .superRefine((milestones, ctx) => {
+        const withPayment = milestones.filter((m) => (m.paymentPercentage ?? 0) > 0);
+        if (withPayment.length > 0) {
+          const total = withPayment.reduce((sum, m) => sum + (m.paymentPercentage ?? 0), 0);
+          if (Math.abs(total - 100) > 0.01) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Payment percentages must sum to 100% (currently ${total.toFixed(1)}%)`,
+            });
+          }
+        }
+      }),
   }),
-  paymentTerms: z.string().min(10, 'Payment terms are required'),
+  paymentTerms: z.string().optional(),
   terms: z
     .object({
       warranty: z.string().optional(),

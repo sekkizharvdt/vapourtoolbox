@@ -8,10 +8,7 @@
 
 import {
   Inbox as InboxIcon,
-  GridView as GridViewIcon,
   Calculate as CalculateIcon,
-  PriceChange as PriceChangeIcon,
-  PictureAsPdf as PdfIcon,
   List as ListIcon,
   Folder as FolderIcon,
   BookmarkAdd as TemplateIcon,
@@ -30,21 +27,15 @@ export default function ProposalsPage() {
     {
       id: 'workflow',
       title: 'Proposal Workflow',
-      description: 'Follow the proposal creation process from enquiry to submission',
+      description:
+        'Enquiries flow into proposals — scope, delivery, pricing, and terms are edited within each proposal',
       items: [
         {
           id: 'enquiries',
           title: 'Enquiries',
-          description: 'Manage incoming client enquiries and RFQs',
+          description: 'Manage incoming client enquiries and bid decisions',
           icon: <InboxIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
           path: '/proposals/enquiries',
-        },
-        {
-          id: 'scope-matrix',
-          title: 'Scope Matrix',
-          description: 'Define scope of services, supply, and exclusions',
-          icon: <GridViewIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-          path: '/proposals/scope-matrix',
         },
         {
           id: 'estimation',
@@ -52,20 +43,6 @@ export default function ProposalsPage() {
           description: 'Cost estimation via Bill of Materials',
           icon: <CalculateIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
           path: '/estimation',
-        },
-        {
-          id: 'pricing',
-          title: 'Pricing',
-          description: 'Configure margins and final pricing',
-          icon: <PriceChangeIcon sx={{ fontSize: 48, color: 'success.main' }} />,
-          path: '/proposals/pricing',
-        },
-        {
-          id: 'generation',
-          title: 'Proposal Generation',
-          description: 'Preview and submit proposal documents',
-          icon: <PdfIcon sx={{ fontSize: 48, color: 'error.main' }} />,
-          path: '/proposals/generation',
         },
       ],
     },
@@ -77,7 +54,7 @@ export default function ProposalsPage() {
         {
           id: 'all-proposals',
           title: 'All Proposals',
-          description: 'View all proposals across all stages',
+          description: 'View and manage all proposals across all stages',
           icon: <ListIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
           path: '/proposals/list',
         },
@@ -104,10 +81,6 @@ export default function ProposalsPage() {
       title="Proposals"
       description="Manage proposals from enquiry to final document generation"
       sections={sections}
-      newAction={{
-        label: 'New Proposal',
-        path: '/proposals/new',
-      }}
       permissionDenied={!hasViewAccess}
     />
   );

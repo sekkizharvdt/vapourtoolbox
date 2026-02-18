@@ -49,7 +49,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import dynamic from 'next/dynamic';
 import { listEnquiries, getEnquiriesCountByStatus } from '@/lib/enquiry/enquiryService';
 import type { Enquiry, EnquiryStatus, EnquiryUrgency } from '@vapour/types';
-import { ENQUIRY_STATUS_LABELS, ENQUIRY_URGENCY_LABELS } from '@vapour/types';
+import {
+  ENQUIRY_STATUS_LABELS,
+  ENQUIRY_URGENCY_LABELS,
+  ENQUIRY_PRE_PROPOSAL_STATUSES,
+} from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
 
 // Fallback entity ID for users without multi-entity claims
@@ -100,7 +104,7 @@ export default function EnquiriesPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Filter states
-  const [statusFilter, setStatusFilter] = useState<EnquiryStatus | 'ALL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<EnquiryStatus | 'ALL' | 'ACTIVE'>('ACTIVE');
   const [urgencyFilter, setUrgencyFilter] = useState<EnquiryUrgency | 'ALL'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -118,7 +122,12 @@ export default function EnquiriesPage() {
         // Load enquiries with filters
         const enquiriesList = await listEnquiries(db, {
           entityId,
-          status: statusFilter !== 'ALL' ? statusFilter : undefined,
+          status:
+            statusFilter === 'ACTIVE'
+              ? ENQUIRY_PRE_PROPOSAL_STATUSES
+              : statusFilter !== 'ALL'
+                ? statusFilter
+                : undefined,
           urgency: urgencyFilter !== 'ALL' ? urgencyFilter : undefined,
           searchTerm: searchTerm || undefined,
           limit: 100,
@@ -159,7 +168,7 @@ export default function EnquiriesPage() {
 
   const handleClearFilters = () => {
     setSearchTerm('');
-    setStatusFilter('ALL');
+    setStatusFilter('ACTIVE');
     setUrgencyFilter('ALL');
   };
 
@@ -182,7 +191,7 @@ export default function EnquiriesPage() {
   const activeCount =
     (statusCounts.NEW || 0) +
     (statusCounts.UNDER_REVIEW || 0) +
-    (statusCounts.PROPOSAL_IN_PROGRESS || 0);
+    (statusCounts.BID_DECISION_PENDING || 0);
   const submittedCount = statusCounts.PROPOSAL_SUBMITTED || 0;
   const wonCount = statusCounts.WON || 0;
   const lostCount = statusCounts.LOST || 0;
@@ -246,10 +255,11 @@ export default function EnquiriesPage() {
           <InputLabel>Status</InputLabel>
           <Select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as EnquiryStatus | 'ALL')}
+            onChange={(e) => setStatusFilter(e.target.value as EnquiryStatus | 'ALL' | 'ACTIVE')}
             label="Status"
           >
             <MenuItem value="ALL">All Status</MenuItem>
+            <MenuItem value="ACTIVE">Active (Pre-Proposal)</MenuItem>
             {Object.entries(ENQUIRY_STATUS_LABELS).map(([value, label]) => (
               <MenuItem key={value} value={value}>
                 {label}

@@ -283,6 +283,21 @@ export interface ProposalLineItem {
 }
 
 /**
+ * Milestone Tax Type
+ * Indicates whether the milestone payment amount includes or excludes tax
+ */
+export type MilestoneTaxType = 'INCLUSIVE' | 'EXCLUSIVE' | 'NOT_APPLICABLE';
+
+/**
+ * Milestone Tax Type Labels
+ */
+export const MILESTONE_TAX_TYPE_LABELS: Record<MilestoneTaxType, string> = {
+  INCLUSIVE: 'Incl. Tax',
+  EXCLUSIVE: 'Excl. Tax',
+  NOT_APPLICABLE: 'N/A',
+};
+
+/**
  * Proposal Milestone
  */
 export interface ProposalMilestone {
@@ -292,6 +307,7 @@ export interface ProposalMilestone {
   deliverable: string;
   durationInWeeks: number; // From project start or previous milestone
   paymentPercentage?: number; // % of total payment tied to this milestone
+  taxType?: MilestoneTaxType; // Whether payment includes/excludes tax
 }
 
 /**
@@ -549,7 +565,7 @@ export interface CreateProposalInput {
   validityDate: Timestamp;
   scopeOfWork: ScopeOfWork;
   deliveryPeriod: DeliveryPeriod;
-  paymentTerms: string;
+  paymentTerms?: string; // Auto-generated from milestones if not provided
 }
 
 /**

@@ -34,7 +34,6 @@ import {
   ListItemText,
   Alert,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
 import { Home as HomeIcon } from '@mui/icons-material';
 import EditIcon from '@mui/icons-material/Edit';
 import ViewIcon from '@mui/icons-material/Visibility';
@@ -149,16 +148,8 @@ export default function ProposalListPage() {
     fetchProposals();
   }, [fetchProposals]);
 
-  const handleCreateProposal = () => {
-    router.push('/proposals/new');
-  };
-
   const handleViewProposal = (id: string) => {
     router.push(`/proposals/${id}`);
-  };
-
-  const handleEditProposal = (id: string) => {
-    router.push(`/proposals/${id}/edit`);
   };
 
   if (!canViewProposals && !loading) {
@@ -196,15 +187,6 @@ export default function ProposalListPage() {
         <PageHeader
           title="All Proposals"
           subtitle="View and manage all proposals across all stages"
-          action={
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => router.push('/proposals/new')}
-            >
-              New Proposal
-            </Button>
-          }
         />
       </Box>
 
@@ -260,8 +242,8 @@ export default function ProposalListPage() {
           }
           action={
             !searchTerm && statusFilter.length === 0 ? (
-              <Button variant="contained" onClick={handleCreateProposal}>
-                Create Proposal
+              <Button variant="contained" onClick={() => router.push('/proposals/enquiries')}>
+                View Enquiries
               </Button>
             ) : undefined
           }
@@ -328,7 +310,7 @@ export default function ProposalListPage() {
                       {
                         label: 'Edit',
                         icon: <EditIcon fontSize="small" />,
-                        onClick: () => handleEditProposal(proposal.id),
+                        onClick: () => handleViewProposal(proposal.id),
                         show: proposal.status === 'DRAFT' || proposal.status === 'PENDING_APPROVAL',
                       },
                     ]}

@@ -33,7 +33,9 @@ import type {
   CreateProposalTemplateInput,
   ListProposalTemplatesOptions,
   ScopeItem,
+  ProposalMilestone,
 } from '@vapour/types';
+import { MILESTONE_TAX_TYPE_LABELS } from '@vapour/types';
 
 const logger = createLogger({ context: 'proposalService' });
 
@@ -140,7 +142,7 @@ export async function createProposal(
         subtotal: { amount: 0, currency: 'INR' },
         taxItems: [],
         totalAmount: { amount: 0, currency: 'INR' },
-        paymentTerms: input.paymentTerms,
+        paymentTerms: input.paymentTerms || '',
       },
       terms: {},
       status: 'DRAFT',
@@ -1009,4 +1011,20 @@ export async function incrementTemplateUsage(db: Firestore, templateId: string):
     logger.error('Error incrementing template usage', { error, templateId });
     // Non-critical, don't throw
   }
+}
+
+/**
+ * Generate payment terms text from milestones.
+ * Produces a human-readable summary for backward compat and PDF generation.
+ */
+export function generatePaymentTermsFromMilestones(milestones: ProposalMilestone[]): string {
+  const withPayment = milestones.filter((m) => (m.paymentPercentage ?? 0) > 0);
+  if (withPayment.length === 0) return '';
+
+  const lines = withPayment.map((m) => {
+    const taxLabel = m.taxType ? ` (${MILESTONE_TAX_TYPE_LABELS[m.taxType]})` : '';
+    return `${m.paymentPercentage}% - ${m.description || `Milestone ${m.milestoneNumber}`}${taxLabel}`;
+  });
+
+  return lines.join('\n');
 }

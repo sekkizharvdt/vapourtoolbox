@@ -24,13 +24,14 @@ import {
   TextField,
   Breadcrumbs,
   Link,
+  Tab,
+  Tabs,
 } from '@mui/material';
 import {
   Home as HomeIcon,
   MoreVert as MoreIcon,
   PictureAsPdf as PdfIcon,
   CloudUpload as SavePdfIcon,
-  Edit as EditIcon,
   Send as SendIcon,
   Check as ApproveIcon,
   Close as RejectIcon,
@@ -40,14 +41,14 @@ import {
   Email as EmailIcon,
   CalendarToday as DateIcon,
   OpenInNew as OpenIcon,
-  GridView as ScopeIcon,
-  Calculate as EstimationIcon,
-  PriceChange as PricingIcon,
-  CheckCircle as CompleteIcon,
-  RadioButtonUnchecked as IncompleteIcon,
-  ArrowForward as ArrowIcon,
   ContentCopy as CloneIcon,
   BookmarkAdd as TemplateIcon,
+  Dashboard as OverviewIcon,
+  GridView as ScopeIcon,
+  Schedule as DeliveryIcon,
+  PriceChange as PricingIcon,
+  Gavel as TermsIcon,
+  Visibility as PreviewIcon,
 } from '@mui/icons-material';
 import { Timestamp } from 'firebase/firestore';
 import { PageHeader, LoadingState, EmptyState } from '@vapour/ui';
@@ -67,13 +68,28 @@ import type { Proposal } from '@vapour/types';
 import { format } from 'date-fns';
 import { logger } from '@vapour/logger';
 
-// Import components we'll create
+// Components
 import StatusBadge from './components/StatusBadge';
 import ApprovalHistory from './components/ApprovalHistory';
 import ConvertToProjectDialog from './components/ConvertToProjectDialog';
 import ProposalAttachments from './components/ProposalAttachments';
 import { CloneProposalDialog } from './components/CloneProposalDialog';
 import { SaveAsTemplateDialog } from './components/SaveAsTemplateDialog';
+
+// Tab editors
+import { ScopeMatrixEditor } from './scope/ScopeMatrixEditor';
+import DeliveryEditor from './components/DeliveryEditor';
+import PricingEditorClient from './pricing/PricingEditorClient';
+import TermsEditor from './components/TermsEditor';
+import PreviewClient from './preview/PreviewClient';
+
+// Tab indices
+const TAB_OVERVIEW = 0;
+const TAB_SCOPE = 1;
+const TAB_DELIVERY = 2;
+const TAB_PRICING = 3;
+const TAB_TERMS = 4;
+const TAB_PREVIEW = 5;
 
 export default function ProposalDetailClient() {
   const pathname = usePathname();
@@ -91,6 +107,7 @@ export default function ProposalDetailClient() {
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [proposalId, setProposalId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState(TAB_OVERVIEW);
 
   // Comment dialog state for approval actions
   const [commentDialog, setCommentDialog] = useState<{
@@ -168,7 +185,6 @@ export default function ProposalDetailClient() {
         },
         saveToStorage
       );
-      // Reload proposal to get updated PDF URL if saved
       if (saveToStorage) {
         await reloadProposal();
       }
@@ -376,7 +392,6 @@ export default function ProposalDetailClient() {
                 </Button>
               </>
             )}
-            {/* View Saved PDF */}
             {proposal.generatedPdfUrl && (
               <Button
                 variant="text"
@@ -424,17 +439,6 @@ export default function ProposalDetailClient() {
                 onClick={handleConvertToProject}
               >
                 Convert to Project
-              </Button>
-            )}
-
-            {/* Edit */}
-            {actions.canEdit && (
-              <Button
-                variant="outlined"
-                startIcon={<EditIcon />}
-                onClick={() => router.push(`/proposals/${proposalId}/edit`)}
-              >
-                Edit
               </Button>
             )}
 
@@ -491,523 +495,46 @@ export default function ProposalDetailClient() {
         )}
       </PageHeader>
 
-      {/* Workflow Progress Card */}
-      {proposal.status === 'DRAFT' && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Proposal Workflow
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Complete each stage to finalize your proposal
-            </Typography>
+      {/* Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(_, v) => setActiveTab(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+        >
+          <Tab icon={<OverviewIcon />} iconPosition="start" label="Overview" />
+          <Tab icon={<ScopeIcon />} iconPosition="start" label="Scope" />
+          <Tab icon={<DeliveryIcon />} iconPosition="start" label="Delivery" />
+          <Tab icon={<PricingIcon />} iconPosition="start" label="Pricing" />
+          <Tab icon={<TermsIcon />} iconPosition="start" label="Terms" />
+          <Tab icon={<PreviewIcon />} iconPosition="start" label="Preview" />
+        </Tabs>
+      </Box>
 
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-              {/* Scope Matrix Stage */}
-              <Card
-                variant="outlined"
-                sx={{
-                  flex: '1 1 200px',
-                  minWidth: 200,
-                  bgcolor: proposal.scopeMatrix?.isComplete
-                    ? 'success.lighter'
-                    : 'background.paper',
-                  borderColor: proposal.scopeMatrix?.isComplete ? 'success.main' : 'divider',
-                }}
-              >
-                <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 1,
-                      mb: 1,
-                    }}
-                  >
-                    {proposal.scopeMatrix?.isComplete ? (
-                      <CompleteIcon color="success" />
-                    ) : (
-                      <IncompleteIcon color="action" />
-                    )}
-                    <ScopeIcon color={proposal.scopeMatrix?.isComplete ? 'success' : 'action'} />
-                  </Box>
-                  <Typography variant="subtitle2">Scope Matrix</Typography>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    display="block"
-                    sx={{ mb: 1 }}
-                  >
-                    {proposal.scopeMatrix?.isComplete
-                      ? 'Scope defined'
-                      : `${(proposal.scopeMatrix?.services?.length || 0) + (proposal.scopeMatrix?.supply?.length || 0)} items`}
-                  </Typography>
-                  <Button
-                    size="small"
-                    variant={proposal.scopeMatrix?.isComplete ? 'outlined' : 'contained'}
-                    endIcon={<ArrowIcon />}
-                    onClick={() => router.push(`/proposals/${proposalId}/scope`)}
-                  >
-                    {proposal.scopeMatrix?.isComplete ? 'View Scope' : 'Define Scope'}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Estimation Stage */}
-              <Card
-                variant="outlined"
-                sx={{
-                  flex: '1 1 200px',
-                  minWidth: 200,
-                  opacity: proposal.scopeMatrix?.isComplete ? 1 : 0.5,
-                }}
-              >
-                <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 1,
-                      mb: 1,
-                    }}
-                  >
-                    <IncompleteIcon color="action" />
-                    <EstimationIcon color="action" />
-                  </Box>
-                  <Typography variant="subtitle2">Estimation</Typography>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    display="block"
-                    sx={{ mb: 1 }}
-                  >
-                    Link BOMs to scope items
-                  </Typography>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    disabled={!proposal.scopeMatrix?.isComplete}
-                    onClick={() => router.push(`/proposals/${proposalId}/scope`)}
-                  >
-                    Link BOMs
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Pricing Stage */}
-              <Card
-                variant="outlined"
-                sx={{
-                  flex: '1 1 200px',
-                  minWidth: 200,
-                  bgcolor: proposal.pricingConfig?.isComplete
-                    ? 'success.lighter'
-                    : 'background.paper',
-                  borderColor: proposal.pricingConfig?.isComplete ? 'success.main' : 'divider',
-                  opacity: proposal.scopeMatrix?.isComplete ? 1 : 0.5,
-                }}
-              >
-                <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 1,
-                      mb: 1,
-                    }}
-                  >
-                    {proposal.pricingConfig?.isComplete ? (
-                      <CompleteIcon color="success" />
-                    ) : (
-                      <IncompleteIcon color="action" />
-                    )}
-                    <PricingIcon
-                      color={proposal.pricingConfig?.isComplete ? 'success' : 'action'}
-                    />
-                  </Box>
-                  <Typography variant="subtitle2">Pricing</Typography>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    display="block"
-                    sx={{ mb: 1 }}
-                  >
-                    {proposal.pricingConfig?.isComplete
-                      ? formatCurrency(proposal.pricingConfig.totalPrice)
-                      : 'Set client prices'}
-                  </Typography>
-                  <Button
-                    size="small"
-                    variant={proposal.pricingConfig?.isComplete ? 'outlined' : 'contained'}
-                    endIcon={<ArrowIcon />}
-                    disabled={!proposal.scopeMatrix?.isComplete}
-                    onClick={() => router.push(`/proposals/${proposalId}/pricing`)}
-                  >
-                    {proposal.pricingConfig?.isComplete ? 'View Pricing' : 'Configure Pricing'}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Generation Stage */}
-              <Card
-                variant="outlined"
-                sx={{
-                  flex: '1 1 200px',
-                  minWidth: 200,
-                  bgcolor: proposal.generatedPdfUrl ? 'success.lighter' : 'background.paper',
-                  borderColor: proposal.generatedPdfUrl ? 'success.main' : 'divider',
-                  opacity: proposal.scopeMatrix?.isComplete ? 1 : 0.5,
-                }}
-              >
-                <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 1,
-                      mb: 1,
-                    }}
-                  >
-                    {proposal.generatedPdfUrl ? (
-                      <CompleteIcon color="success" />
-                    ) : (
-                      <IncompleteIcon color="action" />
-                    )}
-                    <PdfIcon color={proposal.generatedPdfUrl ? 'success' : 'action'} />
-                  </Box>
-                  <Typography variant="subtitle2">Generate</Typography>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    display="block"
-                    sx={{ mb: 1 }}
-                  >
-                    {proposal.generatedPdfUrl ? 'PDF Ready' : 'Preview & create PDF'}
-                  </Typography>
-                  <Button
-                    size="small"
-                    variant={proposal.generatedPdfUrl ? 'outlined' : 'contained'}
-                    endIcon={<ArrowIcon />}
-                    disabled={!proposal.scopeMatrix?.isComplete}
-                    onClick={() => router.push(`/proposals/${proposalId}/preview`)}
-                  >
-                    {proposal.generatedPdfUrl ? 'View Preview' : 'Preview & Generate'}
-                  </Button>
-                </CardContent>
-              </Card>
-            </Box>
-          </CardContent>
-        </Card>
+      {/* Tab Content */}
+      {activeTab === TAB_OVERVIEW && (
+        <OverviewTab
+          proposal={proposal}
+          formatDate={formatDate}
+          formatCurrency={formatCurrency}
+          reloadProposal={reloadProposal}
+        />
       )}
 
-      <Grid container spacing={3}>
-        {/* Main Content */}
-        <Grid size={{ xs: 12, md: 8 }}>
-          {/* Scope Matrix Summary */}
-          {proposal.scopeMatrix &&
-          (proposal.scopeMatrix.services.length > 0 ||
-            proposal.scopeMatrix.supply.length > 0 ||
-            proposal.scopeMatrix.exclusions.length > 0) ? (
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    mb: 2,
-                  }}
-                >
-                  <Typography variant="h6">
-                    Scope Matrix
-                    {proposal.scopeMatrix.isComplete && (
-                      <Chip label="Complete" color="success" size="small" sx={{ ml: 1 }} />
-                    )}
-                  </Typography>
-                  <Button
-                    size="small"
-                    startIcon={<EditIcon />}
-                    onClick={() => router.push(`/proposals/${proposalId}/scope`)}
-                  >
-                    Edit Scope
-                  </Button>
-                </Box>
+      {activeTab === TAB_SCOPE && proposalId && <ScopeMatrixEditor proposalId={proposalId} />}
 
-                <Grid container spacing={2}>
-                  {/* Services */}
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                      Services ({proposal.scopeMatrix.services.length})
-                    </Typography>
-                    {proposal.scopeMatrix.services.slice(0, 3).map((item) => (
-                      <Typography key={item.id} variant="body2" sx={{ mb: 0.5 }}>
-                        {item.itemNumber}. {item.name}
-                      </Typography>
-                    ))}
-                    {proposal.scopeMatrix.services.length > 3 && (
-                      <Typography variant="caption" color="text.secondary">
-                        +{proposal.scopeMatrix.services.length - 3} more
-                      </Typography>
-                    )}
-                  </Grid>
+      {activeTab === TAB_DELIVERY && proposalId && <DeliveryEditor proposalId={proposalId} />}
 
-                  {/* Supply */}
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                      Supply ({proposal.scopeMatrix.supply.length})
-                    </Typography>
-                    {proposal.scopeMatrix.supply.slice(0, 3).map((item) => (
-                      <Typography key={item.id} variant="body2" sx={{ mb: 0.5 }}>
-                        {item.itemNumber}. {item.name}
-                      </Typography>
-                    ))}
-                    {proposal.scopeMatrix.supply.length > 3 && (
-                      <Typography variant="caption" color="text.secondary">
-                        +{proposal.scopeMatrix.supply.length - 3} more
-                      </Typography>
-                    )}
-                  </Grid>
+      {activeTab === TAB_PRICING && proposalId && (
+        <PricingEditorClient proposalId={proposalId} embedded />
+      )}
 
-                  {/* Exclusions */}
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                      Exclusions ({proposal.scopeMatrix.exclusions.length})
-                    </Typography>
-                    {proposal.scopeMatrix.exclusions.slice(0, 3).map((item) => (
-                      <Typography key={item.id} variant="body2" sx={{ mb: 0.5 }}>
-                        {item.itemNumber}. {item.name}
-                      </Typography>
-                    ))}
-                    {proposal.scopeMatrix.exclusions.length > 3 && (
-                      <Typography variant="caption" color="text.secondary">
-                        +{proposal.scopeMatrix.exclusions.length - 3} more
-                      </Typography>
-                    )}
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          ) : (
-            /* Legacy Scope of Work */
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    mb: 2,
-                  }}
-                >
-                  <Typography variant="h6">Scope of Work</Typography>
-                  {proposal.status === 'DRAFT' && (
-                    <Button
-                      size="small"
-                      variant="contained"
-                      startIcon={<ScopeIcon />}
-                      onClick={() => router.push(`/proposals/${proposalId}/scope`)}
-                    >
-                      Define in Scope Matrix
-                    </Button>
-                  )}
-                </Box>
-                {proposal.scopeOfWork?.summary && (
-                  <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>
-                    {proposal.scopeOfWork.summary}
-                  </Typography>
-                )}
+      {activeTab === TAB_TERMS && proposalId && <TermsEditor proposalId={proposalId} />}
 
-                {proposal.scopeOfWork?.objectives && proposal.scopeOfWork.objectives.length > 0 && (
-                  <>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
-                      Objectives
-                    </Typography>
-                    <Box component="ul" sx={{ pl: 2, mt: 1 }}>
-                      {proposal.scopeOfWork.objectives.map((obj, idx) => (
-                        <li key={idx}>
-                          <Typography variant="body2">{obj}</Typography>
-                        </li>
-                      ))}
-                    </Box>
-                  </>
-                )}
-
-                {proposal.scopeOfWork?.deliverables &&
-                  proposal.scopeOfWork.deliverables.length > 0 && (
-                    <>
-                      <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
-                        Deliverables
-                      </Typography>
-                      <Box component="ul" sx={{ pl: 2, mt: 1 }}>
-                        {proposal.scopeOfWork.deliverables.map((del, idx) => (
-                          <li key={idx}>
-                            <Typography variant="body2">{del}</Typography>
-                          </li>
-                        ))}
-                      </Box>
-                    </>
-                  )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Scope of Supply */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Scope of Supply
-              </Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                {proposal.scopeOfSupply.length} items
-              </Typography>
-              {proposal.scopeOfSupply.slice(0, 5).map((item, idx) => (
-                <Box key={item.id} sx={{ mb: 1 }}>
-                  <Typography variant="body2">
-                    {idx + 1}. {item.itemName} - {item.quantity} {item.unit}
-                  </Typography>
-                </Box>
-              ))}
-              {proposal.scopeOfSupply.length > 5 && (
-                <Typography variant="caption" color="text.secondary">
-                  ... and {proposal.scopeOfSupply.length - 5} more items
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Pricing Summary */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Pricing Summary
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 6 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Subtotal
-                  </Typography>
-                  <Typography variant="body1">
-                    {formatCurrency(proposal.pricing.subtotal)}
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 6 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Total Amount
-                  </Typography>
-                  <Typography variant="h6" color="primary">
-                    {formatCurrency(proposal.pricing.totalAmount)}
-                  </Typography>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-
-          {/* Approval History */}
-          {proposal.approvalHistory && proposal.approvalHistory.length > 0 && (
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Approval History
-                </Typography>
-                <ApprovalHistory history={proposal.approvalHistory} />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Attachments */}
-          <ProposalAttachments
-            proposal={proposal}
-            onUpdate={reloadProposal}
-            readOnly={!['DRAFT'].includes(proposal.status)}
-          />
-        </Grid>
-
-        {/* Sidebar */}
-        <Grid size={{ xs: 12, md: 4 }}>
-          {/* Client Details */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Client Details
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <BusinessIcon color="action" sx={{ mr: 1 }} />
-                <Typography variant="subtitle1" fontWeight="medium">
-                  {proposal.clientName}
-                </Typography>
-              </Box>
-
-              {proposal.clientContactPerson && (
-                <Box sx={{ mb: 1 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Contact Person
-                  </Typography>
-                  <Typography variant="body2">{proposal.clientContactPerson}</Typography>
-                </Box>
-              )}
-
-              {proposal.clientEmail && (
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <EmailIcon fontSize="small" color="action" sx={{ mr: 1 }} />
-                  <Typography variant="body2">{proposal.clientEmail}</Typography>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Key Information */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Key Information
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <DateIcon color="action" sx={{ mr: 1 }} />
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Preparation Date
-                  </Typography>
-                  <Typography variant="body2">{formatDate(proposal.preparationDate)}</Typography>
-                </Box>
-              </Box>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <DateIcon color="action" sx={{ mr: 1 }} />
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Valid Until
-                  </Typography>
-                  <Typography variant="body2">{formatDate(proposal.validityDate)}</Typography>
-                </Box>
-              </Box>
-
-              <Divider sx={{ my: 2 }} />
-
-              <Box sx={{ mb: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Enquiry Reference
-                </Typography>
-                <Typography variant="body2">{proposal.enquiryNumber}</Typography>
-              </Box>
-
-              {proposal.deliveryPeriod && (
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Delivery Period
-                  </Typography>
-                  <Typography variant="body2">
-                    {proposal.deliveryPeriod.durationInWeeks} weeks
-                  </Typography>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      {activeTab === TAB_PREVIEW && proposalId && (
+        <PreviewClient proposalId={proposalId} embedded />
+      )}
 
       {/* Comment Dialog for Approval Actions */}
       <Dialog open={commentDialog.open} onClose={handleCommentDialogClose} maxWidth="sm" fullWidth>
@@ -1090,5 +617,296 @@ export default function ProposalDetailClient() {
         />
       )}
     </Box>
+  );
+}
+
+// ============================================================================
+// Overview Tab — client info, scope summary, pricing summary, approval history
+// ============================================================================
+
+interface OverviewTabProps {
+  proposal: Proposal;
+  formatDate: (timestamp: Timestamp | Date | undefined) => string;
+  formatCurrency: (money: { amount: number; currency: string } | undefined) => string;
+  reloadProposal: () => Promise<void>;
+}
+
+function OverviewTab({ proposal, formatDate, formatCurrency, reloadProposal }: OverviewTabProps) {
+  return (
+    <Grid container spacing={3}>
+      {/* Main Content */}
+      <Grid size={{ xs: 12, md: 8 }}>
+        {/* Scope Summary */}
+        {proposal.scopeMatrix &&
+        (proposal.scopeMatrix.services.length > 0 ||
+          proposal.scopeMatrix.supply.length > 0 ||
+          proposal.scopeMatrix.exclusions.length > 0) ? (
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Scope Matrix
+                {proposal.scopeMatrix.isComplete && (
+                  <Chip label="Complete" color="success" size="small" sx={{ ml: 1 }} />
+                )}
+              </Typography>
+
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Services ({proposal.scopeMatrix.services.length})
+                  </Typography>
+                  {proposal.scopeMatrix.services.slice(0, 3).map((item) => (
+                    <Typography key={item.id} variant="body2" sx={{ mb: 0.5 }}>
+                      {item.itemNumber}. {item.name}
+                    </Typography>
+                  ))}
+                  {proposal.scopeMatrix.services.length > 3 && (
+                    <Typography variant="caption" color="text.secondary">
+                      +{proposal.scopeMatrix.services.length - 3} more
+                    </Typography>
+                  )}
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Supply ({proposal.scopeMatrix.supply.length})
+                  </Typography>
+                  {proposal.scopeMatrix.supply.slice(0, 3).map((item) => (
+                    <Typography key={item.id} variant="body2" sx={{ mb: 0.5 }}>
+                      {item.itemNumber}. {item.name}
+                    </Typography>
+                  ))}
+                  {proposal.scopeMatrix.supply.length > 3 && (
+                    <Typography variant="caption" color="text.secondary">
+                      +{proposal.scopeMatrix.supply.length - 3} more
+                    </Typography>
+                  )}
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Exclusions ({proposal.scopeMatrix.exclusions.length})
+                  </Typography>
+                  {proposal.scopeMatrix.exclusions.slice(0, 3).map((item) => (
+                    <Typography key={item.id} variant="body2" sx={{ mb: 0.5 }}>
+                      {item.itemNumber}. {item.name}
+                    </Typography>
+                  ))}
+                  {proposal.scopeMatrix.exclusions.length > 3 && (
+                    <Typography variant="caption" color="text.secondary">
+                      +{proposal.scopeMatrix.exclusions.length - 3} more
+                    </Typography>
+                  )}
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        ) : proposal.scopeOfWork?.summary ? (
+          /* Legacy Scope of Work for old proposals */
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Scope of Work
+              </Typography>
+              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>
+                {proposal.scopeOfWork.summary}
+              </Typography>
+
+              {proposal.scopeOfWork?.objectives && proposal.scopeOfWork.objectives.length > 0 && (
+                <>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
+                    Objectives
+                  </Typography>
+                  <Box component="ul" sx={{ pl: 2, mt: 1 }}>
+                    {proposal.scopeOfWork.objectives.map((obj, idx) => (
+                      <li key={idx}>
+                        <Typography variant="body2">{obj}</Typography>
+                      </li>
+                    ))}
+                  </Box>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {/* Pricing Summary */}
+        {(proposal.pricingConfig || proposal.pricing) && (
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Pricing Summary
+              </Typography>
+              {proposal.pricingConfig ? (
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 6 }}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Estimation Subtotal
+                    </Typography>
+                    <Typography variant="body1">
+                      {formatCurrency(proposal.pricingConfig.estimationSubtotal)}
+                    </Typography>
+                  </Grid>
+                  <Grid size={{ xs: 6 }}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Total Price (incl. tax)
+                    </Typography>
+                    <Typography variant="h6" color="primary">
+                      {formatCurrency(proposal.pricingConfig.totalPrice)}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              ) : (
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 6 }}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Subtotal
+                    </Typography>
+                    <Typography variant="body1">
+                      {formatCurrency(proposal.pricing.subtotal)}
+                    </Typography>
+                  </Grid>
+                  <Grid size={{ xs: 6 }}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Total Amount
+                    </Typography>
+                    <Typography variant="h6" color="primary">
+                      {formatCurrency(proposal.pricing.totalAmount)}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Delivery Summary */}
+        {proposal.deliveryPeriod && proposal.deliveryPeriod.milestones.length > 0 && (
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Delivery ({proposal.deliveryPeriod.durationInWeeks} weeks)
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {proposal.deliveryPeriod.milestones.length} milestone
+                {proposal.deliveryPeriod.milestones.length !== 1 ? 's' : ''} defined
+              </Typography>
+              {proposal.deliveryPeriod.milestones.slice(0, 3).map((m) => (
+                <Typography key={m.id} variant="body2" sx={{ mb: 0.5 }}>
+                  {m.milestoneNumber}. {m.description}
+                  {m.paymentPercentage ? ` (${m.paymentPercentage}%)` : ''}
+                </Typography>
+              ))}
+              {proposal.deliveryPeriod.milestones.length > 3 && (
+                <Typography variant="caption" color="text.secondary">
+                  +{proposal.deliveryPeriod.milestones.length - 3} more
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Approval History */}
+        {proposal.approvalHistory && proposal.approvalHistory.length > 0 && (
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Approval History
+              </Typography>
+              <ApprovalHistory history={proposal.approvalHistory} />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Attachments */}
+        <ProposalAttachments
+          proposal={proposal}
+          onUpdate={reloadProposal}
+          readOnly={!['DRAFT'].includes(proposal.status)}
+        />
+      </Grid>
+
+      {/* Sidebar */}
+      <Grid size={{ xs: 12, md: 4 }}>
+        {/* Client Details */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Client Details
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <BusinessIcon color="action" sx={{ mr: 1 }} />
+              <Typography variant="subtitle1" fontWeight="medium">
+                {proposal.clientName}
+              </Typography>
+            </Box>
+
+            {proposal.clientContactPerson && (
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Contact Person
+                </Typography>
+                <Typography variant="body2">{proposal.clientContactPerson}</Typography>
+              </Box>
+            )}
+
+            {proposal.clientEmail && (
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <EmailIcon fontSize="small" color="action" sx={{ mr: 1 }} />
+                <Typography variant="body2">{proposal.clientEmail}</Typography>
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Key Information */}
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Key Information
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <DateIcon color="action" sx={{ mr: 1 }} />
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Preparation Date
+                </Typography>
+                <Typography variant="body2">{formatDate(proposal.preparationDate)}</Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <DateIcon color="action" sx={{ mr: 1 }} />
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Valid Until
+                </Typography>
+                <Typography variant="body2">{formatDate(proposal.validityDate)}</Typography>
+              </Box>
+            </Box>
+
+            <Divider sx={{ my: 2 }} />
+
+            <Box sx={{ mb: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                Enquiry Reference
+              </Typography>
+              <Typography variant="body2">{proposal.enquiryNumber}</Typography>
+            </Box>
+
+            {proposal.deliveryPeriod && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Delivery Period
+                </Typography>
+                <Typography variant="body2">
+                  {proposal.deliveryPeriod.durationInWeeks} weeks
+                </Typography>
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
   );
 }

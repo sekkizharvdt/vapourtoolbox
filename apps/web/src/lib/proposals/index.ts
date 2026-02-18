@@ -15,6 +15,7 @@ export {
   getProposalsCountByStatus,
   createProposalRevision,
   getProposalRevisions,
+  generatePaymentTermsFromMilestones,
 } from './proposalService';
 
 export * from './proposalAttachmentService';

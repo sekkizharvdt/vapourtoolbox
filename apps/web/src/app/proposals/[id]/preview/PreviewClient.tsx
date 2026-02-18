@@ -60,10 +60,15 @@ import { createLogger } from '@vapour/logger';
 
 const logger = createLogger({ context: 'PreviewClient' });
 
-export default function PreviewClient() {
+interface PreviewClientProps {
+  proposalId?: string;
+  embedded?: boolean;
+}
+
+export default function PreviewClient({ proposalId: propId, embedded }: PreviewClientProps = {}) {
   const router = useRouter();
   const params = useParams();
-  const proposalId = params.id as string;
+  const proposalId = propId || (params.id as string);
   const db = useFirestore();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -148,7 +153,7 @@ export default function PreviewClient() {
       logger.info('Proposal submitted', { proposalId });
 
       setSubmitDialogOpen(false);
-      router.push('/proposals/generation');
+      router.push(`/proposals/${proposalId}`);
     } catch (err) {
       logger.error('Error submitting proposal', { error: err });
       setError('Failed to submit proposal');
@@ -204,29 +209,32 @@ export default function PreviewClient() {
     return grouped;
   };
 
+  const Wrapper: React.ElementType = embedded ? Box : Container;
+  const wrapperProps = embedded ? {} : { maxWidth: 'lg' as const };
+
   if (loading) {
     return (
-      <Container maxWidth="lg">
+      <Wrapper {...wrapperProps}>
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
-      </Container>
+      </Wrapper>
     );
   }
 
   if (error && !proposal) {
     return (
-      <Container maxWidth="lg">
+      <Wrapper {...wrapperProps}>
         <Alert severity="error">{error}</Alert>
-      </Container>
+      </Wrapper>
     );
   }
 
   if (!proposal) {
     return (
-      <Container maxWidth="lg">
+      <Wrapper {...wrapperProps}>
         <Alert severity="error">Proposal not found</Alert>
-      </Container>
+      </Wrapper>
     );
   }
 
@@ -234,87 +242,130 @@ export default function PreviewClient() {
   const isAlreadySubmitted = proposal.status === 'SUBMITTED';
 
   return (
-    <Container maxWidth="lg">
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/proposals"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/proposals');
-          }}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
-          Proposals
-        </Link>
-        <Link
-          color="inherit"
-          href="/proposals/generation"
-          onClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            router.push('/proposals/generation');
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          Generation
-        </Link>
-        <Typography color="text.primary">{proposal.proposalNumber}</Typography>
-      </Breadcrumbs>
-
-      <Box sx={{ mb: 4 }}>
-        <Button
-          startIcon={<BackIcon />}
-          onClick={() => router.push('/proposals/generation')}
-          sx={{ mb: 2 }}
-        >
-          Back to Generation
-        </Button>
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Box>
-            <Typography variant="h4" component="h1" gutterBottom>
-              Proposal Preview
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              {proposal.proposalNumber} - Revision {proposal.revision}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            {isAlreadySubmitted && (
-              <Chip icon={<CompleteIcon />} label="Submitted" color="success" />
-            )}
-            {proposal.generatedPdfUrl && (
-              <Button
-                variant="outlined"
-                startIcon={<PdfIcon />}
-                href={proposal.generatedPdfUrl}
-                target="_blank"
-              >
-                View PDF
-              </Button>
-            )}
-            <LoadingButton
-              variant="outlined"
-              startIcon={<PdfIcon />}
-              onClick={handleGeneratePDF}
-              loading={generatingPdf}
+    <Wrapper {...wrapperProps}>
+      {!embedded && (
+        <>
+          <Breadcrumbs sx={{ mb: 2 }}>
+            <Link
+              color="inherit"
+              href="/proposals"
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                router.push('/proposals');
+              }}
+              sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
             >
-              {proposal.generatedPdfUrl ? 'Regenerate PDF' : 'Generate PDF'}
-            </LoadingButton>
-            {isReadyForSubmission && (
-              <Button
-                variant="contained"
-                color="success"
-                startIcon={<SendIcon />}
-                onClick={() => setSubmitDialogOpen(true)}
-              >
-                Submit to Client
-              </Button>
-            )}
+              <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
+              Proposals
+            </Link>
+            <Link
+              color="inherit"
+              href={`/proposals/${proposalId}`}
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                router.push(`/proposals/${proposalId}`);
+              }}
+              sx={{ cursor: 'pointer' }}
+            >
+              {proposal.proposalNumber}
+            </Link>
+            <Typography color="text.primary">Preview</Typography>
+          </Breadcrumbs>
+
+          <Box sx={{ mb: 4 }}>
+            <Button
+              startIcon={<BackIcon />}
+              onClick={() => router.push(`/proposals/${proposalId}`)}
+              sx={{ mb: 2 }}
+            >
+              Back to Proposal
+            </Button>
+
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
+            >
+              <Box>
+                <Typography variant="h4" component="h1" gutterBottom>
+                  Proposal Preview
+                </Typography>
+                <Typography variant="body1" color="text.secondary">
+                  {proposal.proposalNumber} - Revision {proposal.revision}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                {isAlreadySubmitted && (
+                  <Chip icon={<CompleteIcon />} label="Submitted" color="success" />
+                )}
+                {proposal.generatedPdfUrl && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<PdfIcon />}
+                    href={proposal.generatedPdfUrl}
+                    target="_blank"
+                  >
+                    View PDF
+                  </Button>
+                )}
+                <LoadingButton
+                  variant="outlined"
+                  startIcon={<PdfIcon />}
+                  onClick={handleGeneratePDF}
+                  loading={generatingPdf}
+                >
+                  {proposal.generatedPdfUrl ? 'Regenerate PDF' : 'Generate PDF'}
+                </LoadingButton>
+                {isReadyForSubmission && (
+                  <Button
+                    variant="contained"
+                    color="success"
+                    startIcon={<SendIcon />}
+                    onClick={() => setSubmitDialogOpen(true)}
+                  >
+                    Submit to Client
+                  </Button>
+                )}
+              </Box>
+            </Box>
           </Box>
+        </>
+      )}
+
+      {embedded && (
+        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+          {isAlreadySubmitted && <Chip icon={<CompleteIcon />} label="Submitted" color="success" />}
+          {proposal.generatedPdfUrl && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<PdfIcon />}
+              href={proposal.generatedPdfUrl}
+              target="_blank"
+            >
+              View PDF
+            </Button>
+          )}
+          <LoadingButton
+            variant="outlined"
+            size="small"
+            startIcon={<PdfIcon />}
+            onClick={handleGeneratePDF}
+            loading={generatingPdf}
+          >
+            {proposal.generatedPdfUrl ? 'Regenerate PDF' : 'Generate PDF'}
+          </LoadingButton>
+          {isReadyForSubmission && (
+            <Button
+              variant="contained"
+              color="success"
+              size="small"
+              startIcon={<SendIcon />}
+              onClick={() => setSubmitDialogOpen(true)}
+            >
+              Submit to Client
+            </Button>
+          )}
         </Box>
-      </Box>
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
@@ -625,6 +676,6 @@ export default function PreviewClient() {
           </LoadingButton>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Wrapper>
   );
 }
