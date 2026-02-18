@@ -29,6 +29,17 @@ import { enforceDoubleEntry, saveTransactionBatch } from './transactionService';
 
 const logger = createLogger({ context: 'paymentHelpers' });
 
+/**
+ * Sentinel ID used for allocations against an entity's opening balance
+ * (prior-year receivables/payables that don't have invoice/bill documents).
+ */
+export const OPENING_BALANCE_ALLOCATION_ID = '__opening_balance__';
+
+/** Check if an allocation targets the opening balance rather than a real document */
+export function isOpeningBalanceAllocation(allocation: PaymentAllocation): boolean {
+  return allocation.invoiceId === OPENING_BALANCE_ALLOCATION_ID;
+}
+
 // Maximum values for financial validation
 const MAX_PAYMENT_AMOUNT = 1_000_000_000_000; // 1 trillion (covers large enterprise transactions)
 const MAX_ALLOCATIONS = 100; // Maximum invoices per payment

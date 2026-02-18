@@ -24,8 +24,9 @@ import {
   Tooltip,
   Chip,
 } from '@mui/material';
-import { PlaylistAdd as FillIcon } from '@mui/icons-material';
+import { PlaylistAdd as FillIcon, AccountBalance as BalanceIcon } from '@mui/icons-material';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
+import { OPENING_BALANCE_ALLOCATION_ID } from '@/lib/accounting/paymentHelpers';
 import type { PaymentAllocation } from '@vapour/types';
 
 export type AllocationTransactionType = 'invoice' | 'bill';
@@ -133,16 +134,42 @@ export function TransactionAllocationTable({
                   const transactionCurrency = transaction.currency || 'INR';
                   const originalAmount = transaction.totalAmount || 0;
                   const isForexTransaction = transactionCurrency !== 'INR';
+                  const isOpeningBalance = transaction.id === OPENING_BALANCE_ALLOCATION_ID;
 
                   return (
-                    <TableRow key={transaction.id}>
-                      <TableCell>{transaction.transactionNumber}</TableCell>
+                    <TableRow
+                      key={transaction.id}
+                      sx={isOpeningBalance ? { bgcolor: 'action.hover' } : undefined}
+                    >
                       <TableCell>
-                        {transactionDate ? transactionDate.toLocaleDateString() : '-'}
+                        {isOpeningBalance ? (
+                          <Chip
+                            icon={<BalanceIcon />}
+                            label="Opening Balance"
+                            size="small"
+                            color="info"
+                            variant="outlined"
+                          />
+                        ) : (
+                          transaction.transactionNumber
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {isOpeningBalance ? (
+                          <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                            Prior year balance
+                          </Typography>
+                        ) : transactionDate ? (
+                          transactionDate.toLocaleDateString()
+                        ) : (
+                          '-'
+                        )}
                       </TableCell>
                       {showForexColumn && (
                         <TableCell align="right">
-                          {isForexTransaction ? (
+                          {isOpeningBalance ? (
+                            '-'
+                          ) : isForexTransaction ? (
                             <Typography variant="body2">
                               {transactionCurrency}{' '}
                               {originalAmount.toLocaleString('en-IN', {
@@ -234,22 +261,36 @@ export function TransactionAllocationTable({
           {transactions.map((transaction, index) => {
             const allocation = allocations[index];
             const transactionDate = toDate(transaction.date);
+            const isOpeningBalance = transaction.id === OPENING_BALANCE_ALLOCATION_ID;
 
             return (
-              <TableRow key={transaction.id} hover>
+              <TableRow
+                key={transaction.id}
+                hover
+                sx={isOpeningBalance ? { bgcolor: 'action.hover' } : undefined}
+              >
                 <TableCell>
                   <Chip
+                    icon={isOpeningBalance ? <BalanceIcon /> : undefined}
                     label={transaction.transactionNumber}
                     size="small"
                     variant="outlined"
-                    color="primary"
+                    color={isOpeningBalance ? 'info' : 'primary'}
                   />
                 </TableCell>
                 <TableCell>
-                  {transactionDate ? transactionDate.toLocaleDateString() : '-'}
+                  {isOpeningBalance ? (
+                    <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                      Prior year
+                    </Typography>
+                  ) : transactionDate ? (
+                    transactionDate.toLocaleDateString()
+                  ) : (
+                    '-'
+                  )}
                 </TableCell>
                 <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {transaction.description || '-'}
+                  {isOpeningBalance ? 'Prior year balance' : transaction.description || '-'}
                 </TableCell>
                 <TableCell align="right">
                   <Typography variant="body2" fontWeight="medium">

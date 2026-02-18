@@ -15,6 +15,8 @@ import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGen
 import {
   createPaymentWithAllocationsAtomic,
   updatePaymentWithAllocationsAtomic,
+  OPENING_BALANCE_ALLOCATION_ID,
+  isOpeningBalanceAllocation,
 } from '@/lib/accounting/paymentHelpers';
 import {
   BillAllocationTable,
@@ -59,6 +61,9 @@ export function RecordVendorPaymentDialog({
   const [tdsDeducted, setTdsDeducted] = useState<boolean>(false);
   const [tdsSection, setTdsSection] = useState<string>('');
   const [tdsAmount, setTdsAmount] = useState<number>(0);
+
+  // Entity opening balance (CR = we owe vendor from prior year)
+  const [entityOpeningBalance, setEntityOpeningBalance] = useState<number>(0);
 
   // Bill allocation
   const [outstandingBills, setOutstandingBills] = useState<VendorBill[]>([]);
@@ -116,21 +121,65 @@ export function RecordVendorPaymentDialog({
           return getTime(a.date) - getTime(b.date);
         });
 
-        setOutstandingBills(bills);
-        setTotalOutstanding(totalOutstandingAmount);
+        // Calculate remaining opening balance (subtract already-allocated amounts from other payments)
+        let remainingOpeningBalance = 0;
+        if (entityOpeningBalance > 0) {
+          const paymentQuery = query(
+            transactionsRef,
+            where('type', '==', 'VENDOR_PAYMENT'),
+            where('entityId', '==', entityId)
+          );
+          const paymentSnapshot = await getDocs(paymentQuery);
+          let alreadyAllocated = 0;
+          paymentSnapshot.forEach((paymentDoc) => {
+            // When editing, skip the current payment's own allocations
+            if (editingPayment?.id && paymentDoc.id === editingPayment.id) return;
+            const paymentAllocations = paymentDoc.data().billAllocations || [];
+            for (const a of paymentAllocations) {
+              if (a.invoiceId === OPENING_BALANCE_ALLOCATION_ID) {
+                alreadyAllocated += a.allocatedAmount || 0;
+              }
+            }
+          });
+          remainingOpeningBalance = Math.max(0, entityOpeningBalance - alreadyAllocated);
+        }
 
-        // Initialize allocations using outstanding amount (not total amount)
-        const initialAllocations: PaymentAllocation[] = bills.map((bill) => {
+        // Prepend virtual "Opening Balance" row if there's remaining balance
+        const allBills = [...bills];
+        const allAllocations: PaymentAllocation[] = [];
+
+        if (remainingOpeningBalance > 0) {
+          allBills.unshift({
+            id: OPENING_BALANCE_ALLOCATION_ID,
+            transactionNumber: 'Opening Balance',
+            totalAmount: remainingOpeningBalance,
+            outstandingAmount: remainingOpeningBalance,
+          } as VendorBill);
+          allAllocations.push({
+            invoiceId: OPENING_BALANCE_ALLOCATION_ID,
+            invoiceNumber: 'Opening Balance',
+            originalAmount: remainingOpeningBalance,
+            allocatedAmount: 0,
+            remainingAmount: remainingOpeningBalance,
+          });
+          totalOutstandingAmount += remainingOpeningBalance;
+        }
+
+        // Add real bill allocations
+        for (const bill of bills) {
           const outstanding = bill.outstandingAmount ?? bill.baseAmount ?? bill.totalAmount ?? 0;
-          return {
+          allAllocations.push({
             invoiceId: bill.id!,
             invoiceNumber: bill.transactionNumber || '',
             originalAmount: outstanding,
             allocatedAmount: 0,
             remainingAmount: outstanding,
-          };
-        });
-        setAllocations(initialAllocations);
+          });
+        }
+
+        setOutstandingBills(allBills);
+        setTotalOutstanding(totalOutstandingAmount);
+        setAllocations(allAllocations);
       } catch (err) {
         console.error('[RecordVendorPaymentDialog] Error fetching bills:', err);
       } finally {
@@ -139,7 +188,7 @@ export function RecordVendorPaymentDialog({
     }
 
     fetchOutstandingBills();
-  }, [entityId]);
+  }, [entityId, entityOpeningBalance, editingPayment?.id]);
 
   // Calculate TDS when section changes
   useEffect(() => {
@@ -199,6 +248,7 @@ export function RecordVendorPaymentDialog({
         setTdsSection('');
         setTdsAmount(0);
         setAllocations([]);
+        setEntityOpeningBalance(0);
       }
       setError('');
     }
@@ -324,6 +374,8 @@ export function RecordVendorPaymentDialog({
 
       // Only include allocations with non-zero amounts
       const validAllocations = allocations.filter((a) => a.allocatedAmount > 0);
+      // Separate real bill allocations from virtual opening balance allocations
+      const realAllocations = validAllocations.filter((a) => !isOpeningBalanceAllocation(a));
 
       // Build payment data - only include fields with values (Firestore rejects undefined)
       const paymentData: Record<string, unknown> = {
@@ -334,7 +386,7 @@ export function RecordVendorPaymentDialog({
         entityName,
         paymentDate: Timestamp.fromDate(new Date(paymentDate)),
         paymentMethod,
-        billAllocations: validAllocations,
+        billAllocations: validAllocations, // Store full array (including opening balance)
         tdsDeducted,
         totalAmount: amount,
         description: description || `Payment to ${entityName}`,
@@ -371,14 +423,16 @@ export function RecordVendorPaymentDialog({
       }
 
       if (editingPayment?.id) {
-        // Update existing payment with GL validation
-        const oldAllocations = editingPayment.billAllocations || [];
+        // Update existing payment with GL validation (only pass real allocations for bill updates)
+        const oldAllocations = (editingPayment.billAllocations || []).filter(
+          (a) => !isOpeningBalanceAllocation(a)
+        );
         await updatePaymentWithAllocationsAtomic(
           db,
           editingPayment.id,
           paymentData,
           oldAllocations,
-          validAllocations
+          realAllocations
         );
 
         // Audit log: payment updated
@@ -408,11 +462,11 @@ export function RecordVendorPaymentDialog({
           );
         }
       } else {
-        // Create new payment with GL validation
+        // Create new payment with GL validation (only pass real allocations for bill updates)
         const paymentId = await createPaymentWithAllocationsAtomic(
           db,
           paymentData,
-          validAllocations
+          realAllocations
         );
 
         // Audit log: payment created
@@ -496,7 +550,13 @@ export function RecordVendorPaymentDialog({
             <EntitySelector
               value={entityId}
               onChange={setEntityId}
-              onEntitySelect={(entity) => setEntityName(entity?.name || '')}
+              onEntitySelect={(entity) => {
+                setEntityName(entity?.name || '');
+                // Capture opening balance (CR = we owe vendor from prior year)
+                const ob = entity?.openingBalance ?? 0;
+                const obType = entity?.openingBalanceType ?? 'DR';
+                setEntityOpeningBalance(obType === 'CR' ? ob : 0);
+              }}
               filterByRole="VENDOR"
               label="Vendor"
               required

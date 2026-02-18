@@ -19,6 +19,8 @@ import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGen
 import {
   createPaymentWithAllocationsAtomic,
   updatePaymentWithAllocationsAtomic,
+  OPENING_BALANCE_ALLOCATION_ID,
+  isOpeningBalanceAllocation,
 } from '@/lib/accounting/paymentHelpers';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -61,6 +63,9 @@ export function RecordCustomerPaymentDialog({
   const [description, setDescription] = useState<string>('');
   const [reference, setReference] = useState<string>('');
   const [projectId, setProjectId] = useState<string | null>(null);
+
+  // Entity opening balance (DR = customer owes us from prior year)
+  const [entityOpeningBalance, setEntityOpeningBalance] = useState<number>(0);
 
   // Invoice allocation
   const [outstandingInvoices, setOutstandingInvoices] = useState<CustomerInvoice[]>([]);
@@ -167,20 +172,62 @@ export function RecordCustomerPaymentDialog({
           }
         });
 
-        setOutstandingInvoices(invoices);
+        // Calculate remaining opening balance (subtract already-allocated amounts from other payments)
+        let remainingOpeningBalance = 0;
+        if (entityOpeningBalance > 0) {
+          const paymentQuery = query(
+            transactionsRef,
+            where('type', '==', 'CUSTOMER_PAYMENT'),
+            where('entityId', '==', entityId)
+          );
+          const paymentSnapshot = await getDocs(paymentQuery);
+          let alreadyAllocated = 0;
+          paymentSnapshot.forEach((paymentDoc) => {
+            // When editing, skip the current payment's own allocations
+            if (editingPayment?.id && paymentDoc.id === editingPayment.id) return;
+            const paymentAllocations = paymentDoc.data().invoiceAllocations || [];
+            for (const a of paymentAllocations) {
+              if (a.invoiceId === OPENING_BALANCE_ALLOCATION_ID) {
+                alreadyAllocated += a.allocatedAmount || 0;
+              }
+            }
+          });
+          remainingOpeningBalance = Math.max(0, entityOpeningBalance - alreadyAllocated);
+        }
 
-        // Initialize allocations using INR amounts
-        const initialAllocations: PaymentAllocation[] = invoices.map((invoice) => {
+        // Prepend virtual "Opening Balance" row if there's remaining balance
+        const allInvoices = [...invoices];
+        const allAllocations: PaymentAllocation[] = [];
+
+        if (remainingOpeningBalance > 0) {
+          allInvoices.unshift({
+            id: OPENING_BALANCE_ALLOCATION_ID,
+            transactionNumber: 'Opening Balance',
+            totalAmount: remainingOpeningBalance,
+          } as CustomerInvoice);
+          allAllocations.push({
+            invoiceId: OPENING_BALANCE_ALLOCATION_ID,
+            invoiceNumber: 'Opening Balance',
+            originalAmount: remainingOpeningBalance,
+            allocatedAmount: 0,
+            remainingAmount: remainingOpeningBalance,
+          });
+        }
+
+        // Add real invoice allocations
+        for (const invoice of invoices) {
           const outstandingInINR = calculateOutstandingINR(invoice);
-          return {
+          allAllocations.push({
             invoiceId: invoice.id!,
             invoiceNumber: invoice.transactionNumber || '',
             originalAmount: outstandingInINR,
             allocatedAmount: 0,
             remainingAmount: outstandingInINR,
-          };
-        });
-        setAllocations(initialAllocations);
+          });
+        }
+
+        setOutstandingInvoices(allInvoices);
+        setAllocations(allAllocations);
       } catch (err) {
         console.error('[RecordCustomerPaymentDialog] Error fetching outstanding invoices:', err);
         setError('Failed to load outstanding invoices. Please try again.');
@@ -188,7 +235,7 @@ export function RecordCustomerPaymentDialog({
     }
 
     fetchOutstandingInvoices();
-  }, [entityId]);
+  }, [entityId, entityOpeningBalance, editingPayment?.id]);
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -236,6 +283,7 @@ export function RecordCustomerPaymentDialog({
         setProjectId(null);
         setAllocations([]);
         setHasAutoAllocated(false);
+        setEntityOpeningBalance(0);
       }
       setError('');
     }
@@ -379,6 +427,8 @@ export function RecordCustomerPaymentDialog({
 
       // Only include allocations with non-zero amounts
       const validAllocations = allocations.filter((a) => a.allocatedAmount > 0);
+      // Separate real invoice allocations from virtual opening balance allocations
+      const realAllocations = validAllocations.filter((a) => !isOpeningBalanceAllocation(a));
 
       const paymentData: Record<string, unknown> = {
         type: 'CUSTOMER_PAYMENT',
@@ -387,7 +437,7 @@ export function RecordCustomerPaymentDialog({
         entityName,
         paymentDate,
         paymentMethod,
-        invoiceAllocations: validAllocations,
+        invoiceAllocations: validAllocations, // Store full array (including opening balance)
         depositedToBankAccountId: bankAccountId || '', // Required field
         totalAmount: baseAmount,
         description: description || `Payment from ${entityName}`,
@@ -434,8 +484,10 @@ export function RecordCustomerPaymentDialog({
       };
 
       if (editingPayment?.id) {
-        // Update existing payment atomically
-        const oldAllocations = editingPayment.invoiceAllocations || [];
+        // Update existing payment atomically (only pass real allocations for invoice updates)
+        const oldAllocations = (editingPayment.invoiceAllocations || []).filter(
+          (a) => !isOpeningBalanceAllocation(a)
+        );
         await updatePaymentWithAllocationsAtomic(
           db,
           editingPayment.id,
@@ -444,7 +496,7 @@ export function RecordCustomerPaymentDialog({
             updatedAt: Timestamp.now(),
           },
           oldAllocations,
-          validAllocations
+          realAllocations
         );
 
         // Log payment update to audit trail
@@ -454,11 +506,11 @@ export function RecordCustomerPaymentDialog({
         );
         await logPaymentUpdated(db, auditUser, editingPayment.id, transactionNumber || '', changes);
       } else {
-        // Create new payment atomically with invoice status updates
+        // Create new payment atomically (only pass real allocations for invoice updates)
         const paymentId = await createPaymentWithAllocationsAtomic(
           db,
           paymentData,
-          validAllocations
+          realAllocations
         );
 
         // Log payment creation to audit trail
@@ -526,7 +578,13 @@ export function RecordCustomerPaymentDialog({
             <EntitySelector
               value={entityId}
               onChange={setEntityId}
-              onEntitySelect={(entity) => setEntityName(entity?.name || '')}
+              onEntitySelect={(entity) => {
+                setEntityName(entity?.name || '');
+                // Capture opening balance (DR = customer owes us from prior year)
+                const ob = entity?.openingBalance ?? 0;
+                const obType = entity?.openingBalanceType ?? 'DR';
+                setEntityOpeningBalance(obType === 'DR' ? ob : 0);
+              }}
               filterByRole="CUSTOMER"
               label="Customer"
               required
