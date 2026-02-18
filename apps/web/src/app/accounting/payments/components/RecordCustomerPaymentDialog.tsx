@@ -7,7 +7,7 @@ import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
 import { getFirebase } from '@/lib/firebase';
-import { collection, Timestamp, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, getDoc, Timestamp, query, where, getDocs } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type {
   CustomerPayment,
@@ -64,9 +64,6 @@ export function RecordCustomerPaymentDialog({
   const [reference, setReference] = useState<string>('');
   const [projectId, setProjectId] = useState<string | null>(null);
 
-  // Entity opening balance (DR = customer owes us from prior year)
-  const [entityOpeningBalance, setEntityOpeningBalance] = useState<number>(0);
-
   // Invoice allocation
   const [outstandingInvoices, setOutstandingInvoices] = useState<CustomerInvoice[]>([]);
   const [allocations, setAllocations] = useState<PaymentAllocation[]>([]);
@@ -90,6 +87,17 @@ export function RecordCustomerPaymentDialog({
 
       try {
         const { db } = getFirebase();
+
+        // Fetch entity document to get opening balance directly
+        // (EntitySelector's onEntitySelect only fires on user interaction, not on pre-fill)
+        let openingBal = 0;
+        const entityDoc = await getDoc(doc(db, COLLECTIONS.ENTITIES, entityId));
+        if (entityDoc.exists()) {
+          const entityData = entityDoc.data();
+          const obType = entityData?.openingBalanceType ?? 'DR';
+          openingBal = obType === 'DR' ? (entityData?.openingBalance ?? 0) : 0;
+        }
+
         const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
         const q = query(
           transactionsRef,
@@ -210,7 +218,7 @@ export function RecordCustomerPaymentDialog({
 
         // Calculate remaining opening balance (subtract already-allocated amounts from other payments)
         let remainingOpeningBalance = 0;
-        if (entityOpeningBalance > 0) {
+        if (openingBal > 0) {
           const paymentQuery = query(
             transactionsRef,
             where('type', '==', 'CUSTOMER_PAYMENT'),
@@ -228,7 +236,7 @@ export function RecordCustomerPaymentDialog({
               }
             }
           });
-          remainingOpeningBalance = Math.max(0, entityOpeningBalance - alreadyAllocated);
+          remainingOpeningBalance = Math.max(0, openingBal - alreadyAllocated);
         }
 
         // Prepend virtual "Opening Balance" row if there's remaining balance
@@ -292,7 +300,7 @@ export function RecordCustomerPaymentDialog({
     fetchOutstandingInvoices();
     // editingPayment?.id is sufficient — when the payment changes, the id changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityId, entityOpeningBalance, editingPayment?.id]);
+  }, [entityId, editingPayment?.id]);
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -340,7 +348,6 @@ export function RecordCustomerPaymentDialog({
         setProjectId(null);
         setAllocations([]);
         setHasAutoAllocated(false);
-        setEntityOpeningBalance(0);
       }
       setError('');
     }
@@ -637,10 +644,6 @@ export function RecordCustomerPaymentDialog({
               onChange={setEntityId}
               onEntitySelect={(entity) => {
                 setEntityName(entity?.name || '');
-                // Capture opening balance (DR = customer owes us from prior year)
-                const ob = entity?.openingBalance ?? 0;
-                const obType = entity?.openingBalanceType ?? 'DR';
-                setEntityOpeningBalance(obType === 'DR' ? ob : 0);
               }}
               filterByRole="CUSTOMER"
               label="Customer"

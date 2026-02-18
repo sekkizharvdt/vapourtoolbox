@@ -7,7 +7,7 @@ import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
 import { getFirebase } from '@/lib/firebase';
-import { Timestamp, query, collection, where, getDocs } from 'firebase/firestore';
+import { Timestamp, query, collection, doc, getDoc, where, getDocs } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorPayment, VendorBill, PaymentAllocation, PaymentMethod } from '@vapour/types';
@@ -62,9 +62,6 @@ export function RecordVendorPaymentDialog({
   const [tdsSection, setTdsSection] = useState<string>('');
   const [tdsAmount, setTdsAmount] = useState<number>(0);
 
-  // Entity opening balance (CR = we owe vendor from prior year)
-  const [entityOpeningBalance, setEntityOpeningBalance] = useState<number>(0);
-
   // Bill allocation
   const [outstandingBills, setOutstandingBills] = useState<VendorBill[]>([]);
   const [allocations, setAllocations] = useState<PaymentAllocation[]>([]);
@@ -84,6 +81,17 @@ export function RecordVendorPaymentDialog({
       setLoadingBills(true);
       try {
         const { db } = getFirebase();
+
+        // Fetch entity document to get opening balance directly
+        // (EntitySelector's onEntitySelect only fires on user interaction, not on pre-fill)
+        let openingBal = 0;
+        const entityDoc = await getDoc(doc(db, COLLECTIONS.ENTITIES, entityId));
+        if (entityDoc.exists()) {
+          const entityData = entityDoc.data();
+          const obType = entityData?.openingBalanceType ?? 'DR';
+          openingBal = obType === 'CR' ? (entityData?.openingBalance ?? 0) : 0;
+        }
+
         const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
         const q = query(
           transactionsRef,
@@ -157,7 +165,7 @@ export function RecordVendorPaymentDialog({
 
         // Calculate remaining opening balance (subtract already-allocated amounts from other payments)
         let remainingOpeningBalance = 0;
-        if (entityOpeningBalance > 0) {
+        if (openingBal > 0) {
           const paymentQuery = query(
             transactionsRef,
             where('type', '==', 'VENDOR_PAYMENT'),
@@ -175,7 +183,7 @@ export function RecordVendorPaymentDialog({
               }
             }
           });
-          remainingOpeningBalance = Math.max(0, entityOpeningBalance - alreadyAllocated);
+          remainingOpeningBalance = Math.max(0, openingBal - alreadyAllocated);
         }
 
         // Prepend virtual "Opening Balance" row if there's remaining balance
@@ -238,7 +246,7 @@ export function RecordVendorPaymentDialog({
     fetchOutstandingBills();
     // editingPayment?.id is sufficient — when the payment changes, the id changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityId, entityOpeningBalance, editingPayment?.id]);
+  }, [entityId, editingPayment?.id]);
 
   // Calculate TDS when section changes
   useEffect(() => {
@@ -298,7 +306,6 @@ export function RecordVendorPaymentDialog({
         setTdsSection('');
         setTdsAmount(0);
         setAllocations([]);
-        setEntityOpeningBalance(0);
       }
       setError('');
     }
@@ -602,10 +609,6 @@ export function RecordVendorPaymentDialog({
               onChange={setEntityId}
               onEntitySelect={(entity) => {
                 setEntityName(entity?.name || '');
-                // Capture opening balance (CR = we owe vendor from prior year)
-                const ob = entity?.openingBalance ?? 0;
-                const obType = entity?.openingBalanceType ?? 'DR';
-                setEntityOpeningBalance(obType === 'CR' ? ob : 0);
               }}
               filterByRole="VENDOR"
               label="Vendor"
