@@ -100,10 +100,32 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
 
     This applies to edit forms (pre-filling date inputs), display code (formatting dates), comparisons, and JSON export. The `instanceof Date` check alone is insufficient — always check for `toDate` method first.
 
+## Forms & Edit Mode
+
+15. **Selector callbacks only fire on user interaction** — `onEntitySelect`, `onAccountSelect`, and similar callbacks on `EntitySelector`, `AccountSelector`, etc. do NOT fire when the component's `value` prop is pre-populated in edit mode. Never rely on these callbacks to set state that effects or submit handlers depend on:
+
+    ```typescript
+    // Bad — entityName is never set in edit mode
+    <EntitySelector
+      value={entityId}
+      onEntitySelect={(entity) => setEntityName(entity?.name || '')}
+    />
+
+    // Good — restore from saved data in the edit reset effect
+    useEffect(() => {
+      if (editingPayment) {
+        setEntityId(editingPayment.entityId);
+        setEntityName(editingPayment.entityName); // Set directly
+      }
+    }, [open, editingPayment]);
+    ```
+
+    If an effect needs derived data (like `openingBalance`) from the entity document, fetch it directly in the effect using `getDoc()` rather than relying on the selector callback.
+
 ## Code Organization
 
-15. **One implementation per function** — never create duplicate service functions (e.g., two `submitForApproval` in different files). Use the module's `index.ts` to re-export from the canonical location.
+16. **One implementation per function** — never create duplicate service functions (e.g., two `submitForApproval` in different files). Use the module's `index.ts` to re-export from the canonical location.
 
-16. **State machines go in `stateMachines.ts`**, not inline in service files. Status types come from `@vapour/types`.
+17. **State machines go in `stateMachines.ts`**, not inline in service files. Status types come from `@vapour/types`.
 
-17. **Sensitive operations need audit trails** — permission changes, employee updates, hard deletes, and financial approvals should log to an `auditLogs` collection (pattern in progress).
+18. **Sensitive operations need audit trails** — permission changes, employee updates, hard deletes, and financial approvals should log to an `auditLogs` collection (pattern in progress).

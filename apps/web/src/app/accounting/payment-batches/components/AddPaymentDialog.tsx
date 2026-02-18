@@ -145,6 +145,13 @@ export default function AddPaymentDialog({
       setTdsSection(editingPayment.tdsSection || '');
       setCategory(editingPayment.category || '');
       setNotes(editingPayment.notes || '');
+      // Restore entity object for EntitySelector (onEntitySelect only fires on user interaction)
+      if (editingPayment.entityId) {
+        setSelectedEntity({
+          id: editingPayment.entityId,
+          name: editingPayment.entityName,
+        } as BusinessEntity);
+      }
       if (editingPayment.projectId && editingPayment.projectName) {
         setSelectedProject({
           id: editingPayment.projectId,

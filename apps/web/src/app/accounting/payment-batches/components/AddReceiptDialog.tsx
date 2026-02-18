@@ -83,6 +83,13 @@ export default function AddReceiptDialog({
           name: editingReceipt.projectName,
         } as Project);
       }
+      // Restore entity object for EntitySelector (onEntitySelect only fires on user interaction)
+      if (editingReceipt.entityId && editingReceipt.entityName) {
+        setSelectedEntity({
+          id: editingReceipt.entityId,
+          name: editingReceipt.entityName,
+        } as BusinessEntity);
+      }
     } else if (open && !editingReceipt) {
       resetForm();
     }
