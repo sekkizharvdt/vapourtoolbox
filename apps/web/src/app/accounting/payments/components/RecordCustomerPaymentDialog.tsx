@@ -118,7 +118,9 @@ export function RecordCustomerPaymentDialog({
 
           // INR invoices - straightforward
           if (invoiceCurrency === 'INR') {
-            return data.outstandingAmount ?? data.baseAmount ?? totalAmount;
+            if (data.outstandingAmount != null) return data.outstandingAmount;
+            const amountPaidINR = (data as unknown as Record<string, number>).amountPaid ?? 0;
+            return Math.max(0, (data.baseAmount ?? totalAmount) - amountPaidINR);
           }
 
           // Forex invoice - need to determine if outstandingAmount is in INR or foreign currency
@@ -165,8 +167,9 @@ export function RecordCustomerPaymentDialog({
             }
           }
 
-          // Fallback to baseAmount
-          return baseAmountINR;
+          // Fallback: compute from total - paid (both in INR)
+          const paidINR = (data as unknown as Record<string, number>).amountPaid ?? 0;
+          return Math.max(0, baseAmountINR - paidINR);
         };
 
         snapshot.forEach((doc) => {
@@ -195,11 +198,14 @@ export function RecordCustomerPaymentDialog({
           for (const invoice of invoices) {
             const saved = savedMap.get(invoice.id!);
             if (saved) {
-              // Increase the outstanding back by this payment's allocation
-              // so calculateOutstandingINR returns the correct effective amount
-              invoice.outstandingAmount =
-                (invoice.outstandingAmount ?? calculateOutstandingINR(invoice)) +
-                saved.allocatedAmount;
+              const currentOutstanding =
+                invoice.outstandingAmount ?? calculateOutstandingINR(invoice);
+              const invoiceTotalINR = invoice.baseAmount ?? invoice.totalAmount ?? 0;
+              // Cap at invoice total to prevent over-inflated outstanding when field was stale
+              invoice.outstandingAmount = Math.min(
+                invoiceTotalINR,
+                currentOutstanding + saved.allocatedAmount
+              );
             }
           }
 

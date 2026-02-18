@@ -109,7 +109,13 @@ export function RecordVendorPaymentDialog({
           // Filter soft-deleted bills (client-side per CLAUDE.md rule #3)
           if ('isDeleted' in data && data.isDeleted) return;
           // Use outstandingAmount for partially paid bills, fallback to baseAmount (INR) for forex
-          const outstanding = data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
+          // Compute outstanding: prefer explicit outstandingAmount, fall back to total - amountPaid
+          const totalINR = data.baseAmount ?? data.totalAmount ?? 0;
+          const amountPaid = (data as unknown as Record<string, number>).amountPaid ?? 0;
+          const outstanding =
+            data.outstandingAmount != null
+              ? data.outstandingAmount
+              : Math.max(0, totalINR - amountPaid);
           // Only include bills with outstanding amounts > 0
           if (outstanding > 0) {
             bills.push({ ...data, id: doc.id, outstandingAmount: outstanding });
@@ -144,8 +150,16 @@ export function RecordVendorPaymentDialog({
           for (const bill of bills) {
             const saved = savedMap.get(bill.id!);
             if (saved) {
-              bill.outstandingAmount = (bill.outstandingAmount ?? 0) + saved.allocatedAmount;
-              totalOutstandingAmount += saved.allocatedAmount;
+              const currentOutstanding = bill.outstandingAmount ?? 0;
+              const billTotal = bill.baseAmount ?? bill.totalAmount ?? 0;
+              // Cap at bill total to prevent over-inflated outstanding when field was stale
+              const effectiveOutstanding = Math.min(
+                billTotal,
+                currentOutstanding + saved.allocatedAmount
+              );
+              const delta = effectiveOutstanding - currentOutstanding;
+              bill.outstandingAmount = effectiveOutstanding;
+              totalOutstandingAmount += delta;
             }
           }
 
