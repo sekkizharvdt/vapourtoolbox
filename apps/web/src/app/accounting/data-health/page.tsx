@@ -24,6 +24,7 @@ import {
   Refresh as RefreshIcon,
   ArrowForward as ArrowIcon,
   Home as HomeIcon,
+  SyncProblem as SyncIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@vapour/ui';
@@ -32,12 +33,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import { reconcilePaymentStatuses } from '@/lib/accounting/paymentHelpers';
 
 interface DataHealthStats {
   unappliedPayments: { count: number; total: number };
   missingGLEntries: { count: number };
   unmappedAccounts: { count: number };
   overdueItems: { count: number; total: number };
+  stalePaymentStatuses: { count: number };
   totalTransactions: number;
   healthScore: number;
 }
@@ -60,6 +63,30 @@ export default function DataHealthPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DataHealthStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcileResult, setReconcileResult] = useState<{
+    fixed: number;
+    checked: number;
+  } | null>(null);
+
+  const handleReconcile = async () => {
+    setReconciling(true);
+    setReconcileResult(null);
+    try {
+      const { db } = getFirebase();
+      const result = await reconcilePaymentStatuses(db);
+      setReconcileResult({ fixed: result.fixed, checked: result.checked });
+      // Refresh stats after reconciliation
+      if (result.fixed > 0) {
+        fetchStats();
+      }
+    } catch (err) {
+      console.error('Reconciliation failed:', err);
+      setError('Reconciliation failed. Please try again.');
+    } finally {
+      setReconciling(false);
+    }
+  };
 
   const fetchStats = async () => {
     setLoading(true);
@@ -141,6 +168,40 @@ export default function DataHealthPage() {
         }
       });
 
+      // Count stale payment statuses: bills/invoices with allocations but wrong paymentStatus
+      let staleStatusCount = 0;
+      const allocationMap = new Map<string, number>();
+      payments.forEach((payDoc) => {
+        const payData = payDoc.data();
+        const allocs =
+          payData.type === 'CUSTOMER_PAYMENT'
+            ? payData.invoiceAllocations || []
+            : payData.billAllocations || [];
+        for (const a of allocs) {
+          if (a.invoiceId && a.allocatedAmount > 0 && a.invoiceId !== '__opening_balance__') {
+            allocationMap.set(
+              a.invoiceId,
+              (allocationMap.get(a.invoiceId) ?? 0) + a.allocatedAmount
+            );
+          }
+        }
+      });
+      [...bills, ...invoices].forEach((d) => {
+        const data = d.data();
+        const totalINR = data.baseAmount || data.totalAmount || 0;
+        const correctPaid = allocationMap.get(d.id) ?? 0;
+        const currentPaid = data.amountPaid ?? 0;
+        const currentStatus = data.paymentStatus ?? 'UNPAID';
+        let correctStatus: string;
+        if (correctPaid >= totalINR && totalINR > 0) correctStatus = 'PAID';
+        else if (correctPaid > 0) correctStatus = 'PARTIALLY_PAID';
+        else correctStatus = 'UNPAID';
+        if (Math.abs(currentPaid - correctPaid) > 0.01 || currentStatus !== correctStatus) {
+          staleStatusCount++;
+          transactionsWithIssues.add(d.id);
+        }
+      });
+
       // Count overdue items
       const now = new Date();
       let overdueCount = 0;
@@ -178,6 +239,7 @@ export default function DataHealthPage() {
         missingGLEntries: { count: missingGLCount },
         unmappedAccounts: { count: unmappedCount },
         overdueItems: { count: overdueCount, total: overdueTotal },
+        stalePaymentStatuses: { count: staleStatusCount },
         totalTransactions,
         healthScore,
       });
@@ -229,6 +291,15 @@ export default function DataHealthPage() {
           color: stats.unmappedAccounts.count > 0 ? 'warning.main' : 'success.main',
           path: '/accounting/data-health/unmapped-accounts',
           description: 'Bills/Invoices with unassigned Chart of Accounts',
+        },
+        {
+          title: 'Stale Payment Statuses',
+          count: stats.stalePaymentStatuses.count,
+          subtitle: 'Bills/invoices with wrong payment status',
+          icon: <SyncIcon sx={{ fontSize: 40 }} />,
+          color: stats.stalePaymentStatuses.count > 0 ? 'error.main' : 'success.main',
+          path: '', // No detail page — reconcile button handles it
+          description: 'Payment allocations exist but bill status not updated',
         },
         {
           title: 'Overdue Items',
@@ -344,7 +415,7 @@ export default function DataHealthPage() {
 
       <Grid container spacing={3}>
         {loading
-          ? [1, 2, 3, 4].map((i) => (
+          ? [1, 2, 3, 4, 5].map((i) => (
               <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={i}>
                 <Card>
                   <CardContent>
@@ -369,7 +440,7 @@ export default function DataHealthPage() {
                     borderLeft: 4,
                     borderColor: card.color,
                   }}
-                  onClick={() => router.push(card.path)}
+                  onClick={() => card.path && router.push(card.path)}
                 >
                   <CardContent>
                     <Box
@@ -412,6 +483,26 @@ export default function DataHealthPage() {
               Recommended Actions
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {stats.stalePaymentStatuses.count > 0 && (
+                <Alert
+                  severity="error"
+                  action={
+                    <Button size="small" onClick={handleReconcile} disabled={reconciling}>
+                      {reconciling ? 'Reconciling...' : 'Reconcile Now'}
+                    </Button>
+                  }
+                >
+                  <strong>Priority 1:</strong> {stats.stalePaymentStatuses.count} bills/invoices
+                  have stale payment statuses. Payments are allocated but the bill status was never
+                  updated.
+                </Alert>
+              )}
+              {reconcileResult && (
+                <Alert severity="success">
+                  Reconciliation complete: {reconcileResult.fixed} of {reconcileResult.checked}{' '}
+                  bills/invoices were fixed.
+                </Alert>
+              )}
               {stats.missingGLEntries.count > 0 && (
                 <Alert
                   severity="error"

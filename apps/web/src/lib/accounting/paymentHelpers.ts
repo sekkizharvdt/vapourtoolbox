@@ -639,3 +639,125 @@ export async function updatePaymentWithAllocationsAtomic(
 
   logger.info('Payment updated atomically', { paymentId, allocationsCount: newAllocations.length });
 }
+
+/**
+ * Reconcile payment statuses for all bills and invoices.
+ *
+ * Scans all payments, sums allocations per bill/invoice, and updates
+ * amountPaid / outstandingAmount / paymentStatus on any bill/invoice
+ * where the stored values don't match reality.
+ *
+ * Use dryRun to preview changes without writing.
+ */
+export async function reconcilePaymentStatuses(
+  db: Firestore,
+  options?: { dryRun?: boolean }
+): Promise<{
+  checked: number;
+  fixed: number;
+  details: Array<{ id: string; number: string; type: string; was: string; now: string }>;
+}> {
+  const dryRun = options?.dryRun ?? false;
+  const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
+
+  // 1. Get all payments and build allocation map: invoiceId -> total allocated
+  const paymentSnap = await getDocs(
+    query(transactionsRef, where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT']))
+  );
+
+  const allocationMap = new Map<string, number>();
+  paymentSnap.forEach((paymentDoc) => {
+    const data = paymentDoc.data();
+    if (data.isDeleted) return;
+
+    const allocations =
+      data.type === 'CUSTOMER_PAYMENT' ? data.invoiceAllocations || [] : data.billAllocations || [];
+
+    for (const alloc of allocations) {
+      if (alloc.invoiceId && alloc.allocatedAmount > 0 && !isOpeningBalanceAllocation(alloc)) {
+        const current = allocationMap.get(alloc.invoiceId) ?? 0;
+        allocationMap.set(alloc.invoiceId, current + alloc.allocatedAmount);
+      }
+    }
+  });
+
+  // 2. Get all bills and invoices
+  const [billSnap, invoiceSnap] = await Promise.all([
+    getDocs(query(transactionsRef, where('type', '==', 'VENDOR_BILL'))),
+    getDocs(query(transactionsRef, where('type', '==', 'CUSTOMER_INVOICE'))),
+  ]);
+
+  const allDocs = [...billSnap.docs, ...invoiceSnap.docs];
+  let checked = 0;
+  let fixed = 0;
+  const details: Array<{ id: string; number: string; type: string; was: string; now: string }> = [];
+
+  let currentBatch = writeBatch(db);
+  let batchCount = 0;
+
+  for (const docSnap of allDocs) {
+    const data = docSnap.data();
+    if (data.isDeleted) continue;
+    checked++;
+
+    const totalAmountINR = data.baseAmount || data.totalAmount || 0;
+    const correctPaid = allocationMap.get(docSnap.id) ?? 0;
+    const correctOutstanding = Math.max(0, totalAmountINR - correctPaid);
+
+    let correctStatus: PaymentStatus;
+    if (correctPaid >= totalAmountINR && totalAmountINR > 0) {
+      correctStatus = 'PAID';
+    } else if (correctPaid > 0) {
+      correctStatus = 'PARTIALLY_PAID';
+    } else {
+      correctStatus = 'UNPAID';
+    }
+
+    const currentPaid = data.amountPaid ?? 0;
+    const currentStatus = data.paymentStatus ?? 'UNPAID';
+    const currentOutstanding = data.outstandingAmount;
+
+    // Check if update is needed
+    const paidMismatch = Math.abs(currentPaid - correctPaid) > 0.01;
+    const statusMismatch = currentStatus !== correctStatus;
+    const outstandingMissing = currentOutstanding === undefined || currentOutstanding === null;
+    const outstandingMismatch =
+      !outstandingMissing && Math.abs(currentOutstanding - correctOutstanding) > 0.01;
+
+    if (paidMismatch || statusMismatch || outstandingMissing || outstandingMismatch) {
+      if (!dryRun) {
+        const ref = doc(db, COLLECTIONS.TRANSACTIONS, docSnap.id);
+        currentBatch.update(ref, {
+          amountPaid: correctPaid,
+          outstandingAmount: correctOutstanding,
+          paymentStatus: correctStatus,
+          updatedAt: Timestamp.now(),
+        });
+        batchCount++;
+
+        // Firestore batch limit is 500
+        if (batchCount >= 490) {
+          await currentBatch.commit();
+          currentBatch = writeBatch(db);
+          batchCount = 0;
+        }
+      }
+
+      fixed++;
+      details.push({
+        id: docSnap.id,
+        number: data.transactionNumber || docSnap.id,
+        type: data.type,
+        was: `${currentStatus} (paid: ${currentPaid.toFixed(2)})`,
+        now: `${correctStatus} (paid: ${correctPaid.toFixed(2)})`,
+      });
+    }
+  }
+
+  if (!dryRun && batchCount > 0) {
+    await currentBatch.commit();
+  }
+
+  logger.info('Payment status reconciliation complete', { checked, fixed, dryRun });
+  return { checked, fixed, details };
+}
