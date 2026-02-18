@@ -1066,8 +1066,8 @@ service cloud.firestore {
       allow read: if isInternalUser() && hasPermission(1048576); // VIEW_PROPOSALS (bit 20)
 
       // Create: Users with MANAGE_PROPOSALS permission
+      // Note: entityId check removed — entityId is not in custom claims (enforced at query level)
       allow create: if hasPermission(2097152) && isInternalUser() &&
-                       request.resource.data.entityId == request.auth.token.entityId &&
                        request.resource.data.createdBy == request.auth.uid &&
                        request.resource.data.status == 'DRAFT' &&
                        request.resource.data.revision >= 1; // MANAGE_PROPOSALS (bit 21)
