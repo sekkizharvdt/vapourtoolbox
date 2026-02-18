@@ -24,8 +24,10 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  TextField,
   Breadcrumbs,
   Link,
+  InputAdornment,
 } from '@mui/material';
 import {
   Visibility as ViewIcon,
@@ -35,6 +37,7 @@ import {
   Payment as PaymentIcon,
   Home as HomeIcon,
   AccountBalance as DirectPaymentIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
@@ -98,6 +101,7 @@ export default function PaymentsPage() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [filterMonth, setFilterMonth] = useState<string>('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
   const monthOptions = useMemo(() => getMonthOptions(), []);
 
   const canManage = hasPermission(claims?.permissions || 0, PERMISSION_FLAGS.MANAGE_ACCOUNTING);
@@ -185,7 +189,7 @@ export default function PaymentsPage() {
     setEditingPayment(null);
   };
 
-  // Filter payments by type and month
+  // Filter payments by type, month, and search term
   const filteredPayments = payments.filter((payment) => {
     // Filter by type
     let matchesType = true;
@@ -205,7 +209,16 @@ export default function PaymentsPage() {
       matchesMonth = paymentYearMonth === filterMonth;
     }
 
-    return matchesType && matchesMonth;
+    // Filter by search term
+    const matchesSearch =
+      searchTerm === '' ||
+      payment.transactionNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.entityName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.chequeNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.upiTransactionId?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    return matchesType && matchesMonth && matchesSearch;
   });
 
   const handleChangePage = (_event: unknown, newPage: number) => {
@@ -295,6 +308,24 @@ export default function PaymentsPage() {
           <ToggleButton value="direct">Direct Payments</ToggleButton>
         </ToggleButtonGroup>
 
+        <TextField
+          size="small"
+          placeholder="Search by number, entity, reference..."
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setPage(0);
+          }}
+          sx={{ minWidth: 300 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          }}
+        />
+
         <FormControl size="small" sx={{ minWidth: 180 }}>
           <InputLabel>Month</InputLabel>
           <Select
@@ -314,9 +345,16 @@ export default function PaymentsPage() {
           </Select>
         </FormControl>
 
-        {filterMonth !== 'ALL' && (
-          <Button size="small" onClick={() => setFilterMonth('ALL')}>
-            Clear Filter
+        {(filterMonth !== 'ALL' || searchTerm) && (
+          <Button
+            size="small"
+            onClick={() => {
+              setFilterMonth('ALL');
+              setSearchTerm('');
+              setPage(0);
+            }}
+          >
+            Clear Filters
           </Button>
         )}
       </Stack>

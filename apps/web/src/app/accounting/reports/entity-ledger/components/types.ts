@@ -1,4 +1,4 @@
-import type { BaseTransaction } from '@vapour/types';
+import type { BaseTransaction, PaymentAllocation } from '@vapour/types';
 
 export interface EntityTransaction extends BaseTransaction {
   entityId: string;
@@ -17,6 +17,16 @@ export interface EntityTransaction extends BaseTransaction {
   // Journal entry: entity-specific debit/credit computed during loading
   _journalDebit?: number;
   _journalCredit?: number;
+  // Payment allocation arrays (present on payment transactions)
+  invoiceAllocations?: PaymentAllocation[];
+  billAllocations?: PaymentAllocation[];
+}
+
+/** Cross-reference entry: a payment applied to a specific bill/invoice */
+export interface AllocationRef {
+  paymentNumber: string;
+  paymentDate: Date | string | { toDate: () => Date } | null;
+  allocatedAmount: number;
 }
 
 export interface AgingBucket {

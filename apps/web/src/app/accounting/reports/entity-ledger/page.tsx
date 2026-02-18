@@ -39,6 +39,7 @@ import {
   TransactionsTable,
   EntityInfoCard,
 } from './components';
+import type { AllocationRef } from './components/types';
 
 // Helper to get fiscal year start (April 1st)
 function getFiscalYearStart(date: Date = new Date()): Date {
@@ -407,6 +408,33 @@ function EntityLedgerInner() {
     return sorted;
   }, [periodTransactions, filterType]);
 
+  // Build cross-reference map: billId/invoiceId → payments that allocated to it
+  const allocationMap = useMemo(() => {
+    const map = new Map<string, AllocationRef[]>();
+
+    for (const txn of periodTransactions) {
+      const allocations =
+        txn.type === 'CUSTOMER_PAYMENT'
+          ? txn.invoiceAllocations
+          : txn.type === 'VENDOR_PAYMENT'
+            ? txn.billAllocations
+            : undefined;
+
+      if (!allocations?.length) continue;
+
+      for (const alloc of allocations) {
+        const existing = map.get(alloc.invoiceId) || [];
+        existing.push({
+          paymentNumber: txn.transactionNumber,
+          paymentDate: txn.date,
+          allocatedAmount: alloc.allocatedAmount,
+        });
+        map.set(alloc.invoiceId, existing);
+      }
+    }
+    return map;
+  }, [periodTransactions]);
+
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
@@ -611,6 +639,7 @@ function EntityLedgerInner() {
               onPageChange={handleChangePage}
               onRowsPerPageChange={handleChangeRowsPerPage}
               openingBalance={openingBalance}
+              allocationMap={allocationMap}
             />
           )}
         </>
