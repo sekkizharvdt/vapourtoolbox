@@ -172,6 +172,42 @@ export function RecordCustomerPaymentDialog({
           }
         });
 
+        // When editing: restore invoices this payment is allocated to.
+        // Their Firestore outstanding already reflects this payment's allocation,
+        // so we add it back to show the "effective outstanding as if this payment didn't exist".
+        if (editingPayment?.invoiceAllocations?.length) {
+          const savedMap = new Map(
+            editingPayment.invoiceAllocations
+              .filter((a) => !isOpeningBalanceAllocation(a) && a.allocatedAmount > 0)
+              .map((a) => [a.invoiceId, a])
+          );
+          const fetchedInvoiceIds = new Set(invoices.map((inv) => inv.id));
+
+          // Adjust outstanding for invoices already in the list
+          for (const invoice of invoices) {
+            const saved = savedMap.get(invoice.id!);
+            if (saved) {
+              // Increase the outstanding back by this payment's allocation
+              // so calculateOutstandingINR returns the correct effective amount
+              invoice.outstandingAmount =
+                (invoice.outstandingAmount ?? calculateOutstandingINR(invoice)) +
+                saved.allocatedAmount;
+            }
+          }
+
+          // Add invoices not in the list (fully paid by this payment)
+          for (const [invoiceId, saved] of savedMap) {
+            if (!fetchedInvoiceIds.has(invoiceId)) {
+              invoices.push({
+                id: invoiceId,
+                transactionNumber: saved.invoiceNumber,
+                totalAmount: saved.allocatedAmount,
+                outstandingAmount: saved.allocatedAmount,
+              } as CustomerInvoice);
+            }
+          }
+        }
+
         // Calculate remaining opening balance (subtract already-allocated amounts from other payments)
         let remainingOpeningBalance = 0;
         if (entityOpeningBalance > 0) {
@@ -216,7 +252,12 @@ export function RecordCustomerPaymentDialog({
 
         // Add real invoice allocations
         for (const invoice of invoices) {
-          const outstandingInINR = calculateOutstandingINR(invoice);
+          // Use pre-adjusted outstandingAmount if set (from edit-mode restoration above),
+          // otherwise calculate from invoice data
+          const outstandingInINR =
+            invoice.outstandingAmount !== undefined && editingPayment?.invoiceAllocations?.length
+              ? invoice.outstandingAmount
+              : calculateOutstandingINR(invoice);
           allAllocations.push({
             invoiceId: invoice.id!,
             invoiceNumber: invoice.transactionNumber || '',
@@ -224,6 +265,20 @@ export function RecordCustomerPaymentDialog({
             allocatedAmount: 0,
             remainingAmount: outstandingInINR,
           });
+        }
+
+        // If editing, restore saved allocation amounts
+        if (editingPayment?.invoiceAllocations?.length) {
+          const savedMap = new Map(
+            editingPayment.invoiceAllocations.map((a) => [a.invoiceId, a.allocatedAmount])
+          );
+          for (const alloc of allAllocations) {
+            const savedAmount = savedMap.get(alloc.invoiceId);
+            if (savedAmount !== undefined && savedAmount > 0) {
+              alloc.allocatedAmount = Math.min(savedAmount, alloc.originalAmount);
+              alloc.remainingAmount = alloc.originalAmount - alloc.allocatedAmount;
+            }
+          }
         }
 
         setOutstandingInvoices(allInvoices);
@@ -235,6 +290,8 @@ export function RecordCustomerPaymentDialog({
     }
 
     fetchOutstandingInvoices();
+    // editingPayment?.id is sufficient — when the payment changes, the id changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entityId, entityOpeningBalance, editingPayment?.id]);
 
   // Reset form when dialog opens/closes

@@ -121,6 +121,40 @@ export function RecordVendorPaymentDialog({
           return getTime(a.date) - getTime(b.date);
         });
 
+        // When editing: restore bills this payment is allocated to.
+        // Their Firestore outstanding already reflects this payment's allocation,
+        // so we add it back to show the "effective outstanding as if this payment didn't exist".
+        if (editingPayment?.billAllocations?.length) {
+          const savedMap = new Map(
+            editingPayment.billAllocations
+              .filter((a) => !isOpeningBalanceAllocation(a) && a.allocatedAmount > 0)
+              .map((a) => [a.invoiceId, a])
+          );
+          const fetchedBillIds = new Set(bills.map((b) => b.id));
+
+          // Adjust outstanding for bills already in the list
+          for (const bill of bills) {
+            const saved = savedMap.get(bill.id!);
+            if (saved) {
+              bill.outstandingAmount = (bill.outstandingAmount ?? 0) + saved.allocatedAmount;
+              totalOutstandingAmount += saved.allocatedAmount;
+            }
+          }
+
+          // Add bills not in the list (fully paid by this payment, so outstanding=0 in Firestore)
+          for (const [invoiceId, saved] of savedMap) {
+            if (!fetchedBillIds.has(invoiceId)) {
+              bills.push({
+                id: invoiceId,
+                transactionNumber: saved.invoiceNumber,
+                totalAmount: saved.allocatedAmount,
+                outstandingAmount: saved.allocatedAmount,
+              } as VendorBill);
+              totalOutstandingAmount += saved.allocatedAmount;
+            }
+          }
+        }
+
         // Calculate remaining opening balance (subtract already-allocated amounts from other payments)
         let remainingOpeningBalance = 0;
         if (entityOpeningBalance > 0) {
@@ -177,6 +211,20 @@ export function RecordVendorPaymentDialog({
           });
         }
 
+        // If editing, restore saved allocation amounts
+        if (editingPayment?.billAllocations?.length) {
+          const savedMap = new Map(
+            editingPayment.billAllocations.map((a) => [a.invoiceId, a.allocatedAmount])
+          );
+          for (const alloc of allAllocations) {
+            const savedAmount = savedMap.get(alloc.invoiceId);
+            if (savedAmount !== undefined && savedAmount > 0) {
+              alloc.allocatedAmount = Math.min(savedAmount, alloc.originalAmount);
+              alloc.remainingAmount = alloc.originalAmount - alloc.allocatedAmount;
+            }
+          }
+        }
+
         setOutstandingBills(allBills);
         setTotalOutstanding(totalOutstandingAmount);
         setAllocations(allAllocations);
@@ -188,6 +236,8 @@ export function RecordVendorPaymentDialog({
     }
 
     fetchOutstandingBills();
+    // editingPayment?.id is sufficient — when the payment changes, the id changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entityId, entityOpeningBalance, editingPayment?.id]);
 
   // Calculate TDS when section changes
