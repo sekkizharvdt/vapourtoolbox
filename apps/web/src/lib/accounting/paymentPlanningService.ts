@@ -209,7 +209,7 @@ async function getOutstandingInvoices(
   for (const docSnap of snapshot.docs) {
     const data = docSnap.data();
     if (data.isDeleted) continue; // Skip soft-deleted transactions
-    const dueDate = data.dueDate?.toDate?.() ?? data.date?.toDate?.() ?? today;
+    const dueDate = data.dueDate?.toDate?.() ?? data.date?.toDate?.();
     const amount = (data.totalAmount ?? data.amount ?? 0) - (data.paidAmount ?? 0);
 
     if (amount <= 0) continue;
@@ -260,7 +260,7 @@ async function getOutstandingBills(
   for (const docSnap of snapshot.docs) {
     const data = docSnap.data();
     if (data.isDeleted) continue; // Skip soft-deleted transactions
-    const dueDate = data.dueDate?.toDate?.() ?? data.date?.toDate?.() ?? today;
+    const dueDate = data.dueDate?.toDate?.() ?? data.date?.toDate?.();
     const amount = (data.totalAmount ?? data.amount ?? 0) - (data.paidAmount ?? 0);
 
     if (amount <= 0) continue;

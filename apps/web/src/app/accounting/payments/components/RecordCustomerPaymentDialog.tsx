@@ -505,7 +505,7 @@ export function RecordCustomerPaymentDialog({
         transactionNumber: transactionNumber || '',
         entityId,
         entityName,
-        paymentDate,
+        paymentDate: Timestamp.fromDate(new Date(paymentDate)),
         paymentMethod,
         invoiceAllocations: validAllocations, // Store full array (including opening balance)
         depositedToBankAccountId: bankAccountId || '', // Required field
