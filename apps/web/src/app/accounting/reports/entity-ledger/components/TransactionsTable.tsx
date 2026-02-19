@@ -218,7 +218,7 @@ export function TransactionsTable({
                         </IconButton>
                       )}
                     </TableCell>
-                    <TableCell>{formatDate(txn.invoiceDate || txn.billDate || txn.date)}</TableCell>
+                    <TableCell>{formatDate(txn.date)}</TableCell>
                     <TableCell>
                       <Chip
                         label={getTransactionTypeLabel(txn.type)}

@@ -763,14 +763,14 @@ export default function BillsPage() {
             vendor: billForAsset.entityName ?? undefined,
             vendorId: billForAsset.entityId ?? undefined,
             purchaseAmount: billForAsset.subtotal,
-            purchaseDate: billForAsset.billDate
-              ? typeof billForAsset.billDate === 'object' && 'toDate' in billForAsset.billDate
-                ? (billForAsset.billDate as unknown as { toDate: () => Date })
+            purchaseDate: billForAsset.date
+              ? typeof billForAsset.date === 'object' && 'toDate' in billForAsset.date
+                ? (billForAsset.date as unknown as { toDate: () => Date })
                     .toDate()
                     .toISOString()
                     .slice(0, 10)
-                : billForAsset.billDate instanceof Date
-                  ? billForAsset.billDate.toISOString().slice(0, 10)
+                : billForAsset.date instanceof Date
+                  ? billForAsset.date.toISOString().slice(0, 10)
                   : undefined
               : undefined,
             sourceBillId: billForAsset.id,

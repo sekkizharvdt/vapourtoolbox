@@ -747,10 +747,11 @@ export async function getOutstandingBillsForProject(
 
   let bills: VendorBill[] = snapshot.docs.map((docSnap) => {
     const data = docSnap.data() as Omit<VendorBill, 'id'>;
+    const rawBillDate = data.billDate ?? data.date;
     return {
       id: docSnap.id,
       ...data,
-      billDate: data.billDate instanceof Timestamp ? data.billDate.toDate() : data.billDate,
+      billDate: rawBillDate instanceof Timestamp ? rawBillDate.toDate() : rawBillDate,
       dueDate: data.dueDate instanceof Timestamp ? data.dueDate.toDate() : data.dueDate,
     };
   });

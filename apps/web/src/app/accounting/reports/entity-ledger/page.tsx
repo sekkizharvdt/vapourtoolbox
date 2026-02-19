@@ -218,7 +218,7 @@ function EntityLedgerInner() {
     const period: EntityTransaction[] = [];
 
     allTransactions.forEach((txn) => {
-      const txnDate = toDate(txn.date) || toDate(txn.invoiceDate) || toDate(txn.billDate);
+      const txnDate = toDate(txn.date);
       if (!txnDate) {
         period.push(txn); // If no date, include in period
         return;

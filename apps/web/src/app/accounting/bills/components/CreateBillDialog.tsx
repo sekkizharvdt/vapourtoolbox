@@ -195,6 +195,7 @@ export function CreateBillDialog({
       const bill = {
         type: 'VENDOR_BILL' as const,
         date: billDate ? Timestamp.fromDate(billDate) : Timestamp.now(),
+        billDate: billDate ? Timestamp.fromDate(billDate) : Timestamp.now(),
         dueDate: billDueDate ? Timestamp.fromDate(billDueDate) : Timestamp.now(),
         entityId: formState.entityId,
         entityName: formState.entityName,
