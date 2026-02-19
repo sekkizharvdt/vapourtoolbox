@@ -8,6 +8,7 @@ import { collection, doc, addDoc, updateDoc, Timestamp, type Firestore } from 'f
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { Proposal, Project, CharterBudgetLineItem } from '@vapour/types';
+import { deriveIncludedByClassification, deriveExclusions } from './proposalService';
 
 const logger = createLogger({ context: 'projectConversion' });
 
@@ -47,34 +48,35 @@ export async function convertProposalToProject(
       proposal.deliveryPeriod.durationInWeeks
     );
 
-    // Generate budget line items from proposal scope of supply
+    // Generate budget line items from unified scope matrix supply items
     const now = Timestamp.now();
-    const budgetLineItems: CharterBudgetLineItem[] = (proposal.scopeOfSupply || []).map(
-      (item, idx) => ({
-        id: `budget-${idx + 1}`,
-        lineNumber: idx + 1,
-        description: item.itemName || item.description || `Line Item ${idx + 1}`,
-        executionType: 'IN_HOUSE' as const,
-        estimatedCost: item.totalPrice?.amount || 0,
-        currency: 'INR' as const,
-        status: 'PLANNED' as const,
-        scopeLinkage: {
-          type: 'IN_SCOPE_ITEM' as const,
-          id: `scope-${idx}`,
-          description: item.description,
-        },
-        createdAt: now,
-        updatedAt: now,
-        createdBy: userId,
-      })
-    );
+    const supplyItems = proposal.unifiedScopeMatrix
+      ? deriveIncludedByClassification(proposal.unifiedScopeMatrix).supply
+      : [];
+    const budgetLineItems: CharterBudgetLineItem[] = supplyItems.map((item, idx) => ({
+      id: `budget-${idx + 1}`,
+      lineNumber: idx + 1,
+      description: item.name || `Line Item ${idx + 1}`,
+      executionType: 'IN_HOUSE' as const,
+      estimatedCost: item.estimationSummary?.totalCost?.amount || 0,
+      currency: 'INR' as const,
+      status: 'PLANNED' as const,
+      scopeLinkage: {
+        type: 'IN_SCOPE_ITEM' as const,
+        id: item.id,
+        description: item.description,
+      },
+      createdAt: now,
+      updatedAt: now,
+      createdBy: userId,
+    }));
 
     // Create project
     const newProject: Omit<Project, 'id'> = {
       // Basic Info
       code: projectNumber,
       name: proposal.title,
-      description: proposal.scopeOfWork.summary,
+      description: proposal.scopeOfWork?.summary || proposal.title,
       status: 'PLANNING',
       priority: 'MEDIUM',
 
@@ -114,9 +116,9 @@ export async function convertProposalToProject(
         endDate: estimatedEndDate,
       },
 
-      // Budget (from proposal pricing)
+      // Budget (prefer pricingConfig, fall back to legacy pricing)
       budget: {
-        estimated: proposal.pricing.totalAmount,
+        estimated: proposal.pricingConfig?.totalPrice ?? proposal.pricing.totalAmount,
         currency: 'INR',
       },
 
@@ -129,14 +131,14 @@ export async function convertProposalToProject(
           approvalStatus: 'DRAFT',
           budgetAuthority: userName,
         },
-        objectives: proposal.scopeOfWork.objectives.map((obj, idx) => ({
+        objectives: (proposal.scopeOfWork?.objectives || []).map((obj, idx) => ({
           id: `obj-${idx}`,
           description: obj,
           successCriteria: [],
           status: 'NOT_STARTED',
           priority: 'MEDIUM',
         })),
-        deliverables: proposal.scopeOfWork.deliverables.map((del, idx) => ({
+        deliverables: (proposal.scopeOfWork?.deliverables || []).map((del, idx) => ({
           id: `del-${idx}`,
           name: del,
           description: del,
@@ -152,12 +154,14 @@ export async function convertProposalToProject(
           description: proposal.deliveryPeriod.description,
         },
         scope: {
-          inScope: proposal.scopeOfWork.inclusions || [],
-          outOfScope: proposal.scopeOfWork.exclusions || [],
-          assumptions: proposal.scopeOfWork.assumptions || [],
+          inScope: proposal.scopeOfWork?.inclusions || [],
+          outOfScope: proposal.unifiedScopeMatrix
+            ? deriveExclusions(proposal.unifiedScopeMatrix)
+            : proposal.scopeOfWork?.exclusions || [],
+          assumptions: proposal.scopeOfWork?.assumptions || [],
           constraints: [],
         },
-        // Budget line items from proposal scope of supply
+        // Budget line items from unified scope matrix
         budgetLineItems: budgetLineItems.length > 0 ? budgetLineItems : undefined,
         risks: [],
         stakeholders: [

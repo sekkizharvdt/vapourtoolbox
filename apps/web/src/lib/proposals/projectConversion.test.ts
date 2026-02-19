@@ -48,6 +48,16 @@ jest.mock('@vapour/logger', () => ({
   }),
 }));
 
+// Mock auth (needed by proposalService which is imported by projectConversion)
+jest.mock('@/lib/auth', () => ({
+  requirePermission: jest.fn(),
+}));
+
+// Mock typeHelpers (needed by proposalService)
+jest.mock('@/lib/firebase/typeHelpers', () => ({
+  docToTyped: jest.fn(),
+}));
+
 import { convertProposalToProject, canConvertToProject } from './projectConversion';
 import type { Firestore } from 'firebase/firestore';
 import type { Proposal, ProposalStatus } from '@vapour/types';
@@ -58,77 +68,94 @@ describe('projectConversion', () => {
   const mockUserName = 'Test User';
 
   // Mock proposal factory - cast to Proposal for test compatibility
-  const createMockProposal = (overrides: Partial<Proposal> = {}): Proposal => ({
-    id: 'proposal-123',
-    proposalNumber: 'PROP-26-01',
-    revision: 1,
-    entityId: 'entity-123',
-    enquiryId: 'enquiry-123',
-    enquiryNumber: 'ENQ-26-01',
-    clientId: 'client-123',
-    clientName: 'Test Client',
-    clientContactPerson: 'John Doe',
-    clientEmail: 'john@example.com',
-    clientAddress: '123 Test St',
-    title: 'Test Proposal',
-    validityDate: { seconds: Date.now() / 1000 + 86400 * 30, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0, type: 'timestamp' }), valueOf: () => 'timestamp' },
-    preparationDate: { seconds: Date.now() / 1000, nanoseconds: 0, toDate: () => new Date(), toMillis: () => Date.now(), isEqual: () => true, toJSON: () => ({ seconds: 0, nanoseconds: 0, type: 'timestamp' }), valueOf: () => 'timestamp' },
-    status: 'ACCEPTED' as ProposalStatus,
-    isLatestRevision: true,
-    scopeOfWork: {
-      summary: 'Test scope summary',
-      objectives: ['Objective 1', 'Objective 2'],
-      deliverables: ['Deliverable 1', 'Deliverable 2'],
-      inclusions: ['Inclusion 1'],
-      exclusions: ['Exclusion 1'],
-      assumptions: ['Assumption 1'],
-    },
-    scopeOfSupply: [
-      {
-        id: 'item-1',
-        itemNumber: '1',
-        itemName: 'Test Item 1',
-        category: 'EQUIPMENT',
-        description: 'Test item description',
-        quantity: 10,
-        unit: 'Nos',
-        totalPrice: { amount: 50000, currency: 'INR' },
+  const createMockProposal = (overrides: Partial<Proposal> = {}): Proposal =>
+    ({
+      id: 'proposal-123',
+      proposalNumber: 'PROP-26-01',
+      revision: 1,
+      entityId: 'entity-123',
+      enquiryId: 'enquiry-123',
+      enquiryNumber: 'ENQ-26-01',
+      clientId: 'client-123',
+      clientName: 'Test Client',
+      clientContactPerson: 'John Doe',
+      clientEmail: 'john@example.com',
+      clientAddress: '123 Test St',
+      title: 'Test Proposal',
+      validityDate: {
+        seconds: Date.now() / 1000 + 86400 * 30,
+        nanoseconds: 0,
+        toDate: () => new Date(),
+        toMillis: () => Date.now(),
+        isEqual: () => true,
+        toJSON: () => ({ seconds: 0, nanoseconds: 0, type: 'timestamp' }),
+        valueOf: () => 'timestamp',
       },
-      {
-        id: 'item-2',
-        itemNumber: '2',
-        itemName: 'Test Item 2',
-        category: 'EQUIPMENT',
-        description: 'Another item',
-        quantity: 5,
-        unit: 'Nos',
-        totalPrice: { amount: 30000, currency: 'INR' },
+      preparationDate: {
+        seconds: Date.now() / 1000,
+        nanoseconds: 0,
+        toDate: () => new Date(),
+        toMillis: () => Date.now(),
+        isEqual: () => true,
+        toJSON: () => ({ seconds: 0, nanoseconds: 0, type: 'timestamp' }),
+        valueOf: () => 'timestamp',
       },
-    ],
-    deliveryPeriod: {
-      durationInWeeks: 8,
-      description: 'Eight weeks delivery',
-      milestones: [],
-    },
-    pricing: {
-      currency: 'INR',
-      lineItems: [],
-      subtotal: { amount: 100000, currency: 'INR' },
-      taxItems: [],
-      totalAmount: { amount: 118000, currency: 'INR' },
-      paymentTerms: '50% advance',
-    },
-    terms: {
-      warranty: '12 months',
-    },
-    approvalHistory: [],
-    attachments: [],
-    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
-    createdBy: mockUserId,
-    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
-    updatedBy: mockUserId,
-    ...overrides,
-  }) as unknown as Proposal;
+      status: 'ACCEPTED' as ProposalStatus,
+      isLatestRevision: true,
+      scopeOfWork: {
+        summary: 'Test scope summary',
+        objectives: ['Objective 1', 'Objective 2'],
+        deliverables: ['Deliverable 1', 'Deliverable 2'],
+        inclusions: ['Inclusion 1'],
+        exclusions: ['Exclusion 1'],
+        assumptions: ['Assumption 1'],
+      },
+      scopeOfSupply: [
+        {
+          id: 'item-1',
+          itemNumber: '1',
+          itemName: 'Test Item 1',
+          category: 'EQUIPMENT',
+          description: 'Test item description',
+          quantity: 10,
+          unit: 'Nos',
+          totalPrice: { amount: 50000, currency: 'INR' },
+        },
+        {
+          id: 'item-2',
+          itemNumber: '2',
+          itemName: 'Test Item 2',
+          category: 'EQUIPMENT',
+          description: 'Another item',
+          quantity: 5,
+          unit: 'Nos',
+          totalPrice: { amount: 30000, currency: 'INR' },
+        },
+      ],
+      deliveryPeriod: {
+        durationInWeeks: 8,
+        description: 'Eight weeks delivery',
+        milestones: [],
+      },
+      pricing: {
+        currency: 'INR',
+        lineItems: [],
+        subtotal: { amount: 100000, currency: 'INR' },
+        taxItems: [],
+        totalAmount: { amount: 118000, currency: 'INR' },
+        paymentTerms: '50% advance',
+      },
+      terms: {
+        warranty: '12 months',
+      },
+      approvalHistory: [],
+      attachments: [],
+      createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+      createdBy: mockUserId,
+      updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+      updatedBy: mockUserId,
+      ...overrides,
+    }) as unknown as Proposal;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -380,31 +407,53 @@ describe('projectConversion', () => {
       expect(projectData?.charter?.scope?.assumptions).toEqual(['Assumption 1']);
     });
 
-    it('should generate budget line items from scope of supply', async () => {
+    it('should generate budget line items from unified scope matrix supply items', async () => {
       const proposal = createMockProposal({
-        scopeOfSupply: [
-          {
-            id: 'item-1',
-            itemNumber: '1',
-            itemName: 'Equipment A',
-            category: 'EQUIPMENT',
-            description: 'Main equipment',
-            quantity: 5,
-            unit: 'Nos',
-            totalPrice: { amount: 100000, currency: 'INR' },
-          },
-          {
-            id: 'item-2',
-            itemNumber: '2',
-            itemName: 'Component B',
-            category: 'MATERIAL',
-            description: 'Supporting component',
-            quantity: 10,
-            unit: 'Nos',
-            totalPrice: { amount: 50000, currency: 'INR' },
-          },
-        ],
-      });
+        unifiedScopeMatrix: {
+          categories: [
+            {
+              id: 'cat-1',
+              categoryKey: 'MANUFACTURED',
+              label: 'Manufactured Components',
+              displayType: 'MATRIX',
+              items: [
+                {
+                  id: 'item-1',
+                  itemNumber: '1',
+                  name: 'Equipment A',
+                  description: 'Main equipment',
+                  classification: 'SUPPLY',
+                  included: true,
+                  estimationSummary: {
+                    totalCost: { amount: 100000, currency: 'INR' },
+                    bomCount: 1,
+                  },
+                  order: 0,
+                },
+                {
+                  id: 'item-2',
+                  itemNumber: '2',
+                  name: 'Component B',
+                  description: 'Supporting component',
+                  classification: 'SUPPLY',
+                  included: true,
+                  estimationSummary: { totalCost: { amount: 50000, currency: 'INR' }, bomCount: 1 },
+                  order: 1,
+                },
+                {
+                  id: 'item-3',
+                  itemNumber: '3',
+                  name: 'Design Review',
+                  classification: 'SERVICE',
+                  included: true,
+                  order: 2,
+                },
+              ],
+              order: 0,
+            },
+          ],
+        },
+      } as Partial<Proposal>);
 
       mockAddDoc.mockResolvedValueOnce({ id: 'new-project-123' });
       mockUpdateDoc.mockResolvedValueOnce(undefined);
@@ -412,6 +461,7 @@ describe('projectConversion', () => {
       await convertProposalToProject(mockDb, 'proposal-123', mockUserId, mockUserName, proposal);
 
       const projectData = mockAddDoc.mock.calls[0]?.[1];
+      // Only SUPPLY items become budget line items (not SERVICE)
       expect(projectData?.charter?.budgetLineItems).toHaveLength(2);
       expect(projectData?.charter?.budgetLineItems?.[0]?.description).toBe('Equipment A');
       expect(projectData?.charter?.budgetLineItems?.[0]?.estimatedCost).toBe(100000);
@@ -468,8 +518,8 @@ describe('projectConversion', () => {
       ).rejects.toThrow('Proposal has already been converted to a project');
     });
 
-    it('should handle proposal with empty scope of supply', async () => {
-      const proposal = createMockProposal({ scopeOfSupply: [] });
+    it('should handle proposal without unified scope matrix', async () => {
+      const proposal = createMockProposal({ unifiedScopeMatrix: undefined } as Partial<Proposal>);
 
       mockAddDoc.mockResolvedValueOnce({ id: 'new-project-123' });
       mockUpdateDoc.mockResolvedValueOnce(undefined);
@@ -525,21 +575,31 @@ describe('projectConversion', () => {
       expect(projectData?.tags).toEqual([]);
     });
 
-    it('should handle scope of supply items with missing totalPrice', async () => {
+    it('should handle supply items with no estimation summary', async () => {
       const proposal = createMockProposal({
-        scopeOfSupply: [
-          {
-            id: 'item-1',
-            itemNumber: '1',
-            itemName: 'Item without price',
-            category: 'EQUIPMENT',
-            description: 'No price set',
-            quantity: 5,
-            unit: 'Nos',
-            totalPrice: { amount: 0, currency: 'INR' },
-          },
-        ],
-      });
+        unifiedScopeMatrix: {
+          categories: [
+            {
+              id: 'cat-1',
+              categoryKey: 'MANUFACTURED',
+              label: 'Manufactured Components',
+              displayType: 'MATRIX',
+              items: [
+                {
+                  id: 'item-1',
+                  itemNumber: '1',
+                  name: 'Item without estimation',
+                  classification: 'SUPPLY',
+                  included: true,
+                  order: 0,
+                  // No estimationSummary
+                },
+              ],
+              order: 0,
+            },
+          ],
+        },
+      } as Partial<Proposal>);
 
       mockAddDoc.mockResolvedValueOnce({ id: 'new-project-123' });
       mockUpdateDoc.mockResolvedValueOnce(undefined);

@@ -55,7 +55,7 @@ import {
 import { EnquiryDocumentUpload } from '../components/EnquiryDocumentUpload';
 import { BidDecisionDialog } from '../components/BidDecisionDialog';
 import { CreateProposalDialog } from '../components/CreateProposalDialog';
-import { formatDate } from '@/lib/utils/formatters';
+import { formatDate, formatCurrency } from '@/lib/utils/formatters';
 
 export default function EnquiryDetailClient() {
   const pathname = usePathname();
@@ -279,10 +279,10 @@ export default function EnquiryDetailClient() {
                   </Typography>
                   <Typography variant="body1">
                     {enquiry.estimatedBudget
-                      ? new Intl.NumberFormat('en-IN', {
-                          style: 'currency',
-                          currency: enquiry.estimatedBudget.currency,
-                        }).format(enquiry.estimatedBudget.amount)
+                      ? formatCurrency(
+                          enquiry.estimatedBudget.amount,
+                          enquiry.estimatedBudget.currency
+                        )
                       : 'Not specified'}
                   </Typography>
                 </Grid>
@@ -405,7 +405,14 @@ export default function EnquiryDetailClient() {
           {enquiry.bidDecision && (
             <Card>
               <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    mb: 2,
+                  }}
+                >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {enquiry.bidDecision.decision === 'BID' ? (
                       <BidIcon color="success" />

@@ -1,135 +1,16 @@
 /**
  * Proposal Revision Management Service
  *
- * Handles creating new revisions of proposals while preserving history.
+ * Utilities for working with proposal revisions — latest revision lookup
+ * and revision comparison.
+ *
+ * Note: createProposalRevision and getProposalRevisions live in proposalService.ts
+ * as the canonical implementations (rule #16).
  */
 
-import {
-  collection,
-  doc,
-  addDoc,
-  getDoc,
-  query,
-  where,
-  getDocs,
-  orderBy,
-  Timestamp,
-  type Firestore,
-} from 'firebase/firestore';
-import { COLLECTIONS } from '@vapour/firebase';
-import { createLogger } from '@vapour/logger';
-import { docToTyped } from '@/lib/firebase/typeHelpers';
+import type { Firestore } from 'firebase/firestore';
 import type { Proposal } from '@vapour/types';
-
-const logger = createLogger({ context: 'proposalRevision' });
-
-/**
- * Create new revision of proposal
- *
- * Copies current proposal and increments revision number.
- * Original proposal is preserved for history.
- */
-export async function createProposalRevision(
-  db: Firestore,
-  proposalId: string,
-  userId: string,
-  _userName: string,
-  revisionReason?: string
-): Promise<string> {
-  try {
-    logger.info('Creating proposal revision', { proposalId, userId });
-
-    // Get current proposal
-    const proposalRef = doc(db, COLLECTIONS.PROPOSALS, proposalId);
-    const proposalSnap = await getDoc(proposalRef);
-
-    if (!proposalSnap.exists()) {
-      throw new Error('Proposal not found');
-    }
-
-    const proposalData = proposalSnap.data() as Omit<Proposal, 'id'>;
-    const currentProposal: Proposal = {
-      id: proposalSnap.id,
-      ...proposalData,
-    };
-
-    // BP-8: Validate revision chain integrity before creating new revision
-    if (typeof currentProposal.revision !== 'number' || currentProposal.revision < 0) {
-      throw new Error(`Invalid revision number on source proposal: ${currentProposal.revision}`);
-    }
-
-    // Create new revision
-    const newRevision: Omit<Proposal, 'id'> = {
-      ...currentProposal,
-      revision: currentProposal.revision + 1,
-      status: 'DRAFT',
-      submittedAt: undefined,
-      submittedByUserId: undefined,
-      submittedByUserName: undefined,
-      approvalHistory: [],
-      revisionReason,
-      previousRevisionId: currentProposal.id,
-      createdAt: Timestamp.now(),
-      createdBy: userId,
-      updatedAt: Timestamp.now(),
-      updatedBy: userId,
-    };
-
-    // Remove undefined values before sending to Firestore
-    const cleanedRevision = Object.fromEntries(
-      Object.entries(newRevision).filter(([, value]) => value !== undefined)
-    );
-
-    // Add new revision document
-    const newRevisionRef = await addDoc(collection(db, COLLECTIONS.PROPOSALS), cleanedRevision);
-
-    logger.info('Proposal revision created', {
-      originalId: proposalId,
-      newId: newRevisionRef.id,
-      revision: newRevision.revision,
-    });
-
-    return newRevisionRef.id;
-  } catch (error) {
-    logger.error('Error creating proposal revision', { proposalId, error });
-    throw error;
-  }
-}
-
-/**
- * Get all revisions of a proposal
- *
- * Returns all revisions ordered by revision number
- */
-export async function getProposalRevisions(
-  db: Firestore,
-  proposalNumber: string
-): Promise<Proposal[]> {
-  try {
-    const revisionsQuery = query(
-      collection(db, COLLECTIONS.PROPOSALS),
-      where('proposalNumber', '==', proposalNumber),
-      orderBy('revision', 'desc')
-    );
-
-    const snapshot = await getDocs(revisionsQuery);
-    const revisions: Proposal[] = [];
-
-    snapshot.forEach((doc) => {
-      revisions.push(docToTyped<Proposal>(doc.id, doc.data()));
-    });
-
-    logger.info('Fetched proposal revisions', {
-      proposalNumber,
-      count: revisions.length,
-    });
-
-    return revisions;
-  } catch (error) {
-    logger.error('Error fetching proposal revisions', { proposalNumber, error });
-    throw error;
-  }
-}
+import { getProposalRevisions } from './proposalService';
 
 /**
  * Get latest revision of a proposal
@@ -140,13 +21,8 @@ export async function getLatestRevision(
   db: Firestore,
   proposalNumber: string
 ): Promise<Proposal | null> {
-  try {
-    const revisions = await getProposalRevisions(db, proposalNumber);
-    return revisions.length > 0 ? revisions[0]! : null;
-  } catch (error) {
-    logger.error('Error fetching latest revision', { proposalNumber, error });
-    throw error;
-  }
+  const revisions = await getProposalRevisions(db, proposalNumber);
+  return revisions.length > 0 ? revisions[0]! : null;
 }
 
 /**
@@ -166,20 +42,22 @@ export function compareRevisions(
 } {
   const changes: string[] = [];
 
-  // Check pricing changes
-  const pricingChanged =
-    oldRevision.pricing.totalAmount.amount !== newRevision.pricing.totalAmount.amount;
+  // Check pricing changes (prefer pricingConfig, fall back to legacy pricing)
+  const oldTotal =
+    oldRevision.pricingConfig?.totalPrice?.amount ?? oldRevision.pricing?.totalAmount?.amount;
+  const newTotal =
+    newRevision.pricingConfig?.totalPrice?.amount ?? newRevision.pricing?.totalAmount?.amount;
+  const pricingChanged = oldTotal !== newTotal;
   if (pricingChanged) {
-    changes.push(
-      `Total amount changed from ${oldRevision.pricing.totalAmount.amount} to ${newRevision.pricing.totalAmount.amount}`
-    );
+    changes.push(`Total amount changed from ${oldTotal} to ${newTotal}`);
   }
 
-  // Check scope of supply changes
+  // Check scope changes (prefer unifiedScopeMatrix, fall back to scopeOfSupply)
   const scopeChanged =
-    JSON.stringify(oldRevision.scopeOfSupply) !== JSON.stringify(newRevision.scopeOfSupply);
+    JSON.stringify(oldRevision.unifiedScopeMatrix) !==
+    JSON.stringify(newRevision.unifiedScopeMatrix);
   if (scopeChanged) {
-    changes.push('Scope of supply modified');
+    changes.push('Scope matrix modified');
   }
 
   // Check terms changes

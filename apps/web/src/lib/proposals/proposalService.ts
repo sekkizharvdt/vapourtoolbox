@@ -32,12 +32,13 @@ import type {
   ProposalTemplate,
   CreateProposalTemplateInput,
   ListProposalTemplatesOptions,
-  ScopeItem,
   ProposalMilestone,
   UnifiedScopeMatrix,
   UnifiedScopeItem,
 } from '@vapour/types';
 import { MILESTONE_TAX_TYPE_LABELS } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
+import { requirePermission } from '@/lib/auth';
 
 const logger = createLogger({ context: 'proposalService' });
 
@@ -251,16 +252,8 @@ export async function createMinimalProposal(
         assumptions: [],
       },
 
-      // Empty scope of supply - will be filled via scope matrix
+      // Empty scope of supply
       scopeOfSupply: [],
-
-      // Initialize empty scope matrix
-      scopeMatrix: {
-        services: [],
-        supply: [],
-        exclusions: [],
-        isComplete: false,
-      },
 
       // Default delivery period
       deliveryPeriod: {
@@ -547,9 +540,17 @@ export async function updateProposal(
   db: Firestore,
   proposalId: string,
   input: UpdateProposalInput,
-  userId: string
+  userId: string,
+  userPermissions: number
 ): Promise<void> {
   try {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_PROPOSALS,
+      userId,
+      'update proposal'
+    );
+
     const updates: Record<string, unknown> = {
       ...input,
       updatedAt: Timestamp.now(),
@@ -557,7 +558,7 @@ export async function updateProposal(
     };
 
     // Deep-strip undefined values before sending to Firestore (Firestore doesn't accept undefined)
-    // Must be recursive because nested objects (e.g. scopeMatrix items) may have optional fields
+    // Must be recursive because nested objects (e.g. scope items) may have optional fields
     const cleanedUpdates = stripUndefinedDeep(updates);
 
     await updateDoc(doc(db, COLLECTIONS.PROPOSALS, proposalId), cleanedUpdates);
@@ -800,19 +801,8 @@ export async function cloneProposal(
               assumptions: [],
             },
       scopeOfSupply: input.copyScope !== false ? sourceProposal.scopeOfSupply : [],
-      scopeMatrix:
-        input.copyScope !== false && sourceProposal.scopeMatrix
-          ? {
-              services: sourceProposal.scopeMatrix.services || [],
-              supply: sourceProposal.scopeMatrix.supply || [],
-              exclusions: sourceProposal.scopeMatrix.exclusions || [],
-              isComplete: false, // Reset completion status
-              lastUpdatedAt: now,
-              lastUpdatedBy: userId,
-            }
-          : undefined,
 
-      // Also copy unified scope matrix if present
+      // Copy unified scope matrix if present
       unifiedScopeMatrix:
         input.copyScope !== false && sourceProposal.unifiedScopeMatrix
           ? {
@@ -894,17 +884,6 @@ export async function cloneProposal(
 // ============================================================================
 
 /**
- * Strip IDs and estimation data from scope items for template storage
- */
-function stripScopeItemForTemplate(
-  item: ScopeItem
-): Omit<ScopeItem, 'id' | 'itemNumber' | 'linkedBOMs' | 'estimationSummary'> {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { id, itemNumber, linkedBOMs, estimationSummary, ...rest } = item;
-  return rest;
-}
-
-/**
  * Create a proposal template from an existing proposal
  */
 export async function createProposalTemplate(
@@ -923,13 +902,12 @@ export async function createProposalTemplate(
       category: input.category,
       entityId: proposal.entityId,
 
-      // Copy scope matrix if requested
-      scopeMatrix:
-        input.includeScope !== false && proposal.scopeMatrix
+      // Copy unified scope matrix if requested
+      unifiedScopeMatrix:
+        input.includeScope !== false && proposal.unifiedScopeMatrix
           ? {
-              services: (proposal.scopeMatrix.services || []).map(stripScopeItemForTemplate),
-              supply: (proposal.scopeMatrix.supply || []).map(stripScopeItemForTemplate),
-              exclusions: (proposal.scopeMatrix.exclusions || []).map(stripScopeItemForTemplate),
+              ...proposal.unifiedScopeMatrix,
+              isComplete: false,
             }
           : undefined,
 

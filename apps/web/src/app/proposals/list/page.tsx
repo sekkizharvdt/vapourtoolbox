@@ -43,7 +43,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { listProposals } from '@/lib/proposals/proposalService';
 import type { Proposal, ProposalStatus } from '@vapour/types';
 import { Timestamp } from 'firebase/firestore';
-import { format } from 'date-fns';
+import { formatDate, formatCurrency } from '@/lib/utils/formatters';
 import { PERMISSION_FLAGS, hasPermission } from '@vapour/constants';
 
 const STATUS_OPTIONS = [
@@ -289,17 +289,13 @@ export default function ProposalListPage() {
                   </TableCell>
                   <TableCell>
                     {proposal.pricing?.totalAmount
-                      ? new Intl.NumberFormat('en-IN', {
-                          style: 'currency',
-                          currency: proposal.pricing.totalAmount.currency,
-                        }).format(proposal.pricing.totalAmount.amount)
+                      ? formatCurrency(
+                          proposal.pricing.totalAmount.amount,
+                          proposal.pricing.totalAmount.currency
+                        )
                       : '-'}
                   </TableCell>
-                  <TableCell>
-                    {proposal.createdAt?.toDate
-                      ? format(proposal.createdAt.toDate(), 'MMM d, yyyy')
-                      : '-'}
-                  </TableCell>
+                  <TableCell>{formatDate(proposal.createdAt)}</TableCell>
                   <TableActionCell
                     actions={[
                       {

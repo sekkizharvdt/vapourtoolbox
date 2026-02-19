@@ -17,15 +17,6 @@ import { TimestampFields, Money, CurrencyCode } from './common';
 export type ScopeItemType = 'SERVICE' | 'SUPPLY' | 'EXCLUSION';
 
 /**
- * Scope Item Type Labels
- */
-export const SCOPE_ITEM_TYPE_LABELS: Record<ScopeItemType, string> = {
-  SERVICE: 'Service',
-  SUPPLY: 'Supply',
-  EXCLUSION: 'Exclusion',
-};
-
-/**
  * Project Phase
  * Defines the phases of an EPC/manufacturing project lifecycle
  */
@@ -833,7 +824,6 @@ export interface UpdateProposalInput {
   validityDate?: Timestamp;
   scopeOfWork?: Partial<ScopeOfWork>;
   scopeOfSupply?: ProposalLineItem[];
-  scopeMatrix?: ScopeMatrix;
   unifiedScopeMatrix?: UnifiedScopeMatrix;
   deliveryPeriod?: Partial<DeliveryPeriod>;
   pricing?: Partial<Pricing>;
@@ -867,17 +857,6 @@ export interface ListProposalsOptions {
   startAfter?: string;
 }
 
-/**
- * Import BOM to Proposal Input
- */
-export interface ImportBOMToProposalInput {
-  bomId: string;
-  proposalId: string;
-  categoryMapping?: Record<string, ProposalLineItemCategory>; // Map BOM categories to proposal categories
-  includeServiceCosts?: boolean;
-  applyMargin?: number; // Default margin % to apply
-}
-
 // ============================================================================
 // Proposal Template Types
 // ============================================================================
@@ -896,11 +875,7 @@ export interface ProposalTemplate {
   entityId: string;
 
   // Template content
-  scopeMatrix?: {
-    services: Omit<ScopeItem, 'id' | 'itemNumber' | 'linkedBOMs' | 'estimationSummary'>[];
-    supply: Omit<ScopeItem, 'id' | 'itemNumber' | 'linkedBOMs' | 'estimationSummary'>[];
-    exclusions: Omit<ScopeItem, 'id' | 'itemNumber' | 'linkedBOMs' | 'estimationSummary'>[];
-  };
+  unifiedScopeMatrix?: UnifiedScopeMatrix;
   pricingDefaults?: {
     overheadPercent: number;
     contingencyPercent: number;

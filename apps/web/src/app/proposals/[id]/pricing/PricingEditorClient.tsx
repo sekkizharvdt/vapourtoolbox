@@ -47,7 +47,14 @@ import { getProposalById, updateProposal } from '@/lib/proposals/proposalService
 import { getBOMById } from '@/lib/bom/bomService';
 import { LoadingButton } from '@/components/common/LoadingButton';
 import { useToast } from '@/components/common/Toast';
-import type { Proposal, ProposalPricingConfig, ScopeItem, ScopeMatrix, Money } from '@vapour/types';
+import { formatCurrency as sharedFormatCurrency } from '@/lib/utils/formatters';
+import type {
+  Proposal,
+  ProposalPricingConfig,
+  UnifiedScopeItem,
+  UnifiedScopeMatrix,
+  Money,
+} from '@vapour/types';
 import { Timestamp } from 'firebase/firestore';
 import { createLogger } from '@vapour/logger';
 
@@ -66,7 +73,7 @@ export default function PricingEditorClient({
   const params = useParams();
   const proposalId = propId || (params.id as string);
   const db = useFirestore();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { toast } = useToast();
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
@@ -120,27 +127,32 @@ export default function PricingEditorClient({
     loadProposal();
   }, [db, proposalId]);
 
-  // Calculate estimation total from scope matrix
+  // Calculate estimation total from unified scope matrix
   const estimationBreakdown = useMemo(() => {
-    if (!proposal?.scopeMatrix) return { items: [], total: 0, currency: 'INR' as const };
+    if (!proposal?.unifiedScopeMatrix) return { items: [], total: 0, currency: 'INR' as const };
 
-    const allItems: { item: ScopeItem; type: 'SERVICE' | 'SUPPLY' }[] = [
-      ...(proposal.scopeMatrix.services || []).map((item) => ({ item, type: 'SERVICE' as const })),
-      ...(proposal.scopeMatrix.supply || []).map((item) => ({ item, type: 'SUPPLY' as const })),
-    ];
+    // Flatten all items from all categories
+    const allItems: { item: UnifiedScopeItem; classification: 'SERVICE' | 'SUPPLY' }[] = [];
+    for (const category of proposal.unifiedScopeMatrix.categories) {
+      for (const item of category.items) {
+        if (item.included) {
+          allItems.push({ item, classification: item.classification });
+        }
+      }
+    }
 
     let total = 0;
     let currency: 'INR' | 'USD' | 'EUR' | 'GBP' | 'SGD' | 'AED' = 'INR';
     const itemsWithEstimation: { name: string; type: string; amount: Money; bomCount: number }[] =
       [];
 
-    allItems.forEach(({ item, type }) => {
+    allItems.forEach(({ item, classification }) => {
       if (item.estimationSummary?.totalCost) {
         total += item.estimationSummary.totalCost.amount;
         currency = item.estimationSummary.totalCost.currency;
         itemsWithEstimation.push({
           name: item.name,
-          type,
+          type: classification,
           amount: item.estimationSummary.totalCost,
           bomCount: item.estimationSummary.bomCount,
         });
@@ -174,13 +186,8 @@ export default function PricingEditorClient({
     };
   }, [estimationBreakdown, overheadPercent, contingencyPercent, profitMarginPercent, taxPercent]);
 
-  const formatCurrency = (money: Money) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: money.currency,
-      maximumFractionDigits: 0,
-    }).format(money.amount);
-  };
+  const formatCurrency = (money: Money) =>
+    sharedFormatCurrency(money.amount, money.currency, { maximumFractionDigits: 0 });
 
   const handleSave = async (markComplete = false) => {
     if (!db || !user || !proposal) return;
@@ -215,7 +222,7 @@ export default function PricingEditorClient({
         updates.pricingCompletedAt = Timestamp.now();
       }
 
-      await updateProposal(db, proposalId, updates, user.uid);
+      await updateProposal(db, proposalId, updates, user.uid, claims?.permissions ?? 0);
 
       toast.success(
         markComplete ? 'Pricing complete! Continue to preview.' : 'Pricing saved successfully'
@@ -237,22 +244,19 @@ export default function PricingEditorClient({
 
   // Refresh BOM costs from the estimation module
   const handleRefreshBOMCosts = async () => {
-    if (!db || !user || !proposal?.scopeMatrix) return;
+    if (!db || !user || !proposal?.unifiedScopeMatrix) return;
 
     try {
       setRefreshing(true);
       setError(null);
 
-      // Collect all unique BOM IDs from the scope matrix
-      const allItems = [
-        ...(proposal.scopeMatrix.services || []),
-        ...(proposal.scopeMatrix.supply || []),
-      ];
-
+      // Collect all unique BOM IDs from the unified scope matrix
       const bomIds = new Set<string>();
-      allItems.forEach((item) => {
-        (item.linkedBOMs || []).forEach((bom) => bomIds.add(bom.bomId));
-      });
+      for (const category of proposal.unifiedScopeMatrix.categories) {
+        for (const item of category.items) {
+          (item.linkedBOMs || []).forEach((bom) => bomIds.add(bom.bomId));
+        }
+      }
 
       if (bomIds.size === 0) {
         toast.info('No BOMs linked to refresh');
@@ -271,8 +275,8 @@ export default function PricingEditorClient({
         }
       }
 
-      // Update scope items with refreshed costs
-      const updateScopeItems = (items: ScopeItem[]): ScopeItem[] => {
+      // Update scope items within each category
+      const updateScopeItems = (items: UnifiedScopeItem[]): UnifiedScopeItem[] => {
         return items.map((item) => {
           if (!item.linkedBOMs || item.linkedBOMs.length === 0) return item;
 
@@ -297,19 +301,27 @@ export default function PricingEditorClient({
         });
       };
 
-      const updatedScopeMatrix: ScopeMatrix = {
-        ...proposal.scopeMatrix,
-        services: updateScopeItems(proposal.scopeMatrix.services || []),
-        supply: updateScopeItems(proposal.scopeMatrix.supply || []),
+      const updatedScopeMatrix: UnifiedScopeMatrix = {
+        ...proposal.unifiedScopeMatrix,
+        categories: proposal.unifiedScopeMatrix.categories.map((category) => ({
+          ...category,
+          items: updateScopeItems(category.items),
+        })),
         lastUpdatedAt: Timestamp.now(),
         lastUpdatedBy: user.uid,
       };
 
-      // Save updated scope matrix
-      await updateProposal(db, proposalId, { scopeMatrix: updatedScopeMatrix }, user.uid);
+      // Save updated unified scope matrix
+      await updateProposal(
+        db,
+        proposalId,
+        { unifiedScopeMatrix: updatedScopeMatrix },
+        user.uid,
+        claims?.permissions ?? 0
+      );
 
       // Update local state
-      setProposal((prev) => (prev ? { ...prev, scopeMatrix: updatedScopeMatrix } : null));
+      setProposal((prev) => (prev ? { ...prev, unifiedScopeMatrix: updatedScopeMatrix } : null));
 
       toast.success(`Refreshed costs from ${bomIds.size} BOMs`);
       logger.info('BOM costs refreshed', { proposalId, bomCount: bomIds.size });

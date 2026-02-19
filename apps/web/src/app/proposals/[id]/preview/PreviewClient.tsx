@@ -22,7 +22,6 @@ import {
   TableBody,
   TableCell,
   TableContainer,
-  TableHead,
   TableRow,
   Chip,
   Breadcrumbs,
@@ -53,10 +52,11 @@ import { getProposalById, updateProposal } from '@/lib/proposals/proposalService
 import { generateAndDownloadProposalPDF } from '@/lib/proposals/proposalPDF';
 import { LoadingButton } from '@/components/common/LoadingButton';
 import { useToast } from '@/components/common/Toast';
-import type { Proposal, ScopeItem, Money } from '@vapour/types';
-import { PROJECT_PHASE_LABELS, SCOPE_ITEM_CLASSIFICATION_LABELS } from '@vapour/types';
+import type { Proposal, Money } from '@vapour/types';
+import { SCOPE_ITEM_CLASSIFICATION_LABELS } from '@vapour/types';
 import { Timestamp } from 'firebase/firestore';
 import { createLogger } from '@vapour/logger';
+import { formatDate, formatCurrency as sharedFormatCurrency } from '@/lib/utils/formatters';
 
 const logger = createLogger({ context: 'PreviewClient' });
 
@@ -70,7 +70,7 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
   const params = useParams();
   const proposalId = propId || (params.id as string);
   const db = useFirestore();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { toast } = useToast();
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
@@ -110,24 +110,10 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
 
   const formatCurrency = (money?: Money | null) => {
     if (!money) return '—';
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: money.currency,
+    return sharedFormatCurrency(money.amount, money.currency, {
       maximumFractionDigits: 0,
-    }).format(money.amount);
-  };
-
-  const formatDate = (timestamp: { toDate?: () => Date } | Date | null | undefined) => {
-    if (!timestamp) return '—';
-    const date =
-      timestamp && typeof timestamp === 'object' && 'toDate' in timestamp && timestamp.toDate
-        ? timestamp.toDate()
-        : new Date(timestamp as Date);
-    return new Intl.DateTimeFormat('en-IN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(date);
+      minimumFractionDigits: 0,
+    });
   };
 
   const handleSubmitToClient = async () => {
@@ -146,7 +132,8 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
           submittedByUserId: user.uid,
           submittedByUserName: user.displayName || user.email || 'Unknown',
         },
-        user.uid
+        user.uid,
+        claims?.permissions ?? 0
       );
 
       toast.success('Proposal submitted to client successfully');
@@ -196,17 +183,6 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
     } finally {
       setGeneratingPdf(false);
     }
-  };
-
-  // Group scope items by phase
-  const getScopeItemsByPhase = (items: ScopeItem[]) => {
-    const grouped: Record<string, ScopeItem[]> = {};
-    items.forEach((item) => {
-      const phase = item.phase || 'UNASSIGNED';
-      if (!grouped[phase]) grouped[phase] = [];
-      grouped[phase].push(item);
-    });
-    return grouped;
   };
 
   const Wrapper: React.ElementType = embedded ? Box : Container;
@@ -384,8 +360,8 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
             {proposal.proposalNumber}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Prepared: {formatDate(proposal.preparationDate)} | Valid until:{' '}
-            {formatDate(proposal.validityDate)}
+            Prepared: {formatDate(proposal.preparationDate, 'long')} | Valid until:{' '}
+            {formatDate(proposal.validityDate, 'long')}
           </Typography>
         </Box>
 
@@ -505,98 +481,6 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
                   </Box>
                 );
               })()}
-            </CardContent>
-          </Card>
-        ) : proposal.scopeMatrix ? (
-          /* Legacy Scope Matrix rendering */
-          <Card variant="outlined" sx={{ mb: 3 }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <ScopeIcon color="primary" />
-                <Typography variant="h6">Scope of Work</Typography>
-              </Box>
-
-              {/* Services */}
-              {proposal.scopeMatrix.services.length > 0 && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
-                    Services
-                  </Typography>
-                  {Object.entries(getScopeItemsByPhase(proposal.scopeMatrix.services)).map(
-                    ([phase, items]) => (
-                      <Box key={phase} sx={{ mb: 2 }}>
-                        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                          {phase === 'UNASSIGNED'
-                            ? 'General'
-                            : PROJECT_PHASE_LABELS[phase as keyof typeof PROJECT_PHASE_LABELS]}
-                        </Typography>
-                        <List dense>
-                          {items.map((item) => (
-                            <ListItem key={item.id}>
-                              <ListItemText
-                                primary={`${item.itemNumber}. ${item.name}`}
-                                secondary={item.description}
-                              />
-                            </ListItem>
-                          ))}
-                        </List>
-                      </Box>
-                    )
-                  )}
-                </Box>
-              )}
-
-              {/* Supply */}
-              {proposal.scopeMatrix.supply.length > 0 && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
-                    Supply Items
-                  </Typography>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Item</TableCell>
-                          <TableCell>Description</TableCell>
-                          <TableCell align="right">Qty</TableCell>
-                          <TableCell>Unit</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {proposal.scopeMatrix.supply.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell>
-                              {item.itemNumber}. {item.name}
-                            </TableCell>
-                            <TableCell>{item.description}</TableCell>
-                            <TableCell align="right">{item.quantity || '—'}</TableCell>
-                            <TableCell>{item.unit || '—'}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </Box>
-              )}
-
-              {/* Exclusions */}
-              {proposal.scopeMatrix.exclusions.length > 0 && (
-                <Box>
-                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
-                    Exclusions
-                  </Typography>
-                  <List dense>
-                    {proposal.scopeMatrix.exclusions.map((item) => (
-                      <ListItem key={item.id}>
-                        <ListItemText
-                          primary={`${item.itemNumber}. ${item.name}`}
-                          secondary={item.description}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                </Box>
-              )}
             </CardContent>
           </Card>
         ) : null}

@@ -65,7 +65,7 @@ import {
 } from '@/lib/proposals/approvalWorkflow';
 import { canConvertToProject } from '@/lib/proposals/projectConversion';
 import type { Proposal } from '@vapour/types';
-import { format } from 'date-fns';
+import { formatDate, formatCurrency as sharedFormatCurrency } from '@/lib/utils/formatters';
 import { logger } from '@vapour/logger';
 
 // Components
@@ -309,18 +309,9 @@ export default function ProposalDetailClient() {
     router.push(`/projects/${projectId}`);
   };
 
-  const formatDate = (timestamp: Timestamp | Date | undefined) => {
-    if (!timestamp) return '-';
-    const date = timestamp instanceof Timestamp ? timestamp.toDate() : timestamp;
-    return format(date, 'MMM d, yyyy');
-  };
-
   const formatCurrency = (money: { amount: number; currency: string } | undefined) => {
     if (!money) return '-';
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: money.currency,
-    }).format(money.amount);
+    return sharedFormatCurrency(money.amount, money.currency);
   };
 
   if (loading) return <LoadingState message="Loading proposal details..." />;
@@ -707,98 +698,6 @@ function OverviewTab({ proposal, formatDate, formatCurrency, reloadProposal }: O
                   </Grid>
                 );
               })()}
-            </CardContent>
-          </Card>
-        ) : proposal.scopeMatrix &&
-          (proposal.scopeMatrix.services.length > 0 ||
-            proposal.scopeMatrix.supply.length > 0 ||
-            proposal.scopeMatrix.exclusions.length > 0) ? (
-          /* Legacy Scope Matrix for older proposals */
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Scope Matrix
-                {proposal.scopeMatrix.isComplete && (
-                  <Chip label="Complete" color="success" size="small" sx={{ ml: 1 }} />
-                )}
-              </Typography>
-
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Services ({proposal.scopeMatrix.services.length})
-                  </Typography>
-                  {proposal.scopeMatrix.services.slice(0, 3).map((item) => (
-                    <Typography key={item.id} variant="body2" sx={{ mb: 0.5 }}>
-                      {item.itemNumber}. {item.name}
-                    </Typography>
-                  ))}
-                  {proposal.scopeMatrix.services.length > 3 && (
-                    <Typography variant="caption" color="text.secondary">
-                      +{proposal.scopeMatrix.services.length - 3} more
-                    </Typography>
-                  )}
-                </Grid>
-
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Supply ({proposal.scopeMatrix.supply.length})
-                  </Typography>
-                  {proposal.scopeMatrix.supply.slice(0, 3).map((item) => (
-                    <Typography key={item.id} variant="body2" sx={{ mb: 0.5 }}>
-                      {item.itemNumber}. {item.name}
-                    </Typography>
-                  ))}
-                  {proposal.scopeMatrix.supply.length > 3 && (
-                    <Typography variant="caption" color="text.secondary">
-                      +{proposal.scopeMatrix.supply.length - 3} more
-                    </Typography>
-                  )}
-                </Grid>
-
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Exclusions ({proposal.scopeMatrix.exclusions.length})
-                  </Typography>
-                  {proposal.scopeMatrix.exclusions.slice(0, 3).map((item) => (
-                    <Typography key={item.id} variant="body2" sx={{ mb: 0.5 }}>
-                      {item.itemNumber}. {item.name}
-                    </Typography>
-                  ))}
-                  {proposal.scopeMatrix.exclusions.length > 3 && (
-                    <Typography variant="caption" color="text.secondary">
-                      +{proposal.scopeMatrix.exclusions.length - 3} more
-                    </Typography>
-                  )}
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        ) : proposal.scopeOfWork?.summary ? (
-          /* Legacy Scope of Work for old proposals */
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Scope of Work
-              </Typography>
-              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>
-                {proposal.scopeOfWork.summary}
-              </Typography>
-
-              {proposal.scopeOfWork?.objectives && proposal.scopeOfWork.objectives.length > 0 && (
-                <>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
-                    Objectives
-                  </Typography>
-                  <Box component="ul" sx={{ pl: 2, mt: 1 }}>
-                    {proposal.scopeOfWork.objectives.map((obj, idx) => (
-                      <li key={idx}>
-                        <Typography variant="body2">{obj}</Typography>
-                      </li>
-                    ))}
-                  </Box>
-                </>
-              )}
             </CardContent>
           </Card>
         ) : null}

@@ -64,7 +64,7 @@ function createDefaultMatrix(): UnifiedScopeMatrix {
 export function UnifiedScopeEditor({ proposalId }: UnifiedScopeEditorProps) {
   const router = useRouter();
   const db = useFirestore();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { toast } = useToast();
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
@@ -173,7 +173,13 @@ export function UnifiedScopeEditor({ proposalId }: UnifiedScopeEditorProps) {
         isComplete: markComplete ? true : matrix.isComplete,
       };
 
-      await updateProposal(db, proposalId, { unifiedScopeMatrix: updatedMatrix }, user.uid);
+      await updateProposal(
+        db,
+        proposalId,
+        { unifiedScopeMatrix: updatedMatrix },
+        user.uid,
+        claims?.permissions ?? 0
+      );
 
       setMatrix(updatedMatrix);
       setHasChanges(false);

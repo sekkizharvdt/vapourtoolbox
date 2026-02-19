@@ -112,9 +112,7 @@ export function SaveAsTemplateDialog({
 
   // Count items in proposal
   const scopeItemCount =
-    (proposal.scopeMatrix?.services?.length || 0) +
-    (proposal.scopeMatrix?.supply?.length || 0) +
-    (proposal.scopeMatrix?.exclusions?.length || 0);
+    proposal.unifiedScopeMatrix?.categories?.reduce((sum, cat) => sum + cat.items.length, 0) || 0;
   const hasPricing = !!proposal.pricingConfig;
   const hasTerms = !!(proposal.terms && Object.keys(proposal.terms).length > 0);
   const hasDelivery = !!proposal.deliveryPeriod;

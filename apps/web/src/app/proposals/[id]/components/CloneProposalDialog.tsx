@@ -105,9 +105,7 @@ export function CloneProposalDialog({
 
   // Count what will be cloned
   const scopeItemCount =
-    (proposal.scopeMatrix?.services?.length || 0) +
-    (proposal.scopeMatrix?.supply?.length || 0) +
-    (proposal.scopeMatrix?.exclusions?.length || 0);
+    proposal.unifiedScopeMatrix?.categories?.reduce((sum, cat) => sum + cat.items.length, 0) || 0;
   const attachmentCount = proposal.attachments?.length || 0;
 
   return (

@@ -2,14 +2,14 @@
  * Proposal PDF Document Template
  *
  * React-PDF template for professional proposal documents
- * Supports both legacy (scopeOfSupply, pricing) and new (scopeMatrix, pricingConfig) data structures
+ * Supports both legacy (pricing) and new (unifiedScopeMatrix, pricingConfig) data structures
  */
 
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import type { Proposal, ScopeItem, Money, UnifiedScopeItem } from '@vapour/types';
-import { PROJECT_PHASE_LABELS, MILESTONE_TAX_TYPE_LABELS } from '@vapour/types';
-import { formatDate } from '@/lib/utils/formatters';
+import type { Proposal, Money, UnifiedScopeItem } from '@vapour/types';
+import { MILESTONE_TAX_TYPE_LABELS } from '@vapour/types';
+import { formatDate, formatCurrency as sharedFormatCurrency } from '@/lib/utils/formatters';
 
 const styles = StyleSheet.create({
   page: {
@@ -157,24 +157,16 @@ export const ProposalPDFDocument = ({
     money: Money | { amount: number; currency: string } | undefined | null
   ) => {
     if (!money) return '—';
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: money.currency,
+    return sharedFormatCurrency(money.amount, money.currency, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(money.amount);
+    });
   };
 
   // Check each new data structure independently
   const hasUnifiedScopeMatrix = Boolean(
     proposal.unifiedScopeMatrix &&
     proposal.unifiedScopeMatrix.categories.some((c) => c.items.length > 0)
-  );
-  const hasScopeMatrix = Boolean(
-    proposal.scopeMatrix &&
-    (proposal.scopeMatrix.services.length > 0 ||
-      proposal.scopeMatrix.supply.length > 0 ||
-      proposal.scopeMatrix.exclusions.length > 0)
   );
   const hasPricingConfig = Boolean(proposal.pricingConfig?.isComplete);
 
@@ -192,17 +184,6 @@ export const ProposalPDFDocument = ({
   const unifiedExclusions: UnifiedScopeItem[] = hasUnifiedScopeMatrix
     ? proposal.unifiedScopeMatrix!.categories.flatMap((c) => c.items.filter((i) => !i.included))
     : [];
-
-  // Group scope items by phase for new structure
-  const groupByPhase = (items: ScopeItem[]) => {
-    const grouped: Record<string, ScopeItem[]> = {};
-    items.forEach((item) => {
-      const phase = item.phase || 'GENERAL';
-      if (!grouped[phase]) grouped[phase] = [];
-      grouped[phase].push(item);
-    });
-    return grouped;
-  };
 
   return (
     <Document>
@@ -277,60 +258,6 @@ export const ProposalPDFDocument = ({
                 </View>
               ))}
           </View>
-        ) : hasScopeMatrix &&
-          proposal.scopeMatrix?.services &&
-          proposal.scopeMatrix.services.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Scope of Services</Text>
-            {Object.entries(groupByPhase(proposal.scopeMatrix.services)).map(([phase, items]) => (
-              <View key={phase} style={{ marginBottom: 8 }}>
-                <Text style={styles.subsectionTitle}>
-                  {phase === 'GENERAL'
-                    ? 'General'
-                    : PROJECT_PHASE_LABELS[phase as keyof typeof PROJECT_PHASE_LABELS] || phase}
-                </Text>
-                <View style={styles.bulletList}>
-                  {items.map((item) => (
-                    <Text key={item.id} style={styles.bulletItem}>
-                      • {item.itemNumber}. {item.name}
-                      {item.description ? ` - ${item.description}` : ''}
-                    </Text>
-                  ))}
-                </View>
-              </View>
-            ))}
-          </View>
-        ) : proposal.scopeOfWork ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Scope of Work</Text>
-            {proposal.scopeOfWork.summary && <Text>{proposal.scopeOfWork.summary}</Text>}
-
-            {proposal.scopeOfWork.objectives && proposal.scopeOfWork.objectives.length > 0 && (
-              <View style={{ marginTop: 8 }}>
-                <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Objectives:</Text>
-                <View style={styles.bulletList}>
-                  {proposal.scopeOfWork.objectives.map((obj, idx) => (
-                    <Text key={idx} style={styles.bulletItem}>
-                      • {obj}
-                    </Text>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {proposal.scopeOfWork.deliverables && proposal.scopeOfWork.deliverables.length > 0 && (
-              <View style={{ marginTop: 8 }}>
-                <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Deliverables:</Text>
-                <View style={styles.bulletList}>
-                  {proposal.scopeOfWork.deliverables.map((del, idx) => (
-                    <Text key={idx} style={styles.bulletItem}>
-                      • {del}
-                    </Text>
-                  ))}
-                </View>
-              </View>
-            )}
-          </View>
         ) : null}
 
         {/* Scope of Supply — Unified Scope Matrix or legacy */}
@@ -357,60 +284,6 @@ export const ProposalPDFDocument = ({
               ))}
             </View>
           </View>
-        ) : hasScopeMatrix &&
-          proposal.scopeMatrix?.supply &&
-          proposal.scopeMatrix.supply.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Scope of Supply</Text>
-            <View style={styles.table}>
-              <View style={styles.tableHeader}>
-                <Text style={styles.col1}>#</Text>
-                <Text style={styles.col2}>Description</Text>
-                <Text style={styles.col3}>Qty</Text>
-                <Text style={styles.col4}>Unit</Text>
-              </View>
-              {proposal.scopeMatrix.supply.map((item, idx) => (
-                <View key={item.id} style={styles.tableRow}>
-                  <Text style={styles.col1}>{item.itemNumber || idx + 1}</Text>
-                  <Text style={styles.col2}>
-                    {item.name}
-                    {item.description && `\n${item.description}`}
-                  </Text>
-                  <Text style={styles.col3}>{item.quantity || '—'}</Text>
-                  <Text style={styles.col4}>{item.unit || '—'}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : proposal.scopeOfSupply && proposal.scopeOfSupply.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Scope of Supply</Text>
-            <View style={styles.table}>
-              <View style={styles.tableHeader}>
-                <Text style={styles.col1}>#</Text>
-                <Text style={styles.col2}>Description</Text>
-                <Text style={styles.col3}>Qty</Text>
-                <Text style={styles.col4}>Unit Price</Text>
-                <Text style={styles.col5}>Amount</Text>
-              </View>
-              {proposal.scopeOfSupply.map((item, idx) => (
-                <View key={item.id} style={styles.tableRow}>
-                  <Text style={styles.col1}>{idx + 1}</Text>
-                  <Text style={styles.col2}>
-                    {item.itemName}
-                    {item.description && `\n${item.description}`}
-                  </Text>
-                  <Text style={styles.col3}>
-                    {item.quantity} {item.unit}
-                  </Text>
-                  <Text style={styles.col4}>
-                    {item.unitPrice ? formatCurrency(item.unitPrice) : 'N/A'}
-                  </Text>
-                  <Text style={styles.col5}>{formatCurrency(item.totalPrice)}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
         ) : null}
 
         {/* Exclusions — Unified or legacy */}
@@ -421,20 +294,6 @@ export const ProposalPDFDocument = ({
               {unifiedExclusions.map((item) => (
                 <Text key={item.id} style={styles.bulletItem}>
                   • {item.name}
-                  {item.description ? ` - ${item.description}` : ''}
-                </Text>
-              ))}
-            </View>
-          </View>
-        ) : hasScopeMatrix &&
-          proposal.scopeMatrix?.exclusions &&
-          proposal.scopeMatrix.exclusions.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Exclusions</Text>
-            <View style={styles.bulletList}>
-              {proposal.scopeMatrix.exclusions.map((item) => (
-                <Text key={item.id} style={styles.bulletItem}>
-                  • {item.itemNumber}. {item.name}
                   {item.description ? ` - ${item.description}` : ''}
                 </Text>
               ))}
@@ -514,35 +373,6 @@ export const ProposalPDFDocument = ({
               <Text style={{ fontSize: 9, color: '#666' }}>
                 Validity: {proposal.pricingConfig.validityDays} days from date of issue
               </Text>
-            </View>
-          </View>
-        ) : proposal.pricing ? (
-          <View style={styles.costSummary}>
-            <Text style={{ ...styles.sectionTitle, borderBottom: 'none', marginBottom: 10 }}>
-              Pricing Summary
-            </Text>
-            <View style={styles.costRow}>
-              <Text style={styles.costLabel}>Subtotal:</Text>
-              <Text style={styles.costValue}>{formatCurrency(proposal.pricing.subtotal)}</Text>
-            </View>
-            {proposal.pricing.taxItems?.map((tax) => (
-              <View key={tax.id} style={styles.costRow}>
-                <Text style={styles.costLabel}>
-                  {tax.taxType} ({tax.taxRate}%):
-                </Text>
-                <Text style={styles.costValue}>{formatCurrency(tax.taxAmount)}</Text>
-              </View>
-            ))}
-            <View
-              style={{
-                ...styles.costRow,
-                marginTop: 10,
-                paddingTop: 10,
-                borderTop: '1pt solid #ccc',
-              }}
-            >
-              <Text style={styles.costLabel}>Total Amount:</Text>
-              <Text style={styles.totalCost}>{formatCurrency(proposal.pricing.totalAmount)}</Text>
             </View>
           </View>
         ) : null}

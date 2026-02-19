@@ -42,6 +42,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { listProposalTemplates, deleteProposalTemplate } from '@/lib/proposals/proposalService';
 import { useToast } from '@/components/common/Toast';
 import type { ProposalTemplate } from '@vapour/types';
+import { formatDate } from '@/lib/utils/formatters';
 
 export default function ProposalTemplatesPage() {
   const router = useRouter();
@@ -97,14 +98,6 @@ export default function ProposalTemplatesPage() {
     } finally {
       setDeleting(false);
     }
-  };
-
-  const formatDate = (timestamp: { toDate: () => Date }) => {
-    return timestamp.toDate().toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   if (loading) {
@@ -168,10 +161,12 @@ export default function ProposalTemplatesPage() {
       ) : (
         <Grid container spacing={3}>
           {templates.map((template) => {
-            const scopeCount =
-              (template.scopeMatrix?.services?.length || 0) +
-              (template.scopeMatrix?.supply?.length || 0) +
-              (template.scopeMatrix?.exclusions?.length || 0);
+            const scopeCount = template.unifiedScopeMatrix
+              ? template.unifiedScopeMatrix.categories.reduce(
+                  (sum, cat) => sum + cat.items.length,
+                  0
+                )
+              : 0;
 
             return (
               <Grid size={{ xs: 12, md: 6, lg: 4 }} key={template.id}>

@@ -74,6 +74,11 @@ jest.mock('@vapour/logger', () => ({
   }),
 }));
 
+// Mock auth
+jest.mock('@/lib/auth', () => ({
+  requirePermission: jest.fn(),
+}));
+
 // Mock typeHelpers
 jest.mock('@/lib/firebase/typeHelpers', () => ({
   docToTyped: <T>(id: string, data: Record<string, unknown>): T => {
@@ -83,6 +88,7 @@ jest.mock('@/lib/firebase/typeHelpers', () => ({
 }));
 
 import type { CreateProposalInput } from '@vapour/types';
+import { PERMISSION_FLAGS } from '@vapour/constants';
 import {
   createProposal,
   createMinimalProposal,
@@ -289,12 +295,6 @@ describe('proposalService', () => {
       expect(result).toBeDefined();
       expect(result.id).toBe('minimal-proposal-123');
       expect(result.workflowStage).toBe('SCOPE_DEFINITION');
-      expect(result.scopeMatrix).toEqual({
-        services: [],
-        supply: [],
-        exclusions: [],
-        isComplete: false,
-      });
     });
 
     it('should throw error when enquiry has no BID decision', async () => {
@@ -501,7 +501,8 @@ describe('proposalService', () => {
         mockDb,
         'proposal-123',
         { title: 'Updated Title', status: 'DRAFT' },
-        mockUserId
+        mockUserId,
+        PERMISSION_FLAGS.MANAGE_PROPOSALS
       );
 
       expect(mockUpdateDoc).toHaveBeenCalledTimes(1);

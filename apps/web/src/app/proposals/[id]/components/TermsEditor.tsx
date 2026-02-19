@@ -35,7 +35,7 @@ interface TermsEditorProps {
 
 export default function TermsEditor({ proposalId }: TermsEditorProps) {
   const db = useFirestore();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { toast } = useToast();
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
@@ -112,7 +112,7 @@ export default function TermsEditor({ proposalId }: TermsEditorProps) {
         customTerms: customTerms.filter((t) => t.trim() !== ''),
       };
 
-      await updateProposal(db, proposalId, { terms }, user.uid);
+      await updateProposal(db, proposalId, { terms }, user.uid, claims?.permissions ?? 0);
 
       toast.success('Terms & conditions saved');
     } catch (err) {

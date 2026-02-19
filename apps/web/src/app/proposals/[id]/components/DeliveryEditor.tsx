@@ -47,7 +47,7 @@ interface DeliveryEditorProps {
 
 export default function DeliveryEditor({ proposalId }: DeliveryEditorProps) {
   const db = useFirestore();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const { toast } = useToast();
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
@@ -144,7 +144,8 @@ export default function DeliveryEditor({ proposalId }: DeliveryEditorProps) {
             pricing: { paymentTerms },
           }),
         },
-        user.uid
+        user.uid,
+        claims?.permissions ?? 0
       );
 
       toast.success('Delivery timeline saved');
