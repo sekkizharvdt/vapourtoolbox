@@ -3549,6 +3549,24 @@
       ]
     },
     {
+      "collectionGroup": "hrLeaveRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "endDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "hrLeaveBalances",
       "queryScope": "COLLECTION",
       "fields": [
