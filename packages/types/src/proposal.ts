@@ -139,6 +139,260 @@ export interface ScopeMatrix {
 }
 
 // ============================================================================
+// Unified Scope Matrix Types (EPC Matrix Redesign)
+// ============================================================================
+
+/**
+ * Item classification — replaces old ScopeItemType for the unified matrix.
+ * Exclusions are now determined by the `included` flag on each item.
+ */
+export type ScopeItemClassification = 'SERVICE' | 'SUPPLY';
+
+export const SCOPE_ITEM_CLASSIFICATION_LABELS: Record<ScopeItemClassification, string> = {
+  SERVICE: 'Service',
+  SUPPLY: 'Supply',
+};
+
+/**
+ * Category display type — determines UI rendering
+ */
+export type ScopeCategoryDisplayType = 'CHECKLIST' | 'MATRIX';
+
+/**
+ * Matrix activity template keys — each maps to a predefined set of columns
+ */
+export type MatrixActivityTemplate = 'MANUFACTURED' | 'BOUGHT_OUT' | 'FABRICATION';
+
+/**
+ * Activity column definition for matrix categories
+ */
+export interface ActivityColumn {
+  id: string;
+  label: string;
+  shortLabel: string; // Abbreviated label for narrow column headers
+}
+
+// --- Activity column templates per matrix category ---
+
+export const MANUFACTURED_ACTIVITIES: ActivityColumn[] = [
+  { id: 'mech_design', label: 'Mechanical Design', shortLabel: 'Design' },
+  { id: 'detail_eng', label: 'Detail Engineering', shortLabel: 'Engg' },
+  { id: 'fab_dwg', label: 'Fabrication Drawings', shortLabel: 'Fab Dwg' },
+  { id: 'qap', label: 'Draft QAP Preparation', shortLabel: 'QAP' },
+  { id: 'rm_proc', label: 'Raw Material Procurement', shortLabel: 'RM Proc' },
+  { id: 'rm_tdc', label: 'Raw Material TDC', shortLabel: 'RM TDC' },
+  { id: 'rm_assist', label: 'RM Procurement Assistance', shortLabel: 'RM Assist' },
+  { id: 'rm_insp', label: 'Raw Material Inspection', shortLabel: 'RM Insp' },
+  { id: 'fab_test', label: 'Fabrication and Testing', shortLabel: 'Fab & Test' },
+  { id: 'fab_supv', label: 'Fabrication Supervision', shortLabel: 'Supervision' },
+  { id: 'stage_insp', label: 'Stage Wise Inspection', shortLabel: 'Stage Insp' },
+  { id: 'final_insp', label: 'Final Inspection', shortLabel: 'Final Insp' },
+  { id: 'packing', label: 'Packing', shortLabel: 'Packing' },
+  { id: 'loading', label: 'Loading', shortLabel: 'Loading' },
+  { id: 'transport', label: 'Transportation', shortLabel: 'Transport' },
+  { id: 'ship_dwg', label: 'Shipping Drawing', shortLabel: 'Ship Dwg' },
+];
+
+export const BOUGHT_OUT_ACTIVITIES: ActivityColumn[] = [
+  { id: 'datasheet', label: 'Preparation of Data Sheet', shortLabel: 'Data Sheet' },
+  { id: 'rfq', label: 'Preparation of RFQ', shortLabel: 'RFQ' },
+  { id: 'offer_comp', label: 'Offer Comparison', shortLabel: 'Offer Comp' },
+  { id: 'order', label: 'Order Placement', shortLabel: 'Order' },
+  { id: 'followup', label: 'Follow Up', shortLabel: 'Follow Up' },
+  { id: 'stage_insp', label: 'Stage Inspection', shortLabel: 'Stage Insp' },
+  { id: 'transport', label: 'Transportation', shortLabel: 'Transport' },
+  { id: 'ship_dwg', label: 'Shipping Drawing', shortLabel: 'Ship Dwg' },
+];
+
+export const FABRICATION_ACTIVITIES: ActivityColumn[] = [
+  { id: 'qap', label: 'Draft QAP Preparation', shortLabel: 'QAP' },
+  { id: 'rm_proc', label: 'Raw Material Procurement', shortLabel: 'RM Proc' },
+  { id: 'rm_tdc', label: 'Raw Material TDC', shortLabel: 'RM TDC' },
+  { id: 'rm_assist', label: 'RM Procurement Assistance', shortLabel: 'RM Assist' },
+  { id: 'rm_insp', label: 'Raw Material Inspection', shortLabel: 'RM Insp' },
+  { id: 'fab_test', label: 'Fabrication and Testing', shortLabel: 'Fab & Test' },
+  { id: 'fab_supv', label: 'Fabrication Supervision', shortLabel: 'Supervision' },
+  { id: 'stage_insp', label: 'Stage Wise Inspection', shortLabel: 'Stage Insp' },
+  { id: 'final_insp', label: 'Final Inspection', shortLabel: 'Final Insp' },
+  { id: 'packing', label: 'Packing', shortLabel: 'Packing' },
+  { id: 'loading', label: 'Loading', shortLabel: 'Loading' },
+  { id: 'transport', label: 'Transportation', shortLabel: 'Transport' },
+];
+
+/**
+ * Lookup from template key to activity columns
+ */
+export const MATRIX_ACTIVITY_TEMPLATES: Record<MatrixActivityTemplate, ActivityColumn[]> = {
+  MANUFACTURED: MANUFACTURED_ACTIVITIES,
+  BOUGHT_OUT: BOUGHT_OUT_ACTIVITIES,
+  FABRICATION: FABRICATION_ACTIVITIES,
+};
+
+/**
+ * Scope category key — all possible discipline categories in an EPC proposal
+ */
+export type ScopeCategoryKey =
+  | 'SITE_PREPARATION'
+  | 'PROCESS_DESIGN'
+  | 'MANUFACTURED'
+  | 'BOUGHT_OUT'
+  | 'PIPING_ENGINEERING'
+  | 'PIPING_FABRICATION'
+  | 'STRUCTURAL'
+  | 'STRUCTURAL_FABRICATION'
+  | 'SITE_WORK'
+  | 'ELECTRICAL'
+  | 'INSTRUMENTATION';
+
+/**
+ * Default configuration for each scope category
+ */
+export interface ScopeCategoryDefaults {
+  label: string;
+  displayType: ScopeCategoryDisplayType;
+  activityTemplate?: MatrixActivityTemplate;
+  defaultClassification: ScopeItemClassification; // Default SERVICE/SUPPLY for new items
+}
+
+export const SCOPE_CATEGORY_DEFAULTS: Record<ScopeCategoryKey, ScopeCategoryDefaults> = {
+  SITE_PREPARATION: {
+    label: 'Site Preparation',
+    displayType: 'CHECKLIST',
+    defaultClassification: 'SERVICE',
+  },
+  PROCESS_DESIGN: {
+    label: 'Process Design',
+    displayType: 'CHECKLIST',
+    defaultClassification: 'SERVICE',
+  },
+  MANUFACTURED: {
+    label: 'Manufactured Components',
+    displayType: 'MATRIX',
+    activityTemplate: 'MANUFACTURED',
+    defaultClassification: 'SUPPLY',
+  },
+  BOUGHT_OUT: {
+    label: 'Bought Out Components',
+    displayType: 'MATRIX',
+    activityTemplate: 'BOUGHT_OUT',
+    defaultClassification: 'SUPPLY',
+  },
+  PIPING_ENGINEERING: {
+    label: 'Piping Engineering',
+    displayType: 'CHECKLIST',
+    defaultClassification: 'SERVICE',
+  },
+  PIPING_FABRICATION: {
+    label: 'Piping Fabrication',
+    displayType: 'MATRIX',
+    activityTemplate: 'FABRICATION',
+    defaultClassification: 'SUPPLY',
+  },
+  STRUCTURAL: {
+    label: 'Structural',
+    displayType: 'CHECKLIST',
+    defaultClassification: 'SERVICE',
+  },
+  STRUCTURAL_FABRICATION: {
+    label: 'Structural Fabrication',
+    displayType: 'MATRIX',
+    activityTemplate: 'FABRICATION',
+    defaultClassification: 'SUPPLY',
+  },
+  SITE_WORK: {
+    label: 'Site Work',
+    displayType: 'CHECKLIST',
+    defaultClassification: 'SERVICE',
+  },
+  ELECTRICAL: {
+    label: 'Electrical',
+    displayType: 'CHECKLIST',
+    defaultClassification: 'SERVICE',
+  },
+  INSTRUMENTATION: {
+    label: 'Instrumentation',
+    displayType: 'CHECKLIST',
+    defaultClassification: 'SERVICE',
+  },
+};
+
+/**
+ * Ordered list of default categories for new proposals
+ */
+export const SCOPE_CATEGORY_ORDER: ScopeCategoryKey[] = [
+  'SITE_PREPARATION',
+  'PROCESS_DESIGN',
+  'MANUFACTURED',
+  'BOUGHT_OUT',
+  'PIPING_ENGINEERING',
+  'PIPING_FABRICATION',
+  'STRUCTURAL',
+  'STRUCTURAL_FABRICATION',
+  'SITE_WORK',
+  'ELECTRICAL',
+  'INSTRUMENTATION',
+];
+
+/**
+ * Unified Scope Item
+ * Replaces the old ScopeItem for the new matrix format.
+ * Each item is tagged SERVICE or SUPPLY, and included/excluded via a boolean flag.
+ */
+export interface UnifiedScopeItem {
+  id: string;
+  itemNumber: string; // Sequential within category: "1", "2", "3"
+  name: string;
+  description?: string;
+  classification: ScopeItemClassification; // SERVICE or SUPPLY
+  included: boolean; // true = in scope, false = excluded
+
+  // For MATRIX categories: which activity columns are toggled on
+  // Key = activity column id (e.g., 'mech_design'), value = enabled
+  activityToggles?: Record<string, boolean>;
+
+  // For SUPPLY items
+  quantity?: number;
+  unit?: string; // nos, kg, m, lot, etc.
+
+  // Estimation linkage (carried from old model)
+  linkedBOMs?: LinkedBOM[];
+  estimationSummary?: {
+    totalCost: Money;
+    bomCount: number;
+    lastUpdated?: Timestamp;
+  };
+
+  order: number;
+  notes?: string;
+}
+
+/**
+ * Scope Category Entry
+ * A single discipline category in the proposal scope matrix
+ */
+export interface ScopeCategoryEntry {
+  id: string;
+  categoryKey: ScopeCategoryKey;
+  label: string;
+  displayType: ScopeCategoryDisplayType;
+  activityTemplate?: MatrixActivityTemplate; // Only for MATRIX display types
+  items: UnifiedScopeItem[];
+  order: number;
+}
+
+/**
+ * Unified Scope Matrix
+ * Top-level structure for the new EPC scope matrix on a Proposal.
+ * Replaces the old ScopeMatrix (services/supply/exclusions arrays).
+ */
+export interface UnifiedScopeMatrix {
+  categories: ScopeCategoryEntry[];
+  lastUpdatedAt?: Timestamp;
+  lastUpdatedBy?: string;
+  isComplete?: boolean;
+}
+
+// ============================================================================
 // Proposal Status & Workflow Types
 // ============================================================================
 
@@ -486,8 +740,11 @@ export interface Proposal extends TimestampFields {
   // Scope of Supply (legacy - being replaced by scopeMatrix)
   scopeOfSupply: ProposalLineItem[];
 
-  // Scope Matrix (new structured scope definition)
+  // Scope Matrix (legacy structured scope definition)
   scopeMatrix?: ScopeMatrix;
+
+  // Unified Scope Matrix (EPC matrix redesign — replaces scopeMatrix)
+  unifiedScopeMatrix?: UnifiedScopeMatrix;
 
   // Delivery & Timeline
   deliveryPeriod: DeliveryPeriod;
@@ -577,6 +834,7 @@ export interface UpdateProposalInput {
   scopeOfWork?: Partial<ScopeOfWork>;
   scopeOfSupply?: ProposalLineItem[];
   scopeMatrix?: ScopeMatrix;
+  unifiedScopeMatrix?: UnifiedScopeMatrix;
   deliveryPeriod?: Partial<DeliveryPeriod>;
   pricing?: Partial<Pricing>;
   pricingConfig?: ProposalPricingConfig;

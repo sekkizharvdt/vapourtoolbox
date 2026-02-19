@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import type { Proposal, ScopeItem, Money } from '@vapour/types';
+import type { Proposal, ScopeItem, Money, UnifiedScopeItem } from '@vapour/types';
 import { PROJECT_PHASE_LABELS, MILESTONE_TAX_TYPE_LABELS } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
 
@@ -166,6 +166,10 @@ export const ProposalPDFDocument = ({
   };
 
   // Check each new data structure independently
+  const hasUnifiedScopeMatrix = Boolean(
+    proposal.unifiedScopeMatrix &&
+    proposal.unifiedScopeMatrix.categories.some((c) => c.items.length > 0)
+  );
   const hasScopeMatrix = Boolean(
     proposal.scopeMatrix &&
     (proposal.scopeMatrix.services.length > 0 ||
@@ -173,6 +177,21 @@ export const ProposalPDFDocument = ({
       proposal.scopeMatrix.exclusions.length > 0)
   );
   const hasPricingConfig = Boolean(proposal.pricingConfig?.isComplete);
+
+  // Derive unified scope data for PDF
+  const unifiedServices: UnifiedScopeItem[] = hasUnifiedScopeMatrix
+    ? proposal.unifiedScopeMatrix!.categories.flatMap((c) =>
+        c.items.filter((i) => i.included && i.classification === 'SERVICE')
+      )
+    : [];
+  const unifiedSupply: UnifiedScopeItem[] = hasUnifiedScopeMatrix
+    ? proposal.unifiedScopeMatrix!.categories.flatMap((c) =>
+        c.items.filter((i) => i.included && i.classification === 'SUPPLY')
+      )
+    : [];
+  const unifiedExclusions: UnifiedScopeItem[] = hasUnifiedScopeMatrix
+    ? proposal.unifiedScopeMatrix!.categories.flatMap((c) => c.items.filter((i) => !i.included))
+    : [];
 
   // Group scope items by phase for new structure
   const groupByPhase = (items: ScopeItem[]) => {
@@ -234,10 +253,33 @@ export const ProposalPDFDocument = ({
           </View>
         </View>
 
-        {/* Scope of Work - scopeMatrix services or legacy */}
-        {hasScopeMatrix &&
-        proposal.scopeMatrix?.services &&
-        proposal.scopeMatrix.services.length > 0 ? (
+        {/* Scope of Services — Unified Scope Matrix or legacy */}
+        {hasUnifiedScopeMatrix && unifiedServices.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Scope of Services</Text>
+            {proposal
+              .unifiedScopeMatrix!.categories.filter((cat) =>
+                cat.items.some((i) => i.included && i.classification === 'SERVICE')
+              )
+              .map((cat) => (
+                <View key={cat.id} style={{ marginBottom: 8 }}>
+                  <Text style={styles.subsectionTitle}>{cat.label}</Text>
+                  <View style={styles.bulletList}>
+                    {cat.items
+                      .filter((i) => i.included && i.classification === 'SERVICE')
+                      .map((item) => (
+                        <Text key={item.id} style={styles.bulletItem}>
+                          • {item.name}
+                          {item.description ? ` - ${item.description}` : ''}
+                        </Text>
+                      ))}
+                  </View>
+                </View>
+              ))}
+          </View>
+        ) : hasScopeMatrix &&
+          proposal.scopeMatrix?.services &&
+          proposal.scopeMatrix.services.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Scope of Services</Text>
             {Object.entries(groupByPhase(proposal.scopeMatrix.services)).map(([phase, items]) => (
@@ -291,10 +333,33 @@ export const ProposalPDFDocument = ({
           </View>
         ) : null}
 
-        {/* Scope of Supply - scopeMatrix or legacy */}
-        {hasScopeMatrix &&
-        proposal.scopeMatrix?.supply &&
-        proposal.scopeMatrix.supply.length > 0 ? (
+        {/* Scope of Supply — Unified Scope Matrix or legacy */}
+        {hasUnifiedScopeMatrix && unifiedSupply.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Scope of Supply</Text>
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <Text style={styles.col1}>#</Text>
+                <Text style={styles.col2}>Description</Text>
+                <Text style={styles.col3}>Qty</Text>
+                <Text style={styles.col4}>Unit</Text>
+              </View>
+              {unifiedSupply.map((item, idx) => (
+                <View key={item.id} style={styles.tableRow}>
+                  <Text style={styles.col1}>{idx + 1}</Text>
+                  <Text style={styles.col2}>
+                    {item.name}
+                    {item.description && `\n${item.description}`}
+                  </Text>
+                  <Text style={styles.col3}>{item.quantity || '—'}</Text>
+                  <Text style={styles.col4}>{item.unit || '—'}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : hasScopeMatrix &&
+          proposal.scopeMatrix?.supply &&
+          proposal.scopeMatrix.supply.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Scope of Supply</Text>
             <View style={styles.table}>
@@ -348,22 +413,34 @@ export const ProposalPDFDocument = ({
           </View>
         ) : null}
 
-        {/* Exclusions */}
-        {hasScopeMatrix &&
-          proposal.scopeMatrix?.exclusions &&
-          proposal.scopeMatrix.exclusions.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Exclusions</Text>
-              <View style={styles.bulletList}>
-                {proposal.scopeMatrix.exclusions.map((item) => (
-                  <Text key={item.id} style={styles.bulletItem}>
-                    • {item.itemNumber}. {item.name}
-                    {item.description ? ` - ${item.description}` : ''}
-                  </Text>
-                ))}
-              </View>
+        {/* Exclusions — Unified or legacy */}
+        {hasUnifiedScopeMatrix && unifiedExclusions.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Exclusions</Text>
+            <View style={styles.bulletList}>
+              {unifiedExclusions.map((item) => (
+                <Text key={item.id} style={styles.bulletItem}>
+                  • {item.name}
+                  {item.description ? ` - ${item.description}` : ''}
+                </Text>
+              ))}
             </View>
-          )}
+          </View>
+        ) : hasScopeMatrix &&
+          proposal.scopeMatrix?.exclusions &&
+          proposal.scopeMatrix.exclusions.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Exclusions</Text>
+            <View style={styles.bulletList}>
+              {proposal.scopeMatrix.exclusions.map((item) => (
+                <Text key={item.id} style={styles.bulletItem}>
+                  • {item.itemNumber}. {item.name}
+                  {item.description ? ` - ${item.description}` : ''}
+                </Text>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {/* Pricing Summary - pricingConfig or legacy */}
         {hasPricingConfig && proposal.pricingConfig ? (

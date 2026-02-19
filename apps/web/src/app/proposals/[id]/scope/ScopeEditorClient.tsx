@@ -13,8 +13,8 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
 // Dynamically import the editor to avoid SSR issues
-const ScopeMatrixEditor = dynamic(
-  () => import('./ScopeMatrixEditor').then((mod) => ({ default: mod.ScopeMatrixEditor })),
+const UnifiedScopeEditor = dynamic(
+  () => import('./UnifiedScopeEditor').then((mod) => ({ default: mod.UnifiedScopeEditor })),
   {
     ssr: false,
     loading: () => (
@@ -53,7 +53,7 @@ export default function ScopeEditorClient() {
           </Box>
         }
       >
-        <ScopeMatrixEditor proposalId={proposalId} />
+        <UnifiedScopeEditor proposalId={proposalId} />
       </Suspense>
     </Box>
   );

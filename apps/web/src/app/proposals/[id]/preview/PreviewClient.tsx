@@ -54,7 +54,7 @@ import { generateAndDownloadProposalPDF } from '@/lib/proposals/proposalPDF';
 import { LoadingButton } from '@/components/common/LoadingButton';
 import { useToast } from '@/components/common/Toast';
 import type { Proposal, ScopeItem, Money } from '@vapour/types';
-import { PROJECT_PHASE_LABELS } from '@vapour/types';
+import { PROJECT_PHASE_LABELS, SCOPE_ITEM_CLASSIFICATION_LABELS } from '@vapour/types';
 import { Timestamp } from 'firebase/firestore';
 import { createLogger } from '@vapour/logger';
 
@@ -427,8 +427,88 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
           </CardContent>
         </Card>
 
-        {/* Scope of Work */}
-        {proposal.scopeMatrix && (
+        {/* Scope of Work — Unified Scope Matrix */}
+        {proposal.unifiedScopeMatrix &&
+        proposal.unifiedScopeMatrix.categories.some((c) => c.items.length > 0) ? (
+          <Card variant="outlined" sx={{ mb: 3 }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <ScopeIcon color="primary" />
+                <Typography variant="h6">Scope of Work</Typography>
+              </Box>
+
+              {/* Included items grouped by category */}
+              {proposal.unifiedScopeMatrix.categories
+                .filter((cat) => cat.items.some((i) => i.included))
+                .map((cat) => {
+                  const included = cat.items.filter((i) => i.included);
+                  return (
+                    <Box key={cat.id} sx={{ mb: 3 }}>
+                      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
+                        {cat.label}
+                      </Typography>
+                      <List dense>
+                        {included.map((item) => (
+                          <ListItem key={item.id}>
+                            <ListItemText
+                              primary={`${item.itemNumber}. ${item.name}`}
+                              secondary={
+                                <>
+                                  {item.description && (
+                                    <>
+                                      {item.description}
+                                      <br />
+                                    </>
+                                  )}
+                                  <Chip
+                                    label={SCOPE_ITEM_CLASSIFICATION_LABELS[item.classification]}
+                                    size="small"
+                                    variant="outlined"
+                                    color={
+                                      item.classification === 'SERVICE' ? 'primary' : 'secondary'
+                                    }
+                                    sx={{ mt: 0.5 }}
+                                  />
+                                  {item.classification === 'SUPPLY' && item.quantity && (
+                                    <Typography component="span" variant="caption" sx={{ ml: 1 }}>
+                                      Qty: {item.quantity} {item.unit}
+                                    </Typography>
+                                  )}
+                                </>
+                              }
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+                  );
+                })}
+
+              {/* Exclusions — items where included=false */}
+              {(() => {
+                const excluded = proposal.unifiedScopeMatrix!.categories.flatMap((cat) =>
+                  cat.items.filter((i) => !i.included)
+                );
+                if (excluded.length === 0) return null;
+                return (
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
+                      Exclusions
+                    </Typography>
+                    <List dense>
+                      {excluded.map((item) => (
+                        <ListItem key={item.id}>
+                          <ListItemText primary={item.name} secondary={item.description} />
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Box>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        ) : proposal.scopeMatrix ? (
+          /* Legacy Scope Matrix rendering */
           <Card variant="outlined" sx={{ mb: 3 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -519,7 +599,7 @@ export default function PreviewClient({ proposalId: propId, embedded }: PreviewC
               )}
             </CardContent>
           </Card>
-        )}
+        ) : null}
 
         {/* Pricing */}
         {proposal.pricingConfig && (

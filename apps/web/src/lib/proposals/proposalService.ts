@@ -34,6 +34,8 @@ import type {
   ListProposalTemplatesOptions,
   ScopeItem,
   ProposalMilestone,
+  UnifiedScopeMatrix,
+  UnifiedScopeItem,
 } from '@vapour/types';
 import { MILESTONE_TAX_TYPE_LABELS } from '@vapour/types';
 
@@ -501,6 +503,43 @@ function stripUndefinedDeep(obj: Record<string, unknown>): Record<string, unknow
   );
 }
 
+// ============================================================================
+// Unified Scope Matrix Helpers
+// ============================================================================
+
+/**
+ * Derive exclusion names from the unified scope matrix.
+ * Returns the names of all items where included === false.
+ * Used for proposal preview and PDF generation.
+ */
+export function deriveExclusions(matrix: UnifiedScopeMatrix): string[] {
+  return matrix.categories.flatMap((cat) =>
+    cat.items.filter((item) => !item.included).map((item) => item.name)
+  );
+}
+
+/**
+ * Derive all included items from the unified scope matrix.
+ * Used for estimation linkage and summary views.
+ */
+export function deriveIncludedItems(matrix: UnifiedScopeMatrix): UnifiedScopeItem[] {
+  return matrix.categories.flatMap((cat) => cat.items.filter((item) => item.included));
+}
+
+/**
+ * Derive included items by classification from the unified scope matrix.
+ */
+export function deriveIncludedByClassification(matrix: UnifiedScopeMatrix): {
+  services: UnifiedScopeItem[];
+  supply: UnifiedScopeItem[];
+} {
+  const included = deriveIncludedItems(matrix);
+  return {
+    services: included.filter((item) => item.classification === 'SERVICE'),
+    supply: included.filter((item) => item.classification === 'SUPPLY'),
+  };
+}
+
 /**
  * Update proposal
  */
@@ -767,6 +806,17 @@ export async function cloneProposal(
               services: sourceProposal.scopeMatrix.services || [],
               supply: sourceProposal.scopeMatrix.supply || [],
               exclusions: sourceProposal.scopeMatrix.exclusions || [],
+              isComplete: false, // Reset completion status
+              lastUpdatedAt: now,
+              lastUpdatedBy: userId,
+            }
+          : undefined,
+
+      // Also copy unified scope matrix if present
+      unifiedScopeMatrix:
+        input.copyScope !== false && sourceProposal.unifiedScopeMatrix
+          ? {
+              ...sourceProposal.unifiedScopeMatrix,
               isComplete: false, // Reset completion status
               lastUpdatedAt: now,
               lastUpdatedBy: userId,

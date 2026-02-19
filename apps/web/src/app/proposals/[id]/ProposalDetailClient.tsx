@@ -77,7 +77,7 @@ import { CloneProposalDialog } from './components/CloneProposalDialog';
 import { SaveAsTemplateDialog } from './components/SaveAsTemplateDialog';
 
 // Tab editors
-import { ScopeMatrixEditor } from './scope/ScopeMatrixEditor';
+import { UnifiedScopeEditor } from './scope/UnifiedScopeEditor';
 import DeliveryEditor from './components/DeliveryEditor';
 import PricingEditorClient from './pricing/PricingEditorClient';
 import TermsEditor from './components/TermsEditor';
@@ -522,7 +522,7 @@ export default function ProposalDetailClient() {
         />
       )}
 
-      {activeTab === TAB_SCOPE && proposalId && <ScopeMatrixEditor proposalId={proposalId} />}
+      {activeTab === TAB_SCOPE && proposalId && <UnifiedScopeEditor proposalId={proposalId} />}
 
       {activeTab === TAB_DELIVERY && proposalId && <DeliveryEditor proposalId={proposalId} />}
 
@@ -636,11 +636,84 @@ function OverviewTab({ proposal, formatDate, formatCurrency, reloadProposal }: O
     <Grid container spacing={3}>
       {/* Main Content */}
       <Grid size={{ xs: 12, md: 8 }}>
-        {/* Scope Summary */}
-        {proposal.scopeMatrix &&
-        (proposal.scopeMatrix.services.length > 0 ||
-          proposal.scopeMatrix.supply.length > 0 ||
-          proposal.scopeMatrix.exclusions.length > 0) ? (
+        {/* Scope Summary — Unified Scope Matrix */}
+        {proposal.unifiedScopeMatrix &&
+        proposal.unifiedScopeMatrix.categories.some((c) => c.items.length > 0) ? (
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Scope Matrix
+                {proposal.unifiedScopeMatrix.isComplete && (
+                  <Chip label="Complete" color="success" size="small" sx={{ ml: 1 }} />
+                )}
+              </Typography>
+
+              {(() => {
+                const allItems = proposal.unifiedScopeMatrix!.categories.flatMap((c) => c.items);
+                const included = allItems.filter((i) => i.included);
+                const excluded = allItems.filter((i) => !i.included);
+                const services = included.filter((i) => i.classification === 'SERVICE');
+                const supply = included.filter((i) => i.classification === 'SUPPLY');
+
+                return (
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                        Services ({services.length})
+                      </Typography>
+                      {services.slice(0, 3).map((item) => (
+                        <Typography key={item.id} variant="body2" sx={{ mb: 0.5 }}>
+                          {item.name}
+                        </Typography>
+                      ))}
+                      {services.length > 3 && (
+                        <Typography variant="caption" color="text.secondary">
+                          +{services.length - 3} more
+                        </Typography>
+                      )}
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                        Supply ({supply.length})
+                      </Typography>
+                      {supply.slice(0, 3).map((item) => (
+                        <Typography key={item.id} variant="body2" sx={{ mb: 0.5 }}>
+                          {item.name}
+                        </Typography>
+                      ))}
+                      {supply.length > 3 && (
+                        <Typography variant="caption" color="text.secondary">
+                          +{supply.length - 3} more
+                        </Typography>
+                      )}
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                        Exclusions ({excluded.length})
+                      </Typography>
+                      {excluded.slice(0, 3).map((item) => (
+                        <Typography key={item.id} variant="body2" sx={{ mb: 0.5 }}>
+                          {item.name}
+                        </Typography>
+                      ))}
+                      {excluded.length > 3 && (
+                        <Typography variant="caption" color="text.secondary">
+                          +{excluded.length - 3} more
+                        </Typography>
+                      )}
+                    </Grid>
+                  </Grid>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        ) : proposal.scopeMatrix &&
+          (proposal.scopeMatrix.services.length > 0 ||
+            proposal.scopeMatrix.supply.length > 0 ||
+            proposal.scopeMatrix.exclusions.length > 0) ? (
+          /* Legacy Scope Matrix for older proposals */
           <Card sx={{ mb: 3 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
