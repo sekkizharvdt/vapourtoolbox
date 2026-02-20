@@ -114,3 +114,14 @@ export { calculateTVC, type TVCInput, type TVCResult } from './tvcCalculator';
 
 // Mechanical Vapour Compressor (MVC)
 export { calculateMVC, type MVCInput, type MVCResult } from './mvcCalculator';
+
+// Siphon Sizing Calculator
+export {
+  calculateSiphonSizing,
+  validateSiphonInput,
+  type SiphonSizingInput,
+  type SiphonSizingResult,
+  type SiphonFluidType,
+  type PressureUnit,
+  type ElbowConfig,
+} from './siphonSizingCalculator';

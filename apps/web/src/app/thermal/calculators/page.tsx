@@ -29,6 +29,7 @@ import {
   Air as AirIcon,
   PrecisionManufacturing as MfgIcon,
   WaterDrop as WaterDropIcon,
+  CallSplit as SiphonIcon,
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
@@ -141,6 +142,15 @@ const calculators: Calculator[] = [
     href: '/thermal/calculators/desuperheating',
     status: 'available',
     reference: 'Energy Balance',
+  },
+  {
+    title: 'Siphon Sizing',
+    description:
+      'Size inter-effect siphon pipes, calculate minimum U-bend height, pressure drop, and flash vapor for thermal desalination plants.',
+    icon: <SiphonIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/calculators/siphon-sizing',
+    status: 'available',
+    reference: 'Darcy-Weisbach',
   },
 ];
 
