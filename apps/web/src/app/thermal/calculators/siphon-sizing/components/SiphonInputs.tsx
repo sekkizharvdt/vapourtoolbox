@@ -28,10 +28,8 @@ interface SiphonInputsProps {
 
   // Fluid
   fluidType: SiphonFluidType;
-  temperature: string;
   salinity: string;
   onFluidTypeChange: (value: SiphonFluidType) => void;
-  onTemperatureChange: (value: string) => void;
   onSalinityChange: (value: string) => void;
 
   // Flow
@@ -51,8 +49,9 @@ interface SiphonInputsProps {
   onSafetyFactorChange: (value: string) => void;
 
   // Computed display
-  fluidDensity: number | null;
   pressureDiffDisplay: string;
+  derivedTemperature: number | null;
+  derivedDensity: number | null;
 }
 
 export function SiphonInputs({
@@ -63,10 +62,8 @@ export function SiphonInputs({
   onDownstreamPressureChange,
   onPressureUnitChange,
   fluidType,
-  temperature,
   salinity,
   onFluidTypeChange,
-  onTemperatureChange,
   onSalinityChange,
   flowRate,
   onFlowRateChange,
@@ -78,8 +75,9 @@ export function SiphonInputs({
   onOffsetDistanceChange,
   safetyFactor,
   onSafetyFactorChange,
-  fluidDensity,
   pressureDiffDisplay,
+  derivedTemperature,
+  derivedDensity,
 }: SiphonInputsProps) {
   const unitLabel = PRESSURE_UNIT_LABELS[pressureUnit];
 
@@ -157,18 +155,6 @@ export function SiphonInputs({
         </Select>
       </FormControl>
 
-      <TextField
-        label="Fluid Temperature"
-        value={temperature}
-        onChange={(e) => onTemperatureChange(e.target.value)}
-        type="number"
-        fullWidth
-        size="small"
-        slotProps={{
-          input: { endAdornment: <InputAdornment position="end">&deg;C</InputAdornment> },
-        }}
-      />
-
       {(fluidType === 'seawater' || fluidType === 'brine') && (
         <TextField
           label="Salinity"
@@ -183,9 +169,15 @@ export function SiphonInputs({
         />
       )}
 
-      {fluidDensity !== null && (
+      {derivedTemperature !== null && (
         <Typography variant="caption" color="text.secondary">
-          Fluid density: <strong>{fluidDensity.toFixed(2)} kg/m&sup3;</strong>
+          Saturation temperature: <strong>{derivedTemperature.toFixed(1)} &deg;C</strong>
+          {derivedDensity !== null && (
+            <>
+              {' '}
+              &middot; Density: <strong>{derivedDensity.toFixed(2)} kg/m&sup3;</strong>
+            </>
+          )}
         </Typography>
       )}
 
@@ -242,7 +234,7 @@ export function SiphonInputs({
         helperText="Distance between nozzle centers"
       />
 
-      {elbowConfig === '3_elbows' && (
+      {elbowConfig !== '2_elbows' && (
         <TextField
           label="Offset Distance"
           value={offsetDistance}
@@ -253,7 +245,11 @@ export function SiphonInputs({
           slotProps={{
             input: { endAdornment: <InputAdornment position="end">m</InputAdornment> },
           }}
-          helperText="Lateral offset between nozzle planes"
+          helperText={
+            elbowConfig === '3_elbows'
+              ? 'Lateral offset between nozzle planes'
+              : 'Lateral offset to clear adjacent siphon'
+          }
         />
       )}
 

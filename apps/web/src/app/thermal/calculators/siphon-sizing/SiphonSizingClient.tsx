@@ -10,7 +10,9 @@ import {
   type PressureUnit,
   type ElbowConfig,
 } from '@/lib/thermal/siphonSizingCalculator';
-import { getSeawaterDensity, getDensityLiquid, mbarAbsToBar } from '@vapour/constants';
+import { mbarAbsToBar } from '@vapour/constants';
+import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
+import { SiphonDiagram } from './components/SiphonDiagram';
 import { SiphonInputs } from './components/SiphonInputs';
 import { SiphonResults } from './components/SiphonResults';
 import { PRESSURE_UNIT_LABELS } from './components/types';
@@ -23,7 +25,6 @@ export default function SiphonSizingClient() {
 
   // Fluid state
   const [fluidType, setFluidType] = useState<SiphonFluidType>('seawater');
-  const [temperature, setTemperature] = useState<string>('65');
   const [salinity, setSalinity] = useState<string>('35000');
 
   // Flow state
@@ -39,22 +40,6 @@ export default function SiphonSizingClient() {
 
   // Error state
   const [error, setError] = useState<string | null>(null);
-
-  // Computed fluid density for display
-  const fluidDensity = useMemo(() => {
-    const temp = parseFloat(temperature);
-    const sal = parseFloat(salinity);
-    if (isNaN(temp) || temp <= 0) return null;
-    try {
-      if (fluidType === 'distillate') {
-        return getDensityLiquid(temp);
-      }
-      if (isNaN(sal) || sal < 0) return null;
-      return getSeawaterDensity(sal, temp);
-    } catch {
-      return null;
-    }
-  }, [fluidType, temperature, salinity]);
 
   // Computed pressure difference display
   const pressureDiffDisplay = useMemo(() => {
@@ -88,7 +73,6 @@ export default function SiphonSizingClient() {
     try {
       const up = parseFloat(upstreamPressure);
       const down = parseFloat(downstreamPressure);
-      const temp = parseFloat(temperature);
       const sal = parseFloat(salinity);
       const flow = parseFloat(flowRate);
       const hDist = parseFloat(horizontalDistance);
@@ -96,13 +80,13 @@ export default function SiphonSizingClient() {
       const sf = parseFloat(safetyFactor);
 
       // Basic validation before calling calculator
-      if (isNaN(up) || isNaN(down) || isNaN(temp) || isNaN(flow) || isNaN(hDist) || isNaN(sf)) {
+      if (isNaN(up) || isNaN(down) || isNaN(flow) || isNaN(hDist) || isNaN(sf)) {
         return null;
       }
       if ((fluidType === 'seawater' || fluidType === 'brine') && isNaN(sal)) {
         return null;
       }
-      if (elbowConfig === '3_elbows' && isNaN(oDist)) {
+      if (elbowConfig !== '2_elbows' && isNaN(oDist)) {
         return null;
       }
       if (up <= down) return null;
@@ -112,12 +96,11 @@ export default function SiphonSizingClient() {
         downstreamPressure: down,
         pressureUnit,
         fluidType,
-        fluidTemperature: temp,
         salinity: fluidType === 'distillate' ? 0 : sal,
         flowRate: flow,
         elbowConfig,
         horizontalDistance: hDist,
-        offsetDistance: elbowConfig === '3_elbows' ? oDist : 0,
+        offsetDistance: elbowConfig !== '2_elbows' ? oDist : 0,
         safetyFactor: sf,
       };
 
@@ -131,7 +114,6 @@ export default function SiphonSizingClient() {
     downstreamPressure,
     pressureUnit,
     fluidType,
-    temperature,
     salinity,
     flowRate,
     elbowConfig,
@@ -142,6 +124,8 @@ export default function SiphonSizingClient() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
+      <CalculatorBreadcrumb calculatorName="Siphon Sizing" />
+
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>
@@ -172,10 +156,8 @@ export default function SiphonSizingClient() {
               onDownstreamPressureChange={setDownstreamPressure}
               onPressureUnitChange={setPressureUnit}
               fluidType={fluidType}
-              temperature={temperature}
               salinity={salinity}
               onFluidTypeChange={setFluidType}
-              onTemperatureChange={setTemperature}
               onSalinityChange={setSalinity}
               flowRate={flowRate}
               onFlowRateChange={setFlowRate}
@@ -187,8 +169,9 @@ export default function SiphonSizingClient() {
               onOffsetDistanceChange={setOffsetDistance}
               safetyFactor={safetyFactor}
               onSafetyFactorChange={setSafetyFactor}
-              fluidDensity={fluidDensity}
               pressureDiffDisplay={pressureDiffDisplay}
+              derivedTemperature={result?.fluidTemperature ?? null}
+              derivedDensity={result?.fluidDensity ?? null}
             />
           </Paper>
           {error && (
@@ -198,8 +181,14 @@ export default function SiphonSizingClient() {
           )}
         </Grid>
 
-        {/* Right: Results */}
+        {/* Right: Diagram + Results */}
         <Grid size={{ xs: 12, md: 7 }}>
+          <SiphonDiagram
+            result={result}
+            elbowConfig={elbowConfig}
+            horizontalDistance={parseFloat(horizontalDistance) || 0}
+            offsetDistance={parseFloat(offsetDistance) || 0}
+          />
           {result ? (
             <SiphonResults result={result} />
           ) : (
@@ -241,9 +230,9 @@ export default function SiphonSizingClient() {
           pressure fluctuations during operation.
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          <strong>Flash vapor</strong> occurs when the liquid temperature exceeds the saturation
-          temperature at the downstream pressure. The flash fraction is calculated using an enthalpy
-          balance across the downstream effect entry point.
+          <strong>Flash vapor</strong> occurs when the fluid&apos;s saturation temperature at the
+          upstream effect exceeds the saturation temperature at the downstream pressure. The flash
+          fraction is calculated using an enthalpy balance.
         </Typography>
       </Box>
     </Container>

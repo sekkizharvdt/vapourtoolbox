@@ -9,6 +9,7 @@
 
 import { useState, useMemo } from 'react';
 import { Container, Typography, Box, Paper, Grid, Alert, Chip, Stack } from '@mui/material';
+import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculateTDH } from '@/lib/thermal';
 import { PumpSizingInputs, PumpSizingResults } from './components';
 
@@ -77,6 +78,8 @@ export default function PumpSizingClient() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
+      <CalculatorBreadcrumb calculatorName="Pump Sizing" />
+
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>

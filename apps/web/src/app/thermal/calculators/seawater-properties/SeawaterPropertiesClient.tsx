@@ -36,6 +36,7 @@ import {
   TableRow,
 } from '@mui/material';
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
+import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   getSeawaterDensity,
   getSeawaterSpecificHeat,
@@ -147,6 +148,8 @@ export default function SeawaterPropertiesClient() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
+      <CalculatorBreadcrumb calculatorName="Seawater Properties" />
+
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>

@@ -19,6 +19,7 @@
 
 import { useState, useMemo } from 'react';
 import { Typography, Box, Grid, Paper, Chip, Stack } from '@mui/material';
+import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   getSaturationPressure,
   getSaturationTemperature,
@@ -214,6 +215,8 @@ export default function SteamTablesClient() {
 
   return (
     <Box>
+      <CalculatorBreadcrumb calculatorName="Steam Tables" />
+
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>

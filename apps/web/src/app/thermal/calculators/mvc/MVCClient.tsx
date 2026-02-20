@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Container, Typography, Box, Paper, Grid, Alert, Chip, Stack } from '@mui/material';
+import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculateMVC } from '@/lib/thermal';
 import { MVCInputs, MVCResults } from './components';
 
@@ -53,6 +54,8 @@ export default function MVCClient() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
+      <CalculatorBreadcrumb calculatorName="MVC" />
+
       <Box sx={{ mb: 4 }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>
           <Typography variant="h4" component="h1">

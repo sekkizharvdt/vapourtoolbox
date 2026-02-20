@@ -9,6 +9,7 @@
 
 import { useState, useMemo } from 'react';
 import { Container, Typography, Box, Paper, Grid, Chip, Stack } from '@mui/material';
+import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   SCHEDULE_40_PIPES,
   selectPipeByVelocity,
@@ -209,6 +210,8 @@ export default function PipeSizingClient() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
+      <CalculatorBreadcrumb calculatorName="Pipe Sizing" />
+
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>

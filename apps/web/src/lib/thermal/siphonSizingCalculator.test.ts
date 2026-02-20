@@ -2,6 +2,7 @@
  * Siphon Sizing Calculator Tests
  *
  * Tests for inter-effect siphon pipe sizing calculations.
+ * Temperature is derived from upstream pressure (saturated fluid).
  */
 
 import {
@@ -126,7 +127,6 @@ describe('Siphon Sizing Calculator', () => {
     downstreamPressure: 250,
     pressureUnit: 'mbar_abs',
     fluidType: 'seawater',
-    fluidTemperature: 65,
     salinity: 35000,
     flowRate: 100,
     elbowConfig: '2_elbows',
@@ -166,13 +166,31 @@ describe('Siphon Sizing Calculator', () => {
         elbowConfig: '3_elbows',
         offsetDistance: 0,
       });
-      expect(errors).toContain('Offset distance must be positive for 3-elbow configuration');
+      expect(errors).toContain('Offset distance must be positive for this elbow configuration');
+    });
+
+    it('should reject missing offset distance for 4-elbow config', () => {
+      const errors = validateSiphonInput({
+        ...baseInput,
+        elbowConfig: '4_elbows',
+        offsetDistance: 0,
+      });
+      expect(errors).toContain('Offset distance must be positive for this elbow configuration');
     });
 
     it('should accept valid 3-elbow config', () => {
       const errors = validateSiphonInput({
         ...baseInput,
         elbowConfig: '3_elbows',
+        offsetDistance: 1.5,
+      });
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should accept valid 4-elbow config', () => {
+      const errors = validateSiphonInput({
+        ...baseInput,
+        elbowConfig: '4_elbows',
         offsetDistance: 1.5,
       });
       expect(errors).toHaveLength(0);
@@ -200,6 +218,27 @@ describe('Siphon Sizing Calculator', () => {
       expect(result.pressureDiffBar).toBeCloseTo(0.05, 3);
     });
 
+    it('should derive fluid temperature from upstream pressure', () => {
+      const result = calculateSiphonSizing(baseInput);
+
+      // At 300 mbar (0.3 bar), sat temp ~69°C for pure water
+      // With BPE for seawater at 35000 ppm, fluid temp should be higher
+      expect(result.fluidTemperature).toBeGreaterThan(60);
+      expect(result.fluidTemperature).toBeLessThan(80);
+      expect(result.upstreamSatTempPure).toBeLessThan(result.fluidTemperature);
+    });
+
+    it('should have no BPE for distillate', () => {
+      const result = calculateSiphonSizing({
+        ...baseInput,
+        fluidType: 'distillate',
+        salinity: 0,
+      });
+
+      // Distillate: fluid temp = pure sat temp (no BPE)
+      expect(result.fluidTemperature).toBeCloseTo(result.upstreamSatTempPure, 5);
+    });
+
     it('should produce higher minimum height for larger pressure differences', () => {
       const smallDeltaP = calculateSiphonSizing(baseInput);
       const largeDeltaP = calculateSiphonSizing({
@@ -212,35 +251,26 @@ describe('Siphon Sizing Calculator', () => {
       expect(largeDeltaP.staticHead).toBeGreaterThan(smallDeltaP.staticHead);
     });
 
-    it('should handle distillate with no flash when subcooled', () => {
-      const result = calculateSiphonSizing({
-        ...baseInput,
-        fluidType: 'distillate',
-        salinity: 0,
-        fluidTemperature: 40, // Well below sat temp at 250 mbar (~65°C)
-      });
-
-      expect(result.flashOccurs).toBe(false);
-      expect(result.flashVaporFraction).toBe(0);
-      expect(result.flashVaporFlow).toBe(0);
-      expect(result.liquidFlowAfterFlash).toBe(100);
-    });
-
-    it('should calculate flash vapor when fluid is superheated relative to downstream', () => {
-      const result = calculateSiphonSizing({
-        ...baseInput,
-        fluidType: 'distillate',
-        salinity: 0,
-        fluidTemperature: 80, // Above sat temp at 250 mbar (~65°C)
-        downstreamPressure: 250,
-      });
+    it('should always flash for saturated fluid (upstream P > downstream P)', () => {
+      // Since fluid is saturated at upstream pressure, it will always flash
+      // when entering a lower-pressure downstream effect
+      const result = calculateSiphonSizing(baseInput);
 
       expect(result.flashOccurs).toBe(true);
       expect(result.flashVaporFraction).toBeGreaterThan(0);
       expect(result.flashVaporFraction).toBeLessThan(1);
-      expect(result.flashVaporFlow).toBeGreaterThan(0);
-      expect(result.liquidFlowAfterFlash).toBeLessThan(100);
       expect(result.flashVaporFlow + result.liquidFlowAfterFlash).toBeCloseTo(100, 1);
+    });
+
+    it('should flash more with larger pressure difference', () => {
+      const smallDeltaP = calculateSiphonSizing(baseInput);
+      const largeDeltaP = calculateSiphonSizing({
+        ...baseInput,
+        upstreamPressure: 400,
+        downstreamPressure: 100,
+      });
+
+      expect(largeDeltaP.flashVaporFraction).toBeGreaterThan(smallDeltaP.flashVaporFraction);
     });
 
     it('should handle 3-elbow configuration', () => {
@@ -255,6 +285,21 @@ describe('Siphon Sizing Calculator', () => {
       expect(twoElbow.elbowCount).toBe(2);
       // 3-elbow config has longer pipe and more fittings → more friction
       expect(threeElbow.totalPipeLength).toBeGreaterThan(twoElbow.totalPipeLength);
+    });
+
+    it('should handle 4-elbow configuration (routing around adjacent siphon)', () => {
+      const twoElbow = calculateSiphonSizing(baseInput);
+      const fourElbow = calculateSiphonSizing({
+        ...baseInput,
+        elbowConfig: '4_elbows',
+        offsetDistance: 1.5,
+      });
+
+      expect(fourElbow.elbowCount).toBe(4);
+      // 4-elbow config adds 2× offset distance (out + back)
+      expect(fourElbow.totalPipeLength).toBeGreaterThan(twoElbow.totalPipeLength);
+      // More fittings → higher minimum height
+      expect(fourElbow.minimumHeight).toBeGreaterThan(twoElbow.minimumHeight);
     });
 
     it('should apply safety factor correctly', () => {
@@ -287,12 +332,13 @@ describe('Siphon Sizing Calculator', () => {
     });
 
     it('should warn on high flash vapor fraction', () => {
+      // Large pressure difference → more flash
       const result = calculateSiphonSizing({
         ...baseInput,
         fluidType: 'distillate',
         salinity: 0,
-        fluidTemperature: 100, // High temp → significant flash at 250 mbar
-        downstreamPressure: 100, // Very low downstream pressure
+        upstreamPressure: 500,
+        downstreamPressure: 100,
       });
 
       if (result.flashVaporFraction > 0.05) {

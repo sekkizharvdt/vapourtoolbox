@@ -44,7 +44,7 @@ import { barToHead, tonHrToM3S } from './thermalUtils';
 
 export type SiphonFluidType = 'seawater' | 'brine' | 'distillate';
 export type PressureUnit = 'mbar_abs' | 'bar_abs' | 'kpa_abs';
-export type ElbowConfig = '2_elbows' | '3_elbows';
+export type ElbowConfig = '2_elbows' | '3_elbows' | '4_elbows';
 
 export interface SiphonSizingInput {
   /** Upstream effect pressure (in selected unit) */
@@ -56,19 +56,17 @@ export interface SiphonSizingInput {
 
   /** Fluid type */
   fluidType: SiphonFluidType;
-  /** Fluid temperature at upstream effect (°C) */
-  fluidTemperature: number;
   /** Salinity in ppm (used for seawater/brine) */
   salinity: number;
 
   /** Mass flow rate in ton/hr */
   flowRate: number;
 
-  /** Elbow configuration: 2 (same plane) or 3 (different plane) */
+  /** Elbow configuration: 2 (same plane), 3 (different plane), or 4 (same plane, routing around another siphon) */
   elbowConfig: ElbowConfig;
   /** Horizontal distance between nozzle centers (m) */
   horizontalDistance: number;
-  /** Lateral offset distance (m) — only used for 3-elbow config */
+  /** Lateral offset distance (m) — used for 3-elbow (one offset) and 4-elbow (out + back) configs */
   offsetDistance: number;
 
   /** Safety factor as percentage (minimum 20%) */
@@ -107,6 +105,11 @@ export interface SiphonSizingResult {
   downstreamSatTempPure: number;
   /** Whether flash occurs */
   flashOccurs: boolean;
+
+  /** Derived fluid temperature at upstream effect (°C) — sat temp + BPE */
+  fluidTemperature: number;
+  /** Pure saturation temperature at upstream pressure (°C) */
+  upstreamSatTempPure: number;
 
   /** Fluid density used (kg/m³) */
   fluidDensity: number;
@@ -197,14 +200,27 @@ function getFluidEnthalpy(fluidType: SiphonFluidType, tempC: number, salinity: n
 }
 
 /**
+ * Get the number of elbows for a given configuration.
+ */
+function getElbowCount(elbowConfig: ElbowConfig): number {
+  switch (elbowConfig) {
+    case '2_elbows':
+      return 2;
+    case '3_elbows':
+      return 3;
+    case '4_elbows':
+      return 4;
+  }
+}
+
+/**
  * Build the fittings list based on elbow configuration.
  * Siphon always has: entrance + elbows + exit
  */
 function buildSiphonFittings(elbowConfig: ElbowConfig): FittingCount[] {
-  const elbowCount = elbowConfig === '2_elbows' ? 2 : 3;
   return [
     { type: 'entrance_sharp', count: 1 },
-    { type: '90_elbow_standard', count: elbowCount },
+    { type: '90_elbow_standard', count: getElbowCount(elbowConfig) },
     { type: 'exit', count: 1 },
   ];
 }
@@ -227,11 +243,6 @@ export function validateSiphonInput(input: SiphonSizingInput): string[] {
     errors.push('Upstream pressure must be higher than downstream pressure');
   }
 
-  // Temperature
-  if (input.fluidTemperature <= 0 || input.fluidTemperature > 180) {
-    errors.push('Fluid temperature must be between 0 and 180 °C');
-  }
-
   // Salinity
   if (
     (input.fluidType === 'seawater' || input.fluidType === 'brine') &&
@@ -249,8 +260,8 @@ export function validateSiphonInput(input: SiphonSizingInput): string[] {
   if (input.horizontalDistance <= 0) {
     errors.push('Horizontal distance must be positive');
   }
-  if (input.elbowConfig === '3_elbows' && input.offsetDistance <= 0) {
-    errors.push('Offset distance must be positive for 3-elbow configuration');
+  if (input.elbowConfig !== '2_elbows' && input.offsetDistance <= 0) {
+    errors.push('Offset distance must be positive for this elbow configuration');
   }
 
   // Safety factor
@@ -289,10 +300,18 @@ export function calculateSiphonSizing(input: SiphonSizingInput): SiphonSizingRes
   const downstreamBar = pressureToBar(input.downstreamPressure, input.pressureUnit);
   const pressureDiffBar = upstreamBar - downstreamBar;
 
-  // Get fluid properties
+  // Derive fluid temperature from upstream pressure (fluids are always saturated)
+  const upstreamSatTempPure = getSaturationTemperature(upstreamBar);
+  const upstreamBpe =
+    input.fluidType === 'distillate'
+      ? 0
+      : getBoilingPointElevation(input.salinity, upstreamSatTempPure);
+  const fluidTemperature = upstreamSatTempPure + upstreamBpe;
+
+  // Get fluid properties at derived temperature
   const { density, viscosity } = getFluidProperties(
     input.fluidType,
-    input.fluidTemperature,
+    fluidTemperature,
     input.salinity
   );
 
@@ -315,7 +334,7 @@ export function calculateSiphonSizing(input: SiphonSizingInput): SiphonSizingRes
 
   // Build fittings
   const fittings = buildSiphonFittings(input.elbowConfig);
-  const elbowCount = input.elbowConfig === '2_elbows' ? 2 : 3;
+  const elbowCount = getElbowCount(input.elbowConfig);
 
   // Static head from pressure difference
   const staticHead = barToHead(pressureDiffBar, density);
@@ -330,7 +349,10 @@ export function calculateSiphonSizing(input: SiphonSizingInput): SiphonSizingRes
     // Vertical legs: 2 legs of currentHeight each (down into U-bend and back up)
     const verticalRun = 2 * currentHeight;
     const horizontalRun = input.horizontalDistance;
-    const lateralRun = input.elbowConfig === '3_elbows' ? input.offsetDistance : 0;
+    // 3-elbow: one lateral offset; 4-elbow: offset out + offset back = 2× offset
+    let lateralRun = 0;
+    if (input.elbowConfig === '3_elbows') lateralRun = input.offsetDistance;
+    else if (input.elbowConfig === '4_elbows') lateralRun = 2 * input.offsetDistance;
     totalPipeLength = horizontalRun + lateralRun + verticalRun;
 
     // Calculate pressure drop
@@ -374,11 +396,11 @@ export function calculateSiphonSizing(input: SiphonSizingInput): SiphonSizingRes
   let flashVaporFraction = 0;
   let flashVaporFlow = 0;
   let liquidFlowAfterFlash = input.flowRate;
-  const flashOccurs = input.fluidTemperature > downstreamSatTemp;
+  const flashOccurs = fluidTemperature > downstreamSatTemp;
 
   if (flashOccurs) {
-    // Enthalpy of incoming liquid at upstream temperature
-    const inletEnthalpy = getFluidEnthalpy(input.fluidType, input.fluidTemperature, input.salinity);
+    // Enthalpy of incoming liquid at upstream saturation temperature
+    const inletEnthalpy = getFluidEnthalpy(input.fluidType, fluidTemperature, input.salinity);
 
     // Enthalpy of liquid at downstream saturation temperature
     const brineEnthalpy = getFluidEnthalpy(input.fluidType, downstreamSatTemp, input.salinity);
@@ -419,6 +441,9 @@ export function calculateSiphonSizing(input: SiphonSizingInput): SiphonSizingRes
     downstreamSatTemp,
     downstreamSatTempPure,
     flashOccurs,
+
+    fluidTemperature,
+    upstreamSatTempPure,
 
     fluidDensity: density,
     fluidViscosity: viscosity,

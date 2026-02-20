@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Container, Typography, Box, Paper, Grid, Alert, Chip, Stack } from '@mui/material';
+import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { getSaturationTemperature } from '@vapour/constants';
 import { calculateDesuperheating } from '@/lib/thermal';
 import { DesuperheatingInputs, DesuperheatingResults } from './components';
@@ -63,6 +64,8 @@ export default function DesuperheatingClient() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
+      <CalculatorBreadcrumb calculatorName="Desuperheating" />
+
       <Box sx={{ mb: 4 }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>
           <Typography variant="h4" component="h1">

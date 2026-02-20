@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Container, Typography, Box, Paper, Grid, Alert, Chip, Stack } from '@mui/material';
+import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculateTVC, calculateDesuperheating } from '@/lib/thermal';
 import type { DesuperheatingResult } from '@/lib/thermal';
 import { TVCInputs, TVCResults } from './components';
@@ -70,6 +71,8 @@ export default function TVCClient() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
+      <CalculatorBreadcrumb calculatorName="TVC" />
+
       <Box sx={{ mb: 4 }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>
           <Typography variant="h4" component="h1">

@@ -39,6 +39,7 @@ import {
   Warning as WarningIcon,
   Error as ErrorIcon,
 } from '@mui/icons-material';
+import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   calculateNPSHa,
   calculateMinimumLiquidLevel,
@@ -174,6 +175,8 @@ export default function NPSHaClient() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
+      <CalculatorBreadcrumb calculatorName="NPSHa" />
+
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>

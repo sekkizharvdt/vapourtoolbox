@@ -325,10 +325,10 @@ export function SiphonResults({ result }: SiphonResultsProps) {
         )}
       </Paper>
 
-      {/* === Geometry Summary === */}
+      {/* === Geometry & Fluid Summary === */}
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Typography variant="subtitle2" gutterBottom>
-          Pipe Geometry
+          Pipe Geometry &amp; Fluid Properties
         </Typography>
         <Grid container spacing={2}>
           <Grid size={{ xs: 6, sm: 3 }}>
@@ -345,6 +345,12 @@ export function SiphonResults({ result }: SiphonResultsProps) {
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }}>
             <Typography variant="caption" color="text.secondary">
+              Fluid Temperature
+            </Typography>
+            <Typography variant="body2">{result.fluidTemperature.toFixed(1)} &deg;C</Typography>
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <Typography variant="caption" color="text.secondary">
               Fluid Density
             </Typography>
             <Typography variant="body2">{result.fluidDensity.toFixed(2)} kg/m&sup3;</Typography>
@@ -357,6 +363,16 @@ export function SiphonResults({ result }: SiphonResultsProps) {
               {(result.fluidViscosity * 1000).toFixed(3)} mPa&middot;s
             </Typography>
           </Grid>
+          {result.upstreamSatTempPure !== result.fluidTemperature && (
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <Typography variant="caption" color="text.secondary">
+                BPE
+              </Typography>
+              <Typography variant="body2">
+                {(result.fluidTemperature - result.upstreamSatTempPure).toFixed(2)} &deg;C
+              </Typography>
+            </Grid>
+          )}
         </Grid>
       </Paper>
 

@@ -9,6 +9,7 @@
 
 import { useState, useMemo } from 'react';
 import { Container, Typography, Box, Grid, Alert, Stack, Chip } from '@mui/material';
+import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculatePressureDrop, type FittingType, type FittingCount } from '@/lib/thermal';
 import { getSeawaterDensity, getSeawaterViscosity, getDensityLiquid } from '@vapour/constants';
 import {
@@ -139,6 +140,8 @@ export default function PressureDropClient() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
+      <CalculatorBreadcrumb calculatorName="Pressure Drop" />
+
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>

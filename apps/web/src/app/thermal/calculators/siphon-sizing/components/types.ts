@@ -19,4 +19,5 @@ export const FLUID_TYPE_LABELS: Record<string, string> = {
 export const ELBOW_CONFIG_LABELS: Record<string, string> = {
   '2_elbows': '2 Elbows (Same Plane)',
   '3_elbows': '3 Elbows (Different Plane)',
+  '4_elbows': '4 Elbows (Routing Around)',
 };
