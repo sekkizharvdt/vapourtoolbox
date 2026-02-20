@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Paper,
   Typography,
@@ -17,14 +18,19 @@ import {
   TableRow,
   Alert,
   Box,
+  Button,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
+import { Download as DownloadIcon } from '@mui/icons-material';
 import type { SiphonSizingResult } from '@/lib/thermal/siphonSizingCalculator';
 import { FITTING_NAMES, type FittingType } from '@/lib/thermal/pressureDropCalculator';
+import { GenerateReportDialog } from './GenerateReportDialog';
+import type { SiphonReportInputs } from './SiphonReportPDF';
 
 interface SiphonResultsProps {
   result: SiphonSizingResult;
+  inputs: SiphonReportInputs;
 }
 
 function getVelocityColor(status: 'OK' | 'HIGH' | 'LOW'): 'success' | 'error' | 'warning' {
@@ -38,9 +44,22 @@ function getVelocityColor(status: 'OK' | 'HIGH' | 'LOW'): 'success' | 'error' | 
   }
 }
 
-export function SiphonResults({ result }: SiphonResultsProps) {
+export function SiphonResults({ result, inputs }: SiphonResultsProps) {
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+
   return (
     <Stack spacing={3}>
+      {/* === Download Report Button === */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button
+          variant="outlined"
+          startIcon={<DownloadIcon />}
+          onClick={() => setReportDialogOpen(true)}
+        >
+          Download Report
+        </Button>
+      </Box>
+
       {/* === Primary Result: Pipe Selection === */}
       <Card
         variant="outlined"
@@ -394,6 +413,14 @@ export function SiphonResults({ result }: SiphonResultsProps) {
         &Delta;P = {(result.pressureDiffBar * 1000).toFixed(1)} mbar ={' '}
         {result.pressureDiffBar.toFixed(4)} bar = {(result.pressureDiffBar * 100).toFixed(2)} kPa
       </Typography>
+
+      {/* === Report Dialog === */}
+      <GenerateReportDialog
+        open={reportDialogOpen}
+        onClose={() => setReportDialogOpen(false)}
+        result={result}
+        inputs={inputs}
+      />
     </Stack>
   );
 }

@@ -196,7 +196,22 @@ export default function SiphonSizingClient() {
             offsetDistance={parseFloat(offsetDistance) || 0}
           />
           {result ? (
-            <SiphonResults result={result} />
+            <SiphonResults
+              result={result}
+              inputs={{
+                upstreamPressure,
+                downstreamPressure,
+                pressureUnit,
+                fluidType,
+                salinity,
+                flowRate,
+                targetVelocity,
+                elbowConfig,
+                horizontalDistance,
+                offsetDistance,
+                safetyFactor,
+              }}
+            />
           ) : (
             !error && (
               <Paper

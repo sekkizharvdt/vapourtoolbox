@@ -214,7 +214,7 @@ export function SiphonInputs({
         slotProps={{
           input: { endAdornment: <InputAdornment position="end">m/s</InputAdornment> },
         }}
-        helperText="Recommended: 0.3 &ndash; 2.0 m/s"
+        helperText="Range: 0.05 &ndash; 1.0 m/s"
       />
 
       <Divider />

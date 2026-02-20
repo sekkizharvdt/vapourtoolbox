@@ -135,8 +135,8 @@ export interface SiphonSizingResult {
 // ============================================================================
 
 /** Siphon velocity limits (m/s) */
-const SIPHON_VELOCITY_MIN = 0.3;
-const SIPHON_VELOCITY_MAX = 2.0;
+const SIPHON_VELOCITY_MIN = 0.05;
+const SIPHON_VELOCITY_MAX = 1.0;
 
 /** Minimum allowed safety factor (%) */
 const MIN_SAFETY_FACTOR = 20;
