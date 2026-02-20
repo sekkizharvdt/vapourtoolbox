@@ -47,9 +47,9 @@ export default function TeamRequestsTab() {
     setError(null);
 
     try {
-      const statusFilter: LeaveRequestStatus | undefined =
+      const statusFilter: LeaveRequestStatus | LeaveRequestStatus[] | undefined =
         filterTab === 'pending'
-          ? 'PENDING_APPROVAL'
+          ? ['PENDING_APPROVAL', 'PARTIALLY_APPROVED']
           : filterTab === 'approved'
             ? 'APPROVED'
             : filterTab === 'rejected'
@@ -152,10 +152,18 @@ export default function TeamRequestsTab() {
                     <TableCell align="center">
                       <Button
                         size="small"
-                        variant={request.status === 'PENDING_APPROVAL' ? 'contained' : 'outlined'}
+                        variant={
+                          request.status === 'PENDING_APPROVAL' ||
+                          request.status === 'PARTIALLY_APPROVED'
+                            ? 'contained'
+                            : 'outlined'
+                        }
                         onClick={() => router.push(`/hr/leaves/${request.id}`)}
                       >
-                        {request.status === 'PENDING_APPROVAL' ? 'Review' : 'View'}
+                        {request.status === 'PENDING_APPROVAL' ||
+                        request.status === 'PARTIALLY_APPROVED'
+                          ? 'Review'
+                          : 'View'}
                       </Button>
                     </TableCell>
                   </TableRow>

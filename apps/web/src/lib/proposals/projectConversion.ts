@@ -8,7 +8,7 @@ import { collection, doc, addDoc, updateDoc, Timestamp, type Firestore } from 'f
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import type { Proposal, Project, CharterBudgetLineItem } from '@vapour/types';
-import { deriveIncludedByClassification, deriveExclusions } from './proposalService';
+import { deriveIncludedByClassification, deriveExclusions } from './proposalHelpers';
 
 const logger = createLogger({ context: 'projectConversion' });
 

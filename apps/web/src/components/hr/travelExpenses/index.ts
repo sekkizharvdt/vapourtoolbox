@@ -10,3 +10,4 @@ export {
   type ParsedExpenseData,
   type ReceiptAttachment as ParsedReceiptAttachment,
 } from './ReceiptParsingUploader';
+export { AddExpenseDialog, type ManualExpenseInput } from './AddExpenseDialog';

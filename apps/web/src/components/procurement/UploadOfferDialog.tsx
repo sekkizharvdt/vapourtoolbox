@@ -41,9 +41,6 @@ import {
   AccordionSummary,
   AccordionDetails,
   InputAdornment,
-  Grid,
-  Card,
-  CardContent,
 } from '@mui/material';
 import {
   CloudUpload as CloudUploadIcon,
@@ -56,6 +53,7 @@ import {
   Compare as CompareIcon,
   Speed as SpeedIcon,
 } from '@mui/icons-material';
+import { ParserComparisonView } from '@/components/shared/ParserComparisonView';
 import { httpsCallable, getFunctions } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirebase } from '@/lib/firebase';
@@ -584,256 +582,93 @@ export default function UploadOfferDialog({
     return '';
   };
 
-  // Render comparison view
+  // Render offer parser detail rows (items found, matched, total amount, processing time)
+  const renderOfferParserDetails = (result: SingleParserResult) => (
+    <>
+      <Stack spacing={1} sx={{ mb: 2 }}>
+        <Stack direction="row" justifyContent="space-between">
+          <Typography variant="body2" color="text.secondary">
+            Items Found:
+          </Typography>
+          <Typography variant="body2" fontWeight={600}>
+            {result.totalItemsFound}
+          </Typography>
+        </Stack>
+        <Stack direction="row" justifyContent="space-between">
+          <Typography variant="body2" color="text.secondary">
+            Matched to RFQ:
+          </Typography>
+          <Typography variant="body2" fontWeight={600}>
+            {result.matchedItems}
+          </Typography>
+        </Stack>
+        <Stack direction="row" justifyContent="space-between">
+          <Typography variant="body2" color="text.secondary">
+            Total Amount:
+          </Typography>
+          <Typography variant="body2" fontWeight={600}>
+            {formatCurrency(result.calculatedTotal)}
+          </Typography>
+        </Stack>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Typography variant="body2" color="text.secondary">
+            Processing Time:
+          </Typography>
+          <Chip
+            size="small"
+            icon={<SpeedIcon />}
+            label={`${result.processingTimeMs}ms`}
+            variant="outlined"
+          />
+        </Stack>
+      </Stack>
+
+      {result.warnings && result.warnings.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {result.warnings.length} warning(s)
+        </Alert>
+      )}
+
+      {result.items.length > 0 && (
+        <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
+          <Typography variant="caption" color="text.secondary" gutterBottom>
+            Extracted Items Preview:
+          </Typography>
+          {result.items.slice(0, 5).map((item, idx) => (
+            <Box key={idx} sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1, mb: 0.5 }}>
+              <Typography variant="caption" noWrap>
+                {item.description}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block">
+                Qty: {item.quantity} | Price: {formatCurrency(item.unitPrice)}
+              </Typography>
+            </Box>
+          ))}
+          {result.items.length > 5 && (
+            <Typography variant="caption" color="text.secondary">
+              +{result.items.length - 5} more items...
+            </Typography>
+          )}
+        </Box>
+      )}
+    </>
+  );
+
+  // Render comparison view using shared component
   const renderComparisonView = () => {
     if (!compareResult) return null;
 
-    const { googleDocumentAI, claudeAI } = compareResult;
-
     return (
       <Box sx={{ mt: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          Parser Comparison Results
-        </Typography>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          Both parsers analyzed your document. Compare the results below and select which one to
-          use.
-        </Typography>
-
-        <Grid container spacing={2} sx={{ mt: 1 }}>
-          {/* Google Document AI Results */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Card
-              sx={{
-                height: '100%',
-                border: selectedParser === 'google' ? 2 : 1,
-                borderColor: selectedParser === 'google' ? 'primary.main' : 'divider',
-              }}
-            >
-              <CardContent>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    Google Document AI
-                  </Typography>
-                  <Chip
-                    size="small"
-                    color={googleDocumentAI.success ? 'success' : 'error'}
-                    label={googleDocumentAI.success ? 'Success' : 'Failed'}
-                  />
-                </Stack>
-
-                {googleDocumentAI.error ? (
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    {googleDocumentAI.error}
-                  </Alert>
-                ) : (
-                  <>
-                    <Stack spacing={1} sx={{ mb: 2 }}>
-                      <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">
-                          Items Found:
-                        </Typography>
-                        <Typography variant="body2" fontWeight={600}>
-                          {googleDocumentAI.totalItemsFound}
-                        </Typography>
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">
-                          Matched to RFQ:
-                        </Typography>
-                        <Typography variant="body2" fontWeight={600}>
-                          {googleDocumentAI.matchedItems}
-                        </Typography>
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">
-                          Total Amount:
-                        </Typography>
-                        <Typography variant="body2" fontWeight={600}>
-                          {formatCurrency(googleDocumentAI.calculatedTotal)}
-                        </Typography>
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography variant="body2" color="text.secondary">
-                          Processing Time:
-                        </Typography>
-                        <Chip
-                          size="small"
-                          icon={<SpeedIcon />}
-                          label={`${googleDocumentAI.processingTimeMs}ms`}
-                          variant="outlined"
-                        />
-                      </Stack>
-                    </Stack>
-
-                    {googleDocumentAI.warnings && googleDocumentAI.warnings.length > 0 && (
-                      <Alert severity="warning" sx={{ mb: 2 }}>
-                        {googleDocumentAI.warnings.length} warning(s)
-                      </Alert>
-                    )}
-
-                    {/* Preview items */}
-                    {googleDocumentAI.items.length > 0 && (
-                      <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
-                        <Typography variant="caption" color="text.secondary" gutterBottom>
-                          Extracted Items Preview:
-                        </Typography>
-                        {googleDocumentAI.items.slice(0, 5).map((item, idx) => (
-                          <Box
-                            key={idx}
-                            sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1, mb: 0.5 }}
-                          >
-                            <Typography variant="caption" noWrap>
-                              {item.description}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              Qty: {item.quantity} | Price: {formatCurrency(item.unitPrice)}
-                            </Typography>
-                          </Box>
-                        ))}
-                        {googleDocumentAI.items.length > 5 && (
-                          <Typography variant="caption" color="text.secondary">
-                            +{googleDocumentAI.items.length - 5} more items...
-                          </Typography>
-                        )}
-                      </Box>
-                    )}
-                  </>
-                )}
-
-                <Button
-                  variant={selectedParser === 'google' ? 'contained' : 'outlined'}
-                  fullWidth
-                  sx={{ mt: 2 }}
-                  onClick={() => handleSelectParser('google')}
-                  disabled={!googleDocumentAI.success}
-                >
-                  {selectedParser === 'google' ? 'Selected' : 'Use These Results'}
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Claude AI Results */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Card
-              sx={{
-                height: '100%',
-                border: selectedParser === 'claude' ? 2 : 1,
-                borderColor: selectedParser === 'claude' ? 'secondary.main' : 'divider',
-              }}
-            >
-              <CardContent>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    Claude AI
-                  </Typography>
-                  <Chip
-                    size="small"
-                    color={claudeAI.success ? 'success' : 'error'}
-                    label={claudeAI.success ? 'Success' : 'Failed'}
-                  />
-                </Stack>
-
-                {claudeAI.error ? (
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    {claudeAI.error}
-                  </Alert>
-                ) : (
-                  <>
-                    <Stack spacing={1} sx={{ mb: 2 }}>
-                      <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">
-                          Items Found:
-                        </Typography>
-                        <Typography variant="body2" fontWeight={600}>
-                          {claudeAI.totalItemsFound}
-                        </Typography>
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">
-                          Matched to RFQ:
-                        </Typography>
-                        <Typography variant="body2" fontWeight={600}>
-                          {claudeAI.matchedItems}
-                        </Typography>
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">
-                          Total Amount:
-                        </Typography>
-                        <Typography variant="body2" fontWeight={600}>
-                          {formatCurrency(claudeAI.calculatedTotal)}
-                        </Typography>
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography variant="body2" color="text.secondary">
-                          Processing Time:
-                        </Typography>
-                        <Chip
-                          size="small"
-                          icon={<SpeedIcon />}
-                          label={`${claudeAI.processingTimeMs}ms`}
-                          variant="outlined"
-                        />
-                      </Stack>
-                    </Stack>
-
-                    {claudeAI.warnings && claudeAI.warnings.length > 0 && (
-                      <Alert severity="warning" sx={{ mb: 2 }}>
-                        {claudeAI.warnings.length} warning(s)
-                      </Alert>
-                    )}
-
-                    {/* Preview items */}
-                    {claudeAI.items.length > 0 && (
-                      <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
-                        <Typography variant="caption" color="text.secondary" gutterBottom>
-                          Extracted Items Preview:
-                        </Typography>
-                        {claudeAI.items.slice(0, 5).map((item, idx) => (
-                          <Box
-                            key={idx}
-                            sx={{ p: 1, bgcolor: 'action.hover', borderRadius: 1, mb: 0.5 }}
-                          >
-                            <Typography variant="caption" noWrap>
-                              {item.description}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              Qty: {item.quantity} | Price: {formatCurrency(item.unitPrice)}
-                            </Typography>
-                          </Box>
-                        ))}
-                        {claudeAI.items.length > 5 && (
-                          <Typography variant="caption" color="text.secondary">
-                            +{claudeAI.items.length - 5} more items...
-                          </Typography>
-                        )}
-                      </Box>
-                    )}
-                  </>
-                )}
-
-                <Button
-                  variant={selectedParser === 'claude' ? 'contained' : 'outlined'}
-                  color="secondary"
-                  fullWidth
-                  sx={{ mt: 2 }}
-                  onClick={() => handleSelectParser('claude')}
-                  disabled={!claudeAI.success}
-                >
-                  {selectedParser === 'claude' ? 'Selected' : 'Use These Results'}
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        <Box sx={{ mt: 2, textAlign: 'center' }}>
-          <Typography variant="caption" color="text.secondary">
-            Total comparison time: {compareResult.totalProcessingTimeMs}ms
-          </Typography>
-        </Box>
+        <ParserComparisonView
+          googleResult={compareResult.googleDocumentAI}
+          claudeResult={compareResult.claudeAI}
+          selectedParser={selectedParser}
+          onSelectParser={handleSelectParser}
+          totalProcessingTimeMs={compareResult.totalProcessingTimeMs}
+          renderGoogleDetails={() => renderOfferParserDetails(compareResult.googleDocumentAI)}
+          renderClaudeDetails={() => renderOfferParserDetails(compareResult.claudeAI)}
+        />
       </Box>
     );
   };

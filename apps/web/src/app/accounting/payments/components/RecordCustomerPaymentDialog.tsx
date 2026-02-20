@@ -7,19 +7,12 @@ import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
 import { getFirebase } from '@/lib/firebase';
-import { collection, doc, getDoc, Timestamp, query, where, getDocs } from 'firebase/firestore';
-import { COLLECTIONS } from '@vapour/firebase';
-import type {
-  CustomerPayment,
-  CustomerInvoice,
-  PaymentAllocation,
-  PaymentMethod,
-} from '@vapour/types';
+import { Timestamp } from 'firebase/firestore';
+import type { CustomerPayment, PaymentMethod } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import {
   createPaymentWithAllocationsAtomic,
   updatePaymentWithAllocationsAtomic,
-  OPENING_BALANCE_ALLOCATION_ID,
   isOpeningBalanceAllocation,
 } from '@/lib/accounting/paymentHelpers';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,7 +22,12 @@ import {
   createAuditFieldChanges,
   type AuditUserContext,
 } from '@/lib/accounting/auditLogger';
-import { InvoiceAllocationTable, PAYMENT_METHODS, CURRENCIES } from './customer-payment';
+import {
+  InvoiceAllocationTable,
+  PAYMENT_METHODS,
+  CURRENCIES,
+  useOutstandingInvoices,
+} from './customer-payment';
 
 interface RecordCustomerPaymentDialogProps {
   open: boolean;
@@ -64,11 +62,6 @@ export function RecordCustomerPaymentDialog({
   const [reference, setReference] = useState<string>('');
   const [projectId, setProjectId] = useState<string | null>(null);
 
-  // Invoice allocation
-  const [outstandingInvoices, setOutstandingInvoices] = useState<CustomerInvoice[]>([]);
-  const [allocations, setAllocations] = useState<PaymentAllocation[]>([]);
-  const [hasAutoAllocated, setHasAutoAllocated] = useState(false);
-
   // Calculate base amount (INR) when amount or exchange rate changes
   useEffect(() => {
     const amountNum = parseFloat(amount) || 0;
@@ -76,237 +69,18 @@ export function RecordCustomerPaymentDialog({
     setBaseAmount(amountNum * rateNum);
   }, [amount, exchangeRate]);
 
-  // Fetch outstanding invoices when customer changes
-  useEffect(() => {
-    async function fetchOutstandingInvoices() {
-      if (!entityId) {
-        setOutstandingInvoices([]);
-        setAllocations([]);
-        return;
-      }
-
-      try {
-        const { db } = getFirebase();
-
-        // Fetch entity document to get opening balance directly
-        // (EntitySelector's onEntitySelect only fires on user interaction, not on pre-fill)
-        let openingBal = 0;
-        const entityDoc = await getDoc(doc(db, COLLECTIONS.ENTITIES, entityId));
-        if (entityDoc.exists()) {
-          const entityData = entityDoc.data();
-          const obType = entityData?.openingBalanceType ?? 'DR';
-          openingBal = obType === 'DR' ? (entityData?.openingBalance ?? 0) : 0;
-        }
-
-        const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-        const q = query(
-          transactionsRef,
-          where('type', '==', 'CUSTOMER_INVOICE'),
-          where('entityId', '==', entityId),
-          where('status', 'in', ['APPROVED', 'POSTED'])
-        );
-
-        const snapshot = await getDocs(q);
-        const invoices: CustomerInvoice[] = [];
-
-        // Helper to calculate outstanding in INR
-        // Handles both new invoices (outstandingAmount in INR) and old invoices (outstandingAmount in foreign currency)
-        const calculateOutstandingINR = (data: CustomerInvoice): number => {
-          const invoiceCurrency = data.currency || 'INR';
-          const invoiceExchangeRate = data.exchangeRate ?? 1;
-          const totalAmount = data.totalAmount ?? 0;
-
-          // INR invoices - straightforward
-          if (invoiceCurrency === 'INR') {
-            if (data.outstandingAmount != null) return data.outstandingAmount;
-            const amountPaidINR = (data as unknown as Record<string, number>).amountPaid ?? 0;
-            return Math.max(0, (data.baseAmount ?? totalAmount) - amountPaidINR);
-          }
-
-          // Forex invoice - need to determine if outstandingAmount is in INR or foreign currency
-          // New invoices (after fix): outstandingAmount is in INR (equals baseAmount initially)
-          // Old invoices (before fix): outstandingAmount is in foreign currency (equals totalAmount initially)
-
-          // If baseAmount exists, it's the correct INR total
-          const baseAmountINR = data.baseAmount ?? totalAmount * invoiceExchangeRate;
-
-          if (data.outstandingAmount !== undefined && data.outstandingAmount !== null) {
-            const outstanding = data.outstandingAmount;
-
-            // Determine if outstandingAmount is in INR or foreign currency by checking
-            // which reference value it's closer to (as a ratio)
-            // - If closer to baseAmount: it's stored in INR
-            // - If closer to totalAmount: it's stored in foreign currency
-            const ratioToBase = baseAmountINR > 0 ? outstanding / baseAmountINR : 0;
-            const ratioToTotal = totalAmount > 0 ? outstanding / totalAmount : 0;
-
-            // Outstanding should be <= 1.0 of its reference (can't owe more than original)
-            // If ratio to base is reasonable (0-1), outstanding is likely in INR
-            // If ratio to total is reasonable (0-1), outstanding is likely in foreign currency
-            const isLikelyINR = ratioToBase >= 0 && ratioToBase <= 1.01; // Allow small tolerance
-            const isLikelyForex = ratioToTotal >= 0 && ratioToTotal <= 1.01;
-
-            if (isLikelyINR && !isLikelyForex) {
-              // Outstanding is already in INR
-              return outstanding;
-            } else if (isLikelyForex && !isLikelyINR) {
-              // Outstanding is in foreign currency - convert to INR
-              return outstanding * invoiceExchangeRate;
-            } else if (isLikelyINR && isLikelyForex) {
-              // Both ratios are valid - use the one closer to the original
-              // For unpaid invoices: outstanding equals baseAmount (INR) or totalAmount (forex)
-              const distToBase = Math.abs(outstanding - baseAmountINR);
-              const distToTotal = Math.abs(outstanding - totalAmount);
-              if (distToBase <= distToTotal) {
-                // Closer to baseAmount - stored in INR
-                return outstanding;
-              } else {
-                // Closer to totalAmount - stored in foreign currency
-                return outstanding * invoiceExchangeRate;
-              }
-            }
-          }
-
-          // Fallback: compute from total - paid (both in INR)
-          const paidINR = (data as unknown as Record<string, number>).amountPaid ?? 0;
-          return Math.max(0, baseAmountINR - paidINR);
-        };
-
-        snapshot.forEach((doc) => {
-          const data = doc.data() as CustomerInvoice;
-          // Filter soft-deleted invoices (client-side per CLAUDE.md rule #3)
-          if ('isDeleted' in data && data.isDeleted) return;
-          const outstandingINR = calculateOutstandingINR(data);
-          // Only include invoices with outstanding amounts > 0
-          if (outstandingINR > 0) {
-            invoices.push({ ...data, id: doc.id });
-          }
-        });
-
-        // When editing: restore invoices this payment is allocated to.
-        // Their Firestore outstanding already reflects this payment's allocation,
-        // so we add it back to show the "effective outstanding as if this payment didn't exist".
-        if (editingPayment?.invoiceAllocations?.length) {
-          const savedMap = new Map(
-            editingPayment.invoiceAllocations
-              .filter((a) => !isOpeningBalanceAllocation(a) && a.allocatedAmount > 0)
-              .map((a) => [a.invoiceId, a])
-          );
-          const fetchedInvoiceIds = new Set(invoices.map((inv) => inv.id));
-
-          // Adjust outstanding for invoices already in the list
-          for (const invoice of invoices) {
-            const saved = savedMap.get(invoice.id!);
-            if (saved) {
-              const currentOutstanding =
-                invoice.outstandingAmount ?? calculateOutstandingINR(invoice);
-              const invoiceTotalINR = invoice.baseAmount ?? invoice.totalAmount ?? 0;
-              // Cap at invoice total to prevent over-inflated outstanding when field was stale
-              invoice.outstandingAmount = Math.min(
-                invoiceTotalINR,
-                currentOutstanding + saved.allocatedAmount
-              );
-            }
-          }
-
-          // Add invoices not in the list (fully paid by this payment)
-          for (const [invoiceId, saved] of savedMap) {
-            if (!fetchedInvoiceIds.has(invoiceId)) {
-              invoices.push({
-                id: invoiceId,
-                transactionNumber: saved.invoiceNumber,
-                totalAmount: saved.allocatedAmount,
-                outstandingAmount: saved.allocatedAmount,
-              } as CustomerInvoice);
-            }
-          }
-        }
-
-        // Calculate remaining opening balance (subtract already-allocated amounts from other payments)
-        let remainingOpeningBalance = 0;
-        if (openingBal > 0) {
-          const paymentQuery = query(
-            transactionsRef,
-            where('type', '==', 'CUSTOMER_PAYMENT'),
-            where('entityId', '==', entityId)
-          );
-          const paymentSnapshot = await getDocs(paymentQuery);
-          let alreadyAllocated = 0;
-          paymentSnapshot.forEach((paymentDoc) => {
-            // When editing, skip the current payment's own allocations
-            if (editingPayment?.id && paymentDoc.id === editingPayment.id) return;
-            const paymentAllocations = paymentDoc.data().invoiceAllocations || [];
-            for (const a of paymentAllocations) {
-              if (a.invoiceId === OPENING_BALANCE_ALLOCATION_ID) {
-                alreadyAllocated += a.allocatedAmount || 0;
-              }
-            }
-          });
-          remainingOpeningBalance = Math.max(0, openingBal - alreadyAllocated);
-        }
-
-        // Prepend virtual "Opening Balance" row if there's remaining balance
-        const allInvoices = [...invoices];
-        const allAllocations: PaymentAllocation[] = [];
-
-        if (remainingOpeningBalance > 0) {
-          allInvoices.unshift({
-            id: OPENING_BALANCE_ALLOCATION_ID,
-            transactionNumber: 'Opening Balance',
-            totalAmount: remainingOpeningBalance,
-          } as CustomerInvoice);
-          allAllocations.push({
-            invoiceId: OPENING_BALANCE_ALLOCATION_ID,
-            invoiceNumber: 'Opening Balance',
-            originalAmount: remainingOpeningBalance,
-            allocatedAmount: 0,
-            remainingAmount: remainingOpeningBalance,
-          });
-        }
-
-        // Add real invoice allocations
-        for (const invoice of invoices) {
-          // Use pre-adjusted outstandingAmount if set (from edit-mode restoration above),
-          // otherwise calculate from invoice data
-          const outstandingInINR =
-            invoice.outstandingAmount !== undefined && editingPayment?.invoiceAllocations?.length
-              ? invoice.outstandingAmount
-              : calculateOutstandingINR(invoice);
-          allAllocations.push({
-            invoiceId: invoice.id!,
-            invoiceNumber: invoice.transactionNumber || '',
-            originalAmount: outstandingInINR,
-            allocatedAmount: 0,
-            remainingAmount: outstandingInINR,
-          });
-        }
-
-        // If editing, restore saved allocation amounts
-        if (editingPayment?.invoiceAllocations?.length) {
-          const savedMap = new Map(
-            editingPayment.invoiceAllocations.map((a) => [a.invoiceId, a.allocatedAmount])
-          );
-          for (const alloc of allAllocations) {
-            const savedAmount = savedMap.get(alloc.invoiceId);
-            if (savedAmount !== undefined && savedAmount > 0) {
-              alloc.allocatedAmount = Math.min(savedAmount, alloc.originalAmount);
-              alloc.remainingAmount = alloc.originalAmount - alloc.allocatedAmount;
-            }
-          }
-        }
-
-        setOutstandingInvoices(allInvoices);
-        setAllocations(allAllocations);
-      } catch (err) {
-        console.error('[RecordCustomerPaymentDialog] Error fetching outstanding invoices:', err);
-        setError('Failed to load outstanding invoices. Please try again.');
-      }
-    }
-
-    fetchOutstandingInvoices();
-    // editingPayment?.id is sufficient — when the payment changes, the id changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityId, editingPayment?.id]);
+  // Invoice allocation (fetching, forex detection, opening balance, allocation helpers)
+  const {
+    outstandingInvoices,
+    allocations,
+    totalAllocated,
+    unallocated,
+    fetchError,
+    handleAllocationChange,
+    handleAutoAllocate,
+    handleFillRemaining,
+    setAllocations,
+  } = useOutstandingInvoices({ entityId, editingPayment, baseAmount });
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -336,7 +110,6 @@ export function RecordCustomerPaymentDialog({
         setReference(editingPayment.reference || '');
         setProjectId(editingPayment.projectId || null);
         setAllocations(editingPayment.invoiceAllocations || []);
-        setHasAutoAllocated(false);
       } else {
         setPaymentDate(new Date().toISOString().split('T')[0] || '');
         setEntityId(null);
@@ -353,99 +126,10 @@ export function RecordCustomerPaymentDialog({
         setReference('');
         setProjectId(null);
         setAllocations([]);
-        setHasAutoAllocated(false);
       }
       setError('');
     }
-  }, [open, editingPayment]);
-
-  const handleAllocationChange = (invoiceId: string, allocatedAmount: number) => {
-    setAllocations((prev) =>
-      prev.map((allocation) => {
-        if (allocation.invoiceId === invoiceId) {
-          // Cap at outstanding amount to prevent over-allocation per invoice
-          const cappedAmount = Math.min(Math.max(0, allocatedAmount), allocation.originalAmount);
-          return {
-            ...allocation,
-            allocatedAmount: cappedAmount,
-            remainingAmount: allocation.originalAmount - cappedAmount,
-          };
-        }
-        return allocation;
-      })
-    );
-  };
-
-  // Auto-distribute payment across invoices
-  const handleAutoAllocate = () => {
-    setHasAutoAllocated(true);
-    let remaining = baseAmount; // Use base amount in INR for allocation
-    const newAllocations = allocations.map((allocation) => {
-      if (remaining <= 0) {
-        return { ...allocation, allocatedAmount: 0 };
-      }
-
-      const toAllocate = Math.min(remaining, allocation.originalAmount);
-      remaining -= toAllocate;
-
-      return {
-        ...allocation,
-        allocatedAmount: toAllocate,
-        remainingAmount: allocation.originalAmount - toAllocate,
-      };
-    });
-
-    setAllocations(newAllocations);
-  };
-
-  // Re-run auto-allocation when baseAmount changes (e.g., when exchange rate is corrected)
-  useEffect(() => {
-    if (hasAutoAllocated && baseAmount > 0 && allocations.length > 0) {
-      let remaining = baseAmount;
-      const newAllocations = allocations.map((allocation) => {
-        if (remaining <= 0) {
-          return { ...allocation, allocatedAmount: 0 };
-        }
-
-        const toAllocate = Math.min(remaining, allocation.originalAmount);
-        remaining -= toAllocate;
-
-        return {
-          ...allocation,
-          allocatedAmount: toAllocate,
-          remainingAmount: allocation.originalAmount - toAllocate,
-        };
-      });
-
-      setAllocations(newAllocations);
-    }
-    // Only re-run when baseAmount changes, not when allocations change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseAmount, hasAutoAllocated]);
-
-  // Fill remaining balance for a specific invoice
-  const handleFillRemaining = (invoiceId: string) => {
-    const currentTotal = allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
-    const unallocatedAmount = baseAmount - currentTotal;
-
-    if (unallocatedAmount <= 0) return;
-
-    setAllocations((prev) =>
-      prev.map((allocation) => {
-        if (allocation.invoiceId === invoiceId) {
-          // Add unallocated amount to this invoice, up to its remaining balance
-          const additionalAmount = Math.min(unallocatedAmount, allocation.remainingAmount);
-          const newAllocated = allocation.allocatedAmount + additionalAmount;
-          return {
-            ...allocation,
-            allocatedAmount: newAllocated,
-            remainingAmount: allocation.originalAmount - newAllocated,
-          };
-        }
-        return allocation;
-      })
-    );
-  };
+  }, [open, editingPayment, setAllocations]);
 
   const handleSubmit = async () => {
     // Validation
@@ -607,9 +291,6 @@ export function RecordCustomerPaymentDialog({
     }
   };
 
-  const totalAllocated = allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
-  const unallocated = baseAmount - totalAllocated;
-
   return (
     <FormDialog
       open={open}
@@ -618,9 +299,9 @@ export function RecordCustomerPaymentDialog({
       maxWidth="lg"
     >
       <Box sx={{ p: 2 }}>
-        {error && (
+        {(error || fetchError) && (
           <Typography color="error" sx={{ mb: 2 }}>
-            {error}
+            {error || fetchError}
           </Typography>
         )}
 

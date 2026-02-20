@@ -1461,6 +1461,26 @@ service cloud.firestore {
     }
 
     /**
+     * HR Comp-Off Grants - Individual comp-off grant records with expiry tracking
+     * Created when holiday working overrides or on-duty approvals grant comp-off days
+     */
+    match /hrCompOffGrants/{grantId} {
+      // Read: Own grants OR users with APPROVE_LEAVES or MANAGE_HR_SETTINGS
+      allow read: if isInternalUser() && (
+                     isOwner(resource.data.userId) ||
+                     hasPermission2(16384) || // APPROVE_LEAVES
+                     hasPermission2(8192)     // MANAGE_HR_SETTINGS
+                   );
+
+      // Create/Update: Only users with MANAGE_HR_SETTINGS
+      // Grants are created by system when comp-off is earned (holiday working, on-duty approval)
+      allow create, update: if isInternalUser() && hasPermission2(8192); // MANAGE_HR_SETTINGS
+
+      // Delete: Super admins only
+      allow delete: if isSuperAdmin();
+    }
+
+    /**
      * HR Leave Requests - Leave applications with approval workflow
      */
     match /hrLeaveRequests/{requestId} {

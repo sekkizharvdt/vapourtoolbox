@@ -25,8 +25,6 @@ import {
   MenuItem,
   IconButton,
   Tooltip,
-  Card,
-  CardContent,
   Stack,
 } from '@mui/material';
 import {
@@ -49,6 +47,7 @@ import { getFirebase } from '@/lib/firebase';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import type { TravelExpenseCategory, ParsedReceiptData } from '@vapour/types';
 import { EXPENSE_CATEGORY_LABELS, formatExpenseAmount } from '@/lib/hr';
+import { ParserComparisonView } from '@/components/shared/ParserComparisonView';
 
 export interface ReceiptAttachment {
   id: string;
@@ -376,300 +375,122 @@ export function ReceiptParsingUploader({
     label,
   }));
 
+  // Render receipt-specific parser details
+  const renderReceiptDetails = (result: SingleParserResult) => {
+    if (!result.data) return null;
+    const { data } = result;
+
+    return (
+      <>
+        <Stack spacing={1} sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="body2" color="text.secondary">
+              Vendor:
+            </Typography>
+            <Typography variant="body2">{data.vendorName || '-'}</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="body2" color="text.secondary">
+              Amount:
+            </Typography>
+            <Typography variant="body2" fontWeight="bold">
+              {data.totalAmount ? formatExpenseAmount(data.totalAmount) : '-'}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="body2" color="text.secondary">
+              Date:
+            </Typography>
+            <Typography variant="body2">
+              {data.transactionDate ? String(data.transactionDate) : '-'}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="body2" color="text.secondary">
+              Invoice #:
+            </Typography>
+            <Typography variant="body2">{data.invoiceNumber || '-'}</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="body2" color="text.secondary">
+              GST Amount:
+            </Typography>
+            <Typography variant="body2">
+              {data.gstAmount ? formatExpenseAmount(data.gstAmount) : '-'}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="body2" color="text.secondary">
+              Category:
+            </Typography>
+            <Chip
+              icon={CATEGORY_ICONS[(data.suggestedCategory as TravelExpenseCategory) || 'OTHER']}
+              label={data.suggestedCategory || 'OTHER'}
+              size="small"
+            />
+          </Box>
+          {data.companyGstinFound && (
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="body2" color="text.secondary">
+                Company GST:
+              </Typography>
+              <Chip icon={<VerifiedIcon />} label="Found" size="small" color="success" />
+            </Box>
+          )}
+        </Stack>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <SpeedIcon fontSize="small" color="action" />
+          <Typography variant="caption" color="text.secondary">
+            {result.processingTimeMs}ms • {Math.round((data.confidence || 0) * 100)}% confidence
+          </Typography>
+        </Stack>
+      </>
+    );
+  };
+
   // Render comparison view
   const renderComparisonView = () => {
     if (!compareResult) return null;
-
     const { googleDocumentAI, claudeAI } = compareResult;
 
     return (
-      <Box>
-        <Typography variant="h6" gutterBottom>
-          Parser Comparison Results
-        </Typography>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          Both parsers analyzed your receipt. Compare the results below and select which one to use.
-        </Typography>
-
-        <Grid container spacing={2} sx={{ mt: 1 }}>
-          {/* Google Document AI Results */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Card
-              sx={{
-                height: '100%',
-                border: selectedParser === 'google' ? 2 : 1,
-                borderColor: selectedParser === 'google' ? 'primary.main' : 'divider',
-              }}
-            >
-              <CardContent>
-                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-                  <Typography variant="subtitle1" fontWeight="bold">
-                    Google Document AI
-                  </Typography>
-                  {googleDocumentAI.success ? (
-                    <Chip label="Success" size="small" color="success" />
-                  ) : (
-                    <Chip label="Failed" size="small" color="error" />
-                  )}
-                </Stack>
-
-                {googleDocumentAI.success && googleDocumentAI.data ? (
-                  <>
-                    <Stack spacing={1} sx={{ mb: 2 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Vendor:
-                        </Typography>
-                        <Typography variant="body2">
-                          {googleDocumentAI.data.vendorName || '-'}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Amount:
-                        </Typography>
-                        <Typography variant="body2" fontWeight="bold">
-                          {googleDocumentAI.data.totalAmount
-                            ? formatExpenseAmount(googleDocumentAI.data.totalAmount)
-                            : '-'}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Date:
-                        </Typography>
-                        <Typography variant="body2">
-                          {googleDocumentAI.data.transactionDate
-                            ? String(googleDocumentAI.data.transactionDate)
-                            : '-'}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Invoice #:
-                        </Typography>
-                        <Typography variant="body2">
-                          {googleDocumentAI.data.invoiceNumber || '-'}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          GST Amount:
-                        </Typography>
-                        <Typography variant="body2">
-                          {googleDocumentAI.data.gstAmount
-                            ? formatExpenseAmount(googleDocumentAI.data.gstAmount)
-                            : '-'}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Category:
-                        </Typography>
-                        <Chip
-                          icon={
-                            CATEGORY_ICONS[
-                              (googleDocumentAI.data.suggestedCategory as TravelExpenseCategory) ||
-                                'OTHER'
-                            ]
-                          }
-                          label={googleDocumentAI.data.suggestedCategory || 'OTHER'}
-                          size="small"
-                        />
-                      </Box>
-                      {googleDocumentAI.data.companyGstinFound && (
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Company GST:
-                          </Typography>
-                          <Chip
-                            icon={<VerifiedIcon />}
-                            label="Found"
-                            size="small"
-                            color="success"
-                          />
-                        </Box>
-                      )}
-                    </Stack>
-
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                      <SpeedIcon fontSize="small" color="action" />
-                      <Typography variant="caption" color="text.secondary">
-                        {googleDocumentAI.processingTimeMs}ms •{' '}
-                        {Math.round((googleDocumentAI.data.confidence || 0) * 100)}% confidence
-                      </Typography>
-                    </Stack>
-                  </>
-                ) : (
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    {googleDocumentAI.error || 'Parsing failed'}
-                  </Alert>
-                )}
-
-                <Button
-                  variant={selectedParser === 'google' ? 'contained' : 'outlined'}
-                  fullWidth
-                  onClick={() => handleSelectParser('google')}
-                  disabled={!googleDocumentAI.success}
-                >
-                  Use These Results
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Claude AI Results */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Card
-              sx={{
-                height: '100%',
-                border: selectedParser === 'claude' ? 2 : 1,
-                borderColor: selectedParser === 'claude' ? 'primary.main' : 'divider',
-              }}
-            >
-              <CardContent>
-                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-                  <Typography variant="subtitle1" fontWeight="bold">
-                    Claude AI
-                  </Typography>
-                  {claudeAI.success ? (
-                    <Chip label="Success" size="small" color="success" />
-                  ) : (
-                    <Chip label="Failed" size="small" color="error" />
-                  )}
-                </Stack>
-
-                {claudeAI.success && claudeAI.data ? (
-                  <>
-                    <Stack spacing={1} sx={{ mb: 2 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Vendor:
-                        </Typography>
-                        <Typography variant="body2">{claudeAI.data.vendorName || '-'}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Amount:
-                        </Typography>
-                        <Typography variant="body2" fontWeight="bold">
-                          {claudeAI.data.totalAmount
-                            ? formatExpenseAmount(claudeAI.data.totalAmount)
-                            : '-'}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Date:
-                        </Typography>
-                        <Typography variant="body2">
-                          {claudeAI.data.transactionDate
-                            ? String(claudeAI.data.transactionDate)
-                            : '-'}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Invoice #:
-                        </Typography>
-                        <Typography variant="body2">
-                          {claudeAI.data.invoiceNumber || '-'}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          GST Amount:
-                        </Typography>
-                        <Typography variant="body2">
-                          {claudeAI.data.gstAmount
-                            ? formatExpenseAmount(claudeAI.data.gstAmount)
-                            : '-'}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Category:
-                        </Typography>
-                        <Chip
-                          icon={
-                            CATEGORY_ICONS[
-                              (claudeAI.data.suggestedCategory as TravelExpenseCategory) || 'OTHER'
-                            ]
-                          }
-                          label={claudeAI.data.suggestedCategory || 'OTHER'}
-                          size="small"
-                        />
-                      </Box>
-                      {claudeAI.data.companyGstinFound && (
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Company GST:
-                          </Typography>
-                          <Chip
-                            icon={<VerifiedIcon />}
-                            label="Found"
-                            size="small"
-                            color="success"
-                          />
-                        </Box>
-                      )}
-                    </Stack>
-
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                      <SpeedIcon fontSize="small" color="action" />
-                      <Typography variant="caption" color="text.secondary">
-                        {claudeAI.processingTimeMs}ms •{' '}
-                        {Math.round((claudeAI.data.confidence || 0) * 100)}% confidence
-                      </Typography>
-                    </Stack>
-                  </>
-                ) : (
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    {claudeAI.error || 'Parsing failed'}
-                  </Alert>
-                )}
-
-                <Button
-                  variant={selectedParser === 'claude' ? 'contained' : 'outlined'}
-                  fullWidth
-                  onClick={() => handleSelectParser('claude')}
-                  disabled={!claudeAI.success}
-                >
-                  Use These Results
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        {/* Manual entry option */}
-        <Box sx={{ mt: 3, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Neither result looks right?
-          </Typography>
-          <Button
-            variant="text"
-            onClick={() => {
-              setStep('review');
-              setFormData({
-                category: 'OTHER',
-                description: '',
-                expenseDate: new Date(),
-                amount: 0,
-                vendorName: '',
-                invoiceNumber: '',
-              });
-            }}
-          >
-            Enter details manually
-          </Button>
-        </Box>
-
-        {/* Cancel */}
-        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-          <Button onClick={onCancel}>Cancel</Button>
-        </Box>
-      </Box>
+      <ParserComparisonView
+        googleResult={googleDocumentAI}
+        claudeResult={claudeAI}
+        selectedParser={selectedParser}
+        onSelectParser={handleSelectParser}
+        totalProcessingTimeMs={compareResult.totalProcessingTimeMs}
+        renderGoogleDetails={() => renderReceiptDetails(googleDocumentAI)}
+        renderClaudeDetails={() => renderReceiptDetails(claudeAI)}
+        footer={
+          <>
+            <Box sx={{ mt: 3, textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Neither result looks right?
+              </Typography>
+              <Button
+                variant="text"
+                onClick={() => {
+                  setStep('review');
+                  setFormData({
+                    category: 'OTHER',
+                    description: '',
+                    expenseDate: new Date(),
+                    amount: 0,
+                    vendorName: '',
+                    invoiceNumber: '',
+                  });
+                }}
+              >
+                Enter details manually
+              </Button>
+            </Box>
+            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button onClick={onCancel}>Cancel</Button>
+            </Box>
+          </>
+        }
+      />
     );
   };
 

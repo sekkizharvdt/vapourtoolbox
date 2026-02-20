@@ -44,7 +44,16 @@
 <body>
   <div class="container">
     <div class="header">
-      <h2>{{senderName}}</h2>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="width: 44px; vertical-align: middle; padding-right: 12px;">
+            <img src="https://toolbox.vapourdesal.com/logo.png" alt="Logo" width="40" height="40" style="display: block; border-radius: 50%;" />
+          </td>
+          <td style="vertical-align: middle;">
+            <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #ffffff;">{{senderName}}</h2>
+          </td>
+        </tr>
+      </table>
     </div>
     <div class="content">
       {{{body}}}

@@ -10,7 +10,7 @@ export * from './common';
 export * from './company';
 export * from './core';
 export * from './costConfig';
-export * from './documents';
+export * from './documents/index';
 export * from './enquiry';
 export * from './entity';
 export * from './hr';

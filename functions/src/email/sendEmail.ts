@@ -38,6 +38,8 @@ interface SendNotificationInput {
     details?: { label: string; value: string }[];
     linkUrl?: string;
   };
+  /** Send directly to these emails instead of the configured recipient list */
+  directRecipientEmails?: string[];
 }
 
 // Cache compiled templates
@@ -175,8 +177,10 @@ export async function sendNotificationEmail(input: SendNotificationInput): Promi
       return;
     }
 
-    // 3. Resolve recipients
-    const recipientEmails = await resolveRecipientEmails(emailConfig.recipientUserIds);
+    // 3. Resolve recipients — use direct emails if provided, otherwise the configured list
+    const recipientEmails = input.directRecipientEmails?.length
+      ? input.directRecipientEmails
+      : await resolveRecipientEmails(emailConfig.recipientUserIds);
     if (recipientEmails.length === 0) {
       logger.info('No eligible recipients — skipping email');
       return;
@@ -228,7 +232,14 @@ export async function sendTestEmailToAddress(
       'This is a test email from Vapour Toolbox. If you received this, email notifications are working correctly.',
     details: [
       { label: 'From', value: `${fromName} <${fromEmail}>` },
-      { label: 'Sent At', value: new Date().toISOString() },
+      {
+        label: 'Sent At',
+        value: new Date().toLocaleString('en-IN', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+          timeZone: 'Asia/Kolkata',
+        }),
+      },
     ],
     linkUrl: 'https://toolbox.vapourdesal.com/admin/settings',
   });

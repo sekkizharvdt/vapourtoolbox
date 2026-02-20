@@ -53,7 +53,7 @@ export interface CreateLeaveRequestInput {
 export interface ListLeaveRequestsFilters {
   entityId?: string;
   userId?: string;
-  status?: LeaveRequestStatus;
+  status?: LeaveRequestStatus | LeaveRequestStatus[];
   leaveTypeCode?: LeaveTypeCode;
   fiscalYear?: number;
   startDateFrom?: Date;
@@ -431,7 +431,11 @@ export async function listLeaveRequests(
     }
 
     if (filters.status) {
-      constraints.push(where('status', '==', filters.status));
+      if (Array.isArray(filters.status)) {
+        constraints.push(where('status', 'in', filters.status));
+      } else {
+        constraints.push(where('status', '==', filters.status));
+      }
     }
 
     if (filters.leaveTypeCode) {

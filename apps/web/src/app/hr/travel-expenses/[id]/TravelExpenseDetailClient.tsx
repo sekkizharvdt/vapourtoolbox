@@ -24,7 +24,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  MenuItem,
   Tooltip,
   Breadcrumbs,
   Link,
@@ -44,13 +43,11 @@ import {
   Close as RejectIcon,
   Undo as ReturnIcon,
   PictureAsPdf as PdfIcon,
-  AutoAwesome as ParseIcon,
   CheckCircle as VerifiedIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import {
   useTravelExpenseReport,
   useAddExpenseItem,
@@ -65,16 +62,16 @@ import {
   TRAVEL_EXPENSE_STATUS_LABELS,
   EXPENSE_CATEGORY_LABELS,
   EXPENSE_CATEGORY_COLORS,
-  getExpenseCategoryOptions,
   formatExpenseDate,
   formatExpenseAmount,
   formatTripDateRange,
 } from '@/lib/hr';
 import {
   ReceiptUploader,
-  ReceiptParsingUploader,
+  AddExpenseDialog,
   type ReceiptAttachment,
   type ParsedExpenseData,
+  type ManualExpenseInput,
 } from '@/components/hr/travelExpenses';
 import type { TravelExpenseCategory } from '@vapour/types';
 
@@ -116,7 +113,6 @@ export default function TravelExpenseDetailClient() {
   const returnMutation = useReturnTravelExpenseForRevision();
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [addExpenseMode, setAddExpenseMode] = useState<'select' | 'receipt' | 'manual'>('select');
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [uploadItemId, setUploadItemId] = useState<string | null>(null);
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
@@ -129,20 +125,6 @@ export default function TravelExpenseDetailClient() {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Add item form state
-  const [newItem, setNewItem] = useState({
-    category: 'OTHER' as TravelExpenseCategory,
-    description: '',
-    expenseDate: new Date(),
-    amount: '',
-    vendorName: '',
-    fromLocation: '',
-    toLocation: '',
-  });
-
-  // Receipt upload for new item
-  const [newItemReceipt, setNewItemReceipt] = useState<ReceiptAttachment | null>(null);
-
   const isDraft = report?.status === 'DRAFT';
   const isOwner = report?.employeeId === user?.uid;
   const canEdit = isDraft && isOwner;
@@ -152,104 +134,60 @@ export default function TravelExpenseDetailClient() {
   // Approvers cannot approve their own reports
   const canApprove = isPendingApproval && isApprover && !isOwner;
 
-  const categoryOptions = getExpenseCategoryOptions();
+  const handleAddManualItem = async (
+    input: ManualExpenseInput,
+    receipt: ReceiptAttachment | null
+  ) => {
+    if (!user || !reportId) return;
 
-  const handleAddItem = async () => {
-    if (!user || !report || !reportId) return;
-
-    const amount = parseFloat(newItem.amount);
-    if (isNaN(amount) || amount <= 0) {
-      return;
-    }
-
-    try {
-      await addItemMutation.mutateAsync({
-        reportId,
-        input: {
-          category: newItem.category,
-          description: newItem.description.trim(),
-          expenseDate: newItem.expenseDate,
-          amount,
-          vendorName: newItem.vendorName.trim() || undefined,
-          fromLocation: newItem.fromLocation.trim() || undefined,
-          toLocation: newItem.toLocation.trim() || undefined,
-        },
-        userId: user.uid,
-        receiptAttachmentId: newItemReceipt?.id,
-        receiptFileName: newItemReceipt?.name,
-        receiptUrl: newItemReceipt?.url,
-      });
-
-      setAddDialogOpen(false);
-      setAddExpenseMode('select');
-      setNewItem({
-        category: 'OTHER',
-        description: '',
-        expenseDate: new Date(),
-        amount: '',
-        vendorName: '',
-        fromLocation: '',
-        toLocation: '',
-      });
-      setNewItemReceipt(null);
-      refetch();
-    } catch (err) {
-      console.error('Failed to add item:', err);
-    }
+    await addItemMutation.mutateAsync({
+      reportId,
+      input: {
+        category: input.category,
+        description: input.description,
+        expenseDate: input.expenseDate,
+        amount: input.amount,
+        vendorName: input.vendorName,
+        fromLocation: input.fromLocation,
+        toLocation: input.toLocation,
+      },
+      userId: user.uid,
+      receiptAttachmentId: receipt?.id,
+      receiptFileName: receipt?.name,
+      receiptUrl: receipt?.url,
+    });
+    refetch();
   };
 
-  // Handle expense from parsed receipt
   const handleParsedExpense = async (data: ParsedExpenseData) => {
     if (!user || !reportId) return;
 
-    try {
-      await addItemMutation.mutateAsync({
-        reportId,
-        input: {
-          category: data.category,
-          description: data.description,
-          expenseDate: data.expenseDate,
-          amount: data.amount,
-          vendorName: data.vendorName,
-          invoiceNumber: data.invoiceNumber,
-          gstRate: data.gstRate,
-          gstAmount: data.gstAmount,
-          cgstAmount: data.cgstAmount,
-          sgstAmount: data.sgstAmount,
-          igstAmount: data.igstAmount,
-          taxableAmount: data.taxableAmount,
-          vendorGstin: data.vendorGstin,
-          ourGstinUsed: data.ourGstinUsed,
-          fromLocation: data.fromLocation,
-          toLocation: data.toLocation,
-        },
-        userId: user.uid,
-        receiptAttachmentId: data.receipt.id,
-        receiptFileName: data.receipt.name,
-        receiptUrl: data.receipt.url,
-      });
-
-      setAddDialogOpen(false);
-      setAddExpenseMode('select');
-      refetch();
-    } catch (err) {
-      console.error('Failed to add parsed expense:', err);
-    }
-  };
-
-  const handleCloseAddDialog = () => {
-    setAddDialogOpen(false);
-    setAddExpenseMode('select');
-    setNewItem({
-      category: 'OTHER',
-      description: '',
-      expenseDate: new Date(),
-      amount: '',
-      vendorName: '',
-      fromLocation: '',
-      toLocation: '',
+    await addItemMutation.mutateAsync({
+      reportId,
+      input: {
+        category: data.category,
+        description: data.description,
+        expenseDate: data.expenseDate,
+        amount: data.amount,
+        vendorName: data.vendorName,
+        invoiceNumber: data.invoiceNumber,
+        gstRate: data.gstRate,
+        gstAmount: data.gstAmount,
+        cgstAmount: data.cgstAmount,
+        sgstAmount: data.sgstAmount,
+        igstAmount: data.igstAmount,
+        taxableAmount: data.taxableAmount,
+        vendorGstin: data.vendorGstin,
+        ourGstinUsed: data.ourGstinUsed,
+        fromLocation: data.fromLocation,
+        toLocation: data.toLocation,
+      },
+      userId: user.uid,
+      receiptAttachmentId: data.receipt.id,
+      receiptFileName: data.receipt.name,
+      receiptUrl: data.receipt.url,
     });
-    setNewItemReceipt(null);
+    refetch();
   };
 
   const handleReceiptUpload = async (itemId: string, receipt: ReceiptAttachment | null) => {
@@ -383,9 +321,6 @@ export default function TravelExpenseDetailClient() {
       setIsDownloadingPdf(false);
     }
   };
-
-  // Show location fields for travel categories
-  const showLocationFields = newItem.category === 'TRAVEL';
 
   if (isLoading) {
     return (
@@ -757,211 +692,19 @@ export default function TravelExpenseDetailClient() {
       </Card>
 
       {/* Add Item Dialog */}
-      <Dialog open={addDialogOpen} onClose={handleCloseAddDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {addExpenseMode === 'select' && 'Add Expense'}
-          {addExpenseMode === 'receipt' && 'Upload Receipt'}
-          {addExpenseMode === 'manual' && 'Manual Entry'}
-        </DialogTitle>
-        <DialogContent>
-          {/* Mode selection */}
-          {addExpenseMode === 'select' && (
-            <Box sx={{ py: 2 }}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Choose how to add your expense:
-              </Typography>
-              <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Paper
-                    variant="outlined"
-                    sx={{
-                      p: 3,
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      '&:hover': { borderColor: 'primary.main', bgcolor: 'primary.50' },
-                    }}
-                    onClick={() => setAddExpenseMode('receipt')}
-                  >
-                    <ParseIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
-                    <Typography variant="subtitle1" gutterBottom>
-                      Upload Receipt
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Auto-extract details using OCR
-                    </Typography>
-                    <Chip label="Recommended" color="primary" size="small" sx={{ mt: 1 }} />
-                  </Paper>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Paper
-                    variant="outlined"
-                    sx={{
-                      p: 3,
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      '&:hover': { borderColor: 'primary.main', bgcolor: 'grey.50' },
-                    }}
-                    onClick={() => setAddExpenseMode('manual')}
-                  >
-                    <Receipt sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
-                    <Typography variant="subtitle1" gutterBottom>
-                      Manual Entry
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Enter expense details manually
-                    </Typography>
-                  </Paper>
-                </Grid>
-              </Grid>
-            </Box>
-          )}
-
-          {/* Receipt upload with OCR parsing */}
-          {addExpenseMode === 'receipt' && reportId && (
-            <Box sx={{ pt: 1 }}>
-              <ReceiptParsingUploader
-                reportId={reportId}
-                onExpenseReady={handleParsedExpense}
-                onCancel={handleCloseAddDialog}
-                tripStartDate={report?.tripStartDate?.toDate()}
-                tripEndDate={report?.tripEndDate?.toDate()}
-              />
-            </Box>
-          )}
-
-          {/* Manual entry form */}
-          {addExpenseMode === 'manual' && (
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  select
-                  label="Category"
-                  fullWidth
-                  value={newItem.category}
-                  onChange={(e) =>
-                    setNewItem({ ...newItem, category: e.target.value as TravelExpenseCategory })
-                  }
-                >
-                  {categoryOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {CATEGORY_ICONS[option.value]}
-                        {option.label}
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  label="Description"
-                  fullWidth
-                  required
-                  value={newItem.description}
-                  onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                  placeholder="e.g., Flight ticket to Mumbai"
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <DatePicker
-                  label="Expense Date"
-                  value={newItem.expenseDate}
-                  onChange={(date) => {
-                    const newDate = date as Date | null;
-                    setNewItem({ ...newItem, expenseDate: newDate || new Date() });
-                  }}
-                  format="dd/MM/yyyy"
-                  slotProps={{
-                    textField: { fullWidth: true, required: true },
-                  }}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  label="Amount (INR)"
-                  fullWidth
-                  required
-                  type="number"
-                  value={newItem.amount}
-                  onChange={(e) => setNewItem({ ...newItem, amount: e.target.value })}
-                  inputProps={{ min: 0, step: 0.01 }}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  label="Vendor Name"
-                  fullWidth
-                  value={newItem.vendorName}
-                  onChange={(e) => setNewItem({ ...newItem, vendorName: e.target.value })}
-                  placeholder="e.g., Indigo Airlines, IRCTC, Uber"
-                />
-              </Grid>
-
-              {showLocationFields && (
-                <>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      label="From Location"
-                      fullWidth
-                      value={newItem.fromLocation}
-                      onChange={(e) => setNewItem({ ...newItem, fromLocation: e.target.value })}
-                      placeholder="e.g., Chennai"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      label="To Location"
-                      fullWidth
-                      value={newItem.toLocation}
-                      onChange={(e) => setNewItem({ ...newItem, toLocation: e.target.value })}
-                      placeholder="e.g., Mumbai"
-                    />
-                  </Grid>
-                </>
-              )}
-
-              {/* Receipt Upload for manual entry */}
-              <Grid size={{ xs: 12 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Receipt (Optional)
-                </Typography>
-                <ReceiptUploader
-                  receipt={newItemReceipt}
-                  onChange={setNewItemReceipt}
-                  storagePath={`hr/travel-expenses/${reportId}/receipts/`}
-                />
-              </Grid>
-            </Grid>
-          )}
-        </DialogContent>
-        {/* Only show actions for select and manual modes */}
-        {(addExpenseMode === 'select' || addExpenseMode === 'manual') && (
-          <DialogActions>
-            {addExpenseMode === 'manual' && (
-              <Button onClick={() => setAddExpenseMode('select')}>Back</Button>
-            )}
-            <Button onClick={handleCloseAddDialog}>Cancel</Button>
-            {addExpenseMode === 'manual' && (
-              <Button
-                variant="contained"
-                onClick={handleAddItem}
-                disabled={
-                  !newItem.description.trim() ||
-                  !newItem.amount ||
-                  parseFloat(newItem.amount) <= 0 ||
-                  addItemMutation.isPending
-                }
-              >
-                {addItemMutation.isPending ? 'Adding...' : 'Add Item'}
-              </Button>
-            )}
-          </DialogActions>
-        )}
-      </Dialog>
+      {reportId && (
+        <AddExpenseDialog
+          open={addDialogOpen}
+          onClose={() => setAddDialogOpen(false)}
+          reportId={reportId}
+          onAddManualItem={handleAddManualItem}
+          onAddParsedExpense={handleParsedExpense}
+          tripStartDate={report?.tripStartDate?.toDate()}
+          tripEndDate={report?.tripEndDate?.toDate()}
+          isSubmitting={addItemMutation.isPending}
+          storagePath={`hr/travel-expenses/${reportId}/receipts/`}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteItemId} onClose={() => setDeleteItemId(null)}>

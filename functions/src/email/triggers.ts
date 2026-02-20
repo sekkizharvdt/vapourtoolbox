@@ -7,7 +7,45 @@
 
 import { onDocumentUpdated, onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions/v2';
+import { Timestamp } from 'firebase-admin/firestore';
 import { sendNotificationEmail, gmailAppPassword } from './sendEmail';
+
+/**
+ * Format a Firestore Timestamp (or raw value) to a readable date string.
+ * Cloud Functions receive Timestamps as admin SDK Timestamp objects.
+ */
+function formatDate(value: unknown): string {
+  if (!value) return '-';
+  if (value instanceof Timestamp) {
+    return value.toDate().toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'Asia/Kolkata',
+    });
+  }
+  if (value instanceof Date) {
+    return value.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'Asia/Kolkata',
+    });
+  }
+  // Fallback: try to parse as string/number
+  if (typeof value === 'string' || typeof value === 'number') {
+    const d = new Date(value);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'Asia/Kolkata',
+      });
+    }
+  }
+  return String(value);
+}
 
 const FUNCTION_CONFIG = {
   region: 'us-central1' as const,
@@ -212,18 +250,18 @@ export const onLeaveNotify = onDocumentUpdated(
     if (before.status === after.status) return;
 
     if (after.status === 'PENDING_APPROVAL') {
-      logger.info(`Leave request submitted by ${after.employeeName} — sending notification`);
+      logger.info(`Leave request submitted by ${after.userName} — sending notification`);
       await sendNotificationEmail({
         eventId: 'leave_submitted',
-        subject: `Leave Request: ${after.employeeName || 'Employee'}`,
+        subject: `Leave Request: ${after.userName || 'Employee'}`,
         templateData: {
           title: 'Leave Request Submitted',
           message: `A leave request has been submitted for approval.`,
           details: [
-            { label: 'Employee', value: after.employeeName || '-' },
+            { label: 'Employee', value: after.userName || '-' },
             { label: 'Type', value: after.leaveTypeName || after.leaveType || '-' },
-            { label: 'From', value: after.startDate || '-' },
-            { label: 'To', value: after.endDate || '-' },
+            { label: 'From', value: formatDate(after.startDate) },
+            { label: 'To', value: formatDate(after.endDate) },
             { label: 'Days', value: String(after.numberOfDays || '-') },
             { label: 'Reason', value: after.reason || '-' },
           ],
@@ -232,24 +270,64 @@ export const onLeaveNotify = onDocumentUpdated(
       });
     }
 
+    if (after.status === 'PARTIALLY_APPROVED' && before.status === 'PENDING_APPROVAL') {
+      // First approval done — notify the remaining approver(s)
+      const approvalFlow = after.approvalFlow;
+      const approvedEmails = (approvalFlow?.approvals || []).map(
+        (a: { approverEmail?: string }) => a.approverEmail
+      );
+      const remainingApproverEmails = (approvalFlow?.requiredApprovers || []).filter(
+        (email: string) => !approvedEmails.includes(email)
+      );
+
+      if (remainingApproverEmails.length > 0) {
+        logger.info(
+          `Leave request partially approved for ${after.userName} — notifying next approver(s)`
+        );
+        await sendNotificationEmail({
+          eventId: 'leave_submitted',
+          subject: `Leave Pending Your Approval: ${after.userName || 'Employee'}`,
+          templateData: {
+            title: 'Leave Request Awaiting Your Approval',
+            message: `A leave request has been partially approved and needs your approval.`,
+            details: [
+              { label: 'Employee', value: after.userName || '-' },
+              { label: 'Type', value: after.leaveTypeName || after.leaveType || '-' },
+              { label: 'From', value: formatDate(after.startDate) },
+              { label: 'To', value: formatDate(after.endDate) },
+              { label: 'Days', value: String(after.numberOfDays || '-') },
+              {
+                label: 'Progress',
+                value: `${approvalFlow?.approvals?.length || 1} of ${approvalFlow?.requiredApprovalCount || 2} approvals`,
+              },
+            ],
+            linkUrl: 'https://toolbox.vapourdesal.com/hr/leaves',
+          },
+          directRecipientEmails: remainingApproverEmails,
+        });
+      }
+    }
+
     if (after.status === 'APPROVED' || after.status === 'REJECTED') {
       const action = after.status === 'APPROVED' ? 'Approved' : 'Rejected';
-      logger.info(`Leave request ${action} for ${after.employeeName} — sending notification`);
+      logger.info(`Leave request ${action} for ${after.userName} — sending notification`);
       await sendNotificationEmail({
         eventId: 'leave_approved',
-        subject: `Leave ${action}: ${after.employeeName || 'Employee'}`,
+        subject: `Leave ${action}: ${after.userName || 'Employee'}`,
         templateData: {
           title: `Leave Request ${action}`,
-          message: `A leave request has been ${action.toLowerCase()}.`,
+          message: `Your leave request has been ${action.toLowerCase()}.`,
           details: [
-            { label: 'Employee', value: after.employeeName || '-' },
+            { label: 'Employee', value: after.userName || '-' },
             { label: 'Type', value: after.leaveTypeName || after.leaveType || '-' },
             { label: 'Status', value: action },
-            { label: 'From', value: after.startDate || '-' },
-            { label: 'To', value: after.endDate || '-' },
+            { label: 'From', value: formatDate(after.startDate) },
+            { label: 'To', value: formatDate(after.endDate) },
           ],
           linkUrl: 'https://toolbox.vapourdesal.com/hr/leaves',
         },
+        // Notify the employee, not the admin who approved it
+        directRecipientEmails: after.userEmail ? [after.userEmail] : undefined,
       });
     }
   }
@@ -402,7 +480,7 @@ export const onOnDutyNotify = onDocumentUpdated(
         subject: `On-Duty ${action}: ${after.userName || 'Employee'}`,
         templateData: {
           title: `On-Duty Request ${action}`,
-          message: `An on-duty request has been ${action.toLowerCase()}.`,
+          message: `Your on-duty request has been ${action.toLowerCase()}.`,
           details: [
             { label: 'Request #', value: after.requestNumber || event.params.recordId },
             { label: 'Employee', value: after.userName || '-' },
@@ -411,6 +489,8 @@ export const onOnDutyNotify = onDocumentUpdated(
           ],
           linkUrl: 'https://toolbox.vapourdesal.com/hr/on-duty',
         },
+        // Notify the employee, not the admin who approved it
+        directRecipientEmails: after.userEmail ? [after.userEmail] : undefined,
       });
     }
   }
@@ -454,7 +534,7 @@ export const onTravelExpenseNotify = onDocumentUpdated(
         subject: `Travel Expense ${action}: ${after.reportNumber}`,
         templateData: {
           title: `Travel Expense ${action}`,
-          message: `A travel expense report has been ${action.toLowerCase()}.`,
+          message: `Your travel expense report has been ${action.toLowerCase()}.`,
           details: [
             { label: 'Report #', value: after.reportNumber || event.params.expenseId },
             { label: 'Employee', value: after.employeeName || '-' },
@@ -463,6 +543,8 @@ export const onTravelExpenseNotify = onDocumentUpdated(
           ],
           linkUrl: 'https://toolbox.vapourdesal.com/hr/travel-expenses',
         },
+        // Notify the employee, not the admin who approved it
+        directRecipientEmails: after.employeeEmail ? [after.employeeEmail] : undefined,
       });
     }
 
@@ -473,7 +555,7 @@ export const onTravelExpenseNotify = onDocumentUpdated(
         subject: `Travel Expense Reimbursed: ${after.reportNumber}`,
         templateData: {
           title: 'Travel Expense Reimbursed',
-          message: `A travel expense has been reimbursed.`,
+          message: `Your travel expense has been reimbursed.`,
           details: [
             { label: 'Report #', value: after.reportNumber || event.params.expenseId },
             { label: 'Employee', value: after.employeeName || '-' },
@@ -481,6 +563,8 @@ export const onTravelExpenseNotify = onDocumentUpdated(
           ],
           linkUrl: 'https://toolbox.vapourdesal.com/hr/travel-expenses',
         },
+        // Notify the employee
+        directRecipientEmails: after.employeeEmail ? [after.employeeEmail] : undefined,
       });
     }
   }
