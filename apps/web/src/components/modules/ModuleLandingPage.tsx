@@ -72,9 +72,19 @@ interface ModuleLandingPageProps {
   permissionDenied?: boolean;
   /** Custom permission denied message */
   permissionDeniedMessage?: string;
+  /** Compact mode: 4-column grid, no descriptions, smaller cards */
+  compact?: boolean;
 }
 
-function ModuleCard({ item, onClick }: { item: ModuleItem; onClick: () => void }) {
+function ModuleCard({
+  item,
+  onClick,
+  compact,
+}: {
+  item: ModuleItem;
+  onClick: () => void;
+  compact?: boolean;
+}) {
   const isDisabled = item.comingSoon;
 
   return (
@@ -146,28 +156,45 @@ function ModuleCard({ item, onClick }: { item: ModuleItem; onClick: () => void }
         </Box>
       )}
 
-      <CardContent sx={{ flexGrow: 1, textAlign: 'center', pt: 4 }}>
-        <Box sx={{ mb: 2 }}>{item.icon}</Box>
-        <Typography variant="h6" component="h2" gutterBottom>
+      <CardContent
+        sx={{
+          flexGrow: 1,
+          textAlign: 'center',
+          pt: compact ? 2.5 : 4,
+          pb: compact ? 1 : undefined,
+          px: compact ? 1.5 : undefined,
+        }}
+      >
+        <Box sx={{ mb: compact ? 1 : 2 }}>{item.icon}</Box>
+        <Typography
+          variant={compact ? 'subtitle2' : 'h6'}
+          component="h2"
+          gutterBottom={!compact}
+          noWrap={compact}
+        >
           {item.title}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {item.description}
-        </Typography>
+        {!compact && (
+          <Typography variant="body2" color="text.secondary">
+            {item.description}
+          </Typography>
+        )}
       </CardContent>
 
-      <Box sx={{ p: 2, pt: 0, display: 'flex', justifyContent: 'center' }}>
-        <Chip
-          label={item.comingSoon ? 'Coming Soon' : 'Open'}
-          size="small"
-          color={item.comingSoon ? 'default' : 'primary'}
-          icon={item.comingSoon ? undefined : <ArrowForwardIcon sx={{ fontSize: 16 }} />}
-          sx={{
-            cursor: isDisabled ? 'default' : 'pointer',
-            '& .MuiChip-icon': { order: 1, ml: 0.5, mr: -0.5 },
-          }}
-        />
-      </Box>
+      {!compact && (
+        <Box sx={{ p: 2, pt: 0, display: 'flex', justifyContent: 'center' }}>
+          <Chip
+            label={item.comingSoon ? 'Coming Soon' : 'Open'}
+            size="small"
+            color={item.comingSoon ? 'default' : 'primary'}
+            icon={item.comingSoon ? undefined : <ArrowForwardIcon sx={{ fontSize: 16 }} />}
+            sx={{
+              cursor: isDisabled ? 'default' : 'pointer',
+              '& .MuiChip-icon': { order: 1, ml: 0.5, mr: -0.5 },
+            }}
+          />
+        </Box>
+      )}
     </Card>
   );
 }
@@ -181,6 +208,7 @@ export function ModuleLandingPage({
   highlightCard,
   permissionDenied,
   permissionDeniedMessage,
+  compact,
 }: ModuleLandingPageProps) {
   const router = useRouter();
 
@@ -257,10 +285,10 @@ export function ModuleLandingPage({
 
       {/* Flat Items (no sections) */}
       {items && items.length > 0 && (
-        <Grid container spacing={3}>
+        <Grid container spacing={compact ? 2 : 3}>
           {items.map((item) => (
-            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={item.id}>
-              <ModuleCard item={item} onClick={() => router.push(item.path)} />
+            <Grid size={{ xs: 6, sm: compact ? 4 : 6, md: compact ? 3 : 4 }} key={item.id}>
+              <ModuleCard item={item} onClick={() => router.push(item.path)} compact={compact} />
             </Grid>
           ))}
         </Grid>
@@ -269,21 +297,32 @@ export function ModuleLandingPage({
       {/* Sectioned Items */}
       {sections &&
         sections.map((section, sectionIndex) => (
-          <Box key={section.id} sx={{ mb: 4 }}>
-            {sectionIndex > 0 && <Divider sx={{ mb: 3 }} />}
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="h6" component="h2" color="text.primary">
+          <Box key={section.id} sx={{ mb: compact ? 2.5 : 4 }}>
+            {sectionIndex > 0 && <Divider sx={{ mb: compact ? 2 : 3 }} />}
+            <Box sx={{ mb: compact ? 1 : 2 }}>
+              <Typography
+                variant={compact ? 'subtitle1' : 'h6'}
+                component="h2"
+                color="text.primary"
+                fontWeight={compact ? 600 : undefined}
+              >
                 {section.title}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {section.description}
-              </Typography>
+              {!compact && (
+                <Typography variant="body2" color="text.secondary">
+                  {section.description}
+                </Typography>
+              )}
             </Box>
 
-            <Grid container spacing={3}>
+            <Grid container spacing={compact ? 2 : 3}>
               {section.items.map((item) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={item.id}>
-                  <ModuleCard item={item} onClick={() => router.push(item.path)} />
+                <Grid size={{ xs: 6, sm: compact ? 4 : 6, md: compact ? 3 : 4 }} key={item.id}>
+                  <ModuleCard
+                    item={item}
+                    onClick={() => router.push(item.path)}
+                    compact={compact}
+                  />
                 </Grid>
               ))}
             </Grid>
