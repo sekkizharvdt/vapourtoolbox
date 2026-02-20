@@ -285,7 +285,8 @@ export async function getOutstandingAmount(
     }
 
     const transactionData = transactionDoc.data();
-    const totalAmount = transactionData.totalAmount || 0;
+    // Use baseAmount (INR) for forex invoices since allocations are stored in INR
+    const totalAmount = transactionData.baseAmount || transactionData.totalAmount || 0;
 
     // Query all payments for this invoice/bill
     const paymentsRef = collection(db, COLLECTIONS.TRANSACTIONS);
@@ -337,10 +338,11 @@ export async function validatePaymentAllocation(
   try {
     const { outstanding } = await getOutstandingAmount(db, transactionId, transactionType);
 
-    if (newAllocation > outstanding) {
+    // Allow small tolerance for exchange rate rounding differences
+    if (newAllocation > outstanding + 0.01) {
       return {
         valid: false,
-        error: `Payment allocation (${newAllocation}) exceeds outstanding amount (${outstanding})`,
+        error: `Payment allocation (${newAllocation.toFixed(2)}) exceeds outstanding amount (${outstanding.toFixed(2)})`,
       };
     }
 
@@ -372,7 +374,10 @@ export async function createPaymentWithAllocationsAtomic(
 ): Promise<string> {
   // Validate inputs before any database operations
   validatePaymentData(paymentData);
-  validateAllocations(allocations, paymentData.amount || 0);
+  // Use baseAmount (INR) for validation since allocations are always in INR
+  const validationAmount =
+    paymentData.baseAmount || paymentData.totalAmount || paymentData.amount || 0;
+  validateAllocations(allocations, validationAmount);
 
   // AC-7: Validate each allocation against actual outstanding amounts
   const paymentType = paymentData.type as 'CUSTOMER_PAYMENT' | 'VENDOR_PAYMENT';
