@@ -132,6 +132,7 @@ describe('Siphon Sizing Calculator', () => {
     elbowConfig: '2_elbows',
     horizontalDistance: 3,
     offsetDistance: 0,
+    targetVelocity: 1.0,
     safetyFactor: 20,
   };
 

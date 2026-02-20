@@ -35,6 +35,8 @@ interface SiphonInputsProps {
   // Flow
   flowRate: string;
   onFlowRateChange: (value: string) => void;
+  targetVelocity: string;
+  onTargetVelocityChange: (value: string) => void;
 
   // Geometry
   elbowConfig: ElbowConfig;
@@ -67,6 +69,8 @@ export function SiphonInputs({
   onSalinityChange,
   flowRate,
   onFlowRateChange,
+  targetVelocity,
+  onTargetVelocityChange,
   elbowConfig,
   horizontalDistance,
   offsetDistance,
@@ -185,7 +189,7 @@ export function SiphonInputs({
 
       {/* === Flow Section === */}
       <Typography variant="subtitle2" color="text.secondary">
-        Flow Rate
+        Flow &amp; Velocity
       </Typography>
 
       <TextField
@@ -198,6 +202,19 @@ export function SiphonInputs({
         slotProps={{
           input: { endAdornment: <InputAdornment position="end">ton/hr</InputAdornment> },
         }}
+      />
+
+      <TextField
+        label="Target Velocity"
+        value={targetVelocity}
+        onChange={(e) => onTargetVelocityChange(e.target.value)}
+        type="number"
+        fullWidth
+        size="small"
+        slotProps={{
+          input: { endAdornment: <InputAdornment position="end">m/s</InputAdornment> },
+        }}
+        helperText="Recommended: 0.3 &ndash; 2.0 m/s"
       />
 
       <Divider />

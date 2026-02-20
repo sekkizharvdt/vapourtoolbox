@@ -29,6 +29,7 @@ export default function SiphonSizingClient() {
 
   // Flow state
   const [flowRate, setFlowRate] = useState<string>('100');
+  const [targetVelocity, setTargetVelocity] = useState<string>('1.0');
 
   // Geometry state
   const [elbowConfig, setElbowConfig] = useState<ElbowConfig>('2_elbows');
@@ -75,12 +76,13 @@ export default function SiphonSizingClient() {
       const down = parseFloat(downstreamPressure);
       const sal = parseFloat(salinity);
       const flow = parseFloat(flowRate);
+      const vel = parseFloat(targetVelocity);
       const hDist = parseFloat(horizontalDistance);
       const oDist = parseFloat(offsetDistance);
       const sf = parseFloat(safetyFactor);
 
       // Basic validation before calling calculator
-      if (isNaN(up) || isNaN(down) || isNaN(flow) || isNaN(hDist) || isNaN(sf)) {
+      if (isNaN(up) || isNaN(down) || isNaN(flow) || isNaN(vel) || isNaN(hDist) || isNaN(sf)) {
         return null;
       }
       if ((fluidType === 'seawater' || fluidType === 'brine') && isNaN(sal)) {
@@ -101,6 +103,7 @@ export default function SiphonSizingClient() {
         elbowConfig,
         horizontalDistance: hDist,
         offsetDistance: elbowConfig !== '2_elbows' ? oDist : 0,
+        targetVelocity: vel,
         safetyFactor: sf,
       };
 
@@ -116,6 +119,7 @@ export default function SiphonSizingClient() {
     fluidType,
     salinity,
     flowRate,
+    targetVelocity,
     elbowConfig,
     horizontalDistance,
     offsetDistance,
@@ -161,6 +165,8 @@ export default function SiphonSizingClient() {
               onSalinityChange={setSalinity}
               flowRate={flowRate}
               onFlowRateChange={setFlowRate}
+              targetVelocity={targetVelocity}
+              onTargetVelocityChange={setTargetVelocity}
               elbowConfig={elbowConfig}
               horizontalDistance={horizontalDistance}
               offsetDistance={offsetDistance}

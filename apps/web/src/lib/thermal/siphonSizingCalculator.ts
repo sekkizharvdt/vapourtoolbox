@@ -69,6 +69,9 @@ export interface SiphonSizingInput {
   /** Lateral offset distance (m) — used for 3-elbow (one offset) and 4-elbow (out + back) configs */
   offsetDistance: number;
 
+  /** Target fluid velocity in m/s (pipe is sized to match this) */
+  targetVelocity: number;
+
   /** Safety factor as percentage (minimum 20%) */
   safetyFactor: number;
 }
@@ -134,7 +137,6 @@ export interface SiphonSizingResult {
 /** Siphon velocity limits (m/s) */
 const SIPHON_VELOCITY_MIN = 0.3;
 const SIPHON_VELOCITY_MAX = 2.0;
-const SIPHON_VELOCITY_TARGET = 1.0;
 
 /** Minimum allowed safety factor (%) */
 const MIN_SAFETY_FACTOR = 20;
@@ -264,6 +266,13 @@ export function validateSiphonInput(input: SiphonSizingInput): string[] {
     errors.push('Offset distance must be positive for this elbow configuration');
   }
 
+  // Velocity
+  if (input.targetVelocity < SIPHON_VELOCITY_MIN || input.targetVelocity > SIPHON_VELOCITY_MAX) {
+    errors.push(
+      `Target velocity must be between ${SIPHON_VELOCITY_MIN} and ${SIPHON_VELOCITY_MAX} m/s`
+    );
+  }
+
   // Safety factor
   if (input.safetyFactor < MIN_SAFETY_FACTOR) {
     errors.push(`Safety factor must be at least ${MIN_SAFETY_FACTOR}%`);
@@ -317,7 +326,7 @@ export function calculateSiphonSizing(input: SiphonSizingInput): SiphonSizingRes
 
   // Select pipe size
   const volumetricFlow = tonHrToM3S(input.flowRate, density);
-  const pipeResult = selectPipeByVelocity(volumetricFlow, SIPHON_VELOCITY_TARGET, {
+  const pipeResult = selectPipeByVelocity(volumetricFlow, input.targetVelocity, {
     min: SIPHON_VELOCITY_MIN,
     max: SIPHON_VELOCITY_MAX,
   });
