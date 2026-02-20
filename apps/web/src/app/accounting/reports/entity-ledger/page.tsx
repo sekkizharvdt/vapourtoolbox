@@ -365,14 +365,16 @@ function EntityLedgerInner() {
           const jCredit =
             (txn as EntityTransaction & { _journalCredit?: number })._journalCredit || 0;
           periodMovement += jDebit - jCredit;
-          // Include JE amounts in summary totals based on entity role
+          // Include JE amounts in summary totals and outstanding based on entity role.
+          // Use if/else to prevent double-counting for dual-role entities.
           if (selectedEntity?.roles.includes('CUSTOMER')) {
-            totalInvoiced += jDebit; // Debit = receivable adjustment (like invoice)
-            totalReceived += jCredit; // Credit = receipt adjustment (like payment)
-          }
-          if (selectedEntity?.roles.includes('VENDOR')) {
-            totalPaid += jDebit; // Debit = payable reduction (like payment)
-            totalBilled += jCredit; // Credit = payable increase (like bill)
+            totalInvoiced += jDebit; // AR Debit = receivable increase (like invoice)
+            totalReceived += jCredit; // AR Credit = receivable reduction (like payment)
+            outstandingReceivable += jDebit - jCredit; // Net JE impact on receivable
+          } else if (selectedEntity?.roles.includes('VENDOR')) {
+            totalBilled += jCredit; // AP Credit = payable increase (like bill)
+            totalPaid += jDebit; // AP Debit = payable reduction (like payment)
+            outstandingPayable += jCredit - jDebit; // Net JE impact on payable
           }
           break;
         }
