@@ -33,6 +33,10 @@ export default function NPSHaClient() {
   const [nozzleVelocityTarget, setNozzleVelocityTarget] = useState<string>('0.08');
   const [suctionVelocityTarget, setSuctionVelocityTarget] = useState<string>('1.2');
 
+  // Custom nozzle pipe (for plate-formed pipes exceeding 24" Sch 40)
+  const [customNozzleId, setCustomNozzleId] = useState<string>('');
+  const [customNozzleThickness, setCustomNozzleThickness] = useState<string>('');
+
   // Pipe geometry
   const [elbowCount, setElbowCount] = useState<string>('1');
   const [verticalPipeRun, setVerticalPipeRun] = useState<string>('3');
@@ -40,6 +44,7 @@ export default function NPSHaClient() {
 
   // Holdup volume
   const [holdupPipeDiameter, setHoldupPipeDiameter] = useState<string>('');
+  const [customHoldupId, setCustomHoldupId] = useState<string>('');
   const [minColumnHeight, setMinColumnHeight] = useState<string>('1.0');
   const [residenceTime, setResidenceTime] = useState<string>('30');
 
@@ -77,6 +82,9 @@ export default function NPSHaClient() {
       if (fluidType === 'brine' && isNaN(sal)) return null;
       if (mode === 'verify_elevation' && isNaN(ue)) return null;
 
+      const cnId = parseFloat(customNozzleId);
+      const cnWt = parseFloat(customNozzleThickness);
+
       const input: SuctionSystemInput = {
         effectPressure: ep,
         fluidType,
@@ -87,13 +95,21 @@ export default function NPSHaClient() {
         elbowCount: ec,
         verticalPipeRun: vpr,
         horizontalPipeRun: hpr,
-        ...(holdupPipeDiameter ? { holdupPipeDiameter } : {}),
+        ...(holdupPipeDiameter && holdupPipeDiameter !== 'CUSTOM' ? { holdupPipeDiameter } : {}),
         minColumnHeight: mch,
         residenceTime: rt,
         pumpNPSHr: npr,
         safetyMargin: sm,
         mode,
         ...(mode === 'verify_elevation' ? { userElevation: ue } : {}),
+        ...(!isNaN(cnId) && cnId > 0 && !isNaN(cnWt) && cnWt > 0
+          ? { customNozzlePipe: { id_mm: cnId, wt_mm: cnWt } }
+          : {}),
+        ...(holdupPipeDiameter === 'CUSTOM' &&
+        !isNaN(parseFloat(customHoldupId)) &&
+        parseFloat(customHoldupId) > 0
+          ? { customHoldupPipe: { id_mm: parseFloat(customHoldupId) } }
+          : {}),
       };
 
       return calculateSuctionSystem(input);
@@ -108,10 +124,13 @@ export default function NPSHaClient() {
     flowRate,
     nozzleVelocityTarget,
     suctionVelocityTarget,
+    customNozzleId,
+    customNozzleThickness,
     elbowCount,
     verticalPipeRun,
     horizontalPipeRun,
     holdupPipeDiameter,
+    customHoldupId,
     minColumnHeight,
     residenceTime,
     pumpNPSHr,
@@ -161,6 +180,10 @@ export default function NPSHaClient() {
               suctionVelocityTarget={suctionVelocityTarget}
               onNozzleVelocityTargetChange={setNozzleVelocityTarget}
               onSuctionVelocityTargetChange={setSuctionVelocityTarget}
+              customNozzleId={customNozzleId}
+              customNozzleThickness={customNozzleThickness}
+              onCustomNozzleIdChange={setCustomNozzleId}
+              onCustomNozzleThicknessChange={setCustomNozzleThickness}
               elbowCount={elbowCount}
               verticalPipeRun={verticalPipeRun}
               horizontalPipeRun={horizontalPipeRun}
@@ -168,9 +191,11 @@ export default function NPSHaClient() {
               onVerticalPipeRunChange={setVerticalPipeRun}
               onHorizontalPipeRunChange={setHorizontalPipeRun}
               holdupPipeDiameter={holdupPipeDiameter}
+              customHoldupId={customHoldupId}
               minColumnHeight={minColumnHeight}
               residenceTime={residenceTime}
               onHoldupPipeDiameterChange={setHoldupPipeDiameter}
+              onCustomHoldupIdChange={setCustomHoldupId}
               onMinColumnHeightChange={setMinColumnHeight}
               onResidenceTimeChange={setResidenceTime}
               pumpNPSHr={pumpNPSHr}

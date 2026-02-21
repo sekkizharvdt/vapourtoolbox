@@ -164,15 +164,16 @@ jest.mock('./pipeService', () => ({
     ) => {
       const requiredAreaM2 = volumetricFlow / targetVelocity;
       const requiredAreaMm2 = requiredAreaM2 * 1e6;
-      const selected =
-        pipeArray.find((p) => p.area_mm2 >= requiredAreaMm2) ?? pipeArray[pipeArray.length - 1]!;
+      const exactMatch = pipeArray.find((p) => p.area_mm2 >= requiredAreaMm2);
+      const selected = exactMatch ?? pipeArray[pipeArray.length - 1]!;
+      const isMax = !exactMatch;
       const actualVelocity = volumetricFlow / (selected.area_mm2 / 1e6);
       let velocityStatus: 'OK' | 'HIGH' | 'LOW' = 'OK';
       if (actualVelocity > velocityLimits.max) velocityStatus = 'HIGH';
       else if (actualVelocity < velocityLimits.min) velocityStatus = 'LOW';
       return {
         ...selected,
-        displayName: `${selected.nps}" Sch 40`,
+        displayName: isMax ? `${selected.nps}" Sch 40 (MAX)` : `${selected.nps}" Sch 40`,
         isExactMatch: false,
         actualVelocity,
         velocityStatus,
@@ -741,6 +742,168 @@ describe('Suction System Calculator', () => {
 
     it('should throw for invalid input', () => {
       expect(() => calculateSuctionSystem({ ...baseInput, effectPressure: -100 })).toThrow();
+    });
+  });
+
+  // ===========================================================================
+  // Custom Nozzle Pipe
+  // ===========================================================================
+  describe('Custom nozzle pipe (plate-formed)', () => {
+    const customInput: SuctionSystemInput = {
+      ...baseInput,
+      customNozzlePipe: { id_mm: 700, wt_mm: 10 },
+    };
+
+    it('should use custom pipe dimensions when provided', () => {
+      const result = calculateSuctionSystem(customInput);
+      expect(result.nozzlePipe.nps).toBe('CUSTOM');
+      expect(result.nozzlePipe.id_mm).toBe(700);
+      expect(result.nozzlePipe.wt_mm).toBe(10);
+      expect(result.nozzlePipe.od_mm).toBe(720); // id + 2*wt
+      expect(result.nozzlePipe.displayName).toContain('Custom');
+      expect(result.nozzlePipe.displayName).toContain('700');
+    });
+
+    it('should calculate correct area for custom pipe', () => {
+      const result = calculateSuctionSystem(customInput);
+      const expectedArea = (Math.PI / 4) * 700 * 700;
+      expect(result.nozzlePipe.area_mm2).toBeCloseTo(expectedArea, 0);
+    });
+
+    it('should calculate actual velocity in custom pipe', () => {
+      const result = calculateSuctionSystem(customInput);
+      // velocity = Q / A; tonHrToM3S: 100 * 1000 / 3600 / density
+      const density = 1025; // mock seawater density
+      const volumetricFlow = (100 * 1000) / 3600 / density; // 100 ton/hr → m³/s
+      const area_m2 = ((Math.PI / 4) * 700 * 700) / 1e6;
+      const expectedVelocity = volumetricFlow / area_m2;
+      expect(result.nozzleVelocity).toBeCloseTo(expectedVelocity, 3);
+    });
+
+    it('should set nozzleExceedsStandard to true for custom pipe', () => {
+      const result = calculateSuctionSystem(customInput);
+      expect(result.nozzleExceedsStandard).toBe(true);
+    });
+
+    it('should feed custom nozzle ID into reducer beta calculation', () => {
+      const result = calculateSuctionSystem(customInput);
+      // beta = suction_id / nozzle_id, nozzle_id is 700
+      expect(result.reducer.beta).toBeCloseTo(result.suctionPipe.id_mm / 700, 4);
+    });
+
+    it('should use custom nozzle dimensions for holdup when no override', () => {
+      const result = calculateSuctionSystem(customInput);
+      expect(result.holdup.holdupPipeNPS).toBe('CUSTOM');
+      expect(result.holdup.holdupPipeID).toBe(700);
+    });
+
+    it('should use specified holdupPipeDiameter even with custom nozzle', () => {
+      const result = calculateSuctionSystem({
+        ...customInput,
+        holdupPipeDiameter: '20',
+      });
+      expect(result.holdup.holdupPipeNPS).toBe('20');
+      expect(result.holdup.holdupPipeID).toBe(mockPipes['20']!.id_mm);
+    });
+
+    it('should set nozzleExceedsStandard when auto-size hits MAX', () => {
+      // The mock pipe array goes up to 20" — use a very high flow rate
+      // to ensure the auto-sizer returns the MAX pipe
+      const result = calculateSuctionSystem({
+        ...baseInput,
+        flowRate: 1000, // very high flow → needs pipe larger than 20"
+        nozzleVelocityTarget: 0.01, // very low velocity → huge area
+      });
+      expect(result.nozzleExceedsStandard).toBe(true);
+    });
+
+    it('should set nozzleExceedsStandard to false for normal auto-sizing', () => {
+      const result = calculateSuctionSystem({
+        ...baseInput,
+        flowRate: 10, // low flow → fits in standard pipe
+      });
+      expect(result.nozzleExceedsStandard).toBe(false);
+    });
+  });
+
+  // ===========================================================================
+  // Custom Nozzle Pipe — Validation
+  // ===========================================================================
+  describe('Custom nozzle pipe validation', () => {
+    it('should reject zero ID', () => {
+      const errors = validateSuctionSystemInput({
+        ...baseInput,
+        customNozzlePipe: { id_mm: 0, wt_mm: 10 },
+      });
+      expect(errors.some((e) => e.includes('nozzle pipe ID'))).toBe(true);
+    });
+
+    it('should reject negative wall thickness', () => {
+      const errors = validateSuctionSystemInput({
+        ...baseInput,
+        customNozzlePipe: { id_mm: 700, wt_mm: -1 },
+      });
+      expect(errors.some((e) => e.includes('wall thickness'))).toBe(true);
+    });
+
+    it('should accept valid custom pipe dimensions', () => {
+      const errors = validateSuctionSystemInput({
+        ...baseInput,
+        customNozzlePipe: { id_mm: 700, wt_mm: 10 },
+      });
+      expect(errors.filter((e) => e.includes('nozzle'))).toHaveLength(0);
+    });
+  });
+
+  // ===========================================================================
+  // Custom Holdup Pipe
+  // ===========================================================================
+  describe('Custom holdup pipe', () => {
+    it('should use custom holdup pipe dimensions when provided', () => {
+      const result = calculateSuctionSystem({
+        ...baseInput,
+        customHoldupPipe: { id_mm: 800 },
+      });
+      expect(result.holdup.holdupPipeNPS).toBe('CUSTOM');
+      expect(result.holdup.holdupPipeID).toBe(800);
+    });
+
+    it('should calculate holdup area from custom ID', () => {
+      const result = calculateSuctionSystem({
+        ...baseInput,
+        customHoldupPipe: { id_mm: 800 },
+      });
+      const expectedArea = ((Math.PI / 4) * 800 * 800) / 1e6;
+      const expectedHeight = result.holdup.holdupVolume / 1000 / expectedArea;
+      expect(result.holdup.governingHeight).toBeCloseTo(expectedHeight, 3);
+    });
+
+    it('should prioritize custom holdup over custom nozzle default', () => {
+      const result = calculateSuctionSystem({
+        ...baseInput,
+        customNozzlePipe: { id_mm: 700, wt_mm: 10 },
+        customHoldupPipe: { id_mm: 900 },
+      });
+      expect(result.holdup.holdupPipeNPS).toBe('CUSTOM');
+      expect(result.holdup.holdupPipeID).toBe(900);
+    });
+
+    it('should prioritize custom holdup over standard holdupPipeDiameter', () => {
+      const result = calculateSuctionSystem({
+        ...baseInput,
+        holdupPipeDiameter: '8',
+        customHoldupPipe: { id_mm: 800 },
+      });
+      expect(result.holdup.holdupPipeNPS).toBe('CUSTOM');
+      expect(result.holdup.holdupPipeID).toBe(800);
+    });
+
+    it('should reject zero custom holdup ID', () => {
+      const errors = validateSuctionSystemInput({
+        ...baseInput,
+        customHoldupPipe: { id_mm: 0 },
+      });
+      expect(errors.some((e) => e.includes('holdup pipe ID'))).toBe(true);
     });
   });
 });

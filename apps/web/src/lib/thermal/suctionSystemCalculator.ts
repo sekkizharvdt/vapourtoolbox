@@ -85,6 +85,20 @@ export interface SuctionSystemInput {
   mode: CalculationMode;
   /** User-provided elevation in m (only for verify_elevation mode) */
   userElevation?: number;
+
+  /** Custom nozzle pipe for plate-formed pipes exceeding standard sizes */
+  customNozzlePipe?: {
+    /** Inner diameter in mm */
+    id_mm: number;
+    /** Wall thickness in mm */
+    wt_mm: number;
+  };
+
+  /** Custom holdup pipe for plate-formed pipes exceeding standard sizes */
+  customHoldupPipe?: {
+    /** Inner diameter in mm */
+    id_mm: number;
+  };
 }
 
 /** Holdup volume calculation result */
@@ -200,6 +214,8 @@ export interface SuctionSystemResult {
   nozzleVelocity: number;
   /** Nozzle velocity status */
   nozzleVelocityStatus: 'OK' | 'HIGH' | 'LOW';
+  /** True when auto-sized nozzle exceeds standard pipe range (24" max) */
+  nozzleExceedsStandard: boolean;
 
   // Suction pipe sizing
   /** Selected suction pipe */
@@ -382,6 +398,23 @@ export function validateSuctionSystemInput(input: SuctionSystemInput): string[] 
     errors.push('Safety margin must be non-negative');
   }
 
+  // Custom nozzle pipe
+  if (input.customNozzlePipe) {
+    if (input.customNozzlePipe.id_mm <= 0) {
+      errors.push('Custom nozzle pipe ID must be positive');
+    }
+    if (input.customNozzlePipe.wt_mm <= 0) {
+      errors.push('Custom nozzle pipe wall thickness must be positive');
+    }
+  }
+
+  // Custom holdup pipe
+  if (input.customHoldupPipe) {
+    if (input.customHoldupPipe.id_mm <= 0) {
+      errors.push('Custom holdup pipe ID must be positive');
+    }
+  }
+
   // Verify mode
   if (input.mode === 'verify_elevation') {
     if (input.userElevation === undefined || input.userElevation <= 0) {
@@ -432,10 +465,47 @@ export function calculateSuctionSystem(input: SuctionSystemInput): SuctionSystem
 
   // ---- Step 2: Size nozzle pipe ----
   const volumetricFlow = tonHrToM3S(input.flowRate, density);
-  const nozzleResult = selectPipeByVelocity(volumetricFlow, input.nozzleVelocityTarget, {
-    min: NOZZLE_VELOCITY_MIN,
-    max: NOZZLE_VELOCITY_MAX,
-  });
+
+  let nozzleResult: SelectedPipe & {
+    actualVelocity: number;
+    velocityStatus: 'OK' | 'HIGH' | 'LOW';
+  };
+  let nozzleExceedsStandard = false;
+
+  if (input.customNozzlePipe) {
+    // User-specified plate-formed pipe
+    const { id_mm, wt_mm } = input.customNozzlePipe;
+    const od_mm = id_mm + 2 * wt_mm;
+    const area_mm2 = (Math.PI / 4) * id_mm * id_mm;
+    const actualVelocity = volumetricFlow / (area_mm2 / 1e6);
+    const velocityStatus: 'OK' | 'HIGH' | 'LOW' =
+      actualVelocity > NOZZLE_VELOCITY_MAX
+        ? 'HIGH'
+        : actualVelocity < NOZZLE_VELOCITY_MIN
+          ? 'LOW'
+          : 'OK';
+    nozzleResult = {
+      nps: 'CUSTOM',
+      dn: `${Math.round(id_mm)}`,
+      schedule: 'N/A',
+      od_mm,
+      wt_mm,
+      id_mm,
+      area_mm2,
+      weight_kgm: 0,
+      displayName: `Custom (ID ${id_mm} mm)`,
+      isExactMatch: true,
+      actualVelocity,
+      velocityStatus,
+    };
+    nozzleExceedsStandard = true;
+  } else {
+    nozzleResult = selectPipeByVelocity(volumetricFlow, input.nozzleVelocityTarget, {
+      min: NOZZLE_VELOCITY_MIN,
+      max: NOZZLE_VELOCITY_MAX,
+    });
+    nozzleExceedsStandard = nozzleResult.displayName.includes('(MAX)');
+  }
 
   if (nozzleResult.velocityStatus === 'HIGH') {
     warnings.push(
@@ -480,12 +550,39 @@ export function calculateSuctionSystem(input: SuctionSystemInput): SuctionSystem
   ];
 
   // ---- Step 5: Calculate holdup volume ----
-  const holdupPipeNPS = input.holdupPipeDiameter || nozzleResult.nps;
-  const holdupPipe = getPipeByNPS(holdupPipeNPS);
-  if (!holdupPipe) {
-    throw new Error(`Holdup pipe size NPS ${holdupPipeNPS} not found in database`);
+  let holdupPipeNPS: string;
+  let holdupPipeID: number;
+  let holdupAreaM2: number;
+
+  if (input.customHoldupPipe) {
+    // Explicit custom holdup pipe
+    holdupPipeNPS = 'CUSTOM';
+    holdupPipeID = input.customHoldupPipe.id_mm;
+    holdupAreaM2 = ((Math.PI / 4) * holdupPipeID * holdupPipeID) / 1e6;
+  } else if (input.holdupPipeDiameter) {
+    // Standard pipe override
+    holdupPipeNPS = input.holdupPipeDiameter;
+    const holdupPipe = getPipeByNPS(holdupPipeNPS);
+    if (!holdupPipe) {
+      throw new Error(`Holdup pipe size NPS ${holdupPipeNPS} not found in database`);
+    }
+    holdupPipeID = holdupPipe.id_mm;
+    holdupAreaM2 = holdupPipe.area_mm2 / 1e6;
+  } else if (input.customNozzlePipe) {
+    // Default to nozzle; nozzle is custom plate-formed pipe
+    holdupPipeNPS = 'CUSTOM';
+    holdupPipeID = input.customNozzlePipe.id_mm;
+    holdupAreaM2 = nozzleResult.area_mm2 / 1e6;
+  } else {
+    // Default to nozzle; nozzle is standard
+    holdupPipeNPS = nozzleResult.nps;
+    const holdupPipe = getPipeByNPS(holdupPipeNPS);
+    if (!holdupPipe) {
+      throw new Error(`Holdup pipe size NPS ${holdupPipeNPS} not found in database`);
+    }
+    holdupPipeID = holdupPipe.id_mm;
+    holdupAreaM2 = holdupPipe.area_mm2 / 1e6;
   }
-  const holdupAreaM2 = holdupPipe.area_mm2 / 1e6;
 
   const heightFromResidenceTime = (volumetricFlow * input.residenceTime) / holdupAreaM2;
   const heightFromMinColumn = input.minColumnHeight;
@@ -497,7 +594,7 @@ export function calculateSuctionSystem(input: SuctionSystemInput): SuctionSystem
 
   const holdup: HoldupResult = {
     holdupPipeNPS,
-    holdupPipeID: holdupPipe.id_mm,
+    holdupPipeID,
     heightFromResidenceTime,
     heightFromMinColumn,
     governingHeight,
@@ -684,6 +781,7 @@ export function calculateSuctionSystem(input: SuctionSystemInput): SuctionSystem
     nozzlePipe: nozzleResult,
     nozzleVelocity: nozzleResult.actualVelocity,
     nozzleVelocityStatus: nozzleResult.velocityStatus,
+    nozzleExceedsStandard,
 
     suctionPipe: suctionResult,
     suctionVelocity: suctionResult.actualVelocity,

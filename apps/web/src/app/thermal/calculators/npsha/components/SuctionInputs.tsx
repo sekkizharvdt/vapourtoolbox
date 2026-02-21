@@ -2,6 +2,7 @@
 
 import {
   Stack,
+  Grid,
   TextField,
   FormControl,
   InputLabel,
@@ -36,6 +37,12 @@ interface SuctionInputsProps {
   onNozzleVelocityTargetChange: (value: string) => void;
   onSuctionVelocityTargetChange: (value: string) => void;
 
+  // Custom nozzle pipe (plate-formed)
+  customNozzleId: string;
+  customNozzleThickness: string;
+  onCustomNozzleIdChange: (value: string) => void;
+  onCustomNozzleThicknessChange: (value: string) => void;
+
   // Pipe geometry
   elbowCount: string;
   verticalPipeRun: string;
@@ -46,9 +53,11 @@ interface SuctionInputsProps {
 
   // Holdup volume
   holdupPipeDiameter: string;
+  customHoldupId: string;
   minColumnHeight: string;
   residenceTime: string;
   onHoldupPipeDiameterChange: (value: string) => void;
+  onCustomHoldupIdChange: (value: string) => void;
   onMinColumnHeightChange: (value: string) => void;
   onResidenceTimeChange: (value: string) => void;
 
@@ -85,6 +94,10 @@ export function SuctionInputs({
   suctionVelocityTarget,
   onNozzleVelocityTargetChange,
   onSuctionVelocityTargetChange,
+  customNozzleId,
+  customNozzleThickness,
+  onCustomNozzleIdChange,
+  onCustomNozzleThicknessChange,
   elbowCount,
   verticalPipeRun,
   horizontalPipeRun,
@@ -92,9 +105,11 @@ export function SuctionInputs({
   onVerticalPipeRunChange,
   onHorizontalPipeRunChange,
   holdupPipeDiameter,
+  customHoldupId,
   minColumnHeight,
   residenceTime,
   onHoldupPipeDiameterChange,
+  onCustomHoldupIdChange,
   onMinColumnHeightChange,
   onResidenceTimeChange,
   pumpNPSHr,
@@ -200,6 +215,42 @@ export function SuctionInputs({
         helperText="Range: 0.01 – 0.15 m/s"
       />
 
+      {(result?.nozzleExceedsStandard || customNozzleId || customNozzleThickness) && (
+        <>
+          <Alert severity="info" variant="outlined">
+            Nozzle exceeds 24&quot; Sch 40. Specify plate-formed pipe dimensions.
+          </Alert>
+          <Grid container spacing={1.5}>
+            <Grid size={{ xs: 6 }}>
+              <TextField
+                label="Nozzle ID"
+                value={customNozzleId}
+                onChange={(e) => onCustomNozzleIdChange(e.target.value)}
+                type="number"
+                fullWidth
+                size="small"
+                slotProps={{
+                  input: { endAdornment: <InputAdornment position="end">mm</InputAdornment> },
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6 }}>
+              <TextField
+                label="Wall Thickness"
+                value={customNozzleThickness}
+                onChange={(e) => onCustomNozzleThicknessChange(e.target.value)}
+                type="number"
+                fullWidth
+                size="small"
+                slotProps={{
+                  input: { endAdornment: <InputAdornment position="end">mm</InputAdornment> },
+                }}
+              />
+            </Grid>
+          </Grid>
+        </>
+      )}
+
       <TextField
         label="Suction Pipe Velocity Target"
         value={suctionVelocityTarget}
@@ -215,7 +266,11 @@ export function SuctionInputs({
 
       {result && (
         <Typography variant="caption" color="text.secondary">
-          Nozzle: {result.nozzlePipe.nps}&quot; ({result.nozzleVelocity.toFixed(3)} m/s)
+          Nozzle:{' '}
+          {result.nozzlePipe.nps === 'CUSTOM'
+            ? `Custom ID ${result.nozzlePipe.id_mm} mm`
+            : `${result.nozzlePipe.nps}"`}{' '}
+          ({result.nozzleVelocity.toFixed(3)} m/s)
           {' · '}
           Suction: {result.suctionPipe.nps}&quot; ({result.suctionVelocity.toFixed(2)} m/s)
           {' · '}
@@ -282,14 +337,31 @@ export function SuctionInputs({
           label="Holdup Pipe Diameter"
           onChange={(e) => onHoldupPipeDiameterChange(e.target.value)}
         >
-          <MenuItem value="">Same as nozzle</MenuItem>
+          <MenuItem value="">
+            {result?.nozzleExceedsStandard ? 'Same as nozzle (custom)' : 'Same as nozzle'}
+          </MenuItem>
           {HOLDUP_PIPE_OPTIONS.map((p) => (
             <MenuItem key={p.nps} value={p.nps}>
               {p.nps}&quot; (DN{p.dn}, ID {p.id_mm.toFixed(1)} mm)
             </MenuItem>
           ))}
+          <MenuItem value="CUSTOM">Custom (plate-formed)</MenuItem>
         </Select>
       </FormControl>
+
+      {holdupPipeDiameter === 'CUSTOM' && (
+        <TextField
+          label="Holdup Pipe ID"
+          value={customHoldupId}
+          onChange={(e) => onCustomHoldupIdChange(e.target.value)}
+          type="number"
+          fullWidth
+          size="small"
+          slotProps={{
+            input: { endAdornment: <InputAdornment position="end">mm</InputAdornment> },
+          }}
+        />
+      )}
 
       <TextField
         label="Minimum Column Height"

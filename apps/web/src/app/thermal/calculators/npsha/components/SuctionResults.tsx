@@ -135,7 +135,11 @@ export function SuctionResults({ result, inputs }: SuctionResultsProps) {
               <Typography variant="caption" color="text.secondary">
                 Nozzle Pipe
               </Typography>
-              <Typography variant="h6">{result.nozzlePipe.nps}&quot;</Typography>
+              <Typography variant="h6">
+                {result.nozzlePipe.nps === 'CUSTOM'
+                  ? `${result.nozzlePipe.id_mm} mm`
+                  : `${result.nozzlePipe.nps}"`}
+              </Typography>
               <Chip
                 label={`${result.nozzleVelocity.toFixed(3)} m/s`}
                 size="small"
@@ -224,8 +228,14 @@ export function SuctionResults({ result, inputs }: SuctionResultsProps) {
             <TableBody>
               <TableRow>
                 <TableCell>Nozzle</TableCell>
-                <TableCell align="center">{result.nozzlePipe.nps}&quot;</TableCell>
-                <TableCell align="center">DN{result.nozzlePipe.dn}</TableCell>
+                <TableCell align="center">
+                  {result.nozzlePipe.nps === 'CUSTOM' ? 'Custom' : `${result.nozzlePipe.nps}"`}
+                </TableCell>
+                <TableCell align="center">
+                  {result.nozzlePipe.nps === 'CUSTOM'
+                    ? `ID ${result.nozzlePipe.id_mm}`
+                    : `DN${result.nozzlePipe.dn}`}
+                </TableCell>
                 <TableCell align="right">{result.nozzlePipe.id_mm.toFixed(1)}</TableCell>
                 <TableCell align="right">{result.nozzlePipe.od_mm.toFixed(1)}</TableCell>
                 <TableCell align="right">{result.nozzleVelocity.toFixed(3)}</TableCell>
@@ -456,7 +466,9 @@ export function SuctionResults({ result, inputs }: SuctionResultsProps) {
               Holdup Pipe
             </Typography>
             <Typography variant="body2">
-              {result.holdup.holdupPipeNPS}&quot; (ID {result.holdup.holdupPipeID.toFixed(1)} mm)
+              {result.holdup.holdupPipeNPS === 'CUSTOM'
+                ? `Custom (ID ${result.holdup.holdupPipeID.toFixed(1)} mm)`
+                : `${result.holdup.holdupPipeNPS}" (ID ${result.holdup.holdupPipeID.toFixed(1)} mm)`}
             </Typography>
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }}>
