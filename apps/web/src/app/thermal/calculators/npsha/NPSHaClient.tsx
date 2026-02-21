@@ -1,336 +1,189 @@
 'use client';
 
 /**
- * NPSHa (Net Positive Suction Head Available) Calculator
+ * Suction System Designer
  *
- * Calculate NPSHa for pump suction systems under various conditions.
+ * Complete pump suction system designer for vacuum vessels (MED effects, flash chambers, etc.).
+ * Replaces the old NPSHa calculator with full pipe sizing, fitting selection,
+ * friction calculation, holdup volume design, and NPSHa verification.
  */
 
 import { useState, useMemo } from 'react';
+import { Container, Typography, Box, Grid, Stack, Chip, Paper, Alert } from '@mui/material';
 import {
-  Container,
-  Typography,
-  Box,
-  Paper,
-  Grid,
-  TextField,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Alert,
-  Divider,
-  InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Chip,
-  Stack,
-  Card,
-  CardContent,
-  ToggleButton,
-  ToggleButtonGroup,
-} from '@mui/material';
-import {
-  CheckCircle as CheckIcon,
-  Warning as WarningIcon,
-  Error as ErrorIcon,
-} from '@mui/icons-material';
+  calculateSuctionSystem,
+  type SuctionSystemInput,
+  type SuctionSystemResult,
+  type SuctionFluidType,
+  type CalculationMode,
+} from '@/lib/thermal/suctionSystemCalculator';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
-import {
-  calculateNPSHa,
-  calculateMinimumLiquidLevel,
-  type VesselType,
-  type LiquidType,
-} from '@/lib/thermal';
-
-function getNPSHaStatusIcon(npsha: number) {
-  if (npsha < 0) return <ErrorIcon color="error" />;
-  if (npsha < 2) return <WarningIcon color="warning" />;
-  return <CheckIcon color="success" />;
-}
-
-function getNPSHaStatusColor(npsha: number) {
-  if (npsha < 0) return 'error.main';
-  if (npsha < 2) return 'warning.main';
-  return 'success.main';
-}
+import { SuctionDiagram } from './components/SuctionDiagram';
+import { SuctionInputs } from './components/SuctionInputs';
+import { SuctionResults } from './components/SuctionResults';
 
 export default function NPSHaClient() {
-  // Vessel parameters
-  const [vesselType, setVesselType] = useState<VesselType>('OPEN');
-  const [vesselPressure, setVesselPressure] = useState<string>('100'); // mbar abs for vacuum
-  const [atmosphericPressure, setAtmosphericPressure] = useState<string>('1013.25'); // mbar
+  // Operating conditions
+  const [effectPressure, setEffectPressure] = useState<string>('300');
+  const [fluidType, setFluidType] = useState<SuctionFluidType>('brine');
+  const [salinity, setSalinity] = useState<string>('45000');
+  const [flowRate, setFlowRate] = useState<string>('100');
 
-  // Liquid parameters
-  const [liquidType, setLiquidType] = useState<LiquidType>('SEAWATER');
-  const [temperature, setTemperature] = useState<string>('40');
-  const [salinity, setSalinity] = useState<string>('35000');
+  // Pipe sizing
+  const [nozzleVelocityTarget, setNozzleVelocityTarget] = useState<string>('0.08');
+  const [suctionVelocityTarget, setSuctionVelocityTarget] = useState<string>('1.2');
 
-  // System parameters
-  const [liquidLevel, setLiquidLevel] = useState<string>('2.0');
-  const [frictionLoss, setFrictionLoss] = useState<string>('0.5');
+  // Pipe geometry
+  const [elbowCount, setElbowCount] = useState<string>('1');
+  const [verticalPipeRun, setVerticalPipeRun] = useState<string>('3');
+  const [horizontalPipeRun, setHorizontalPipeRun] = useState<string>('2');
 
-  // NPSHr comparison
-  const [npshr, setNpshr] = useState<string>('');
+  // Holdup volume
+  const [holdupPipeDiameter, setHoldupPipeDiameter] = useState<string>('');
+  const [minColumnHeight, setMinColumnHeight] = useState<string>('1.0');
+  const [residenceTime, setResidenceTime] = useState<string>('30');
 
+  // Pump & mode
+  const [pumpNPSHr, setPumpNPSHr] = useState<string>('3.0');
+  const [safetyMargin, setSafetyMargin] = useState<string>('0.5');
+  const [mode, setMode] = useState<CalculationMode>('find_elevation');
+  const [userElevation, setUserElevation] = useState<string>('5.0');
+
+  // Error state
   const [error, setError] = useState<string | null>(null);
 
-  // Calculate NPSHa
-  const result = useMemo(() => {
+  // Main calculation
+  const result: SuctionSystemResult | null = useMemo(() => {
     setError(null);
-
     try {
-      const level = parseFloat(liquidLevel);
-      const friction = parseFloat(frictionLoss);
-      const temp = parseFloat(temperature);
+      const ep = parseFloat(effectPressure);
       const sal = parseFloat(salinity);
+      const fr = parseFloat(flowRate);
+      const nvt = parseFloat(nozzleVelocityTarget);
+      const svt = parseFloat(suctionVelocityTarget);
+      const ec = parseInt(elbowCount);
+      const vpr = parseFloat(verticalPipeRun);
+      const hpr = parseFloat(horizontalPipeRun);
+      const mch = parseFloat(minColumnHeight);
+      const rt = parseFloat(residenceTime);
+      const npr = parseFloat(pumpNPSHr);
+      const sm = parseFloat(safetyMargin);
+      const ue = parseFloat(userElevation);
 
-      if (isNaN(level) || isNaN(friction) || isNaN(temp)) return null;
+      // Basic validation before calling calculator
+      if (isNaN(ep) || isNaN(fr) || isNaN(nvt) || isNaN(svt)) return null;
+      if (isNaN(ec) || isNaN(vpr) || isNaN(hpr)) return null;
+      if (isNaN(mch) || isNaN(rt) || isNaN(npr) || isNaN(sm)) return null;
+      if (fluidType === 'brine' && isNaN(sal)) return null;
+      if (mode === 'verify_elevation' && isNaN(ue)) return null;
 
-      let vesselPressureBar: number | undefined;
-      let atmPressureBar: number | undefined;
+      const input: SuctionSystemInput = {
+        effectPressure: ep,
+        fluidType,
+        salinity: fluidType === 'distillate' ? 0 : sal,
+        flowRate: fr,
+        nozzleVelocityTarget: nvt,
+        suctionVelocityTarget: svt,
+        elbowCount: ec,
+        verticalPipeRun: vpr,
+        horizontalPipeRun: hpr,
+        ...(holdupPipeDiameter ? { holdupPipeDiameter } : {}),
+        minColumnHeight: mch,
+        residenceTime: rt,
+        pumpNPSHr: npr,
+        safetyMargin: sm,
+        mode,
+        ...(mode === 'verify_elevation' ? { userElevation: ue } : {}),
+      };
 
-      if (vesselType === 'OPEN') {
-        atmPressureBar = parseFloat(atmosphericPressure) / 1000; // mbar to bar
-      } else {
-        vesselPressureBar = parseFloat(vesselPressure) / 1000; // mbar to bar
-      }
-
-      return calculateNPSHa({
-        vesselType,
-        liquidLevelAbovePump: level,
-        vesselPressure: vesselPressureBar,
-        atmosphericPressure: atmPressureBar,
-        liquidTemperature: temp,
-        liquidType,
-        salinity: liquidType === 'SEAWATER' ? sal : undefined,
-        frictionLoss: friction,
-      });
+      return calculateSuctionSystem(input);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Calculation error');
       return null;
     }
   }, [
-    vesselType,
-    vesselPressure,
-    atmosphericPressure,
-    liquidType,
-    temperature,
+    effectPressure,
+    fluidType,
     salinity,
-    liquidLevel,
-    frictionLoss,
+    flowRate,
+    nozzleVelocityTarget,
+    suctionVelocityTarget,
+    elbowCount,
+    verticalPipeRun,
+    horizontalPipeRun,
+    holdupPipeDiameter,
+    minColumnHeight,
+    residenceTime,
+    pumpNPSHr,
+    safetyMargin,
+    mode,
+    userElevation,
   ]);
-
-  // Calculate minimum level for given NPSHr
-  const minLevel = useMemo(() => {
-    const npshrValue = parseFloat(npshr);
-    if (isNaN(npshrValue) || npshrValue <= 0) return null;
-
-    try {
-      const temp = parseFloat(temperature);
-      const sal = parseFloat(salinity);
-      const friction = parseFloat(frictionLoss);
-
-      if (isNaN(temp) || isNaN(friction)) return null;
-
-      let vesselPressureBar: number | undefined;
-      let atmPressureBar: number | undefined;
-
-      if (vesselType === 'OPEN') {
-        atmPressureBar = parseFloat(atmosphericPressure) / 1000;
-      } else {
-        vesselPressureBar = parseFloat(vesselPressure) / 1000;
-      }
-
-      return calculateMinimumLiquidLevel(npshrValue, {
-        vesselType,
-        vesselPressure: vesselPressureBar,
-        atmosphericPressure: atmPressureBar,
-        liquidTemperature: temp,
-        liquidType,
-        salinity: liquidType === 'SEAWATER' ? sal : undefined,
-        frictionLoss: friction,
-      });
-    } catch {
-      return null;
-    }
-  }, [
-    npshr,
-    vesselType,
-    vesselPressure,
-    atmosphericPressure,
-    liquidType,
-    temperature,
-    salinity,
-    frictionLoss,
-  ]);
-
-  // Check margin if NPSHr provided
-  const npshrValue = parseFloat(npshr);
-  const margin = result && !isNaN(npshrValue) ? result.npshAvailable - npshrValue : null;
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      <CalculatorBreadcrumb calculatorName="NPSHa" />
+      <CalculatorBreadcrumb calculatorName="Suction System Designer" />
 
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={1}>
           <Typography variant="h4" component="h1">
-            NPSHa Calculator
+            Suction System Designer
           </Typography>
-          <Chip label="Hydraulic Institute" size="small" color="primary" variant="outlined" />
+          <Chip label="Darcy-Weisbach" size="small" color="primary" variant="outlined" />
+          <Chip label="Crane TP-410" size="small" variant="outlined" />
         </Stack>
         <Typography variant="body1" color="text.secondary">
-          Calculate Net Positive Suction Head Available for pump suction systems. NPSHa must exceed
-          pump NPSHr with adequate margin to prevent cavitation.
+          Design pump suction systems for vacuum vessels — MED effects, flash chambers, and more.
+          Sizes nozzle and suction piping, selects fittings, calculates friction losses, designs
+          holdup volume, and determines required elevation for adequate NPSHa.
         </Typography>
       </Box>
 
+      {/* Main Content */}
       <Grid container spacing={3}>
-        {/* Input Section */}
+        {/* Left: Inputs */}
         <Grid size={{ xs: 12, md: 5 }}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               Input Parameters
             </Typography>
-
-            <Stack spacing={2}>
-              {/* Vessel Type */}
-              <Box>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Vessel Type:
-                </Typography>
-                <ToggleButtonGroup
-                  value={vesselType}
-                  exclusive
-                  onChange={(_, v) => v && setVesselType(v)}
-                  fullWidth
-                  size="small"
-                >
-                  <ToggleButton value="OPEN">Open Tank</ToggleButton>
-                  <ToggleButton value="CLOSED">Closed</ToggleButton>
-                  <ToggleButton value="VACUUM">Vacuum</ToggleButton>
-                </ToggleButtonGroup>
-              </Box>
-
-              {/* Vessel Pressure */}
-              {vesselType === 'OPEN' ? (
-                <TextField
-                  label="Atmospheric Pressure"
-                  value={atmosphericPressure}
-                  onChange={(e) => setAtmosphericPressure(e.target.value)}
-                  type="number"
-                  fullWidth
-                  InputProps={{
-                    endAdornment: <InputAdornment position="end">mbar</InputAdornment>,
-                  }}
-                  helperText="Standard: 1013.25 mbar"
-                />
-              ) : (
-                <TextField
-                  label="Vessel Pressure"
-                  value={vesselPressure}
-                  onChange={(e) => setVesselPressure(e.target.value)}
-                  type="number"
-                  fullWidth
-                  InputProps={{
-                    endAdornment: <InputAdornment position="end">mbar abs</InputAdornment>,
-                  }}
-                  helperText={
-                    vesselType === 'VACUUM'
-                      ? 'Vacuum vessel absolute pressure'
-                      : 'Closed vessel pressure'
-                  }
-                />
-              )}
-
-              <Divider />
-
-              {/* Liquid Type */}
-              <FormControl fullWidth>
-                <InputLabel>Liquid Type</InputLabel>
-                <Select
-                  value={liquidType}
-                  label="Liquid Type"
-                  onChange={(e) => setLiquidType(e.target.value as LiquidType)}
-                >
-                  <MenuItem value="PURE_WATER">Pure Water</MenuItem>
-                  <MenuItem value="SEAWATER">Seawater</MenuItem>
-                </Select>
-              </FormControl>
-
-              <TextField
-                label="Liquid Temperature"
-                value={temperature}
-                onChange={(e) => setTemperature(e.target.value)}
-                type="number"
-                fullWidth
-                InputProps={{
-                  endAdornment: <InputAdornment position="end">°C</InputAdornment>,
-                }}
-              />
-
-              {liquidType === 'SEAWATER' && (
-                <TextField
-                  label="Salinity"
-                  value={salinity}
-                  onChange={(e) => setSalinity(e.target.value)}
-                  type="number"
-                  fullWidth
-                  InputProps={{
-                    endAdornment: <InputAdornment position="end">ppm</InputAdornment>,
-                  }}
-                />
-              )}
-
-              <Divider />
-
-              <TextField
-                label="Liquid Level Above Pump"
-                value={liquidLevel}
-                onChange={(e) => setLiquidLevel(e.target.value)}
-                type="number"
-                fullWidth
-                InputProps={{
-                  endAdornment: <InputAdornment position="end">m</InputAdornment>,
-                }}
-                helperText="Positive = above pump centerline"
-              />
-
-              <TextField
-                label="Friction Loss (Suction Piping)"
-                value={frictionLoss}
-                onChange={(e) => setFrictionLoss(e.target.value)}
-                type="number"
-                fullWidth
-                InputProps={{
-                  endAdornment: <InputAdornment position="end">m</InputAdornment>,
-                }}
-                helperText="Pressure drop in suction line"
-              />
-
-              <Divider />
-
-              <TextField
-                label="Pump NPSHr (Optional)"
-                value={npshr}
-                onChange={(e) => setNpshr(e.target.value)}
-                type="number"
-                fullWidth
-                InputProps={{
-                  endAdornment: <InputAdornment position="end">m</InputAdornment>,
-                }}
-                helperText="From pump datasheet - to check margin"
-              />
-            </Stack>
+            <SuctionInputs
+              effectPressure={effectPressure}
+              fluidType={fluidType}
+              salinity={salinity}
+              flowRate={flowRate}
+              onEffectPressureChange={setEffectPressure}
+              onFluidTypeChange={setFluidType}
+              onSalinityChange={setSalinity}
+              onFlowRateChange={setFlowRate}
+              nozzleVelocityTarget={nozzleVelocityTarget}
+              suctionVelocityTarget={suctionVelocityTarget}
+              onNozzleVelocityTargetChange={setNozzleVelocityTarget}
+              onSuctionVelocityTargetChange={setSuctionVelocityTarget}
+              elbowCount={elbowCount}
+              verticalPipeRun={verticalPipeRun}
+              horizontalPipeRun={horizontalPipeRun}
+              onElbowCountChange={setElbowCount}
+              onVerticalPipeRunChange={setVerticalPipeRun}
+              onHorizontalPipeRunChange={setHorizontalPipeRun}
+              holdupPipeDiameter={holdupPipeDiameter}
+              minColumnHeight={minColumnHeight}
+              residenceTime={residenceTime}
+              onHoldupPipeDiameterChange={setHoldupPipeDiameter}
+              onMinColumnHeightChange={setMinColumnHeight}
+              onResidenceTimeChange={setResidenceTime}
+              pumpNPSHr={pumpNPSHr}
+              safetyMargin={safetyMargin}
+              mode={mode}
+              userElevation={userElevation}
+              onPumpNPSHrChange={setPumpNPSHr}
+              onSafetyMarginChange={setSafetyMargin}
+              onModeChange={setMode}
+              onUserElevationChange={setUserElevation}
+              result={result}
+            />
           </Paper>
-
-          {/* Error Display */}
           {error && (
             <Alert severity="error" sx={{ mt: 2 }}>
               {error}
@@ -338,219 +191,31 @@ export default function NPSHaClient() {
           )}
         </Grid>
 
-        {/* Results Section */}
+        {/* Right: Diagram + Results */}
         <Grid size={{ xs: 12, md: 7 }}>
+          <SuctionDiagram result={result} />
           {result ? (
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Results
-              </Typography>
-
-              {/* Warnings */}
-              {result.warnings.length > 0 && (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  {result.warnings.map((w, i) => (
-                    <div key={i}>{w}</div>
-                  ))}
-                </Alert>
-              )}
-
-              {/* Main Result */}
-              <Card
-                variant="outlined"
-                sx={{
-                  mb: 3,
-                  borderColor: getNPSHaStatusColor(result.npshAvailable),
-                  borderWidth: 2,
-                }}
-              >
-                <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={2}>
-                    {getNPSHaStatusIcon(result.npshAvailable)}
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        NPSHa (Net Positive Suction Head Available)
-                      </Typography>
-                      <Typography variant="h3" color={getNPSHaStatusColor(result.npshAvailable)}>
-                        {result.npshAvailable.toFixed(2)} m
-                      </Typography>
-                    </Box>
-                  </Stack>
-
-                  {/* Margin check */}
-                  {margin !== null && (
-                    <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                      <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">
-                          Pump NPSHr:
-                        </Typography>
-                        <Typography variant="body2">{npshrValue.toFixed(2)} m</Typography>
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between">
-                        <Typography
-                          variant="body2"
-                          fontWeight="bold"
-                          color={
-                            margin >= 0.5
-                              ? 'success.main'
-                              : margin >= 0
-                                ? 'warning.main'
-                                : 'error.main'
-                          }
-                        >
-                          Margin:
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          fontWeight="bold"
-                          color={
-                            margin >= 0.5
-                              ? 'success.main'
-                              : margin >= 0
-                                ? 'warning.main'
-                                : 'error.main'
-                          }
-                        >
-                          {margin >= 0 ? '+' : ''}
-                          {margin.toFixed(2)} m
-                        </Typography>
-                      </Stack>
-                      {margin < 0.5 && margin >= 0 && (
-                        <Typography variant="caption" color="warning.main">
-                          Recommended margin is 0.5m or more
-                        </Typography>
-                      )}
-                    </Box>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Calculation Breakdown */}
-              <Typography variant="subtitle2" gutterBottom>
-                Calculation Breakdown
-              </Typography>
-              <Typography variant="body2" color="text.secondary" paragraph>
-                NPSHa = Hs + Hp - Hvp - Hf
-              </Typography>
-
-              <TableContainer sx={{ mb: 3 }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Component</TableCell>
-                      <TableCell align="center" width={50}>
-                        Sign
-                      </TableCell>
-                      <TableCell align="right">Value (m)</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {result.breakdown
-                      .filter((b) => b.component !== 'BPE Note')
-                      .map((b, i) => (
-                        <TableRow key={i}>
-                          <TableCell>
-                            <Typography variant="body2">{b.component}</Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {b.description}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Typography
-                              variant="body2"
-                              color={b.sign === '+' ? 'success.main' : 'error.main'}
-                            >
-                              {b.sign}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography variant="body2">{Math.abs(b.value).toFixed(3)}</Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    <TableRow sx={{ bgcolor: 'action.hover' }}>
-                      <TableCell colSpan={2}>
-                        <Typography variant="body2" fontWeight="bold">
-                          NPSHa
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2" fontWeight="bold">
-                          {result.npshAvailable.toFixed(3)}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              {/* Additional Info */}
-              <Grid container spacing={2} mb={3}>
-                <Grid size={{ xs: 6, sm: 4 }}>
-                  <Card variant="outlined">
-                    <CardContent sx={{ textAlign: 'center', py: 1 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        Liquid Density
-                      </Typography>
-                      <Typography variant="body1">{result.liquidDensity.toFixed(1)}</Typography>
-                      <Typography variant="caption">kg/m³</Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid size={{ xs: 6, sm: 4 }}>
-                  <Card variant="outlined">
-                    <CardContent sx={{ textAlign: 'center', py: 1 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        Vapor Pressure
-                      </Typography>
-                      <Typography variant="body1">
-                        {(result.vaporPressure * 1000).toFixed(1)}
-                      </Typography>
-                      <Typography variant="caption">mbar</Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                {liquidType === 'SEAWATER' && result.boilingPointElevation > 0 && (
-                  <Grid size={{ xs: 6, sm: 4 }}>
-                    <Card variant="outlined">
-                      <CardContent sx={{ textAlign: 'center', py: 1 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          BPE
-                        </Typography>
-                        <Typography variant="body1">
-                          {result.boilingPointElevation.toFixed(2)}
-                        </Typography>
-                        <Typography variant="caption">°C</Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                )}
-              </Grid>
-
-              {/* Minimum Level Calculation */}
-              {minLevel !== null && (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  <Typography variant="body2">
-                    <strong>Minimum liquid level</strong> for NPSHr of {npshrValue.toFixed(1)} m
-                    (with 0.5m margin): <strong>{minLevel.toFixed(2)} m</strong> above pump
-                    centerline
-                  </Typography>
-                </Alert>
-              )}
-
-              {/* Recommendation */}
-              <Alert
-                severity={
-                  result.npshAvailable < 0
-                    ? 'error'
-                    : result.npshAvailable < 2
-                      ? 'warning'
-                      : 'success'
-                }
-              >
-                <Typography variant="body2">{result.recommendation}</Typography>
-              </Alert>
-            </Paper>
+            <SuctionResults
+              result={result}
+              inputs={{
+                effectPressure,
+                fluidType,
+                salinity,
+                flowRate,
+                nozzleVelocityTarget,
+                suctionVelocityTarget,
+                elbowCount,
+                verticalPipeRun,
+                horizontalPipeRun,
+                holdupPipeDiameter,
+                minColumnHeight,
+                residenceTime,
+                pumpNPSHr,
+                safetyMargin,
+                mode,
+                userElevation,
+              }}
+            />
           ) : (
             !error && (
               <Paper
@@ -558,15 +223,15 @@ export default function NPSHaClient() {
                   p: 6,
                   textAlign: 'center',
                   bgcolor: 'action.hover',
-                  border: '2px dashed',
-                  borderColor: 'divider',
+                  borderRadius: 2,
                 }}
               >
                 <Typography variant="h6" color="text.secondary" gutterBottom>
-                  Enter parameters to calculate NPSHa
+                  Enter parameters to design suction system
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Results will update automatically
+                  Provide effect pressure, fluid properties, flow rate, and pipe geometry to design
+                  the complete suction system with NPSHa verification.
                 </Typography>
               </Paper>
             )
@@ -577,30 +242,27 @@ export default function NPSHaClient() {
       {/* Info Section */}
       <Box sx={{ mt: 4, p: 3, bgcolor: 'action.hover', borderRadius: 2 }}>
         <Typography variant="subtitle2" gutterBottom>
-          NPSHa Formula
+          How It Works
         </Typography>
         <Typography variant="body2" color="text.secondary" paragraph>
-          <strong>NPSHa = Hs + Hp - Hvp - Hf</strong>
+          MED thermal desalination plants operate under vacuum. Pumps extracting liquid from the
+          last effects need carefully designed suction systems to avoid cavitation. This tool
+          designs the complete flow path from vessel nozzle to pump suction.
         </Typography>
-        <Typography variant="body2" color="text.secondary" component="div">
-          <ul style={{ margin: 0, paddingLeft: 20 }}>
-            <li>
-              <strong>Hs</strong> = Static head (liquid level above pump centerline)
-            </li>
-            <li>
-              <strong>Hp</strong> = Pressure head (vessel or atmospheric pressure)
-            </li>
-            <li>
-              <strong>Hvp</strong> = Vapor pressure head (at liquid temperature)
-            </li>
-            <li>
-              <strong>Hf</strong> = Friction loss in suction piping
-            </li>
-          </ul>
+        <Typography variant="body2" color="text.secondary" paragraph>
+          <strong>Flow path</strong>: Vessel nozzle (standpipe with holdup volume and level gauge) →
+          concentric reducer → suction pipe → TEE (1 working + 1 standby pump) → 90° elbow(s) →
+          valve → strainer → pump.
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          <strong>Rule of thumb:</strong> NPSHa should be at least 0.5m greater than pump NPSHr.
-          Higher margins (1-2m) recommended for critical applications or variable conditions.
+        <Typography variant="body2" color="text.secondary" paragraph>
+          <strong>NPSHa = Hs + Hp - Hvp - Hf</strong> where Hs = static head (elevation), Hp =
+          pressure head, Hvp = vapor pressure head, Hf = friction losses. Both clean and dirty
+          strainer conditions are evaluated; the dirty case (worst case) governs the design.
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          <strong>Auto-selection rules</strong>: Gate valve for NPS {'≥'} 4&quot;, ball valve for
+          smaller sizes. Bucket strainer for NPS {'≥'} 4&quot;, Y-type for smaller sizes. Reducer
+          K-factor computed from Crane TP-410 formula using the actual pipe diameter ratio.
         </Typography>
       </Box>
     </Container>

@@ -27,6 +27,8 @@ export {
   calculatePressureDrop,
   calculateReynoldsNumber,
   calculateFrictionFactor,
+  calculateReducerK,
+  calculateExpanderK,
   mH2OToBar,
   barToMH2O,
   getAvailableFittings,
@@ -38,17 +40,8 @@ export {
   type PressureDropResult,
 } from './pressureDropCalculator';
 
-// NPSHa Calculator
-export {
-  calculateNPSHa,
-  calculateMinimumLiquidLevel,
-  barToHead,
-  headToBar,
-  type VesselType,
-  type LiquidType,
-  type NPSHaInput,
-  type NPSHaResult,
-} from './npshaCalculator';
+// Head/Pressure conversion utilities (from thermalUtils)
+export { barToHead, headToBar } from './thermalUtils';
 
 // Heat Duty Calculator
 export {
@@ -125,3 +118,21 @@ export {
   type PressureUnit,
   type ElbowConfig,
 } from './siphonSizingCalculator';
+
+// MED Suction System Designer
+export {
+  calculateSuctionSystem,
+  validateSuctionSystemInput,
+  parseNPSToNumber,
+  type SuctionSystemInput,
+  type SuctionSystemResult,
+  type SuctionFluidType,
+  type ValveType,
+  type StrainerType,
+  type CalculationMode,
+  type HoldupResult,
+  type StrainerPressureDrop,
+  type NPSHaCondition,
+  type AutoSelectedFitting,
+  type ReducerDetail,
+} from './suctionSystemCalculator';

@@ -44,7 +44,11 @@ export type FittingType =
   | 'expander_sudden'
   | 'entrance_sharp'
   | 'entrance_rounded'
-  | 'exit';
+  | 'exit'
+  | 'strainer_y_clean'
+  | 'strainer_y_dirty'
+  | 'strainer_bucket_clean'
+  | 'strainer_bucket_dirty';
 
 /**
  * Fitting count entry
@@ -139,6 +143,10 @@ export const K_FACTORS: Record<FittingType, number> = {
   entrance_sharp: 0.5,
   entrance_rounded: 0.04,
   exit: 1.0,
+  strainer_y_clean: 2.0,
+  strainer_y_dirty: 8.0,
+  strainer_bucket_clean: 4.0,
+  strainer_bucket_dirty: 12.0,
 };
 
 /**
@@ -161,6 +169,10 @@ export const FITTING_NAMES: Record<FittingType, string> = {
   entrance_sharp: 'Pipe Entrance (Sharp)',
   entrance_rounded: 'Pipe Entrance (Rounded)',
   exit: 'Pipe Exit',
+  strainer_y_clean: 'Y-Strainer (Clean)',
+  strainer_y_dirty: 'Y-Strainer (Dirty)',
+  strainer_bucket_clean: 'Bucket Strainer (Clean)',
+  strainer_bucket_dirty: 'Bucket Strainer (Dirty)',
 };
 
 /** Default pipe roughness for commercial steel (mm) */
@@ -218,6 +230,52 @@ export function calculateFrictionFactor(reynoldsNumber: number, relativeRoughnes
 
   // Turbulent flow - Swamee-Jain approximation
   return calculateTurbulentFrictionFactor(reynoldsNumber, relativeRoughness);
+}
+
+/**
+ * Calculate K-factor for a concentric or eccentric reducer (contraction)
+ *
+ * Based on Crane TP-410:
+ * - Gradual contraction (cone angle < 45°): K = 0.5 × (1 - β²)²
+ * - Eccentric reducer: ~20% higher than concentric
+ *
+ * @param dLargeMm - Larger pipe inner diameter in mm
+ * @param dSmallMm - Smaller pipe inner diameter in mm
+ * @param type - 'concentric' or 'eccentric'
+ * @returns K-factor (dimensionless), referenced to the smaller (downstream) pipe velocity
+ */
+export function calculateReducerK(
+  dLargeMm: number,
+  dSmallMm: number,
+  type: 'concentric' | 'eccentric' = 'concentric'
+): number {
+  if (dSmallMm >= dLargeMm) return 0; // No reduction
+  const beta = dSmallMm / dLargeMm;
+  const k = 0.5 * Math.pow(1 - beta * beta, 2);
+  return type === 'eccentric' ? k * 1.2 : k;
+}
+
+/**
+ * Calculate K-factor for a concentric or eccentric expander (enlargement)
+ *
+ * Based on Crane TP-410 (Borda-Carnot):
+ * - Gradual expansion: K = (1 - β²)²
+ * - Eccentric expander: ~20% higher than concentric
+ *
+ * @param dSmallMm - Smaller (upstream) pipe inner diameter in mm
+ * @param dLargeMm - Larger (downstream) pipe inner diameter in mm
+ * @param type - 'concentric' or 'eccentric'
+ * @returns K-factor (dimensionless), referenced to the smaller (upstream) pipe velocity
+ */
+export function calculateExpanderK(
+  dSmallMm: number,
+  dLargeMm: number,
+  type: 'concentric' | 'eccentric' = 'concentric'
+): number {
+  if (dSmallMm >= dLargeMm) return 0; // No expansion
+  const beta = dSmallMm / dLargeMm;
+  const k = Math.pow(1 - beta * beta, 2);
+  return type === 'eccentric' ? k * 1.2 : k;
 }
 
 /**

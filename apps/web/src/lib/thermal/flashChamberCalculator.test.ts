@@ -33,6 +33,10 @@ jest.mock('@vapour/constants', () => ({
     // Approximate vapor density (kg/m³)
     return 0.1 + (100 - temp) * 0.001;
   }),
+  getDensityLiquid: jest.fn((temp: number) => {
+    // Approximate pure water density (kg/m³)
+    return 1000 - (temp - 20) * 0.3;
+  }),
   mbarAbsToBar: jest.fn((mbar: number) => mbar / 1000),
   barToWaterHead: jest.fn((bar: number) => bar * 10.2),
   getSeawaterDensity: jest.fn((salinity: number, temp: number) => {

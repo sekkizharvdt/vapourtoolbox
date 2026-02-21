@@ -81,13 +81,13 @@ const calculators: Calculator[] = [
     reference: 'Darcy-Weisbach',
   },
   {
-    title: 'NPSHa Calculator',
+    title: 'Suction System Designer',
     description:
-      'Calculate Net Positive Suction Head Available for pump suction systems under various conditions.',
+      'Design pump suction systems for vacuum vessels — pipe sizing, fitting selection, friction losses, holdup volume, and NPSHa verification.',
     icon: <NPSHIcon sx={{ fontSize: 40 }} />,
     href: '/thermal/calculators/npsha',
     status: 'available',
-    reference: 'Hydraulic Institute',
+    reference: 'Crane TP-410',
   },
   {
     title: 'Heat Duty',

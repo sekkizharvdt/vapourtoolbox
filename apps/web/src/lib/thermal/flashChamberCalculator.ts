@@ -1,3 +1,5 @@
+// TODO: Flash chamber calculator to be redesigned with full suction system integration
+
 /**
  * Flash Chamber Calculator
  *
@@ -12,8 +14,10 @@
 
 import {
   getSaturationTemperature,
+  getSaturationPressure,
   getEnthalpyVapor,
   getDensityVapor,
+  getDensityLiquid,
   mbarAbsToBar,
   getSeawaterDensity,
   getSeawaterEnthalpy,
@@ -27,8 +31,7 @@ import {
   SCHEDULE_40_PIPES,
   type PipeVariant,
 } from './pipeService';
-import { tonHrToKgS, tonHrToM3S } from './thermalUtils';
-import { calculateNPSHa as calculateStandaloneNPSHa } from './npshaCalculator';
+import { tonHrToKgS, tonHrToM3S, barToHead } from './thermalUtils';
 
 import type {
   FlashChamberInput,
@@ -794,7 +797,10 @@ function calculateNozzleSizes(
 
 /**
  * Calculate Net Positive Suction Head Available at three levels for vacuum flash chamber.
- * Delegates to the standalone NPSHa calculator for the core calculation.
+ *
+ * Inlines the NPSHa formula: NPSHa = Hs + Hp - Hvp - Hf
+ * This was previously delegated to the standalone npshaCalculator, which has been
+ * replaced by the MED Suction System Designer for full suction system design.
  *
  * @param elevations - Calculated elevation data
  * @param chamberPressureBar - Operating pressure of chamber in bar (absolute)
@@ -807,22 +813,27 @@ function calculateNPSHa(
 ): NPSHaCalculation {
   const frictionLoss = ESTIMATED_FRICTION_LOSS;
 
-  // Helper: calculate NPSHa at a given level using the standalone calculator
+  // Pure water density at saturation temperature
+  const density = getDensityLiquid(satTempPure);
+
+  // Pressure head: vessel pressure converted to head of liquid
+  const pressureHead = barToHead(chamberPressureBar, density);
+
+  // Vapor pressure head: at saturation temperature, vapor pressure ≈ chamber pressure
+  // (pure water in a flash chamber is at saturation)
+  const vaporPressure = getSaturationPressure(satTempPure);
+  const vaporPressureHead = barToHead(vaporPressure, density);
+
+  // Helper: compute NPSHa at a given level
   const calculateAtLevel = (levelName: string, levelElevation: number): NPSHaAtLevel => {
-    const result = calculateStandaloneNPSHa({
-      vesselType: 'VACUUM',
-      liquidLevelAbovePump: levelElevation - elevations.pumpCenterline,
-      vesselPressure: chamberPressureBar,
-      liquidTemperature: satTempPure,
-      liquidType: 'PURE_WATER',
-      frictionLoss,
-    });
+    const staticHead = levelElevation - elevations.pumpCenterline;
+    const npshAvailable = staticHead + pressureHead - vaporPressureHead - frictionLoss;
 
     return {
       levelName,
       elevation: levelElevation,
-      staticHead: result.staticHead,
-      npshAvailable: result.npshAvailable,
+      staticHead,
+      npshAvailable,
     };
   };
 
@@ -830,16 +841,6 @@ function calculateNPSHa(
   const atLGL = calculateAtLevel('LG-L (Low Level)', elevations.lgLow);
   const atOperating = calculateAtLevel('Operating Level', elevations.operatingLevel);
   const atLGH = calculateAtLevel('LG-H (High Level)', elevations.lgHigh);
-
-  // Get pressure/vapor heads from any level result (they're level-independent)
-  const refResult = calculateStandaloneNPSHa({
-    vesselType: 'VACUUM',
-    liquidLevelAbovePump: 0,
-    vesselPressure: chamberPressureBar,
-    liquidTemperature: satTempPure,
-    liquidType: 'PURE_WATER',
-    frictionLoss,
-  });
 
   // Generate recommendation based on worst case (LG-L)
   const worstCaseNPSHa = atLGL.npshAvailable;
@@ -861,8 +862,8 @@ function calculateNPSHa(
     atLGL,
     atOperating,
     atLGH,
-    chamberPressureHead: refResult.pressureHead,
-    vaporPressureHead: refResult.vaporPressureHead,
+    chamberPressureHead: pressureHead,
+    vaporPressureHead,
     frictionLoss,
     recommendedNpshMargin: MIN_NPSH_MARGIN,
     recommendation,
