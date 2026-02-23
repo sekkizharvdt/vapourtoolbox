@@ -19,6 +19,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import PeopleIcon from '@mui/icons-material/People';
+import ThermostatIcon from '@mui/icons-material/Thermostat';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import HistoryIcon from '@mui/icons-material/History';
@@ -32,6 +33,7 @@ import { DocumentsSection } from './DocumentsSection';
 import { MaterialsSection } from './MaterialsSection';
 import { AccountingSection } from './AccountingSection';
 import { HRSection } from './HRSection';
+import { ThermalCalculatorsSection } from './ThermalCalculatorsSection';
 import { KeyboardShortcutsSection } from './KeyboardShortcutsSection';
 import { TipsSection } from './TipsSection';
 import { ChangelogSection } from './ChangelogSection';
@@ -43,8 +45,8 @@ export { KeyboardShortcut, FeatureCard, StepGuide } from './helpers';
 /**
  * Main User Guide Component
  */
-export function UserGuide() {
-  const [expanded, setExpanded] = useState<string | false>('getting-started');
+export function UserGuide({ defaultSection }: { defaultSection?: string }) {
+  const [expanded, setExpanded] = useState<string | false>(defaultSection || 'getting-started');
 
   const handleChange = (panel: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
     setExpanded(isExpanded ? panel : false);
@@ -98,6 +100,12 @@ export function UserGuide() {
       title: 'HR (Leaves & Expenses)',
       icon: <PeopleIcon />,
       content: <HRSection />,
+    },
+    {
+      id: 'thermal',
+      title: 'Thermal Calculators',
+      icon: <ThermostatIcon />,
+      content: <ThermalCalculatorsSection />,
     },
     {
       id: 'shortcuts',

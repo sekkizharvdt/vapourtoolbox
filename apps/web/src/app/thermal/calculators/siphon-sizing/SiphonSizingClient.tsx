@@ -2,7 +2,11 @@
 
 import { useState, useMemo, useRef } from 'react';
 import { Container, Typography, Box, Grid, Stack, Chip, Paper, Alert, Button } from '@mui/material';
-import { ViewList as BatchIcon, FolderOpen as LoadIcon } from '@mui/icons-material';
+import {
+  ViewList as BatchIcon,
+  FolderOpen as LoadIcon,
+  HelpOutline as GuideIcon,
+} from '@mui/icons-material';
 import Link from 'next/link';
 import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 import {
@@ -182,6 +186,14 @@ export default function SiphonSizingClient() {
             size="small"
           >
             Batch Mode (All Effects)
+          </Button>
+          <Button
+            component={Link}
+            href="/guide?section=thermal"
+            startIcon={<GuideIcon />}
+            size="small"
+          >
+            Guide
           </Button>
         </Stack>
       </Box>

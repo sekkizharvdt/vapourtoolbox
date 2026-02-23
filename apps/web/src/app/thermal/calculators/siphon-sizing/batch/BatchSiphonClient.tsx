@@ -21,7 +21,11 @@ import {
   Alert,
   Chip,
 } from '@mui/material';
-import { TableChart as ExcelIcon, ArrowBack as BackIcon } from '@mui/icons-material';
+import {
+  TableChart as ExcelIcon,
+  ArrowBack as BackIcon,
+  HelpOutline as GuideIcon,
+} from '@mui/icons-material';
 import Link from 'next/link';
 import {
   calculateSiphonSizing,
@@ -175,6 +179,14 @@ export default function BatchSiphonClient() {
           size="small"
         >
           Single Siphon Mode
+        </Button>
+        <Button
+          component={Link}
+          href="/guide?section=thermal"
+          startIcon={<GuideIcon />}
+          size="small"
+        >
+          Guide
         </Button>
       </Box>
 
