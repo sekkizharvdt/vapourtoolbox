@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Container, Typography, Box, Grid, Stack, Chip, Paper, Alert } from '@mui/material';
 import {
   calculateSiphonSizing,
@@ -36,8 +36,15 @@ export default function SiphonSizingClient() {
   const [horizontalDistance, setHorizontalDistance] = useState<string>('3');
   const [offsetDistance, setOffsetDistance] = useState<string>('1.5');
 
+  // Custom pipe state (for plate-formed pipes exceeding 24")
+  const [customPipeId, setCustomPipeId] = useState<string>('');
+  const [customPipeThickness, setCustomPipeThickness] = useState<string>('');
+
   // Safety state
   const [safetyFactor, setSafetyFactor] = useState<string>('20');
+
+  // SVG ref for diagram capture in PDF
+  const diagramSvgRef = useRef<SVGSVGElement | null>(null);
 
   // Error state
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +100,14 @@ export default function SiphonSizingClient() {
       }
       if (up <= down) return null;
 
+      // Build custom pipe if both dimensions provided
+      const cpId = parseFloat(customPipeId);
+      const cpWt = parseFloat(customPipeThickness);
+      const customPipe =
+        !isNaN(cpId) && cpId > 0 && !isNaN(cpWt) && cpWt > 0
+          ? { id_mm: cpId, wt_mm: cpWt }
+          : undefined;
+
       const input: SiphonSizingInput = {
         upstreamPressure: up,
         downstreamPressure: down,
@@ -105,6 +120,7 @@ export default function SiphonSizingClient() {
         offsetDistance: elbowConfig !== '2_elbows' ? oDist : 0,
         targetVelocity: vel,
         safetyFactor: sf,
+        ...(customPipe ? { customPipe } : {}),
       };
 
       return calculateSiphonSizing(input);
@@ -124,6 +140,8 @@ export default function SiphonSizingClient() {
     horizontalDistance,
     offsetDistance,
     safetyFactor,
+    customPipeId,
+    customPipeThickness,
   ]);
 
   return (
@@ -167,6 +185,11 @@ export default function SiphonSizingClient() {
               onFlowRateChange={setFlowRate}
               targetVelocity={targetVelocity}
               onTargetVelocityChange={setTargetVelocity}
+              customPipeId={customPipeId}
+              customPipeThickness={customPipeThickness}
+              onCustomPipeIdChange={setCustomPipeId}
+              onCustomPipeThicknessChange={setCustomPipeThickness}
+              pipeExceedsStandard={result?.pipeExceedsStandard ?? false}
               elbowConfig={elbowConfig}
               horizontalDistance={horizontalDistance}
               offsetDistance={offsetDistance}
@@ -194,6 +217,7 @@ export default function SiphonSizingClient() {
             elbowConfig={elbowConfig}
             horizontalDistance={parseFloat(horizontalDistance) || 0}
             offsetDistance={parseFloat(offsetDistance) || 0}
+            svgRef={diagramSvgRef}
           />
           {result ? (
             <SiphonResults
@@ -211,6 +235,7 @@ export default function SiphonSizingClient() {
                 offsetDistance,
                 safetyFactor,
               }}
+              diagramSvgRef={diagramSvgRef}
             />
           ) : (
             !error && (

@@ -7,7 +7,7 @@
  * Follows the GenerateDatasheetDialog pattern from flash-chamber.
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback, type RefObject } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -25,26 +25,126 @@ import { pdf } from '@react-pdf/renderer';
 import type { SiphonSizingResult } from '@/lib/thermal/siphonSizingCalculator';
 import { SiphonReportPDF, type SiphonReportInputs } from './SiphonReportPDF';
 
+/** Cache the logo data URI to avoid repeated fetches */
+let cachedLogoDataUri: string | null = null;
+
+async function fetchLogoAsDataUri(): Promise<string | undefined> {
+  if (cachedLogoDataUri) return cachedLogoDataUri;
+  try {
+    const response = await fetch('/logo.png');
+    if (!response.ok) return undefined;
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        cachedLogoDataUri = reader.result as string;
+        resolve(cachedLogoDataUri);
+      };
+      reader.onerror = () => resolve(undefined);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+/** Capture an SVG element as a PNG data URI via canvas */
+function captureSvgAsImage(svgEl: SVGSVGElement): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    try {
+      const svgClone = svgEl.cloneNode(true) as SVGSVGElement;
+
+      // Inline computed styles so the rasterised image looks correct
+      const original = svgEl.querySelectorAll('*');
+      const cloned = svgClone.querySelectorAll('*');
+      original.forEach((el, i) => {
+        const computed = window.getComputedStyle(el);
+        const target = cloned[i] as SVGElement;
+        target.setAttribute('fill', computed.fill);
+        target.setAttribute('stroke', computed.stroke);
+        target.setAttribute('opacity', computed.opacity);
+      });
+
+      // Ensure explicit dimensions on the clone
+      const bbox = svgEl.getBoundingClientRect();
+      svgClone.setAttribute('width', String(bbox.width));
+      svgClone.setAttribute('height', String(bbox.height));
+
+      const serializer = new XMLSerializer();
+      const svgString = serializer.serializeToString(svgClone);
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+
+      const img = new Image();
+      const scale = 2; // retina sharpness
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = bbox.width * scale;
+        canvas.height = bbox.height * scale;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          URL.revokeObjectURL(url);
+          resolve(undefined);
+          return;
+        }
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0, bbox.width, bbox.height);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(undefined);
+      };
+      img.src = url;
+    } catch {
+      resolve(undefined);
+    }
+  });
+}
+
 interface GenerateReportDialogProps {
   open: boolean;
   onClose: () => void;
   result: SiphonSizingResult;
   inputs: SiphonReportInputs;
+  diagramSvgRef?: RefObject<SVGSVGElement | null>;
 }
 
-export function GenerateReportDialog({ open, onClose, result, inputs }: GenerateReportDialogProps) {
+export function GenerateReportDialog({
+  open,
+  onClose,
+  result,
+  inputs,
+  diagramSvgRef,
+}: GenerateReportDialogProps) {
   const [documentNumber, setDocumentNumber] = useState('SIPHON-001');
   const [revision, setRevision] = useState('0');
   const [projectName, setProjectName] = useState('');
   const [notes, setNotes] = useState('');
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [logoDataUri, setLogoDataUri] = useState<string | undefined>();
+
+  // Pre-fetch logo when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchLogoAsDataUri().then(setLogoDataUri);
+    }
+  }, [open]);
+
+  const captureDiagram = useCallback(async (): Promise<string | undefined> => {
+    if (!diagramSvgRef?.current) return undefined;
+    return captureSvgAsImage(diagramSvgRef.current);
+  }, [diagramSvgRef]);
 
   const handleGenerate = async () => {
     setGenerating(true);
     setError(null);
 
     try {
+      const diagramImageUri = await captureDiagram();
+
       const doc = (
         <SiphonReportPDF
           result={result}
@@ -53,6 +153,8 @@ export function GenerateReportDialog({ open, onClose, result, inputs }: Generate
           revision={revision}
           projectName={projectName || undefined}
           notes={notes || undefined}
+          logoDataUri={logoDataUri}
+          diagramImageUri={diagramImageUri}
         />
       );
 

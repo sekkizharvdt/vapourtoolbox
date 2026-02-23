@@ -2,6 +2,7 @@
 
 import {
   Stack,
+  Grid,
   TextField,
   FormControl,
   InputLabel,
@@ -38,6 +39,13 @@ interface SiphonInputsProps {
   targetVelocity: string;
   onTargetVelocityChange: (value: string) => void;
 
+  // Custom pipe (plate-formed, >24")
+  customPipeId: string;
+  customPipeThickness: string;
+  onCustomPipeIdChange: (value: string) => void;
+  onCustomPipeThicknessChange: (value: string) => void;
+  pipeExceedsStandard: boolean;
+
   // Geometry
   elbowConfig: ElbowConfig;
   horizontalDistance: string;
@@ -71,6 +79,11 @@ export function SiphonInputs({
   onFlowRateChange,
   targetVelocity,
   onTargetVelocityChange,
+  customPipeId,
+  customPipeThickness,
+  onCustomPipeIdChange,
+  onCustomPipeThicknessChange,
+  pipeExceedsStandard,
   elbowConfig,
   horizontalDistance,
   offsetDistance,
@@ -216,6 +229,42 @@ export function SiphonInputs({
         }}
         helperText="Range: 0.05 &ndash; 1.0 m/s"
       />
+
+      {(pipeExceedsStandard || customPipeId || customPipeThickness) && (
+        <>
+          <Alert severity="info" variant="outlined">
+            Pipe exceeds 24&quot; Sch 40. Specify plate-formed pipe dimensions.
+          </Alert>
+          <Grid container spacing={1.5}>
+            <Grid size={{ xs: 6 }}>
+              <TextField
+                label="Pipe ID"
+                value={customPipeId}
+                onChange={(e) => onCustomPipeIdChange(e.target.value)}
+                type="number"
+                fullWidth
+                size="small"
+                slotProps={{
+                  input: { endAdornment: <InputAdornment position="end">mm</InputAdornment> },
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6 }}>
+              <TextField
+                label="Wall Thickness"
+                value={customPipeThickness}
+                onChange={(e) => onCustomPipeThicknessChange(e.target.value)}
+                type="number"
+                fullWidth
+                size="small"
+                slotProps={{
+                  input: { endAdornment: <InputAdornment position="end">mm</InputAdornment> },
+                }}
+              />
+            </Grid>
+          </Grid>
+        </>
+      )}
 
       <Divider />
 

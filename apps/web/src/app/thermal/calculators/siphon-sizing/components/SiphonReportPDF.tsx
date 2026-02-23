@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import type { SiphonSizingResult } from '@/lib/thermal/siphonSizingCalculator';
 import { FITTING_NAMES, type FittingType } from '@/lib/thermal/pressureDropCalculator';
 import { ELBOW_CONFIG_LABELS, FLUID_TYPE_LABELS, PRESSURE_UNIT_LABELS } from './types';
@@ -20,6 +20,16 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     paddingBottom: 10,
     borderBottom: '2pt solid #1976d2',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 50,
+    height: 50,
+    marginRight: 12,
+  },
+  headerText: {
+    flex: 1,
   },
   title: {
     fontSize: 14,
@@ -32,6 +42,15 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: 'center',
     marginBottom: 4,
+  },
+  diagramSection: {
+    marginTop: 10,
+    marginBottom: 6,
+    alignItems: 'center',
+  },
+  diagramImage: {
+    maxWidth: '85%',
+    maxHeight: 220,
   },
   headerRow: {
     flexDirection: 'row',
@@ -166,6 +185,8 @@ interface SiphonReportPDFProps {
   revision?: string;
   projectName?: string;
   notes?: string;
+  logoDataUri?: string;
+  diagramImageUri?: string;
 }
 
 export const SiphonReportPDF = ({
@@ -175,6 +196,8 @@ export const SiphonReportPDF = ({
   revision = '0',
   projectName,
   notes,
+  logoDataUri,
+  diagramImageUri,
 }: SiphonReportPDFProps) => {
   const fmt = (value: number, decimals: number = 2) =>
     value.toLocaleString('en-US', {
@@ -201,21 +224,25 @@ export const SiphonReportPDF = ({
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>SIPHON SIZING CALCULATION</Text>
-          <Text style={styles.subtitle}>CALCULATION REPORT</Text>
-          {projectName && <Text style={styles.subtitle}>{projectName}</Text>}
-          <View style={styles.headerRow}>
-            <View style={styles.headerItem}>
-              <Text style={styles.headerLabel}>Doc No:</Text>
-              <Text>{documentNumber}</Text>
-            </View>
-            <View style={styles.headerItem}>
-              <Text style={styles.headerLabel}>Rev:</Text>
-              <Text>{revision}</Text>
-            </View>
-            <View style={styles.headerItem}>
-              <Text style={styles.headerLabel}>Date:</Text>
-              <Text>{today}</Text>
+          {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop */}
+          {logoDataUri && <Image src={logoDataUri} style={styles.logo} />}
+          <View style={styles.headerText}>
+            <Text style={styles.title}>SIPHON SIZING CALCULATION</Text>
+            <Text style={styles.subtitle}>CALCULATION REPORT</Text>
+            {projectName && <Text style={styles.subtitle}>{projectName}</Text>}
+            <View style={styles.headerRow}>
+              <View style={styles.headerItem}>
+                <Text style={styles.headerLabel}>Doc No:</Text>
+                <Text>{documentNumber}</Text>
+              </View>
+              <View style={styles.headerItem}>
+                <Text style={styles.headerLabel}>Rev:</Text>
+                <Text>{revision}</Text>
+              </View>
+              <View style={styles.headerItem}>
+                <Text style={styles.headerLabel}>Date:</Text>
+                <Text>{today}</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -239,6 +266,15 @@ export const SiphonReportPDF = ({
             </Text>
           </View>
         </View>
+
+        {/* Siphon Arrangement Diagram */}
+        {diagramImageUri && (
+          <View style={styles.diagramSection}>
+            <Text style={styles.sectionTitle}>SIPHON ARRANGEMENT</Text>
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop */}
+            <Image src={diagramImageUri} style={styles.diagramImage} />
+          </View>
+        )}
 
         {/* 1. Input Parameters */}
         <View style={styles.section}>

@@ -78,6 +78,8 @@ export interface PressureDropInput {
   fittings?: FittingCount[];
   /** Elevation change in m (positive = upward) */
   elevationChange?: number;
+  /** Custom pipe dimensions — bypasses NPS lookup when provided */
+  customPipe?: { id_mm: number; area_mm2: number };
 }
 
 /**
@@ -308,10 +310,26 @@ function calculateTurbulentFrictionFactor(
 export function calculatePressureDrop(input: PressureDropInput): PressureDropResult {
   const warnings: string[] = [];
 
-  // Get pipe data
-  const pipe = getPipeByNPS(input.pipeNPS);
-  if (!pipe) {
-    throw new Error(`Pipe size NPS ${input.pipeNPS} not found in database`);
+  // Get pipe data — use custom dimensions if provided, otherwise lookup by NPS
+  let pipe: PipeVariant;
+  if (input.customPipe) {
+    const { id_mm, area_mm2 } = input.customPipe;
+    pipe = {
+      nps: 'CUSTOM',
+      dn: `${Math.round(id_mm)}`,
+      schedule: 'N/A',
+      od_mm: id_mm, // Approximate; not used in calculation
+      wt_mm: 0,
+      id_mm,
+      area_mm2,
+      weight_kgm: 0,
+    };
+  } else {
+    const looked = getPipeByNPS(input.pipeNPS);
+    if (!looked) {
+      throw new Error(`Pipe size NPS ${input.pipeNPS} not found in database`);
+    }
+    pipe = looked;
   }
 
   // Convert units

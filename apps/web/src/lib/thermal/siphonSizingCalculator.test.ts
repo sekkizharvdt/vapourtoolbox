@@ -74,14 +74,15 @@ jest.mock('./pipeService', () => ({
         },
       ];
       const requiredAreaMm2 = targetArea * 1e6;
-      const selected = pipes.find((p) => p.area_mm2 >= requiredAreaMm2) ?? pipes[pipes.length - 1]!;
+      const exactMatch = pipes.find((p) => p.area_mm2 >= requiredAreaMm2);
+      const selected = exactMatch ?? pipes[pipes.length - 1]!;
       const actualVelocity = volumetricFlow / (selected!.area_mm2 / 1e6);
       let velocityStatus: 'OK' | 'HIGH' | 'LOW' = 'OK';
       if (actualVelocity > velocityLimits.max) velocityStatus = 'HIGH';
       else if (actualVelocity < velocityLimits.min) velocityStatus = 'LOW';
       return {
         ...selected!,
-        displayName: `${selected!.nps}" Sch 40`,
+        displayName: exactMatch ? `${selected!.nps}" Sch 40` : `${selected!.nps}" Sch 40 (MAX)`,
         isExactMatch: false,
         actualVelocity,
         velocityStatus,
@@ -355,6 +356,100 @@ describe('Siphon Sizing Calculator', () => {
           downstreamPressure: 300,
         })
       ).toThrow();
+    });
+
+    it('should set pipeExceedsStandard when auto-sized pipe hits MAX', () => {
+      // Use very high flow rate to exceed the mock's largest pipe (8")
+      const result = calculateSiphonSizing({
+        ...baseInput,
+        flowRate: 5000, // huge flow → requires area larger than 8"
+      });
+      expect(result.pipeExceedsStandard).toBe(true);
+    });
+
+    it('should set pipeExceedsStandard=false for normal auto-sized pipe', () => {
+      const result = calculateSiphonSizing(baseInput);
+      expect(result.pipeExceedsStandard).toBe(false);
+    });
+  });
+
+  describe('custom pipe support', () => {
+    const customPipeInput: SiphonSizingInput = {
+      ...baseInput,
+      customPipe: { id_mm: 700, wt_mm: 10 },
+    };
+
+    it('should use custom pipe dimensions instead of auto-sizing', () => {
+      const result = calculateSiphonSizing(customPipeInput);
+
+      expect(result.pipe.nps).toBe('CUSTOM');
+      expect(result.pipe.id_mm).toBe(700);
+      expect(result.pipe.wt_mm).toBe(10);
+      expect(result.pipe.od_mm).toBe(720); // 700 + 2*10
+      expect(result.pipe.schedule).toBe('N/A');
+      expect(result.pipe.displayName).toBe('Custom (ID 700 mm)');
+      expect(result.pipeExceedsStandard).toBe(true);
+    });
+
+    it('should calculate velocity from custom pipe area', () => {
+      const result = calculateSiphonSizing(customPipeInput);
+
+      // area = π/4 × 700² ≈ 384,845 mm²
+      const expectedArea = (Math.PI / 4) * 700 * 700;
+      expect(result.pipe.area_mm2).toBeCloseTo(expectedArea, 0);
+
+      // velocity = volumetricFlow / (area in m²)
+      expect(result.velocity).toBeGreaterThan(0);
+    });
+
+    it('should pass customPipe through to pressure drop calculator', () => {
+      const { calculatePressureDrop: mockCalcPD } = jest.requireMock('./pressureDropCalculator');
+      mockCalcPD.mockClear();
+
+      calculateSiphonSizing(customPipeInput);
+
+      expect(mockCalcPD).toHaveBeenCalled();
+      const callArgs = mockCalcPD.mock.calls[0][0];
+      expect(callArgs.customPipe).toBeDefined();
+      expect(callArgs.customPipe.id_mm).toBe(700);
+      expect(callArgs.customPipe.area_mm2).toBeCloseTo((Math.PI / 4) * 700 * 700, 0);
+    });
+
+    it('should not pass customPipe for standard auto-sized pipe', () => {
+      const { calculatePressureDrop: mockCalcPD } = jest.requireMock('./pressureDropCalculator');
+      mockCalcPD.mockClear();
+
+      calculateSiphonSizing(baseInput);
+
+      expect(mockCalcPD).toHaveBeenCalled();
+      const callArgs = mockCalcPD.mock.calls[0][0];
+      expect(callArgs.customPipe).toBeUndefined();
+    });
+
+    it('should report velocity warnings for custom pipe', () => {
+      // Very large pipe → very low velocity
+      const result = calculateSiphonSizing({
+        ...baseInput,
+        flowRate: 1, // Low flow in big pipe → low velocity
+        customPipe: { id_mm: 1000, wt_mm: 15 },
+      });
+
+      expect(result.velocityStatus).toBe('LOW');
+      expect(result.warnings.some((w) => w.includes('below recommended minimum'))).toBe(true);
+    });
+
+    it('should validate custom pipe dimensions', () => {
+      const errors1 = validateSiphonInput({
+        ...baseInput,
+        customPipe: { id_mm: 0, wt_mm: 10 },
+      });
+      expect(errors1).toContain('Custom pipe ID must be positive');
+
+      const errors2 = validateSiphonInput({
+        ...baseInput,
+        customPipe: { id_mm: 700, wt_mm: -5 },
+      });
+      expect(errors2).toContain('Custom pipe wall thickness must be positive');
     });
   });
 });

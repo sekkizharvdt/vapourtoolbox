@@ -576,4 +576,38 @@ describe('Pressure Drop Calculator', () => {
       expect(teeBreakdown?.kFactor).toBe(1.5);
     });
   });
+
+  describe('Custom pipe override', () => {
+    it('should use custom pipe dimensions instead of NPS lookup', () => {
+      const result = calculatePressureDrop({
+        pipeNPS: 'IGNORED',
+        pipeLength: 10,
+        flowRate: 50,
+        fluidDensity: 1000,
+        fluidViscosity: 0.001,
+        customPipe: { id_mm: 300, area_mm2: (Math.PI / 4) * 300 * 300 },
+      });
+
+      expect(result.pipe.nps).toBe('CUSTOM');
+      expect(result.pipe.id_mm).toBe(300);
+      expect(result.totalPressureDropMH2O).toBeGreaterThan(0);
+    });
+
+    it('should calculate correct velocity with custom pipe area', () => {
+      const id_mm = 500;
+      const area_mm2 = (Math.PI / 4) * id_mm * id_mm;
+      const result = calculatePressureDrop({
+        pipeNPS: 'IGNORED',
+        pipeLength: 5,
+        flowRate: 100, // ton/hr
+        fluidDensity: 1000,
+        fluidViscosity: 0.001,
+        customPipe: { id_mm, area_mm2 },
+      });
+
+      // v = Q / A = (100*1000/3600/1000) / (area_mm2/1e6)
+      const expectedV = (100 * 1000) / 3600 / 1000 / (area_mm2 / 1e6);
+      expect(result.velocity).toBeCloseTo(expectedV, 4);
+    });
+  });
 });

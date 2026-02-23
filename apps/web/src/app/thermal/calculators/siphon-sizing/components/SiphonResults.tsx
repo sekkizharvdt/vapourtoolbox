@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type RefObject } from 'react';
 import {
   Paper,
   Typography,
@@ -31,6 +31,7 @@ import type { SiphonReportInputs } from './SiphonReportPDF';
 interface SiphonResultsProps {
   result: SiphonSizingResult;
   inputs: SiphonReportInputs;
+  diagramSvgRef?: RefObject<SVGSVGElement | null>;
 }
 
 function getVelocityColor(status: 'OK' | 'HIGH' | 'LOW'): 'success' | 'error' | 'warning' {
@@ -44,7 +45,7 @@ function getVelocityColor(status: 'OK' | 'HIGH' | 'LOW'): 'success' | 'error' | 
   }
 }
 
-export function SiphonResults({ result, inputs }: SiphonResultsProps) {
+export function SiphonResults({ result, inputs, diagramSvgRef }: SiphonResultsProps) {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
   return (
@@ -75,7 +76,11 @@ export function SiphonResults({ result, inputs }: SiphonResultsProps) {
             ) : (
               <WarningIcon color={getVelocityColor(result.velocityStatus)} />
             )}
-            <Typography variant="h4">{result.pipe.nps}&quot; Sch 40</Typography>
+            <Typography variant="h4">
+              {result.pipe.nps === 'CUSTOM'
+                ? `Custom ID ${result.pipe.id_mm} mm`
+                : `${result.pipe.nps}" Sch 40`}
+            </Typography>
             <Chip
               label={result.velocityStatus}
               color={getVelocityColor(result.velocityStatus)}
@@ -420,6 +425,7 @@ export function SiphonResults({ result, inputs }: SiphonResultsProps) {
         onClose={() => setReportDialogOpen(false)}
         result={result}
         inputs={inputs}
+        diagramSvgRef={diagramSvgRef}
       />
     </Stack>
   );

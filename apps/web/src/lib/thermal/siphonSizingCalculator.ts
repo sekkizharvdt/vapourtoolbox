@@ -74,6 +74,14 @@ export interface SiphonSizingInput {
 
   /** Safety factor as percentage (minimum 20%) */
   safetyFactor: number;
+
+  /** Custom pipe for plate-formed pipes exceeding standard sizes */
+  customPipe?: {
+    /** Inner diameter in mm */
+    id_mm: number;
+    /** Wall thickness in mm */
+    wt_mm: number;
+  };
 }
 
 export interface SiphonSizingResult {
@@ -83,6 +91,8 @@ export interface SiphonSizingResult {
   velocity: number;
   /** Velocity status */
   velocityStatus: 'OK' | 'HIGH' | 'LOW';
+  /** True when auto-sized pipe exceeds standard pipe range (24" max) */
+  pipeExceedsStandard: boolean;
 
   /** Pressure drop calculation result */
   pressureDrop: PressureDropResult;
@@ -278,6 +288,16 @@ export function validateSiphonInput(input: SiphonSizingInput): string[] {
     errors.push(`Safety factor must be at least ${MIN_SAFETY_FACTOR}%`);
   }
 
+  // Custom pipe
+  if (input.customPipe) {
+    if (input.customPipe.id_mm <= 0) {
+      errors.push('Custom pipe ID must be positive');
+    }
+    if (input.customPipe.wt_mm <= 0) {
+      errors.push('Custom pipe wall thickness must be positive');
+    }
+  }
+
   return errors;
 }
 
@@ -326,10 +346,43 @@ export function calculateSiphonSizing(input: SiphonSizingInput): SiphonSizingRes
 
   // Select pipe size
   const volumetricFlow = tonHrToM3S(input.flowRate, density);
-  const pipeResult = selectPipeByVelocity(volumetricFlow, input.targetVelocity, {
-    min: SIPHON_VELOCITY_MIN,
-    max: SIPHON_VELOCITY_MAX,
-  });
+
+  let pipeResult: SelectedPipe & { actualVelocity: number; velocityStatus: 'OK' | 'HIGH' | 'LOW' };
+  let pipeExceedsStandard = false;
+
+  if (input.customPipe) {
+    const { id_mm, wt_mm } = input.customPipe;
+    const od_mm = id_mm + 2 * wt_mm;
+    const area_mm2 = (Math.PI / 4) * id_mm * id_mm;
+    const actualVelocity = volumetricFlow / (area_mm2 / 1e6);
+    const velocityStatus: 'OK' | 'HIGH' | 'LOW' =
+      actualVelocity > SIPHON_VELOCITY_MAX
+        ? 'HIGH'
+        : actualVelocity < SIPHON_VELOCITY_MIN
+          ? 'LOW'
+          : 'OK';
+    pipeResult = {
+      nps: 'CUSTOM',
+      dn: `${Math.round(id_mm)}`,
+      schedule: 'N/A',
+      od_mm,
+      wt_mm,
+      id_mm,
+      area_mm2,
+      weight_kgm: 0,
+      displayName: `Custom (ID ${id_mm} mm)`,
+      isExactMatch: true,
+      actualVelocity,
+      velocityStatus,
+    };
+    pipeExceedsStandard = true;
+  } else {
+    pipeResult = selectPipeByVelocity(volumetricFlow, input.targetVelocity, {
+      min: SIPHON_VELOCITY_MIN,
+      max: SIPHON_VELOCITY_MAX,
+    });
+    pipeExceedsStandard = pipeResult.displayName.includes('(MAX)');
+  }
 
   if (pipeResult.velocityStatus === 'HIGH') {
     warnings.push(
@@ -372,6 +425,9 @@ export function calculateSiphonSizing(input: SiphonSizingInput): SiphonSizingRes
       fluidDensity: density,
       fluidViscosity: viscosity,
       fittings,
+      ...(input.customPipe
+        ? { customPipe: { id_mm: pipeResult.id_mm, area_mm2: pipeResult.area_mm2 } }
+        : {}),
     });
 
     // Calculate minimum height
@@ -436,6 +492,7 @@ export function calculateSiphonSizing(input: SiphonSizingInput): SiphonSizingRes
     pipe: pipeResult,
     velocity: pipeResult.actualVelocity,
     velocityStatus: pipeResult.velocityStatus,
+    pipeExceedsStandard,
 
     pressureDrop: pressureDropResult!,
 
