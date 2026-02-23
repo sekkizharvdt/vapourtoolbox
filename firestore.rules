@@ -1377,6 +1377,25 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Saved Calculations (Personal — no entityId)
+    // ============================================
+
+    match /savedCalculations/{calcId} {
+      // Read: Users can only read their own saved calculations
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+      // Create: Any authenticated user can save calculations
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid;
+
+      // Update: Users can only update their own
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+      // Delete: Users can delete their own
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // ============================================
     // Feedback Collection (Bug Reports, Feature Requests)
     // ============================================
 

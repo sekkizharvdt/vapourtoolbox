@@ -172,6 +172,7 @@ export interface SiphonReportInputs {
   salinity: string;
   flowRate: string;
   targetVelocity: string;
+  pipeSchedule: string;
   elbowConfig: string;
   horizontalDistance: string;
   offsetDistance: string;
@@ -214,6 +215,7 @@ export const SiphonReportPDF = ({
   const unitLabel = PRESSURE_UNIT_LABELS[inputs.pressureUnit] || inputs.pressureUnit;
   const fluidLabel = FLUID_TYPE_LABELS[inputs.fluidType] || inputs.fluidType;
   const elbowLabel = ELBOW_CONFIG_LABELS[inputs.elbowConfig] || inputs.elbowConfig;
+  const scheduleLabel = `Sch ${inputs.pipeSchedule || '40'}`;
   const safetyPct = (
     (result.safetyMargin / (result.staticHead + result.frictionHead)) *
     100
@@ -252,7 +254,7 @@ export const SiphonReportPDF = ({
           <View>
             <Text style={{ fontSize: 8, color: '#666' }}>Selected Pipe</Text>
             <Text style={styles.primaryValue}>
-              {result.pipe.nps}&quot; Sch 40 (DN{result.pipe.dn})
+              {result.pipe.nps}&quot; {scheduleLabel} (DN{result.pipe.dn})
             </Text>
           </View>
           <View style={{ alignItems: 'center' }}>
@@ -359,7 +361,9 @@ export const SiphonReportPDF = ({
               <Text style={[styles.col20, styles.colRight]}>Velocity (m/s)</Text>
             </View>
             <View style={styles.tableRow}>
-              <Text style={styles.col20}>{result.pipe.nps}&quot; Sch 40</Text>
+              <Text style={styles.col20}>
+                {result.pipe.nps}&quot; {scheduleLabel}
+              </Text>
               <Text style={styles.col15}>{result.pipe.dn}</Text>
               <Text style={[styles.col15, styles.colRight]}>{fmt(result.pipe.od_mm, 1)}</Text>
               <Text style={[styles.col15, styles.colRight]}>{fmt(result.pipe.id_mm, 1)}</Text>
@@ -546,6 +550,14 @@ export const SiphonReportPDF = ({
                   <Text style={styles.col50}>Total Pipe Length</Text>
                   <Text style={[styles.col50, styles.colRight]}>
                     {fmt(result.totalPipeLength, 1)} m
+                  </Text>
+                </View>
+                <View style={styles.tableRow}>
+                  <Text style={styles.col50}>Holdup Volume</Text>
+                  <Text style={[styles.col50, styles.colRight]}>
+                    {result.holdupVolumeLiters >= 1000
+                      ? `${fmt(result.holdupVolumeLiters / 1000, 2)} m³`
+                      : `${fmt(result.holdupVolumeLiters, 1)} L`}
                   </Text>
                 </View>
               </View>

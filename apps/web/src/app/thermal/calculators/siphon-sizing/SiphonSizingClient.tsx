@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useMemo, useRef } from 'react';
-import { Container, Typography, Box, Grid, Stack, Chip, Paper, Alert } from '@mui/material';
+import { Container, Typography, Box, Grid, Stack, Chip, Paper, Alert, Button } from '@mui/material';
+import { ViewList as BatchIcon, FolderOpen as LoadIcon } from '@mui/icons-material';
+import Link from 'next/link';
+import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 import {
   calculateSiphonSizing,
   type SiphonSizingInput,
@@ -36,6 +39,9 @@ export default function SiphonSizingClient() {
   const [horizontalDistance, setHorizontalDistance] = useState<string>('3');
   const [offsetDistance, setOffsetDistance] = useState<string>('1.5');
 
+  // Pipe schedule state
+  const [pipeSchedule, setPipeSchedule] = useState<string>('40');
+
   // Custom pipe state (for plate-formed pipes exceeding 24")
   const [customPipeId, setCustomPipeId] = useState<string>('');
   const [customPipeThickness, setCustomPipeThickness] = useState<string>('');
@@ -45,6 +51,9 @@ export default function SiphonSizingClient() {
 
   // SVG ref for diagram capture in PDF
   const diagramSvgRef = useRef<SVGSVGElement | null>(null);
+
+  // Load dialog state
+  const [loadDialogOpen, setLoadDialogOpen] = useState(false);
 
   // Error state
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +129,7 @@ export default function SiphonSizingClient() {
         offsetDistance: elbowConfig !== '2_elbows' ? oDist : 0,
         targetVelocity: vel,
         safetyFactor: sf,
+        pipeSchedule,
         ...(customPipe ? { customPipe } : {}),
       };
 
@@ -136,6 +146,7 @@ export default function SiphonSizingClient() {
     salinity,
     flowRate,
     targetVelocity,
+    pipeSchedule,
     elbowConfig,
     horizontalDistance,
     offsetDistance,
@@ -156,10 +167,23 @@ export default function SiphonSizingClient() {
           </Typography>
           <Chip label="Darcy-Weisbach" size="small" color="primary" variant="outlined" />
         </Stack>
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
           Size inter-effect siphon pipes for MED thermal desalination plants. Calculates pipe size,
           minimum U-bend height, pressure drop, and flash vapor at the downstream effect.
         </Typography>
+        <Stack direction="row" spacing={1}>
+          <Button startIcon={<LoadIcon />} size="small" onClick={() => setLoadDialogOpen(true)}>
+            Load Saved
+          </Button>
+          <Button
+            component={Link}
+            href="/thermal/calculators/siphon-sizing/batch"
+            startIcon={<BatchIcon />}
+            size="small"
+          >
+            Batch Mode (All Effects)
+          </Button>
+        </Stack>
       </Box>
 
       {/* Main Content */}
@@ -185,6 +209,8 @@ export default function SiphonSizingClient() {
               onFlowRateChange={setFlowRate}
               targetVelocity={targetVelocity}
               onTargetVelocityChange={setTargetVelocity}
+              pipeSchedule={pipeSchedule}
+              onPipeScheduleChange={setPipeSchedule}
               customPipeId={customPipeId}
               customPipeThickness={customPipeThickness}
               onCustomPipeIdChange={setCustomPipeId}
@@ -230,6 +256,7 @@ export default function SiphonSizingClient() {
                 salinity,
                 flowRate,
                 targetVelocity,
+                pipeSchedule,
                 elbowConfig,
                 horizontalDistance,
                 offsetDistance,
@@ -281,6 +308,32 @@ export default function SiphonSizingClient() {
           fraction is calculated using an enthalpy balance.
         </Typography>
       </Box>
+
+      {/* Load Calculation Dialog */}
+      <LoadCalculationDialog
+        open={loadDialogOpen}
+        onClose={() => setLoadDialogOpen(false)}
+        onLoad={(inputs) => {
+          if (typeof inputs.upstreamPressure === 'string')
+            setUpstreamPressure(inputs.upstreamPressure);
+          if (typeof inputs.downstreamPressure === 'string')
+            setDownstreamPressure(inputs.downstreamPressure);
+          if (typeof inputs.pressureUnit === 'string')
+            setPressureUnit(inputs.pressureUnit as PressureUnit);
+          if (typeof inputs.fluidType === 'string')
+            setFluidType(inputs.fluidType as SiphonFluidType);
+          if (typeof inputs.salinity === 'string') setSalinity(inputs.salinity);
+          if (typeof inputs.flowRate === 'string') setFlowRate(inputs.flowRate);
+          if (typeof inputs.targetVelocity === 'string') setTargetVelocity(inputs.targetVelocity);
+          if (typeof inputs.pipeSchedule === 'string') setPipeSchedule(inputs.pipeSchedule);
+          if (typeof inputs.elbowConfig === 'string')
+            setElbowConfig(inputs.elbowConfig as ElbowConfig);
+          if (typeof inputs.horizontalDistance === 'string')
+            setHorizontalDistance(inputs.horizontalDistance);
+          if (typeof inputs.offsetDistance === 'string') setOffsetDistance(inputs.offsetDistance);
+          if (typeof inputs.safetyFactor === 'string') setSafetyFactor(inputs.safetyFactor);
+        }}
+      />
     </Container>
   );
 }

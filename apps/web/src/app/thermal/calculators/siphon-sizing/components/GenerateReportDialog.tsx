@@ -240,7 +240,7 @@ export function GenerateReportDialog({
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Pipe Size:</span>
                 <strong>
-                  {result.pipe.nps}&quot; Sch 40 (DN{result.pipe.dn})
+                  {result.pipe.nps}&quot; Sch {result.pipe.schedule} (DN{result.pipe.dn})
                 </strong>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>

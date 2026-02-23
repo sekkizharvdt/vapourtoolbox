@@ -440,6 +440,25 @@ export const FLOW_RATE_UNIT_LABELS: Record<FlowRateUnit, string> = {
 } as const;
 
 // ============================================================================
+// Saved Calculations
+// ============================================================================
+
+/**
+ * Saved calculator inputs for personal use.
+ * Personal scope: each user sees only their own saves (no entityId).
+ */
+export interface SavedCalculation {
+  id: string;
+  userId: string;
+  calculatorType: 'SIPHON_SIZING' | 'FLASH_CHAMBER';
+  name: string;
+  inputs: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+  isDeleted?: boolean;
+}
+
+// ============================================================================
 // Unit Conversion Constants
 // ============================================================================
 

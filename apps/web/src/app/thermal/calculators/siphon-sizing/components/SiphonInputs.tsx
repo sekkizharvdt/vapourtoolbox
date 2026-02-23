@@ -16,7 +16,12 @@ import {
   Alert,
 } from '@mui/material';
 import type { SiphonFluidType, PressureUnit, ElbowConfig } from './types';
-import { PRESSURE_UNIT_LABELS, FLUID_TYPE_LABELS, ELBOW_CONFIG_LABELS } from './types';
+import {
+  PRESSURE_UNIT_LABELS,
+  FLUID_TYPE_LABELS,
+  ELBOW_CONFIG_LABELS,
+  PIPE_SCHEDULE_OPTIONS,
+} from './types';
 
 interface SiphonInputsProps {
   // Pressure
@@ -38,6 +43,10 @@ interface SiphonInputsProps {
   onFlowRateChange: (value: string) => void;
   targetVelocity: string;
   onTargetVelocityChange: (value: string) => void;
+
+  // Pipe schedule
+  pipeSchedule: string;
+  onPipeScheduleChange: (value: string) => void;
 
   // Custom pipe (plate-formed, >24")
   customPipeId: string;
@@ -79,6 +88,8 @@ export function SiphonInputs({
   onFlowRateChange,
   targetVelocity,
   onTargetVelocityChange,
+  pipeSchedule,
+  onPipeScheduleChange,
   customPipeId,
   customPipeThickness,
   onCustomPipeIdChange,
@@ -230,10 +241,25 @@ export function SiphonInputs({
         helperText="Range: 0.05 &ndash; 1.0 m/s"
       />
 
+      <FormControl fullWidth size="small">
+        <InputLabel>Pipe Schedule</InputLabel>
+        <Select
+          value={pipeSchedule}
+          label="Pipe Schedule"
+          onChange={(e) => onPipeScheduleChange(e.target.value)}
+        >
+          {PIPE_SCHEDULE_OPTIONS.map((opt) => (
+            <MenuItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
       {(pipeExceedsStandard || customPipeId || customPipeThickness) && (
         <>
           <Alert severity="info" variant="outlined">
-            Pipe exceeds 24&quot; Sch 40. Specify plate-formed pipe dimensions.
+            Pipe exceeds largest standard size. Specify plate-formed pipe dimensions.
           </Alert>
           <Grid container spacing={1.5}>
             <Grid size={{ xs: 6 }}>

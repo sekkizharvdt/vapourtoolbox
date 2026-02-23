@@ -30,7 +30,7 @@ import {
   getBoilingPointElevation,
 } from '@vapour/constants';
 
-import { selectPipeByVelocity, type SelectedPipe } from './pipeService';
+import { selectPipeByVelocity, type SelectedPipe, type PipeVariant } from './pipeService';
 import {
   calculatePressureDrop,
   type PressureDropResult,
@@ -74,6 +74,9 @@ export interface SiphonSizingInput {
 
   /** Safety factor as percentage (minimum 20%) */
   safetyFactor: number;
+
+  /** Pipe schedule (e.g. '10', '40', '80'). Default: '40' */
+  pipeSchedule?: string;
 
   /** Custom pipe for plate-formed pipes exceeding standard sizes */
   customPipe?: {
@@ -135,6 +138,9 @@ export interface SiphonSizingResult {
   elbowCount: number;
   /** Pressure difference in bar */
   pressureDiffBar: number;
+
+  /** Holdup volume of liquid in the siphon pipe (liters) */
+  holdupVolumeLiters: number;
 
   /** Warnings */
   warnings: string[];
@@ -315,7 +321,10 @@ export function validateSiphonInput(input: SiphonSizingInput): string[] {
  * 4. Recalculate pipe length with updated height
  * 5. Iterate until height converges
  */
-export function calculateSiphonSizing(input: SiphonSizingInput): SiphonSizingResult {
+export function calculateSiphonSizing(
+  input: SiphonSizingInput,
+  availablePipes?: PipeVariant[] | null
+): SiphonSizingResult {
   const warnings: string[] = [];
 
   // Validate
@@ -377,10 +386,14 @@ export function calculateSiphonSizing(input: SiphonSizingInput): SiphonSizingRes
     };
     pipeExceedsStandard = true;
   } else {
-    pipeResult = selectPipeByVelocity(volumetricFlow, input.targetVelocity, {
-      min: SIPHON_VELOCITY_MIN,
-      max: SIPHON_VELOCITY_MAX,
-    });
+    const schedule = input.pipeSchedule || '40';
+    pipeResult = selectPipeByVelocity(
+      volumetricFlow,
+      input.targetVelocity,
+      { min: SIPHON_VELOCITY_MIN, max: SIPHON_VELOCITY_MAX },
+      availablePipes,
+      schedule
+    );
     pipeExceedsStandard = pipeResult.displayName.includes('(MAX)');
   }
 
@@ -488,6 +501,10 @@ export function calculateSiphonSizing(input: SiphonSizingInput): SiphonSizingRes
     }
   }
 
+  // Holdup volume: internal volume of the siphon pipe in liters
+  // area (mm²) → m² ÷ 1e6, × length (m) → m³, × 1000 → liters
+  const holdupVolumeLiters = (pipeResult.area_mm2 / 1e6) * totalPipeLength * 1000;
+
   return {
     pipe: pipeResult,
     velocity: pipeResult.actualVelocity,
@@ -517,6 +534,8 @@ export function calculateSiphonSizing(input: SiphonSizingInput): SiphonSizingRes
     totalPipeLength,
     elbowCount,
     pressureDiffBar,
+
+    holdupVolumeLiters,
 
     warnings,
   };

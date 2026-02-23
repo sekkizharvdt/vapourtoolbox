@@ -218,6 +218,12 @@ describe('Siphon Sizing Calculator', () => {
 
       // Pressure difference
       expect(result.pressureDiffBar).toBeCloseTo(0.05, 3);
+
+      // Holdup volume should be positive
+      expect(result.holdupVolumeLiters).toBeGreaterThan(0);
+      // holdup = (area_mm2 / 1e6) * totalPipeLength * 1000
+      const expectedHoldup = (result.pipe.area_mm2 / 1e6) * result.totalPipeLength * 1000;
+      expect(result.holdupVolumeLiters).toBeCloseTo(expectedHoldup, 1);
     });
 
     it('should derive fluid temperature from upstream pressure', () => {

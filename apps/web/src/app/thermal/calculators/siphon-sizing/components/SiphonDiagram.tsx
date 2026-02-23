@@ -468,7 +468,7 @@ export function SiphonDiagram({
               fontWeight="bold"
               fill={pipeColor}
             >
-              {result.pipe.nps}&quot; Sch 40 (DN{result.pipe.dn})
+              {result.pipe.nps}&quot; Sch {result.pipe.schedule} (DN{result.pipe.dn})
             </text>
 
             {/* Flow direction arrows */}

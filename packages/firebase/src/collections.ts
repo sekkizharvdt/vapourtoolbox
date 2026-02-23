@@ -152,6 +152,9 @@ export const COLLECTIONS = {
   // System Counters (for sequence generation)
   COUNTERS: 'counters',
 
+  // Thermal Calculators
+  SAVED_CALCULATIONS: 'savedCalculations', // Personal saved calculator inputs
+
   // System Admin
   SYSTEM_STATUS: 'systemStatus', // Package versions, security status (super-admin only)
   FEEDBACK: 'feedback', // User feedback, bug reports, feature requests

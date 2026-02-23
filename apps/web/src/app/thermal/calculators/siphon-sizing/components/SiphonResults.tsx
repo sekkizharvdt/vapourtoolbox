@@ -22,10 +22,16 @@ import {
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
-import { Download as DownloadIcon } from '@mui/icons-material';
+import {
+  Download as DownloadIcon,
+  TableChart as ExcelIcon,
+  Save as SaveIcon,
+} from '@mui/icons-material';
 import type { SiphonSizingResult } from '@/lib/thermal/siphonSizingCalculator';
 import { FITTING_NAMES, type FittingType } from '@/lib/thermal/pressureDropCalculator';
+import { exportSiphonToExcel } from '@/lib/thermal/siphonExcelExport';
 import { GenerateReportDialog } from './GenerateReportDialog';
+import { SaveCalculationDialog } from './SaveCalculationDialog';
 import type { SiphonReportInputs } from './SiphonReportPDF';
 
 interface SiphonResultsProps {
@@ -47,17 +53,36 @@ function getVelocityColor(status: 'OK' | 'HIGH' | 'LOW'): 'success' | 'error' | 
 
 export function SiphonResults({ result, inputs, diagramSvgRef }: SiphonResultsProps) {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+
+  const handleExcelDownload = async () => {
+    const blob = await exportSiphonToExcel(result, inputs);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Siphon_Sizing.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <Stack spacing={3}>
-      {/* === Download Report Button === */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+      {/* === Action Buttons === */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+        <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveDialogOpen(true)}>
+          Save
+        </Button>
+        <Button variant="outlined" startIcon={<ExcelIcon />} onClick={handleExcelDownload}>
+          Excel
+        </Button>
         <Button
           variant="outlined"
           startIcon={<DownloadIcon />}
           onClick={() => setReportDialogOpen(true)}
         >
-          Download Report
+          PDF Report
         </Button>
       </Box>
 
@@ -79,7 +104,7 @@ export function SiphonResults({ result, inputs, diagramSvgRef }: SiphonResultsPr
             <Typography variant="h4">
               {result.pipe.nps === 'CUSTOM'
                 ? `Custom ID ${result.pipe.id_mm} mm`
-                : `${result.pipe.nps}" Sch 40`}
+                : `${result.pipe.nps}" Sch ${result.pipe.schedule}`}
             </Typography>
             <Chip
               label={result.velocityStatus}
@@ -171,6 +196,23 @@ export function SiphonResults({ result, inputs, diagramSvgRef }: SiphonResultsPr
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 mbar
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <Card variant="outlined">
+            <CardContent sx={{ textAlign: 'center', py: 1.5 }}>
+              <Typography variant="caption" color="text.secondary">
+                Holdup Volume
+              </Typography>
+              <Typography variant="h6">
+                {result.holdupVolumeLiters >= 1000
+                  ? (result.holdupVolumeLiters / 1000).toFixed(2)
+                  : result.holdupVolumeLiters.toFixed(1)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {result.holdupVolumeLiters >= 1000 ? 'm\u00B3' : 'L'}
               </Typography>
             </CardContent>
           </Card>
@@ -426,6 +468,13 @@ export function SiphonResults({ result, inputs, diagramSvgRef }: SiphonResultsPr
         result={result}
         inputs={inputs}
         diagramSvgRef={diagramSvgRef}
+      />
+
+      {/* === Save Dialog === */}
+      <SaveCalculationDialog
+        open={saveDialogOpen}
+        onClose={() => setSaveDialogOpen(false)}
+        inputs={inputs as unknown as Record<string, unknown>}
       />
     </Stack>
   );
