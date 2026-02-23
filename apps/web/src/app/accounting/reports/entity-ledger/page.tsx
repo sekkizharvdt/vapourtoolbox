@@ -313,8 +313,6 @@ function EntityLedgerInner() {
     let totalBilled = 0;
     let totalReceived = 0;
     let totalPaid = 0;
-    let outstandingReceivable = 0;
-    let outstandingPayable = 0;
     let overdueReceivable = 0;
     let overduePayable = 0;
     const aging = { current: 0, days31to60: 0, days61to90: 0, over90days: 0 };
@@ -333,7 +331,6 @@ function EntityLedgerInner() {
         case 'CUSTOMER_INVOICE':
           totalInvoiced += amount;
           periodMovement += amount;
-          outstandingReceivable += outstanding;
           if (txn.paymentStatus === 'OVERDUE' || (dueDate && dueDate < now && outstanding > 0)) {
             overdueReceivable += outstanding;
             if (daysPastDue <= 30) aging.current += outstanding;
@@ -351,7 +348,6 @@ function EntityLedgerInner() {
         case 'VENDOR_BILL':
           totalBilled += amount;
           periodMovement -= amount;
-          outstandingPayable += outstanding;
           if (txn.paymentStatus === 'OVERDUE' || (dueDate && dueDate < now && outstanding > 0)) {
             overduePayable += outstanding;
           }
@@ -365,34 +361,41 @@ function EntityLedgerInner() {
           const jCredit =
             (txn as EntityTransaction & { _journalCredit?: number })._journalCredit || 0;
           periodMovement += jDebit - jCredit;
-          // Include JE amounts in summary totals and outstanding based on entity role.
+          // Include JE amounts in summary totals based on entity role.
           // Use if/else to prevent double-counting for dual-role entities.
+          // Outstanding is derived from closing balance (below), not accumulated per-transaction.
           if (selectedEntity?.roles.includes('CUSTOMER')) {
             totalInvoiced += jDebit; // AR Debit = receivable increase (like invoice)
             totalReceived += jCredit; // AR Credit = receivable reduction (like payment)
-            outstandingReceivable += jDebit - jCredit; // Net JE impact on receivable
           } else if (selectedEntity?.roles.includes('VENDOR')) {
             totalBilled += jCredit; // AP Credit = payable increase (like bill)
             totalPaid += jDebit; // AP Debit = payable reduction (like payment)
-            outstandingPayable += jCredit - jDebit; // Net JE impact on payable
           }
           break;
         }
       }
     });
 
+    // Derive outstanding from closing balance so that opening balance, JE adjustments,
+    // and payments all contribute to the outstanding figure (not just per-transaction
+    // outstandingAmount fields which only reflect payment allocations).
+    const closingBalance = openingBalance + periodMovement;
+    // Positive closing = entity owes us (receivable); negative = we owe them (payable)
+    const derivedOutstandingReceivable = closingBalance > 0 ? closingBalance : 0;
+    const derivedOutstandingPayable = closingBalance < 0 ? -closingBalance : 0;
+
     return {
       totalInvoiced,
       totalBilled,
       totalReceived,
       totalPaid,
-      outstandingReceivable,
-      outstandingPayable,
+      outstandingReceivable: derivedOutstandingReceivable,
+      outstandingPayable: derivedOutstandingPayable,
       overdueReceivable,
       overduePayable,
       aging,
       openingBalance,
-      closingBalance: openingBalance + periodMovement,
+      closingBalance,
     };
   }, [selectedEntity, periodTransactions, openingBalance]);
 

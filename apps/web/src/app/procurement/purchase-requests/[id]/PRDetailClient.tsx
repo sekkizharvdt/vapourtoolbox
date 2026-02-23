@@ -586,7 +586,7 @@ export default function PRDetailPage() {
               prId={prId}
               attachments={attachments}
               onAttachmentsChange={setAttachments}
-              disabled={pr.status === 'CONVERTED_TO_RFQ'}
+              disabled={!canEdit(pr.status)}
             />
           )}
 

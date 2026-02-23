@@ -278,11 +278,14 @@ export default function EditPRPage() {
 
       // Update PR header
       const prRef = doc(db, COLLECTIONS.PURCHASE_REQUESTS, pr.id);
+      // Clear project reference when type doesn't use projects
+      const hasProject =
+        (formData.type === 'PROJECT' || formData.type === 'BUDGETARY') && formData.projectId;
       batch.update(prRef, {
         type: formData.type,
         category: formData.category,
-        ...(formData.projectId && { projectId: formData.projectId }),
-        ...(formData.projectName && { projectName: formData.projectName }),
+        projectId: hasProject ? formData.projectId : null,
+        projectName: hasProject ? formData.projectName : null,
         title: formData.title,
         description: formData.description,
         priority: formData.priority,
@@ -513,8 +516,12 @@ export default function EditPRPage() {
               </TextField>
             </Stack>
 
-            {formData.type === 'PROJECT' && (
-              <ProjectSelector value={formData.projectId} onChange={handleProjectSelect} required />
+            {(formData.type === 'PROJECT' || formData.type === 'BUDGETARY') && (
+              <ProjectSelector
+                value={formData.projectId}
+                onChange={handleProjectSelect}
+                required={formData.type === 'PROJECT'}
+              />
             )}
 
             <TextField

@@ -210,7 +210,8 @@ export default function NewPurchaseRequestPage() {
         user.uid,
         user.displayName || user.email || 'Unknown'
       );
-      router.push('/procurement/purchase-requests/' + result.prId);
+      // Redirect to Edit page so user can add attachments immediately
+      router.push('/procurement/purchase-requests/' + result.prId + '/edit');
     } catch (err) {
       console.error('[NewPurchaseRequest] Error saving draft:', err);
       setError(err instanceof Error ? err.message : 'Failed to save draft');
@@ -377,8 +378,12 @@ export default function NewPurchaseRequestPage() {
               </TextField>
             </Stack>
 
-            {formData.type === 'PROJECT' && (
-              <ProjectSelector value={formData.projectId} onChange={handleProjectSelect} required />
+            {(formData.type === 'PROJECT' || formData.type === 'BUDGETARY') && (
+              <ProjectSelector
+                value={formData.projectId}
+                onChange={handleProjectSelect}
+                required={formData.type === 'PROJECT'}
+              />
             )}
 
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
@@ -587,8 +592,9 @@ export default function NewPurchaseRequestPage() {
         {/* Attachments Info */}
         <Alert severity="info" icon={<UploadIcon />}>
           <Typography variant="body2">
-            <strong>Need to attach files?</strong> After saving this purchase request, you can add
-            technical specs, datasheets, drawings, and other attachments from the Edit page.
+            <strong>Need to attach files?</strong> Click &ldquo;Save Draft&rdquo; and you will be
+            taken to the Edit page where you can add technical specs, datasheets, drawings, and
+            other attachments.
           </Typography>
         </Alert>
 

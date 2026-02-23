@@ -270,7 +270,7 @@ export default function DataHealthPage() {
           count: stats.unappliedPayments.count,
           subtitle: `Total: ${formatCurrency(stats.unappliedPayments.total)}`,
           icon: <PaymentIcon sx={{ fontSize: 40 }} />,
-          color: stats.unappliedPayments.count > 0 ? 'warning.main' : 'success.main',
+          color: 'warning.main' as const,
           path: '/accounting/data-health/unapplied-payments',
           description: 'Payments not linked to any invoice or bill',
         },
@@ -279,7 +279,7 @@ export default function DataHealthPage() {
           count: stats.missingGLEntries.count,
           subtitle: 'Posted transactions without ledger entries',
           icon: <GLIcon sx={{ fontSize: 40 }} />,
-          color: stats.missingGLEntries.count > 0 ? 'error.main' : 'success.main',
+          color: 'error.main' as const,
           path: '/accounting/data-health/missing-gl',
           description: 'Transactions that need GL entry regeneration',
         },
@@ -288,7 +288,7 @@ export default function DataHealthPage() {
           count: stats.unmappedAccounts.count,
           subtitle: 'Line items without expense/revenue account',
           icon: <CategoryIcon sx={{ fontSize: 40 }} />,
-          color: stats.unmappedAccounts.count > 0 ? 'warning.main' : 'success.main',
+          color: 'warning.main' as const,
           path: '/accounting/data-health/unmapped-accounts',
           description: 'Bills/Invoices with unassigned Chart of Accounts',
         },
@@ -297,7 +297,7 @@ export default function DataHealthPage() {
           count: stats.stalePaymentStatuses.count,
           subtitle: 'Bills/invoices with wrong payment status',
           icon: <SyncIcon sx={{ fontSize: 40 }} />,
-          color: stats.stalePaymentStatuses.count > 0 ? 'error.main' : 'success.main',
+          color: 'error.main' as const,
           path: '', // No detail page — reconcile button handles it
           description: 'Payment allocations exist but bill status not updated',
         },
@@ -306,11 +306,11 @@ export default function DataHealthPage() {
           count: stats.overdueItems.count,
           subtitle: `Total: ${formatCurrency(stats.overdueItems.total)}`,
           icon: <OverdueIcon sx={{ fontSize: 40 }} />,
-          color: stats.overdueItems.count > 0 ? 'error.main' : 'success.main',
+          color: 'error.main' as const,
           path: '/accounting/data-health/overdue',
           description: 'Invoices and bills past their due date',
         },
-      ]
+      ].filter((card) => card.count > 0)
     : [];
 
   return (

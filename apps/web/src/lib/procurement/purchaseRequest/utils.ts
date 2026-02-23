@@ -95,9 +95,11 @@ export async function validateProjectBudget(
     const projectDoc = await getDoc(projectRef);
 
     if (!projectDoc.exists()) {
+      // Project may have been deleted or archived — skip budget validation
+      // rather than blocking approval
       return {
-        valid: false,
-        error: `Project ${pr.projectId} not found`,
+        valid: true,
+        details: { message: `Project ${pr.projectId} not found - budget validation skipped` },
       };
     }
 
