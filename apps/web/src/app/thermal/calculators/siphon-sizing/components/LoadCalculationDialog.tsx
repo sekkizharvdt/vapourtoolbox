@@ -27,9 +27,15 @@ interface LoadCalculationDialogProps {
   open: boolean;
   onClose: () => void;
   onLoad: (inputs: Record<string, unknown>) => void;
+  calculatorType?: SavedCalculation['calculatorType'];
 }
 
-export function LoadCalculationDialog({ open, onClose, onLoad }: LoadCalculationDialogProps) {
+export function LoadCalculationDialog({
+  open,
+  onClose,
+  onLoad,
+  calculatorType = 'SIPHON_SIZING',
+}: LoadCalculationDialogProps) {
   const { user } = useAuth();
   const [calculations, setCalculations] = useState<SavedCalculation[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,14 +48,14 @@ export function LoadCalculationDialog({ open, onClose, onLoad }: LoadCalculation
 
     try {
       const { db } = getFirebase();
-      const results = await listCalculations(db, user.uid, 'SIPHON_SIZING');
+      const results = await listCalculations(db, user.uid, calculatorType);
       setCalculations(results);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, calculatorType]);
 
   useEffect(() => {
     if (open) {

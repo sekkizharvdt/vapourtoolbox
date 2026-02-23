@@ -56,7 +56,7 @@ export function ThermalCalculatorsSection() {
         <FeatureCard
           icon={<BatchPredictionIcon color="primary" />}
           title="Batch Mode"
-          description="Size all siphons across an entire MED train at once. Define your effect pressures and flows, then get a summary table for every siphon."
+          description="Size all siphons across an entire MED train at once. Define your effect pressures and flows, override pipe sizes per siphon, and download per-siphon PDF reports."
         />
         <FeatureCard
           icon={<TableChartIcon color="primary" />}
@@ -66,12 +66,12 @@ export function ThermalCalculatorsSection() {
         <FeatureCard
           icon={<PictureAsPdfIcon color="primary" />}
           title="PDF Report"
-          description="Generate a formal engineering report with company logo, siphon diagram, input parameters, and full calculation breakdown."
+          description="Generate a formal engineering report with company logo, siphon diagram, input parameters, and full calculation breakdown. Available for both single and batch modes."
         />
         <FeatureCard
           icon={<SaveIcon color="primary" />}
           title="Save & Load"
-          description="Save calculation inputs for later. Load any saved calculation to instantly restore all parameters. Personal to each user."
+          description="Save calculation inputs for later. Load any saved calculation to instantly restore all parameters. Works in both single and batch modes. Personal to each user."
         />
       </Box>
 
@@ -290,9 +290,19 @@ export function ThermalCalculatorsSection() {
               'The results table shows each siphon: pipe size, minimum height, velocity, status, flash %, pressure drop, and holdup volume. A totals row summarises the entire train.',
           },
           {
-            title: 'Export',
+            title: 'Override Pipe Size',
             description:
-              'Click the Excel button to download a batch summary workbook with all siphon results.',
+              'The Pipe Size column has a dropdown for each siphon. By default, the calculator auto-selects the best match for your target velocity. Use the dropdown to override with a different standard size (e.g., choose 6" instead of 5" for availability). Velocity status updates to reflect the actual velocity in the chosen pipe. Select "Auto" to revert.',
+          },
+          {
+            title: 'Download Per-Siphon Reports',
+            description:
+              'Each siphon row has a download icon in the Report column. Click it to open the PDF Report dialog for that specific siphon, with the same detail level as single mode: pipe selection, height breakdown, pressure drop, flash vapor, and fluid properties.',
+          },
+          {
+            title: 'Save & Export',
+            description:
+              'Click Save to store the full batch configuration (effect data, common parameters, and any pipe overrides) for later use. Click Load Saved in the header to restore a previous batch. Click the Excel button to download a summary workbook.',
           },
         ]}
       />
@@ -317,10 +327,15 @@ export function ThermalCalculatorsSection() {
         PDF Report
       </Typography>
       <Typography variant="body2" paragraph>
-        Click <strong>PDF Report</strong> to open the report dialog. Enter a document number
-        (default: SIPHON-001), revision, optional project name, and notes. The generated PDF
-        includes the company logo, siphon diagram, all input parameters, pipe selection, height
-        breakdown, pressure drop details, flash vapor analysis, and fluid properties.
+        <strong>Single mode:</strong> Click <strong>PDF Report</strong> to open the report dialog.
+        Enter a document number (default: SIPHON-001), revision, optional project name, and notes.
+        The generated PDF includes the company logo, siphon diagram, all input parameters, pipe
+        selection, height breakdown, pressure drop details, flash vapor analysis, and fluid
+        properties.
+      </Typography>
+      <Typography variant="body2" paragraph>
+        <strong>Batch mode:</strong> Each siphon row has a download icon in the Report column. Click
+        it to generate a detailed PDF for that specific siphon with the same content as single mode.
       </Typography>
 
       <Divider sx={{ my: 3 }} />
@@ -332,12 +347,13 @@ export function ThermalCalculatorsSection() {
       <Typography variant="body2" paragraph>
         <strong>Save:</strong> After running a calculation, click <strong>Save</strong> and enter a
         descriptive name (e.g., &ldquo;MED Unit 1 &mdash; S-101/102&rdquo;). All input values are
-        stored. Saved calculations are personal to your account.
+        stored. In batch mode, the saved data includes effect pressures, flows, common parameters,
+        and any pipe size overrides. Saved calculations are personal to your account.
       </Typography>
       <Typography variant="body2" paragraph>
         <strong>Load:</strong> Click <strong>Load Saved</strong> in the page header to browse your
         saved calculations. Click any entry to restore all its inputs. The calculator re-runs with
-        the loaded values.
+        the loaded values. Single mode and batch mode saves are kept separate.
       </Typography>
       <Typography variant="body2" paragraph>
         <strong>Delete:</strong> Click the delete icon next to any saved calculation in the load
@@ -367,6 +383,14 @@ export function ThermalCalculatorsSection() {
         <Typography variant="body2">
           <strong>Custom pipe required:</strong> If the calculated pipe exceeds 24&quot; (the
           largest standard size), you will be prompted to enter custom plate-formed pipe dimensions.
+        </Typography>
+      </Alert>
+      <Alert severity="info" sx={{ mb: 2 }}>
+        <Typography variant="body2">
+          <strong>Pipe size override:</strong> In batch mode, you can override the auto-selected
+          pipe size for any siphon using the dropdown in the Pipe Size column. Use this when a
+          specific pipe size is more readily available or when you want to standardise across
+          siphons. Velocity status still applies to the chosen pipe.
         </Typography>
       </Alert>
       <Alert severity="info" sx={{ mb: 2 }}>

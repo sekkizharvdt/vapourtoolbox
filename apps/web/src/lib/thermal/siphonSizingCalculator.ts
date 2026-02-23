@@ -30,7 +30,12 @@ import {
   getBoilingPointElevation,
 } from '@vapour/constants';
 
-import { selectPipeByVelocity, type SelectedPipe, type PipeVariant } from './pipeService';
+import {
+  selectPipeByVelocity,
+  getStaticPipes,
+  type SelectedPipe,
+  type PipeVariant,
+} from './pipeService';
 import {
   calculatePressureDrop,
   type PressureDropResult,
@@ -85,6 +90,9 @@ export interface SiphonSizingInput {
     /** Wall thickness in mm */
     wt_mm: number;
   };
+
+  /** Override auto-selected pipe with a specific standard NPS (e.g. '6', '8') */
+  overrideNps?: string;
 }
 
 export interface SiphonSizingResult {
@@ -385,6 +393,29 @@ export function calculateSiphonSizing(
       velocityStatus,
     };
     pipeExceedsStandard = true;
+  } else if (input.overrideNps) {
+    // User selected a specific standard pipe size
+    const schedule = input.pipeSchedule || '40';
+    const pipes = availablePipes || getStaticPipes(schedule);
+    const matchedPipe = pipes.find((p) => p.nps === input.overrideNps);
+    if (!matchedPipe) {
+      throw new Error(`Pipe NPS ${input.overrideNps} not found in Sch ${schedule}`);
+    }
+    const actualVelocity = volumetricFlow / (matchedPipe.area_mm2 / 1e6);
+    const velocityStatus: 'OK' | 'HIGH' | 'LOW' =
+      actualVelocity > SIPHON_VELOCITY_MAX
+        ? 'HIGH'
+        : actualVelocity < SIPHON_VELOCITY_MIN
+          ? 'LOW'
+          : 'OK';
+    pipeResult = {
+      ...matchedPipe,
+      displayName: `${matchedPipe.nps}" Sch ${schedule}`,
+      isExactMatch: false,
+      actualVelocity,
+      velocityStatus,
+    };
+    pipeExceedsStandard = false;
   } else {
     const schedule = input.pipeSchedule || '40';
     pipeResult = selectPipeByVelocity(

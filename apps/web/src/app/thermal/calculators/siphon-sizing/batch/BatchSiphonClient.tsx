@@ -25,6 +25,8 @@ import {
   TableChart as ExcelIcon,
   ArrowBack as BackIcon,
   HelpOutline as GuideIcon,
+  Save as SaveIcon,
+  FolderOpen as LoadIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
 import {
@@ -34,7 +36,12 @@ import {
   type PressureUnit,
   type ElbowConfig,
 } from '@/lib/thermal/siphonSizingCalculator';
+import { getStaticPipes } from '@/lib/thermal/pipeService';
 import { exportBatchSiphonToExcel } from '@/lib/thermal/siphonExcelExport';
+import { SaveCalculationDialog } from '../components/SaveCalculationDialog';
+import { LoadCalculationDialog } from '../components/LoadCalculationDialog';
+import { GenerateReportDialog } from '../components/GenerateReportDialog';
+import type { SiphonReportInputs } from '../components/SiphonReportPDF';
 import { CalculatorBreadcrumb } from '../../components/CalculatorBreadcrumb';
 import {
   PRESSURE_UNIT_LABELS,
@@ -64,7 +71,33 @@ export default function BatchSiphonClient() {
   const [offsetDistance, setOffsetDistance] = useState<string>('1.5');
   const [safetyFactor, setSafetyFactor] = useState<string>('20');
 
+  // Pipe overrides: siphon index → NPS string (empty = auto)
+  const [pipeOverrides, setPipeOverrides] = useState<Record<number, string>>({});
+
+  // Dialog state
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [loadDialogOpen, setLoadDialogOpen] = useState(false);
+  const [reportSiphon, setReportSiphon] = useState<BatchResult | null>(null);
+
   const unitLabel = PRESSURE_UNIT_LABELS[pressureUnit] || pressureUnit;
+
+  // Available NPS options for the selected schedule
+  const availableNps = useMemo(
+    () => getStaticPipes(pipeSchedule).map((p) => p.nps),
+    [pipeSchedule]
+  );
+
+  const handlePipeOverride = (siphonIndex: number, nps: string) => {
+    setPipeOverrides((prev) => {
+      if (!nps) {
+        // Remove override (revert to auto)
+        const next = { ...prev };
+        delete next[siphonIndex];
+        return next;
+      }
+      return { ...prev, [siphonIndex]: nps };
+    });
+  };
 
   // Batch calculation
   const { results, errors } = useMemo(() => {
@@ -106,6 +139,7 @@ export default function BatchSiphonClient() {
           targetVelocity: vel,
           safetyFactor: sf,
           pipeSchedule,
+          ...(pipeOverrides[i] ? { overrideNps: pipeOverrides[i] } : {}),
         };
 
         const result = calculateSiphonSizing(input);
@@ -131,6 +165,7 @@ export default function BatchSiphonClient() {
     horizontalDistance,
     offsetDistance,
     safetyFactor,
+    pipeOverrides,
   ]);
 
   const handleExcelDownload = async () => {
@@ -156,6 +191,58 @@ export default function BatchSiphonClient() {
     URL.revokeObjectURL(url);
   };
 
+  // Collect all batch inputs for saving
+  const batchInputs: Record<string, unknown> = {
+    effects,
+    pressureUnit,
+    fluidType,
+    salinity,
+    targetVelocity,
+    pipeSchedule,
+    elbowConfig,
+    horizontalDistance,
+    offsetDistance,
+    safetyFactor,
+    ...(Object.keys(pipeOverrides).length > 0 ? { pipeOverrides } : {}),
+  };
+
+  // Restore all batch inputs from a saved calculation
+  const handleLoad = (inputs: Record<string, unknown>) => {
+    if (Array.isArray(inputs.effects)) setEffects(inputs.effects as EffectRow[]);
+    if (typeof inputs.pressureUnit === 'string')
+      setPressureUnit(inputs.pressureUnit as PressureUnit);
+    if (typeof inputs.fluidType === 'string') setFluidType(inputs.fluidType as SiphonFluidType);
+    if (typeof inputs.salinity === 'string') setSalinity(inputs.salinity);
+    if (typeof inputs.targetVelocity === 'string') setTargetVelocity(inputs.targetVelocity);
+    if (typeof inputs.pipeSchedule === 'string') setPipeSchedule(inputs.pipeSchedule);
+    if (typeof inputs.elbowConfig === 'string') setElbowConfig(inputs.elbowConfig as ElbowConfig);
+    if (typeof inputs.horizontalDistance === 'string')
+      setHorizontalDistance(inputs.horizontalDistance);
+    if (typeof inputs.offsetDistance === 'string') setOffsetDistance(inputs.offsetDistance);
+    if (typeof inputs.safetyFactor === 'string') setSafetyFactor(inputs.safetyFactor);
+    if (inputs.pipeOverrides && typeof inputs.pipeOverrides === 'object') {
+      setPipeOverrides(inputs.pipeOverrides as Record<number, string>);
+    } else {
+      setPipeOverrides({});
+    }
+  };
+
+  // Build SiphonReportInputs for a specific batch result
+  const getReportInputs = (br: BatchResult): SiphonReportInputs => ({
+    upstreamPressure: String(effects[br.fromEffect - 1]?.pressure ?? br.result.pressureDiffBar),
+    downstreamPressure: String(effects[br.toEffect - 1]?.pressure ?? ''),
+    pressureUnit,
+    fluidType,
+    salinity,
+    flowRate: String(effects[br.fromEffect - 1]?.flowToNext ?? ''),
+    targetVelocity,
+    pipeSchedule,
+    elbowConfig,
+    horizontalDistance,
+    offsetDistance,
+    safetyFactor,
+  });
+
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <CalculatorBreadcrumb calculatorName="Siphon Sizing — Batch Mode" />
@@ -172,22 +259,27 @@ export default function BatchSiphonClient() {
           Size all inter-effect siphons at once. Enter effect pressures and flows, then review all
           siphon pipes in a single table.
         </Typography>
-        <Button
-          component={Link}
-          href="/thermal/calculators/siphon-sizing"
-          startIcon={<BackIcon />}
-          size="small"
-        >
-          Single Siphon Mode
-        </Button>
-        <Button
-          component={Link}
-          href="/guide?section=thermal"
-          startIcon={<GuideIcon />}
-          size="small"
-        >
-          Guide
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button startIcon={<LoadIcon />} size="small" onClick={() => setLoadDialogOpen(true)}>
+            Load Saved
+          </Button>
+          <Button
+            component={Link}
+            href="/thermal/calculators/siphon-sizing"
+            startIcon={<BackIcon />}
+            size="small"
+          >
+            Single Siphon Mode
+          </Button>
+          <Button
+            component={Link}
+            href="/guide?section=thermal"
+            startIcon={<GuideIcon />}
+            size="small"
+          >
+            Guide
+          </Button>
+        </Stack>
       </Box>
 
       <Grid container spacing={3}>
@@ -379,15 +471,31 @@ export default function BatchSiphonClient() {
                   <Typography variant="h6">
                     Results ({results.length} siphon{results.length !== 1 ? 's' : ''})
                   </Typography>
-                  <Button
-                    variant="outlined"
-                    startIcon={<ExcelIcon />}
-                    onClick={handleExcelDownload}
-                  >
-                    Download Excel
-                  </Button>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<SaveIcon />}
+                      onClick={() => setSaveDialogOpen(true)}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<ExcelIcon />}
+                      onClick={handleExcelDownload}
+                    >
+                      Download Excel
+                    </Button>
+                  </Stack>
                 </Box>
-                <BatchResultsTable results={results} pipeSchedule={pipeSchedule} />
+                <BatchResultsTable
+                  results={results}
+                  pipeSchedule={pipeSchedule}
+                  onGenerateReport={setReportSiphon}
+                  availableNps={availableNps}
+                  pipeOverrides={pipeOverrides}
+                  onPipeOverride={handlePipeOverride}
+                />
 
                 {/* Warnings */}
                 {results.some((r) => r.result.warnings.length > 0) && (
@@ -406,6 +514,32 @@ export default function BatchSiphonClient() {
           </Stack>
         </Grid>
       </Grid>
+
+      {/* Save Dialog */}
+      <SaveCalculationDialog
+        open={saveDialogOpen}
+        onClose={() => setSaveDialogOpen(false)}
+        inputs={batchInputs}
+        calculatorType="SIPHON_SIZING_BATCH"
+      />
+
+      {/* Load Dialog */}
+      <LoadCalculationDialog
+        open={loadDialogOpen}
+        onClose={() => setLoadDialogOpen(false)}
+        onLoad={handleLoad}
+        calculatorType="SIPHON_SIZING_BATCH"
+      />
+
+      {/* Per-Siphon Report Dialog */}
+      {reportSiphon && (
+        <GenerateReportDialog
+          open={!!reportSiphon}
+          onClose={() => setReportSiphon(null)}
+          result={reportSiphon.result}
+          inputs={getReportInputs(reportSiphon)}
+        />
+      )}
     </Container>
   );
 }

@@ -15,14 +15,21 @@ import { Save as SaveIcon } from '@mui/icons-material';
 import { getFirebase } from '@/lib/firebase';
 import { saveCalculation } from '@/lib/thermal/savedCalculationService';
 import { useAuth } from '@/contexts/AuthContext';
+import type { SavedCalculation } from '@vapour/types';
 
 interface SaveCalculationDialogProps {
   open: boolean;
   onClose: () => void;
   inputs: Record<string, unknown>;
+  calculatorType?: SavedCalculation['calculatorType'];
 }
 
-export function SaveCalculationDialog({ open, onClose, inputs }: SaveCalculationDialogProps) {
+export function SaveCalculationDialog({
+  open,
+  onClose,
+  inputs,
+  calculatorType = 'SIPHON_SIZING',
+}: SaveCalculationDialogProps) {
   const { user } = useAuth();
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -35,7 +42,7 @@ export function SaveCalculationDialog({ open, onClose, inputs }: SaveCalculation
 
     try {
       const { db } = getFirebase();
-      await saveCalculation(db, user.uid, 'SIPHON_SIZING', name.trim(), inputs);
+      await saveCalculation(db, user.uid, calculatorType, name.trim(), inputs);
       setName('');
       onClose();
     } catch (err) {
