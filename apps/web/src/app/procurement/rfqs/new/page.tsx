@@ -324,7 +324,7 @@ export default function NewRFQPage() {
                         >
                           {pr.description || '-'}
                         </TableCell>
-                        <TableCell>{pr.projectName}</TableCell>
+                        <TableCell>{pr.projectName || 'N/A'}</TableCell>
                         <TableCell>{pr.itemCount}</TableCell>
                         <TableCell>{formatDate(pr.createdAt)}</TableCell>
                       </TableRow>

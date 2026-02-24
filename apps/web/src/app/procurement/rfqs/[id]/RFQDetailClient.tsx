@@ -348,7 +348,7 @@ export default function RFQDetailPage() {
                   Projects
                 </Typography>
                 <Typography variant="body1">
-                  {rfq.projectNames.length > 0 ? rfq.projectNames.join(', ') : 'Multiple projects'}
+                  {rfq.projectNames.length > 0 ? rfq.projectNames.join(', ') : 'N/A'}
                 </Typography>
               </Box>
             </Stack>
