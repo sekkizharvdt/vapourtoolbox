@@ -247,6 +247,8 @@ export const SiphonReportPDF = ({
               </View>
             </View>
           </View>
+          {/* Balancing spacer so title centres on the page when logo is present */}
+          {logoDataUri && <View style={{ width: 50, marginLeft: 12 }} />}
         </View>
 
         {/* Primary Result Banner */}
@@ -384,7 +386,7 @@ export const SiphonReportPDF = ({
               <Text style={[styles.col25, styles.colRight]}>Value (m)</Text>
             </View>
             <View style={styles.tableRow}>
-              <Text style={styles.col50}>Static head (ΔP / ρg)</Text>
+              <Text style={styles.col50}>Static head (dP / rho.g)</Text>
               <Text style={[styles.col25, styles.colRight]}>{fmt(result.staticHead, 3)}</Text>
             </View>
             <View style={styles.tableRow}>
@@ -422,7 +424,7 @@ export const SiphonReportPDF = ({
           <View style={styles.table}>
             <View style={styles.tableHeader}>
               <Text style={styles.col40}>Component</Text>
-              <Text style={[styles.col30, styles.colRight]}>m H₂O</Text>
+              <Text style={[styles.col30, styles.colRight]}>m H2O</Text>
               <Text style={[styles.col30, styles.colRight]}>mbar</Text>
             </View>
             <View style={styles.tableRow}>
@@ -570,7 +572,7 @@ export const SiphonReportPDF = ({
           <View style={styles.warning}>
             {result.warnings.map((w, i) => (
               <Text key={i} style={styles.warningText}>
-                • {w}
+                - {w}
               </Text>
             ))}
           </View>
