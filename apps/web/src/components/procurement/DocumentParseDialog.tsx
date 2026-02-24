@@ -120,13 +120,9 @@ export default function DocumentParseDialog({
     if (!selectedFile) return;
 
     // Validate file type
-    const validTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    ];
+    const validTypes = ['application/pdf'];
     if (!validTypes.includes(selectedFile.type)) {
-      setError('Please upload a PDF or Word document (.pdf, .doc, .docx)');
+      setError('Please upload a PDF file (.pdf)');
       return;
     }
 
@@ -271,8 +267,8 @@ export default function DocumentParseDialog({
           {/* Instructions */}
           <Alert severity="info">
             <Typography variant="body2">
-              Upload a PDF or Word document containing item lists (e.g., quotation, BOQ, or
-              specification sheet). The AI will extract line items automatically.
+              Upload a PDF document containing item lists (e.g., quotation, BOQ, or specification
+              sheet). The AI will extract line items automatically.
             </Typography>
           </Alert>
 
@@ -293,18 +289,13 @@ export default function DocumentParseDialog({
               }}
               component="label"
             >
-              <input
-                type="file"
-                hidden
-                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                onChange={handleFileSelect}
-              />
+              <input type="file" hidden accept=".pdf,application/pdf" onChange={handleFileSelect} />
               <CloudUploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
               <Typography variant="body1" gutterBottom>
-                Click to upload PDF or Word document
+                Click to upload PDF document
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Supports .pdf, .doc, .docx files (max 20MB)
+                Supports .pdf files (max 20MB)
               </Typography>
             </Box>
           )}
@@ -320,8 +311,7 @@ export default function DocumentParseDialog({
                       {file.name}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {(file.size / 1024).toFixed(2)} KB •{' '}
-                      {file.type === 'application/pdf' ? 'PDF' : 'Word Document'}
+                      {(file.size / 1024).toFixed(2)} KB • PDF
                     </Typography>
                   </Box>
                 </Stack>

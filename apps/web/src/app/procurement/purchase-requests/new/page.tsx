@@ -449,7 +449,7 @@ export default function NewPurchaseRequestPage() {
                 onClick={() => setDocumentDialogOpen(true)}
                 size="small"
               >
-                Import PDF/DOC
+                Import PDF
               </Button>
               <Button
                 variant="outlined"

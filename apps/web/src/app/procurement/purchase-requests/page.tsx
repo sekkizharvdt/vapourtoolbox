@@ -14,6 +14,9 @@ import {
   Button,
   TextField,
   Stack,
+  Card,
+  CardContent,
+  Divider,
   Table,
   TableBody,
   TableCell,
@@ -46,7 +49,6 @@ import {
   Archive as ArchiveIcon,
   Home as HomeIcon,
 } from '@mui/icons-material';
-import { StatCard } from '@vapour/ui';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PurchaseRequest } from '@vapour/types';
@@ -117,7 +119,7 @@ export default function PurchaseRequestsPage() {
       }
     });
 
-    return counts;
+    return { ...counts, allSubmitted: counts.active - counts.draft };
   }, [requests]);
 
   useEffect(() => {
@@ -169,7 +171,10 @@ export default function PurchaseRequestsPage() {
 
     // Status filter (only applicable in active tab)
     if (activeTab === 'active' && statusFilter !== 'ALL') {
-      if (statusFilter === 'PENDING') {
+      if (statusFilter === 'ALL_SUBMITTED') {
+        // All non-draft active PRs (submitted, approved, rejected, under review)
+        filtered = filtered.filter((req) => req.status !== 'DRAFT');
+      } else if (statusFilter === 'PENDING') {
         // Special case: PENDING = SUBMITTED + UNDER_REVIEW
         filtered = filtered.filter(
           (req) => req.status === 'SUBMITTED' || req.status === 'UNDER_REVIEW'
@@ -301,69 +306,130 @@ export default function PurchaseRequestsPage() {
           </Button>
         </Stack>
 
-        {/* Stats Dashboard */}
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-            gap: 2,
-          }}
-        >
-          <Box
-            onClick={() => setStatusFilter('ALL')}
-            sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
-          >
-            <StatCard
-              label="Total PRs"
-              value={stats.total}
-              icon={<AssignmentIcon />}
-              color="primary"
-            />
-          </Box>
-          <Box
-            onClick={() => setStatusFilter('DRAFT')}
-            sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
-          >
-            <StatCard label="Draft" value={stats.draft} icon={<EditIcon />} color="secondary" />
-          </Box>
-          <Box
-            onClick={() => setStatusFilter('SUBMITTED')}
-            sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
-          >
-            <StatCard label="Submitted" value={stats.submitted} icon={<SendIcon />} color="info" />
-          </Box>
-          <Box
-            onClick={() => setStatusFilter('APPROVED')}
-            sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
-          >
-            <StatCard
-              label="Approved"
-              value={stats.approved}
-              icon={<CheckCircleIcon />}
-              color="success"
-            />
-          </Box>
-          <Box
-            onClick={() => setStatusFilter('REJECTED')}
-            sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
-          >
-            <StatCard label="Rejected" value={stats.rejected} icon={<CancelIcon />} color="error" />
-          </Box>
-          <Box
-            onClick={() => {
-              // Filter to show both SUBMITTED and UNDER_REVIEW
-              setStatusFilter('PENDING');
-            }}
-            sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
-          >
-            <StatCard
-              label="Pending Approval"
-              value={stats.pending}
-              icon={<HourglassEmptyIcon />}
-              color="warning"
-            />
-          </Box>
-        </Box>
+        {/* Stats Dashboard - Hierarchical View */}
+        <Card variant="outlined">
+          <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+            {/* Total PRs */}
+            <Box
+              onClick={() => setStatusFilter('ALL')}
+              sx={{
+                cursor: 'pointer',
+                p: 1.5,
+                borderRadius: 1,
+                bgcolor: statusFilter === 'ALL' ? 'action.selected' : 'transparent',
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1.5}>
+                <AssignmentIcon color="primary" />
+                <Typography variant="subtitle1" fontWeight="bold">
+                  Total PRs
+                </Typography>
+                <Typography variant="subtitle1" fontWeight="bold" sx={{ ml: 'auto' }}>
+                  {stats.total}
+                </Typography>
+              </Stack>
+            </Box>
+
+            <Divider sx={{ my: 0.5 }} />
+
+            {/* Level 1: Draft */}
+            <Box
+              onClick={() => setStatusFilter('DRAFT')}
+              sx={{
+                cursor: 'pointer',
+                p: 1,
+                pl: 4,
+                borderRadius: 1,
+                bgcolor: statusFilter === 'DRAFT' ? 'action.selected' : 'transparent',
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1.5}>
+                <EditIcon color="secondary" fontSize="small" />
+                <Typography variant="body2">Draft</Typography>
+                <Chip label={stats.draft} size="small" color="secondary" sx={{ ml: 'auto' }} />
+              </Stack>
+            </Box>
+
+            {/* Level 1: Submitted (parent) */}
+            <Box
+              onClick={() => setStatusFilter('ALL_SUBMITTED')}
+              sx={{
+                cursor: 'pointer',
+                p: 1,
+                pl: 4,
+                borderRadius: 1,
+                bgcolor: statusFilter === 'ALL_SUBMITTED' ? 'action.selected' : 'transparent',
+                '&:hover': { bgcolor: 'action.hover' },
+                mt: 0.5,
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1.5}>
+                <SendIcon color="info" fontSize="small" />
+                <Typography variant="body2">Submitted</Typography>
+                <Chip label={stats.allSubmitted} size="small" color="info" sx={{ ml: 'auto' }} />
+              </Stack>
+            </Box>
+
+            {/* Level 2: Approved */}
+            <Box
+              onClick={() => setStatusFilter('APPROVED')}
+              sx={{
+                cursor: 'pointer',
+                p: 0.75,
+                pl: 8,
+                borderRadius: 1,
+                bgcolor: statusFilter === 'APPROVED' ? 'action.selected' : 'transparent',
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1.5}>
+                <CheckCircleIcon color="success" fontSize="small" />
+                <Typography variant="body2">Approved</Typography>
+                <Chip label={stats.approved} size="small" color="success" sx={{ ml: 'auto' }} />
+              </Stack>
+            </Box>
+
+            {/* Level 2: Rejected */}
+            <Box
+              onClick={() => setStatusFilter('REJECTED')}
+              sx={{
+                cursor: 'pointer',
+                p: 0.75,
+                pl: 8,
+                borderRadius: 1,
+                bgcolor: statusFilter === 'REJECTED' ? 'action.selected' : 'transparent',
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1.5}>
+                <CancelIcon color="error" fontSize="small" />
+                <Typography variant="body2">Rejected</Typography>
+                <Chip label={stats.rejected} size="small" color="error" sx={{ ml: 'auto' }} />
+              </Stack>
+            </Box>
+
+            {/* Level 2: Pending Approval */}
+            <Box
+              onClick={() => setStatusFilter('PENDING')}
+              sx={{
+                cursor: 'pointer',
+                p: 0.75,
+                pl: 8,
+                borderRadius: 1,
+                bgcolor: statusFilter === 'PENDING' ? 'action.selected' : 'transparent',
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1.5}>
+                <HourglassEmptyIcon color="warning" fontSize="small" />
+                <Typography variant="body2">Pending Approval</Typography>
+                <Chip label={stats.pending} size="small" color="warning" sx={{ ml: 'auto' }} />
+              </Stack>
+            </Box>
+          </CardContent>
+        </Card>
 
         {/* Tabs for Active vs Archived */}
         <Paper sx={{ px: 2 }}>

@@ -385,6 +385,7 @@ export function CreateBillDialog({
               tdsRate={tdsDetails?.tdsRate}
               totalAmount={totalAmount}
               showAccountSelector
+              accountFilterType={['EXPENSE', 'ASSET']}
               readOnly={viewOnly}
             />
           </Box>

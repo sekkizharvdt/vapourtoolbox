@@ -217,10 +217,14 @@ export default function DataHealthPage() {
           ) {
             const dueDate = data.dueDate?.toDate?.() || new Date(data.dueDate);
             if (dueDate && dueDate < now) {
-              overdueCount++;
               // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
-              overdueTotal += data.outstandingAmount || data.baseAmount || data.totalAmount || 0;
-              transactionsWithIssues.add(doc.id);
+              const outstanding =
+                data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
+              if (outstanding > 0) {
+                overdueCount++;
+                overdueTotal += outstanding;
+                transactionsWithIssues.add(doc.id);
+              }
             }
           }
         });
