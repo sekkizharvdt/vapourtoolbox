@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { Container, Typography, Box, Grid, Stack, Chip, Paper, Alert, Button } from '@mui/material';
 import {
   ViewList as BatchIcon,
@@ -52,9 +52,6 @@ export default function SiphonSizingClient() {
 
   // Safety state
   const [safetyFactor, setSafetyFactor] = useState<string>('20');
-
-  // SVG ref for diagram capture in PDF
-  const diagramSvgRef = useRef<SVGSVGElement | null>(null);
 
   // Load dialog state
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
@@ -255,7 +252,6 @@ export default function SiphonSizingClient() {
             elbowConfig={elbowConfig}
             horizontalDistance={parseFloat(horizontalDistance) || 0}
             offsetDistance={parseFloat(offsetDistance) || 0}
-            svgRef={diagramSvgRef}
           />
           {result ? (
             <SiphonResults
@@ -274,7 +270,6 @@ export default function SiphonSizingClient() {
                 offsetDistance,
                 safetyFactor,
               }}
-              diagramSvgRef={diagramSvgRef}
             />
           ) : (
             !error && (

@@ -9,6 +9,8 @@ import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/render
 import type { SiphonSizingResult } from '@/lib/thermal/siphonSizingCalculator';
 import { FITTING_NAMES, type FittingType } from '@/lib/thermal/pressureDropCalculator';
 import { ELBOW_CONFIG_LABELS, FLUID_TYPE_LABELS, PRESSURE_UNIT_LABELS } from './types';
+import type { ElbowConfig } from './types';
+import { SiphonDiagramPDF } from './SiphonDiagramPDF';
 
 const styles = StyleSheet.create({
   page: {
@@ -47,10 +49,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 6,
     alignItems: 'center',
-  },
-  diagramImage: {
-    maxWidth: '85%',
-    maxHeight: 220,
   },
   headerRow: {
     flexDirection: 'row',
@@ -187,7 +185,6 @@ interface SiphonReportPDFProps {
   projectName?: string;
   notes?: string;
   logoDataUri?: string;
-  diagramImageUri?: string;
 }
 
 export const SiphonReportPDF = ({
@@ -198,7 +195,6 @@ export const SiphonReportPDF = ({
   projectName,
   notes,
   logoDataUri,
-  diagramImageUri,
 }: SiphonReportPDFProps) => {
   const fmt = (value: number, decimals: number = 2) =>
     value.toLocaleString('en-US', {
@@ -272,13 +268,15 @@ export const SiphonReportPDF = ({
         </View>
 
         {/* Siphon Arrangement Diagram */}
-        {diagramImageUri && (
-          <View style={styles.diagramSection}>
-            <Text style={styles.sectionTitle}>SIPHON ARRANGEMENT</Text>
-            {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop */}
-            <Image src={diagramImageUri} style={styles.diagramImage} />
-          </View>
-        )}
+        <View style={styles.diagramSection}>
+          <Text style={styles.sectionTitle}>SIPHON ARRANGEMENT</Text>
+          <SiphonDiagramPDF
+            result={result}
+            elbowConfig={inputs.elbowConfig as ElbowConfig}
+            horizontalDistance={parseFloat(inputs.horizontalDistance) || 0}
+            offsetDistance={parseFloat(inputs.offsetDistance) || 0}
+          />
+        </View>
 
         {/* 1. Input Parameters */}
         <View style={styles.section}>

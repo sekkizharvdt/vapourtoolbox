@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type RefObject } from 'react';
+import { useState } from 'react';
 import {
   Paper,
   Typography,
@@ -37,7 +37,6 @@ import type { SiphonReportInputs } from './SiphonReportPDF';
 interface SiphonResultsProps {
   result: SiphonSizingResult;
   inputs: SiphonReportInputs;
-  diagramSvgRef?: RefObject<SVGSVGElement | null>;
 }
 
 function getVelocityColor(status: 'OK' | 'HIGH' | 'LOW'): 'success' | 'error' | 'warning' {
@@ -51,7 +50,7 @@ function getVelocityColor(status: 'OK' | 'HIGH' | 'LOW'): 'success' | 'error' | 
   }
 }
 
-export function SiphonResults({ result, inputs, diagramSvgRef }: SiphonResultsProps) {
+export function SiphonResults({ result, inputs }: SiphonResultsProps) {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
 
@@ -467,7 +466,6 @@ export function SiphonResults({ result, inputs, diagramSvgRef }: SiphonResultsPr
         onClose={() => setReportDialogOpen(false)}
         result={result}
         inputs={inputs}
-        diagramSvgRef={diagramSvgRef}
       />
 
       {/* === Save Dialog === */}

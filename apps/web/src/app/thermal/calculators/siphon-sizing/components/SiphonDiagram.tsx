@@ -1,6 +1,5 @@
 'use client';
 
-import type { RefObject } from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
 import type { SiphonSizingResult } from '@/lib/thermal/siphonSizingCalculator';
 import type { ElbowConfig } from './types';
@@ -10,7 +9,6 @@ interface SiphonDiagramProps {
   elbowConfig: ElbowConfig;
   horizontalDistance: number;
   offsetDistance: number;
-  svgRef?: RefObject<SVGSVGElement | null>;
 }
 
 /**
@@ -26,7 +24,6 @@ export function SiphonDiagram({
   elbowConfig,
   horizontalDistance,
   offsetDistance,
-  svgRef,
 }: SiphonDiagramProps) {
   const theme = useTheme();
 
@@ -162,7 +159,7 @@ export function SiphonDiagram({
       <Typography variant="subtitle2" gutterBottom>
         Siphon Arrangement
       </Typography>
-      <svg ref={svgRef} viewBox={`0 0 ${svgW} ${svgH}`} width="100%" style={{ maxHeight: svgH }}>
+      <svg viewBox={`0 0 ${svgW} ${svgH}`} width="100%" style={{ maxHeight: svgH }}>
         <defs>
           <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
             <polygon points="0 0, 8 3, 0 6" fill={dimColor} />
