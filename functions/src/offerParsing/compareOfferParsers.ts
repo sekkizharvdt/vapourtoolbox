@@ -10,6 +10,7 @@ import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import { DocumentProcessorServiceClient } from '@google-cloud/documentai';
 import { parseOfferWithClaude, anthropicApiKey } from './parseOfferWithClaude';
+import { getProjectId } from '../utils/getProjectId';
 
 // Types
 interface RFQItemContext {
@@ -395,8 +396,8 @@ async function parseWithGoogleDocumentAI(
   const warnings: string[] = [];
 
   try {
-    const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
-    const location = 'us';
+    const projectId = getProjectId();
+    const location = process.env.DOCUMENT_AI_LOCATION || 'us';
     const processorId = process.env.DOCUMENT_AI_PROCESSOR_ID;
 
     if (!processorId) {
@@ -453,6 +454,15 @@ async function parseWithGoogleDocumentAI(
         modelUsed: 'Google Document AI - Form Parser',
       };
     }
+
+    logger.info('[Document AI] Processing offer document', {
+      processorName,
+      projectId,
+      location,
+      processorId,
+      mimeType,
+      fileSize: fileContent.length,
+    });
 
     const [result] = await client.processDocument({
       name: processorName,

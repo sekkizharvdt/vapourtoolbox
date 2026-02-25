@@ -17,6 +17,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import { DocumentProcessorServiceClient } from '@google-cloud/documentai';
+import { getProjectId } from '../utils/getProjectId';
 
 // Types for document parsing
 interface DocumentParsingRequest {
@@ -572,12 +573,8 @@ export const parseDocumentForPR = onCall(
       logger.info('File downloaded', { size: fileContent.length });
 
       // Initialize Document AI client
-      // The processor must be created in Google Cloud Console:
-      // 1. Enable Document AI API
-      // 2. Create a Form Parser processor
-      // 3. Set DOCUMENT_AI_PROCESSOR_ID in environment
-      const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
-      const location = 'us'; // Document AI processor location
+      const projectId = getProjectId();
+      const location = process.env.DOCUMENT_AI_LOCATION || 'us';
       const processorId = process.env.DOCUMENT_AI_PROCESSOR_ID;
 
       if (!processorId) {
@@ -612,7 +609,11 @@ export const parseDocumentForPR = onCall(
       // Process document
       logger.info('Sending to Document AI', {
         processor: processorName,
+        projectId,
+        location,
+        processorId,
         mimeType: data.mimeType,
+        fileSize: fileContent.length,
       });
 
       const [result] = await client.processDocument({

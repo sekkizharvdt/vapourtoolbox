@@ -18,6 +18,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import { DocumentProcessorServiceClient } from '@google-cloud/documentai';
+import { getProjectId } from '../utils/getProjectId';
 
 // Types for offer parsing
 interface RFQItemContext {
@@ -630,8 +631,8 @@ export const parseOfferDocument = onCall(
       logger.info('File downloaded', { size: fileContent.length });
 
       // Initialize Document AI client
-      const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
-      const location = 'us'; // Document AI processor location
+      const projectId = getProjectId();
+      const location = process.env.DOCUMENT_AI_LOCATION || 'us';
       const processorId = process.env.DOCUMENT_AI_PROCESSOR_ID;
 
       if (!processorId) {
@@ -665,7 +666,11 @@ export const parseOfferDocument = onCall(
 
       logger.info('Sending to Document AI', {
         processor: processorName,
+        projectId,
+        location,
+        processorId,
         mimeType: data.mimeType,
+        fileSize: fileContent.length,
       });
 
       // Process document

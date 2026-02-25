@@ -13,6 +13,7 @@ import * as admin from 'firebase-admin';
 import { defineSecret } from 'firebase-functions/params';
 import { DocumentProcessorServiceClient } from '@google-cloud/documentai';
 import { parseReceiptWithClaude, ParsedReceiptData } from './parseReceiptWithClaude';
+import { getProjectId } from '../utils/getProjectId';
 
 // Define secret for Anthropic API key
 const anthropicApiKey = defineSecret('ANTHROPIC_API_KEY');
@@ -349,7 +350,7 @@ async function processWithGoogleDocumentAI(
   const startTime = Date.now();
 
   const client = new DocumentProcessorServiceClient();
-  const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+  const projectId = getProjectId();
   const processorId =
     process.env.DOCUMENT_AI_EXPENSE_PROCESSOR_ID || process.env.DOCUMENT_AI_PROCESSOR_ID;
 
@@ -372,7 +373,14 @@ async function processWithGoogleDocumentAI(
     },
   };
 
-  logger.info('[Google Document AI] Processing receipt', { processorName, mimeType });
+  logger.info('[Google Document AI] Processing receipt', {
+    processorName,
+    projectId,
+    processorId,
+    processorLocation,
+    mimeType,
+    fileSize: fileContent.length,
+  });
 
   const [result] = await client.processDocument(request);
   const document = result.document;

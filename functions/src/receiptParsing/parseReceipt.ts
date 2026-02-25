@@ -17,6 +17,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import { DocumentProcessorServiceClient } from '@google-cloud/documentai';
+import { getProjectId } from '../utils/getProjectId';
 
 // ============================================
 // Types
@@ -616,7 +617,7 @@ async function processReceiptWithDocumentAI(
 
   // Initialize Document AI client
   const client = new DocumentProcessorServiceClient();
-  const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+  const projectId = getProjectId();
   const processorId =
     process.env.DOCUMENT_AI_EXPENSE_PROCESSOR_ID || process.env.DOCUMENT_AI_PROCESSOR_ID;
 
@@ -624,11 +625,9 @@ async function processReceiptWithDocumentAI(
     throw new HttpsError('failed-precondition', 'Document AI processor not configured');
   }
 
-  // Document AI processors are in US region (Document AI only available in limited regions)
   const processorLocation = process.env.DOCUMENT_AI_LOCATION || 'us';
   const processorVersion = process.env.DOCUMENT_AI_EXPENSE_PROCESSOR_VERSION;
 
-  // Use specific version if configured, otherwise use default
   const processorName = processorVersion
     ? `projects/${projectId}/locations/${processorLocation}/processors/${processorId}/processorVersions/${processorVersion}`
     : `projects/${projectId}/locations/${processorLocation}/processors/${processorId}`;
@@ -644,7 +643,11 @@ async function processReceiptWithDocumentAI(
 
   logger.info('Processing receipt with Document AI', {
     processorName,
+    projectId,
+    processorId,
+    processorLocation,
     mimeType,
+    fileSize: fileContent.length,
     hasVersion: !!processorVersion,
   });
 
