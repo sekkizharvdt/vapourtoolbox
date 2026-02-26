@@ -48,16 +48,22 @@ import {
   HourglassEmpty as HourglassEmptyIcon,
   Archive as ArchiveIcon,
   Home as HomeIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PurchaseRequest } from '@vapour/types';
 import { listPurchaseRequests } from '@/lib/procurement/purchaseRequest';
 import { formatDate } from '@/lib/utils/formatters';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { getFirebase } from '@/lib/firebase';
+import { softDeletePurchaseRequest } from '@/lib/procurement/procurementDeleteService';
 
 export default function PurchaseRequestsPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
+  const { confirm } = useConfirmDialog();
+  const { db } = getFirebase();
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<PurchaseRequest[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<PurchaseRequest[]>([]);
@@ -143,6 +149,28 @@ export default function PurchaseRequestsPage() {
       console.error('[PurchaseRequestsPage] Error loading requests:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (pr: PurchaseRequest) => {
+    const confirmed = await confirm({
+      title: 'Delete Purchase Request',
+      message: `Move "${pr.number}" to Trash? You can restore it later from the Trash.`,
+      confirmText: 'Move to Trash',
+      confirmColor: 'error',
+    });
+    if (!confirmed) return;
+
+    const result = await softDeletePurchaseRequest(db, {
+      id: pr.id,
+      userId: user?.uid || 'unknown',
+      userName: user?.displayName || user?.email || 'Unknown',
+      userPermissions: claims?.permissions || 0,
+    });
+    if (result.success) {
+      setRequests((prev) => prev.filter((r) => r.id !== pr.id));
+    } else {
+      alert(result.error || 'Failed to delete purchase request');
     }
   };
 
@@ -587,6 +615,16 @@ export default function PurchaseRequestsPage() {
                       >
                         <VisibilityIcon />
                       </IconButton>
+                      {request.status === 'DRAFT' && (
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDelete(request)}
+                          title="Move to Trash"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

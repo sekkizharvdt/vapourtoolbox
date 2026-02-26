@@ -35,6 +35,7 @@ import {
   Visibility as VisibilityIcon,
   PictureAsPdf as PdfIcon,
   Home as HomeIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import {
   PageHeader,
@@ -58,10 +59,15 @@ import {
   sortRFQs,
 } from '@/lib/procurement/rfqHelpers';
 import { formatDate } from '@/lib/utils/formatters';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { getFirebase } from '@/lib/firebase';
+import { softDeleteRFQ } from '@/lib/procurement/procurementDeleteService';
 
 export default function RFQsPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
+  const { confirm } = useConfirmDialog();
+  const { db } = getFirebase();
   const [loading, setLoading] = useState(true);
   const [rfqs, setRfqs] = useState<RFQ[]>([]);
   const [filteredRfqs, setFilteredRfqs] = useState<RFQ[]>([]);
@@ -97,6 +103,28 @@ export default function RFQsPage() {
       console.error('[RFQsPage] Error loading RFQs:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (rfq: RFQ) => {
+    const confirmed = await confirm({
+      title: 'Delete RFQ',
+      message: `Move "${rfq.number}" to Trash? You can restore it later from the Trash.`,
+      confirmText: 'Move to Trash',
+      confirmColor: 'error',
+    });
+    if (!confirmed) return;
+
+    const result = await softDeleteRFQ(db, {
+      id: rfq.id,
+      userId: user?.uid || 'unknown',
+      userName: user?.displayName || user?.email || 'Unknown',
+      userPermissions: claims?.permissions || 0,
+    });
+    if (result.success) {
+      setRfqs((prev) => prev.filter((r) => r.id !== rfq.id));
+    } else {
+      alert(result.error || 'Failed to delete RFQ');
     }
   };
 
@@ -350,6 +378,13 @@ export default function RFQsPage() {
                               label: 'Download PDF',
                               onClick: () => window.open(rfq.latestPdfUrl, '_blank'),
                               show: !!rfq.latestPdfUrl,
+                            },
+                            {
+                              icon: <DeleteIcon fontSize="small" />,
+                              label: 'Move to Trash',
+                              onClick: () => handleDelete(rfq),
+                              show: rfq.status === 'DRAFT',
+                              color: 'error',
                             },
                           ]}
                         />

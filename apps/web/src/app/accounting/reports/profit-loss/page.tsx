@@ -40,7 +40,128 @@ import {
   generateProfitLossReport,
   type ProfitLossReport,
   type AccountLineItem,
+  type PnLTransactionDetail,
 } from '@/lib/accounting/reports/profitLoss';
+
+function formatTxType(type: string): string {
+  switch (type) {
+    case 'CUSTOMER_INVOICE':
+      return 'Invoice';
+    case 'VENDOR_BILL':
+      return 'Bill';
+    case 'CUSTOMER_PAYMENT':
+      return 'Receipt';
+    case 'VENDOR_PAYMENT':
+      return 'Payment';
+    case 'JOURNAL_ENTRY':
+      return 'Journal';
+    default:
+      return type || '—';
+  }
+}
+
+/**
+ * Account row with its own expand state for transaction drill-down
+ */
+function AccountRow({ account }: { account: AccountLineItem }) {
+  const [open, setOpen] = useState(false);
+  const hasTransactions = account.transactions.length > 0;
+
+  return (
+    <>
+      <TableRow
+        sx={{
+          cursor: hasTransactions ? 'pointer' : 'default',
+          '&:hover': hasTransactions ? { bgcolor: 'action.selected' } : {},
+        }}
+        onClick={hasTransactions ? () => setOpen((v) => !v) : undefined}
+      >
+        <TableCell sx={{ pl: 8, py: 0.5 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            {hasTransactions && (
+              <IconButton size="small" sx={{ p: 0 }}>
+                {open ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+              </IconButton>
+            )}
+            <Typography variant="body2" color="text.secondary">
+              {account.code}
+            </Typography>
+            <Typography variant="body2">{account.name}</Typography>
+            {hasTransactions && (
+              <Typography variant="caption" color="text.secondary">
+                ({account.transactions.length})
+              </Typography>
+            )}
+          </Stack>
+        </TableCell>
+        <TableCell align="right" sx={{ py: 0.5 }}>
+          <Typography variant="body2">{formatCurrency(account.amount)}</Typography>
+        </TableCell>
+      </TableRow>
+
+      {/* Transaction drill-down */}
+      {hasTransactions && (
+        <TableRow>
+          <TableCell colSpan={2} sx={{ py: 0, pl: 0, pr: 0 }}>
+            <Collapse in={open} timeout="auto" unmountOnExit>
+              <Box sx={{ bgcolor: 'grey.100', px: 2, py: 1 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ py: 0.5, fontWeight: 'bold', fontSize: '0.7rem' }}>
+                        Date
+                      </TableCell>
+                      <TableCell sx={{ py: 0.5, fontWeight: 'bold', fontSize: '0.7rem' }}>
+                        Type
+                      </TableCell>
+                      <TableCell sx={{ py: 0.5, fontWeight: 'bold', fontSize: '0.7rem' }}>
+                        Number
+                      </TableCell>
+                      <TableCell sx={{ py: 0.5, fontWeight: 'bold', fontSize: '0.7rem' }}>
+                        Customer / Vendor
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{ py: 0.5, fontWeight: 'bold', fontSize: '0.7rem' }}
+                      >
+                        Amount
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {account.transactions.map((txn: PnLTransactionDetail) => (
+                      <TableRow key={`${txn.id}-${txn.amount}`}>
+                        <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                          {txn.date.toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                          {formatTxType(txn.type)}
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                          {txn.transactionNumber || '—'}
+                        </TableCell>
+                        <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                          {txn.entityName || '—'}
+                        </TableCell>
+                        <TableCell align="right" sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                          {formatCurrency(txn.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Box>
+            </Collapse>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  );
+}
 
 /**
  * Expandable row component for P&L categories with account breakdown
@@ -88,7 +209,7 @@ function ExpandableRow({ label, amount, accounts, expanded, onToggle }: Expandab
         <TableCell align="right">{formatCurrency(amount)}</TableCell>
       </TableRow>
 
-      {/* Expanded account details */}
+      {/* Expanded account details — each account manages its own transaction expansion */}
       {hasAccounts && (
         <TableRow>
           <TableCell colSpan={2} sx={{ py: 0, pl: 0, pr: 0 }}>
@@ -97,19 +218,7 @@ function ExpandableRow({ label, amount, accounts, expanded, onToggle }: Expandab
                 <Table size="small">
                   <TableBody>
                     {accounts.map((account) => (
-                      <TableRow key={account.id} sx={{ '&:last-child td': { borderBottom: 0 } }}>
-                        <TableCell sx={{ pl: 8, py: 0.5, borderBottom: 'none' }}>
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <Typography variant="body2" color="text.secondary">
-                              {account.code}
-                            </Typography>
-                            <Typography variant="body2">{account.name}</Typography>
-                          </Stack>
-                        </TableCell>
-                        <TableCell align="right" sx={{ py: 0.5, borderBottom: 'none' }}>
-                          <Typography variant="body2">{formatCurrency(account.amount)}</Typography>
-                        </TableCell>
-                      </TableRow>
+                      <AccountRow key={account.id} account={account} />
                     ))}
                   </TableBody>
                 </Table>

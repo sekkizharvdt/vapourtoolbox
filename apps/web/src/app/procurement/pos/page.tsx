@@ -32,11 +32,28 @@ import {
   Breadcrumbs,
   Link,
 } from '@mui/material';
-import { Add as AddIcon, Search as SearchIcon, Home as HomeIcon } from '@mui/icons-material';
-import { PageHeader, LoadingState, EmptyState, StatCard, FilterBar } from '@vapour/ui';
+import {
+  Add as AddIcon,
+  Search as SearchIcon,
+  Home as HomeIcon,
+  Visibility as VisibilityIcon,
+  Delete as DeleteIcon,
+} from '@mui/icons-material';
+import {
+  PageHeader,
+  LoadingState,
+  EmptyState,
+  StatCard,
+  FilterBar,
+  TableActionCell,
+} from '@vapour/ui';
 import { purchaseOrderListHelp } from '@/lib/help/pageHelpContent';
 import type { PurchaseOrder, PurchaseOrderStatus } from '@vapour/types';
 import { listPOs } from '@/lib/procurement/purchaseOrderService';
+import { useAuth } from '@/contexts/AuthContext';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { getFirebase } from '@/lib/firebase';
+import { softDeletePurchaseOrder } from '@/lib/procurement/procurementDeleteService';
 import {
   getPOStatusText,
   getPOStatusColor,
@@ -50,6 +67,9 @@ import { formatDate } from '@/lib/utils/formatters';
 
 export default function PurchaseOrdersPage() {
   const router = useRouter();
+  const { user, claims } = useAuth();
+  const { confirm } = useConfirmDialog();
+  const { db } = getFirebase();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -84,6 +104,28 @@ export default function PurchaseOrdersPage() {
       setError('Failed to load purchase orders');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (po: PurchaseOrder) => {
+    const confirmed = await confirm({
+      title: 'Delete Purchase Order',
+      message: `Move "${po.number}" to Trash? You can restore it later from the Trash.`,
+      confirmText: 'Move to Trash',
+      confirmColor: 'error',
+    });
+    if (!confirmed) return;
+
+    const result = await softDeletePurchaseOrder(db, {
+      id: po.id,
+      userId: user?.uid || 'unknown',
+      userName: user?.displayName || user?.email || 'Unknown',
+      userPermissions: claims?.permissions || 0,
+    });
+    if (result.success) {
+      setPOs((prev) => prev.filter((p) => p.id !== po.id));
+    } else {
+      alert(result.error || 'Failed to delete purchase order');
     }
   };
 
@@ -213,13 +255,14 @@ export default function PurchaseOrdersPage() {
                 <TableCell>Delivery</TableCell>
                 <TableCell>Payment</TableCell>
                 <TableCell>Created</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <LoadingState message="Loading purchase orders..." variant="table" colSpan={7} />
+                <LoadingState message="Loading purchase orders..." variant="table" colSpan={8} />
               ) : filteredPOs.length === 0 ? (
-                <EmptyState message="No purchase orders found" variant="table" colSpan={7} />
+                <EmptyState message="No purchase orders found" variant="table" colSpan={8} />
               ) : (
                 paginatedPOs.map((po) => {
                   const deliveryStatus = getDeliveryStatus(po);
@@ -272,6 +315,24 @@ export default function PurchaseOrdersPage() {
                         />
                       </TableCell>
                       <TableCell>{formatDate(po.createdAt)}</TableCell>
+                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                        <TableActionCell
+                          actions={[
+                            {
+                              icon: <VisibilityIcon fontSize="small" />,
+                              label: 'View Details',
+                              onClick: () => router.push(`/procurement/pos/${po.id}`),
+                            },
+                            {
+                              icon: <DeleteIcon fontSize="small" />,
+                              label: 'Move to Trash',
+                              onClick: () => handleDelete(po),
+                              show: po.status === 'DRAFT',
+                              color: 'error',
+                            },
+                          ]}
+                        />
+                      </TableCell>
                     </TableRow>
                   );
                 })

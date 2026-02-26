@@ -13,6 +13,18 @@ import { createLogger } from '@vapour/logger';
 const logger = createLogger({ context: 'reports/profitLoss' });
 
 /**
+ * Individual transaction contributing to an account in the P&L
+ */
+export interface PnLTransactionDetail {
+  id: string;
+  transactionNumber: string;
+  date: Date;
+  entityName: string;
+  type: string;
+  amount: number; // Net contribution to this account (positive = in the reported direction)
+}
+
+/**
  * Account item for breakdown display
  */
 export interface AccountLineItem {
@@ -20,6 +32,7 @@ export interface AccountLineItem {
   code: string;
   name: string;
   amount: number;
+  transactions: PnLTransactionDetail[];
 }
 
 /**
@@ -116,13 +129,20 @@ export async function generateProfitLossReport(
     );
     const transactionsSnapshot = await getDocs(periodQuery);
 
-    // Aggregate debits and credits by account for the period
+    // Aggregate debits and credits by account for the period,
+    // and collect per-account transaction details for drill-down.
     const accountActivity = new Map<string, { debit: number; credit: number }>();
+    const accountTransactions = new Map<string, PnLTransactionDetail[]>();
 
     transactionsSnapshot.forEach((doc) => {
       const transaction = doc.data();
       if (transaction.isDeleted) return; // Skip soft-deleted transactions
+
       const glEntries = transaction.entries || [];
+      const txDate =
+        transaction.date && typeof transaction.date === 'object' && 'toDate' in transaction.date
+          ? (transaction.date as { toDate: () => Date }).toDate()
+          : new Date(transaction.date as string);
 
       glEntries.forEach((entry: { accountId: string; debit: number; credit: number }) => {
         if (!entry.accountId) return;
@@ -132,8 +152,26 @@ export async function generateProfitLossReport(
           debit: existing.debit + (entry.debit || 0),
           credit: existing.credit + (entry.credit || 0),
         });
+
+        // Collect transaction detail for this account entry
+        const netContribution = (entry.credit || 0) - (entry.debit || 0);
+        if (netContribution !== 0) {
+          const existing = accountTransactions.get(entry.accountId) || [];
+          existing.push({
+            id: doc.id,
+            transactionNumber: transaction.transactionNumber || transaction.number || doc.id,
+            date: txDate,
+            entityName: transaction.entityName || transaction.vendorName || '',
+            type: transaction.type || '',
+            amount: netContribution,
+          });
+          accountTransactions.set(entry.accountId, existing);
+        }
       });
     });
+
+    // Sort transactions per account by date descending
+    accountTransactions.forEach((txns) => txns.sort((a, b) => b.date.getTime() - a.date.getTime()));
 
     // Update account balances from period activity
     accountActivity.forEach((activity, accountId) => {
@@ -175,6 +213,7 @@ export async function generateProfitLossReport(
           code: account.code,
           name: account.name,
           amount: netRevenue,
+          transactions: accountTransactions.get(account.id) || [],
         };
 
         // Sales accounts (typically 4000-4999)
@@ -199,11 +238,18 @@ export async function generateProfitLossReport(
         // Only include accounts with non-zero balance
         if (netExpense === 0) return;
 
+        // For expense accounts, transactions contributed debit>credit, so negate for display
+        const expenseTxns = (accountTransactions.get(account.id) || []).map((t) => ({
+          ...t,
+          amount: -t.amount,
+        }));
+
         const lineItem: AccountLineItem = {
           id: account.id,
           code: account.code,
           name: account.name,
           amount: netExpense,
+          transactions: expenseTxns,
         };
 
         // Cost of Goods Sold (typically 5000-5999)
