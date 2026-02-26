@@ -54,6 +54,7 @@ import {
   Speed as SpeedIcon,
 } from '@mui/icons-material';
 import { ParserComparisonView } from '@/components/shared/ParserComparisonView';
+import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { httpsCallable, getFunctions } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirebase } from '@/lib/firebase';
@@ -66,6 +67,9 @@ import {
 import type { RFQ, RFQItem } from '@vapour/types';
 import type { OfferParsingResult, ParsedOfferItem } from '@vapour/types';
 import { formatCurrency } from '@/lib/utils/formatters';
+
+const UNLISTED_VENDOR = '__other__' as const;
+type VendorSelection = number | '' | typeof UNLISTED_VENDOR;
 
 interface UploadOfferDialogProps {
   open: boolean;
@@ -143,7 +147,10 @@ export default function UploadOfferDialog({
   const createOfferMutation = useCreateOffer();
 
   // Form state
-  const [selectedVendorIndex, setSelectedVendorIndex] = useState<number | ''>('');
+  const [selectedVendorIndex, setSelectedVendorIndex] = useState<VendorSelection>('');
+  // Unlisted vendor state (used when selectedVendorIndex === UNLISTED_VENDOR)
+  const [otherVendorId, setOtherVendorId] = useState(''); // entity ID (empty = manual)
+  const [otherVendorName, setOtherVendorName] = useState(''); // name from entity or manual
   const [file, setFile] = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState<string>('');
 
@@ -194,6 +201,21 @@ export default function UploadOfferDialog({
       isMatched: false,
     }));
     setOfferItems(items);
+  };
+
+  // Resolve vendor ID + name for the current selection
+  const getSelectedVendorInfo = (): { vendorId: string; vendorName: string } | null => {
+    if (selectedVendorIndex === '') return null;
+    if (selectedVendorIndex === UNLISTED_VENDOR) {
+      const name = otherVendorName.trim();
+      if (!name) return null;
+      const id = otherVendorId || `manual_${rfq.id}_${name.replace(/\s+/g, '_').slice(0, 40)}`;
+      return { vendorId: id, vendorName: name };
+    }
+    const id = rfq.vendorIds[selectedVendorIndex] ?? '';
+    const name = rfq.vendorNames[selectedVendorIndex] ?? '';
+    if (!id || !name) return null;
+    return { vendorId: id, vendorName: name };
   };
 
   // Initialize offer items when rfqItems become available and dialog is open
@@ -276,15 +298,11 @@ export default function UploadOfferDialog({
   };
 
   const handleCompareWithBothParsers = async () => {
-    if (!file || !user || selectedVendorIndex === '') return;
+    if (!file || !user) return;
 
-    const vendorId = rfq.vendorIds[selectedVendorIndex] ?? '';
-    const vendorName = rfq.vendorNames[selectedVendorIndex] ?? '';
-
-    if (!vendorId || !vendorName) {
-      setError('Invalid vendor selection');
-      return;
-    }
+    const vendor = getSelectedVendorInfo();
+    if (!vendor) return;
+    const { vendorId, vendorName } = vendor;
 
     setParsing(true);
     setProgress(10);
@@ -455,7 +473,8 @@ export default function UploadOfferDialog({
   };
 
   const handleCreateOffer = async () => {
-    if (!user || selectedVendorIndex === '' || !fileUrl) {
+    const vendor = getSelectedVendorInfo();
+    if (!user || !vendor || !fileUrl) {
       setError('Please select a vendor and upload a file');
       return;
     }
@@ -470,14 +489,7 @@ export default function UploadOfferDialog({
     setError(null);
 
     try {
-      const vendorId = rfq.vendorIds[selectedVendorIndex] ?? '';
-      const vendorName = rfq.vendorNames[selectedVendorIndex] ?? '';
-
-      if (!vendorId || !vendorName) {
-        setError('Invalid vendor selection');
-        setCreating(false);
-        return;
-      }
+      const { vendorId, vendorName } = vendor;
 
       const offerInput: CreateOfferInput = {
         rfqId: rfq.id,
@@ -530,6 +542,8 @@ export default function UploadOfferDialog({
 
   const handleClose = () => {
     setSelectedVendorIndex('');
+    setOtherVendorId('');
+    setOtherVendorName('');
     setFile(null);
     setFileUrl('');
     setUploading(false);
@@ -557,23 +571,20 @@ export default function UploadOfferDialog({
     return 'error';
   };
 
-  const canCompare = file && selectedVendorIndex !== '' && !parsing && !uploading;
+  const selectedVendorInfo = getSelectedVendorInfo();
+  const canCompare = file && !!selectedVendorInfo && !parsing && !uploading;
 
   // Check which items are missing prices
   const itemsMissingPrice = offerItems.filter((item) => item.unitPrice <= 0);
   const allItemsHavePrice = itemsMissingPrice.length === 0;
 
   const canCreate =
-    selectedVendorIndex !== '' &&
-    fileUrl &&
-    offerItems.length > 0 &&
-    allItemsHavePrice &&
-    !creating;
+    !!selectedVendorInfo && fileUrl && offerItems.length > 0 && allItemsHavePrice && !creating;
 
   // Build validation message for Create Offer button
   const getCreateButtonTooltip = (): string => {
     if (creating) return 'Creating offer...';
-    if (selectedVendorIndex === '') return 'Please select a vendor';
+    if (!selectedVendorInfo) return 'Please select a vendor';
     if (!fileUrl) return 'Please upload an offer document';
     if (offerItems.length === 0) return 'No items to create offer';
     if (!allItemsHavePrice) {
@@ -695,7 +706,12 @@ export default function UploadOfferDialog({
             <Select
               value={selectedVendorIndex}
               onChange={(e) => {
-                setSelectedVendorIndex(e.target.value as number);
+                const val = e.target.value as VendorSelection;
+                setSelectedVendorIndex(val);
+                if (val !== UNLISTED_VENDOR) {
+                  setOtherVendorId('');
+                  setOtherVendorName('');
+                }
                 if (offerItems.length === 0) {
                   initializeOfferItems();
                 }
@@ -707,8 +723,52 @@ export default function UploadOfferDialog({
                   {name}
                 </MenuItem>
               ))}
+              <MenuItem value={UNLISTED_VENDOR}>
+                <em>Vendor not in list&hellip;</em>
+              </MenuItem>
             </Select>
           </FormControl>
+
+          {/* Unlisted vendor — pick from entity master or enter manually */}
+          {selectedVendorIndex === UNLISTED_VENDOR && (
+            <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Add unlisted vendor
+              </Typography>
+              <Stack spacing={2}>
+                <EntitySelector
+                  value={otherVendorId || null}
+                  onChange={(id) => {
+                    if (!id) setOtherVendorId('');
+                  }}
+                  onEntitySelect={(entity) => {
+                    if (entity) {
+                      setOtherVendorId(entity.id);
+                      setOtherVendorName(entity.name);
+                    } else {
+                      setOtherVendorId('');
+                    }
+                  }}
+                  label="Select from vendor master (optional)"
+                  filterByRole="VENDOR"
+                />
+                <TextField
+                  label="Vendor name"
+                  value={otherVendorName}
+                  onChange={(e) => setOtherVendorName(e.target.value)}
+                  placeholder="e.g. ABC Supplies Ltd"
+                  fullWidth
+                  required
+                  disabled={!!otherVendorId}
+                  helperText={
+                    otherVendorId
+                      ? 'Name taken from vendor master'
+                      : 'Enter the vendor name as it should appear on the offer'
+                  }
+                />
+              </Stack>
+            </Box>
+          )}
 
           {/* Instructions */}
           <Alert severity="info">
