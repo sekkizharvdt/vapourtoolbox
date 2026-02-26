@@ -31,7 +31,7 @@ import { PageHeader } from '@vapour/ui';
 import { Breadcrumbs, Link } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { reconcilePaymentStatuses } from '@/lib/accounting/paymentHelpers';
 
@@ -97,18 +97,20 @@ export default function DataHealthPage() {
       const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
 
       // Fetch all relevant transactions
-      const [paymentsSnap, billsSnap, invoicesSnap] = await Promise.all([
+      const [paymentsSnap, billsSnap, invoicesSnap, journalEntriesSnap] = await Promise.all([
         getDocs(
           query(transactionsRef, where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT']))
         ),
         getDocs(query(transactionsRef, where('type', '==', 'VENDOR_BILL'))),
         getDocs(query(transactionsRef, where('type', '==', 'CUSTOMER_INVOICE'))),
+        getDocs(query(transactionsRef, where('type', '==', 'JOURNAL_ENTRY'))),
       ]);
 
       // Filter out soft-deleted transactions from all snapshots
       const payments = paymentsSnap.docs.filter((doc) => !doc.data().isDeleted);
       const bills = billsSnap.docs.filter((doc) => !doc.data().isDeleted);
       const invoices = invoicesSnap.docs.filter((doc) => !doc.data().isDeleted);
+      const journalEntries = journalEntriesSnap.docs.filter((doc) => !doc.data().isDeleted);
 
       // Track unique transactions with any issue for health score
       const transactionsWithIssues = new Set<string>();
@@ -202,12 +204,77 @@ export default function DataHealthPage() {
         }
       });
 
+      // Build entity-level closing balance map to avoid flagging invoices where the
+      // entity's net outstanding is zero (e.g. opening balance covers all invoices).
+      // Positive = entity owes us (receivable), Negative = we owe entity (payable).
+      const entityTxnBalance = new Map<string, number>();
+      const addToEntityBalance = (entityId: string | undefined, delta: number) => {
+        if (!entityId) return;
+        entityTxnBalance.set(entityId, (entityTxnBalance.get(entityId) ?? 0) + delta);
+      };
+      invoices.forEach((doc) => {
+        const data = doc.data();
+        addToEntityBalance(data.entityId, data.baseAmount || data.totalAmount || 0);
+      });
+      bills.forEach((doc) => {
+        const data = doc.data();
+        addToEntityBalance(data.entityId, -(data.baseAmount || data.totalAmount || 0));
+      });
+      payments.forEach((doc) => {
+        const data = doc.data();
+        const amount = data.baseAmount || data.totalAmount || data.amount || 0;
+        addToEntityBalance(data.entityId, data.type === 'CUSTOMER_PAYMENT' ? -amount : amount);
+      });
+      journalEntries.forEach((doc) => {
+        const data = doc.data();
+        const entries = (data.entries || []) as Array<{
+          entityId?: string;
+          debit?: number;
+          credit?: number;
+        }>;
+        const perEntity = new Map<string, number>();
+        entries.forEach((entry) => {
+          if (!entry.entityId) return;
+          perEntity.set(
+            entry.entityId,
+            (perEntity.get(entry.entityId) ?? 0) + (entry.debit || 0) - (entry.credit || 0)
+          );
+        });
+        perEntity.forEach((delta, entityId) => addToEntityBalance(entityId, delta));
+      });
+
+      // Fetch entity opening balances and compute final closing balance per entity
+      const entityBalanceMap = new Map<string, number>();
+      entityTxnBalance.forEach((balance, entityId) => entityBalanceMap.set(entityId, balance));
+
+      const entityIds = [...entityTxnBalance.keys()];
+      if (entityIds.length > 0) {
+        const entitiesRef = collection(db, COLLECTIONS.ENTITIES);
+        for (let i = 0; i < entityIds.length; i += 30) {
+          const batchIds = entityIds.slice(i, i + 30);
+          const entitySnap = await getDocs(query(entitiesRef, where(documentId(), 'in', batchIds)));
+          entitySnap.forEach((entityDoc) => {
+            const data = entityDoc.data();
+            const openingBalance = data.openingBalance || 0;
+            const signedOpening =
+              data.openingBalanceType === 'CR' ? -openingBalance : openingBalance;
+            entityBalanceMap.set(
+              entityDoc.id,
+              signedOpening + (entityTxnBalance.get(entityDoc.id) ?? 0)
+            );
+          });
+        }
+      }
+
       // Count overdue items
       const now = new Date();
       let overdueCount = 0;
       let overdueTotal = 0;
 
-      const checkOverdue = (docs: typeof bills) => {
+      const checkOverdue = (
+        docs: typeof bills,
+        transactionType: 'VENDOR_BILL' | 'CUSTOMER_INVOICE'
+      ) => {
         docs.forEach((doc) => {
           const data = doc.data();
           if (
@@ -217,6 +284,14 @@ export default function DataHealthPage() {
           ) {
             const dueDate = data.dueDate?.toDate?.() || new Date(data.dueDate);
             if (dueDate && dueDate < now) {
+              // Skip if entity-level net outstanding is zero in the relevant direction.
+              // This prevents stale per-invoice amounts from creating false overdue alerts
+              // when payments or opening balances cover the full entity position.
+              if (data.entityId) {
+                const entityBalance = entityBalanceMap.get(data.entityId) ?? 0;
+                if (transactionType === 'CUSTOMER_INVOICE' && entityBalance <= 0) return;
+                if (transactionType === 'VENDOR_BILL' && entityBalance >= 0) return;
+              }
               // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
               const outstanding =
                 data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
@@ -229,8 +304,8 @@ export default function DataHealthPage() {
           }
         });
       };
-      checkOverdue(bills);
-      checkOverdue(invoices);
+      checkOverdue(bills, 'VENDOR_BILL');
+      checkOverdue(invoices, 'CUSTOMER_INVOICE');
 
       const totalTransactions = payments.length + bills.length + invoices.length;
 

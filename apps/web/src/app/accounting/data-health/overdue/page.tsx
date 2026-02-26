@@ -42,7 +42,7 @@ import dynamic from 'next/dynamic';
 import { PageHeader, LoadingState, StatCard, FilterBar, EmptyState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill, CustomerInvoice } from '@vapour/types';
 import { formatCurrency } from '@/lib/utils/formatters';
@@ -110,7 +110,7 @@ export default function OverdueItemsPage() {
       const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
       const now = new Date();
 
-      const [billsSnap, invoicesSnap] = await Promise.all([
+      const [billsSnap, invoicesSnap, paymentsSnap, journalEntriesSnap] = await Promise.all([
         getDocs(
           query(
             transactionsRef,
@@ -125,12 +125,82 @@ export default function OverdueItemsPage() {
             where('status', 'in', ['APPROVED', 'POSTED'])
           )
         ),
+        getDocs(
+          query(transactionsRef, where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT']))
+        ),
+        getDocs(query(transactionsRef, where('type', '==', 'JOURNAL_ENTRY'))),
       ]);
+
+      // Build entity-level closing balance map.
+      // Positive = entity owes us (receivable), Negative = we owe entity (payable).
+      const entityTxnBalance = new Map<string, number>();
+      const addToEntityBalance = (entityId: string | undefined, delta: number) => {
+        if (!entityId) return;
+        entityTxnBalance.set(entityId, (entityTxnBalance.get(entityId) ?? 0) + delta);
+      };
+
+      invoicesSnap.docs.forEach((doc) => {
+        if (doc.data().isDeleted) return;
+        const data = doc.data();
+        addToEntityBalance(data.entityId, data.baseAmount || data.totalAmount || 0);
+      });
+      billsSnap.docs.forEach((doc) => {
+        if (doc.data().isDeleted) return;
+        const data = doc.data();
+        addToEntityBalance(data.entityId, -(data.baseAmount || data.totalAmount || 0));
+      });
+      paymentsSnap.docs.forEach((doc) => {
+        if (doc.data().isDeleted) return;
+        const data = doc.data();
+        const amount = data.baseAmount || data.totalAmount || data.amount || 0;
+        addToEntityBalance(data.entityId, data.type === 'CUSTOMER_PAYMENT' ? -amount : amount);
+      });
+      journalEntriesSnap.docs.forEach((doc) => {
+        if (doc.data().isDeleted) return;
+        const entries = (doc.data().entries || []) as Array<{
+          entityId?: string;
+          debit?: number;
+          credit?: number;
+        }>;
+        const perEntity = new Map<string, number>();
+        entries.forEach((entry) => {
+          if (!entry.entityId) return;
+          perEntity.set(
+            entry.entityId,
+            (perEntity.get(entry.entityId) ?? 0) + (entry.debit || 0) - (entry.credit || 0)
+          );
+        });
+        perEntity.forEach((delta, entityId) => addToEntityBalance(entityId, delta));
+      });
+
+      // Fetch entity opening balances and add to transaction balances
+      const entityBalanceMap = new Map<string, number>();
+      entityTxnBalance.forEach((balance, entityId) => entityBalanceMap.set(entityId, balance));
+
+      const entityIds = [...entityTxnBalance.keys()];
+      if (entityIds.length > 0) {
+        const entitiesRef = collection(db, COLLECTIONS.ENTITIES);
+        for (let i = 0; i < entityIds.length; i += 30) {
+          const batchIds = entityIds.slice(i, i + 30);
+          const entitySnap = await getDocs(query(entitiesRef, where(documentId(), 'in', batchIds)));
+          entitySnap.forEach((entityDoc) => {
+            const data = entityDoc.data();
+            const openingBalance = data.openingBalance || 0;
+            const signedOpening =
+              data.openingBalanceType === 'CR' ? -openingBalance : openingBalance;
+            entityBalanceMap.set(
+              entityDoc.id,
+              signedOpening + (entityTxnBalance.get(entityDoc.id) ?? 0)
+            );
+          });
+        }
+      }
 
       const overdue: OverdueItem[] = [];
 
       billsSnap.forEach((doc) => {
-        const data = doc.data() as VendorBill;
+        if (doc.data().isDeleted) return;
+        const data = doc.data() as VendorBill & { entityId?: string };
         const dueDateRaw = data.dueDate as unknown as
           | { toDate?: () => Date }
           | string
@@ -150,6 +220,13 @@ export default function OverdueItemsPage() {
           const daysOverdue = Math.floor(
             (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
           );
+
+          // Skip if entity net position shows no payable (we don't owe them anything)
+          if (data.entityId) {
+            const entityBalance = entityBalanceMap.get(data.entityId) ?? 0;
+            if (entityBalance >= 0) return;
+          }
+
           // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
           const outstanding = data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
 
@@ -171,7 +248,8 @@ export default function OverdueItemsPage() {
       });
 
       invoicesSnap.forEach((doc) => {
-        const data = doc.data() as CustomerInvoice;
+        if (doc.data().isDeleted) return;
+        const data = doc.data() as CustomerInvoice & { entityId?: string };
         const dueDateRaw = data.dueDate as unknown as
           | { toDate?: () => Date }
           | string
@@ -191,6 +269,13 @@ export default function OverdueItemsPage() {
           const daysOverdue = Math.floor(
             (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
           );
+
+          // Skip if entity net position shows no receivable (they don't owe us anything)
+          if (data.entityId) {
+            const entityBalance = entityBalanceMap.get(data.entityId) ?? 0;
+            if (entityBalance <= 0) return;
+          }
+
           // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
           const outstanding = data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
 
