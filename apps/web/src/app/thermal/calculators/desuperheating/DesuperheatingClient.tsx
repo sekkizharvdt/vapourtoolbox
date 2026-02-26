@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Container, Typography, Box, Paper, Grid, Alert, Chip, Stack } from '@mui/material';
+import { Container, Typography, Box, Paper, Grid, Alert, Chip, Stack, Button } from '@mui/material';
+import { FolderOpen as LoadIcon } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { getSaturationTemperature } from '@vapour/constants';
 import { calculateDesuperheating } from '@/lib/thermal';
 import { DesuperheatingInputs, DesuperheatingResults } from './components';
+import { DesuperheatingDiagram } from './components/DesuperheatingDiagram';
+import { LoadCalculationDialog } from '../siphon-sizing/components/LoadCalculationDialog';
 
 export default function DesuperheatingClient() {
   const [steamPressure, setSteamPressure] = useState<string>('');
@@ -14,6 +17,7 @@ export default function DesuperheatingClient() {
   const [sprayWaterTemperature, setSprayWaterTemperature] = useState<string>('30');
   const [steamFlow, setSteamFlow] = useState<string>('');
 
+  const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Compute Tsat for helperText display
@@ -62,6 +66,17 @@ export default function DesuperheatingClient() {
     }
   }, [steamPressure, steamTemperature, targetTemperature, sprayWaterTemperature, steamFlow]);
 
+  // Build inputs object for Save / PDF dialogs
+  const reportInputs = {
+    steamPressure,
+    steamTemperature,
+    targetTemperature,
+    sprayWaterTemperature,
+    steamFlow,
+  };
+
+  const steamPressureNum = parseFloat(steamPressure) || null;
+
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <CalculatorBreadcrumb calculatorName="Desuperheating" />
@@ -73,10 +88,15 @@ export default function DesuperheatingClient() {
           </Typography>
           <Chip label="Energy Balance" size="small" color="primary" variant="outlined" />
         </Stack>
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
           Calculate spray water requirement to desuperheat steam from superheated to target
           temperature.
         </Typography>
+        <Stack direction="row" spacing={1}>
+          <Button startIcon={<LoadIcon />} size="small" onClick={() => setLoadDialogOpen(true)}>
+            Load Saved
+          </Button>
+        </Stack>
       </Box>
 
       <Grid container spacing={3}>
@@ -108,25 +128,29 @@ export default function DesuperheatingClient() {
         </Grid>
 
         <Grid size={{ xs: 12, md: 7 }}>
-          {result && <DesuperheatingResults result={result} />}
+          <DesuperheatingDiagram result={result} steamPressure={steamPressureNum} />
 
-          {!result && !error && (
-            <Paper
-              sx={{
-                p: 6,
-                textAlign: 'center',
-                bgcolor: 'action.hover',
-                border: '2px dashed',
-                borderColor: 'divider',
-              }}
-            >
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                Enter steam conditions to calculate spray water requirement
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Results will update automatically
-              </Typography>
-            </Paper>
+          {result ? (
+            <DesuperheatingResults result={result} inputs={reportInputs} />
+          ) : (
+            !error && (
+              <Paper
+                sx={{
+                  p: 6,
+                  textAlign: 'center',
+                  bgcolor: 'action.hover',
+                  border: '2px dashed',
+                  borderColor: 'divider',
+                }}
+              >
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  Enter steam conditions to calculate spray water requirement
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Results will update automatically
+                </Typography>
+              </Paper>
+            )
           )}
         </Grid>
       </Grid>
@@ -151,6 +175,23 @@ export default function DesuperheatingClient() {
           <strong>Reference:</strong> Perry&apos;s Chemical Engineers&apos; Handbook
         </Typography>
       </Box>
+
+      {/* Load Calculation Dialog */}
+      <LoadCalculationDialog
+        open={loadDialogOpen}
+        onClose={() => setLoadDialogOpen(false)}
+        calculatorType="DESUPERHEATING"
+        onLoad={(inputs) => {
+          if (typeof inputs.steamPressure === 'string') setSteamPressure(inputs.steamPressure);
+          if (typeof inputs.steamTemperature === 'string')
+            setSteamTemperature(inputs.steamTemperature);
+          if (typeof inputs.targetTemperature === 'string')
+            setTargetTemperature(inputs.targetTemperature);
+          if (typeof inputs.sprayWaterTemperature === 'string')
+            setSprayWaterTemperature(inputs.sprayWaterTemperature);
+          if (typeof inputs.steamFlow === 'string') setSteamFlow(inputs.steamFlow);
+        }}
+      />
     </Container>
   );
 }

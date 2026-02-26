@@ -7,3 +7,4 @@
 
 export { TVCInputs } from './TVCInputs';
 export { TVCResults } from './TVCResults';
+export { TVCDiagram } from './TVCDiagram';

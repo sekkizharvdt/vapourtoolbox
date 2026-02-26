@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Paper,
   Typography,
@@ -12,17 +13,41 @@ import {
   TableBody,
   TableCell,
   TableRow,
+  Button,
+  Box,
 } from '@mui/material';
+import { Download as DownloadIcon, Save as SaveIcon } from '@mui/icons-material';
 import type { TVCResult, DesuperheatingResult } from '@/lib/thermal';
+import { GenerateReportDialog } from './GenerateReportDialog';
+import { SaveCalculationDialog } from '../../siphon-sizing/components/SaveCalculationDialog';
+import type { TVCReportInputs } from './TVCReportPDF';
 
 interface TVCResultsProps {
   result: TVCResult;
   desuperheatingResult?: DesuperheatingResult | null;
+  inputs: TVCReportInputs;
 }
 
-export function TVCResults({ result, desuperheatingResult }: TVCResultsProps) {
+export function TVCResults({ result, desuperheatingResult, inputs }: TVCResultsProps) {
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+
   return (
     <Paper sx={{ p: 3 }}>
+      {/* === Action Buttons === */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 2 }}>
+        <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveDialogOpen(true)}>
+          Save
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<DownloadIcon />}
+          onClick={() => setReportDialogOpen(true)}
+        >
+          PDF Report
+        </Button>
+      </Box>
+
       <Typography variant="h6" gutterBottom>
         TVC Result
       </Typography>
@@ -325,6 +350,21 @@ export function TVCResults({ result, desuperheatingResult }: TVCResultsProps) {
           </Card>
         </Grid>
       </Grid>
+
+      {/* === Dialogs === */}
+      <GenerateReportDialog
+        open={reportDialogOpen}
+        onClose={() => setReportDialogOpen(false)}
+        result={result}
+        desuperheatingResult={desuperheatingResult ?? null}
+        inputs={inputs}
+      />
+      <SaveCalculationDialog
+        open={saveDialogOpen}
+        onClose={() => setSaveDialogOpen(false)}
+        inputs={inputs as unknown as Record<string, unknown>}
+        calculatorType="TVC"
+      />
     </Paper>
   );
 }

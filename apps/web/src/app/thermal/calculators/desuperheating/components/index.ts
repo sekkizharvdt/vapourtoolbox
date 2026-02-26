@@ -7,3 +7,4 @@
 
 export { DesuperheatingInputs } from './DesuperheatingInputs';
 export { DesuperheatingResults } from './DesuperheatingResults';
+export { DesuperheatingDiagram } from './DesuperheatingDiagram';

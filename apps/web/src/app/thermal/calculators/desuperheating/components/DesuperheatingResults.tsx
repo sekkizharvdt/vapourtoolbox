@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Paper,
   Typography,
@@ -13,16 +14,39 @@ import {
   TableBody,
   TableCell,
   TableRow,
+  Button,
 } from '@mui/material';
+import { Download as DownloadIcon, Save as SaveIcon } from '@mui/icons-material';
 import type { DesuperheatingResult } from '@/lib/thermal';
+import { GenerateReportDialog } from './GenerateReportDialog';
+import { SaveCalculationDialog } from '../../siphon-sizing/components/SaveCalculationDialog';
+import type { DesuperheatingReportInputs } from './DesuperheatingReportPDF';
 
 interface DesuperheatingResultsProps {
   result: DesuperheatingResult;
+  inputs: DesuperheatingReportInputs;
 }
 
-export function DesuperheatingResults({ result }: DesuperheatingResultsProps) {
+export function DesuperheatingResults({ result, inputs }: DesuperheatingResultsProps) {
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+
   return (
     <Paper sx={{ p: 3 }}>
+      {/* === Action Buttons === */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 2 }}>
+        <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveDialogOpen(true)}>
+          Save
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<DownloadIcon />}
+          onClick={() => setReportDialogOpen(true)}
+        >
+          PDF Report
+        </Button>
+      </Box>
+
       <Typography variant="h6" gutterBottom>
         Desuperheating Result
       </Typography>
@@ -159,6 +183,20 @@ export function DesuperheatingResults({ result }: DesuperheatingResultsProps) {
           m_water = m_steam × (h_steam - h_target) / (h_target - h_water)
         </Typography>
       </Box>
+
+      {/* === Dialogs === */}
+      <GenerateReportDialog
+        open={reportDialogOpen}
+        onClose={() => setReportDialogOpen(false)}
+        result={result}
+        inputs={inputs}
+      />
+      <SaveCalculationDialog
+        open={saveDialogOpen}
+        onClose={() => setSaveDialogOpen(false)}
+        inputs={inputs as unknown as Record<string, unknown>}
+        calculatorType="DESUPERHEATING"
+      />
     </Paper>
   );
 }

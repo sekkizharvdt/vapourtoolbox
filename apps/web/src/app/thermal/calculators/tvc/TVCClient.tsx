@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Container, Typography, Box, Paper, Grid, Alert, Chip, Stack } from '@mui/material';
+import { Container, Typography, Box, Paper, Grid, Alert, Chip, Stack, Button } from '@mui/material';
+import { FolderOpen as LoadIcon } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculateTVC, calculateDesuperheating } from '@/lib/thermal';
 import type { DesuperheatingResult } from '@/lib/thermal';
 import { TVCInputs, TVCResults } from './components';
+import { TVCDiagram } from './components/TVCDiagram';
+import { LoadCalculationDialog } from '../siphon-sizing/components/LoadCalculationDialog';
 
 export default function TVCClient() {
   const [motivePressure, setMotivePressure] = useState<string>('');
@@ -17,6 +20,7 @@ export default function TVCClient() {
   const [desuperheatEnabled, setDesuperheatEnabled] = useState<boolean>(false);
   const [sprayWaterTemperature, setSprayWaterTemperature] = useState<string>('25');
 
+  const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const result = useMemo(() => {
@@ -69,6 +73,18 @@ export default function TVCClient() {
     }
   }, [result, desuperheatEnabled, sprayWaterTemperature, dischargePressure]);
 
+  // Build inputs object for Save / PDF dialogs
+  const reportInputs = {
+    motivePressure,
+    motiveTemperature,
+    suctionPressure,
+    dischargePressure,
+    flowMode,
+    flowValue,
+    desuperheatEnabled,
+    sprayWaterTemperature,
+  };
+
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <CalculatorBreadcrumb calculatorName="TVC" />
@@ -80,10 +96,15 @@ export default function TVCClient() {
           </Typography>
           <Chip label="1-D Model (Huang 1999)" size="small" color="primary" variant="outlined" />
         </Stack>
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
           Calculate entrainment ratio, flows, and energy balance for steam ejectors used in MED
           desalination.
         </Typography>
+        <Stack direction="row" spacing={1}>
+          <Button startIcon={<LoadIcon />} size="small" onClick={() => setLoadDialogOpen(true)}>
+            Load Saved
+          </Button>
+        </Stack>
       </Box>
 
       <Grid container spacing={3}>
@@ -121,25 +142,33 @@ export default function TVCClient() {
         </Grid>
 
         <Grid size={{ xs: 12, md: 7 }}>
-          {result && <TVCResults result={result} desuperheatingResult={desuperheatingResult} />}
+          <TVCDiagram result={result} />
 
-          {!result && !error && (
-            <Paper
-              sx={{
-                p: 6,
-                textAlign: 'center',
-                bgcolor: 'action.hover',
-                border: '2px dashed',
-                borderColor: 'divider',
-              }}
-            >
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                Enter pressures and flow to calculate ejector performance
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Results will update automatically
-              </Typography>
-            </Paper>
+          {result ? (
+            <TVCResults
+              result={result}
+              desuperheatingResult={desuperheatingResult}
+              inputs={reportInputs}
+            />
+          ) : (
+            !error && (
+              <Paper
+                sx={{
+                  p: 6,
+                  textAlign: 'center',
+                  bgcolor: 'action.hover',
+                  border: '2px dashed',
+                  borderColor: 'divider',
+                }}
+              >
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  Enter pressures and flow to calculate ejector performance
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Results will update automatically
+                </Typography>
+              </Paper>
+            )
           )}
         </Grid>
       </Grid>
@@ -170,6 +199,29 @@ export default function TVCClient() {
           (1950) ASME; El-Dessouky & Ettouney (2002)
         </Typography>
       </Box>
+
+      {/* Load Calculation Dialog */}
+      <LoadCalculationDialog
+        open={loadDialogOpen}
+        onClose={() => setLoadDialogOpen(false)}
+        calculatorType="TVC"
+        onLoad={(inputs) => {
+          if (typeof inputs.motivePressure === 'string') setMotivePressure(inputs.motivePressure);
+          if (typeof inputs.motiveTemperature === 'string')
+            setMotiveTemperature(inputs.motiveTemperature);
+          if (typeof inputs.suctionPressure === 'string')
+            setSuctionPressure(inputs.suctionPressure);
+          if (typeof inputs.dischargePressure === 'string')
+            setDischargePressure(inputs.dischargePressure);
+          if (typeof inputs.flowMode === 'string')
+            setFlowMode(inputs.flowMode as 'entrained' | 'motive');
+          if (typeof inputs.flowValue === 'string') setFlowValue(inputs.flowValue);
+          if (typeof inputs.desuperheatEnabled === 'boolean')
+            setDesuperheatEnabled(inputs.desuperheatEnabled);
+          if (typeof inputs.sprayWaterTemperature === 'string')
+            setSprayWaterTemperature(inputs.sprayWaterTemperature);
+        }}
+      />
     </Container>
   );
 }

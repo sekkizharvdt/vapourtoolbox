@@ -450,7 +450,12 @@ export const FLOW_RATE_UNIT_LABELS: Record<FlowRateUnit, string> = {
 export interface SavedCalculation {
   id: string;
   userId: string;
-  calculatorType: 'SIPHON_SIZING' | 'SIPHON_SIZING_BATCH' | 'FLASH_CHAMBER';
+  calculatorType:
+    | 'SIPHON_SIZING'
+    | 'SIPHON_SIZING_BATCH'
+    | 'FLASH_CHAMBER'
+    | 'DESUPERHEATING'
+    | 'TVC';
   name: string;
   inputs: Record<string, unknown>;
   createdAt: Date;
