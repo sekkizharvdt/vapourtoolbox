@@ -1,6 +1,6 @@
 'use client';
 
-import { TextField, InputAdornment, Stack, Typography, Divider } from '@mui/material';
+import { TextField, InputAdornment, Stack, Typography, Divider, Button, Box } from '@mui/material';
 
 interface DesuperheatingInputsProps {
   steamPressure: string;
@@ -68,17 +68,29 @@ export function DesuperheatingInputs({
         Target
       </Typography>
 
-      <TextField
-        label="Target Outlet Temperature"
-        value={targetTemperature}
-        onChange={(e) => onTargetTemperatureChange(e.target.value)}
-        type="number"
-        fullWidth
-        InputProps={{
-          endAdornment: <InputAdornment position="end">°C</InputAdornment>,
-        }}
-        helperText={tSatText ? `Must be ≥ ${tSatText}` : 'Must be ≥ saturation temperature'}
-      />
+      <Box>
+        <TextField
+          label="Target Outlet Temperature"
+          value={targetTemperature}
+          onChange={(e) => onTargetTemperatureChange(e.target.value)}
+          type="number"
+          fullWidth
+          InputProps={{
+            endAdornment: <InputAdornment position="end">°C</InputAdornment>,
+          }}
+          helperText={tSatText ? `Must be ≥ ${tSatText}` : 'Must be ≥ saturation temperature'}
+        />
+        {saturationTemperature !== null && (
+          <Button
+            size="small"
+            variant="text"
+            onClick={() => onTargetTemperatureChange(saturationTemperature.toFixed(1))}
+            sx={{ mt: 0.5, p: 0, minWidth: 0, textTransform: 'none', fontSize: '0.75rem' }}
+          >
+            Set to Tsat ({saturationTemperature.toFixed(1)}°C)
+          </Button>
+        )}
+      </Box>
 
       <Divider />
 
