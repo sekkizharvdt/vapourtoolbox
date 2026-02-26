@@ -98,10 +98,10 @@ export function calculateDesuperheating(input: DesuperheatingInput): Desuperheat
     );
   }
 
-  // Validate target temperature
-  if (targetTemperature < tSat) {
+  // Validate target temperature (allow 0.05°C tolerance for UI rounding — e.g. Tsat button uses toFixed(1))
+  if (targetTemperature < tSat - 0.05) {
     throw new Error(
-      `Target temperature (${targetTemperature}°C) cannot be below saturation (${tSat.toFixed(1)}°C)`
+      `Target temperature (${targetTemperature}°C) cannot be below saturation (${tSat.toFixed(2)}°C)`
     );
   }
 
