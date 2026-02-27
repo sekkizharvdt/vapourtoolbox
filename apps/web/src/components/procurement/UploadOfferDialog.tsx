@@ -173,6 +173,11 @@ export default function UploadOfferDialog({
   const [paymentTerms, setPaymentTerms] = useState('');
   const [deliveryTerms, setDeliveryTerms] = useState('');
   const [warrantyTerms, setWarrantyTerms] = useState('');
+  const [exWorks, setExWorks] = useState('');
+  const [transportation, setTransportation] = useState('');
+  const [packingForwarding, setPackingForwarding] = useState('');
+  const [insurance, setInsurance] = useState('');
+  const [erectionAfterPurchase, setErectionAfterPurchase] = useState('');
 
   // Offer items
   const [offerItems, setOfferItems] = useState<OfferItemData[]>([]);
@@ -503,6 +508,11 @@ export default function UploadOfferDialog({
         paymentTerms: paymentTerms || undefined,
         deliveryTerms: deliveryTerms || undefined,
         warrantyTerms: warrantyTerms || undefined,
+        exWorks: exWorks || undefined,
+        transportation: transportation || undefined,
+        packingForwarding: packingForwarding || undefined,
+        insurance: insurance || undefined,
+        erectionAfterPurchase: erectionAfterPurchase || undefined,
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
         totalAmount: totals.totalAmount,
@@ -560,6 +570,11 @@ export default function UploadOfferDialog({
     setPaymentTerms('');
     setDeliveryTerms('');
     setWarrantyTerms('');
+    setExWorks('');
+    setTransportation('');
+    setPackingForwarding('');
+    setInsurance('');
+    setErectionAfterPurchase('');
     setOfferItems([]);
     setCreating(false);
     onClose();
@@ -995,6 +1010,53 @@ export default function UploadOfferDialog({
                     onChange={(e) => setWarrantyTerms(e.target.value)}
                     fullWidth
                     size="small"
+                  />
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ pt: 1 }}>
+                    Commercial Terms
+                  </Typography>
+                  <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                    <TextField
+                      label="Ex-Works"
+                      value={exWorks}
+                      onChange={(e) => setExWorks(e.target.value)}
+                      fullWidth
+                      size="small"
+                      placeholder="e.g., Included in price"
+                    />
+                    <TextField
+                      label="Transportation"
+                      value={transportation}
+                      onChange={(e) => setTransportation(e.target.value)}
+                      fullWidth
+                      size="small"
+                      placeholder="e.g., Extra @ actual"
+                    />
+                  </Stack>
+                  <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                    <TextField
+                      label="Packing & Forwarding"
+                      value={packingForwarding}
+                      onChange={(e) => setPackingForwarding(e.target.value)}
+                      fullWidth
+                      size="small"
+                      placeholder="e.g., Included"
+                    />
+                    <TextField
+                      label="Insurance"
+                      value={insurance}
+                      onChange={(e) => setInsurance(e.target.value)}
+                      fullWidth
+                      size="small"
+                      placeholder="e.g., Transit insurance by vendor"
+                    />
+                  </Stack>
+                  <TextField
+                    label="Erection after Purchase"
+                    value={erectionAfterPurchase}
+                    onChange={(e) => setErectionAfterPurchase(e.target.value)}
+                    fullWidth
+                    size="small"
+                    placeholder="e.g., Not in scope / Available at extra cost"
                   />
                 </Stack>
               </AccordionDetails>

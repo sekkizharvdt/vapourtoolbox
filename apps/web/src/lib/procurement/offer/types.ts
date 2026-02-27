@@ -38,6 +38,13 @@ export interface CreateOfferInput {
   deliveryTerms?: string;
   validityDate?: Date;
   warrantyTerms?: string;
+
+  // Commercial cost components
+  exWorks?: string;
+  transportation?: string;
+  packingForwarding?: string;
+  insurance?: string;
+  erectionAfterPurchase?: string;
 }
 
 /**
@@ -86,6 +93,11 @@ export interface UpdateOfferInput {
   deliveryTerms?: string;
   validityDate?: Date;
   warrantyTerms?: string;
+  exWorks?: string;
+  transportation?: string;
+  packingForwarding?: string;
+  insurance?: string;
+  erectionAfterPurchase?: string;
 }
 
 /**

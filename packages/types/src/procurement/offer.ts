@@ -55,6 +55,13 @@ export interface Offer {
   validityDate?: Timestamp;
   warrantyTerms?: string;
 
+  // Commercial cost components (for comparison)
+  exWorks?: string; // e.g., "Included", "At buyer's expense"
+  transportation?: string; // e.g., "Included in price", "Extra @ actual"
+  packingForwarding?: string; // e.g., "Included", "At cost"
+  insurance?: string; // e.g., "Transit insurance by vendor", "At buyer's expense"
+  erectionAfterPurchase?: string; // e.g., "Not in scope", "Available at extra cost"
+
   // Evaluation
   status: OfferStatus;
   evaluationScore?: number; // 0-100

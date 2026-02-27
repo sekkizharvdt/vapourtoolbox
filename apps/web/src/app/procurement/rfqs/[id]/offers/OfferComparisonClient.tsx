@@ -275,6 +275,53 @@ export default function OfferComparisonPage() {
           </Stack>
         </Paper>
 
+        {/* Commercial Terms Comparison */}
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Commercial Terms
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', width: 200 }}>Term</TableCell>
+                  {offers.map((offer: Offer) => (
+                    <TableCell key={offer.id} sx={{ fontWeight: 'bold' }}>
+                      {offer.vendorName}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {[
+                  { label: 'Payment Terms', field: 'paymentTerms' },
+                  { label: 'Ex-Works', field: 'exWorks' },
+                  { label: 'Transportation', field: 'transportation' },
+                  { label: 'Packing & Forwarding', field: 'packingForwarding' },
+                  { label: 'Insurance', field: 'insurance' },
+                  { label: 'Erection after Purchase', field: 'erectionAfterPurchase' },
+                ].map(({ label, field }) => (
+                  <TableRow key={field}>
+                    <TableCell sx={{ color: 'text.secondary', fontWeight: 'medium' }}>
+                      {label}
+                    </TableCell>
+                    {offers.map((offer: Offer) => (
+                      <TableCell key={offer.id}>
+                        {(offer[field as keyof Offer] as string) || (
+                          <Typography variant="caption" color="text.disabled">
+                            —
+                          </Typography>
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+
         {/* Item-wise Comparison */}
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>

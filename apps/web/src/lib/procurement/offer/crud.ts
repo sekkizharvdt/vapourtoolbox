@@ -106,6 +106,11 @@ export async function createOffer(
   if (input.vendorOfferDate) offerData.vendorOfferDate = Timestamp.fromDate(input.vendorOfferDate);
   if (input.validityDate) offerData.validityDate = Timestamp.fromDate(input.validityDate);
   if (input.warrantyTerms) offerData.warrantyTerms = input.warrantyTerms;
+  if (input.exWorks) offerData.exWorks = input.exWorks;
+  if (input.transportation) offerData.transportation = input.transportation;
+  if (input.packingForwarding) offerData.packingForwarding = input.packingForwarding;
+  if (input.insurance) offerData.insurance = input.insurance;
+  if (input.erectionAfterPurchase) offerData.erectionAfterPurchase = input.erectionAfterPurchase;
 
   const offerRef = await addDoc(collection(db, COLLECTIONS.OFFERS), offerData);
 
@@ -296,6 +301,12 @@ export async function updateOffer(
   if (input.validityDate !== undefined)
     updateData.validityDate = Timestamp.fromDate(input.validityDate);
   if (input.warrantyTerms !== undefined) updateData.warrantyTerms = input.warrantyTerms;
+  if (input.exWorks !== undefined) updateData.exWorks = input.exWorks;
+  if (input.transportation !== undefined) updateData.transportation = input.transportation;
+  if (input.packingForwarding !== undefined) updateData.packingForwarding = input.packingForwarding;
+  if (input.insurance !== undefined) updateData.insurance = input.insurance;
+  if (input.erectionAfterPurchase !== undefined)
+    updateData.erectionAfterPurchase = input.erectionAfterPurchase;
 
   await updateDoc(doc(db, COLLECTIONS.OFFERS, offerId), updateData);
 
