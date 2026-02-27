@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -19,7 +19,9 @@ import {
   TablePagination,
   Breadcrumbs,
   Link,
+  TextField,
 } from '@mui/material';
+import { FilterBar } from '@vapour/ui';
 import {
   Add as AddIcon,
   Visibility as ViewIcon,
@@ -48,6 +50,7 @@ export default function JournalEntriesPage() {
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
 
@@ -126,8 +129,19 @@ export default function JournalEntriesPage() {
     setPage(0);
   };
 
+  const filteredEntries = useMemo(() => {
+    if (!searchTerm) return journalEntries;
+    const term = searchTerm.toLowerCase();
+    return journalEntries.filter(
+      (entry) =>
+        entry.transactionNumber?.toLowerCase().includes(term) ||
+        entry.description?.toLowerCase().includes(term) ||
+        entry.reference?.toLowerCase().includes(term)
+    );
+  }, [journalEntries, searchTerm]);
+
   // Paginate journal entries in memory
-  const paginatedEntries = journalEntries.slice(
+  const paginatedEntries = filteredEntries.slice(
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
   );
@@ -167,6 +181,19 @@ export default function JournalEntriesPage() {
         )}
       </Stack>
 
+      <FilterBar onClear={() => setSearchTerm('')}>
+        <TextField
+          placeholder="Search by number, description or reference..."
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setPage(0);
+          }}
+          size="small"
+          sx={{ minWidth: 340 }}
+        />
+      </FilterBar>
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -181,7 +208,7 @@ export default function JournalEntriesPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {journalEntries.length === 0 ? (
+            {filteredEntries.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
                   <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
@@ -243,7 +270,7 @@ export default function JournalEntriesPage() {
         <TablePagination
           rowsPerPageOptions={[25, 50, 100]}
           component="div"
-          count={journalEntries.length}
+          count={filteredEntries.length}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}

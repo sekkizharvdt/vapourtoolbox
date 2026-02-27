@@ -36,6 +36,7 @@ import {
   Payment as PaymentIcon,
   AccountBalance as TotalIcon,
   Visibility as ViewIcon,
+  AddCard as RecordPaymentIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -54,6 +55,20 @@ const CreateBillDialog = dynamic(
 const CreateInvoiceDialog = dynamic(
   () =>
     import('../../invoices/components/CreateInvoiceDialog').then((mod) => mod.CreateInvoiceDialog),
+  { ssr: false }
+);
+const RecordVendorPaymentDialog = dynamic(
+  () =>
+    import('../../payments/components/RecordVendorPaymentDialog').then(
+      (mod) => mod.RecordVendorPaymentDialog
+    ),
+  { ssr: false }
+);
+const RecordCustomerPaymentDialog = dynamic(
+  () =>
+    import('../../payments/components/RecordCustomerPaymentDialog').then(
+      (mod) => mod.RecordCustomerPaymentDialog
+    ),
   { ssr: false }
 );
 
@@ -101,6 +116,10 @@ export default function OverdueItemsPage() {
   const [viewingInvoice, setViewingInvoice] = useState<CustomerInvoice | null>(null);
   const [billDialogOpen, setBillDialogOpen] = useState(false);
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+
+  // Record payment dialog state
+  const [vendorPaymentOpen, setVendorPaymentOpen] = useState(false);
+  const [customerPaymentOpen, setCustomerPaymentOpen] = useState(false);
 
   const fetchOverdueItems = async () => {
     setLoading(true);
@@ -372,6 +391,14 @@ export default function OverdueItemsPage() {
     setViewingInvoice(null);
   };
 
+  const handleRecordPayment = (item: OverdueItem) => {
+    if (item.type === 'VENDOR_BILL') {
+      setVendorPaymentOpen(true);
+    } else {
+      setCustomerPaymentOpen(true);
+    }
+  };
+
   const receivables = items.filter((i) => i.type === 'CUSTOMER_INVOICE');
   const payables = items.filter((i) => i.type === 'VENDOR_BILL');
   const totalReceivable = receivables.reduce((sum, i) => sum + i.outstandingAmount, 0);
@@ -605,16 +632,29 @@ export default function OverdueItemsPage() {
                       <Chip label={item.status.replace('_', ' ')} size="small" variant="outlined" />
                     </TableCell>
                     <TableCell align="center">
-                      <Tooltip title="View Details">
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<ViewIcon />}
-                          onClick={() => handleViewItem(item)}
-                        >
-                          View
-                        </Button>
-                      </Tooltip>
+                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                        <Tooltip title="View Details">
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<ViewIcon />}
+                            onClick={() => handleViewItem(item)}
+                          >
+                            View
+                          </Button>
+                        </Tooltip>
+                        <Tooltip title="Record Payment">
+                          <Button
+                            variant="contained"
+                            size="small"
+                            color={item.type === 'CUSTOMER_INVOICE' ? 'success' : 'primary'}
+                            startIcon={<RecordPaymentIcon />}
+                            onClick={() => handleRecordPayment(item)}
+                          >
+                            Pay
+                          </Button>
+                        </Tooltip>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))
@@ -647,6 +687,22 @@ export default function OverdueItemsPage() {
         onClose={handleDialogClose}
         editingInvoice={viewingInvoice}
         viewOnly
+      />
+
+      {/* Record Payment Dialogs */}
+      <RecordVendorPaymentDialog
+        open={vendorPaymentOpen}
+        onClose={() => {
+          setVendorPaymentOpen(false);
+          fetchOverdueItems();
+        }}
+      />
+      <RecordCustomerPaymentDialog
+        open={customerPaymentOpen}
+        onClose={() => {
+          setCustomerPaymentOpen(false);
+          fetchOverdueItems();
+        }}
       />
     </Box>
   );

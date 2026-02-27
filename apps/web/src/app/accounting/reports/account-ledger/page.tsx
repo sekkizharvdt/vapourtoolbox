@@ -12,26 +12,16 @@ import {
   TableRow,
   Box,
   CircularProgress,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  SelectChangeEvent,
+  Chip,
   Breadcrumbs,
   Link,
 } from '@mui/material';
 import { Home as HomeIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { collection, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
-
-interface Account {
-  id: string;
-  code: string;
-  name: string;
-  type: string;
-}
+import { AccountSelector } from '@/components/common/forms/AccountSelector';
 
 interface LedgerEntry {
   accountId: string;
@@ -47,62 +37,54 @@ interface Transaction {
   description: string;
   entries: LedgerEntry[];
   referenceNumber?: string;
+  vendorInvoiceNumber?: string;
 }
 
 interface LedgerLine {
   date: Date;
   description: string;
+  typeLabel: string;
   reference: string;
+  vendorRef?: string;
   debit: number;
   credit: number;
   balance: number;
 }
 
+function getTransactionTypeLabel(type: string): string {
+  switch (type) {
+    case 'JOURNAL_ENTRY':
+      return 'Journal';
+    case 'CUSTOMER_PAYMENT':
+    case 'VENDOR_PAYMENT':
+    case 'DIRECT_PAYMENT':
+      return 'Payment';
+    case 'CUSTOMER_INVOICE':
+      return 'Invoice';
+    case 'VENDOR_BILL':
+      return 'Bill';
+    default:
+      return type || 'Entry';
+  }
+}
+
 export default function AccountLedgerPage() {
   const router = useRouter();
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [ledgerLines, setLedgerLines] = useState<LedgerLine[]>([]);
-  const [loading, setLoading] = useState(true);
   const [loadingLedger, setLoadingLedger] = useState(false);
   const [openingBalance, setOpeningBalance] = useState(0);
   const [closingBalance, setClosingBalance] = useState(0);
 
   useEffect(() => {
-    loadAccounts();
-  }, []);
-
-  useEffect(() => {
     if (selectedAccountId) {
       loadAccountLedger(selectedAccountId);
+    } else {
+      setLedgerLines([]);
+      setOpeningBalance(0);
+      setClosingBalance(0);
     }
   }, [selectedAccountId]);
-
-  const loadAccounts = async () => {
-    try {
-      const { db } = getFirebase();
-      const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-      const q = query(accountsRef, orderBy('code', 'asc'));
-      const snapshot = await getDocs(q);
-
-      const accountData: Account[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        accountData.push({
-          id: doc.id,
-          code: data.code || '',
-          name: data.name || '',
-          type: data.type || '',
-        });
-      });
-
-      setAccounts(accountData);
-    } catch (error) {
-      console.error('Error loading accounts:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadAccountLedger = async (accountId: string) => {
     setLoadingLedger(true);
@@ -120,14 +102,11 @@ export default function AccountLedgerPage() {
         const data = doc.data() as Transaction;
         const hasEntry = data.entries?.some((entry) => entry.accountId === accountId);
         if (hasEntry) {
-          relevantTransactions.push({
-            ...data,
-            id: doc.id,
-          });
+          relevantTransactions.push({ ...data, id: doc.id });
         }
       });
 
-      // Sort by date
+      // Sort by date ascending
       relevantTransactions.sort((a, b) => {
         const dateA = a.date.toDate();
         const dateB = b.date.toDate();
@@ -145,7 +124,9 @@ export default function AccountLedgerPage() {
             lines.push({
               date: transaction.date.toDate(),
               description: entry.description || transaction.description || '',
+              typeLabel: getTransactionTypeLabel(transaction.type),
               reference: transaction.referenceNumber || transaction.id,
+              vendorRef: transaction.vendorInvoiceNumber,
               debit,
               credit,
               balance: runningBalance,
@@ -163,20 +144,6 @@ export default function AccountLedgerPage() {
       setLoadingLedger(false);
     }
   };
-
-  const handleAccountChange = (event: SelectChangeEvent) => {
-    setSelectedAccountId(event.target.value);
-  };
-
-  const selectedAccount = accounts.find((acc) => acc.id === selectedAccountId);
-
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
-    );
-  }
 
   return (
     <Box p={3}>
@@ -212,31 +179,17 @@ export default function AccountLedgerPage() {
       </Typography>
 
       <Box sx={{ mt: 3, mb: 3 }}>
-        <FormControl fullWidth>
-          <InputLabel>Select Account</InputLabel>
-          <Select value={selectedAccountId} label="Select Account" onChange={handleAccountChange}>
-            {accounts.map((account) => (
-              <MenuItem key={account.id} value={account.id}>
-                {account.code} - {account.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <AccountSelector
+          value={selectedAccountId}
+          onChange={setSelectedAccountId}
+          label="Select Account"
+          placeholder="Search by code or name..."
+          size="medium"
+        />
       </Box>
 
       {selectedAccountId && (
         <>
-          {selectedAccount && (
-            <Paper sx={{ p: 2, mb: 2 }}>
-              <Typography variant="h6">
-                {selectedAccount.code} - {selectedAccount.name}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Type: {selectedAccount.type}
-              </Typography>
-            </Paper>
-          )}
-
           {loadingLedger ? (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
               <CircularProgress />
@@ -272,7 +225,19 @@ export default function AccountLedgerPage() {
                       <TableRow key={index}>
                         <TableCell>{line.date.toLocaleDateString('en-IN')}</TableCell>
                         <TableCell>{line.description}</TableCell>
-                        <TableCell>{line.reference}</TableCell>
+                        <TableCell>
+                          <Box
+                            sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
+                          >
+                            <Chip label={line.typeLabel} size="small" variant="outlined" />
+                            <Typography variant="body2">{line.reference}</Typography>
+                            {line.vendorRef && (
+                              <Typography variant="caption" color="text.secondary">
+                                / {line.vendorRef}
+                              </Typography>
+                            )}
+                          </Box>
+                        </TableCell>
                         <TableCell align="right">
                           {line.debit > 0 ? line.debit.toFixed(2) : '-'}
                         </TableCell>

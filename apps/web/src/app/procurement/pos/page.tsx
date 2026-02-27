@@ -184,7 +184,7 @@ export default function PurchaseOrdersPage() {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => router.push('/procurement/rfqs')}
+              onClick={() => router.push('/procurement/rfqs?status=UNDER_EVALUATION')}
             >
               New PO (via RFQ)
             </Button>

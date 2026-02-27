@@ -129,6 +129,16 @@ interface VendorData {
   };
 }
 
+interface PRAttachment {
+  id: string;
+  fileName: string;
+  storagePath: string;
+  attachmentType: string;
+  description?: string;
+  mimeType?: string;
+  publicUrl?: string;
+}
+
 interface DocumentRecordData {
   fileName: string;
   fileUrl: string;
@@ -348,6 +358,43 @@ export const generateRFQPDF = onCall<RFQPDFGenerationRequest, Promise<RFQPDFGene
         });
       }
 
+      // Fetch PR attachments and expose them as public URLs for the PDF
+      const prAttachments: PRAttachment[] = [];
+      if (rfq.purchaseRequestIds && rfq.purchaseRequestIds.length > 0) {
+        const attachmentBucket = admin.storage().bucket();
+        for (const prId of rfq.purchaseRequestIds) {
+          const attachSnap = await db
+            .collection('purchaseRequestAttachments')
+            .where('purchaseRequestId', '==', prId)
+            .get();
+          for (const attachDoc of attachSnap.docs) {
+            const d = attachDoc.data();
+            const attachment: PRAttachment = {
+              id: attachDoc.id,
+              fileName: d.fileName || '',
+              storagePath: d.storagePath || '',
+              attachmentType: d.attachmentType || 'OTHER',
+              description: d.description,
+              mimeType: d.mimeType,
+            };
+            // Make the file publicly accessible so vendors can open it via the PDF link
+            if (attachment.storagePath) {
+              try {
+                const attachFile = attachmentBucket.file(attachment.storagePath);
+                await attachFile.makePublic();
+                attachment.publicUrl = `https://storage.googleapis.com/${attachmentBucket.name}/${attachment.storagePath}`;
+              } catch (err) {
+                logger.warn('Could not make PR attachment public', {
+                  storagePath: attachment.storagePath,
+                  err,
+                });
+              }
+            }
+            prAttachments.push(attachment);
+          }
+        }
+      }
+
       // Determine which vendors to generate PDFs for
       const vendorIdsToProcess = options.vendorIds || rfq.vendorIds;
 
@@ -398,6 +445,7 @@ export const generateRFQPDF = onCall<RFQPDFGenerationRequest, Promise<RFQPDFGene
               rfq,
               items,
               prNumbers,
+              prAttachments,
               options,
               vendor,
               true,
@@ -475,6 +523,7 @@ export const generateRFQPDF = onCall<RFQPDFGenerationRequest, Promise<RFQPDFGene
             rfq,
             items,
             prNumbers,
+            prAttachments,
             options,
             undefined,
             false,
@@ -603,6 +652,7 @@ function preparePDFData(
   rfq: RFQData,
   items: RFQItemData[],
   prNumbers: string[],
+  prAttachments: PRAttachment[],
   options: RFQPDFGenerationRequest['options'],
   vendor?: VendorData,
   isIndividual = true,
@@ -675,6 +725,12 @@ function preparePDFData(
       description: rfq.description,
       projectNames: rfq.projectNames || [],
       purchaseRequestNumbers: prNumbers,
+      attachments: prAttachments.map((a) => ({
+        fileName: a.fileName,
+        attachmentType: a.attachmentType,
+        description: a.description,
+        publicUrl: a.publicUrl,
+      })),
     },
 
     // Items

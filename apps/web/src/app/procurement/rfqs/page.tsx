@@ -45,7 +45,7 @@ import {
   StatCard,
   FilterBar,
 } from '@vapour/ui';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RFQ } from '@vapour/types';
 import { listRFQs } from '@/lib/procurement/rfq';
@@ -65,6 +65,7 @@ import { softDeleteRFQ } from '@/lib/procurement/procurementDeleteService';
 
 export default function RFQsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, claims } = useAuth();
   const { confirm } = useConfirmDialog();
   const { db } = getFirebase();
@@ -72,9 +73,9 @@ export default function RFQsPage() {
   const [rfqs, setRfqs] = useState<RFQ[]>([]);
   const [filteredRfqs, setFilteredRfqs] = useState<RFQ[]>([]);
 
-  // Filters
+  // Filters — pre-populate status from query param (e.g. when navigating from POs page)
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') ?? 'ALL');
   const [sortBy, setSortBy] = useState<'number' | 'createdAt' | 'dueDate' | 'status'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
