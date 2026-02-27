@@ -119,6 +119,30 @@ export {
   type ElbowConfig,
 } from './siphonSizingCalculator';
 
+// Demister / Mist Eliminator Sizing
+export {
+  calculateDemisterSizing,
+  DEMISTER_TYPE_LABELS,
+  DEMISTER_K_FACTORS,
+  DEMISTER_PRESSURE_DROP,
+  type DemisterInput,
+  type DemisterResult,
+  type DemisterType,
+  type DemisterOrientation,
+  type VesselGeometry,
+  type FluidInputMode,
+} from './demisterCalculator';
+
+// Chemical Dosing Calculator (Antiscalant + Anti-foam)
+export {
+  calculateDosing,
+  CHEMICAL_PRODUCTS,
+  type ChemicalType,
+  type ChemicalProduct,
+  type DosingInput,
+  type DosingResult,
+} from './chemicalDosingCalculator';
+
 // MED Suction System Designer
 export {
   calculateSuctionSystem,
