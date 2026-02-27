@@ -17,3 +17,4 @@ export { CondensationInputs } from './CondensationInputs';
 export { CondensationResult } from './CondensationResult';
 export { OverallHTCInputs } from './OverallHTCInputs';
 export { OverallHTCResult } from './OverallHTCResult';
+export { HeatTransferDiagram } from './HeatTransferDiagram';

@@ -455,7 +455,8 @@ export interface SavedCalculation {
     | 'SIPHON_SIZING_BATCH'
     | 'FLASH_CHAMBER'
     | 'DESUPERHEATING'
-    | 'TVC';
+    | 'TVC'
+    | 'HEAT_TRANSFER';
   name: string;
   inputs: Record<string, unknown>;
   createdAt: Date;
