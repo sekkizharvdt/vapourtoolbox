@@ -299,6 +299,10 @@ export interface JournalEntry extends BaseTransaction {
   isReversed: boolean;
   reversalJournalId?: string;
   reversalDate?: Date;
+
+  // Linked documents (for traceability)
+  linkedCustomerInvoiceId?: string;
+  linkedVendorBillId?: string;
 }
 
 /**

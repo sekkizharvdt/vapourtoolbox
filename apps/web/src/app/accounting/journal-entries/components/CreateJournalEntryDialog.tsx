@@ -18,6 +18,7 @@ import {
   Paper,
   Stack,
   Button,
+  Autocomplete,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
@@ -26,13 +27,30 @@ import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import type { BusinessEntity } from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
-import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
+  Timestamp,
+  getDocs,
+  query,
+  where,
+  limit,
+} from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { JournalEntry, LedgerEntry, TransactionStatus } from '@vapour/types';
 import { generateTransactionNumber } from '@/lib/accounting/transactionNumberGenerator';
 import { validateLedgerEntries, calculateBalance } from '@/lib/accounting/ledgerValidator';
 import { getEntityControlAccount } from '@/lib/accounting/systemAccountResolver';
 import { removeUndefinedValues } from '@/lib/firebase/typeHelpers';
+import { formatCurrency } from '@/lib/accounting/transactionHelpers';
+
+interface TransactionOption {
+  id: string;
+  label: string;
+  transactionNumber: string;
+}
 
 interface CreateJournalEntryDialogProps {
   open: boolean;
@@ -77,6 +95,12 @@ export function CreateJournalEntryDialog({
   const [reference, setReference] = useState<string>('');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [status, setStatus] = useState<TransactionStatus>('DRAFT');
+  const [linkedCustomerInvoiceId, setLinkedCustomerInvoiceId] = useState<string>('');
+  const [linkedVendorBillId, setLinkedVendorBillId] = useState<string>('');
+
+  // Options for linked document selectors
+  const [invoiceOptions, setInvoiceOptions] = useState<TransactionOption[]>([]);
+  const [billOptions, setBillOptions] = useState<TransactionOption[]>([]);
   const [entries, setEntries] = useState<LedgerEntryForm[]>([
     {
       accountId: '',
@@ -110,12 +134,16 @@ export function CreateJournalEntryDialog({
         setProjectId(editingEntry.projectId ?? null);
         setStatus(editingEntry.status);
         setEntries(editingEntry.entries || []);
+        setLinkedCustomerInvoiceId(editingEntry.linkedCustomerInvoiceId || '');
+        setLinkedVendorBillId(editingEntry.linkedVendorBillId || '');
       } else {
         setDate(new Date().toISOString().split('T')[0] || '');
         setDescription('');
         setReference('');
         setProjectId(null);
         setStatus('DRAFT');
+        setLinkedCustomerInvoiceId('');
+        setLinkedVendorBillId('');
         setEntries([
           {
             accountId: '',
@@ -140,6 +168,40 @@ export function CreateJournalEntryDialog({
       setError('');
     }
   }, [open, editingEntry]);
+
+  // Load invoice and bill options when dialog opens
+  useEffect(() => {
+    if (!open) return;
+    const { db } = getFirebase();
+    const txRef = collection(db, COLLECTIONS.TRANSACTIONS);
+
+    const loadOptions = async () => {
+      const [invoiceSnap, billSnap] = await Promise.all([
+        getDocs(query(txRef, where('type', '==', 'CUSTOMER_INVOICE'), limit(300))),
+        getDocs(query(txRef, where('type', '==', 'VENDOR_BILL'), limit(300))),
+      ]);
+
+      const toOption = (d: {
+        id: string;
+        data: () => Record<string, unknown>;
+      }): TransactionOption => {
+        const data = d.data();
+        const num = (data.transactionNumber as string) || d.id;
+        const name = (data.entityName as string) || '';
+        const amount = (data.totalAmount as number) || 0;
+        return {
+          id: d.id,
+          transactionNumber: num,
+          label: `${num}${name ? ` · ${name}` : ''} · ${formatCurrency(amount)}`,
+        };
+      };
+
+      setInvoiceOptions(invoiceSnap.docs.filter((d) => !d.data().isDeleted).map(toOption));
+      setBillOptions(billSnap.docs.filter((d) => !d.data().isDeleted).map(toOption));
+    };
+
+    void loadOptions();
+  }, [open]);
 
   const addEntry = () => {
     setEntries([
@@ -291,6 +353,8 @@ export function CreateJournalEntryDialog({
           amount: balance.totalDebits,
           baseAmount: balance.totalDebits,
           updatedAt: Timestamp.now(),
+          linkedCustomerInvoiceId: linkedCustomerInvoiceId || undefined,
+          linkedVendorBillId: linkedVendorBillId || undefined,
           // Only update date if it was actually changed by the user
           ...(date !== getDateString(editingEntry.date) && {
             date: journalDate,
@@ -319,6 +383,8 @@ export function CreateJournalEntryDialog({
           attachments: [],
           journalType: 'GENERAL',
           isReversed: false,
+          linkedCustomerInvoiceId: linkedCustomerInvoiceId || undefined,
+          linkedVendorBillId: linkedVendorBillId || undefined,
         });
 
         await addDoc(collection(db, COLLECTIONS.TRANSACTIONS), journalEntry);
@@ -406,6 +472,38 @@ export function CreateJournalEntryDialog({
             value={projectId}
             onChange={setProjectId}
             label="Project / Cost Centre"
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Autocomplete
+            options={invoiceOptions}
+            value={invoiceOptions.find((o) => o.id === linkedCustomerInvoiceId) ?? null}
+            onChange={(_e, option) => setLinkedCustomerInvoiceId(option?.id ?? '')}
+            getOptionLabel={(o) => o.label}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Linked Customer Invoice"
+                helperText="Select the invoice this entry relates to"
+              />
+            )}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Autocomplete
+            options={billOptions}
+            value={billOptions.find((o) => o.id === linkedVendorBillId) ?? null}
+            onChange={(_e, option) => setLinkedVendorBillId(option?.id ?? '')}
+            getOptionLabel={(o) => o.label}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Linked Vendor Bill"
+                helperText="Select the bill this entry relates to"
+              />
+            )}
           />
         </Grid>
 
