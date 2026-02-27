@@ -174,9 +174,11 @@ export async function updateTransactionStatusAfterPayment(
       const totalAmountINR = transactionData.baseAmount || transactionData.totalAmount || 0;
       const previouslyPaid = transactionData.amountPaid || 0;
       const newTotalPaid = previouslyPaid + paidAmount;
+      // Round to 2 decimal places to avoid floating-point residues (e.g. 155750.21000000002 - 155750.21 = 2.9e-11)
+      const roundedOutstanding = parseFloat(Math.max(0, totalAmountINR - newTotalPaid).toFixed(2));
 
       let newPaymentStatus: PaymentStatus;
-      if (newTotalPaid >= totalAmountINR) {
+      if (roundedOutstanding === 0 && totalAmountINR > 0) {
         newPaymentStatus = 'PAID';
       } else if (newTotalPaid > 0) {
         newPaymentStatus = 'PARTIALLY_PAID';
@@ -187,7 +189,7 @@ export async function updateTransactionStatusAfterPayment(
       transaction.update(transactionRef, {
         paymentStatus: newPaymentStatus,
         amountPaid: newTotalPaid,
-        outstandingAmount: Math.max(0, totalAmountINR - newTotalPaid),
+        outstandingAmount: roundedOutstanding,
         updatedAt: Timestamp.now(),
       });
     });
@@ -246,9 +248,10 @@ export async function processPaymentAllocations(
       const totalAmountINR = data.baseAmount || data.totalAmount || 0;
       const previouslyPaid = data.amountPaid || 0;
       const newTotalPaid = previouslyPaid + allocationsByInvoice.get(txnId)!;
+      const roundedOutstanding = parseFloat(Math.max(0, totalAmountINR - newTotalPaid).toFixed(2));
 
       let newPaymentStatus: PaymentStatus;
-      if (newTotalPaid >= totalAmountINR) {
+      if (roundedOutstanding === 0 && totalAmountINR > 0) {
         newPaymentStatus = 'PAID';
       } else if (newTotalPaid > 0) {
         newPaymentStatus = 'PARTIALLY_PAID';
@@ -259,7 +262,7 @@ export async function processPaymentAllocations(
       transaction.update(ref, {
         paymentStatus: newPaymentStatus,
         amountPaid: newTotalPaid,
-        outstandingAmount: Math.max(0, totalAmountINR - newTotalPaid),
+        outstandingAmount: roundedOutstanding,
         updatedAt: Timestamp.now(),
       });
     }
@@ -459,9 +462,10 @@ export async function createPaymentWithAllocationsAtomic(
       const totalAmountINR = invoiceData.baseAmount || invoiceData.totalAmount || 0;
       const previouslyPaid = invoiceData.amountPaid || 0;
       const newTotalPaid = previouslyPaid + allocation.allocatedAmount;
+      const roundedOutstanding = parseFloat(Math.max(0, totalAmountINR - newTotalPaid).toFixed(2));
 
       let newPaymentStatus: PaymentStatus;
-      if (newTotalPaid >= totalAmountINR) {
+      if (roundedOutstanding === 0 && totalAmountINR > 0) {
         newPaymentStatus = 'PAID';
       } else if (newTotalPaid > 0) {
         newPaymentStatus = 'PARTIALLY_PAID';
@@ -472,7 +476,7 @@ export async function createPaymentWithAllocationsAtomic(
       batch.update(invoiceRef, {
         paymentStatus: newPaymentStatus,
         amountPaid: newTotalPaid,
-        outstandingAmount: Math.max(0, totalAmountINR - newTotalPaid),
+        outstandingAmount: roundedOutstanding,
         updatedAt: Timestamp.now(),
       });
     });
@@ -622,9 +626,10 @@ export async function updatePaymentWithAllocationsAtomic(
       const totalAmountINR = invoiceData.baseAmount || invoiceData.totalAmount || 0;
       const previouslyPaid = invoiceData.amountPaid || 0;
       const newTotalPaid = Math.max(0, previouslyPaid + netChange);
+      const roundedOutstanding = parseFloat(Math.max(0, totalAmountINR - newTotalPaid).toFixed(2));
 
       let newPaymentStatus: PaymentStatus;
-      if (newTotalPaid >= totalAmountINR) {
+      if (roundedOutstanding === 0 && totalAmountINR > 0) {
         newPaymentStatus = 'PAID';
       } else if (newTotalPaid > 0) {
         newPaymentStatus = 'PARTIALLY_PAID';
@@ -636,7 +641,7 @@ export async function updatePaymentWithAllocationsAtomic(
       transaction.update(invoiceRef, {
         paymentStatus: newPaymentStatus,
         amountPaid: newTotalPaid,
-        outstandingAmount: Math.max(0, totalAmountINR - newTotalPaid),
+        outstandingAmount: roundedOutstanding,
         updatedAt: now,
       });
     }
@@ -707,10 +712,10 @@ export async function reconcilePaymentStatuses(
 
     const totalAmountINR = data.baseAmount || data.totalAmount || 0;
     const correctPaid = allocationMap.get(docSnap.id) ?? 0;
-    const correctOutstanding = Math.max(0, totalAmountINR - correctPaid);
+    const correctOutstanding = parseFloat(Math.max(0, totalAmountINR - correctPaid).toFixed(2));
 
     let correctStatus: PaymentStatus;
-    if (correctPaid >= totalAmountINR && totalAmountINR > 0) {
+    if (correctOutstanding === 0 && totalAmountINR > 0) {
       correctStatus = 'PAID';
     } else if (correctPaid > 0) {
       correctStatus = 'PARTIALLY_PAID';

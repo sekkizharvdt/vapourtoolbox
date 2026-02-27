@@ -230,7 +230,8 @@ export default function OverdueItemsPage() {
           // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
           const outstanding = data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
 
-          if (outstanding > 0) {
+          // Use >= 0.01 to exclude floating-point residues (e.g. 2.9e-11) left by payment arithmetic
+          if (outstanding >= 0.01) {
             overdue.push({
               id: doc.id,
               transactionNumber: data.transactionNumber || '',
@@ -279,7 +280,8 @@ export default function OverdueItemsPage() {
           // Use outstandingAmount (INR), fallback to baseAmount (INR) for forex, then totalAmount
           const outstanding = data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
 
-          if (outstanding > 0) {
+          // Use >= 0.01 to exclude floating-point residues (e.g. 2.9e-11) left by payment arithmetic
+          if (outstanding >= 0.01) {
             overdue.push({
               id: doc.id,
               transactionNumber: data.transactionNumber || '',
