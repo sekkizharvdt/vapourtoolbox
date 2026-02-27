@@ -423,16 +423,20 @@ export default function OfferComparisonPage() {
           <Divider sx={{ mb: 2 }} />
 
           {rfq?.status === 'COMPLETED' && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              This RFQ is completed. A Purchase Order has already been created from the selected
-              offer.
+            <Alert
+              severity={offers.some((o) => o.status === 'PO_CREATED') ? 'success' : 'info'}
+              sx={{ mb: 2 }}
+            >
+              {offers.some((o) => o.status === 'PO_CREATED')
+                ? 'A Purchase Order has been created from the selected offer.'
+                : 'An offer has been selected. Create a Purchase Order to proceed.'}
             </Alert>
           )}
 
           <Stack spacing={2}>
             {offers.map((offer: Offer) => {
               const isRfqCompleted = rfq?.status === 'COMPLETED';
-              const isPOCreated = offer.status === 'PO_CREATED' || isRfqCompleted;
+              const isPOCreated = offer.status === 'PO_CREATED';
 
               return (
                 <Stack
