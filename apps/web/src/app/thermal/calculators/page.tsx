@@ -79,6 +79,15 @@ const CATEGORIES: CalculatorCategory[] = [
         status: 'available',
         reference: 'MIT Correlations',
       },
+      {
+        title: 'NCG Properties Calculator',
+        description:
+          'Calculate thermophysical properties of NCG + water-vapour mixtures — density, enthalpy, Cp, viscosity, conductivity and partial pressures. Derives NCG load from seawater flow via Weiss (1970) dissolved-gas correlations.',
+        icon: <NCGIcon sx={{ fontSize: 40 }} />,
+        href: '/thermal/calculators/ncg-properties',
+        status: 'available',
+        reference: 'Weiss 1970 / Wilke',
+      },
     ],
   },
   {
@@ -230,15 +239,6 @@ const CATEGORIES: CalculatorCategory[] = [
     title: 'System Performance',
     description: 'Plant-level performance metrics and vacuum system design — coming soon.',
     calculators: [
-      {
-        title: 'NCG Properties Calculator',
-        description:
-          'Calculate thermophysical properties of NCG + water-vapour mixtures — density, enthalpy, Cp, viscosity, conductivity and partial pressures. Derives NCG load from seawater flow via Weiss (1970) dissolved-gas correlations.',
-        icon: <NCGIcon sx={{ fontSize: 40 }} />,
-        href: '/thermal/calculators/ncg-properties',
-        status: 'available',
-        reference: 'Weiss 1970 / Wilke',
-      },
       {
         title: 'Vacuum System Design',
         description:
