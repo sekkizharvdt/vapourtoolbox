@@ -20,6 +20,7 @@ const MODE_LABELS: Record<NCGInputMode, string> = {
   seawater: 'Seawater Feed',
   dry_ncg: 'Dry NCG Flow',
   wet_ncg: 'Wet NCG (Total) Flow',
+  split_flows: 'NCG + Vapour Split (pressure derived)',
 };
 
 // ── Style helpers ──────────────────────────────────────────────────────────────
@@ -82,11 +83,17 @@ export interface NCGReportInputs {
   temperatureC: string;
   pressureBar: string;
   useSatPressure: boolean;
+  // Seawater mode
   seawaterFlowM3h?: string;
   seawaterTempC?: string;
   salinityGkg?: string;
+  // Dry NCG mode
   dryNcgFlowKgH?: string;
+  // Wet NCG mode
   wetNcgFlowKgH?: string;
+  // Split flows mode
+  splitNcgFlowKgH?: string;
+  splitVapourFlowKgH?: string;
 }
 
 export async function exportNCGToExcel(
@@ -216,13 +223,17 @@ export async function exportNCGToExcel(
   r++;
   dataRow(ws1, r++, 'Input Mode', MODE_LABELS[inputs.mode], '');
   dataRow(ws1, r++, 'Temperature', inputs.temperatureC, '°C');
-  dataRow(
-    ws1,
-    r++,
-    inputs.useSatPressure ? 'NCG Partial Pressure (above P_sat)' : 'Total System Pressure',
-    inputs.pressureBar,
-    'bar'
-  );
+  if (inputs.mode === 'split_flows') {
+    dataRow(ws1, r++, 'Total System Pressure', 'Derived from flow rates', 'bar');
+  } else {
+    dataRow(
+      ws1,
+      r++,
+      inputs.useSatPressure ? 'NCG Partial Pressure (above P_sat)' : 'Total System Pressure',
+      inputs.pressureBar,
+      'bar'
+    );
+  }
   if (inputs.mode === 'seawater') {
     dataRow(ws1, r++, 'Seawater Flow', inputs.seawaterFlowM3h ?? '', 'm³/h');
     dataRow(ws1, r++, 'Seawater Inlet Temperature', inputs.seawaterTempC ?? '', '°C');
@@ -233,6 +244,10 @@ export async function exportNCGToExcel(
   }
   if (inputs.mode === 'wet_ncg') {
     dataRow(ws1, r++, 'Total (Wet) Gas Flow', inputs.wetNcgFlowKgH ?? '', 'kg/h');
+  }
+  if (inputs.mode === 'split_flows') {
+    dataRow(ws1, r++, 'Dry NCG Flow (input)', inputs.splitNcgFlowKgH ?? '', 'kg/h');
+    dataRow(ws1, r++, 'Water Vapour Flow (input)', inputs.splitVapourFlowKgH ?? '', 'kg/h');
   }
 
   // ── Sheet 2: Detailed ────────────────────────────────────────────────────────

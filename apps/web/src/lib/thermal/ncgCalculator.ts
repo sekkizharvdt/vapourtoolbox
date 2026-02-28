@@ -48,7 +48,7 @@ const WEISS_N2_B = [-0.049781, 0.025018, -0.0034861] as const;
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-export type NCGInputMode = 'seawater' | 'dry_ncg' | 'wet_ncg';
+export type NCGInputMode = 'seawater' | 'dry_ncg' | 'wet_ncg' | 'split_flows';
 
 export interface NCGInput {
   mode: NCGInputMode;
@@ -59,15 +59,17 @@ export interface NCGInput {
   /**
    * When useSatPressure = false: total system pressure (bar abs).
    * When useSatPressure = true: NCG-only partial pressure above P_sat(T) (bar).
+   * Not required for 'split_flows' mode (pressure is derived from flow rates).
    */
-  pressureBar: number;
+  pressureBar?: number;
 
   /**
    * When true, P_total = P_sat(T) + pressureBar, where pressureBar is the NCG
    * partial pressure. Typical for vacuum systems where total pressure is only
    * slightly above the saturation pressure of the vapour.
+   * Not required for 'split_flows' mode.
    */
-  useSatPressure: boolean;
+  useSatPressure?: boolean;
 
   // — Seawater mode inputs ——————————————————————————————————————
   /** Seawater volumetric feed flow (m³/h) */
@@ -89,6 +91,14 @@ export interface NCGInput {
   // — Wet NCG mode ———————————————————————————————————————————————
   /** Total (wet) NCG+vapour mass flow at the stated T and P (kg/h). */
   wetNcgFlowKgH?: number;
+
+  // — Split flows mode ───────────────────────────────────────────
+  /**
+   * Water vapour mass flow (kg/h) — used together with dryNcgFlowKgH in
+   * 'split_flows' mode to derive total pressure via Dalton's law:
+   *   P_total = P_sat(T) / y_H₂O
+   */
+  vapourFlowKgH?: number;
 }
 
 export interface NCGSeawaterInfo {
@@ -307,39 +317,71 @@ export function dissolvedGasContent(tempC: number, salinityGkg: number = 35): NC
  * @throws When conditions are physically invalid (e.g. P < P_sat, T out of range).
  */
 export function calculateNCGProperties(input: NCGInput): NCGResult {
-  const { temperatureC, pressureBar, useSatPressure, mode } = input;
+  const { temperatureC, mode } = input;
 
   if (temperatureC < 0 || temperatureC > 350) {
     throw new Error('Temperature must be between 0 and 350 °C.');
-  }
-  if (pressureBar <= 0) {
-    throw new Error('Pressure must be positive.');
   }
 
   const TK = temperatureC + 273.15;
   const satPressureBar = getSaturationPressure(temperatureC);
 
-  // ── Total system pressure ────────────────────────────────────────────────────
-  const totalPressureBar = useSatPressure
-    ? satPressureBar + pressureBar // pressureBar is the NCG partial pressure
-    : pressureBar;
+  // ── Resolve total pressure and mole fractions ────────────────────────────────
+  // Two paths: split_flows derives pressure from the known flow rates;
+  // all other modes derive composition from the specified pressure.
+  let totalPressureBar: number;
+  let yWater: number;
+  let yNCG: number;
+  let waterVapourPP: number;
+  let ncgPP: number;
 
-  // ── Partial pressures ────────────────────────────────────────────────────────
-  // Water vapour fills to its saturation pressure; NCG makes up the rest.
-  const waterVapourPP = Math.min(satPressureBar, totalPressureBar);
-  const ncgPP = Math.max(0, totalPressureBar - waterVapourPP);
+  if (mode === 'split_flows') {
+    // Both mass flows are known — derive mole fractions then pressure via Dalton's law.
+    const mNCG = input.dryNcgFlowKgH ?? 0;
+    const mVapour = input.vapourFlowKgH;
+    if (mVapour === undefined || mVapour <= 0) {
+      throw new Error('Water vapour flow must be positive in NCG + Vapour split mode.');
+    }
+    if (mNCG < 0) {
+      throw new Error('NCG flow rate cannot be negative.');
+    }
+    // Proportional molar flows (units cancel in the ratio)
+    const nNCG = mNCG / M_AIR;
+    const nH2O = mVapour / M_H2O;
+    const nTotal = nNCG + nH2O;
+    yWater = nH2O / nTotal;
+    yNCG = nNCG / nTotal;
+    // P_total = P_sat / y_H2O  (from Dalton's law: y_H2O = P_sat / P_total)
+    totalPressureBar = satPressureBar / yWater;
+    waterVapourPP = satPressureBar;
+    ncgPP = totalPressureBar - satPressureBar;
+  } else {
+    // Pressure-specified modes: seawater, dry_ncg, wet_ncg
+    const { pressureBar, useSatPressure } = input;
+    if (pressureBar === undefined || useSatPressure === undefined) {
+      throw new Error('pressureBar and useSatPressure are required for this input mode.');
+    }
+    if (pressureBar <= 0) {
+      throw new Error('Pressure must be positive.');
+    }
+    totalPressureBar = useSatPressure
+      ? satPressureBar + pressureBar // pressureBar is the NCG partial pressure
+      : pressureBar;
 
-  if (totalPressureBar < satPressureBar && !useSatPressure) {
-    throw new Error(
-      `Total pressure (${totalPressureBar.toFixed(4)} bar) is below the saturation ` +
-        `pressure at ${temperatureC} °C (${satPressureBar.toFixed(4)} bar). ` +
-        `Either raise the pressure or lower the temperature.`
-    );
+    // Water vapour fills to its saturation pressure; NCG makes up the rest.
+    waterVapourPP = Math.min(satPressureBar, totalPressureBar);
+    ncgPP = Math.max(0, totalPressureBar - waterVapourPP);
+
+    if (totalPressureBar < satPressureBar && !useSatPressure) {
+      throw new Error(
+        `Total pressure (${totalPressureBar.toFixed(4)} bar) is below the saturation ` +
+          `pressure at ${temperatureC} °C (${satPressureBar.toFixed(4)} bar). ` +
+          `Either raise the pressure or lower the temperature.`
+      );
+    }
+    yWater = waterVapourPP / totalPressureBar;
+    yNCG = ncgPP / totalPressureBar;
   }
-
-  // ── Mole fractions (from Dalton's law) ──────────────────────────────────────
-  const yWater = waterVapourPP / totalPressureBar;
-  const yNCG = ncgPP / totalPressureBar;
 
   // ── Mixture molar mass ───────────────────────────────────────────────────────
   const mixMolarMass = yWater * M_H2O + yNCG * M_AIR; // g/mol
@@ -420,6 +462,12 @@ export function calculateNCGProperties(input: NCGInput): NCGResult {
     totalFlowKgH = input.wetNcgFlowKgH;
     dryNcgFlowKgH = totalFlowKgH * xNCG;
     waterVapourFlowKgH = totalFlowKgH * xWater;
+    volumetricFlowM3h = totalFlowKgH * specificVolume;
+  } else if (mode === 'split_flows') {
+    // Both flows are user-supplied — echo them directly and derive totals.
+    dryNcgFlowKgH = input.dryNcgFlowKgH ?? 0;
+    waterVapourFlowKgH = input.vapourFlowKgH!;
+    totalFlowKgH = dryNcgFlowKgH + waterVapourFlowKgH;
     volumetricFlowM3h = totalFlowKgH * specificVolume;
   }
 

@@ -6,10 +6,11 @@
  * Calculates thermophysical properties of NCG + water-vapour mixtures
  * for thermal desalination vacuum system design.
  *
- * Three input modes:
+ * Four input modes:
  *   1. Seawater feed → dissolved gas content via Weiss (1970)
  *   2. Dry NCG flow rate entered directly
  *   3. Total (wet) gas flow rate entered directly
+ *   4. Split flows: both NCG and water vapour known → pressure derived via Dalton's law
  */
 
 import { useState, useMemo } from 'react';
@@ -149,6 +150,10 @@ export default function NCGPropertiesClient() {
   // Wet NCG mode
   const [wetNcgFlow, setWetNcgFlow] = useState('50');
 
+  // Split flows mode
+  const [splitNcgFlow, setSplitNcgFlow] = useState('10');
+  const [splitVapourFlow, setSplitVapourFlow] = useState('80');
+
   const [error, setError] = useState<string | null>(null);
 
   // ── Dialog state ─────────────────────────────────────────────────────────────
@@ -161,16 +166,25 @@ export default function NCGPropertiesClient() {
     setError(null);
     try {
       const T = parseFloat(temperatureC);
+      if (isNaN(T)) return null;
+
+      // split_flows derives its own pressure — no pressureBar needed
+      if (mode === 'split_flows') {
+        const mNCG = parseFloat(splitNcgFlow);
+        const mVapour = parseFloat(splitVapourFlow);
+        if (isNaN(mNCG) || isNaN(mVapour)) return null;
+        return calculateNCGProperties({
+          mode,
+          temperatureC: T,
+          dryNcgFlowKgH: mNCG,
+          vapourFlowKgH: mVapour,
+        });
+      }
+
       const P = parseFloat(pressureBar);
+      if (isNaN(P)) return null;
 
-      if (isNaN(T) || isNaN(P)) return null;
-
-      const baseInput = {
-        mode,
-        temperatureC: T,
-        pressureBar: P,
-        useSatPressure,
-      };
+      const baseInput = { mode, temperatureC: T, pressureBar: P, useSatPressure };
 
       if (mode === 'seawater') {
         const Q = parseFloat(seawaterFlow);
@@ -212,6 +226,8 @@ export default function NCGPropertiesClient() {
     salinity,
     dryNcgFlow,
     wetNcgFlow,
+    splitNcgFlow,
+    splitVapourFlow,
   ]);
 
   // ── Derived: inputs bundle for save/report ───────────────────────────────────
@@ -227,6 +243,10 @@ export default function NCGPropertiesClient() {
     }),
     ...(mode === 'dry_ncg' && { dryNcgFlowKgH: dryNcgFlow }),
     ...(mode === 'wet_ncg' && { wetNcgFlowKgH: wetNcgFlow }),
+    ...(mode === 'split_flows' && {
+      splitNcgFlowKgH: splitNcgFlow,
+      splitVapourFlowKgH: splitVapourFlow,
+    }),
   };
 
   // ── Excel export handler ─────────────────────────────────────────────────────
@@ -254,6 +274,8 @@ export default function NCGPropertiesClient() {
     if (saved.salinity !== undefined) setSalinity(String(saved.salinity));
     if (saved.dryNcgFlow !== undefined) setDryNcgFlow(String(saved.dryNcgFlow));
     if (saved.wetNcgFlow !== undefined) setWetNcgFlow(String(saved.wetNcgFlow));
+    if (saved.splitNcgFlow !== undefined) setSplitNcgFlow(String(saved.splitNcgFlow));
+    if (saved.splitVapourFlow !== undefined) setSplitVapourFlow(String(saved.splitVapourFlow));
   };
 
   // ── Inputs bundle for save ───────────────────────────────────────────────────
@@ -267,6 +289,8 @@ export default function NCGPropertiesClient() {
     salinity,
     dryNcgFlow,
     wetNcgFlow,
+    splitNcgFlow,
+    splitVapourFlow,
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -342,6 +366,7 @@ export default function NCGPropertiesClient() {
               <ToggleButton value="seawater">Seawater Feed</ToggleButton>
               <ToggleButton value="dry_ncg">Dry NCG</ToggleButton>
               <ToggleButton value="wet_ncg">Wet NCG</ToggleButton>
+              <ToggleButton value="split_flows">NCG + Vapour</ToggleButton>
             </ToggleButtonGroup>
 
             {/* ── Mixture conditions (common) ────────────────────────────── */}
@@ -361,38 +386,40 @@ export default function NCGPropertiesClient() {
                 }}
               />
 
-              <Box>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={useSatPressure}
-                      onChange={(e) => setUseSatPressure(e.target.checked)}
-                      size="small"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2">
-                      Set pressure as NCG partial pressure above P_sat(T)
-                    </Typography>
-                  }
-                />
-                <TextField
-                  label={useSatPressure ? 'NCG Partial Pressure' : 'Total System Pressure (abs)'}
-                  value={pressureBar}
-                  onChange={(e) => setPressureBar(e.target.value)}
-                  size="small"
-                  fullWidth
-                  helperText={
-                    useSatPressure
-                      ? 'P_total = P_sat(T) + this value'
-                      : 'Must exceed P_sat at the specified temperature'
-                  }
-                  sx={{ mt: 1 }}
-                  slotProps={{
-                    input: { endAdornment: <Typography variant="caption">bar</Typography> },
-                  }}
-                />
-              </Box>
+              {mode !== 'split_flows' && (
+                <Box>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={useSatPressure}
+                        onChange={(e) => setUseSatPressure(e.target.checked)}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2">
+                        Set pressure as NCG partial pressure above P_sat(T)
+                      </Typography>
+                    }
+                  />
+                  <TextField
+                    label={useSatPressure ? 'NCG Partial Pressure' : 'Total System Pressure (abs)'}
+                    value={pressureBar}
+                    onChange={(e) => setPressureBar(e.target.value)}
+                    size="small"
+                    fullWidth
+                    helperText={
+                      useSatPressure
+                        ? 'P_total = P_sat(T) + this value'
+                        : 'Must exceed P_sat at the specified temperature'
+                    }
+                    sx={{ mt: 1 }}
+                    slotProps={{
+                      input: { endAdornment: <Typography variant="caption">bar</Typography> },
+                    }}
+                  />
+                </Box>
+              )}
             </Stack>
 
             <Divider sx={{ mb: 2.5 }} />
@@ -481,6 +508,41 @@ export default function NCGPropertiesClient() {
                 />
               </>
             )}
+
+            {mode === 'split_flows' && (
+              <>
+                <Typography variant="subtitle2" gutterBottom>
+                  Known Flow Rates
+                </Typography>
+                <Stack spacing={2}>
+                  <TextField
+                    label="Dry NCG Mass Flow"
+                    value={splitNcgFlow}
+                    onChange={(e) => setSplitNcgFlow(e.target.value)}
+                    size="small"
+                    fullWidth
+                    helperText="Gas only, no water vapour included."
+                    slotProps={{
+                      input: { endAdornment: <Typography variant="caption">kg/h</Typography> },
+                    }}
+                  />
+                  <TextField
+                    label="Water Vapour Mass Flow"
+                    value={splitVapourFlow}
+                    onChange={(e) => setSplitVapourFlow(e.target.value)}
+                    size="small"
+                    fullWidth
+                    helperText="Must be positive. Total pressure is derived via Dalton's law."
+                    slotProps={{
+                      input: { endAdornment: <Typography variant="caption">kg/h</Typography> },
+                    }}
+                  />
+                </Stack>
+                <Alert severity="info" sx={{ mt: 2 }} icon={<InfoIcon fontSize="small" />}>
+                  Both flows known → system pressure is derived: P_total = P_sat(T) / y_H₂O
+                </Alert>
+              </>
+            )}
           </Paper>
         </Grid>
 
@@ -517,7 +579,7 @@ export default function NCGPropertiesClient() {
                   </Grid>
                   <Grid size={{ xs: 6, sm: 3 }}>
                     <MetricCard
-                      label="Total Pressure"
+                      label={mode === 'split_flows' ? 'Total Pressure (derived)' : 'Total Pressure'}
                       value={fmt(result.totalPressureBar, 4)}
                       unit="bar abs"
                       color="#fce4ec"

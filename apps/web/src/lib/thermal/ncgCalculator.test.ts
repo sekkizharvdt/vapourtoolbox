@@ -595,6 +595,130 @@ describe('calculateNCGProperties — error handling', () => {
   });
 });
 
+// ── Flow breakdown — split flows mode ─────────────────────────────────────────
+
+describe('calculateNCGProperties — split flows mode', () => {
+  // At 40 °C, P_sat = 0.073844 bar (mocked).
+  // With 10 kg/h dry NCG and 80 kg/h water vapour:
+  //   n_NCG = 10/28.97, n_H2O = 80/18.015
+  //   y_H2O = n_H2O / (n_NCG + n_H2O)
+  //   P_total = P_sat / y_H2O
+  const M_NCG = 10;
+  const M_VAP = 80;
+  const nNCG = M_NCG / M_AIR;
+  const nH2O = M_VAP / M_H2O;
+  const yH2O_expected = nH2O / (nNCG + nH2O);
+  const P_TOTAL_DERIVED = P_SAT / yH2O_expected;
+
+  function splitResult() {
+    return calculateNCGProperties({
+      mode: 'split_flows',
+      temperatureC: BASE_T,
+      dryNcgFlowKgH: M_NCG,
+      vapourFlowKgH: M_VAP,
+    });
+  }
+
+  it('derives total pressure from flow rates via Dalton\u2019s law', () => {
+    const r = splitResult();
+    expect(r.totalPressureBar).toBeCloseTo(P_TOTAL_DERIVED, 5);
+  });
+
+  it('water vapour partial pressure equals P_sat', () => {
+    const r = splitResult();
+    expect(r.waterVapourPartialPressureBar).toBeCloseTo(P_SAT, 5);
+  });
+
+  it('NCG partial pressure = P_total - P_sat', () => {
+    const r = splitResult();
+    expect(r.ncgPartialPressureBar).toBeCloseTo(P_TOTAL_DERIVED - P_SAT, 5);
+  });
+
+  it('mole fractions match the ratio of molar flows', () => {
+    const r = splitResult();
+    expect(r.waterVapourMoleFrac).toBeCloseTo(yH2O_expected, 5);
+    expect(r.ncgMoleFrac).toBeCloseTo(1 - yH2O_expected, 5);
+  });
+
+  it('flow fields echo the input values', () => {
+    const r = splitResult();
+    expect(r.dryNcgFlowKgH).toBeCloseTo(M_NCG, 6);
+    expect(r.waterVapourFlowKgH).toBeCloseTo(M_VAP, 6);
+    expect(r.totalFlowKgH).toBeCloseTo(M_NCG + M_VAP, 6);
+  });
+
+  it('volumetric flow = total mass flow × specific volume', () => {
+    const r = splitResult();
+    expect(r.volumetricFlowM3h).toBeCloseTo((r.totalFlowKgH ?? 0) * r.specificVolume, 4);
+  });
+
+  it('mixture properties are consistent with dry_ncg mode at same composition', () => {
+    // If we enter the same dry NCG flow and let dry_ncg mode compute vapour from T & P,
+    // then feed that vapour back as split_flows, the mixture props should agree.
+    const rDry = calculateNCGProperties({
+      mode: 'dry_ncg',
+      temperatureC: BASE_T,
+      pressureBar: NCG_PP,
+      useSatPressure: true,
+      dryNcgFlowKgH: M_NCG,
+    });
+    const rSplit = calculateNCGProperties({
+      mode: 'split_flows',
+      temperatureC: BASE_T,
+      dryNcgFlowKgH: rDry.dryNcgFlowKgH!,
+      vapourFlowKgH: rDry.waterVapourFlowKgH!,
+    });
+    expect(rSplit.totalPressureBar).toBeCloseTo(rDry.totalPressureBar, 4);
+    expect(rSplit.density).toBeCloseTo(rDry.density, 4);
+    expect(rSplit.cpMix).toBeCloseTo(rDry.cpMix, 6);
+    expect(rSplit.dynamicViscosityPas).toBeCloseTo(rDry.dynamicViscosityPas, 9);
+  });
+
+  it('throws when water vapour flow is zero', () => {
+    expect(() =>
+      calculateNCGProperties({
+        mode: 'split_flows',
+        temperatureC: BASE_T,
+        dryNcgFlowKgH: 10,
+        vapourFlowKgH: 0,
+      })
+    ).toThrow(/water vapour flow/i);
+  });
+
+  it('throws when water vapour flow is negative', () => {
+    expect(() =>
+      calculateNCGProperties({
+        mode: 'split_flows',
+        temperatureC: BASE_T,
+        dryNcgFlowKgH: 10,
+        vapourFlowKgH: -5,
+      })
+    ).toThrow(/water vapour flow/i);
+  });
+
+  it('throws when NCG flow is negative', () => {
+    expect(() =>
+      calculateNCGProperties({
+        mode: 'split_flows',
+        temperatureC: BASE_T,
+        dryNcgFlowKgH: -1,
+        vapourFlowKgH: 50,
+      })
+    ).toThrow(/NCG flow/i);
+  });
+
+  it('zero NCG flow is valid (pure steam) — P_total equals P_sat', () => {
+    const r = calculateNCGProperties({
+      mode: 'split_flows',
+      temperatureC: BASE_T,
+      dryNcgFlowKgH: 0,
+      vapourFlowKgH: 50,
+    });
+    expect(r.ncgMoleFrac).toBeCloseTo(0, 6);
+    expect(r.totalPressureBar).toBeCloseTo(P_SAT, 5);
+  });
+});
+
 // ── Consistency checks across modes ──────────────────────────────────────────
 
 describe('calculateNCGProperties — mixture property consistency', () => {
@@ -614,10 +738,18 @@ describe('calculateNCGProperties — mixture property consistency', () => {
       seawaterTempC: 25,
       salinityGkg: 35,
     });
+    // split_flows at the same composition (use flows from rDry to reconstruct T & P)
+    const rSplit = calculateNCGProperties({
+      mode: 'split_flows',
+      temperatureC: BASE_T,
+      dryNcgFlowKgH: rDry.dryNcgFlowKgH!,
+      vapourFlowKgH: rDry.waterVapourFlowKgH!,
+    });
 
     // Mixture properties should be identical regardless of flow input mode
     expect(rDry.density).toBeCloseTo(rWet.density, 6);
     expect(rDry.density).toBeCloseTo(rSW.density, 6);
+    expect(rDry.density).toBeCloseTo(rSplit.density, 4);
     expect(rDry.cpMix).toBeCloseTo(rWet.cpMix, 6);
     expect(rDry.gammaMix).toBeCloseTo(rSW.gammaMix, 6);
     expect(rDry.dynamicViscosityPas).toBeCloseTo(rWet.dynamicViscosityPas, 9);

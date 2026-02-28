@@ -167,6 +167,9 @@ export interface NCGReportInputs {
   dryNcgFlowKgH?: string;
   // Wet NCG mode
   wetNcgFlowKgH?: string;
+  // Split flows mode
+  splitNcgFlowKgH?: string;
+  splitVapourFlowKgH?: string;
 }
 
 interface NCGReportPDFProps {
@@ -183,6 +186,7 @@ const MODE_LABELS: Record<NCGInputMode, string> = {
   seawater: 'Seawater Feed',
   dry_ncg: 'Dry NCG Flow',
   wet_ncg: 'Wet NCG Flow',
+  split_flows: 'NCG + Vapour Split',
 };
 
 export const NCGReportPDF = ({
@@ -206,9 +210,12 @@ export const NCGReportPDF = ({
     year: 'numeric',
   });
 
-  const pressureLabel = inputs.useSatPressure
-    ? `${inputs.pressureBar} bar (NCG partial pressure above P_sat)`
-    : `${inputs.pressureBar} bar abs (total)`;
+  const pressureLabel =
+    inputs.mode === 'split_flows'
+      ? 'Derived from flow rates (Dalton\u2019s law)'
+      : inputs.useSatPressure
+        ? `${inputs.pressureBar} bar (NCG partial pressure above P_sat)`
+        : `${inputs.pressureBar} bar abs (total)`;
 
   return (
     <Document>
@@ -312,6 +319,22 @@ export const NCGReportPDF = ({
                     <Text style={styles.col50}>Total (Wet) Gas Flow</Text>
                     <Text style={[styles.col50, styles.colRight]}>{inputs.wetNcgFlowKgH} kg/h</Text>
                   </View>
+                )}
+                {inputs.mode === 'split_flows' && (
+                  <>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.col50}>Dry NCG Flow (input)</Text>
+                      <Text style={[styles.col50, styles.colRight]}>
+                        {inputs.splitNcgFlowKgH} kg/h
+                      </Text>
+                    </View>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.col50}>Water Vapour Flow (input)</Text>
+                      <Text style={[styles.col50, styles.colRight]}>
+                        {inputs.splitVapourFlowKgH} kg/h
+                      </Text>
+                    </View>
+                  </>
                 )}
               </View>
             </View>
