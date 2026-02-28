@@ -7,6 +7,16 @@
 // Flash Chamber Calculator
 export { calculateFlashChamber, validateFlashChamberInput } from './flashChamberCalculator';
 
+// NCG Properties Calculator
+export {
+  calculateNCGProperties,
+  dissolvedGasContent,
+  type NCGInputMode,
+  type NCGInput,
+  type NCGResult,
+  type NCGSeawaterInfo,
+} from './ncgCalculator';
+
 // Pipe Service
 export {
   getSchedule40Pipes,

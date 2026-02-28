@@ -456,7 +456,8 @@ export interface SavedCalculation {
     | 'FLASH_CHAMBER'
     | 'DESUPERHEATING'
     | 'TVC'
-    | 'HEAT_TRANSFER';
+    | 'HEAT_TRANSFER'
+    | 'NCG_PROPERTIES';
   name: string;
   inputs: Record<string, unknown>;
   createdAt: Date;

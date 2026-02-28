@@ -231,12 +231,13 @@ const CATEGORIES: CalculatorCategory[] = [
     description: 'Plant-level performance metrics and vacuum system design — coming soon.',
     calculators: [
       {
-        title: 'NCG Quantity Calculator',
+        title: 'NCG Properties Calculator',
         description:
-          'Calculate non-condensable gas (O₂, CO₂, N₂) release rates from seawater per effect, for vacuum system sizing.',
+          'Calculate thermophysical properties of NCG + water-vapour mixtures — density, enthalpy, Cp, viscosity, conductivity and partial pressures. Derives NCG load from seawater flow via Weiss (1970) dissolved-gas correlations.',
         icon: <NCGIcon sx={{ fontSize: 40 }} />,
-        status: 'coming_soon',
-        reference: "Henry's Law",
+        href: '/thermal/calculators/ncg-properties',
+        status: 'available',
+        reference: 'Weiss 1970 / Wilke',
       },
       {
         title: 'Vacuum System Design',
