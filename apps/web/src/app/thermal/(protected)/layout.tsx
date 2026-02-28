@@ -3,7 +3,7 @@
 import { ModuleLayout } from '@/components/layouts/ModuleLayout';
 import { canViewThermalDesal } from '@vapour/constants';
 
-export default function ThermalLayout({ children }: { children: React.ReactNode }) {
+export default function ThermalDesalLayout({ children }: { children: React.ReactNode }) {
   return (
     <ModuleLayout
       permissionCheck2={canViewThermalDesal}
