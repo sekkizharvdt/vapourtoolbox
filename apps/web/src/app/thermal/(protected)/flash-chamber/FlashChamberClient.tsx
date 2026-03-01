@@ -19,7 +19,12 @@ import {
   Button,
   Stack,
 } from '@mui/material';
-import { Refresh as RefreshIcon, Description as DatasheetIcon } from '@mui/icons-material';
+import {
+  Refresh as RefreshIcon,
+  Description as DatasheetIcon,
+  Save as SaveIcon,
+  FolderOpen as LoadIcon,
+} from '@mui/icons-material';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 import {
@@ -30,6 +35,8 @@ import {
   NPSHaCalculation,
   GenerateDatasheetDialog,
 } from './components';
+import { SaveCalculationDialog } from '@/app/thermal/calculators/components/SaveCalculationDialog';
+import { LoadCalculationDialog } from '@/app/thermal/calculators/components/LoadCalculationDialog';
 
 import { calculateFlashChamber, validateFlashChamberInput } from '@/lib/thermal';
 import type { FlashChamberInput, FlashChamberResult } from '@vapour/types';
@@ -45,6 +52,8 @@ export default function FlashChamberClient() {
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [datasheetDialogOpen, setDatasheetDialogOpen] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [loadDialogOpen, setLoadDialogOpen] = useState(false);
 
   // Initialize from URL parameters (only on mount)
   useEffect(() => {
@@ -128,7 +137,7 @@ export default function FlashChamberClient() {
 
       {/* Quick Actions */}
       <Box sx={{ mb: 3 }}>
-        <Stack direction="row" spacing={2}>
+        <Stack direction="row" spacing={2} flexWrap="wrap">
           <Button
             startIcon={<RefreshIcon />}
             onClick={handleReset}
@@ -136,6 +145,20 @@ export default function FlashChamberClient() {
             color="secondary"
           >
             Reset to Defaults
+          </Button>
+          <Button
+            startIcon={<SaveIcon />}
+            onClick={() => setSaveDialogOpen(true)}
+            variant="outlined"
+          >
+            Save
+          </Button>
+          <Button
+            startIcon={<LoadIcon />}
+            onClick={() => setLoadDialogOpen(true)}
+            variant="outlined"
+          >
+            Load
           </Button>
           <Button
             startIcon={<DatasheetIcon />}
@@ -249,6 +272,27 @@ export default function FlashChamberClient() {
           result={result}
         />
       )}
+
+      {/* Save Calculation Dialog */}
+      <SaveCalculationDialog
+        open={saveDialogOpen}
+        onClose={() => setSaveDialogOpen(false)}
+        inputs={inputs as unknown as Record<string, unknown>}
+        calculatorType="FLASH_CHAMBER"
+      />
+
+      {/* Load Calculation Dialog */}
+      <LoadCalculationDialog
+        open={loadDialogOpen}
+        onClose={() => setLoadDialogOpen(false)}
+        calculatorType="FLASH_CHAMBER"
+        onLoad={(loaded) => {
+          setInputs({
+            ...DEFAULT_FLASH_CHAMBER_INPUT,
+            ...(loaded as unknown as FlashChamberInput),
+          });
+        }}
+      />
     </Container>
   );
 }

@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import type { FlashChamberResult } from '@vapour/types';
 
 // Styles for the datasheet
@@ -19,13 +19,23 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     paddingBottom: 10,
     borderBottom: '2pt solid #1976d2',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 50,
+    height: 50,
+    marginRight: 12,
+  },
+  headerText: {
+    flex: 1,
   },
   title: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#1976d2',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 10,
@@ -43,6 +53,19 @@ const styles = StyleSheet.create({
   headerLabel: {
     fontWeight: 'bold',
     marginRight: 5,
+  },
+  primaryResult: {
+    backgroundColor: '#e3f2fd',
+    padding: 8,
+    marginBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  primaryValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1976d2',
   },
   section: {
     marginTop: 12,
@@ -133,6 +156,7 @@ interface FlashChamberDatasheetProps {
   revision?: string;
   projectName?: string;
   notes?: string;
+  logoDataUri?: string;
 }
 
 export const FlashChamberDatasheet = ({
@@ -141,6 +165,7 @@ export const FlashChamberDatasheet = ({
   revision = '0',
   projectName,
   notes,
+  logoDataUri,
 }: FlashChamberDatasheetProps) => {
   const { inputs, heatMassBalance, chamberSizing, nozzles, npsha, elevations, warnings } = result;
 
@@ -164,22 +189,49 @@ export const FlashChamberDatasheet = ({
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>FLASH EVAPORATION CHAMBER</Text>
-          <Text style={styles.subtitle}>PROCESS DATASHEET</Text>
-          {projectName && <Text style={styles.subtitle}>{projectName}</Text>}
-          <View style={styles.headerRow}>
-            <View style={styles.headerItem}>
-              <Text style={styles.headerLabel}>Doc No:</Text>
-              <Text>{documentNumber}</Text>
+          {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop */}
+          {logoDataUri && <Image src={logoDataUri} style={styles.logo} />}
+          <View style={styles.headerText}>
+            <Text style={styles.title}>FLASH EVAPORATION CHAMBER</Text>
+            <Text style={styles.subtitle}>PROCESS DATASHEET</Text>
+            {projectName && <Text style={styles.subtitle}>{projectName}</Text>}
+            <View style={styles.headerRow}>
+              <View style={styles.headerItem}>
+                <Text style={styles.headerLabel}>Doc No:</Text>
+                <Text>{documentNumber}</Text>
+              </View>
+              <View style={styles.headerItem}>
+                <Text style={styles.headerLabel}>Rev:</Text>
+                <Text>{revision}</Text>
+              </View>
+              <View style={styles.headerItem}>
+                <Text style={styles.headerLabel}>Date:</Text>
+                <Text>{today}</Text>
+              </View>
             </View>
-            <View style={styles.headerItem}>
-              <Text style={styles.headerLabel}>Rev:</Text>
-              <Text>{revision}</Text>
-            </View>
-            <View style={styles.headerItem}>
-              <Text style={styles.headerLabel}>Date:</Text>
-              <Text>{today}</Text>
-            </View>
+          </View>
+          {/* Balancing spacer so title centres when logo is present */}
+          {logoDataUri && <View style={{ width: 50, marginLeft: 12 }} />}
+        </View>
+
+        {/* Primary Result Banner */}
+        <View style={styles.primaryResult}>
+          <View>
+            <Text style={{ fontSize: 8, color: '#666' }}>Chamber Diameter</Text>
+            <Text style={styles.primaryValue}>{formatNumber(chamberSizing.diameter, 0)} mm</Text>
+          </View>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{ fontSize: 8, color: '#666' }}>Vapor Production</Text>
+            <Text style={styles.primaryValue}>
+              {formatNumber(heatMassBalance.vapor.flowRate, 2)} ton/hr
+            </Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={{ fontSize: 8, color: '#666' }}>Saturation Temp / Operating Pressure</Text>
+            <Text style={{ fontSize: 11, fontWeight: 'bold' }}>
+              {formatNumber(heatMassBalance.vapor.temperature, 1)} °C /{' '}
+              {formatNumber(inputs.operatingPressure, 0)} mbar abs
+            </Text>
           </View>
         </View>
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import {
   FormControl,
   InputLabel,
@@ -9,14 +10,19 @@ import {
   InputAdornment,
   Divider,
   Typography,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import type {
   FlashChamberInput,
   FlashChamberInputMode,
   FlashChamberWaterType,
+  FlashingInputMode,
   FlowRateUnit,
 } from '@vapour/types';
 import { FLASH_CHAMBER_LIMITS, FLOW_RATE_UNIT_LABELS } from '@vapour/types';
+import { getSaturationPressure } from '@vapour/constants';
+import { calculateMaxVaporVelocity } from './helpers';
 
 interface ProcessInputsProps {
   inputs: FlashChamberInput;
@@ -24,6 +30,8 @@ interface ProcessInputsProps {
   onModeChange: (mode: FlashChamberInputMode) => void;
   onFlowRateUnitChange: (unit: FlowRateUnit) => void;
   onChange: (field: keyof FlashChamberInput, value: number | string | boolean) => void;
+  onFlashingInputModeChange: (mode: FlashingInputMode) => void;
+  onFlashingTemperatureChange: (tempC: number) => void;
 }
 
 export function ProcessInputs({
@@ -32,8 +40,24 @@ export function ProcessInputs({
   onModeChange,
   onFlowRateUnitChange,
   onChange,
+  onFlashingInputModeChange,
+  onFlashingTemperatureChange,
 }: ProcessInputsProps) {
   const flowRateUnitLabel = FLOW_RATE_UNIT_LABELS[inputs.flowRateUnit];
+  const flashingMode = inputs.flashingInputMode ?? 'PRESSURE';
+
+  // Derived saturation temperature (shown in helper text when PRESSURE mode)
+  const derivedSatTemp = useMemo(() => {
+    return calculateMaxVaporVelocity(inputs.operatingPressure).saturationTemp;
+  }, [inputs.operatingPressure]);
+
+  // Derived pressure (shown in helper text when TEMPERATURE mode)
+  const derivedPressureMbar = useMemo(() => {
+    const temp = inputs.flashingTemperature ?? 60;
+    if (temp < FLASH_CHAMBER_LIMITS.flashingTemperature.min) return null;
+    if (temp > FLASH_CHAMBER_LIMITS.flashingTemperature.max) return null;
+    return Math.round(getSaturationPressure(temp) * 1000);
+  }, [inputs.flashingTemperature]);
 
   return (
     <>
@@ -77,24 +101,6 @@ export function ProcessInputs({
         </Select>
       </FormControl>
 
-      {/* Operating Pressure */}
-      <TextField
-        label="Operating Pressure"
-        type="number"
-        value={inputs.operatingPressure}
-        onChange={(e) => onChange('operatingPressure', parseFloat(e.target.value) || 0)}
-        InputProps={{
-          endAdornment: <InputAdornment position="end">mbar abs</InputAdornment>,
-        }}
-        inputProps={{
-          min: FLASH_CHAMBER_LIMITS.operatingPressure.min,
-          max: FLASH_CHAMBER_LIMITS.operatingPressure.max,
-          step: 10,
-        }}
-        helperText={`Vacuum range: ${FLASH_CHAMBER_LIMITS.operatingPressure.min} - ${FLASH_CHAMBER_LIMITS.operatingPressure.max} mbar abs (1013 = atmospheric)`}
-        fullWidth
-      />
-
       {/* Mode-dependent input */}
       {inputs.mode === 'WATER_FLOW' ? (
         <TextField
@@ -124,6 +130,74 @@ export function ProcessInputs({
             step: inputs.flowRateUnit === 'KG_SEC' ? 0.01 : 0.1,
           }}
           helperText="Desired vapor production"
+          fullWidth
+        />
+      )}
+
+      <Divider />
+
+      <Typography variant="subtitle2" color="text.secondary">
+        Flash Chamber Operating Condition
+      </Typography>
+
+      {/* Specify by: Pressure / Temperature toggle */}
+      <ToggleButtonGroup
+        value={flashingMode}
+        exclusive
+        onChange={(_e, value: FlashingInputMode | null) => {
+          if (value) onFlashingInputModeChange(value);
+        }}
+        size="small"
+        fullWidth
+      >
+        <ToggleButton value="PRESSURE">Pressure</ToggleButton>
+        <ToggleButton value="TEMPERATURE">Temperature</ToggleButton>
+      </ToggleButtonGroup>
+
+      {/* Operating Pressure (shown when PRESSURE mode) */}
+      {flashingMode === 'PRESSURE' && (
+        <TextField
+          label="Operating Pressure"
+          type="number"
+          value={inputs.operatingPressure}
+          onChange={(e) => onChange('operatingPressure', parseFloat(e.target.value) || 0)}
+          InputProps={{
+            endAdornment: <InputAdornment position="end">mbar abs</InputAdornment>,
+          }}
+          inputProps={{
+            min: FLASH_CHAMBER_LIMITS.operatingPressure.min,
+            max: FLASH_CHAMBER_LIMITS.operatingPressure.max,
+            step: 10,
+          }}
+          helperText={
+            derivedSatTemp > 0
+              ? `→ Saturation temp: ${derivedSatTemp.toFixed(1)} °C`
+              : `Range: ${FLASH_CHAMBER_LIMITS.operatingPressure.min}–${FLASH_CHAMBER_LIMITS.operatingPressure.max} mbar abs`
+          }
+          fullWidth
+        />
+      )}
+
+      {/* Flashing Temperature (shown when TEMPERATURE mode) */}
+      {flashingMode === 'TEMPERATURE' && (
+        <TextField
+          label="Flashing Temperature"
+          type="number"
+          value={inputs.flashingTemperature ?? 60}
+          onChange={(e) => onFlashingTemperatureChange(parseFloat(e.target.value) || 0)}
+          InputProps={{
+            endAdornment: <InputAdornment position="end">°C</InputAdornment>,
+          }}
+          inputProps={{
+            min: FLASH_CHAMBER_LIMITS.flashingTemperature.min,
+            max: FLASH_CHAMBER_LIMITS.flashingTemperature.max,
+            step: 1,
+          }}
+          helperText={
+            derivedPressureMbar !== null
+              ? `→ Operating pressure: ${derivedPressureMbar} mbar abs`
+              : `Range: ${FLASH_CHAMBER_LIMITS.flashingTemperature.min}–${FLASH_CHAMBER_LIMITS.flashingTemperature.max} °C`
+          }
           fullWidth
         />
       )}

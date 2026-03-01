@@ -6,7 +6,7 @@
  * Dialog for configuring and generating flash chamber datasheet PDF
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -24,6 +24,29 @@ import { pdf } from '@react-pdf/renderer';
 import type { FlashChamberResult } from '@vapour/types';
 import { FlashChamberDatasheet } from './FlashChamberDatasheet';
 
+/** Cache the logo data URI to avoid repeated fetches */
+let cachedLogoDataUri: string | null = null;
+
+async function fetchLogoAsDataUri(): Promise<string | undefined> {
+  if (cachedLogoDataUri) return cachedLogoDataUri;
+  try {
+    const response = await fetch('/logo.png');
+    if (!response.ok) return undefined;
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        cachedLogoDataUri = reader.result as string;
+        resolve(cachedLogoDataUri);
+      };
+      reader.onerror = () => resolve(undefined);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return undefined;
+  }
+}
+
 interface GenerateDatasheetDialogProps {
   open: boolean;
   onClose: () => void;
@@ -37,6 +60,14 @@ export function GenerateDatasheetDialog({ open, onClose, result }: GenerateDatas
   const [notes, setNotes] = useState('');
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [logoDataUri, setLogoDataUri] = useState<string | undefined>();
+
+  // Pre-fetch logo when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchLogoAsDataUri().then(setLogoDataUri);
+    }
+  }, [open]);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -51,6 +82,7 @@ export function GenerateDatasheetDialog({ open, onClose, result }: GenerateDatas
           revision={revision}
           projectName={projectName || undefined}
           notes={notes || undefined}
+          logoDataUri={logoDataUri}
         />
       );
 

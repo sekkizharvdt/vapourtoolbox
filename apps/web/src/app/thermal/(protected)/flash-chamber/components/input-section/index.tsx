@@ -19,8 +19,10 @@ import type {
   FlashChamberInput,
   FlashChamberInputMode,
   FlashChamberWaterType,
+  FlashingInputMode,
   FlowRateUnit,
 } from '@vapour/types';
+import { getSaturationTemperature, getSaturationPressure, mbarAbsToBar } from '@vapour/constants';
 import { ProcessInputs } from './ProcessInputs';
 import { ChamberDesignInputs } from './ChamberDesignInputs';
 import { ElevationInputs } from './ElevationInputs';
@@ -93,6 +95,25 @@ export function InputSection({
     });
   };
 
+  // Handle flashing input mode toggle (pressure ↔ temperature)
+  const handleFlashingInputModeChange = (mode: FlashingInputMode) => {
+    if (mode === 'TEMPERATURE') {
+      // Derive saturation temperature from current pressure
+      const pressureBar = mbarAbsToBar(inputs.operatingPressure);
+      const satTemp = Math.round(getSaturationTemperature(pressureBar) * 10) / 10;
+      onChange({ ...inputs, flashingInputMode: 'TEMPERATURE', flashingTemperature: satTemp });
+    } else {
+      // operatingPressure is already in sync — just flip the mode
+      onChange({ ...inputs, flashingInputMode: 'PRESSURE' });
+    }
+  };
+
+  // Handle flashing temperature change — derive and sync operatingPressure
+  const handleFlashingTemperatureChange = (tempC: number) => {
+    const pressureMbar = Math.round(getSaturationPressure(tempC) * 1000);
+    onChange({ ...inputs, flashingTemperature: tempC, operatingPressure: pressureMbar });
+  };
+
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" gutterBottom>
@@ -107,6 +128,8 @@ export function InputSection({
           onWaterTypeChange={handleWaterTypeChange}
           onModeChange={handleModeChange}
           onFlowRateUnitChange={handleFlowRateUnitChange}
+          onFlashingInputModeChange={handleFlashingInputModeChange}
+          onFlashingTemperatureChange={handleFlashingTemperatureChange}
         />
 
         {/* Chamber Design: Diameter, retention time, flashing zone, spray angle */}

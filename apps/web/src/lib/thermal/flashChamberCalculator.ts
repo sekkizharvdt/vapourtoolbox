@@ -374,14 +374,20 @@ export function calculateFlashChamber(
     // m_water = m_vapor + m_brine
 
     const inletEnthalpy = getSeawaterEnthalpy(effectiveSalinity, input.inletTemperature);
-    const brineEnthalpy = getSeawaterEnthalpy(effectiveSalinity, satTemp);
     const vaporEnthalpy = getEnthalpyVapor(satTempPure);
 
-    // Energy balance: m_water * h_inlet = m_vapor * h_vapor + (m_water - m_vapor) * h_brine
-    // Solving for m_vapor:
-    // m_vapor = m_water * (h_inlet - h_brine) / (h_vapor - h_brine)
-    vaporFlow = (waterFlow * (inletEnthalpy - brineEnthalpy)) / (vaporEnthalpy - brineEnthalpy);
+    // First pass: use inlet salinity as approximation for brine enthalpy
+    const brineEnthalpyApprox = getSeawaterEnthalpy(effectiveSalinity, satTemp);
+    vaporFlow =
+      (waterFlow * (inletEnthalpy - brineEnthalpyApprox)) / (vaporEnthalpy - brineEnthalpyApprox);
+    brineFlow = waterFlow - vaporFlow;
 
+    // One refinement: recalculate brine enthalpy with concentrated brine salinity
+    // This closes the circularity: brine salinity depends on vapor flow which depends on brine enthalpy
+    const brineSalinityEst = getBrineSalinity(effectiveSalinity, waterFlow, vaporFlow);
+    const brineEnthalpyFinal = getSeawaterEnthalpy(brineSalinityEst, satTemp);
+    vaporFlow =
+      (waterFlow * (inletEnthalpy - brineEnthalpyFinal)) / (vaporEnthalpy - brineEnthalpyFinal);
     brineFlow = waterFlow - vaporFlow;
   } else {
     // VAPOR_QUANTITY mode - back-calculate water flow
@@ -389,13 +395,19 @@ export function calculateFlashChamber(
     vaporFlow = convertToTonHr(input.vaporQuantity!, input.flowRateUnit);
 
     const inletEnthalpy = getSeawaterEnthalpy(effectiveSalinity, input.inletTemperature);
-    const brineEnthalpy = getSeawaterEnthalpy(effectiveSalinity, satTemp);
     const vaporEnthalpy = getEnthalpyVapor(satTempPure);
 
-    // From energy balance:
-    // m_water = m_vapor * (h_vapor - h_brine) / (h_inlet - h_brine)
-    waterFlow = (vaporFlow * (vaporEnthalpy - brineEnthalpy)) / (inletEnthalpy - brineEnthalpy);
+    // First pass: use inlet salinity as approximation for brine enthalpy
+    const brineEnthalpyApprox = getSeawaterEnthalpy(effectiveSalinity, satTemp);
+    waterFlow =
+      (vaporFlow * (vaporEnthalpy - brineEnthalpyApprox)) / (inletEnthalpy - brineEnthalpyApprox);
+    brineFlow = waterFlow - vaporFlow;
 
+    // One refinement: recalculate brine enthalpy with concentrated brine salinity
+    const brineSalinityEst = getBrineSalinity(effectiveSalinity, waterFlow, vaporFlow);
+    const brineEnthalpyFinal = getSeawaterEnthalpy(brineSalinityEst, satTemp);
+    waterFlow =
+      (vaporFlow * (vaporEnthalpy - brineEnthalpyFinal)) / (inletEnthalpy - brineEnthalpyFinal);
     brineFlow = waterFlow - vaporFlow;
   }
 

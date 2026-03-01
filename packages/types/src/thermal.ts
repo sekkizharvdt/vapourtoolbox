@@ -17,6 +17,13 @@
 export type FlashChamberInputMode = 'WATER_FLOW' | 'VAPOR_QUANTITY';
 
 /**
+ * How the flashing operating condition is specified
+ * - PRESSURE: User enters operating pressure (mbar abs); saturation temperature is derived
+ * - TEMPERATURE: User enters flashing temperature (°C); operating pressure is derived and synced
+ */
+export type FlashingInputMode = 'PRESSURE' | 'TEMPERATURE';
+
+/**
  * Water type for flash chamber calculation
  * - SEAWATER: Seawater with salinity (default 35000 ppm)
  * - DM_WATER: Demineralized/pure water (salinity = 0)
@@ -94,6 +101,18 @@ export interface FlashChamberInput {
 
   /** Whether to use auto-calculated diameter or user-specified */
   autoCalculateDiameter?: boolean;
+
+  /**
+   * Whether the operating condition is specified by pressure or temperature.
+   * Defaults to 'PRESSURE' when not set.
+   */
+  flashingInputMode?: FlashingInputMode;
+
+  /**
+   * Flashing (saturation) temperature in °C — used when flashingInputMode = 'TEMPERATURE'.
+   * Always kept in sync with operatingPressure so the calculator always reads operatingPressure.
+   */
+  flashingTemperature?: number;
 }
 
 /**
@@ -389,6 +408,8 @@ export const DEFAULT_FLASH_CHAMBER_INPUT: FlashChamberInput = {
   btlGapBelowLGL: 0.1, // 100mm gap
   userDiameter: 1000, // Default 1000mm if user wants to specify
   autoCalculateDiameter: true, // Auto-calculate by default
+  flashingInputMode: 'PRESSURE' as const, // Default: specify by pressure
+  flashingTemperature: 60, // °C — ~200 mbar abs saturation temp
 };
 
 // ============================================================================
@@ -416,6 +437,8 @@ export const FLASH_CHAMBER_LIMITS = {
   operatingLevelRatio: { min: 0.2, max: 0.8, unit: '' },
   btlGapBelowLGL: { min: 0.05, max: 0.5, unit: 'm' },
   userDiameter: { min: 500, max: 5000, unit: 'mm' },
+  // 10°C ≈ 12 mbar, 80°C ≈ 474 mbar — covers the full 50–500 mbar operating range
+  flashingTemperature: { min: 10, max: 80, unit: '°C' },
 } as const;
 
 /**
