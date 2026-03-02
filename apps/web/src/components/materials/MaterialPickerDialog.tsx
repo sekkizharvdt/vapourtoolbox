@@ -87,13 +87,15 @@ export default function MaterialPickerDialog({
 
       const result = await queryMaterials(db, {
         categories: categoriesToQuery,
-        isActive: true,
         sortField: 'materialCode',
         sortDirection: 'asc',
         limitResults: 100,
       });
 
-      setMaterials(result.materials);
+      // Filter out explicitly deactivated materials client-side.
+      // We don't use isActive in the query because Firestore excludes
+      // documents missing the field entirely (bulk-imported materials).
+      setMaterials(result.materials.filter((m) => m.isActive !== false));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load materials');
     } finally {

@@ -98,8 +98,7 @@ export default function MaterialsPage() {
               MC.PLATES_STAINLESS_STEEL,
               MC.PLATES_DUPLEX_STEEL,
               MC.PLATES_ALLOY_STEEL,
-            ]),
-            where('isActive', '==', true)
+            ])
           ),
           pipes: query(
             col,
@@ -107,8 +106,7 @@ export default function MaterialsPage() {
               MC.PIPES_CARBON_STEEL,
               MC.PIPES_STAINLESS_304L,
               MC.PIPES_STAINLESS_316L,
-            ]),
-            where('isActive', '==', true)
+            ])
           ),
           fittings: query(
             col,
@@ -117,44 +115,18 @@ export default function MaterialsPage() {
               MC.FITTINGS_SOCKET_WELD,
               MC.FITTINGS_THREADED,
               MC.FITTINGS_FLANGED,
-            ]),
-            where('isActive', '==', true)
+            ])
           ),
           flanges: query(
             col,
-            where('category', 'in', [MC.FLANGES_WELD_NECK, MC.FLANGES_SLIP_ON, MC.FLANGES_BLIND]),
-            where('isActive', '==', true)
+            where('category', 'in', [MC.FLANGES_WELD_NECK, MC.FLANGES_SLIP_ON, MC.FLANGES_BLIND])
           ),
-          valves: query(
-            col,
-            where('category', 'in', VALVE_CATEGORIES),
-            where('isActive', '==', true)
-          ),
-          pumps: query(
-            col,
-            where('category', 'in', PUMP_CATEGORIES),
-            where('isActive', '==', true)
-          ),
-          instruments: query(
-            col,
-            where('category', 'in', INSTRUMENT_CATEGORIES),
-            where('isActive', '==', true)
-          ),
-          fasteners: query(
-            col,
-            where('category', 'in', FASTENER_CATEGORIES),
-            where('isActive', '==', true)
-          ),
-          structural: query(
-            col,
-            where('category', '==', MC.STRUCTURAL_SHAPES),
-            where('isActive', '==', true)
-          ),
-          consumables: query(
-            col,
-            where('category', 'in', CONSUMABLE_CATEGORIES),
-            where('isActive', '==', true)
-          ),
+          valves: query(col, where('category', 'in', VALVE_CATEGORIES)),
+          pumps: query(col, where('category', 'in', PUMP_CATEGORIES)),
+          instruments: query(col, where('category', 'in', INSTRUMENT_CATEGORIES)),
+          fasteners: query(col, where('category', 'in', FASTENER_CATEGORIES)),
+          structural: query(col, where('category', '==', MC.STRUCTURAL_SHAPES)),
+          consumables: query(col, where('category', 'in', CONSUMABLE_CATEGORIES)),
         };
 
         const results = await Promise.all(Object.values(queries).map((q) => getCountFromServer(q)));
