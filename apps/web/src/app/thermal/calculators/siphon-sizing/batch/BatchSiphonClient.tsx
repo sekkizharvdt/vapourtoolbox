@@ -38,10 +38,16 @@ import {
 } from '@/lib/thermal/siphonSizingCalculator';
 import { getStaticPipes } from '@/lib/thermal/pipeService';
 import { exportBatchSiphonToExcel } from '@/lib/thermal/siphonExcelExport';
+import dynamic from 'next/dynamic';
 import { SaveCalculationDialog } from '../components/SaveCalculationDialog';
 import { LoadCalculationDialog } from '../components/LoadCalculationDialog';
-import { GenerateReportDialog } from '../components/GenerateReportDialog';
 import type { SiphonReportInputs } from '../components/SiphonReportPDF';
+
+const GenerateReportDialog = dynamic(
+  () =>
+    import('../components/GenerateReportDialog').then((m) => ({ default: m.GenerateReportDialog })),
+  { ssr: false }
+);
 import { CalculatorBreadcrumb } from '../../components/CalculatorBreadcrumb';
 import {
   PRESSURE_UNIT_LABELS,

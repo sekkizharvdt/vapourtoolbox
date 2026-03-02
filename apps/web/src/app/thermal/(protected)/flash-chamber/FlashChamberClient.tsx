@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Container,
   Typography,
@@ -33,8 +34,15 @@ import {
   ChamberSizing,
   NozzleSizing,
   NPSHaCalculation,
-  GenerateDatasheetDialog,
 } from './components';
+
+const GenerateDatasheetDialog = dynamic(
+  () =>
+    import('./components/GenerateDatasheetDialog').then((m) => ({
+      default: m.GenerateDatasheetDialog,
+    })),
+  { ssr: false }
+);
 import { SaveCalculationDialog } from '@/app/thermal/calculators/components/SaveCalculationDialog';
 import { LoadCalculationDialog } from '@/app/thermal/calculators/components/LoadCalculationDialog';
 

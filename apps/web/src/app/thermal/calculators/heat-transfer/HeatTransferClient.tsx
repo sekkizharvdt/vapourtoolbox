@@ -43,10 +43,16 @@ import {
   calculateOverallHTC,
 } from '@/lib/thermal';
 import type { TubeSideHTCResult, CondensationHTCResult, OverallHTCResult } from '@/lib/thermal';
+import dynamic from 'next/dynamic';
 import { TubeSideInputs, CondensationInputs, OverallHTCInputs } from './components';
 import { HeatTransferDiagram } from './components/HeatTransferDiagram';
-import { GenerateReportDialog } from './components/GenerateReportDialog';
 import type { HeatTransferReportInputs } from './components/HeatTransferReportPDF';
+
+const GenerateReportDialog = dynamic(
+  () =>
+    import('./components/GenerateReportDialog').then((m) => ({ default: m.GenerateReportDialog })),
+  { ssr: false }
+);
 import { SaveCalculationDialog } from '../siphon-sizing/components/SaveCalculationDialog';
 import { LoadCalculationDialog } from '../siphon-sizing/components/LoadCalculationDialog';
 

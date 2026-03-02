@@ -47,9 +47,15 @@ import {
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculateNCGProperties, type NCGInputMode, type NCGResult } from '@/lib/thermal';
 import { exportNCGToExcel, type NCGReportInputs } from '@/lib/thermal/ncgExcelExport';
+import dynamic from 'next/dynamic';
 import { SaveCalculationDialog } from './components/SaveCalculationDialog';
 import { LoadCalculationDialog } from './components/LoadCalculationDialog';
-import { GenerateReportDialog } from './components/GenerateReportDialog';
+
+const GenerateReportDialog = dynamic(
+  () =>
+    import('./components/GenerateReportDialog').then((m) => ({ default: m.GenerateReportDialog })),
+  { ssr: false }
+);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
