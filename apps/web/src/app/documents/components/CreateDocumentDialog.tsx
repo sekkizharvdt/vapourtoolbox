@@ -29,6 +29,7 @@ import {
   getActiveDisciplineCodes,
   getNumberingConfig,
   generateDocumentNumber,
+  getNextSequenceNumber,
 } from '@/lib/documents/documentNumberingService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Timestamp } from 'firebase/firestore';
@@ -37,6 +38,7 @@ interface CreateDocumentDialogProps {
   open: boolean;
   onClose: () => void;
   projectId: string;
+  projectCode?: string;
   onDocumentCreated: () => void;
 }
 
@@ -44,6 +46,7 @@ export default function CreateDocumentDialog({
   open,
   onClose,
   projectId,
+  projectCode: projectCodeProp,
   onDocumentCreated,
 }: CreateDocumentDialogProps) {
   const { user } = useAuth();
@@ -56,6 +59,7 @@ export default function CreateDocumentDialog({
   const [disciplineCode, setDisciplineCode] = useState('');
   const [subCode, setSubCode] = useState('');
   const [documentType, setDocumentType] = useState('');
+  const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
   const [visibility, setVisibility] = useState<'CLIENT_VISIBLE' | 'INTERNAL_ONLY'>(
     'CLIENT_VISIBLE'
   );
@@ -93,11 +97,13 @@ export default function CreateDocumentDialog({
 
   const loadProjectConfig = async () => {
     try {
-      const config = await getNumberingConfig(projectId);
-      if (config) {
-        // Extract project code from a sample document or from config
-        // For now, we'll use the projectId prefix
-        setProjectCode(projectId.substring(0, 7).toUpperCase());
+      if (projectCodeProp) {
+        setProjectCode(projectCodeProp);
+      } else {
+        const config = await getNumberingConfig(projectId);
+        if (config) {
+          setProjectCode(projectId.substring(0, 7).toUpperCase());
+        }
       }
     } catch (err) {
       console.error('[CreateDocumentDialog] Error loading config:', err);
@@ -106,13 +112,12 @@ export default function CreateDocumentDialog({
 
   const updatePreviewNumber = async () => {
     try {
-      const number = await generateDocumentNumber(
-        projectId,
-        projectCode,
-        disciplineCode,
-        subCode || undefined
-      );
-      setPreviewNumber(number);
+      const nextSeq = await getNextSequenceNumber(projectId, disciplineCode, subCode || undefined);
+      const seqStr = String(nextSeq).padStart(3, '0');
+      const parts = [projectCode, disciplineCode];
+      if (subCode) parts.push(subCode);
+      parts.push(seqStr);
+      setPreviewNumber(parts.join('-'));
     } catch (err) {
       console.error('[CreateDocumentDialog] Error generating preview:', err);
       setPreviewNumber('');
@@ -184,7 +189,7 @@ export default function CreateDocumentDialog({
         openComments: 0,
         resolvedComments: 0,
         progressPercentage: 0,
-        priority: 'MEDIUM',
+        priority,
         tags: [],
         isDeleted: false,
         createdBy: user.uid,
@@ -208,6 +213,7 @@ export default function CreateDocumentDialog({
     setDisciplineCode('');
     setSubCode('');
     setDocumentType('');
+    setPriority('MEDIUM');
     setVisibility('CLIENT_VISIBLE');
     setDueDate(null);
     setAssignedTo([]);
@@ -310,6 +316,21 @@ export default function CreateDocumentDialog({
             fullWidth
             placeholder="e.g., Drawing, Calculation, Specification"
           />
+
+          {/* Priority */}
+          <FormControl fullWidth>
+            <InputLabel>Priority</InputLabel>
+            <Select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT')}
+              label="Priority"
+            >
+              <MenuItem value="LOW">Low</MenuItem>
+              <MenuItem value="MEDIUM">Medium</MenuItem>
+              <MenuItem value="HIGH">High</MenuItem>
+              <MenuItem value="URGENT">Urgent</MenuItem>
+            </Select>
+          </FormControl>
 
           {/* Visibility */}
           <FormControl fullWidth>

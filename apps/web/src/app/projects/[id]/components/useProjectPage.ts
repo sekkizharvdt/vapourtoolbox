@@ -47,7 +47,9 @@ export function useProjectPage(pathSegment: string): UseProjectPageResult {
 
   // Load project data
   useEffect(() => {
-    if (!projectId || !hasViewAccess) {
+    // Don't clear loading until projectId is extracted from the URL
+    if (!projectId) return;
+    if (!hasViewAccess) {
       setLoading(false);
       return;
     }

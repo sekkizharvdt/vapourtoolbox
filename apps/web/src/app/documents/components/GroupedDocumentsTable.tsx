@@ -237,7 +237,11 @@ export const GroupedDocumentsTable = memo(function GroupedDocumentsTable({
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" noWrap sx={{ maxWidth: 150 }}>
-                          {doc.assignedTo.length > 0 ? doc.assignedTo.join(', ') : '-'}
+                          {doc.assignedToNames?.length > 0
+                            ? doc.assignedToNames.join(', ')
+                            : doc.assignedTo?.length > 0
+                              ? doc.assignedTo.join(', ')
+                              : '-'}
                         </Typography>
                       </TableCell>
                       <TableCell>

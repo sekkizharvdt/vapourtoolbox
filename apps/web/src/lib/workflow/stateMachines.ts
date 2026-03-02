@@ -32,6 +32,7 @@ import type {
   PaymentBatchStatus,
   TravelExpenseStatus,
   AssetStatus,
+  MasterDocumentStatus,
 } from '@vapour/types';
 import type { ProposalStatus } from '@vapour/types';
 import { PERMISSION_FLAGS } from '@vapour/constants';
@@ -284,6 +285,38 @@ const faConfig: StateTransitionConfig<AssetStatus> = {
 export const fixedAssetStateMachine: StateMachine<AssetStatus> = createStateMachine(faConfig);
 
 // ============================================================================
+// Master Document State Machine
+// ============================================================================
+
+/**
+ * Master Document workflow states:
+ *
+ * DRAFT -> IN_PROGRESS -> SUBMITTED -> UNDER_REVIEW -> APPROVED -> ACCEPTED
+ *                                                  \-> IN_PROGRESS (comments)
+ * ON_HOLD is reachable from DRAFT, IN_PROGRESS, SUBMITTED, UNDER_REVIEW
+ * CANCELLED is reachable from DRAFT, IN_PROGRESS, ON_HOLD
+ */
+const mdConfig: StateTransitionConfig<MasterDocumentStatus> = {
+  transitions: {
+    DRAFT: ['IN_PROGRESS', 'ON_HOLD', 'CANCELLED'],
+    IN_PROGRESS: ['SUBMITTED', 'ON_HOLD', 'CANCELLED'],
+    SUBMITTED: ['UNDER_REVIEW', 'IN_PROGRESS'],
+    UNDER_REVIEW: ['APPROVED', 'IN_PROGRESS', 'ON_HOLD'],
+    APPROVED: ['ACCEPTED', 'UNDER_REVIEW'],
+    ACCEPTED: [], // Terminal
+    ON_HOLD: ['DRAFT', 'IN_PROGRESS', 'CANCELLED'],
+    CANCELLED: [], // Terminal
+  },
+  transitionPermissions: {
+    UNDER_REVIEW_APPROVED: PERMISSION_FLAGS.MANAGE_DOCUMENTS,
+    APPROVED_ACCEPTED: PERMISSION_FLAGS.MANAGE_DOCUMENTS,
+  },
+  terminalStates: ['ACCEPTED', 'CANCELLED'],
+};
+export const masterDocumentStateMachine: StateMachine<MasterDocumentStatus> =
+  createStateMachine(mdConfig);
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
@@ -324,6 +357,8 @@ export function getTransitionLabels(transitions: string[]): Record<string, strin
     EVALUATED: 'Mark Evaluated',
     SELECTED: 'Select Offer',
     WITHDRAWN: 'Withdraw',
+    // Master Document
+    ON_HOLD: 'Put On Hold',
     // Fixed Asset
     DISPOSED: 'Dispose Asset',
     WRITTEN_OFF: 'Write Off',
