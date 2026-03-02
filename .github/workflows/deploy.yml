@@ -36,6 +36,7 @@ jobs:
       - name: Build web application
         run: pnpm build
         env:
+          NODE_OPTIONS: '--max-old-space-size=6144'
           # Firebase client configuration (public - safe to expose)
           NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyCxzqzAUTT3Ouiv-szpfO1Au4LwEMnP-4w
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: vapour-toolbox.firebaseapp.com
