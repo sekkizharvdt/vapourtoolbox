@@ -25,7 +25,7 @@ import {
   Save as SaveIcon,
   FolderOpen as LoadIcon,
 } from '@mui/icons-material';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 
 import {
   InputSection,
@@ -43,7 +43,6 @@ import type { FlashChamberInput, FlashChamberResult } from '@vapour/types';
 import { DEFAULT_FLASH_CHAMBER_INPUT } from '@vapour/types';
 
 export default function FlashChamberClient() {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   // State
@@ -105,21 +104,22 @@ export default function FlashChamberClient() {
     return () => clearTimeout(timer);
   }, [performCalculation]);
 
-  // Sync state to URL
+  // Sync state to URL — use history.replaceState directly to avoid Next.js
+  // navigation (router.replace triggers a soft nav that resets scroll position)
   useEffect(() => {
     const params = new URLSearchParams();
     params.set('params', JSON.stringify(inputs));
-    const newUrl = `?${params.toString()}`;
-    if (newUrl !== `?${searchParams.toString()}`) {
-      router.replace(`/thermal/flash-chamber${newUrl}`, { scroll: false });
+    const newUrl = `/thermal/flash-chamber?${params.toString()}`;
+    if (newUrl !== `${window.location.pathname}${window.location.search}`) {
+      window.history.replaceState(null, '', newUrl);
     }
-  }, [inputs, router, searchParams]);
+  }, [inputs]);
 
   // Reset to defaults
   const handleReset = () => {
     setInputs(DEFAULT_FLASH_CHAMBER_INPUT);
     setError(null);
-    router.replace('/thermal/flash-chamber', { scroll: false });
+    window.history.replaceState(null, '', '/thermal/flash-chamber');
   };
 
   return (
