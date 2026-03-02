@@ -1,20 +1,7 @@
 'use client';
 
-/**
- * Flash Chamber Input Section
- *
- * Form for entering flash chamber design parameters.
- * Supports two modes: Water Flow Known and Vapor Quantity Known.
- *
- * This component has been split into smaller, focused subcomponents:
- * - ProcessInputs.tsx - Water type, mode, operating pressure, flow rate inputs
- * - ChamberDesignInputs.tsx - Vessel diameter, retention time, flashing zone, spray angle
- * - ElevationInputs.tsx - Pump centerline, operating level, BTL gap inputs
- * - NozzleVelocityInputs.tsx - Inlet, outlet, vapor velocity inputs
- * - helpers.ts - Calculation helper functions
- */
-
-import { Paper, Typography, Stack } from '@mui/material';
+import { useState } from 'react';
+import { Paper, Typography, Stack, Tabs, Tab, Box } from '@mui/material';
 import type {
   FlashChamberInput,
   FlashChamberInputMode,
@@ -49,6 +36,8 @@ export function InputSection({
   vaporVelocityStatus,
   vaporLoading,
 }: InputSectionProps) {
+  const [activeTab, setActiveTab] = useState(0);
+
   const handleChange = (field: keyof FlashChamberInput, value: number | string | boolean) => {
     onChange({
       ...inputs,
@@ -56,59 +45,45 @@ export function InputSection({
     });
   };
 
-  // Handle diameter mode toggle
   const handleDiameterModeChange = (autoCalculate: boolean) => {
     onChange({
       ...inputs,
       autoCalculateDiameter: autoCalculate,
-      // When switching to manual, default to current calculated value if available
       userDiameter: !autoCalculate && calculatedDiameter ? calculatedDiameter : inputs.userDiameter,
     });
   };
 
-  // Handle mode change
   const handleModeChange = (mode: FlashChamberInputMode) => {
     onChange({
       ...inputs,
       mode,
-      // Clear the non-applicable field when switching modes
       waterFlowRate: mode === 'WATER_FLOW' ? inputs.waterFlowRate || 100 : undefined,
       vaporQuantity: mode === 'VAPOR_QUANTITY' ? inputs.vaporQuantity || 5 : undefined,
     });
   };
 
-  // Handle water type change
   const handleWaterTypeChange = (waterType: FlashChamberWaterType) => {
     onChange({
       ...inputs,
       waterType,
-      // Set appropriate default salinity based on water type
       salinity: waterType === 'SEAWATER' ? 35000 : 0,
     });
   };
 
-  // Handle flow rate unit change
   const handleFlowRateUnitChange = (flowRateUnit: FlowRateUnit) => {
-    onChange({
-      ...inputs,
-      flowRateUnit,
-    });
+    onChange({ ...inputs, flowRateUnit });
   };
 
-  // Handle flashing input mode toggle (pressure ↔ temperature)
   const handleFlashingInputModeChange = (mode: FlashingInputMode) => {
     if (mode === 'TEMPERATURE') {
-      // Derive saturation temperature from current pressure
       const pressureBar = mbarAbsToBar(inputs.operatingPressure);
       const satTemp = Math.round(getSaturationTemperature(pressureBar) * 10) / 10;
       onChange({ ...inputs, flashingInputMode: 'TEMPERATURE', flashingTemperature: satTemp });
     } else {
-      // operatingPressure is already in sync — just flip the mode
       onChange({ ...inputs, flashingInputMode: 'PRESSURE' });
     }
   };
 
-  // Handle flashing temperature change — derive and sync operatingPressure
   const handleFlashingTemperatureChange = (tempC: number) => {
     const pressureMbar = Math.round(getSaturationPressure(tempC) * 1000);
     onChange({ ...inputs, flashingTemperature: tempC, operatingPressure: pressureMbar });
@@ -117,38 +92,70 @@ export function InputSection({
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" gutterBottom>
-        Process Inputs
+        Inputs
       </Typography>
 
-      <Stack spacing={3}>
-        {/* Process Inputs: Water type, mode, pressure, flow rate */}
-        <ProcessInputs
-          inputs={inputs}
-          onChange={handleChange}
-          onWaterTypeChange={handleWaterTypeChange}
-          onModeChange={handleModeChange}
-          onFlowRateUnitChange={handleFlowRateUnitChange}
-          onFlashingInputModeChange={handleFlashingInputModeChange}
-          onFlashingTemperatureChange={handleFlashingTemperatureChange}
-        />
+      <Tabs
+        value={activeTab}
+        onChange={(_e, v: number) => setActiveTab(v)}
+        variant="fullWidth"
+        sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
+      >
+        <Tab label="Process" />
+        <Tab label="Chamber" />
+        <Tab label="Elevations" />
+        <Tab label="Nozzles" />
+      </Tabs>
 
-        {/* Chamber Design: Diameter, retention time, flashing zone, spray angle */}
-        <ChamberDesignInputs
-          inputs={inputs}
-          calculatedDiameter={calculatedDiameter}
-          vaporVelocity={vaporVelocity}
-          vaporVelocityStatus={vaporVelocityStatus}
-          vaporLoading={vaporLoading}
-          onChange={handleChange}
-          onDiameterModeChange={handleDiameterModeChange}
-        />
+      {activeTab === 0 && (
+        <Stack spacing={2}>
+          <ProcessInputs
+            inputs={inputs}
+            onChange={handleChange}
+            onWaterTypeChange={handleWaterTypeChange}
+            onModeChange={handleModeChange}
+            onFlowRateUnitChange={handleFlowRateUnitChange}
+            onFlashingInputModeChange={handleFlashingInputModeChange}
+            onFlashingTemperatureChange={handleFlashingTemperatureChange}
+          />
+        </Stack>
+      )}
 
-        {/* Elevation Reference: Pump centerline, operating level, BTL gap */}
-        <ElevationInputs inputs={inputs} onChange={handleChange} />
+      {activeTab === 1 && (
+        <Stack spacing={2}>
+          <ChamberDesignInputs
+            inputs={inputs}
+            calculatedDiameter={calculatedDiameter}
+            vaporVelocity={vaporVelocity}
+            vaporVelocityStatus={vaporVelocityStatus}
+            vaporLoading={vaporLoading}
+            onChange={handleChange}
+            onDiameterModeChange={handleDiameterModeChange}
+          />
+        </Stack>
+      )}
 
-        {/* Nozzle Velocities: Inlet, outlet, vapor velocities */}
-        <NozzleVelocityInputs inputs={inputs} onChange={handleChange} />
-      </Stack>
+      {activeTab === 2 && (
+        <Stack spacing={2}>
+          <ElevationInputs inputs={inputs} onChange={handleChange} />
+        </Stack>
+      )}
+
+      {activeTab === 3 && (
+        <Stack spacing={2}>
+          <NozzleVelocityInputs inputs={inputs} onChange={handleChange} />
+        </Stack>
+      )}
+
+      {/* Tab hint */}
+      <Box sx={{ mt: 3, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+        <Typography variant="caption" color="text.secondary">
+          {activeTab === 0 && 'Water type, flow rate, and flash chamber operating condition'}
+          {activeTab === 1 && 'Vessel diameter, retention time, flashing zone, and spray angle'}
+          {activeTab === 2 && 'Pump and liquid level elevations for NPSHa calculation'}
+          {activeTab === 3 && 'Inlet, outlet, and vapor nozzle design velocities'}
+        </Typography>
+      </Box>
     </Paper>
   );
 }
