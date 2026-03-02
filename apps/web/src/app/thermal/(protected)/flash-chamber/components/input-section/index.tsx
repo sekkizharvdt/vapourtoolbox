@@ -27,8 +27,8 @@ interface InputSectionProps {
   vaporVelocityStatus?: 'OK' | 'HIGH' | 'VERY_HIGH';
   /** Vapor loading - vapor flow rate per unit cross-section area in ton/hr/m² */
   vaporLoading?: number;
-  /** D_LL — liquid-loading criterion diameter in mm */
-  liquidLoadingDiameter?: number;
+  /** D_VL — vapour-loading criterion diameter in mm (vaporFlow / 2.0 ton/hr/m²) */
+  vaporLoadingDiameter?: number;
   /** D_SB — Souders-Brown vapour-velocity criterion diameter in mm */
   vaporVelocityDiameter?: number;
   /** u_SB — SB maximum allowable vapour velocity in m/s */
@@ -44,7 +44,7 @@ export function InputSection({
   vaporVelocity,
   vaporVelocityStatus,
   vaporLoading,
-  liquidLoadingDiameter,
+  vaporLoadingDiameter,
   vaporVelocityDiameter,
   sbMaxVelocity,
   crossSectionLoading,
@@ -146,7 +146,7 @@ export function InputSection({
             vaporVelocity={vaporVelocity}
             vaporVelocityStatus={vaporVelocityStatus}
             vaporLoading={vaporLoading}
-            liquidLoadingDiameter={liquidLoadingDiameter}
+            vaporLoadingDiameter={vaporLoadingDiameter}
             vaporVelocityDiameter={vaporVelocityDiameter}
             sbMaxVelocity={sbMaxVelocity}
             crossSectionLoading={crossSectionLoading}

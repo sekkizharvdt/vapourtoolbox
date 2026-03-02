@@ -32,13 +32,13 @@ interface ChamberDesignInputsProps {
   vaporVelocity?: number;
   vaporVelocityStatus?: 'OK' | 'HIGH' | 'VERY_HIGH';
   vaporLoading?: number;
-  /** D_LL — liquid-loading criterion diameter in mm */
-  liquidLoadingDiameter?: number;
+  /** D_VL — vapour-loading criterion diameter in mm (vaporFlow / 2.0 ton/hr/m²) */
+  vaporLoadingDiameter?: number;
   /** D_SB — Souders-Brown vapour-velocity criterion diameter in mm */
   vaporVelocityDiameter?: number;
   /** u_SB — SB maximum allowable vapour velocity in m/s */
   sbMaxVelocity?: number;
-  /** Actual cross-section loading in ton/hr/m² at design diameter */
+  /** Actual vapour cross-section loading in ton/hr/m² at design diameter */
   crossSectionLoading?: number;
   onChange: (field: keyof FlashChamberInput, value: number | string | boolean) => void;
   onDiameterModeChange: (autoCalculate: boolean) => void;
@@ -51,7 +51,7 @@ export function ChamberDesignInputs({
   vaporVelocity,
   vaporVelocityStatus,
   vaporLoading,
-  liquidLoadingDiameter,
+  vaporLoadingDiameter,
   vaporVelocityDiameter,
   sbMaxVelocity,
   crossSectionLoading,
@@ -118,7 +118,7 @@ export function ChamberDesignInputs({
       </Box>
 
       {/* Sizing Basis Info Card */}
-      {(liquidLoadingDiameter !== undefined || vaporVelocityDiameter !== undefined) && (
+      {(vaporLoadingDiameter !== undefined || vaporVelocityDiameter !== undefined) && (
         <Box
           sx={{
             p: 1.5,
@@ -139,15 +139,15 @@ export function ChamberDesignInputs({
 
           <Table size="small">
             <TableBody>
-              {liquidLoadingDiameter !== undefined && (
+              {vaporLoadingDiameter !== undefined && (
                 <TableRow>
                   <TableCell sx={{ py: 0.25, px: 0, fontSize: '0.75rem', border: 0 }}>
-                    Liquid Loading (2.0 ton/hr/m²)
+                    Vapour Loading (2.0 ton/hr/m²)
                   </TableCell>
                   <TableCell
                     sx={{ py: 0.25, px: 0, fontSize: '0.75rem', border: 0, textAlign: 'right' }}
                   >
-                    <strong>D_LL = {liquidLoadingDiameter} mm</strong>
+                    <strong>D_VL = {vaporLoadingDiameter} mm</strong>
                   </TableCell>
                 </TableRow>
               )}
@@ -163,7 +163,7 @@ export function ChamberDesignInputs({
                   </TableCell>
                 </TableRow>
               )}
-              {liquidLoadingDiameter !== undefined && vaporVelocityDiameter !== undefined && (
+              {vaporLoadingDiameter !== undefined && vaporVelocityDiameter !== undefined && (
                 <TableRow>
                   <TableCell
                     sx={{
@@ -200,8 +200,7 @@ export function ChamberDesignInputs({
             sbMaxVelocity !== undefined && (
               <Box sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                  Actual cross-section loading:{' '}
-                  <strong>{crossSectionLoading.toFixed(2)} ton/hr/m²</strong>
+                  Actual vapour loading: <strong>{crossSectionLoading.toFixed(2)} ton/hr/m²</strong>
                 </Typography>
                 <Typography
                   variant="caption"

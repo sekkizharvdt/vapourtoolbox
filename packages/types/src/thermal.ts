@@ -218,10 +218,10 @@ export interface ChamberSizing {
   /** Vapor loading - vapor flow rate per unit cross-section area in ton/hr/m² */
   vaporLoading: number;
 
-  /** Liquid-loading criterion diameter in mm (D_LL) — from waterFlow / 2.0 ton/hr/m² */
-  liquidLoadingDiameter: number;
+  /** Vapour-loading criterion diameter in mm (D_VL) — from vaporFlow / 2.0 ton/hr/m² */
+  vaporLoadingDiameter: number;
 
-  /** Actual cross-section loading at design diameter in ton/hr/m² (water flow / area) */
+  /** Actual vapour cross-section loading at design diameter in ton/hr/m² (vapour flow / area) */
   crossSectionLoading: number;
 
   /** Souders-Brown maximum allowable vapour velocity in m/s (u_SB = K × √((ρL−ρV)/ρV)) */

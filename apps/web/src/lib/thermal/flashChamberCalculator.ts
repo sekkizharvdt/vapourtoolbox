@@ -51,8 +51,8 @@ import { FLOW_RATE_CONVERSIONS } from '@vapour/types';
 // Constants
 // ============================================================================
 
-/** Liquid cross-section loading used for the liquid-loading diameter criterion: ton/hr per m² */
-const CROSS_SECTION_LOADING = 2.0; // ton/hr/m²
+/** Vapour cross-section loading criterion: ton/hr of vapour per m² of cross-section area */
+const CROSS_SECTION_LOADING = 2.0; // ton/hr/m² (vapour)
 
 /**
  * Souders-Brown K factors by demister type (m/s).
@@ -624,13 +624,14 @@ function calculateChamberSize(
   const vaporVolumetricFlow = tonHrToM3S(vaporFlow, vaporDensity); // m³/s
 
   // -------------------------------------------------------------------
-  // Step B: Liquid-loading criterion diameter (D_LL)
-  // Based on the traditional 2.0 ton/hr/m² cross-section loading of
-  // total liquid (water) flow over the chamber cross-section area.
+  // Step B: Vapour-loading criterion diameter (D_VL)
+  // 2.0 ton/hr/m² is the allowable vapour loading through the chamber
+  // cross-section — i.e. vapour flow / cross-section area.
+  // (NOT water/liquid flow — liquid falls by gravity; only vapour rises.)
   // -------------------------------------------------------------------
-  const areaLL = waterFlow / CROSS_SECTION_LOADING; // m²
-  const dLL_m = Math.sqrt((4 * areaLL) / Math.PI); // m
-  const liquidLoadingDiameter = Math.ceil((dLL_m * 1000) / 100) * 100; // mm, rounded up to 100mm
+  const areaVL = vaporFlow / CROSS_SECTION_LOADING; // m²
+  const dVL_m = Math.sqrt((4 * areaVL) / Math.PI); // m
+  const vaporLoadingDiameter = Math.ceil((dVL_m * 1000) / 100) * 100; // mm, rounded up to 100mm
 
   // -------------------------------------------------------------------
   // Step C: Souders-Brown vapour-velocity criterion diameter (D_SB)
@@ -646,14 +647,14 @@ function calculateChamberSize(
 
   // -------------------------------------------------------------------
   // Step D: Design diameter
-  // Auto: average of D_LL and D_SB, rounded up to next 100mm.
+  // Auto: average of D_VL and D_SB, rounded up to next 100mm.
   // Manual: user-specified.
   // -------------------------------------------------------------------
   let roundedDiameter: number;
   if (input.autoCalculateDiameter === false && input.userDiameter) {
     roundedDiameter = input.userDiameter;
   } else {
-    const avgDiam = (liquidLoadingDiameter + vaporVelocityDiameter) / 2;
+    const avgDiam = (vaporLoadingDiameter + vaporVelocityDiameter) / 2;
     roundedDiameter = Math.ceil(avgDiam / 100) * 100;
   }
 
@@ -662,8 +663,8 @@ function calculateChamberSize(
   // -------------------------------------------------------------------
   const actualCrossSectionArea = (Math.PI * Math.pow(roundedDiameter / 1000, 2)) / 4; // m²
 
-  // Actual liquid cross-section loading at the design diameter
-  const crossSectionLoading = waterFlow / actualCrossSectionArea; // ton/hr/m²
+  // Actual vapour cross-section loading at the design diameter (ton/hr/m² of vapour)
+  const crossSectionLoading = vaporFlow / actualCrossSectionArea; // ton/hr/m²
 
   // Retention zone height
   const inletDensity = getSeawaterDensity(effectiveSalinity, input.inletTemperature);
@@ -709,7 +710,7 @@ function calculateChamberSize(
     vaporVelocity,
     vaporVelocityStatus,
     vaporLoading,
-    liquidLoadingDiameter,
+    vaporLoadingDiameter,
     crossSectionLoading,
     sbMaxVelocity,
     vaporVelocityDiameter,

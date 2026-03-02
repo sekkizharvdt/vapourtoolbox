@@ -190,7 +190,7 @@ export default function FlashChamberClient() {
             vaporVelocity={result?.chamberSizing.vaporVelocity}
             vaporVelocityStatus={result?.chamberSizing.vaporVelocityStatus}
             vaporLoading={result?.chamberSizing.vaporLoading}
-            liquidLoadingDiameter={result?.chamberSizing.liquidLoadingDiameter}
+            vaporLoadingDiameter={result?.chamberSizing.vaporLoadingDiameter}
             vaporVelocityDiameter={result?.chamberSizing.vaporVelocityDiameter}
             sbMaxVelocity={result?.chamberSizing.sbMaxVelocity}
             crossSectionLoading={result?.chamberSizing.crossSectionLoading}
