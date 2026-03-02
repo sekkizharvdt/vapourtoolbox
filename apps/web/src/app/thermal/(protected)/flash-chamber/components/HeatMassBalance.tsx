@@ -98,7 +98,6 @@ export function HeatMassBalance({ balance }: HeatMassBalanceProps) {
               <TableRow
                 key={row.stream}
                 sx={{
-                  bgcolor: row.type === 'in' ? 'primary.dark' : 'transparent',
                   '&:hover': { bgcolor: 'action.hover' },
                 }}
               >
