@@ -31,10 +31,12 @@ export const sendTestEmail = onCall(
       throw new HttpsError('permission-denied', 'Only admins can send test emails');
     }
 
-    const { recipientEmail, fromEmail, fromName } = request.data as {
+    const { recipientEmail, fromEmail, fromName, eventId } = request.data as {
       recipientEmail: string;
       fromEmail: string;
       fromName: string;
+      /** Optional — if provided, labels the test email with the event name */
+      eventId?: string;
     };
 
     if (!recipientEmail || !fromEmail) {
@@ -42,8 +44,15 @@ export const sendTestEmail = onCall(
     }
 
     try {
-      logger.info(`Sending test email to ${recipientEmail} from ${fromEmail}`);
-      await sendTestEmailToAddress(recipientEmail, fromEmail, fromName || 'Vapour Toolbox');
+      logger.info(
+        `Sending test email to ${recipientEmail} from ${fromEmail}${eventId ? ` (event: ${eventId})` : ''}`
+      );
+      await sendTestEmailToAddress(
+        recipientEmail,
+        fromEmail,
+        fromName || 'Vapour Toolbox',
+        eventId
+      );
       return { success: true, message: `Test email sent to ${recipientEmail}` };
     } catch (error) {
       logger.error('Test email failed:', error);

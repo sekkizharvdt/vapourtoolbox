@@ -36,6 +36,7 @@ import { httpsCallable } from 'firebase/functions';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import NextLink from 'next/link';
 
 interface EmailConfig {
   enabled: boolean;
@@ -232,6 +233,20 @@ export default function SettingsPage() {
           {saving ? 'Saving...' : 'Save Settings'}
         </Button>
       </Box>
+
+      <Alert severity="info" variant="outlined" sx={{ mb: 3 }}>
+        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+          This page has been superseded by Email Management
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          All email settings — including per-event recipients, schedule, and delivery logs — are now
+          managed in{' '}
+          <NextLink href="/admin/email" style={{ color: 'inherit' }}>
+            Email Management
+          </NextLink>
+          . This page remains available for backward compatibility.
+        </Typography>
+      </Alert>
 
       {/* Email Configuration */}
       <Card sx={{ mb: 3 }}>

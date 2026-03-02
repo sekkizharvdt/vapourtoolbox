@@ -27,6 +27,8 @@ interface EmailConfig {
   fromEmail: string;
   fromName: string;
   recipientUserIds: string[];
+  /** Per-event recipient overrides. Empty array or absent = use recipientUserIds. */
+  eventRecipients?: Record<string, string[]>;
 }
 
 interface SendNotificationInput {
@@ -177,10 +179,19 @@ export async function sendNotificationEmail(input: SendNotificationInput): Promi
       return;
     }
 
-    // 3. Resolve recipients — use direct emails if provided, otherwise the configured list
-    const recipientEmails = input.directRecipientEmails?.length
-      ? input.directRecipientEmails
-      : await resolveRecipientEmails(emailConfig.recipientUserIds);
+    // 3. Resolve recipients — use direct emails if provided, then per-event override, then global list
+    let recipientEmails: string[];
+    if (input.directRecipientEmails?.length) {
+      recipientEmails = input.directRecipientEmails;
+    } else {
+      const eventSpecificIds = emailConfig.eventRecipients?.[input.eventId];
+      const idsToResolve =
+        eventSpecificIds && eventSpecificIds.length > 0
+          ? eventSpecificIds
+          : emailConfig.recipientUserIds;
+      recipientEmails = await resolveRecipientEmails(idsToResolve);
+    }
+
     if (recipientEmails.length === 0) {
       logger.info('No eligible recipients — skipping email');
       return;
@@ -209,28 +220,66 @@ export async function sendNotificationEmail(input: SendNotificationInput): Promi
     logger.info(
       `Sent ${input.eventId} email to ${recipientEmails.length} recipients: ${recipientEmails.join(', ')}`
     );
+
+    // 6. Log delivery to Firestore
+    await logEmailDelivery(input.eventId, input.subject, recipientEmails, 'sent');
   } catch (error) {
     logger.error(`Failed to send ${input.eventId} email:`, error);
+    await logEmailDelivery(input.eventId, input.subject, [], 'failed', String(error));
+  }
+}
+
+/**
+ * Write a delivery record to the emailLogs collection.
+ */
+async function logEmailDelivery(
+  eventId: string,
+  subject: string,
+  recipientEmails: string[],
+  status: 'sent' | 'failed',
+  error?: string
+): Promise<void> {
+  try {
+    const db = admin.firestore();
+    await db.collection('emailLogs').add({
+      eventId,
+      subject,
+      recipientEmails,
+      recipientCount: recipientEmails.length,
+      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+      status,
+      ...(error !== undefined && { error }),
+    });
+  } catch (logError) {
+    // Don't let logging failures cascade — just warn
+    logger.warn('Failed to write email delivery log:', logError);
   }
 }
 
 /**
  * Send a test email to a single recipient.
  * Used by the admin settings page "Send Test Email" button.
+ * If eventId is provided, the email is labelled as a test for that specific event.
  */
 export async function sendTestEmailToAddress(
   recipientEmail: string,
   fromEmail: string,
-  fromName: string
+  fromName: string,
+  eventId?: string
 ): Promise<void> {
   const transporter = createTransporter(fromEmail);
 
   const { base, notification } = compileTemplates();
+  const title = eventId ? `Test: ${formatEventLabel(eventId)}` : 'Test Email';
+  const message = eventId
+    ? `This is a test of the "${formatEventLabel(eventId)}" notification. If you received this, email delivery for this event is working correctly.`
+    : 'This is a test email from Vapour Toolbox. If you received this, email notifications are working correctly.';
+
   const bodyHtml = notification({
-    title: 'Test Email',
-    message:
-      'This is a test email from Vapour Toolbox. If you received this, email notifications are working correctly.',
+    title,
+    message,
     details: [
+      { label: 'Event', value: eventId || 'Global test' },
       { label: 'From', value: `${fromName} <${fromEmail}>` },
       {
         label: 'Sent At',
@@ -241,14 +290,26 @@ export async function sendTestEmailToAddress(
         }),
       },
     ],
-    linkUrl: 'https://toolbox.vapourdesal.com/admin/settings',
+    linkUrl: 'https://toolbox.vapourdesal.com/admin/email',
   });
   const fullHtml = base({ senderName: fromName || 'Vapour Toolbox', body: bodyHtml });
+
+  const subject = eventId
+    ? `[Test] ${formatEventLabel(eventId)} — Vapour Toolbox`
+    : '[Test] Vapour Toolbox Email Notification';
 
   await transporter.sendMail({
     from: `"${fromName || 'Vapour Toolbox'}" <${fromEmail}>`,
     to: recipientEmail,
-    subject: '[Test] Vapour Toolbox Email Notification',
+    subject,
     html: fullHtml,
   });
+}
+
+/** Convert an event ID like 'bill_overdue' to a human-readable label */
+function formatEventLabel(eventId: string): string {
+  return eventId
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }

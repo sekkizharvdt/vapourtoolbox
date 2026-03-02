@@ -12,6 +12,33 @@ import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import { sendNotificationEmail, gmailAppPassword } from './sendEmail';
 
+interface ScheduleConfig {
+  frequency: 'daily' | 'weekly' | 'monthly';
+  dayOfWeek?: number; // 0–6, Sunday=0; used when frequency='weekly'
+  dayOfMonth?: number; // 1–31; used when frequency='monthly'
+}
+
+/**
+ * Returns true if today matches the configured send schedule.
+ * The Cloud Function always runs daily; this gate controls whether to actually send.
+ */
+function shouldSendToday(schedule: ScheduleConfig | undefined): boolean {
+  if (!schedule || schedule.frequency === 'daily') return true;
+
+  const now = new Date();
+  // Convert UTC to IST (UTC+5:30) for day-of-week / day-of-month checks
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istNow = new Date(now.getTime() + istOffset);
+
+  if (schedule.frequency === 'weekly') {
+    return istNow.getUTCDay() === (schedule.dayOfWeek ?? 1); // default Monday
+  }
+  if (schedule.frequency === 'monthly') {
+    return istNow.getUTCDate() === (schedule.dayOfMonth ?? 1); // default 1st
+  }
+  return true;
+}
+
 /**
  * Daily overdue items check — sends notification emails for:
  * - bill_overdue: Vendor bills past their due date
@@ -30,6 +57,19 @@ export const checkOverdueItemsAndNotify = onSchedule(
   async () => {
     const db = admin.firestore();
     const now = new Date();
+
+    // Check schedule config — skip sending if today doesn't match the configured frequency
+    const emailConfigDoc = await db.doc('notificationSettings/emailConfig').get();
+    const scheduleConfig = emailConfigDoc.exists
+      ? (emailConfigDoc.data()?.schedule as ScheduleConfig | undefined)
+      : undefined;
+
+    if (!shouldSendToday(scheduleConfig)) {
+      logger.info(
+        `Daily overdue check: skipping send — schedule frequency is '${scheduleConfig?.frequency}' and today does not match`
+      );
+      return;
+    }
 
     // Check overdue vendor bills
     try {

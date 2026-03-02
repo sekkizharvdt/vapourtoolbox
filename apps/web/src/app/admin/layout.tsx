@@ -41,6 +41,7 @@ function getBreadcrumbs(pathname: string) {
     'hr-setup': 'HR Setup',
     activity: 'Activity Feed',
     backup: 'Data Backup',
+    email: 'Email Management',
     notifications: 'Notification Settings',
     settings: 'Settings',
     'task-analytics': 'Task Analytics',

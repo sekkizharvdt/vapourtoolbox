@@ -20,8 +20,7 @@ import {
   EventNote as HRIcon,
   Timeline as ActivityIcon,
   Backup as BackupIcon,
-  Notifications as NotificationsIcon,
-  Settings as SettingsIcon,
+  Email as EmailIcon,
   PendingActions as PendingIcon,
 } from '@mui/icons-material';
 import { collection, query, where, onSnapshot, getCountFromServer } from 'firebase/firestore';
@@ -217,18 +216,11 @@ export default function AdminDashboardPage() {
       path: '/admin/backup',
     },
     {
-      id: 'notifications',
-      title: 'Notifications',
-      description: 'Configure email notification settings',
-      icon: <NotificationsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/admin/notifications',
-    },
-    {
-      id: 'settings',
-      title: 'Settings',
-      description: 'Email delivery configuration and notification recipients',
-      icon: <SettingsIcon sx={{ fontSize: 48, color: 'text.secondary' }} />,
-      path: '/admin/settings',
+      id: 'email',
+      title: 'Email Management',
+      description: 'Configure delivery, recipients, schedule, and per-event notification settings',
+      icon: <EmailIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/admin/email',
     },
     {
       id: 'task-analytics',
