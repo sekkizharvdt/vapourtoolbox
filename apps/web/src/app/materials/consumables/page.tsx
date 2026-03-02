@@ -49,17 +49,15 @@ import type {
 import { MATERIAL_CATEGORY_LABELS, MaterialCategory as MC } from '@vapour/types';
 import { queryMaterials } from '@/lib/materials/materialService';
 
-// Fastener categories
-const FASTENER_CATEGORIES: MaterialCategory[] = [
-  MC.FASTENERS_BOLTS,
-  MC.FASTENERS_NUTS,
-  MC.FASTENERS_WASHERS,
-  MC.FASTENERS_BOLT_NUT_WASHER_SETS,
-  MC.FASTENERS_STUDS,
-  MC.FASTENERS_SCREWS,
+// Consumable categories
+const CONSUMABLE_CATEGORIES: MaterialCategory[] = [
+  MC.WELDING_CONSUMABLES,
+  MC.PAINTS_COATINGS,
+  MC.LUBRICANTS,
+  MC.CHEMICALS,
 ];
 
-export default function FastenersPage() {
+export default function ConsumablesPage() {
   const router = useRouter();
   const { db } = getFirebase();
 
@@ -91,7 +89,7 @@ export default function FastenersPage() {
 
       // Determine which categories to query
       const categoriesToQuery =
-        selectedCategory === 'ALL' ? FASTENER_CATEGORIES : [selectedCategory];
+        selectedCategory === 'ALL' ? CONSUMABLE_CATEGORIES : [selectedCategory];
 
       const result = await queryMaterials(db, {
         categories: categoriesToQuery,
@@ -144,7 +142,7 @@ export default function FastenersPage() {
 
   // Engineering-focused statistics
   const stats = useMemo(() => {
-    const categoryBreakdown = FASTENER_CATEGORIES.reduce(
+    const categoryBreakdown = CONSUMABLE_CATEGORIES.reduce(
       (acc, cat) => {
         acc[cat] = materials.filter((m) => m.category === cat).length;
         return acc;
@@ -201,12 +199,12 @@ export default function FastenersPage() {
           <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
           Materials
         </Link>
-        <Typography color="text.primary">Fasteners</Typography>
+        <Typography color="text.primary">Consumables</Typography>
       </Breadcrumbs>
 
       <PageHeader
-        title="Fasteners"
-        subtitle="Bolts, nuts, washers, studs, and screws with grade specifications"
+        title="Consumables"
+        subtitle="Welding consumables, paints, coatings, lubricants, and chemicals"
         action={
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
@@ -222,7 +220,7 @@ export default function FastenersPage() {
               startIcon={<AddIcon />}
               onClick={() => router.push('/materials/new')}
             >
-              Add Fastener
+              Add Consumable
             </Button>
           </Box>
         }
@@ -234,7 +232,7 @@ export default function FastenersPage() {
           <Card variant="outlined" sx={{ flex: '1 1 200px' }}>
             <CardContent>
               <Typography color="text.secondary" variant="body2">
-                Total Active Fasteners
+                Total Active Consumables
               </Typography>
               <Typography variant="h5" fontWeight="bold">
                 {stats.total}
@@ -244,36 +242,26 @@ export default function FastenersPage() {
           <Card variant="outlined" sx={{ flex: '1 1 250px' }}>
             <CardContent>
               <Typography color="text.secondary" variant="body2" gutterBottom>
-                Fasteners by Type
+                Consumables by Type
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
                 <Chip
-                  label={`Bolts: ${stats.categoryBreakdown[MC.FASTENERS_BOLTS] || 0}`}
+                  label={`Welding: ${stats.categoryBreakdown[MC.WELDING_CONSUMABLES] || 0}`}
                   size="small"
                   variant="outlined"
                 />
                 <Chip
-                  label={`Nuts: ${stats.categoryBreakdown[MC.FASTENERS_NUTS] || 0}`}
+                  label={`Paints: ${stats.categoryBreakdown[MC.PAINTS_COATINGS] || 0}`}
                   size="small"
                   variant="outlined"
                 />
                 <Chip
-                  label={`Washers: ${stats.categoryBreakdown[MC.FASTENERS_WASHERS] || 0}`}
+                  label={`Lubricants: ${stats.categoryBreakdown[MC.LUBRICANTS] || 0}`}
                   size="small"
                   variant="outlined"
                 />
                 <Chip
-                  label={`Sets: ${stats.categoryBreakdown[MC.FASTENERS_BOLT_NUT_WASHER_SETS] || 0}`}
-                  size="small"
-                  variant="outlined"
-                />
-                <Chip
-                  label={`Studs: ${stats.categoryBreakdown[MC.FASTENERS_STUDS] || 0}`}
-                  size="small"
-                  variant="outlined"
-                />
-                <Chip
-                  label={`Screws: ${stats.categoryBreakdown[MC.FASTENERS_SCREWS] || 0}`}
+                  label={`Chemicals: ${stats.categoryBreakdown[MC.CHEMICALS] || 0}`}
                   size="small"
                   variant="outlined"
                 />
@@ -327,7 +315,7 @@ export default function FastenersPage() {
           <TextField
             size="small"
             label="Search"
-            placeholder="Search fasteners..."
+            placeholder="Search consumables..."
             value={searchText}
             onChange={(e) => {
               setSearchText(e.target.value);
@@ -354,9 +342,9 @@ export default function FastenersPage() {
               }}
             >
               <MenuItem value="ALL">All Categories</MenuItem>
-              {FASTENER_CATEGORIES.map((category) => (
+              {CONSUMABLE_CATEGORIES.map((category) => (
                 <MenuItem key={category} value={category}>
-                  {MATERIAL_CATEGORY_LABELS[category].replace(/^Fasteners - /, '')}
+                  {MATERIAL_CATEGORY_LABELS[category]}
                 </MenuItem>
               ))}
             </Select>
@@ -410,13 +398,13 @@ export default function FastenersPage() {
             </TableHead>
             <TableBody>
               {loading ? (
-                <LoadingState message="Loading fasteners..." variant="table" colSpan={7} />
+                <LoadingState message="Loading consumables..." variant="table" colSpan={7} />
               ) : paginatedMaterials.length === 0 ? (
                 <EmptyState
                   message={
                     searchText
-                      ? 'No fasteners match your search criteria. Try adjusting your search or filters.'
-                      : 'No fastener materials found. Add your first fastener material to get started.'
+                      ? 'No consumables match your search criteria. Try adjusting your search or filters.'
+                      : 'No consumable materials found. Add your first consumable material to get started.'
                   }
                   variant="table"
                   colSpan={7}

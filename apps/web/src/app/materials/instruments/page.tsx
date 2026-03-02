@@ -49,17 +49,17 @@ import type {
 import { MATERIAL_CATEGORY_LABELS, MaterialCategory as MC } from '@vapour/types';
 import { queryMaterials } from '@/lib/materials/materialService';
 
-// Fastener categories
-const FASTENER_CATEGORIES: MaterialCategory[] = [
-  MC.FASTENERS_BOLTS,
-  MC.FASTENERS_NUTS,
-  MC.FASTENERS_WASHERS,
-  MC.FASTENERS_BOLT_NUT_WASHER_SETS,
-  MC.FASTENERS_STUDS,
-  MC.FASTENERS_SCREWS,
+// Instrument categories
+const INSTRUMENT_CATEGORIES: MaterialCategory[] = [
+  MC.INSTRUMENT_PRESSURE_GAUGE,
+  MC.INSTRUMENT_TEMPERATURE_SENSOR,
+  MC.INSTRUMENT_FLOW_METER,
+  MC.INSTRUMENT_LEVEL_TRANSMITTER,
+  MC.INSTRUMENT_CONTROL_VALVE,
+  MC.INSTRUMENT_OTHER,
 ];
 
-export default function FastenersPage() {
+export default function InstrumentsPage() {
   const router = useRouter();
   const { db } = getFirebase();
 
@@ -91,7 +91,7 @@ export default function FastenersPage() {
 
       // Determine which categories to query
       const categoriesToQuery =
-        selectedCategory === 'ALL' ? FASTENER_CATEGORIES : [selectedCategory];
+        selectedCategory === 'ALL' ? INSTRUMENT_CATEGORIES : [selectedCategory];
 
       const result = await queryMaterials(db, {
         categories: categoriesToQuery,
@@ -144,7 +144,7 @@ export default function FastenersPage() {
 
   // Engineering-focused statistics
   const stats = useMemo(() => {
-    const categoryBreakdown = FASTENER_CATEGORIES.reduce(
+    const categoryBreakdown = INSTRUMENT_CATEGORIES.reduce(
       (acc, cat) => {
         acc[cat] = materials.filter((m) => m.category === cat).length;
         return acc;
@@ -201,12 +201,12 @@ export default function FastenersPage() {
           <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
           Materials
         </Link>
-        <Typography color="text.primary">Fasteners</Typography>
+        <Typography color="text.primary">Instruments</Typography>
       </Breadcrumbs>
 
       <PageHeader
-        title="Fasteners"
-        subtitle="Bolts, nuts, washers, studs, and screws with grade specifications"
+        title="Instruments"
+        subtitle="Pressure, Temperature, Flow, Level instruments and Control Valves"
         action={
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
@@ -222,7 +222,7 @@ export default function FastenersPage() {
               startIcon={<AddIcon />}
               onClick={() => router.push('/materials/new')}
             >
-              Add Fastener
+              Add Instrument
             </Button>
           </Box>
         }
@@ -234,7 +234,7 @@ export default function FastenersPage() {
           <Card variant="outlined" sx={{ flex: '1 1 200px' }}>
             <CardContent>
               <Typography color="text.secondary" variant="body2">
-                Total Active Fasteners
+                Total Active Instruments
               </Typography>
               <Typography variant="h5" fontWeight="bold">
                 {stats.total}
@@ -244,36 +244,36 @@ export default function FastenersPage() {
           <Card variant="outlined" sx={{ flex: '1 1 250px' }}>
             <CardContent>
               <Typography color="text.secondary" variant="body2" gutterBottom>
-                Fasteners by Type
+                Instruments by Type
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
                 <Chip
-                  label={`Bolts: ${stats.categoryBreakdown[MC.FASTENERS_BOLTS] || 0}`}
+                  label={`Pressure: ${stats.categoryBreakdown[MC.INSTRUMENT_PRESSURE_GAUGE] || 0}`}
                   size="small"
                   variant="outlined"
                 />
                 <Chip
-                  label={`Nuts: ${stats.categoryBreakdown[MC.FASTENERS_NUTS] || 0}`}
+                  label={`Temp: ${stats.categoryBreakdown[MC.INSTRUMENT_TEMPERATURE_SENSOR] || 0}`}
                   size="small"
                   variant="outlined"
                 />
                 <Chip
-                  label={`Washers: ${stats.categoryBreakdown[MC.FASTENERS_WASHERS] || 0}`}
+                  label={`Flow: ${stats.categoryBreakdown[MC.INSTRUMENT_FLOW_METER] || 0}`}
                   size="small"
                   variant="outlined"
                 />
                 <Chip
-                  label={`Sets: ${stats.categoryBreakdown[MC.FASTENERS_BOLT_NUT_WASHER_SETS] || 0}`}
+                  label={`Level: ${stats.categoryBreakdown[MC.INSTRUMENT_LEVEL_TRANSMITTER] || 0}`}
                   size="small"
                   variant="outlined"
                 />
                 <Chip
-                  label={`Studs: ${stats.categoryBreakdown[MC.FASTENERS_STUDS] || 0}`}
+                  label={`CV: ${stats.categoryBreakdown[MC.INSTRUMENT_CONTROL_VALVE] || 0}`}
                   size="small"
                   variant="outlined"
                 />
                 <Chip
-                  label={`Screws: ${stats.categoryBreakdown[MC.FASTENERS_SCREWS] || 0}`}
+                  label={`Other: ${stats.categoryBreakdown[MC.INSTRUMENT_OTHER] || 0}`}
                   size="small"
                   variant="outlined"
                 />
@@ -327,7 +327,7 @@ export default function FastenersPage() {
           <TextField
             size="small"
             label="Search"
-            placeholder="Search fasteners..."
+            placeholder="Search instruments..."
             value={searchText}
             onChange={(e) => {
               setSearchText(e.target.value);
@@ -354,9 +354,9 @@ export default function FastenersPage() {
               }}
             >
               <MenuItem value="ALL">All Categories</MenuItem>
-              {FASTENER_CATEGORIES.map((category) => (
+              {INSTRUMENT_CATEGORIES.map((category) => (
                 <MenuItem key={category} value={category}>
-                  {MATERIAL_CATEGORY_LABELS[category].replace(/^Fasteners - /, '')}
+                  {MATERIAL_CATEGORY_LABELS[category].replace(/^Instrument - /, '')}
                 </MenuItem>
               ))}
             </Select>
@@ -410,13 +410,13 @@ export default function FastenersPage() {
             </TableHead>
             <TableBody>
               {loading ? (
-                <LoadingState message="Loading fasteners..." variant="table" colSpan={7} />
+                <LoadingState message="Loading instruments..." variant="table" colSpan={7} />
               ) : paginatedMaterials.length === 0 ? (
                 <EmptyState
                   message={
                     searchText
-                      ? 'No fasteners match your search criteria. Try adjusting your search or filters.'
-                      : 'No fastener materials found. Add your first fastener material to get started.'
+                      ? 'No instruments match your search criteria. Try adjusting your search or filters.'
+                      : 'No instrument materials found. Add your first instrument material to get started.'
                   }
                   variant="table"
                   colSpan={7}

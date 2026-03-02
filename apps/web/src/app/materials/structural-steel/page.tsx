@@ -49,17 +49,10 @@ import type {
 import { MATERIAL_CATEGORY_LABELS, MaterialCategory as MC } from '@vapour/types';
 import { queryMaterials } from '@/lib/materials/materialService';
 
-// Fastener categories
-const FASTENER_CATEGORIES: MaterialCategory[] = [
-  MC.FASTENERS_BOLTS,
-  MC.FASTENERS_NUTS,
-  MC.FASTENERS_WASHERS,
-  MC.FASTENERS_BOLT_NUT_WASHER_SETS,
-  MC.FASTENERS_STUDS,
-  MC.FASTENERS_SCREWS,
-];
+// Structural steel categories (single category)
+const STRUCTURAL_STEEL_CATEGORIES: MaterialCategory[] = [MC.STRUCTURAL_SHAPES];
 
-export default function FastenersPage() {
+export default function StructuralSteelPage() {
   const router = useRouter();
   const { db } = getFirebase();
 
@@ -67,9 +60,6 @@ export default function FastenersPage() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Category Selection
-  const [selectedCategory, setSelectedCategory] = useState<MaterialCategory | 'ALL'>('ALL');
 
   // Search & Filters
   const [searchText, setSearchText] = useState('');
@@ -89,12 +79,8 @@ export default function FastenersPage() {
       setLoading(true);
       setError(null);
 
-      // Determine which categories to query
-      const categoriesToQuery =
-        selectedCategory === 'ALL' ? FASTENER_CATEGORIES : [selectedCategory];
-
       const result = await queryMaterials(db, {
-        categories: categoriesToQuery,
+        categories: STRUCTURAL_STEEL_CATEGORIES,
         isActive: true,
         isStandard: showOnlyStandard ? true : undefined,
         sortField,
@@ -108,7 +94,7 @@ export default function FastenersPage() {
     } finally {
       setLoading(false);
     }
-  }, [db, selectedCategory, showOnlyStandard, sortField, sortDirection]);
+  }, [db, showOnlyStandard, sortField, sortDirection]);
 
   useEffect(() => {
     loadMaterials();
@@ -116,7 +102,6 @@ export default function FastenersPage() {
 
   const handleClearFilters = () => {
     setSearchText('');
-    setSelectedCategory('ALL');
     setShowOnlyStandard(false);
     setPage(0);
   };
@@ -142,16 +127,8 @@ export default function FastenersPage() {
     return filteredMaterials.slice(startIndex, startIndex + rowsPerPage);
   }, [filteredMaterials, page, rowsPerPage]);
 
-  // Engineering-focused statistics
+  // Statistics
   const stats = useMemo(() => {
-    const categoryBreakdown = FASTENER_CATEGORIES.reduce(
-      (acc, cat) => {
-        acc[cat] = materials.filter((m) => m.category === cat).length;
-        return acc;
-      },
-      {} as Record<MaterialCategory, number>
-    );
-
     // Calculate recently added (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -161,16 +138,9 @@ export default function FastenersPage() {
       return createdDate >= thirtyDaysAgo;
     }).length;
 
-    // Materials missing key specifications (for weight calculations)
-    const missingSpecs = materials.filter(
-      (m) => !m.properties?.density || !m.specification?.standard
-    ).length;
-
     return {
       total: materials.length,
-      categoryBreakdown,
       recentlyAdded,
-      missingSpecs,
     };
   }, [materials]);
 
@@ -201,12 +171,12 @@ export default function FastenersPage() {
           <HomeIcon sx={{ mr: 0.5 }} fontSize="small" />
           Materials
         </Link>
-        <Typography color="text.primary">Fasteners</Typography>
+        <Typography color="text.primary">Structural Steel</Typography>
       </Breadcrumbs>
 
       <PageHeader
-        title="Fasteners"
-        subtitle="Bolts, nuts, washers, studs, and screws with grade specifications"
+        title="Structural Steel"
+        subtitle="ISMB, ISMC, ISUA sections and structural shapes"
         action={
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
@@ -222,62 +192,23 @@ export default function FastenersPage() {
               startIcon={<AddIcon />}
               onClick={() => router.push('/materials/new')}
             >
-              Add Fastener
+              Add Structural Steel
             </Button>
           </Box>
         }
       />
 
       <Box sx={{ mb: 3 }}>
-        {/* Engineering-Focused Stats Cards */}
+        {/* Stats Cards */}
         <Stack direction="row" spacing={2} sx={{ mb: 3, flexWrap: 'wrap' }}>
           <Card variant="outlined" sx={{ flex: '1 1 200px' }}>
             <CardContent>
               <Typography color="text.secondary" variant="body2">
-                Total Active Fasteners
+                Total Active Structural Steel
               </Typography>
               <Typography variant="h5" fontWeight="bold">
                 {stats.total}
               </Typography>
-            </CardContent>
-          </Card>
-          <Card variant="outlined" sx={{ flex: '1 1 250px' }}>
-            <CardContent>
-              <Typography color="text.secondary" variant="body2" gutterBottom>
-                Fasteners by Type
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                <Chip
-                  label={`Bolts: ${stats.categoryBreakdown[MC.FASTENERS_BOLTS] || 0}`}
-                  size="small"
-                  variant="outlined"
-                />
-                <Chip
-                  label={`Nuts: ${stats.categoryBreakdown[MC.FASTENERS_NUTS] || 0}`}
-                  size="small"
-                  variant="outlined"
-                />
-                <Chip
-                  label={`Washers: ${stats.categoryBreakdown[MC.FASTENERS_WASHERS] || 0}`}
-                  size="small"
-                  variant="outlined"
-                />
-                <Chip
-                  label={`Sets: ${stats.categoryBreakdown[MC.FASTENERS_BOLT_NUT_WASHER_SETS] || 0}`}
-                  size="small"
-                  variant="outlined"
-                />
-                <Chip
-                  label={`Studs: ${stats.categoryBreakdown[MC.FASTENERS_STUDS] || 0}`}
-                  size="small"
-                  variant="outlined"
-                />
-                <Chip
-                  label={`Screws: ${stats.categoryBreakdown[MC.FASTENERS_SCREWS] || 0}`}
-                  size="small"
-                  variant="outlined"
-                />
-              </Box>
             </CardContent>
           </Card>
           <Card variant="outlined" sx={{ flex: '1 1 200px' }}>
@@ -287,26 +218,6 @@ export default function FastenersPage() {
               </Typography>
               <Typography variant="h5" fontWeight="bold">
                 {stats.recentlyAdded}
-              </Typography>
-            </CardContent>
-          </Card>
-          <Card
-            variant="outlined"
-            sx={{
-              flex: '1 1 200px',
-              borderColor: stats.missingSpecs > 0 ? 'warning.main' : 'divider',
-            }}
-          >
-            <CardContent>
-              <Typography color="text.secondary" variant="body2">
-                Missing Specifications
-              </Typography>
-              <Typography
-                variant="h5"
-                fontWeight="bold"
-                color={stats.missingSpecs > 0 ? 'warning.main' : 'text.primary'}
-              >
-                {stats.missingSpecs}
               </Typography>
             </CardContent>
           </Card>
@@ -322,12 +233,12 @@ export default function FastenersPage() {
 
       {/* Main Content */}
       <Paper sx={{ width: '100%' }}>
-        {/* Category filter and search */}
+        {/* Search and filters */}
         <FilterBar onClear={handleClearFilters}>
           <TextField
             size="small"
             label="Search"
-            placeholder="Search fasteners..."
+            placeholder="Search structural steel..."
             value={searchText}
             onChange={(e) => {
               setSearchText(e.target.value);
@@ -342,25 +253,6 @@ export default function FastenersPage() {
             }}
             sx={{ minWidth: 300 }}
           />
-
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>Category</InputLabel>
-            <Select
-              value={selectedCategory}
-              label="Category"
-              onChange={(e) => {
-                setSelectedCategory(e.target.value as MaterialCategory | 'ALL');
-                setPage(0);
-              }}
-            >
-              <MenuItem value="ALL">All Categories</MenuItem>
-              {FASTENER_CATEGORIES.map((category) => (
-                <MenuItem key={category} value={category}>
-                  {MATERIAL_CATEGORY_LABELS[category].replace(/^Fasteners - /, '')}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
 
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Standard</InputLabel>
@@ -410,13 +302,13 @@ export default function FastenersPage() {
             </TableHead>
             <TableBody>
               {loading ? (
-                <LoadingState message="Loading fasteners..." variant="table" colSpan={7} />
+                <LoadingState message="Loading structural steel..." variant="table" colSpan={7} />
               ) : paginatedMaterials.length === 0 ? (
                 <EmptyState
                   message={
                     searchText
-                      ? 'No fasteners match your search criteria. Try adjusting your search or filters.'
-                      : 'No fastener materials found. Add your first fastener material to get started.'
+                      ? 'No structural steel match your search criteria. Try adjusting your search or filters.'
+                      : 'No structural steel materials found. Add your first structural steel material to get started.'
                   }
                   variant="table"
                   colSpan={7}

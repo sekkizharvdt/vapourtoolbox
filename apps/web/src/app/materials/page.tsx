@@ -8,6 +8,10 @@ import {
   Architecture as FittingsIcon,
   Build as FastenersIcon,
   Cake as FlangesIcon,
+  Tune as ValvesIcon,
+  SettingsInputComponent as PumpsIcon,
+  Speed as InstrumentsIcon,
+  Science as ConsumablesIcon,
 } from '@mui/icons-material';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getCountFromServer } from 'firebase/firestore';
@@ -18,13 +22,50 @@ import { ModuleLandingPage, type ModuleItem } from '@/components/modules';
 
 const logger = createLogger({ context: 'MaterialsPage' });
 
-// Define counts type with module IDs as keys
 interface MaterialCounts {
   plates: number;
   pipes: number;
   fittings: number;
   flanges: number;
+  valves: number;
+  pumps: number;
+  instruments: number;
+  fasteners: number;
+  structural: number;
+  consumables: number;
 }
+
+const VALVE_CATEGORIES = [
+  MC.VALVE_GATE,
+  MC.VALVE_GLOBE,
+  MC.VALVE_BALL,
+  MC.VALVE_BUTTERFLY,
+  MC.VALVE_CHECK,
+  MC.VALVE_OTHER,
+];
+const PUMP_CATEGORIES = [MC.PUMP_CENTRIFUGAL, MC.PUMP_POSITIVE_DISPLACEMENT];
+const INSTRUMENT_CATEGORIES = [
+  MC.INSTRUMENT_PRESSURE_GAUGE,
+  MC.INSTRUMENT_TEMPERATURE_SENSOR,
+  MC.INSTRUMENT_FLOW_METER,
+  MC.INSTRUMENT_LEVEL_TRANSMITTER,
+  MC.INSTRUMENT_CONTROL_VALVE,
+  MC.INSTRUMENT_OTHER,
+];
+const FASTENER_CATEGORIES = [
+  MC.FASTENERS_BOLTS,
+  MC.FASTENERS_NUTS,
+  MC.FASTENERS_WASHERS,
+  MC.FASTENERS_BOLT_NUT_WASHER_SETS,
+  MC.FASTENERS_STUDS,
+  MC.FASTENERS_SCREWS,
+];
+const CONSUMABLE_CATEGORIES = [
+  MC.WELDING_CONSUMABLES,
+  MC.PAINTS_COATINGS,
+  MC.LUBRICANTS,
+  MC.CHEMICALS,
+];
 
 export default function MaterialsPage() {
   const { db } = getFirebase();
@@ -33,65 +74,109 @@ export default function MaterialsPage() {
     pipes: 0,
     fittings: 0,
     flanges: 0,
+    valves: 0,
+    pumps: 0,
+    instruments: 0,
+    fasteners: 0,
+    structural: 0,
+    consumables: 0,
   });
   const [loading, setLoading] = useState(true);
 
-  // Load material counts
   useEffect(() => {
     async function loadCounts() {
       if (!db) return;
 
       try {
-        const plateCategories = [
-          MC.PLATES_CARBON_STEEL,
-          MC.PLATES_STAINLESS_STEEL,
-          MC.PLATES_DUPLEX_STEEL,
-          MC.PLATES_ALLOY_STEEL,
-        ];
+        const col = collection(db, COLLECTIONS.MATERIALS);
 
-        const pipeCategories = [
-          MC.PIPES_CARBON_STEEL,
-          MC.PIPES_STAINLESS_304L,
-          MC.PIPES_STAINLESS_316L,
-        ];
+        const queries = {
+          plates: query(
+            col,
+            where('category', 'in', [
+              MC.PLATES_CARBON_STEEL,
+              MC.PLATES_STAINLESS_STEEL,
+              MC.PLATES_DUPLEX_STEEL,
+              MC.PLATES_ALLOY_STEEL,
+            ]),
+            where('isActive', '==', true)
+          ),
+          pipes: query(
+            col,
+            where('category', 'in', [
+              MC.PIPES_CARBON_STEEL,
+              MC.PIPES_STAINLESS_304L,
+              MC.PIPES_STAINLESS_316L,
+            ]),
+            where('isActive', '==', true)
+          ),
+          fittings: query(
+            col,
+            where('category', 'in', [
+              MC.FITTINGS_BUTT_WELD,
+              MC.FITTINGS_SOCKET_WELD,
+              MC.FITTINGS_THREADED,
+              MC.FITTINGS_FLANGED,
+            ]),
+            where('isActive', '==', true)
+          ),
+          flanges: query(
+            col,
+            where('category', 'in', [MC.FLANGES_WELD_NECK, MC.FLANGES_SLIP_ON, MC.FLANGES_BLIND]),
+            where('isActive', '==', true)
+          ),
+          valves: query(
+            col,
+            where('category', 'in', VALVE_CATEGORIES),
+            where('isActive', '==', true)
+          ),
+          pumps: query(
+            col,
+            where('category', 'in', PUMP_CATEGORIES),
+            where('isActive', '==', true)
+          ),
+          instruments: query(
+            col,
+            where('category', 'in', INSTRUMENT_CATEGORIES),
+            where('isActive', '==', true)
+          ),
+          fasteners: query(
+            col,
+            where('category', 'in', FASTENER_CATEGORIES),
+            where('isActive', '==', true)
+          ),
+          structural: query(
+            col,
+            where('category', '==', MC.STRUCTURAL_SHAPES),
+            where('isActive', '==', true)
+          ),
+          consumables: query(
+            col,
+            where('category', 'in', CONSUMABLE_CATEGORIES),
+            where('isActive', '==', true)
+          ),
+        };
 
-        const platesQuery = query(
-          collection(db, COLLECTIONS.MATERIALS),
-          where('category', 'in', plateCategories),
-          where('isActive', '==', true)
-        );
+        const results = await Promise.all(Object.values(queries).map((q) => getCountFromServer(q)));
 
-        const pipesQuery = query(
-          collection(db, COLLECTIONS.MATERIALS),
-          where('category', 'in', pipeCategories),
-          where('isActive', '==', true)
-        );
-
-        const fittingsQuery = query(
-          collection(db, COLLECTIONS.MATERIALS),
-          where('category', '==', MC.FITTINGS_BUTT_WELD)
-        );
-
-        const flangesQuery = query(
-          collection(db, COLLECTIONS.MATERIALS),
-          where('category', 'in', [MC.FLANGES_WELD_NECK, MC.FLANGES_SLIP_ON, MC.FLANGES_BLIND])
-        );
-
-        // Execute all queries in parallel
-        const [platesSnapshot, pipesSnapshot, fittingsSnapshot, flangesSnapshot] =
-          await Promise.all([
-            getCountFromServer(platesQuery),
-            getCountFromServer(pipesQuery),
-            getCountFromServer(fittingsQuery),
-            getCountFromServer(flangesQuery),
-          ]);
-
-        setCounts({
-          plates: platesSnapshot.data().count,
-          pipes: pipesSnapshot.data().count,
-          fittings: fittingsSnapshot.data().count,
-          flanges: flangesSnapshot.data().count,
+        const keys = Object.keys(queries) as (keyof MaterialCounts)[];
+        const newCounts: MaterialCounts = {
+          plates: 0,
+          pipes: 0,
+          fittings: 0,
+          flanges: 0,
+          valves: 0,
+          pumps: 0,
+          instruments: 0,
+          fasteners: 0,
+          structural: 0,
+          consumables: 0,
+        };
+        keys.forEach((key, i) => {
+          newCounts[key] = results[i]?.data().count ?? 0;
         });
+
+        setCounts(newCounts);
       } catch (error) {
         logger.error('Error loading material counts', { error });
       } finally {
@@ -124,14 +209,6 @@ export default function MaterialsPage() {
       countLoading: loading,
     },
     {
-      id: 'structural-steel',
-      title: 'Structural Steel',
-      description: 'ISMB, ISMC, ISUA, ISLB sections and structural shapes',
-      icon: <StructuralIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/materials/structural-steel',
-      comingSoon: true,
-    },
-    {
       id: 'fittings',
       title: 'Fittings',
       description: 'Butt weld elbows, tees, reducers, and other pipe fittings per ASME B16.9',
@@ -139,14 +216,6 @@ export default function MaterialsPage() {
       path: '/materials/fittings',
       count: counts.fittings,
       countLoading: loading,
-    },
-    {
-      id: 'fasteners',
-      title: 'Fasteners',
-      description: 'Bolts, nuts, washers, and other fasteners with grade specifications',
-      icon: <FastenersIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
-      path: '/materials/fasteners',
-      comingSoon: true,
     },
     {
       id: 'flanges',
@@ -157,6 +226,60 @@ export default function MaterialsPage() {
       count: counts.flanges,
       countLoading: loading,
     },
+    {
+      id: 'valves',
+      title: 'Valves',
+      description: 'Gate, Globe, Ball, Butterfly, Check, and other valves per API/ASME standards',
+      icon: <ValvesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/materials/valves',
+      count: counts.valves,
+      countLoading: loading,
+    },
+    {
+      id: 'pumps',
+      title: 'Pumps',
+      description: 'Centrifugal and Positive Displacement pumps per API standards',
+      icon: <PumpsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/materials/pumps',
+      count: counts.pumps,
+      countLoading: loading,
+    },
+    {
+      id: 'instruments',
+      title: 'Instruments',
+      description: 'Pressure, Temperature, Flow, Level instruments and Control Valves',
+      icon: <InstrumentsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/materials/instruments',
+      count: counts.instruments,
+      countLoading: loading,
+    },
+    {
+      id: 'fasteners',
+      title: 'Fasteners',
+      description: 'Bolts, nuts, washers, studs, and screws with ASTM grade specifications',
+      icon: <FastenersIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/materials/fasteners',
+      count: counts.fasteners,
+      countLoading: loading,
+    },
+    {
+      id: 'structural-steel',
+      title: 'Structural Steel',
+      description: 'ISMB, ISMC, ISUA, ISLB sections and structural shapes',
+      icon: <StructuralIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/materials/structural-steel',
+      count: counts.structural,
+      countLoading: loading,
+    },
+    {
+      id: 'consumables',
+      title: 'Consumables',
+      description: 'Welding consumables, paints, coatings, lubricants, and chemicals',
+      icon: <ConsumablesIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/materials/consumables',
+      count: counts.consumables,
+      countLoading: loading,
+    },
   ];
 
   return (
@@ -164,6 +287,10 @@ export default function MaterialsPage() {
       title="Materials"
       description="Engineering materials database with technical specifications and variants"
       items={modules}
+      newAction={{
+        label: 'Add New Material',
+        path: '/materials/new',
+      }}
     />
   );
 }
