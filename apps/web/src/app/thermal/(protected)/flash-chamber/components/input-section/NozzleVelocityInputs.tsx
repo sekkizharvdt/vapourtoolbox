@@ -39,6 +39,7 @@ export function NozzleVelocityInputs({ inputs, onChange }: NozzleVelocityInputsP
           min: FLASH_CHAMBER_LIMITS.inletWaterVelocity.min,
           max: FLASH_CHAMBER_LIMITS.inletWaterVelocity.max,
           step: 0.1,
+          onWheel: (e) => (e.target as HTMLInputElement).blur(),
         }}
         helperText={`Typical: ${FLASH_CHAMBER_LIMITS.inletWaterVelocity.min} - ${FLASH_CHAMBER_LIMITS.inletWaterVelocity.max} m/s`}
         fullWidth
@@ -57,6 +58,7 @@ export function NozzleVelocityInputs({ inputs, onChange }: NozzleVelocityInputsP
           min: FLASH_CHAMBER_LIMITS.outletWaterVelocity.min,
           max: FLASH_CHAMBER_LIMITS.outletWaterVelocity.max,
           step: 0.01,
+          onWheel: (e) => (e.target as HTMLInputElement).blur(),
         }}
         helperText={`Max: ${FLASH_CHAMBER_LIMITS.outletWaterVelocity.max} m/s (very low to minimize vortexing)`}
         fullWidth
@@ -86,6 +88,7 @@ export function NozzleVelocityInputs({ inputs, onChange }: NozzleVelocityInputsP
           min: FLASH_CHAMBER_LIMITS.vaporVelocity.min,
           max: FLASH_CHAMBER_LIMITS.vaporVelocity.max,
           step: 1,
+          onWheel: (e) => (e.target as HTMLInputElement).blur(),
         }}
         helperText={`Max recommended: ${vaporVelocityLimits.maxRecommendedVelocity.toFixed(0)} m/s (35% of sonic at ${inputs.operatingPressure} mbar)`}
         fullWidth

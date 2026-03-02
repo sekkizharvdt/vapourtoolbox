@@ -41,6 +41,7 @@ export function ElevationInputs({ inputs, onChange }: ElevationInputsProps) {
           min: FLASH_CHAMBER_LIMITS.pumpCenterlineAboveFFL.min,
           max: FLASH_CHAMBER_LIMITS.pumpCenterlineAboveFFL.max,
           step: 0.1,
+          onWheel: (e) => (e.target as HTMLInputElement).blur(),
         }}
         helperText={`Typical: 500-750mm (${FLASH_CHAMBER_LIMITS.pumpCenterlineAboveFFL.min} - ${FLASH_CHAMBER_LIMITS.pumpCenterlineAboveFFL.max} m)`}
         fullWidth
@@ -68,6 +69,7 @@ export function ElevationInputs({ inputs, onChange }: ElevationInputsProps) {
           min: FLASH_CHAMBER_LIMITS.operatingLevelAbovePump.min,
           max: FLASH_CHAMBER_LIMITS.operatingLevelAbovePump.max,
           step: 0.5,
+          onWheel: (e) => (e.target as HTMLInputElement).blur(),
         }}
         helperText={`Typical: 4m or higher (${FLASH_CHAMBER_LIMITS.operatingLevelAbovePump.min} - ${FLASH_CHAMBER_LIMITS.operatingLevelAbovePump.max} m)`}
         fullWidth
@@ -95,6 +97,7 @@ export function ElevationInputs({ inputs, onChange }: ElevationInputsProps) {
           min: FLASH_CHAMBER_LIMITS.operatingLevelRatio.min,
           max: FLASH_CHAMBER_LIMITS.operatingLevelRatio.max,
           step: 0.1,
+          onWheel: (e) => (e.target as HTMLInputElement).blur(),
         }}
         helperText="0.5 = operating level at midpoint of retention zone"
         fullWidth
@@ -122,6 +125,7 @@ export function ElevationInputs({ inputs, onChange }: ElevationInputsProps) {
           min: FLASH_CHAMBER_LIMITS.btlGapBelowLGL.min,
           max: FLASH_CHAMBER_LIMITS.btlGapBelowLGL.max,
           step: 0.05,
+          onWheel: (e) => (e.target as HTMLInputElement).blur(),
         }}
         helperText={`Typical: ~100mm (${FLASH_CHAMBER_LIMITS.btlGapBelowLGL.min} - ${FLASH_CHAMBER_LIMITS.btlGapBelowLGL.max} m)`}
         fullWidth

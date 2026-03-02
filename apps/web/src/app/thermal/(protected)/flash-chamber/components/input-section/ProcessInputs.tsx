@@ -113,6 +113,7 @@ export function ProcessInputs({
           }}
           inputProps={{
             step: inputs.flowRateUnit === 'KG_SEC' ? 0.1 : 1,
+            onWheel: (e) => (e.target as HTMLInputElement).blur(),
           }}
           helperText={`Inlet ${inputs.waterType === 'SEAWATER' ? 'seawater' : 'DM water'} flow rate`}
           fullWidth
@@ -128,6 +129,7 @@ export function ProcessInputs({
           }}
           inputProps={{
             step: inputs.flowRateUnit === 'KG_SEC' ? 0.01 : 0.1,
+            onWheel: (e) => (e.target as HTMLInputElement).blur(),
           }}
           helperText="Desired vapor production"
           fullWidth
@@ -168,6 +170,7 @@ export function ProcessInputs({
             min: FLASH_CHAMBER_LIMITS.operatingPressure.min,
             max: FLASH_CHAMBER_LIMITS.operatingPressure.max,
             step: 10,
+            onWheel: (e) => (e.target as HTMLInputElement).blur(),
           }}
           helperText={
             derivedSatTemp > 0
@@ -192,6 +195,7 @@ export function ProcessInputs({
             min: FLASH_CHAMBER_LIMITS.flashingTemperature.min,
             max: FLASH_CHAMBER_LIMITS.flashingTemperature.max,
             step: 1,
+            onWheel: (e) => (e.target as HTMLInputElement).blur(),
           }}
           helperText={
             derivedPressureMbar !== null
@@ -221,6 +225,7 @@ export function ProcessInputs({
           min: FLASH_CHAMBER_LIMITS.inletTemperature.min,
           max: FLASH_CHAMBER_LIMITS.inletTemperature.max,
           step: 1,
+          onWheel: (e) => (e.target as HTMLInputElement).blur(),
         }}
         helperText="Must be above flash chamber saturation temperature"
         fullWidth
@@ -240,6 +245,7 @@ export function ProcessInputs({
             min: 1000,
             max: FLASH_CHAMBER_LIMITS.salinity.max,
             step: 1000,
+            onWheel: (e) => (e.target as HTMLInputElement).blur(),
           }}
           helperText="Typical seawater: 35,000 ppm"
           fullWidth

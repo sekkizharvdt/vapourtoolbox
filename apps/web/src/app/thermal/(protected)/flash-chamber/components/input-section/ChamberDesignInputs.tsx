@@ -104,6 +104,7 @@ export function ChamberDesignInputs({
                 min: FLASH_CHAMBER_LIMITS.userDiameter.min,
                 max: FLASH_CHAMBER_LIMITS.userDiameter.max,
                 step: 100,
+                onWheel: (e) => (e.target as HTMLInputElement).blur(),
               }}
               helperText={`Range: ${FLASH_CHAMBER_LIMITS.userDiameter.min} - ${FLASH_CHAMBER_LIMITS.userDiameter.max} mm (in 100mm increments)`}
               fullWidth
@@ -202,6 +203,7 @@ export function ChamberDesignInputs({
           min: FLASH_CHAMBER_LIMITS.retentionTime.min,
           max: FLASH_CHAMBER_LIMITS.retentionTime.max,
           step: 0.5,
+          onWheel: (e) => (e.target as HTMLInputElement).blur(),
         }}
         helperText="Liquid hold-up time in chamber"
         fullWidth
@@ -220,6 +222,7 @@ export function ChamberDesignInputs({
           min: FLASH_CHAMBER_LIMITS.flashingZoneHeight.min,
           max: FLASH_CHAMBER_LIMITS.flashingZoneHeight.max,
           step: 50,
+          onWheel: (e) => (e.target as HTMLInputElement).blur(),
         }}
         helperText="Zone where flash evaporation occurs (typical: 500mm)"
         fullWidth
@@ -247,6 +250,7 @@ export function ChamberDesignInputs({
           min: FLASH_CHAMBER_LIMITS.sprayAngle.min,
           max: FLASH_CHAMBER_LIMITS.sprayAngle.max,
           step: 5,
+          onWheel: (e) => (e.target as HTMLInputElement).blur(),
         }}
         helperText={`Nozzle spray cone angle (${FLASH_CHAMBER_LIMITS.sprayAngle.min}° - ${FLASH_CHAMBER_LIMITS.sprayAngle.max}°). Wider angle = shorter spray zone.`}
         fullWidth
