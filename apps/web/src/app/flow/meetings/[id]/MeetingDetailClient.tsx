@@ -73,6 +73,7 @@ export default function MeetingDetailClient() {
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [actionItems, setActionItems] = useState<MeetingActionItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [finalizing, setFinalizing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -82,9 +83,15 @@ export default function MeetingDetailClient() {
     if (!db || !meetingId) return;
 
     async function load() {
-      const m = await getMeetingById(db!, meetingId);
-      setMeeting(m);
-      setLoading(false);
+      try {
+        const m = await getMeetingById(db!, meetingId);
+        setMeeting(m);
+      } catch (err) {
+        console.error('[MeetingDetail] Failed to load meeting:', err);
+        setLoadError(err instanceof Error ? err.message : 'Failed to load meeting');
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, [db, meetingId]);
@@ -150,10 +157,18 @@ export default function MeetingDetailClient() {
     );
   }
 
+  if (loadError) {
+    return (
+      <Alert severity="error" sx={{ mt: 2 }}>
+        {loadError}
+      </Alert>
+    );
+  }
+
   if (!meeting) {
     return (
       <Alert severity="error" sx={{ mt: 2 }}>
-        Meeting not found.
+        Meeting not found. It may not have been saved correctly — please try creating it again.
       </Alert>
     );
   }
