@@ -28,6 +28,8 @@ import {
   Alert,
   Breadcrumbs,
   Link,
+  Chip,
+  Tooltip,
 } from '@mui/material';
 import {
   Home as HomeIcon,
@@ -35,11 +37,18 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   AttachFile as AttachFileIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
-import type { PurchaseRequest, PurchaseRequestAttachment } from '@vapour/types';
+import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
+import type {
+  PurchaseRequest,
+  PurchaseRequestAttachment,
+  Material,
+  MaterialVariant,
+} from '@vapour/types';
 import {
   getPurchaseRequestById,
   getPurchaseRequestItems,
@@ -59,6 +68,9 @@ interface LineItemFormData {
   unit: string;
   equipmentCode: string;
   estimatedUnitCost: number;
+  materialId?: string;
+  materialCode?: string;
+  materialName?: string;
   isNew?: boolean;
   isDeleted?: boolean;
 }
@@ -91,6 +103,8 @@ export default function EditPRPage() {
 
   const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
   const [attachments, setAttachments] = useState<PurchaseRequestAttachment[]>([]);
+  const [materialPickerOpen, setMaterialPickerOpen] = useState(false);
+  const [materialPickerIndex, setMaterialPickerIndex] = useState<number>(0);
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -158,6 +172,9 @@ export default function EditPRPage() {
           unit: item.unit,
           equipmentCode: item.equipmentCode || '',
           estimatedUnitCost: item.estimatedUnitCost || 0,
+          materialId: item.materialId,
+          materialCode: item.materialCode,
+          materialName: item.materialName,
         }))
       );
 
@@ -226,16 +243,36 @@ export default function EditPRPage() {
     });
   };
 
+  const handleMaterialSelect = (
+    material: Material,
+    _variant?: MaterialVariant,
+    fullCode?: string
+  ) => {
+    setLineItems((prev) => {
+      const updated = [...prev];
+      const item = updated[materialPickerIndex];
+      if (item) {
+        updated[materialPickerIndex] = {
+          ...item,
+          description: material.name,
+          specification: fullCode || material.materialCode || '',
+          unit: (material.baseUnit || 'NOS').toUpperCase(),
+          materialId: material.id,
+          materialCode: material.materialCode,
+          materialName: material.name,
+        };
+      }
+      return updated;
+    });
+    setMaterialPickerOpen(false);
+  };
+
   const handleSave = async (submitForApproval: boolean = false) => {
     if (!user || !pr) return;
 
     // Validation
     if (!formData.title.trim()) {
       setError('Title is required');
-      return;
-    }
-    if (!formData.description.trim()) {
-      setError('Description is required');
       return;
     }
     if (formData.type === 'PROJECT' && !formData.projectId) {
@@ -276,6 +313,17 @@ export default function EditPRPage() {
       const batch = writeBatch(db);
       const now = Timestamp.now();
 
+      // Auto-generate description from line items
+      const validItems = activeItems.filter((item) => item.description.trim());
+      const itemSummary = validItems
+        .slice(0, 3)
+        .map((item) => item.description.trim())
+        .join(', ');
+      const autoDescription =
+        validItems.length > 3
+          ? `${itemSummary}, and ${validItems.length - 3} more item(s)`
+          : itemSummary;
+
       // Update PR header
       const prRef = doc(db, COLLECTIONS.PURCHASE_REQUESTS, pr.id);
       // Clear project reference when type doesn't use projects
@@ -287,7 +335,7 @@ export default function EditPRPage() {
         projectId: hasProject ? formData.projectId : null,
         projectName: hasProject ? formData.projectName : null,
         title: formData.title,
-        description: formData.description,
+        description: autoDescription,
         priority: formData.priority,
         ...(formData.requiredBy && {
           requiredBy: Timestamp.fromDate(new Date(formData.requiredBy)),
@@ -322,6 +370,9 @@ export default function EditPRPage() {
               estimatedUnitCost: item.estimatedUnitCost,
               estimatedTotalCost: item.estimatedUnitCost * item.quantity,
             }),
+            ...(item.materialId && { materialId: item.materialId }),
+            ...(item.materialCode && { materialCode: item.materialCode }),
+            ...(item.materialName && { materialName: item.materialName }),
             attachmentCount: 0,
             status: 'PENDING',
             createdAt: now,
@@ -341,6 +392,9 @@ export default function EditPRPage() {
             estimatedUnitCost: item.estimatedUnitCost || null,
             estimatedTotalCost:
               item.estimatedUnitCost > 0 ? item.estimatedUnitCost * item.quantity : null,
+            materialId: item.materialId || null,
+            materialCode: item.materialCode || null,
+            materialName: item.materialName || null,
             updatedAt: now,
           });
         }
@@ -532,16 +586,6 @@ export default function EditPRPage() {
               required
             />
 
-            <TextField
-              label="Description"
-              value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              multiline
-              rows={3}
-              fullWidth
-              required
-            />
-
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
               <TextField
                 select
@@ -624,15 +668,38 @@ export default function EditPRPage() {
                       <TableRow key={item.id || `new-${index}`}>
                         <TableCell>{displayIndex + 1}</TableCell>
                         <TableCell>
-                          <TextField
-                            size="small"
-                            fullWidth
-                            value={item.description}
-                            onChange={(e) =>
-                              handleLineItemChange(index, 'description', e.target.value)
-                            }
-                            placeholder="Item description"
-                          />
+                          <Stack direction="row" spacing={0.5} alignItems="flex-start">
+                            <TextField
+                              size="small"
+                              fullWidth
+                              value={item.description}
+                              onChange={(e) =>
+                                handleLineItemChange(index, 'description', e.target.value)
+                              }
+                              placeholder="Item description"
+                            />
+                            <Tooltip title="Pick from Materials DB">
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  setMaterialPickerIndex(index);
+                                  setMaterialPickerOpen(true);
+                                }}
+                                sx={{ mt: 0.25 }}
+                              >
+                                <SearchIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
+                          {item.materialCode && (
+                            <Chip
+                              label={item.materialCode}
+                              size="small"
+                              variant="outlined"
+                              color="primary"
+                              sx={{ mt: 0.5 }}
+                            />
+                          )}
                         </TableCell>
                         <TableCell>
                           <TextField
@@ -743,6 +810,15 @@ export default function EditPRPage() {
           </Paper>
         )}
       </Stack>
+
+      {/* Material Picker Dialog */}
+      <MaterialPickerDialog
+        open={materialPickerOpen}
+        onClose={() => setMaterialPickerOpen(false)}
+        onSelect={handleMaterialSelect}
+        title="Select Material for Line Item"
+        requireVariantSelection={false}
+      />
     </Box>
   );
 }

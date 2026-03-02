@@ -22,7 +22,7 @@ export type PurchaseRequestStatus =
 
 export interface PurchaseRequest {
   id: string;
-  number: string; // PR/YYYY/MM/XXXX
+  number: string; // PR/YYYY/XXXX
 
   // Classification
   type: PurchaseRequestType;

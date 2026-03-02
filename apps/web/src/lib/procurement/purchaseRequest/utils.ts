@@ -20,23 +20,22 @@ import { COLLECTIONS } from '@vapour/firebase';
 import type { PurchaseRequest, PurchaseRequestItem, Project } from '@vapour/types';
 
 /**
- * Generate PR number in format: PR/YYYY/MM/XXXX
+ * Generate PR number in format: PR/YYYY/XXXX
  */
 export async function generatePRNumber(): Promise<string> {
   const { db } = getFirebase();
 
   const now = new Date();
   const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
 
-  // Get count of PRs in current month
-  const monthStart = new Date(year, now.getMonth(), 1);
-  const monthEnd = new Date(year, now.getMonth() + 1, 0, 23, 59, 59);
+  // Get the latest PR in the current year
+  const yearStart = new Date(year, 0, 1);
+  const yearEnd = new Date(year, 11, 31, 23, 59, 59);
 
   const q = query(
     collection(db, COLLECTIONS.PURCHASE_REQUESTS),
-    where('createdAt', '>=', Timestamp.fromDate(monthStart)),
-    where('createdAt', '<=', Timestamp.fromDate(monthEnd)),
+    where('createdAt', '>=', Timestamp.fromDate(yearStart)),
+    where('createdAt', '<=', Timestamp.fromDate(yearEnd)),
     orderBy('createdAt', 'desc'),
     limit(1)
   );
@@ -46,22 +45,21 @@ export async function generatePRNumber(): Promise<string> {
   let sequence = 1;
   if (!snapshot.empty && snapshot.docs[0]) {
     const lastPR = snapshot.docs[0].data() as PurchaseRequest;
-    // Extract sequence from last PR number (PR/2025/11/0001 -> 0001)
+    // Extract sequence from last PR number
+    // Supports both old format PR/YYYY/MM/XXXX and new format PR/YYYY/XXXX
     const lastNumber = lastPR.number;
     if (lastNumber && typeof lastNumber === 'string') {
       const parts = lastNumber.split('/');
-      if (parts.length >= 4) {
-        const lastSequenceStr = parts[3]; // PR/YYYY/MM/XXXX -> index 3
-        const lastSequence = parseInt(lastSequenceStr || '0', 10);
-        if (!isNaN(lastSequence)) {
-          sequence = lastSequence + 1;
-        }
+      const lastSequenceStr = parts[parts.length - 1]; // Always the last segment
+      const lastSequence = parseInt(lastSequenceStr || '0', 10);
+      if (!isNaN(lastSequence)) {
+        sequence = lastSequence + 1;
       }
     }
   }
 
   const sequenceStr = String(sequence).padStart(4, '0');
-  return `PR/${year}/${month}/${sequenceStr}`;
+  return `PR/${year}/${sequenceStr}`;
 }
 
 /**

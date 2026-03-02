@@ -49,6 +49,8 @@ import {
   Archive as ArchiveIcon,
   Home as HomeIcon,
   Delete as DeleteIcon,
+  PictureAsPdf as PdfIcon,
+  TableChart as CsvIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -58,6 +60,8 @@ import { formatDate } from '@/lib/utils/formatters';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { getFirebase } from '@/lib/firebase';
 import { softDeletePurchaseRequest } from '@/lib/procurement/procurementDeleteService';
+import { downloadPRListCSV } from '@/lib/procurement/purchaseRequest/exportPRList';
+import { downloadPRListPDF } from '@/lib/procurement/purchaseRequest/prListPDF';
 
 export default function PurchaseRequestsPage() {
   const router = useRouter();
@@ -76,6 +80,9 @@ export default function PurchaseRequestsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+
+  // Export state
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   // Pagination state
   const [page, setPage] = useState(0);
@@ -547,6 +554,32 @@ export default function PurchaseRequestsPage() {
             >
               Clear Filters
             </Button>
+
+            <Box sx={{ flexGrow: 1 }} />
+
+            <Button
+              size="small"
+              startIcon={<CsvIcon />}
+              onClick={() => downloadPRListCSV(filteredRequests)}
+              disabled={filteredRequests.length === 0}
+            >
+              CSV
+            </Button>
+            <Button
+              size="small"
+              startIcon={<PdfIcon />}
+              onClick={async () => {
+                setExportingPDF(true);
+                try {
+                  await downloadPRListPDF(filteredRequests);
+                } finally {
+                  setExportingPDF(false);
+                }
+              }}
+              disabled={filteredRequests.length === 0 || exportingPDF}
+            >
+              {exportingPDF ? 'Generating...' : 'PDF'}
+            </Button>
           </Stack>
         </Paper>
 
@@ -615,7 +648,9 @@ export default function PurchaseRequestsPage() {
                       >
                         <VisibilityIcon />
                       </IconButton>
-                      {request.status === 'DRAFT' && (
+                      {(['DRAFT', 'SUBMITTED', 'APPROVED'] as string[]).includes(
+                        request.status
+                      ) && (
                         <IconButton
                           size="small"
                           color="error"

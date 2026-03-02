@@ -28,6 +28,7 @@ import {
   CircularProgress,
   Breadcrumbs,
   Link,
+  Tooltip,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -38,6 +39,7 @@ import {
   Send as SendIcon,
   Description as DescriptionIcon,
   Home as HomeIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -51,6 +53,8 @@ import ExcelUploadDialog from '@/components/procurement/ExcelUploadDialog';
 import DocumentParseDialog from '@/components/procurement/DocumentParseDialog';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
 import { ApproverSelector } from '@/components/common/forms/ApproverSelector';
+import MaterialPickerDialog from '@/components/materials/MaterialPickerDialog';
+import type { Material, MaterialVariant } from '@vapour/types';
 
 interface FormData {
   type: 'PROJECT' | 'BUDGETARY' | 'INTERNAL';
@@ -72,6 +76,8 @@ export default function NewPurchaseRequestPage() {
   const [submitting, setSubmitting] = useState(false);
   const [excelDialogOpen, setExcelDialogOpen] = useState(false);
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
+  const [materialPickerOpen, setMaterialPickerOpen] = useState(false);
+  const [materialPickerIndex, setMaterialPickerIndex] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
@@ -131,6 +137,28 @@ export default function NewPurchaseRequestPage() {
   const handleDocumentImport = (importedItems: CreatePurchaseRequestItemInput[]) => {
     setLineItems(importedItems);
     setDocumentDialogOpen(false);
+  };
+
+  const handleMaterialSelect = (
+    material: Material,
+    _variant?: MaterialVariant,
+    fullCode?: string
+  ) => {
+    const updatedItems = [...lineItems];
+    const item = updatedItems[materialPickerIndex];
+    if (item) {
+      updatedItems[materialPickerIndex] = {
+        ...item,
+        description: material.name,
+        specification: fullCode || material.materialCode || '',
+        unit: (material.baseUnit || 'NOS').toUpperCase(),
+        materialId: material.id,
+        materialCode: material.materialCode,
+        materialName: material.name,
+      };
+      setLineItems(updatedItems);
+    }
+    setMaterialPickerOpen(false);
   };
 
   const validateForm = (requireApprover: boolean = false): boolean => {
@@ -499,17 +527,40 @@ export default function NewPurchaseRequestPage() {
                     <TableRow key={index} hover>
                       <TableCell>{index + 1}</TableCell>
                       <TableCell>
-                        <TextField
-                          value={item.description}
-                          onChange={(e) =>
-                            handleLineItemChange(index, 'description', e.target.value)
-                          }
-                          placeholder="Item description"
-                          size="small"
-                          fullWidth
-                          multiline
-                          maxRows={3}
-                        />
+                        <Stack direction="row" spacing={0.5} alignItems="flex-start">
+                          <TextField
+                            value={item.description}
+                            onChange={(e) =>
+                              handleLineItemChange(index, 'description', e.target.value)
+                            }
+                            placeholder="Item description"
+                            size="small"
+                            fullWidth
+                            multiline
+                            maxRows={3}
+                          />
+                          <Tooltip title="Pick from Materials DB">
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setMaterialPickerIndex(index);
+                                setMaterialPickerOpen(true);
+                              }}
+                              sx={{ mt: 0.25 }}
+                            >
+                              <SearchIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                        {item.materialCode && (
+                          <Chip
+                            label={item.materialCode}
+                            size="small"
+                            variant="outlined"
+                            color="primary"
+                            sx={{ mt: 0.5 }}
+                          />
+                        )}
                       </TableCell>
                       <TableCell>
                         <TextField
@@ -643,6 +694,15 @@ export default function NewPurchaseRequestPage() {
         onClose={() => setDocumentDialogOpen(false)}
         onItemsImported={handleDocumentImport}
         projectName={formData.projectName || undefined}
+      />
+
+      {/* Material Picker Dialog */}
+      <MaterialPickerDialog
+        open={materialPickerOpen}
+        onClose={() => setMaterialPickerOpen(false)}
+        onSelect={handleMaterialSelect}
+        title="Select Material for Line Item"
+        requireVariantSelection={false}
       />
     </Box>
   );

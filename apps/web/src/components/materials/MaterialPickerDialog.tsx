@@ -232,9 +232,16 @@ export default function MaterialPickerDialog({
                 <CircularProgress />
               </Box>
             ) : filteredMaterials.length === 0 ? (
-              <Alert severity="info">
-                {searchText ? 'No materials found matching your search' : 'No materials available'}
-              </Alert>
+              <Box>
+                <Alert severity="info" sx={{ mb: 1 }}>
+                  {searchText
+                    ? 'No materials found matching your search'
+                    : 'No materials available'}
+                </Alert>
+                <Button size="small" onClick={() => window.open('/materials', '_blank')}>
+                  Add to Materials Database &rarr;
+                </Button>
+              </Box>
             ) : (
               <List sx={{ maxHeight: 400, overflow: 'auto' }}>
                 {filteredMaterials.map((material) => (
@@ -291,6 +298,15 @@ export default function MaterialPickerDialog({
                   </ListItem>
                 ))}
               </List>
+            )}
+            {!loading && (
+              <Button
+                size="small"
+                onClick={() => window.open('/materials', '_blank')}
+                sx={{ mt: 1 }}
+              >
+                Material not listed? Add to database &rarr;
+              </Button>
             )}
           </Box>
 
