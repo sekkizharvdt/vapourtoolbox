@@ -28,6 +28,7 @@ import {
   Edit as EditIcon,
   ArrowBack as BackIcon,
   Home as HomeIcon,
+  Savings as AdvanceIcon,
   Receipt as ReceiptIcon,
   Payment as PaymentIcon,
   AttachMoney as MoneyIcon,
@@ -44,17 +45,17 @@ import { RecordCustomerPaymentDialog } from '../../payments/components/RecordCus
 import { RecordVendorPaymentDialog } from '../../payments/components/RecordVendorPaymentDialog';
 import { formatCurrency } from '@/lib/utils/formatters';
 
-type UnappliedPayment = (CustomerPayment | VendorPayment) & {
+type AdvancePayment = (CustomerPayment | VendorPayment) & {
   id: string;
   paymentType: 'customer' | 'vendor';
 };
 
-export default function UnappliedPaymentsPage() {
+export default function AdvancesPage() {
   const router = useRouter();
   useAuth();
   const [loading, setLoading] = useState(true);
-  const [payments, setPayments] = useState<UnappliedPayment[]>([]);
-  const [filteredPayments, setFilteredPayments] = useState<UnappliedPayment[]>([]);
+  const [advances, setAdvances] = useState<AdvancePayment[]>([]);
+  const [filteredAdvances, setFilteredAdvances] = useState<AdvancePayment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'customer' | 'vendor'>('all');
   const [page, setPage] = useState(0);
@@ -69,7 +70,7 @@ export default function UnappliedPaymentsPage() {
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
 
-  const fetchUnappliedPayments = async () => {
+  const fetchAdvances = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -81,69 +82,51 @@ export default function UnappliedPaymentsPage() {
         getDocs(query(transactionsRef, where('type', '==', 'VENDOR_PAYMENT'))),
       ]);
 
-      const unapplied: UnappliedPayment[] = [];
+      const result: AdvancePayment[] = [];
 
       customerSnap.forEach((doc) => {
         const data = doc.data() as CustomerPayment;
-        if (data.isAdvance === true) return; // Advances are shown separately
-        const allocations = data.invoiceAllocations || [];
-        const totalAllocated = allocations.reduce((sum, a) => sum + (a.allocatedAmount || 0), 0);
-        if (totalAllocated === 0) {
-          unapplied.push({
-            ...data,
-            id: doc.id,
-            paymentType: 'customer',
-          });
+        if (data.isDeleted) return;
+        if (data.isAdvance === true) {
+          result.push({ ...data, id: doc.id, paymentType: 'customer' });
         }
       });
 
       vendorSnap.forEach((doc) => {
         const data = doc.data() as VendorPayment;
-        if (data.isAdvance === true) return; // Advances are shown separately
-        const allocations = data.billAllocations || [];
-        const totalAllocated = allocations.reduce((sum, a) => sum + (a.allocatedAmount || 0), 0);
-        if (totalAllocated === 0) {
-          unapplied.push({
-            ...data,
-            id: doc.id,
-            paymentType: 'vendor',
-          });
+        if (data.isDeleted) return;
+        if (data.isAdvance === true) {
+          result.push({ ...data, id: doc.id, paymentType: 'vendor' });
         }
       });
 
       // Sort by date descending
-      unapplied.sort((a, b) => {
-        const paymentDateA = a.paymentDate as unknown as { toDate?: () => Date } | string;
-        const paymentDateB = b.paymentDate as unknown as { toDate?: () => Date } | string;
+      result.sort((a, b) => {
+        const rawA = a.paymentDate as unknown as { toDate?: () => Date } | string;
+        const rawB = b.paymentDate as unknown as { toDate?: () => Date } | string;
         const dateA =
-          typeof paymentDateA === 'object' && paymentDateA?.toDate
-            ? paymentDateA.toDate()
-            : new Date(paymentDateA as string);
+          typeof rawA === 'object' && rawA?.toDate ? rawA.toDate() : new Date(rawA as string);
         const dateB =
-          typeof paymentDateB === 'object' && paymentDateB?.toDate
-            ? paymentDateB.toDate()
-            : new Date(paymentDateB as string);
+          typeof rawB === 'object' && rawB?.toDate ? rawB.toDate() : new Date(rawB as string);
         return dateB.getTime() - dateA.getTime();
       });
 
-      setPayments(unapplied);
-      setFilteredPayments(unapplied);
+      setAdvances(result);
+      setFilteredAdvances(result);
     } catch (err) {
-      console.error('Error fetching unapplied payments:', err);
-      setError(
-        err instanceof Error ? err.message : 'Failed to fetch unapplied payments. Please try again.'
-      );
+      console.error('Error fetching advances:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch advances. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchUnappliedPayments();
+    fetchAdvances();
   }, []);
 
   useEffect(() => {
-    let filtered = payments;
+    let filtered = advances;
 
     if (typeFilter !== 'all') {
       filtered = filtered.filter((p) => p.paymentType === typeFilter);
@@ -159,14 +142,14 @@ export default function UnappliedPaymentsPage() {
       );
     }
 
-    setFilteredPayments(filtered);
+    setFilteredAdvances(filtered);
     setPage(0);
-  }, [payments, searchTerm, typeFilter]);
+  }, [advances, searchTerm, typeFilter]);
 
   const formatDate = (date: unknown): string => {
     if (!date) return '-';
     const d =
-      typeof date === 'object' && 'toDate' in date
+      typeof date === 'object' && 'toDate' in (date as object)
         ? (date as { toDate: () => Date }).toDate()
         : new Date(date as string);
     return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -177,12 +160,12 @@ export default function UnappliedPaymentsPage() {
     setTypeFilter('all');
   };
 
-  const handleEditPayment = (payment: UnappliedPayment) => {
-    if (payment.paymentType === 'customer') {
-      setEditingCustomerPayment(payment as CustomerPayment);
+  const handleApplyAdvance = (advance: AdvancePayment) => {
+    if (advance.paymentType === 'customer') {
+      setEditingCustomerPayment(advance as CustomerPayment);
       setCustomerDialogOpen(true);
     } else {
-      setEditingVendorPayment(payment as VendorPayment);
+      setEditingVendorPayment(advance as VendorPayment);
       setVendorDialogOpen(true);
     }
   };
@@ -192,20 +175,18 @@ export default function UnappliedPaymentsPage() {
     setVendorDialogOpen(false);
     setEditingCustomerPayment(null);
     setEditingVendorPayment(null);
-    // Refresh the list
-    fetchUnappliedPayments();
+    fetchAdvances();
   };
 
-  const totalAmount = filteredPayments.reduce(
+  const totalAmount = filteredAdvances.reduce(
     (sum, p) => sum + (p.totalAmount || p.amount || 0),
     0
   );
-
-  const customerCount = filteredPayments.filter((p) => p.paymentType === 'customer').length;
-  const vendorCount = filteredPayments.filter((p) => p.paymentType === 'vendor').length;
+  const customerCount = filteredAdvances.filter((p) => p.paymentType === 'customer').length;
+  const vendorCount = filteredAdvances.filter((p) => p.paymentType === 'vendor').length;
 
   if (loading) {
-    return <LoadingState variant="page" message="Loading unapplied payments..." />;
+    return <LoadingState variant="page" message="Loading advances..." />;
   }
 
   return (
@@ -234,11 +215,11 @@ export default function UnappliedPaymentsPage() {
         >
           Data Health
         </Link>
-        <Typography color="text.primary">Unapplied Payments</Typography>
+        <Typography color="text.primary">Advances</Typography>
       </Breadcrumbs>
 
       <PageHeader
-        title="Unapplied Payments"
+        title="Advances"
         action={
           <Button
             variant="outlined"
@@ -256,27 +237,28 @@ export default function UnappliedPaymentsPage() {
         </Alert>
       )}
 
-      <Alert severity="info" sx={{ mb: 3 }}>
-        These payments have been recorded but not applied to any invoice or bill. Click
-        &quot;Apply&quot; to allocate the payment to outstanding invoices/bills.
+      <Alert severity="info" sx={{ mb: 3 }} icon={<AdvanceIcon />}>
+        These are advance receipts and payments recorded before a corresponding invoice or bill
+        exists. They do not affect the Data Health score. Click <strong>Apply</strong> to allocate
+        an advance once the invoice or bill is available.
       </Alert>
 
       {/* Summary Cards */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
         <StatCard
-          label="Total Unapplied"
-          value={filteredPayments.length.toString()}
+          label="Total Advances"
+          value={filteredAdvances.length.toString()}
           icon={<TotalIcon />}
           color="primary"
         />
         <StatCard
-          label="Customer Receipts"
+          label="Customer Advances"
           value={customerCount.toString()}
           icon={<ReceiptIcon />}
           color="success"
         />
         <StatCard
-          label="Vendor Payments"
+          label="Vendor Advances"
           value={vendorCount.toString()}
           icon={<PaymentIcon />}
           color="error"
@@ -285,7 +267,7 @@ export default function UnappliedPaymentsPage() {
           label="Total Amount"
           value={formatCurrency(totalAmount, 'INR')}
           icon={<MoneyIcon />}
-          color="warning"
+          color="info"
         />
       </Box>
 
@@ -306,8 +288,8 @@ export default function UnappliedPaymentsPage() {
             onChange={(e) => setTypeFilter(e.target.value as 'all' | 'customer' | 'vendor')}
           >
             <MenuItem value="all">All Types</MenuItem>
-            <MenuItem value="customer">Customer Receipts</MenuItem>
-            <MenuItem value="vendor">Vendor Payments</MenuItem>
+            <MenuItem value="customer">Customer Advances</MenuItem>
+            <MenuItem value="vendor">Vendor Advances</MenuItem>
           </Select>
         </FormControl>
       </FilterBar>
@@ -327,57 +309,53 @@ export default function UnappliedPaymentsPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredPayments.length === 0 ? (
-              <EmptyState
-                message="All payments have been applied to invoices or bills."
-                variant="table"
-                colSpan={8}
-              />
+            {filteredAdvances.length === 0 ? (
+              <EmptyState message="No advance payments recorded." variant="table" colSpan={8} />
             ) : (
-              filteredPayments
+              filteredAdvances
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((payment) => (
-                  <TableRow key={payment.id} hover>
+                .map((advance) => (
+                  <TableRow key={advance.id} hover>
                     <TableCell>
                       <Chip
-                        label={payment.paymentType === 'customer' ? 'Receipt' : 'Payment'}
+                        label={advance.paymentType === 'customer' ? 'Customer' : 'Vendor'}
                         size="small"
-                        color={payment.paymentType === 'customer' ? 'success' : 'error'}
+                        color={advance.paymentType === 'customer' ? 'success' : 'error'}
                         variant="outlined"
                       />
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium">
-                        {payment.transactionNumber}
+                        {advance.transactionNumber}
                       </Typography>
                     </TableCell>
-                    <TableCell>{formatDate(payment.paymentDate)}</TableCell>
-                    <TableCell>{payment.entityName}</TableCell>
+                    <TableCell>{formatDate(advance.paymentDate)}</TableCell>
+                    <TableCell>{advance.entityName}</TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
-                        {payment.paymentMethod?.replace('_', ' ').toLowerCase()}
+                        {advance.paymentMethod?.replace('_', ' ').toLowerCase()}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
                       <Typography
                         fontWeight="medium"
-                        color={payment.paymentType === 'customer' ? 'success.main' : 'error.main'}
+                        color={advance.paymentType === 'customer' ? 'success.main' : 'error.main'}
                       >
-                        {formatCurrency(payment.totalAmount || payment.amount || 0, 'INR')}
+                        {formatCurrency(advance.totalAmount || advance.amount || 0, 'INR')}
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary">
-                        {payment.reference || '-'}
+                        {advance.reference || '-'}
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
                       <Tooltip title="Apply to Invoice/Bill">
                         <Button
-                          variant="contained"
+                          variant="outlined"
                           size="small"
                           startIcon={<EditIcon />}
-                          onClick={() => handleEditPayment(payment)}
+                          onClick={() => handleApplyAdvance(advance)}
                         >
                           Apply
                         </Button>
@@ -390,7 +368,7 @@ export default function UnappliedPaymentsPage() {
         </Table>
         <TablePagination
           component="div"
-          count={filteredPayments.length}
+          count={filteredAdvances.length}
           page={page}
           onPageChange={(_, newPage) => setPage(newPage)}
           rowsPerPage={rowsPerPage}

@@ -1,7 +1,16 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { TextField, Grid, MenuItem, Box, Typography, Alert } from '@mui/material';
+import {
+  TextField,
+  Grid,
+  MenuItem,
+  Box,
+  Typography,
+  Alert,
+  Checkbox,
+  FormControlLabel,
+} from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
@@ -61,6 +70,7 @@ export function RecordCustomerPaymentDialog({
   const [description, setDescription] = useState<string>('');
   const [reference, setReference] = useState<string>('');
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [isAdvance, setIsAdvance] = useState<boolean>(false);
 
   // Calculate base amount (INR) when amount or exchange rate changes
   useEffect(() => {
@@ -109,6 +119,7 @@ export function RecordCustomerPaymentDialog({
         setDescription(editingPayment.description || '');
         setReference(editingPayment.reference || '');
         setProjectId(editingPayment.projectId || null);
+        setIsAdvance(editingPayment.isAdvance ?? false);
         setAllocations(editingPayment.invoiceAllocations || []);
       } else {
         setPaymentDate(new Date().toISOString().split('T')[0] || '');
@@ -125,6 +136,7 @@ export function RecordCustomerPaymentDialog({
         setDescription('');
         setReference('');
         setProjectId(null);
+        setIsAdvance(false);
         setAllocations([]);
       }
       setError('');
@@ -212,6 +224,11 @@ export function RecordCustomerPaymentDialog({
       // Add exchange rate if foreign currency
       if (currency !== 'INR') {
         paymentData.exchangeRate = parseFloat(exchangeRate) || 1;
+      }
+
+      // Mark as advance if user indicated no invoice exists yet
+      if (isAdvance) {
+        paymentData.isAdvance = true;
       }
 
       // Only add optional fields if they have values
@@ -499,6 +516,17 @@ export function RecordCustomerPaymentDialog({
                 })}{' '}
                 will be recorded as advance/credit for this customer.
               </Alert>
+            </Grid>
+          )}
+
+          {totalAllocated === 0 && baseAmount > 0 && (
+            <Grid size={{ xs: 12 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox checked={isAdvance} onChange={(e) => setIsAdvance(e.target.checked)} />
+                }
+                label="Mark as advance receipt (payment received before invoice is raised)"
+              />
             </Grid>
           )}
         </Grid>

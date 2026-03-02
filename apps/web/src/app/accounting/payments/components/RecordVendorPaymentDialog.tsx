@@ -1,7 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { TextField, Grid, MenuItem, Box, Typography } from '@mui/material';
+import {
+  TextField,
+  Grid,
+  MenuItem,
+  Box,
+  Typography,
+  Checkbox,
+  FormControlLabel,
+} from '@mui/material';
 import { FormDialog, FormDialogActions } from '@vapour/ui';
 import { EntitySelector } from '@/components/common/forms/EntitySelector';
 import { ProjectSelector } from '@/components/common/forms/ProjectSelector';
@@ -56,6 +64,8 @@ export function RecordVendorPaymentDialog({
   const [description, setDescription] = useState<string>('');
   const [reference, setReference] = useState<string>('');
   const [projectId, setProjectId] = useState<string | null>(null);
+
+  const [isAdvance, setIsAdvance] = useState<boolean>(false);
 
   // TDS fields
   const [tdsDeducted, setTdsDeducted] = useState<boolean>(false);
@@ -303,6 +313,7 @@ export function RecordVendorPaymentDialog({
         setTdsDeducted(editingPayment.tdsDeducted);
         setTdsSection(editingPayment.tdsSection || '');
         setTdsAmount(editingPayment.tdsAmount || 0);
+        setIsAdvance(editingPayment.isAdvance ?? false);
         setAllocations(editingPayment.billAllocations || []);
       } else {
         setPaymentDate(new Date().toISOString().split('T')[0] || '');
@@ -319,6 +330,7 @@ export function RecordVendorPaymentDialog({
         setTdsDeducted(false);
         setTdsSection('');
         setTdsAmount(0);
+        setIsAdvance(false);
         setAllocations([]);
       }
       setError('');
@@ -491,6 +503,11 @@ export function RecordVendorPaymentDialog({
       if (projectId) {
         paymentData.projectId = projectId;
         paymentData.costCentreId = projectId;
+      }
+
+      // Mark as advance if user indicated no bill exists yet
+      if (isAdvance) {
+        paymentData.isAdvance = true;
       }
 
       if (editingPayment?.id) {
@@ -764,6 +781,17 @@ export function RecordVendorPaymentDialog({
             netPayment={netPayment}
             amount={amount}
           />
+
+          {totalAllocated === 0 && amount > 0 && (
+            <Grid size={{ xs: 12 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox checked={isAdvance} onChange={(e) => setIsAdvance(e.target.checked)} />
+                }
+                label="Mark as advance payment (payment made before bill is received)"
+              />
+            </Grid>
+          )}
         </Grid>
       </Box>
 

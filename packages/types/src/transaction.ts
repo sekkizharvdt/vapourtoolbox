@@ -198,6 +198,9 @@ export interface CustomerPayment extends BaseTransaction {
   // Invoice allocation
   invoiceAllocations: PaymentAllocation[]; // Which invoices this payment settles
 
+  // Advance payment flag
+  isAdvance?: boolean; // True when payment is received before an invoice is raised
+
   // Bank deposit
   depositedToBankAccountId: string;
   depositDate?: Date;
@@ -265,6 +268,9 @@ export interface VendorPayment extends BaseTransaction {
 
   // Bill allocation
   billAllocations: PaymentAllocation[]; // Which bills this payment settles
+
+  // Advance payment flag
+  isAdvance?: boolean; // True when payment is made before a bill is received
 
   // TDS deduction
   tdsDeducted: boolean;

@@ -25,6 +25,7 @@ import {
   ArrowForward as ArrowIcon,
   Home as HomeIcon,
   SyncProblem as SyncIcon,
+  Savings as AdvanceIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@vapour/ui';
@@ -37,6 +38,7 @@ import { reconcilePaymentStatuses } from '@/lib/accounting/paymentHelpers';
 
 interface DataHealthStats {
   unappliedPayments: { count: number; total: number };
+  advances: { count: number; total: number };
   missingGLEntries: { count: number };
   unmappedAccounts: { count: number };
   overdueItems: { count: number; total: number };
@@ -115,9 +117,11 @@ export default function DataHealthPage() {
       // Track unique transactions with any issue for health score
       const transactionsWithIssues = new Set<string>();
 
-      // Count unapplied payments
+      // Count unapplied payments and advances separately
       let unappliedCount = 0;
       let unappliedTotal = 0;
+      let advancesCount = 0;
+      let advancesTotal = 0;
       payments.forEach((doc) => {
         const data = doc.data();
         const allocations =
@@ -128,9 +132,16 @@ export default function DataHealthPage() {
           (a: { allocatedAmount?: number }) => (a.allocatedAmount || 0) > 0
         );
         if (!hasAllocations) {
-          unappliedCount++;
-          unappliedTotal += data.totalAmount || data.amount || 0;
-          transactionsWithIssues.add(doc.id);
+          if (data.isAdvance === true) {
+            // Intentional advance — informational only, does not affect health score
+            advancesCount++;
+            advancesTotal += data.totalAmount || data.amount || 0;
+          } else {
+            // Unintentionally unapplied — counts as a data issue
+            unappliedCount++;
+            unappliedTotal += data.totalAmount || data.amount || 0;
+            transactionsWithIssues.add(doc.id);
+          }
         }
       });
 
@@ -315,6 +326,7 @@ export default function DataHealthPage() {
 
       setStats({
         unappliedPayments: { count: unappliedCount, total: unappliedTotal },
+        advances: { count: advancesCount, total: advancesTotal },
         missingGLEntries: { count: missingGLCount },
         unmappedAccounts: { count: unmappedCount },
         overdueItems: { count: overdueCount, total: overdueTotal },
@@ -352,6 +364,15 @@ export default function DataHealthPage() {
           color: 'warning.main' as const,
           path: '/accounting/data-health/unapplied-payments',
           description: 'Payments not linked to any invoice or bill',
+        },
+        {
+          title: 'Advances',
+          count: stats.advances.count,
+          subtitle: `Total: ${formatCurrency(stats.advances.total)}`,
+          icon: <AdvanceIcon sx={{ fontSize: 40 }} />,
+          color: 'info.main' as const,
+          path: '/accounting/data-health/advances',
+          description: 'Advance receipts/payments pending invoice or bill',
         },
         {
           title: 'Missing GL Entries',

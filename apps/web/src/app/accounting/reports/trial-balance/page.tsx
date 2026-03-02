@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Paper,
   Typography,
@@ -14,12 +14,26 @@ import {
   CircularProgress,
   Breadcrumbs,
   Link,
+  IconButton,
+  Collapse,
+  Tooltip,
+  Chip,
 } from '@mui/material';
-import { Home as HomeIcon } from '@mui/icons-material';
+import {
+  Home as HomeIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  OpenInNew as OpenInNewIcon,
+} from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import {
+  fetchAccountGLEntries,
+  getTransactionTypeLabel,
+  type GLDrilldownEntry,
+} from '@/lib/accounting/reports/glDrilldown';
 
 interface AccountBalance {
   id: string;
@@ -36,6 +50,11 @@ export default function TrialBalancePage() {
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [totals, setTotals] = useState({ debit: 0, credit: 0 });
+
+  // Drill-down state
+  const [expandedAccountId, setExpandedAccountId] = useState<string | null>(null);
+  const [drilldownData, setDrilldownData] = useState<Map<string, GLDrilldownEntry[]>>(new Map());
+  const [drilldownLoading, setDrilldownLoading] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadTrialBalance();
@@ -80,6 +99,40 @@ export default function TrialBalancePage() {
     }
   };
 
+  const handleToggleExpand = useCallback(
+    async (account: AccountBalance) => {
+      if (expandedAccountId === account.id) {
+        setExpandedAccountId(null);
+        return;
+      }
+
+      setExpandedAccountId(account.id);
+
+      // Fetch only if not already cached
+      if (!drilldownData.has(account.id)) {
+        setDrilldownLoading((prev) => new Set(prev).add(account.id));
+        try {
+          const { db } = getFirebase();
+          const entries = await fetchAccountGLEntries(db, account.id);
+          setDrilldownData((prev) => new Map(prev).set(account.id, entries));
+        } catch (err) {
+          console.error('Error loading GL entries:', err);
+          setDrilldownData((prev) => new Map(prev).set(account.id, []));
+        } finally {
+          setDrilldownLoading((prev) => {
+            const next = new Set(prev);
+            next.delete(account.id);
+            return next;
+          });
+        }
+      }
+    },
+    [expandedAccountId, drilldownData]
+  );
+
+  const formatDate = (date: Date): string =>
+    date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -122,12 +175,16 @@ export default function TrialBalancePage() {
       <Typography variant="h4" gutterBottom>
         Trial Balance
       </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Click an account row to view the underlying transactions.
+      </Typography>
 
-      <Paper sx={{ mt: 3 }}>
+      <Paper sx={{ mt: 1 }}>
         <TableContainer>
           <Table size="small">
             <TableHead>
               <TableRow>
+                <TableCell width={40} />
                 <TableCell>Code</TableCell>
                 <TableCell>Account Name</TableCell>
                 <TableCell>Type</TableCell>
@@ -136,20 +193,134 @@ export default function TrialBalancePage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {accounts.map((account) => (
-                <TableRow key={account.id}>
-                  <TableCell>{account.code}</TableCell>
-                  <TableCell>{account.name}</TableCell>
-                  <TableCell>{account.type}</TableCell>
-                  <TableCell align="right">
-                    {account.debit > 0 ? account.debit.toFixed(2) : '-'}
-                  </TableCell>
-                  <TableCell align="right">
-                    {account.credit > 0 ? account.credit.toFixed(2) : '-'}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {accounts.map((account) => {
+                const isExpanded = expandedAccountId === account.id;
+                const isLoading = drilldownLoading.has(account.id);
+                const entries = drilldownData.get(account.id) ?? [];
+
+                return (
+                  <>
+                    <TableRow
+                      key={account.id}
+                      hover
+                      sx={{ cursor: 'pointer' }}
+                      onClick={() => handleToggleExpand(account)}
+                    >
+                      <TableCell padding="none" sx={{ pl: 1 }}>
+                        <IconButton size="small">
+                          {isExpanded ? (
+                            <ExpandLessIcon fontSize="small" />
+                          ) : (
+                            <ExpandMoreIcon fontSize="small" />
+                          )}
+                        </IconButton>
+                      </TableCell>
+                      <TableCell>{account.code}</TableCell>
+                      <TableCell>{account.name}</TableCell>
+                      <TableCell>{account.type}</TableCell>
+                      <TableCell align="right">
+                        {account.debit > 0 ? account.debit.toFixed(2) : '-'}
+                      </TableCell>
+                      <TableCell align="right">
+                        {account.credit > 0 ? account.credit.toFixed(2) : '-'}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Drill-down row */}
+                    <TableRow key={`${account.id}-detail`}>
+                      <TableCell colSpan={6} sx={{ py: 0, border: 0 }}>
+                        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                          <Box sx={{ mx: 4, my: 1 }}>
+                            {isLoading ? (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 2 }}>
+                                <CircularProgress size={16} />
+                                <Typography variant="body2" color="text.secondary">
+                                  Loading transactions...
+                                </Typography>
+                              </Box>
+                            ) : entries.length === 0 ? (
+                              <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                                No GL entries found for this account.
+                              </Typography>
+                            ) : (
+                              <Table size="small" sx={{ mb: 1 }}>
+                                <TableHead>
+                                  <TableRow sx={{ bgcolor: 'grey.50' }}>
+                                    <TableCell>Date</TableCell>
+                                    <TableCell>Transaction #</TableCell>
+                                    <TableCell>Type</TableCell>
+                                    <TableCell>Description</TableCell>
+                                    <TableCell align="right">Debit</TableCell>
+                                    <TableCell align="right">Credit</TableCell>
+                                    <TableCell align="center">View</TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {entries.map((entry, idx) => (
+                                    <TableRow key={`${entry.transactionId}-${idx}`} hover>
+                                      <TableCell>{formatDate(entry.date)}</TableCell>
+                                      <TableCell>
+                                        <Typography variant="body2" fontWeight="medium">
+                                          {entry.transactionNumber}
+                                        </Typography>
+                                      </TableCell>
+                                      <TableCell>
+                                        <Chip
+                                          label={getTransactionTypeLabel(entry.transactionType)}
+                                          size="small"
+                                          variant="outlined"
+                                        />
+                                      </TableCell>
+                                      <TableCell>
+                                        <Typography
+                                          variant="body2"
+                                          color="text.secondary"
+                                          sx={{
+                                            maxWidth: 240,
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                          }}
+                                        >
+                                          {entry.description || '-'}
+                                        </Typography>
+                                      </TableCell>
+                                      <TableCell align="right">
+                                        {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
+                                      </TableCell>
+                                      <TableCell align="right">
+                                        {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
+                                      </TableCell>
+                                      <TableCell align="center">
+                                        <Tooltip
+                                          title={`View in ${getTransactionTypeLabel(entry.transactionType)}s`}
+                                        >
+                                          <IconButton
+                                            size="small"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              router.push(entry.route);
+                                            }}
+                                          >
+                                            <OpenInNewIcon fontSize="small" />
+                                          </IconButton>
+                                        </Tooltip>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            )}
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </>
+                );
+              })}
+
               <TableRow sx={{ fontWeight: 'bold', bgcolor: 'grey.100' }}>
+                <TableCell />
                 <TableCell colSpan={3}>
                   <strong>TOTAL</strong>
                 </TableCell>
@@ -161,7 +332,7 @@ export default function TrialBalancePage() {
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={6} align="center">
                   {isBalanced ? (
                     <Typography color="success.main">✓ Trial Balance is balanced</Typography>
                   ) : (
