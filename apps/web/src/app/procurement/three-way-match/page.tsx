@@ -34,6 +34,8 @@ import {
   MenuItem,
   Breadcrumbs,
   Link,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -43,6 +45,8 @@ import {
   Error as ErrorIcon,
   CompareArrows as CompareArrowsIcon,
   Home as HomeIcon,
+  PictureAsPdf as PdfIcon,
+  TableChart as CsvIcon,
 } from '@mui/icons-material';
 import type { ThreeWayMatch, ThreeWayMatchStatus } from '@vapour/types';
 import { listThreeWayMatches } from '@/lib/procurement/threeWayMatch';
@@ -57,6 +61,8 @@ import {
   formatPercentage,
 } from '@/lib/procurement/threeWayMatchHelpers';
 import { formatDate } from '@/lib/utils/formatters';
+import { downloadMatchListCSV } from '@/lib/procurement/threeWayMatch/exportMatchList';
+import { downloadMatchListPDF } from '@/lib/procurement/threeWayMatch/matchListPDF';
 
 export default function ThreeWayMatchListPage() {
   const router = useRouter();
@@ -68,6 +74,9 @@ export default function ThreeWayMatchListPage() {
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ThreeWayMatchStatus | 'ALL'>('ALL');
+
+  // Export
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   // Pagination
   const [page, setPage] = useState(0);
@@ -259,6 +268,30 @@ export default function ThreeWayMatchListPage() {
                 <MenuItem value="PENDING_REVIEW">Pending Review</MenuItem>
               </Select>
             </FormControl>
+            <Box sx={{ flexGrow: 1 }} />
+            <Tooltip title="Export CSV">
+              <IconButton
+                onClick={() => downloadMatchListCSV(filteredMatches)}
+                disabled={filteredMatches.length === 0}
+              >
+                <CsvIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Export PDF">
+              <IconButton
+                onClick={async () => {
+                  setExportingPDF(true);
+                  try {
+                    await downloadMatchListPDF(filteredMatches);
+                  } finally {
+                    setExportingPDF(false);
+                  }
+                }}
+                disabled={filteredMatches.length === 0 || exportingPDF}
+              >
+                <PdfIcon />
+              </IconButton>
+            </Tooltip>
           </Stack>
         </Paper>
 

@@ -1,8 +1,8 @@
 /**
  * Procurement Delete Service
  *
- * Manages soft-delete for Draft Purchase Requests, RFQs, and Purchase Orders.
- * Only DRAFT documents can be soft-deleted.
+ * Manages soft-delete for procurement documents.
+ * During development, non-terminal statuses are deletable.
  */
 
 import { doc, getDoc, updateDoc, Timestamp, type Firestore } from 'firebase/firestore';
@@ -58,8 +58,13 @@ export async function softDeletePurchaseRequest(
 
     const data = snap.data();
 
-    if (data.status !== 'DRAFT') {
-      return { success: false, id, error: 'Only DRAFT Purchase Requests can be deleted' };
+    const deletableStatuses = ['DRAFT', 'SUBMITTED', 'APPROVED'];
+    if (!deletableStatuses.includes(data.status)) {
+      return {
+        success: false,
+        id,
+        error: 'Only DRAFT, SUBMITTED, or APPROVED Purchase Requests can be deleted',
+      };
     }
 
     if (data.isDeleted) {
@@ -104,8 +109,8 @@ export async function softDeletePurchaseRequest(
 // --- RFQ ---
 
 /**
- * Soft-delete a Draft RFQ.
- * Only DRAFT status RFQs can be deleted.
+ * Soft-delete an RFQ.
+ * DRAFT and ISSUED RFQs can be deleted.
  */
 export async function softDeleteRFQ(
   db: Firestore,
@@ -127,8 +132,9 @@ export async function softDeleteRFQ(
 
     const data = snap.data();
 
-    if (data.status !== 'DRAFT') {
-      return { success: false, id, error: 'Only DRAFT RFQs can be deleted' };
+    const rfqDeletableStatuses = ['DRAFT', 'ISSUED'];
+    if (!rfqDeletableStatuses.includes(data.status)) {
+      return { success: false, id, error: 'Only DRAFT or ISSUED RFQs can be deleted' };
     }
 
     if (data.isDeleted) {
@@ -173,8 +179,8 @@ export async function softDeleteRFQ(
 // --- Purchase Order ---
 
 /**
- * Soft-delete a Draft Purchase Order.
- * Only DRAFT status POs can be deleted.
+ * Soft-delete a Purchase Order.
+ * DRAFT and PENDING_APPROVAL POs can be deleted.
  */
 export async function softDeletePurchaseOrder(
   db: Firestore,
@@ -201,8 +207,13 @@ export async function softDeletePurchaseOrder(
 
     const data = snap.data();
 
-    if (data.status !== 'DRAFT') {
-      return { success: false, id, error: 'Only DRAFT Purchase Orders can be deleted' };
+    const poDeletableStatuses = ['DRAFT', 'PENDING_APPROVAL'];
+    if (!poDeletableStatuses.includes(data.status)) {
+      return {
+        success: false,
+        id,
+        error: 'Only DRAFT or PENDING_APPROVAL Purchase Orders can be deleted',
+      };
     }
 
     if (data.isDeleted) {
@@ -236,6 +247,241 @@ export async function softDeletePurchaseOrder(
     return { success: true, id };
   } catch (error) {
     logger.error('Error soft deleting purchase order', { id, error });
+    return {
+      success: false,
+      id,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+// --- Goods Receipt ---
+
+/**
+ * Soft-delete a Goods Receipt.
+ * PENDING and IN_PROGRESS GRs can be deleted.
+ */
+export async function softDeleteGoodsReceipt(
+  db: Firestore,
+  input: ProcurementSoftDeleteInput
+): Promise<ProcurementSoftDeleteResult> {
+  const { id, userId, userName, userPermissions } = input;
+
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+      userId,
+      'delete goods receipt'
+    );
+  }
+
+  try {
+    const ref = doc(db, COLLECTIONS.GOODS_RECEIPTS, id);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      return { success: false, id, error: 'Goods Receipt not found' };
+    }
+
+    const data = snap.data();
+
+    const grDeletableStatuses = ['PENDING', 'IN_PROGRESS'];
+    if (!grDeletableStatuses.includes(data.status)) {
+      return {
+        success: false,
+        id,
+        error: 'Only PENDING or IN_PROGRESS Goods Receipts can be deleted',
+      };
+    }
+
+    if (data.isDeleted) {
+      return { success: false, id, error: 'Goods Receipt is already deleted' };
+    }
+
+    await updateDoc(ref, {
+      isDeleted: true,
+      deletedAt: Timestamp.now(),
+      deletedBy: userId,
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    });
+
+    const auditContext = createAuditContext(userId, '', userName);
+    try {
+      await logAuditEvent(
+        db,
+        auditContext,
+        'DOCUMENT_DELETED',
+        'GOODS_RECEIPT',
+        id,
+        `Goods Receipt moved to trash: ${data.number || id}`,
+        { severity: 'INFO', metadata: { number: data.number, status: data.status } }
+      );
+    } catch (auditError) {
+      logger.warn('Failed to write audit log for GR soft delete', { auditError, id });
+    }
+
+    logger.info('Goods Receipt soft deleted', { id, number: data.number });
+    return { success: true, id };
+  } catch (error) {
+    logger.error('Error soft deleting goods receipt', { id, error });
+    return {
+      success: false,
+      id,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+// --- Packing List ---
+
+/**
+ * Soft-delete a Packing List.
+ * Only DRAFT Packing Lists can be deleted.
+ */
+export async function softDeletePackingList(
+  db: Firestore,
+  input: ProcurementSoftDeleteInput
+): Promise<ProcurementSoftDeleteResult> {
+  const { id, userId, userName, userPermissions } = input;
+
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+      userId,
+      'delete packing list'
+    );
+  }
+
+  try {
+    const ref = doc(db, COLLECTIONS.PACKING_LISTS, id);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      return { success: false, id, error: 'Packing List not found' };
+    }
+
+    const data = snap.data();
+
+    if (data.status !== 'DRAFT') {
+      return { success: false, id, error: 'Only DRAFT Packing Lists can be deleted' };
+    }
+
+    if (data.isDeleted) {
+      return { success: false, id, error: 'Packing List is already deleted' };
+    }
+
+    await updateDoc(ref, {
+      isDeleted: true,
+      deletedAt: Timestamp.now(),
+      deletedBy: userId,
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    });
+
+    const auditContext = createAuditContext(userId, '', userName);
+    try {
+      await logAuditEvent(
+        db,
+        auditContext,
+        'DOCUMENT_DELETED',
+        'PACKING_LIST',
+        id,
+        `Packing List moved to trash: ${data.number || id}`,
+        { severity: 'INFO', metadata: { number: data.number, status: data.status } }
+      );
+    } catch (auditError) {
+      logger.warn('Failed to write audit log for PL soft delete', { auditError, id });
+    }
+
+    logger.info('Packing List soft deleted', { id, number: data.number });
+    return { success: true, id };
+  } catch (error) {
+    logger.error('Error soft deleting packing list', { id, error });
+    return {
+      success: false,
+      id,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+// --- PO Amendment ---
+
+/**
+ * Soft-delete a PO Amendment.
+ * DRAFT and PENDING_APPROVAL Amendments can be deleted.
+ */
+export async function softDeleteAmendment(
+  db: Firestore,
+  input: ProcurementSoftDeleteInput
+): Promise<ProcurementSoftDeleteResult> {
+  const { id, userId, userName, userPermissions } = input;
+
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+      userId,
+      'delete amendment'
+    );
+  }
+
+  try {
+    const ref = doc(db, COLLECTIONS.PURCHASE_ORDER_AMENDMENTS, id);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      return { success: false, id, error: 'Amendment not found' };
+    }
+
+    const data = snap.data();
+
+    const amendmentDeletableStatuses = ['DRAFT', 'PENDING_APPROVAL'];
+    if (!amendmentDeletableStatuses.includes(data.status)) {
+      return {
+        success: false,
+        id,
+        error: 'Only DRAFT or PENDING_APPROVAL Amendments can be deleted',
+      };
+    }
+
+    if (data.isDeleted) {
+      return { success: false, id, error: 'Amendment is already deleted' };
+    }
+
+    await updateDoc(ref, {
+      isDeleted: true,
+      deletedAt: Timestamp.now(),
+      deletedBy: userId,
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    });
+
+    const auditContext = createAuditContext(userId, '', userName);
+    try {
+      await logAuditEvent(
+        db,
+        auditContext,
+        'DOCUMENT_DELETED',
+        'PURCHASE_ORDER_AMENDMENT',
+        id,
+        `PO Amendment moved to trash: ${data.purchaseOrderNumber || id} #${data.amendmentNumber || '?'}`,
+        {
+          severity: 'INFO',
+          metadata: { purchaseOrderNumber: data.purchaseOrderNumber, status: data.status },
+        }
+      );
+    } catch (auditError) {
+      logger.warn('Failed to write audit log for amendment soft delete', { auditError, id });
+    }
+
+    logger.info('Amendment soft deleted', { id, purchaseOrderNumber: data.purchaseOrderNumber });
+    return { success: true, id };
+  } catch (error) {
+    logger.error('Error soft deleting amendment', { id, error });
     return {
       success: false,
       id,

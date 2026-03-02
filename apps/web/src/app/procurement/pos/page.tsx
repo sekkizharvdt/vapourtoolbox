@@ -31,6 +31,8 @@ import {
   Typography,
   Breadcrumbs,
   Link,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -38,6 +40,8 @@ import {
   Home as HomeIcon,
   Visibility as VisibilityIcon,
   Delete as DeleteIcon,
+  PictureAsPdf as PdfIcon,
+  TableChart as CsvIcon,
 } from '@mui/icons-material';
 import {
   PageHeader,
@@ -54,6 +58,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { getFirebase } from '@/lib/firebase';
 import { softDeletePurchaseOrder } from '@/lib/procurement/procurementDeleteService';
+import { downloadPOListCSV } from '@/lib/procurement/purchaseOrder/exportPOList';
+import { downloadPOListPDF } from '@/lib/procurement/purchaseOrder/poListPDF';
 import {
   getPOStatusText,
   getPOStatusColor,
@@ -73,6 +79,7 @@ export default function PurchaseOrdersPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [exportingPDF, setExportingPDF] = useState(false);
   const [pos, setPOs] = useState<PurchaseOrder[]>([]);
   const [filteredPOs, setFilteredPOs] = useState<PurchaseOrder[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -241,6 +248,31 @@ export default function PurchaseOrdersPage() {
               <MenuItem value="COMPLETED">Completed</MenuItem>
             </Select>
           </FormControl>
+
+          <Box sx={{ flexGrow: 1 }} />
+          <Tooltip title="Export CSV">
+            <IconButton
+              onClick={() => downloadPOListCSV(filteredPOs)}
+              disabled={filteredPOs.length === 0}
+            >
+              <CsvIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Export PDF">
+            <IconButton
+              onClick={async () => {
+                setExportingPDF(true);
+                try {
+                  await downloadPOListPDF(filteredPOs);
+                } finally {
+                  setExportingPDF(false);
+                }
+              }}
+              disabled={filteredPOs.length === 0 || exportingPDF}
+            >
+              <PdfIcon />
+            </IconButton>
+          </Tooltip>
         </FilterBar>
 
         {/* PO Table */}
@@ -327,7 +359,7 @@ export default function PurchaseOrdersPage() {
                               icon: <DeleteIcon fontSize="small" />,
                               label: 'Move to Trash',
                               onClick: () => handleDelete(po),
-                              show: po.status === 'DRAFT',
+                              show: ['DRAFT', 'PENDING_APPROVAL'].includes(po.status),
                               color: 'error',
                             },
                           ]}

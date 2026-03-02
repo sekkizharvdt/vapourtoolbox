@@ -32,12 +32,17 @@ import {
   TablePagination,
   Breadcrumbs,
   Link,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Search as SearchIcon,
   LocalShipping as ShippingIcon,
   Home as HomeIcon,
+  PictureAsPdf as PdfIcon,
+  TableChart as CsvIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import type { PackingList, PackingListStatus } from '@vapour/types';
 import { listPackingLists } from '@/lib/procurement/packingListService';
@@ -49,11 +54,21 @@ import {
   calculatePLStats,
 } from '@/lib/procurement/packingListHelpers';
 import { formatDate } from '@/lib/utils/formatters';
+import { downloadPLListCSV } from '@/lib/procurement/packingList/exportPLList';
+import { downloadPLListPDF } from '@/lib/procurement/packingList/plListPDF';
+import { softDeletePackingList } from '@/lib/procurement/procurementDeleteService';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useAuth } from '@/contexts/AuthContext';
+import { getFirebase } from '@/lib/firebase';
 
 export default function PackingListsPage() {
   const router = useRouter();
+  const { user, claims } = useAuth();
+  const { confirm } = useConfirmDialog();
+  const { db } = getFirebase();
 
   const [loading, setLoading] = useState(true);
+  const [exportingPDF, setExportingPDF] = useState(false);
   const [error, setError] = useState('');
   const [packingLists, setPackingLists] = useState<PackingList[]>([]);
   const [filteredPLs, setFilteredPLs] = useState<PackingList[]>([]);
@@ -93,6 +108,27 @@ export default function PackingListsPage() {
     let filtered = [...packingLists];
     filtered = filterPLsBySearch(filtered, searchQuery);
     setFilteredPLs(filtered);
+  };
+
+  const handleDelete = async (pl: PackingList) => {
+    const confirmed = await confirm({
+      title: 'Delete Packing List',
+      message: `Move "${pl.number}" to Trash?`,
+      confirmText: 'Move to Trash',
+      confirmColor: 'error',
+    });
+    if (!confirmed) return;
+    const result = await softDeletePackingList(db, {
+      id: pl.id,
+      userId: user?.uid || 'unknown',
+      userName: user?.displayName || user?.email || 'Unknown',
+      userPermissions: claims?.permissions || 0,
+    });
+    if (result.success) {
+      setPackingLists((prev) => prev.filter((p) => p.id !== pl.id));
+    } else {
+      alert(result.error || 'Failed to delete packing list');
+    }
   };
 
   const handleStatusFilterChange = (event: SelectChangeEvent) => {
@@ -223,6 +259,30 @@ export default function PackingListsPage() {
                 <MenuItem value="DELIVERED">Delivered</MenuItem>
               </Select>
             </FormControl>
+            <Box sx={{ flexGrow: 1 }} />
+            <Tooltip title="Export CSV">
+              <IconButton
+                onClick={() => downloadPLListCSV(filteredPLs)}
+                disabled={filteredPLs.length === 0}
+              >
+                <CsvIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Export PDF">
+              <IconButton
+                onClick={async () => {
+                  setExportingPDF(true);
+                  try {
+                    await downloadPLListPDF(filteredPLs);
+                  } finally {
+                    setExportingPDF(false);
+                  }
+                }}
+                disabled={filteredPLs.length === 0 || exportingPDF}
+              >
+                <PdfIcon />
+              </IconButton>
+            </Tooltip>
           </Stack>
         </Paper>
 
@@ -260,6 +320,7 @@ export default function PackingListsPage() {
                     <TableCell>Packages</TableCell>
                     <TableCell>Shipping</TableCell>
                     <TableCell>Created</TableCell>
+                    <TableCell align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -308,6 +369,18 @@ export default function PackingListsPage() {
                         )}
                       </TableCell>
                       <TableCell>{formatDate(pl.createdAt)}</TableCell>
+                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                        {pl.status === 'DRAFT' && (
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDelete(pl)}
+                            title="Move to Trash"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

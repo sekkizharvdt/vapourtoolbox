@@ -30,6 +30,8 @@ import {
   CardContent,
   Breadcrumbs,
   Link,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -38,6 +40,8 @@ import {
   Warning as WarningIcon,
   Description as DescriptionIcon,
   Home as HomeIcon,
+  PictureAsPdf as PdfIcon,
+  TableChart as CsvIcon,
 } from '@mui/icons-material';
 import type { WorkCompletionCertificate } from '@vapour/types';
 import { listWCCs } from '@/lib/procurement/workCompletionService';
@@ -47,6 +51,8 @@ import {
   getCompletionStatus,
 } from '@/lib/procurement/workCompletionHelpers';
 import { formatDate } from '@/lib/utils/formatters';
+import { downloadWCCListCSV } from '@/lib/procurement/workCompletion/exportWCCList';
+import { downloadWCCListPDF } from '@/lib/procurement/workCompletion/wccListPDF';
 
 export default function WorkCompletionListPage() {
   const router = useRouter();
@@ -57,6 +63,9 @@ export default function WorkCompletionListPage() {
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Export
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   // Pagination
   const [page, setPage] = useState(0);
@@ -197,22 +206,47 @@ export default function WorkCompletionListPage() {
 
         {/* Search */}
         <Paper sx={{ p: 2 }}>
-          <TextField
-            fullWidth
-            placeholder="Search by WCC number, PO number, vendor, or project..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setPage(0);
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
+          <Stack direction="row" spacing={2} alignItems="center">
+            <TextField
+              fullWidth
+              placeholder="Search by WCC number, PO number, vendor, or project..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(0);
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Tooltip title="Export CSV">
+              <IconButton
+                onClick={() => downloadWCCListCSV(filteredWCCs)}
+                disabled={filteredWCCs.length === 0}
+              >
+                <CsvIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Export PDF">
+              <IconButton
+                onClick={async () => {
+                  setExportingPDF(true);
+                  try {
+                    await downloadWCCListPDF(filteredWCCs);
+                  } finally {
+                    setExportingPDF(false);
+                  }
+                }}
+                disabled={filteredWCCs.length === 0 || exportingPDF}
+              >
+                <PdfIcon />
+              </IconButton>
+            </Tooltip>
+          </Stack>
         </Paper>
 
         {/* WCC Table */}

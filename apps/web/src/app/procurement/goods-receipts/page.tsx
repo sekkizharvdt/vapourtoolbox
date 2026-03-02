@@ -34,12 +34,17 @@ import {
   Link,
   FormControlLabel,
   Switch,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Search as SearchIcon,
   FactCheck as InspectionIcon,
   Home as HomeIcon,
+  PictureAsPdf as PdfIcon,
+  TableChart as CsvIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import type { GoodsReceipt, GoodsReceiptStatus } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,12 +58,20 @@ import {
   calculateGRStats,
 } from '@/lib/procurement/goodsReceiptHelpers';
 import { formatDate } from '@/lib/utils/formatters';
+import { downloadGRListCSV } from '@/lib/procurement/goodsReceipt/exportGRList';
+import { downloadGRListPDF } from '@/lib/procurement/goodsReceipt/grListPDF';
+import { softDeleteGoodsReceipt } from '@/lib/procurement/procurementDeleteService';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { getFirebase } from '@/lib/firebase';
 
 export default function GoodsReceiptsPage() {
   const router = useRouter();
-  const { claims } = useAuth();
+  const { user, claims } = useAuth();
+  const { confirm } = useConfirmDialog();
+  const { db } = getFirebase();
 
   const [loading, setLoading] = useState(true);
+  const [exportingPDF, setExportingPDF] = useState(false);
   const [error, setError] = useState('');
   const [goodsReceipts, setGoodsReceipts] = useState<GoodsReceipt[]>([]);
   const [filteredGRs, setFilteredGRs] = useState<GoodsReceipt[]>([]);
@@ -107,6 +120,27 @@ export default function GoodsReceiptsPage() {
       filtered = filtered.filter((gr) => gr.status === 'COMPLETED' && gr.sentToAccountingAt);
     }
     setFilteredGRs(filtered);
+  };
+
+  const handleDelete = async (gr: GoodsReceipt) => {
+    const confirmed = await confirm({
+      title: 'Delete Goods Receipt',
+      message: `Move "${gr.number}" to Trash? You can restore it later from the Trash.`,
+      confirmText: 'Move to Trash',
+      confirmColor: 'error',
+    });
+    if (!confirmed) return;
+    const result = await softDeleteGoodsReceipt(db, {
+      id: gr.id,
+      userId: user?.uid || 'unknown',
+      userName: user?.displayName || user?.email || 'Unknown',
+      userPermissions: claims?.permissions || 0,
+    });
+    if (result.success) {
+      setGoodsReceipts((prev) => prev.filter((g) => g.id !== gr.id));
+    } else {
+      alert(result.error || 'Failed to delete goods receipt');
+    }
   };
 
   const handleStatusFilterChange = (event: SelectChangeEvent) => {
@@ -252,6 +286,30 @@ export default function GoodsReceiptsPage() {
               label="Sent to Accounting"
               sx={{ whiteSpace: 'nowrap' }}
             />
+            <Box sx={{ flexGrow: 1 }} />
+            <Tooltip title="Export CSV">
+              <IconButton
+                onClick={() => downloadGRListCSV(filteredGRs)}
+                disabled={filteredGRs.length === 0}
+              >
+                <CsvIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Export PDF">
+              <IconButton
+                onClick={async () => {
+                  setExportingPDF(true);
+                  try {
+                    await downloadGRListPDF(filteredGRs);
+                  } finally {
+                    setExportingPDF(false);
+                  }
+                }}
+                disabled={filteredGRs.length === 0 || exportingPDF}
+              >
+                <PdfIcon />
+              </IconButton>
+            </Tooltip>
           </Stack>
         </Paper>
 
@@ -289,6 +347,7 @@ export default function GoodsReceiptsPage() {
                     <TableCell>Issues</TableCell>
                     <TableCell>Payment</TableCell>
                     <TableCell>Inspection Date</TableCell>
+                    <TableCell align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -344,6 +403,18 @@ export default function GoodsReceiptsPage() {
                         )}
                       </TableCell>
                       <TableCell>{formatDate(gr.inspectionDate)}</TableCell>
+                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                        {(['PENDING', 'IN_PROGRESS'] as string[]).includes(gr.status) && (
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDelete(gr)}
+                            title="Move to Trash"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

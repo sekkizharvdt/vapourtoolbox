@@ -34,6 +34,8 @@ import {
   MenuItem,
   Breadcrumbs,
   Link,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -43,6 +45,9 @@ import {
   HourglassEmpty as HourglassEmptyIcon,
   Cancel as CancelIcon,
   Home as HomeIcon,
+  PictureAsPdf as PdfIcon,
+  TableChart as CsvIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import type { PurchaseOrderAmendment } from '@vapour/types';
 import { listAmendments } from '@/lib/procurement/amendment';
@@ -57,11 +62,18 @@ import {
   formatCurrency,
 } from '@/lib/procurement/amendmentHelpers';
 import { formatDate } from '@/lib/utils/formatters';
+import { downloadAmendmentListCSV } from '@/lib/procurement/amendment/exportAmendmentList';
+import { downloadAmendmentListPDF } from '@/lib/procurement/amendment/amendmentListPDF';
+import { softDeleteAmendment } from '@/lib/procurement/procurementDeleteService';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 type AmendmentStatus = PurchaseOrderAmendment['status'];
 
 export default function AmendmentsListPage() {
   const router = useRouter();
+  const { user, claims } = useAuth();
+  const { confirm } = useConfirmDialog();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -70,6 +82,9 @@ export default function AmendmentsListPage() {
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<AmendmentStatus | 'ALL'>('ALL');
+
+  // Export
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   // Pagination
   const [page, setPage] = useState(0);
@@ -91,6 +106,28 @@ export default function AmendmentsListPage() {
       setError('Failed to load amendments');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (amendment: PurchaseOrderAmendment) => {
+    const confirmed = await confirm({
+      title: 'Delete Amendment',
+      message: `Move amendment #${amendment.amendmentNumber} for ${amendment.purchaseOrderNumber} to Trash?`,
+      confirmText: 'Move to Trash',
+      confirmColor: 'error',
+    });
+    if (!confirmed) return;
+    const { db } = getFirebase();
+    const result = await softDeleteAmendment(db, {
+      id: amendment.id,
+      userId: user?.uid || 'unknown',
+      userName: user?.displayName || user?.email || 'Unknown',
+      userPermissions: claims?.permissions || 0,
+    });
+    if (result.success) {
+      setAmendments((prev) => prev.filter((a) => a.id !== amendment.id));
+    } else {
+      alert(result.error || 'Failed to delete amendment');
     }
   };
 
@@ -261,6 +298,30 @@ export default function AmendmentsListPage() {
                 <MenuItem value="REJECTED">Rejected</MenuItem>
               </Select>
             </FormControl>
+            <Box sx={{ flexGrow: 1 }} />
+            <Tooltip title="Export CSV">
+              <IconButton
+                onClick={() => downloadAmendmentListCSV(filteredAmendments)}
+                disabled={filteredAmendments.length === 0}
+              >
+                <CsvIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Export PDF">
+              <IconButton
+                onClick={async () => {
+                  setExportingPDF(true);
+                  try {
+                    await downloadAmendmentListPDF(filteredAmendments);
+                  } finally {
+                    setExportingPDF(false);
+                  }
+                }}
+                disabled={filteredAmendments.length === 0 || exportingPDF}
+              >
+                <PdfIcon />
+              </IconButton>
+            </Tooltip>
           </Stack>
         </Paper>
 
@@ -278,6 +339,7 @@ export default function AmendmentsListPage() {
                   <TableCell>Status</TableCell>
                   <TableCell>Requested By</TableCell>
                   <TableCell>Date</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -326,11 +388,23 @@ export default function AmendmentsListPage() {
                     </TableCell>
                     <TableCell>{amendment.requestedByName}</TableCell>
                     <TableCell>{formatDate(amendment.amendmentDate)}</TableCell>
+                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      {(['DRAFT', 'PENDING_APPROVAL'] as string[]).includes(amendment.status) && (
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDelete(amendment)}
+                          title="Move to Trash"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
                 {paginatedAmendments.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
+                    <TableCell colSpan={9} align="center">
                       <Typography color="text.secondary" sx={{ py: 4 }}>
                         {searchTerm || statusFilter !== 'ALL'
                           ? 'No amendments found with current filters'

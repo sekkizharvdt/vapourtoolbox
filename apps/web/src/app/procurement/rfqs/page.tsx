@@ -29,11 +29,14 @@ import {
   Typography,
   Breadcrumbs,
   Link,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Visibility as VisibilityIcon,
   PictureAsPdf as PdfIcon,
+  TableChart as CsvIcon,
   Home as HomeIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
@@ -62,6 +65,8 @@ import { formatDate } from '@/lib/utils/formatters';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { getFirebase } from '@/lib/firebase';
 import { softDeleteRFQ } from '@/lib/procurement/procurementDeleteService';
+import { downloadRFQListCSV } from '@/lib/procurement/rfq/exportRFQList';
+import { downloadRFQListPDF } from '@/lib/procurement/rfq/rfqListPDF';
 
 export default function RFQsPage() {
   const router = useRouter();
@@ -78,6 +83,8 @@ export default function RFQsPage() {
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') ?? 'ALL');
   const [sortBy, setSortBy] = useState<'number' | 'createdAt' | 'dueDate' | 'status'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   // Pagination state
   const [page, setPage] = useState(0);
@@ -269,6 +276,31 @@ export default function RFQsPage() {
               <MenuItem value="asc">Ascending</MenuItem>
             </Select>
           </FormControl>
+
+          <Box sx={{ flexGrow: 1 }} />
+          <Tooltip title="Export CSV">
+            <IconButton
+              onClick={() => downloadRFQListCSV(filteredRfqs)}
+              disabled={filteredRfqs.length === 0}
+            >
+              <CsvIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Export PDF">
+            <IconButton
+              onClick={async () => {
+                setExportingPDF(true);
+                try {
+                  await downloadRFQListPDF(filteredRfqs);
+                } finally {
+                  setExportingPDF(false);
+                }
+              }}
+              disabled={filteredRfqs.length === 0 || exportingPDF}
+            >
+              <PdfIcon />
+            </IconButton>
+          </Tooltip>
         </FilterBar>
 
         {/* RFQ Table */}
@@ -384,7 +416,7 @@ export default function RFQsPage() {
                               icon: <DeleteIcon fontSize="small" />,
                               label: 'Move to Trash',
                               onClick: () => handleDelete(rfq),
-                              show: rfq.status === 'DRAFT',
+                              show: ['DRAFT', 'ISSUED'].includes(rfq.status),
                               color: 'error',
                             },
                           ]}
