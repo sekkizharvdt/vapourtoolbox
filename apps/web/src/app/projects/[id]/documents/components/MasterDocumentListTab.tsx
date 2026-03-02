@@ -330,25 +330,34 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
 
   return (
     <Box>
-      {/* Setup Banner */}
-      {hasNumberingConfig === false && (
-        <Alert
-          severity="info"
-          sx={{ mb: 3 }}
-          action={
+      {/* Setup Banner — show when no numbering config AND no documents */}
+      {hasNumberingConfig === false && documents.length === 0 && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="body2" sx={{ mb: 1.5 }}>
+            <strong>Get started with your document register.</strong> Choose how you want to set up
+            your master document list:
+          </Typography>
+          <Stack direction="row" spacing={1.5}>
             <Button
-              color="inherit"
+              variant="outlined"
               size="small"
               startIcon={<SettingsIcon />}
               onClick={() => setSetupDialogOpen(true)}
             >
-              Set Up Now
+              Set Up Auto-Numbering
             </Button>
-          }
-        >
-          <Typography variant="body2">
-            <strong>Document numbering not configured.</strong> Set up discipline codes to enable
-            automatic document numbering for this project.
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<ImportIcon />}
+              onClick={() => setImportDialogOpen(true)}
+            >
+              Upload Document Register
+            </Button>
+          </Stack>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Auto-numbering generates document numbers like {project.code}-01-001. Upload your own
+            register if your project uses a different numbering convention.
           </Typography>
         </Alert>
       )}
@@ -372,7 +381,6 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
                 variant="outlined"
                 startIcon={<ImportIcon />}
                 onClick={() => setImportDialogOpen(true)}
-                disabled={!hasNumberingConfig}
               >
                 Import Register
               </Button>
@@ -523,7 +531,6 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
                   variant="outlined"
                   startIcon={<ImportIcon />}
                   onClick={() => setImportDialogOpen(true)}
-                  disabled={!hasNumberingConfig}
                 >
                   Import Register
                 </Button>

@@ -1,22 +1,32 @@
 'use client';
 
 /**
- * Documents Page Client — Tabbed MDL Hub
+ * Documents Page Client — Tabbed Document Hub
  *
  * Entry point for the project documents module.
- * Tab 1: Master Document List (active)
- * Tab 2: Transmittals (coming soon)
- * Tab 3: Submissions (coming soon)
+ * Tab 0: Master Document List
+ * Tab 1: Transmittals
+ * Tab 2: Submissions
+ * Tab 3: Templates
  */
 
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Box, Tabs, Tab, Tooltip, Paper } from '@mui/material';
+import { Box, Tabs, Tab, Paper } from '@mui/material';
 import { useProjectPage } from '../components/useProjectPage';
 import { ProjectSubPageWrapper } from '../components/ProjectSubPageWrapper';
 
-// Dynamic import for code splitting
+// Dynamic imports for code splitting
 const MasterDocumentListTab = dynamic(() => import('./components/MasterDocumentListTab'), {
+  ssr: false,
+});
+const TransmittalsTab = dynamic(() => import('./components/TransmittalsTab'), {
+  ssr: false,
+});
+const SubmissionsTab = dynamic(() => import('./components/SubmissionsTab'), {
+  ssr: false,
+});
+const TemplatesTab = dynamic(() => import('./components/TemplatesTab'), {
   ssr: false,
 });
 
@@ -43,20 +53,16 @@ export default function DocumentsPageClient() {
               scrollButtons="auto"
             >
               <Tab label="Master Document List" />
-              <Tooltip title="Coming soon">
-                <span>
-                  <Tab label="Transmittals" disabled />
-                </span>
-              </Tooltip>
-              <Tooltip title="Coming soon">
-                <span>
-                  <Tab label="Submissions" disabled />
-                </span>
-              </Tooltip>
+              <Tab label="Transmittals" />
+              <Tab label="Submissions" />
+              <Tab label="Templates" />
             </Tabs>
           </Paper>
 
           {activeTab === 0 && <MasterDocumentListTab project={project} />}
+          {activeTab === 1 && <TransmittalsTab project={project} />}
+          {activeTab === 2 && <SubmissionsTab project={project} />}
+          {activeTab === 3 && <TemplatesTab project={project} />}
         </Box>
       )}
     </ProjectSubPageWrapper>

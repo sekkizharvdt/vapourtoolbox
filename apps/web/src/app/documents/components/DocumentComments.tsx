@@ -29,6 +29,7 @@ import {
   Refresh as RefreshIcon,
   FilterList as FilterIcon,
   CloudUpload as UploadIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
 import type {
   MasterDocumentEntry,
@@ -53,6 +54,7 @@ import CommentThreadDialog from './comments/CommentThreadDialog';
 import UploadCRSDialog from './comments/UploadCRSDialog';
 import CRSList from './comments/CRSList';
 import { getCRSByMasterDocument } from '@/lib/documents/crsService';
+import { downloadCRTAsCSV } from '@/lib/documents/exportCRT';
 
 interface DocumentCommentsProps {
   document: MasterDocumentEntry;
@@ -322,6 +324,17 @@ export default function DocumentComments({ document, onUpdate }: DocumentComment
             >
               Refresh
             </Button>
+            {comments.length > 0 && (
+              <Button
+                size="small"
+                startIcon={<DownloadIcon />}
+                onClick={() =>
+                  downloadCRTAsCSV(comments, document.documentNumber, document.currentRevision)
+                }
+              >
+                Export CRT
+              </Button>
+            )}
             <Button
               variant="outlined"
               startIcon={<UploadIcon />}

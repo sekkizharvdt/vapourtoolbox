@@ -35,13 +35,15 @@ import {
   PictureAsPdf as PdfIcon,
   CheckCircle as AcknowledgedIcon,
 } from '@mui/icons-material';
-import type { DocumentTransmittal, TransmittalStatus } from '@vapour/types';
+import type { DocumentTransmittal, TransmittalStatus, MasterDocumentEntry } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
+import { useMemo } from 'react';
 
 interface TransmittalDetailDialogProps {
   open: boolean;
   onClose: () => void;
   transmittal: DocumentTransmittal | null;
+  documents?: MasterDocumentEntry[];
   onDownloadPdf: (transmittal: DocumentTransmittal) => void;
   onDownloadZip: (transmittal: DocumentTransmittal) => void;
 }
@@ -50,9 +52,19 @@ export default function TransmittalDetailDialog({
   open,
   onClose,
   transmittal,
+  documents,
   onDownloadPdf,
   onDownloadZip,
 }: TransmittalDetailDialogProps) {
+  // Build a lookup map for document resolution
+  const docMap = useMemo(() => {
+    const map = new Map<string, MasterDocumentEntry>();
+    if (documents) {
+      documents.forEach((d) => map.set(d.id, d));
+    }
+    return map;
+  }, [documents]);
+
   if (!transmittal) return null;
 
   const getStatusColor = (
@@ -66,7 +78,6 @@ export default function TransmittalDetailDialog({
     };
     return colors[status] || 'default';
   };
-
 
   const formatFileSize = (bytes?: number): string => {
     if (!bytes) return '-';
@@ -251,7 +262,7 @@ export default function TransmittalDetailDialog({
             </Paper>
           )}
 
-          {/* Document List - Placeholder for now */}
+          {/* Document List */}
           <Box>
             <Typography variant="subtitle2" gutterBottom>
               Documents Included ({transmittal.documentIds.length})
@@ -267,22 +278,45 @@ export default function TransmittalDetailDialog({
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {transmittal.documentIds.map((docId) => (
-                    <TableRow key={docId}>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {docId}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary">
-                          (Document details will be loaded)
-                        </Typography>
-                      </TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>-</TableCell>
-                    </TableRow>
-                  ))}
+                  {transmittal.documentIds.map((docId) => {
+                    const doc = docMap.get(docId);
+                    return (
+                      <TableRow key={docId}>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            {doc?.documentNumber || docId}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{doc?.documentTitle || '-'}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          {doc ? (
+                            <Chip label={doc.currentRevision} size="small" variant="outlined" />
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {doc ? (
+                            <Chip
+                              label={doc.status.replace(/_/g, ' ')}
+                              size="small"
+                              color={
+                                doc.status === 'APPROVED' || doc.status === 'ACCEPTED'
+                                  ? 'success'
+                                  : doc.status === 'UNDER_REVIEW' || doc.status === 'SUBMITTED'
+                                    ? 'warning'
+                                    : 'default'
+                              }
+                            />
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>

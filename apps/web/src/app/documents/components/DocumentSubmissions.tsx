@@ -15,11 +15,13 @@
 import { useState, useEffect } from 'react';
 import { Box, Typography, Button, Stack, Alert, CircularProgress } from '@mui/material';
 import { Add as AddIcon, Refresh as RefreshIcon } from '@mui/icons-material';
-import type { MasterDocumentEntry, DocumentSubmission } from '@vapour/types';
+import { useRouter } from 'next/navigation';
+import type { MasterDocumentEntry, DocumentSubmission, DocumentComment } from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { submitDocument } from '@/lib/documents/submissionService';
 import { useAuth } from '@/contexts/AuthContext';
+import { downloadCRTAsCSV } from '@/lib/documents/exportCRT';
 import SubmitDocumentDialog, { type SubmissionData } from './submissions/SubmitDocumentDialog';
 import SubmissionsTable from './submissions/SubmissionsTable';
 import SubmissionDetailsDialog from './submissions/SubmissionDetailsDialog';
@@ -30,6 +32,7 @@ interface DocumentSubmissionsProps {
 }
 
 export default function DocumentSubmissions({ document, onUpdate }: DocumentSubmissionsProps) {
+  const router = useRouter();
   const { db, storage } = getFirebase();
   const { user } = useAuth();
 
@@ -117,16 +120,38 @@ export default function DocumentSubmissions({ document, onUpdate }: DocumentSubm
     setDetailsDialogOpen(true);
   };
 
-  const handleViewComments = (submission: DocumentSubmission) => {
-    // Navigate to comments tab with submission filter (future enhancement)
-    console.warn('View comments for submission:', submission.id);
-    alert('Comment navigation will be implemented');
+  const handleViewComments = (_submission: DocumentSubmission) => {
+    // Navigate to comments tab for this document
+    router.push(`/documents/${document.id}?projectId=${document.projectId}&tab=comments`);
   };
 
-  const handleDownloadCRT = (submission: DocumentSubmission) => {
-    // Download CRT document (future enhancement)
-    console.warn('Download CRT for submission:', submission.id);
-    alert('CRT download will be implemented');
+  const handleDownloadCRT = async (submission: DocumentSubmission) => {
+    if (!db) return;
+
+    try {
+      // Load comments for this submission and export as CRT CSV
+      const commentsRef = collection(db, 'projects', document.projectId, 'documentComments');
+      const q = query(
+        commentsRef,
+        where('submissionId', '==', submission.id),
+        orderBy('commentNumber', 'asc')
+      );
+      const snapshot = await getDocs(q);
+      const comments: DocumentComment[] = [];
+      snapshot.forEach((doc) => {
+        comments.push({ id: doc.id, ...doc.data() } as DocumentComment);
+      });
+
+      if (comments.length === 0) {
+        setError('No comments found for this submission');
+        return;
+      }
+
+      downloadCRTAsCSV(comments, document.documentNumber, submission.revision);
+    } catch (err) {
+      console.error('[DocumentSubmissions] Error downloading CRT:', err);
+      setError(err instanceof Error ? err.message : 'Failed to export CRT');
+    }
   };
 
   if (loading) {

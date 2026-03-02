@@ -11,7 +11,7 @@
 
 import { useState, useEffect } from 'react';
 import { Box, Typography, Stack, Alert, CircularProgress, TextField } from '@mui/material';
-import type { DocumentTransmittal } from '@vapour/types';
+import type { DocumentTransmittal, MasterDocumentEntry } from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -20,9 +20,15 @@ import TransmittalDetailDialog from './TransmittalDetailDialog';
 
 interface TransmittalsListProps {
   projectId: string;
+  documents?: MasterDocumentEntry[];
+  onRefresh?: () => void;
 }
 
-export default function TransmittalsList({ projectId }: TransmittalsListProps) {
+export default function TransmittalsList({
+  projectId,
+  documents: documentsProp,
+  onRefresh: _onRefresh,
+}: TransmittalsListProps) {
   const { db, functions } = getFirebase();
 
   const [transmittals, setTransmittals] = useState<DocumentTransmittal[]>([]);
@@ -212,6 +218,7 @@ export default function TransmittalsList({ projectId }: TransmittalsListProps) {
         open={detailDialogOpen}
         onClose={() => setDetailDialogOpen(false)}
         transmittal={selectedTransmittal}
+        documents={documentsProp}
         onDownloadPdf={handleDownloadPdf}
         onDownloadZip={handleDownloadZip}
       />
