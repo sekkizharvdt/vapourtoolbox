@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   FormControl,
   InputLabel,
@@ -45,6 +45,18 @@ export function ProcessInputs({
 }: ProcessInputsProps) {
   const flowRateUnitLabel = FLOW_RATE_UNIT_LABELS[inputs.flowRateUnit];
   const flashingMode = inputs.flashingInputMode ?? 'PRESSURE';
+
+  // Draft values for pressure/temperature fields — held locally while the user
+  // is actively typing so that intermediate (out-of-range) keystrokes don't
+  // trigger validation errors or reset the field.
+  const [pressureDraft, setPressureDraft] = useState<string | null>(null);
+  const [tempDraft, setTempDraft] = useState<string | null>(null);
+
+  // Clear drafts whenever the user switches between Pressure and Temperature mode
+  useEffect(() => {
+    setPressureDraft(null);
+    setTempDraft(null);
+  }, [flashingMode]);
 
   // Derived saturation temperature (shown in helper text when PRESSURE mode)
   const derivedSatTemp = useMemo(() => {
@@ -161,8 +173,14 @@ export function ProcessInputs({
         <TextField
           label="Operating Pressure"
           type="number"
-          value={inputs.operatingPressure}
-          onChange={(e) => onChange('operatingPressure', parseFloat(e.target.value) || 0)}
+          value={pressureDraft !== null ? pressureDraft : String(inputs.operatingPressure)}
+          onFocus={() => setPressureDraft(String(inputs.operatingPressure))}
+          onChange={(e) => setPressureDraft(e.target.value)}
+          onBlur={() => {
+            const val = parseFloat(pressureDraft ?? '');
+            if (!isNaN(val)) onChange('operatingPressure', val);
+            setPressureDraft(null);
+          }}
           InputProps={{
             endAdornment: <InputAdornment position="end">mbar abs</InputAdornment>,
           }}
@@ -186,8 +204,14 @@ export function ProcessInputs({
         <TextField
           label="Flashing Temperature"
           type="number"
-          value={inputs.flashingTemperature ?? 60}
-          onChange={(e) => onFlashingTemperatureChange(parseFloat(e.target.value) || 0)}
+          value={tempDraft !== null ? tempDraft : String(inputs.flashingTemperature ?? 60)}
+          onFocus={() => setTempDraft(String(inputs.flashingTemperature ?? 60))}
+          onChange={(e) => setTempDraft(e.target.value)}
+          onBlur={() => {
+            const val = parseFloat(tempDraft ?? '');
+            if (!isNaN(val)) onFlashingTemperatureChange(val);
+            setTempDraft(null);
+          }}
           InputProps={{
             endAdornment: <InputAdornment position="end">°C</InputAdornment>,
           }}
