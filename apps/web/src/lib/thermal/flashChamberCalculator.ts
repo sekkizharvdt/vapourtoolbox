@@ -449,11 +449,12 @@ export function calculateFlashChamber(
 
   // Step 4: Size chamber
   const chamberSizing = calculateChamberSize(
-    waterFlow,
     vaporFlow,
+    brineFlow,
     satTempPure,
-    input,
-    effectiveSalinity
+    satTemp,
+    brineSalinity,
+    input
   );
 
   // Add warning if vapor velocity approaches or exceeds the Souders-Brown limit
@@ -607,14 +608,14 @@ function calculateHeatMassBalance(
  * @param vaporFlow - Vapor flow rate in ton/hr
  * @param satTempPure - Saturation temperature of pure water at operating pressure in °C
  * @param input - Flash chamber input parameters
- * @param effectiveSalinity - Effective salinity (0 for DM water)
  */
 function calculateChamberSize(
-  waterFlow: number,
   vaporFlow: number,
+  brineFlow: number,
   satTempPure: number,
-  input: FlashChamberInput,
-  effectiveSalinity: number
+  satTemp: number,
+  brineSalinity: number,
+  input: FlashChamberInput
 ): ChamberSizing {
   // -------------------------------------------------------------------
   // Step A: Fluid properties at operating conditions
@@ -666,10 +667,12 @@ function calculateChamberSize(
   // Actual vapour cross-section loading at the design diameter (ton/hr/m² of vapour)
   const crossSectionLoading = vaporFlow / actualCrossSectionArea; // ton/hr/m²
 
-  // Retention zone height
-  const inletDensity = getSeawaterDensity(effectiveSalinity, input.inletTemperature);
-  const volumetricFlowM3Min = tonHrToM3S(waterFlow, inletDensity) * 60; // m³/min
-  const retentionVolume = volumetricFlowM3Min * input.retentionTime; // m³
+  // Retention zone height — based on brine (liquid) flow at saturation conditions.
+  // The retention zone holds the brine that exits at the bottom, NOT the full inlet flow.
+  // Using brine flow and brine density gives the correct liquid hold-up volume.
+  const brineDensity = getSeawaterDensity(brineSalinity, satTemp);
+  const brineVolumetricFlowM3Min = tonHrToM3S(brineFlow, brineDensity) * 60; // m³/min
+  const retentionVolume = brineVolumetricFlowM3Min * input.retentionTime; // m³
   const retentionHeightM = retentionVolume / actualCrossSectionArea; // m
   const retentionHeightMM = retentionHeightM * 1000; // mm
 
