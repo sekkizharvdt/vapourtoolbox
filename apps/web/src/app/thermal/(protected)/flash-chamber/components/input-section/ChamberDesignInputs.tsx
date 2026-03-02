@@ -18,9 +18,11 @@ import {
   TableRow,
   Paper,
   Divider,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import { Info as InfoIcon } from '@mui/icons-material';
-import type { FlashChamberInput } from '@vapour/types';
+import type { FlashChamberInput, DemisterType } from '@vapour/types';
 import { FLASH_CHAMBER_LIMITS } from '@vapour/types';
 import { calculateSprayZoneHeight } from './helpers';
 
@@ -30,8 +32,17 @@ interface ChamberDesignInputsProps {
   vaporVelocity?: number;
   vaporVelocityStatus?: 'OK' | 'HIGH' | 'VERY_HIGH';
   vaporLoading?: number;
+  /** D_LL — liquid-loading criterion diameter in mm */
+  liquidLoadingDiameter?: number;
+  /** D_SB — Souders-Brown vapour-velocity criterion diameter in mm */
+  vaporVelocityDiameter?: number;
+  /** u_SB — SB maximum allowable vapour velocity in m/s */
+  sbMaxVelocity?: number;
+  /** Actual cross-section loading in ton/hr/m² at design diameter */
+  crossSectionLoading?: number;
   onChange: (field: keyof FlashChamberInput, value: number | string | boolean) => void;
   onDiameterModeChange: (autoCalculate: boolean) => void;
+  onDemisterTypeChange: (type: DemisterType) => void;
 }
 
 export function ChamberDesignInputs({
@@ -40,10 +51,15 @@ export function ChamberDesignInputs({
   vaporVelocity,
   vaporVelocityStatus,
   vaporLoading,
+  liquidLoadingDiameter,
+  vaporVelocityDiameter,
+  sbMaxVelocity,
+  crossSectionLoading,
   onChange,
   onDiameterModeChange,
+  onDemisterTypeChange,
 }: ChamberDesignInputsProps) {
-  // Effective diameter to use for spray zone reference calculation
+  // Effective diameter for spray zone reference table
   const effectiveDiameter = useMemo(() => {
     if (inputs.autoCalculateDiameter !== false) {
       return calculatedDiameter || 1000;
@@ -61,6 +77,8 @@ export function ChamberDesignInputs({
     }));
   }, [effectiveDiameter]);
 
+  const demisterType = inputs.demisterType ?? 'WIRE_MESH';
+
   return (
     <>
       <Divider />
@@ -68,6 +86,144 @@ export function ChamberDesignInputs({
       <Typography variant="subtitle2" color="text.secondary">
         Chamber Design Parameters
       </Typography>
+
+      {/* Demister Type */}
+      <Box>
+        <Typography variant="body2" gutterBottom>
+          Mist Eliminator / Demister
+          <Tooltip title="Controls the Souders-Brown K factor used for the vapour-velocity diameter criterion. K: None=0.05, Wire Mesh=0.09, Vane=0.15 m/s (Perry's; El-Dessouky & Ettouney).">
+            <IconButton size="small" sx={{ ml: 0.5 }}>
+              <InfoIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Typography>
+        <ToggleButtonGroup
+          value={demisterType}
+          exclusive
+          onChange={(_e, val: DemisterType | null) => {
+            if (val) onDemisterTypeChange(val);
+          }}
+          size="small"
+          fullWidth
+        >
+          <ToggleButton value="NONE">None</ToggleButton>
+          <ToggleButton value="WIRE_MESH">Wire Mesh</ToggleButton>
+          <ToggleButton value="VANE">Vane</ToggleButton>
+        </ToggleButtonGroup>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          {demisterType === 'NONE' && 'K = 0.05 m/s — conservative, larger vessel required'}
+          {demisterType === 'WIRE_MESH' && 'K = 0.09 m/s — common default for flash chambers'}
+          {demisterType === 'VANE' && 'K = 0.15 m/s — high-capacity, compact vessel'}
+        </Typography>
+      </Box>
+
+      {/* Sizing Basis Info Card */}
+      {(liquidLoadingDiameter !== undefined || vaporVelocityDiameter !== undefined) && (
+        <Box
+          sx={{
+            p: 1.5,
+            borderRadius: 1,
+            bgcolor: 'action.hover',
+            border: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            fontWeight="medium"
+            sx={{ display: 'block', mb: 1 }}
+          >
+            Diameter Sizing Basis
+          </Typography>
+
+          <Table size="small">
+            <TableBody>
+              {liquidLoadingDiameter !== undefined && (
+                <TableRow>
+                  <TableCell sx={{ py: 0.25, px: 0, fontSize: '0.75rem', border: 0 }}>
+                    Liquid Loading (2.0 ton/hr/m²)
+                  </TableCell>
+                  <TableCell
+                    sx={{ py: 0.25, px: 0, fontSize: '0.75rem', border: 0, textAlign: 'right' }}
+                  >
+                    <strong>D_LL = {liquidLoadingDiameter} mm</strong>
+                  </TableCell>
+                </TableRow>
+              )}
+              {vaporVelocityDiameter !== undefined && sbMaxVelocity !== undefined && (
+                <TableRow>
+                  <TableCell sx={{ py: 0.25, px: 0, fontSize: '0.75rem', border: 0 }}>
+                    SB Vapour Velocity (u = {sbMaxVelocity.toFixed(2)} m/s)
+                  </TableCell>
+                  <TableCell
+                    sx={{ py: 0.25, px: 0, fontSize: '0.75rem', border: 0, textAlign: 'right' }}
+                  >
+                    <strong>D_SB = {vaporVelocityDiameter} mm</strong>
+                  </TableCell>
+                </TableRow>
+              )}
+              {liquidLoadingDiameter !== undefined && vaporVelocityDiameter !== undefined && (
+                <TableRow>
+                  <TableCell
+                    sx={{
+                      py: 0.25,
+                      px: 0,
+                      fontSize: '0.75rem',
+                      borderTop: 1,
+                      borderColor: 'divider',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    Design Diameter (avg, rounded up)
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      py: 0.25,
+                      px: 0,
+                      fontSize: '0.75rem',
+                      borderTop: 1,
+                      borderColor: 'divider',
+                      textAlign: 'right',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {calculatedDiameter} mm
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+
+          {crossSectionLoading !== undefined &&
+            vaporVelocity !== undefined &&
+            sbMaxVelocity !== undefined && (
+              <Box sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  Actual cross-section loading:{' '}
+                  <strong>{crossSectionLoading.toFixed(2)} ton/hr/m²</strong>
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color={
+                    vaporVelocityStatus === 'OK'
+                      ? 'success.dark'
+                      : vaporVelocityStatus === 'HIGH'
+                        ? 'warning.dark'
+                        : 'error.dark'
+                  }
+                  sx={{ display: 'block' }}
+                >
+                  Actual vapour velocity: <strong>{vaporVelocity.toFixed(3)} m/s</strong> vs SB
+                  limit: <strong>{sbMaxVelocity.toFixed(3)} m/s</strong> (
+                  {vaporVelocityStatus === 'OK' && '✓ OK'}
+                  {vaporVelocityStatus === 'HIGH' && '⚠ Approaching limit'}
+                  {vaporVelocityStatus === 'VERY_HIGH' && '✗ Exceeds limit'})
+                </Typography>
+              </Box>
+            )}
+        </Box>
+      )}
 
       {/* Vessel Diameter */}
       <Box>
@@ -110,8 +266,8 @@ export function ChamberDesignInputs({
               fullWidth
               sx={{ mt: 1 }}
             />
-            {/* Vapor Velocity Display */}
-            {vaporVelocity !== undefined && (
+            {/* Vapor Velocity Display (shown when user overrides diameter) */}
+            {vaporVelocity !== undefined && sbMaxVelocity !== undefined && (
               <Box
                 sx={{
                   mt: 1.5,
@@ -171,18 +327,18 @@ export function ChamberDesignInputs({
                   }
                   sx={{ display: 'block', mt: 0.5 }}
                 >
-                  {vaporVelocityStatus === 'OK' && 'Good - minimal liquid entrainment risk'}
+                  {vaporVelocityStatus === 'OK' && 'Good — well within SB limit'}
                   {vaporVelocityStatus === 'HIGH' &&
-                    'Elevated - consider larger diameter or mist eliminator'}
+                    'Elevated — approaching SB limit, consider larger diameter'}
                   {vaporVelocityStatus === 'VERY_HIGH' &&
-                    'Too high - increase diameter to avoid entrainment'}
+                    'Exceeds SB limit — increase diameter to avoid entrainment'}
                 </Typography>
                 <Typography
                   variant="caption"
                   color="text.secondary"
                   sx={{ display: 'block', mt: 0.5 }}
                 >
-                  Recommended velocity: &lt; 0.5 m/s
+                  SB max velocity: {sbMaxVelocity.toFixed(3)} m/s
                 </Typography>
               </Box>
             )}

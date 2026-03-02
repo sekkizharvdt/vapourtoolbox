@@ -8,6 +8,7 @@ import type {
   FlashChamberWaterType,
   FlashingInputMode,
   FlowRateUnit,
+  DemisterType,
 } from '@vapour/types';
 import { getSaturationTemperature, getSaturationPressure, mbarAbsToBar } from '@vapour/constants';
 import { ProcessInputs } from './ProcessInputs';
@@ -22,10 +23,18 @@ interface InputSectionProps {
   calculatedDiameter?: number;
   /** Vapor velocity through chamber cross-section in m/s */
   vaporVelocity?: number;
-  /** Vapor velocity status indicator */
+  /** Vapor velocity status relative to Souders-Brown limit */
   vaporVelocityStatus?: 'OK' | 'HIGH' | 'VERY_HIGH';
   /** Vapor loading - vapor flow rate per unit cross-section area in ton/hr/m² */
   vaporLoading?: number;
+  /** D_LL — liquid-loading criterion diameter in mm */
+  liquidLoadingDiameter?: number;
+  /** D_SB — Souders-Brown vapour-velocity criterion diameter in mm */
+  vaporVelocityDiameter?: number;
+  /** u_SB — SB maximum allowable vapour velocity in m/s */
+  sbMaxVelocity?: number;
+  /** Actual cross-section loading in ton/hr/m² at design diameter */
+  crossSectionLoading?: number;
 }
 
 export function InputSection({
@@ -35,6 +44,10 @@ export function InputSection({
   vaporVelocity,
   vaporVelocityStatus,
   vaporLoading,
+  liquidLoadingDiameter,
+  vaporVelocityDiameter,
+  sbMaxVelocity,
+  crossSectionLoading,
 }: InputSectionProps) {
   const [activeTab, setActiveTab] = useState(0);
 
@@ -89,6 +102,10 @@ export function InputSection({
     onChange({ ...inputs, flashingTemperature: tempC, operatingPressure: pressureMbar });
   };
 
+  const handleDemisterTypeChange = (demisterType: DemisterType) => {
+    onChange({ ...inputs, demisterType });
+  };
+
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" gutterBottom>
@@ -129,8 +146,13 @@ export function InputSection({
             vaporVelocity={vaporVelocity}
             vaporVelocityStatus={vaporVelocityStatus}
             vaporLoading={vaporLoading}
+            liquidLoadingDiameter={liquidLoadingDiameter}
+            vaporVelocityDiameter={vaporVelocityDiameter}
+            sbMaxVelocity={sbMaxVelocity}
+            crossSectionLoading={crossSectionLoading}
             onChange={handleChange}
             onDiameterModeChange={handleDiameterModeChange}
+            onDemisterTypeChange={handleDemisterTypeChange}
           />
         </Stack>
       )}

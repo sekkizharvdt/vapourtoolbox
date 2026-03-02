@@ -51,8 +51,19 @@ import { FLOW_RATE_CONVERSIONS } from '@vapour/types';
 // Constants
 // ============================================================================
 
-/** Cross-section loading factor: ton/hr per m² of cross-section */
+/** Liquid cross-section loading used for the liquid-loading diameter criterion: ton/hr per m² */
 const CROSS_SECTION_LOADING = 2.0; // ton/hr/m²
+
+/**
+ * Souders-Brown K factors by demister type (m/s).
+ * The allowable vapour velocity is: u_SB = K × √((ρL − ρV) / ρV)
+ * Source: Perry's Chemical Engineers' Handbook; El-Dessouky & Ettouney (2002)
+ */
+const SB_K_FACTOR: Record<string, number> = {
+  NONE: 0.05, // No demister — conservative
+  WIRE_MESH: 0.09, // Wire-mesh pad — common default
+  VANE: 0.15, // Vane-type — high-capacity
+};
 
 /** Standard friction loss estimate for suction piping */
 const ESTIMATED_FRICTION_LOSS = 0.5; // m
@@ -445,14 +456,14 @@ export function calculateFlashChamber(
     effectiveSalinity
   );
 
-  // Add warning if vapor velocity is high
+  // Add warning if vapor velocity approaches or exceeds the Souders-Brown limit
   if (chamberSizing.vaporVelocityStatus === 'HIGH') {
     warnings.push(
-      `Vapor velocity (${chamberSizing.vaporVelocity.toFixed(2)} m/s) is elevated. Consider a larger diameter or mist eliminator.`
+      `Vapor velocity (${chamberSizing.vaporVelocity.toFixed(3)} m/s) approaching SB limit (${chamberSizing.sbMaxVelocity.toFixed(3)} m/s). Consider larger diameter.`
     );
   } else if (chamberSizing.vaporVelocityStatus === 'VERY_HIGH') {
     warnings.push(
-      `Vapor velocity (${chamberSizing.vaporVelocity.toFixed(2)} m/s) is too high - risk of liquid entrainment. Increase chamber diameter.`
+      `Vapor velocity (${chamberSizing.vaporVelocity.toFixed(3)} m/s) exceeds SB limit (${chamberSizing.sbMaxVelocity.toFixed(3)} m/s) — liquid entrainment risk. Increase diameter.`
     );
   }
 
@@ -605,77 +616,86 @@ function calculateChamberSize(
   input: FlashChamberInput,
   effectiveSalinity: number
 ): ChamberSizing {
+  // -------------------------------------------------------------------
+  // Step A: Fluid properties at operating conditions
+  // -------------------------------------------------------------------
+  const liquidDensity = getDensityLiquid(satTempPure); // kg/m³ (pure water at sat. temp)
+  const vaporDensity = getDensityVapor(satTempPure); // kg/m³
+  const vaporVolumetricFlow = tonHrToM3S(vaporFlow, vaporDensity); // m³/s
+
+  // -------------------------------------------------------------------
+  // Step B: Liquid-loading criterion diameter (D_LL)
+  // Based on the traditional 2.0 ton/hr/m² cross-section loading of
+  // total liquid (water) flow over the chamber cross-section area.
+  // -------------------------------------------------------------------
+  const areaLL = waterFlow / CROSS_SECTION_LOADING; // m²
+  const dLL_m = Math.sqrt((4 * areaLL) / Math.PI); // m
+  const liquidLoadingDiameter = Math.ceil((dLL_m * 1000) / 100) * 100; // mm, rounded up to 100mm
+
+  // -------------------------------------------------------------------
+  // Step C: Souders-Brown vapour-velocity criterion diameter (D_SB)
+  // u_SB = K × √((ρL − ρV) / ρV)   [Perry's; El-Dessouky & Ettouney]
+  // K factors: NONE=0.05, WIRE_MESH=0.09, VANE=0.15  (m/s)
+  // At 200–300 mbar(a) these give u_SB ≈ 3.6–13 m/s actual velocity.
+  // -------------------------------------------------------------------
+  const kFactor = SB_K_FACTOR[input.demisterType ?? 'WIRE_MESH'] ?? 0.09; // fallback = WIRE_MESH
+  const sbMaxVelocity = kFactor * Math.sqrt((liquidDensity - vaporDensity) / vaporDensity);
+  const aSB = vaporVolumetricFlow / sbMaxVelocity; // m²
+  const dSB_m = Math.sqrt((4 * aSB) / Math.PI); // m
+  const vaporVelocityDiameter = Math.ceil((dSB_m * 1000) / 100) * 100; // mm, rounded up to 100mm
+
+  // -------------------------------------------------------------------
+  // Step D: Design diameter
+  // Auto: average of D_LL and D_SB, rounded up to next 100mm.
+  // Manual: user-specified.
+  // -------------------------------------------------------------------
   let roundedDiameter: number;
-
-  if (input.autoCalculateDiameter !== false && !input.userDiameter) {
-    // Diameter: Based on cross-section loading (2 ton/hr/m²)
-    const crossSectionArea = waterFlow / CROSS_SECTION_LOADING; // m²
-    const diameterM = Math.sqrt((4 * crossSectionArea) / Math.PI); // m
-    const diameterMM = diameterM * 1000; // mm
-
-    // Round up to nearest 100mm for practical fabrication
-    roundedDiameter = Math.ceil(diameterMM / 100) * 100;
-  } else if (input.autoCalculateDiameter === false && input.userDiameter) {
-    // Use user-specified diameter
+  if (input.autoCalculateDiameter === false && input.userDiameter) {
     roundedDiameter = input.userDiameter;
   } else {
-    // Auto-calculate as fallback
-    const crossSectionArea = waterFlow / CROSS_SECTION_LOADING; // m²
-    const diameterM = Math.sqrt((4 * crossSectionArea) / Math.PI); // m
-    const diameterMM = diameterM * 1000; // mm
-    roundedDiameter = Math.ceil(diameterMM / 100) * 100;
+    const avgDiam = (liquidLoadingDiameter + vaporVelocityDiameter) / 2;
+    roundedDiameter = Math.ceil(avgDiam / 100) * 100;
   }
 
-  // Recalculate cross-section with rounded diameter
-  const actualCrossSectionArea = (Math.PI * Math.pow(roundedDiameter / 1000, 2)) / 4;
+  // -------------------------------------------------------------------
+  // Step E: Derived dimensions
+  // -------------------------------------------------------------------
+  const actualCrossSectionArea = (Math.PI * Math.pow(roundedDiameter / 1000, 2)) / 4; // m²
+
+  // Actual liquid cross-section loading at the design diameter
+  const crossSectionLoading = waterFlow / actualCrossSectionArea; // ton/hr/m²
 
   // Retention zone height
-  // Volume = flow rate * retention time
-  // V = Q * t (where Q is in m³/min, t is in minutes)
   const inletDensity = getSeawaterDensity(effectiveSalinity, input.inletTemperature);
   const volumetricFlowM3Min = tonHrToM3S(waterFlow, inletDensity) * 60; // m³/min
   const retentionVolume = volumetricFlowM3Min * input.retentionTime; // m³
   const retentionHeightM = retentionVolume / actualCrossSectionArea; // m
   const retentionHeightMM = retentionHeightM * 1000; // mm
 
-  // Spray zone height (triangle calculation)
-  // Height = radius / tan(angle/2) for a cone spray pattern
-  // A wider spray angle means the spray reaches the wall sooner (shorter vertical travel)
+  // Spray zone height: radius / tan(half-angle)
   const radiusMM = roundedDiameter / 2;
   const sprayAngleRad = (input.sprayAngle / 2) * (Math.PI / 180);
   const sprayZoneHeight = radiusMM / Math.tan(sprayAngleRad);
 
-  // Total height
   const totalHeight = retentionHeightMM + input.flashingZoneHeight + sprayZoneHeight;
-
-  // Total volume
   const totalVolume = actualCrossSectionArea * (totalHeight / 1000);
 
-  // Calculate vapor velocity through chamber cross-section
-  // This is critical for proper liquid-vapor separation
-  // Velocity = volumetric flow / cross-section area
-  const vaporDensity = getDensityVapor(satTempPure); // kg/m³
-  const vaporVolumetricFlow = tonHrToM3S(vaporFlow, vaporDensity); // m³/s
+  // Actual vapour velocity through the design cross-section
   const vaporVelocity = vaporVolumetricFlow / actualCrossSectionArea; // m/s
 
-  // Determine vapor velocity status
-  // Industry guidelines for flash chambers:
-  // < 0.5 m/s: Good - minimal liquid entrainment
-  // 0.5 - 1.0 m/s: High - may cause some entrainment, consider mist eliminator
-  // > 1.0 m/s: Very high - significant entrainment risk
+  // Vapour velocity status relative to the SB limit
+  // OK: < 80% of u_SB  |  HIGH: 80–100%  |  VERY_HIGH: > 100% (entrainment risk)
   let vaporVelocityStatus: 'OK' | 'HIGH' | 'VERY_HIGH';
-  if (vaporVelocity <= 0.5) {
+  if (vaporVelocity <= sbMaxVelocity * 0.8) {
     vaporVelocityStatus = 'OK';
-  } else if (vaporVelocity <= 1.0) {
+  } else if (vaporVelocity <= sbMaxVelocity) {
     vaporVelocityStatus = 'HIGH';
   } else {
     vaporVelocityStatus = 'VERY_HIGH';
   }
 
-  // Calculate vapor loading (ton/hr/m²)
-  // This is the vapor flow rate per unit cross-section area
-  // Comparable to CROSS_SECTION_LOADING (2.0) used for water flow
-  const vaporLoading = vaporFlow / actualCrossSectionArea; // ton/hr/m²
+  // Vapour loading (ton/hr/m²) — for display only
+  const vaporLoading = vaporFlow / actualCrossSectionArea;
 
   return {
     diameter: roundedDiameter,
@@ -689,6 +709,10 @@ function calculateChamberSize(
     vaporVelocity,
     vaporVelocityStatus,
     vaporLoading,
+    liquidLoadingDiameter,
+    crossSectionLoading,
+    sbMaxVelocity,
+    vaporVelocityDiameter,
   };
 }
 

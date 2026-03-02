@@ -31,6 +31,16 @@ export type FlashingInputMode = 'PRESSURE' | 'TEMPERATURE';
 export type FlashChamberWaterType = 'SEAWATER' | 'DM_WATER';
 
 /**
+ * Demister / mist eliminator type — controls the Souders-Brown K factor used
+ * for the vapour-velocity diameter criterion.
+ * - NONE:      No demister  (K = 0.05 m/s — conservative, larger vessel)
+ * - WIRE_MESH: Wire-mesh pad (K = 0.09 m/s — common default)
+ * - VANE:      Vane-type    (K = 0.15 m/s — compact, higher capacity)
+ * Source: Perry's Chemical Engineers' Handbook; El-Dessouky & Ettouney
+ */
+export type DemisterType = 'NONE' | 'WIRE_MESH' | 'VANE';
+
+/**
  * Flow rate unit options
  * - KG_SEC: kg/sec
  * - KG_HR: kg/hr
@@ -113,6 +123,13 @@ export interface FlashChamberInput {
    * Always kept in sync with operatingPressure so the calculator always reads operatingPressure.
    */
   flashingTemperature?: number;
+
+  /**
+   * Mist eliminator / demister type — determines the Souders-Brown K factor used when
+   * auto-calculating the vapour-velocity diameter criterion.
+   * Defaults to 'WIRE_MESH' when not set.
+   */
+  demisterType?: DemisterType;
 }
 
 /**
@@ -195,11 +212,23 @@ export interface ChamberSizing {
   /** Vapor velocity through chamber cross-section in m/s */
   vaporVelocity: number;
 
-  /** Vapor velocity status indicator */
+  /** Vapor velocity status relative to Souders-Brown maximum allowable velocity */
   vaporVelocityStatus: 'OK' | 'HIGH' | 'VERY_HIGH';
 
   /** Vapor loading - vapor flow rate per unit cross-section area in ton/hr/m² */
   vaporLoading: number;
+
+  /** Liquid-loading criterion diameter in mm (D_LL) — from waterFlow / 2.0 ton/hr/m² */
+  liquidLoadingDiameter: number;
+
+  /** Actual cross-section loading at design diameter in ton/hr/m² (water flow / area) */
+  crossSectionLoading: number;
+
+  /** Souders-Brown maximum allowable vapour velocity in m/s (u_SB = K × √((ρL−ρV)/ρV)) */
+  sbMaxVelocity: number;
+
+  /** Souders-Brown vapour-velocity criterion diameter in mm (D_SB) */
+  vaporVelocityDiameter: number;
 }
 
 /**
@@ -410,6 +439,7 @@ export const DEFAULT_FLASH_CHAMBER_INPUT: FlashChamberInput = {
   autoCalculateDiameter: true, // Auto-calculate by default
   flashingInputMode: 'PRESSURE' as const, // Default: specify by pressure
   flashingTemperature: 60, // °C — ~200 mbar abs saturation temp
+  demisterType: 'WIRE_MESH' as const, // Wire-mesh demister as default (K = 0.09)
 };
 
 // ============================================================================
