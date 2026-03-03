@@ -11,6 +11,8 @@ import { createLogger } from '@vapour/logger';
 import { getRFQById } from './crud';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { createTaskNotification } from '@/lib/tasks/taskNotificationService';
+import { requireValidTransition } from '@/lib/utils/stateMachine';
+import { rfqStateMachine } from '@/lib/workflow/stateMachines';
 
 const logger = createLogger({ context: 'rfqService' });
 
@@ -20,11 +22,13 @@ const logger = createLogger({ context: 'rfqService' });
 export async function issueRFQ(rfqId: string, userId: string, userName: string): Promise<void> {
   const { db } = getFirebase();
 
-  // Get RFQ for audit log
+  // Get RFQ and validate transition
   const rfq = await getRFQById(rfqId);
   if (!rfq) {
     throw new Error('RFQ not found');
   }
+
+  requireValidTransition(rfqStateMachine, rfq.status, 'ISSUED', 'RFQ');
 
   const now = Timestamp.now();
 
@@ -80,6 +84,11 @@ export async function incrementOffersReceived(rfqId: string, vendorName?: string
   const totalVendors = rfq.vendorIds.length;
   const isFirstOffer = rfq.offersReceived === 0;
   const allOffersReceived = newCount === totalVendors;
+
+  // Only validate transition on first offer (subsequent offers stay OFFERS_RECEIVED)
+  if (isFirstOffer) {
+    requireValidTransition(rfqStateMachine, rfq.status, 'OFFERS_RECEIVED', 'RFQ');
+  }
 
   await updateDoc(doc(db, COLLECTIONS.RFQS, rfqId), {
     offersReceived: newCount,
@@ -167,6 +176,13 @@ export async function completeRFQ(
 ): Promise<void> {
   const { db } = getFirebase();
 
+  // Validate transition
+  const rfq = await getRFQById(rfqId);
+  if (!rfq) {
+    throw new Error('RFQ not found');
+  }
+  requireValidTransition(rfqStateMachine, rfq.status, 'COMPLETED', 'RFQ');
+
   const now = Timestamp.now();
 
   await updateDoc(doc(db, COLLECTIONS.RFQS, rfqId), {
@@ -192,11 +208,13 @@ export async function cancelRFQ(
 ): Promise<void> {
   const { db } = getFirebase();
 
-  // Get RFQ for audit log
+  // Get RFQ and validate transition
   const rfq = await getRFQById(rfqId);
   if (!rfq) {
     throw new Error('RFQ not found');
   }
+
+  requireValidTransition(rfqStateMachine, rfq.status, 'CANCELLED', 'RFQ');
 
   await updateDoc(doc(db, COLLECTIONS.RFQS, rfqId), {
     status: 'CANCELLED',

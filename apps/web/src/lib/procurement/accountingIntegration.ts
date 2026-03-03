@@ -244,7 +244,7 @@ export async function createBillFromGoodsReceipt(
       currency: (purchaseOrder.currency as CurrencyCode) || 'INR',
       description: `Bill for Goods Receipt ${goodsReceipt.number || goodsReceipt.id}`,
       entityId: purchaseOrder.vendorId,
-      projectId: purchaseOrder.projectIds[0], // Use first project
+      projectId: goodsReceipt.projectId || purchaseOrder.projectIds[0],
     };
 
     // Generate GL entries
@@ -312,9 +312,9 @@ export async function createBillFromGoodsReceipt(
           };
         }),
 
-      // References
-      projectId: purchaseOrder.projectIds[0] || goodsReceipt.projectId,
-      costCentreId: purchaseOrder.projectIds[0] || goodsReceipt.projectId,
+      // References — prefer GR project (specific to this receipt) over PO header
+      projectId: goodsReceipt.projectId || purchaseOrder.projectIds[0],
+      costCentreId: goodsReceipt.projectId || purchaseOrder.projectIds[0],
       purchaseOrderId: purchaseOrder.id,
       goodsReceiptId: goodsReceipt.id,
 

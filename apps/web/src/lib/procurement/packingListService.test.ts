@@ -161,13 +161,16 @@ describe('packingListService', () => {
       // Mock PL number generation
       mockRunTransaction.mockResolvedValueOnce('PL/2024/01/0001');
 
-      // Mock PO items query
+      // Mock PO items query (for validation)
       mockGetDocs.mockResolvedValueOnce({
         docs: mockPOItems.map((item) => ({
           id: item.id,
           data: () => item,
         })),
       });
+
+      // Mock existing packing lists query (none yet)
+      mockGetDocs.mockResolvedValueOnce({ docs: [] });
 
       const plId = await createPackingList(validInput, 'user-123', 'Test User');
 
@@ -216,9 +219,12 @@ describe('packingListService', () => {
         data: () => mockPO,
       });
       mockRunTransaction.mockResolvedValueOnce('PL/2024/01/0002');
+      // Mock PO items query (for validation)
       mockGetDocs.mockResolvedValueOnce({
         docs: [{ id: 'poi-1', data: () => mockPOItems[0] }],
       });
+      // Mock existing packing lists query (none yet)
+      mockGetDocs.mockResolvedValueOnce({ docs: [] });
 
       const plId = await createPackingList(minimalInput, 'user-123', 'Test User');
 

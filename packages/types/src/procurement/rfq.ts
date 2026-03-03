@@ -22,6 +22,9 @@ export interface RFQ {
   id: string;
   number: string; // RFQ/YYYY/MM/XXXX
 
+  // Multi-tenancy
+  entityId?: string;
+
   // Source PRs
   purchaseRequestIds: string[];
 

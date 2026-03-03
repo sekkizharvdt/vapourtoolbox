@@ -29,6 +29,7 @@ import type {
   GoodsReceiptStatus,
   PackingListStatus,
   PurchaseRequestStatus,
+  RFQStatus,
   PaymentBatchStatus,
   TravelExpenseStatus,
   AssetStatus,
@@ -152,6 +153,33 @@ const offerConfig: StateTransitionConfig<OfferStatus> = {
   terminalStates: ['PO_CREATED', 'REJECTED', 'WITHDRAWN'],
 };
 export const offerStateMachine: StateMachine<OfferStatus> = createStateMachine(offerConfig);
+
+// ============================================================================
+// RFQ State Machine
+// ============================================================================
+
+/**
+ * RFQ workflow states:
+ *
+ * DRAFT -> ISSUED -> OFFERS_RECEIVED -> UNDER_EVALUATION -> COMPLETED
+ *
+ * CANCELLED is reachable from DRAFT, ISSUED, OFFERS_RECEIVED, UNDER_EVALUATION
+ */
+const rfqConfig: StateTransitionConfig<RFQStatus> = {
+  transitions: {
+    DRAFT: ['ISSUED', 'CANCELLED'],
+    ISSUED: ['OFFERS_RECEIVED', 'CANCELLED'],
+    OFFERS_RECEIVED: ['UNDER_EVALUATION', 'COMPLETED', 'CANCELLED'],
+    UNDER_EVALUATION: ['COMPLETED', 'CANCELLED'],
+    COMPLETED: [], // Terminal
+    CANCELLED: [], // Terminal
+  },
+  transitionPermissions: {
+    DRAFT_ISSUED: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+  },
+  terminalStates: ['COMPLETED', 'CANCELLED'],
+};
+export const rfqStateMachine: StateMachine<RFQStatus> = createStateMachine(rfqConfig);
 
 // ============================================================================
 // Packing List State Machine
@@ -362,6 +390,9 @@ export function getTransitionLabels(transitions: string[]): Record<string, strin
     // Fixed Asset
     DISPOSED: 'Dispose Asset',
     WRITTEN_OFF: 'Write Off',
+    // RFQ (ISSUED already covered above)
+    OFFERS_RECEIVED: 'Offers Received',
+    UNDER_EVALUATION: 'Under Evaluation',
     // GR
     PENDING: 'Pending',
     ISSUES_FOUND: 'Report Issues',

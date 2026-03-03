@@ -77,6 +77,62 @@ export async function createPackingList(
 
   const po = { id: poDoc.id, ...poDoc.data() } as PurchaseOrder;
 
+  // Validate packing quantities don't exceed PO ordered quantities
+  // Fetch PO items and existing packing lists for this PO
+  const [poItemsSnap, existingPLs] = await Promise.all([
+    getDocs(
+      query(
+        collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS),
+        where('purchaseOrderId', '==', input.purchaseOrderId)
+      )
+    ),
+    listPackingLists({ purchaseOrderId: input.purchaseOrderId }),
+  ]);
+
+  const poItemMap = new Map<string, { quantity: number; description: string }>();
+  poItemsSnap.docs.forEach((d) => {
+    const data = d.data() as PurchaseOrderItem;
+    poItemMap.set(d.id, { quantity: data.quantity, description: data.description });
+  });
+
+  // Sum already-packed quantities from existing (non-cancelled) packing lists
+  const alreadyPacked = new Map<string, number>();
+  const existingPLIds = existingPLs
+    .filter((pl) => pl.status !== 'DRAFT' || true) // count all existing PLs
+    .map((pl) => pl.id);
+
+  if (existingPLIds.length > 0) {
+    // Batch fetch PL items in chunks of 30
+    const batchSize = 30;
+    for (let i = 0; i < existingPLIds.length; i += batchSize) {
+      const chunk = existingPLIds.slice(i, i + batchSize);
+      const plItemsSnap = await getDocs(
+        query(collection(db, COLLECTIONS.PACKING_LIST_ITEMS), where('packingListId', 'in', chunk))
+      );
+      plItemsSnap.docs.forEach((d) => {
+        const data = d.data();
+        const poItemId = data.poItemId as string;
+        const qty = (data.quantity as number) || 0;
+        alreadyPacked.set(poItemId, (alreadyPacked.get(poItemId) || 0) + qty);
+      });
+    }
+  }
+
+  // Validate each new PL item
+  for (const item of input.items) {
+    const poItem = poItemMap.get(item.poItemId);
+    if (!poItem) {
+      throw new Error(`PO item ${item.poItemId} not found`);
+    }
+    const packed = alreadyPacked.get(item.poItemId) || 0;
+    const remaining = poItem.quantity - packed;
+    if (item.quantity > remaining) {
+      throw new Error(
+        `Packing quantity (${item.quantity}) exceeds remaining PO quantity (${remaining}) for "${poItem.description}"`
+      );
+    }
+  }
+
   const plNumber = await generateProcurementNumber(PROCUREMENT_NUMBER_CONFIGS.PACKING_LIST);
   const now = Timestamp.now();
 
@@ -115,18 +171,12 @@ export async function createPackingList(
 
   const plRef = await addDoc(collection(db, COLLECTIONS.PACKING_LISTS), plData);
 
-  // Create packing list items
+  // Create packing list items (reuse PO items fetched during validation)
   const batch = writeBatch(db);
 
-  // Get PO items to populate descriptions
-  const poItemsQuery = query(
-    collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS),
-    where('purchaseOrderId', '==', input.purchaseOrderId)
-  );
-  const poItemsSnapshot = await getDocs(poItemsQuery);
-  const poItems = poItemsSnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
+  const poItems = poItemsSnap.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
   })) as PurchaseOrderItem[];
 
   input.items.forEach((item, index) => {

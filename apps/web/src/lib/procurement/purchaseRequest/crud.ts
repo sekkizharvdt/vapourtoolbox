@@ -65,6 +65,9 @@ export async function createPurchaseRequest(
     const prData: Omit<PurchaseRequest, 'id'> = {
       number: prNumber,
 
+      // Multi-tenancy
+      ...(input.entityId && { entityId: input.entityId }),
+
       // Classification
       type: input.type,
       category: input.category,

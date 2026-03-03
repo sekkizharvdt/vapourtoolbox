@@ -14,6 +14,9 @@ import type { RFQStatus } from '@vapour/types';
  * Input for creating a new RFQ
  */
 export interface CreateRFQInput {
+  // Multi-tenancy
+  entityId?: string;
+
   // Source PRs
   purchaseRequestIds: string[];
 
@@ -77,6 +80,7 @@ export interface CreateRFQItemInput {
  * Filters for listing RFQs
  */
 export interface ListRFQsFilters {
+  entityId?: string;
   status?: RFQStatus;
   projectId?: string;
   vendorId?: string;

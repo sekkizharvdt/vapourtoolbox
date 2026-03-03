@@ -24,6 +24,9 @@ export interface Offer {
   id: string;
   number: string; // OFFER/YYYY/MM/XXXX
 
+  // Multi-tenancy
+  entityId?: string;
+
   // RFQ reference
   rfqId: string;
   rfqNumber: string; // Denormalized

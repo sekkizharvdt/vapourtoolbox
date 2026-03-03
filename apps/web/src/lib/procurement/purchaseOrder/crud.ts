@@ -44,6 +44,8 @@ import {
 } from '../generateProcurementNumber';
 import { PERMISSION_FLAGS } from '@vapour/constants';
 import { requirePermission } from '@/lib/auth';
+import { requireValidTransition } from '@/lib/utils/stateMachine';
+import { rfqStateMachine } from '@/lib/workflow/stateMachines';
 
 const logger = createLogger({ context: 'purchaseOrder/crud' });
 
@@ -168,6 +170,27 @@ export async function createPOFromOffer(
         ...d.data(),
       })) as OfferItem[];
 
+      // Fetch vendor entity for credit terms and contact info
+      let vendorCreditDays: number | undefined;
+      let vendorContact: { name: string; email: string; phone: string } | undefined;
+      try {
+        const vendorDoc = await getDoc(doc(db, COLLECTIONS.ENTITIES, offer.vendorId));
+        if (vendorDoc.exists()) {
+          const vendorData = vendorDoc.data();
+          if (vendorData.creditTerms?.creditDays) {
+            vendorCreditDays = vendorData.creditTerms.creditDays;
+          }
+          // Capture primary contact info for PO
+          vendorContact = {
+            name: vendorData.contactPerson || '',
+            email: vendorData.email || '',
+            phone: vendorData.phone || vendorData.mobile || '',
+          };
+        }
+      } catch (err) {
+        logger.warn('Failed to fetch vendor entity', { vendorId: offer.vendorId, error: err });
+      }
+
       const poNumber = await generatePONumber();
       const now = Timestamp.now();
 
@@ -236,6 +259,19 @@ export async function createPOFromOffer(
       if (advanceAmount) poData.advanceAmount = advanceAmount;
       if (terms.advancePaymentRequired) poData.advancePaymentStatus = 'PENDING';
 
+      // Vendor contact info from entity master
+      if (vendorContact?.name) poData.vendorContactPerson = vendorContact.name;
+      if (vendorContact?.email) poData.vendorEmail = vendorContact.email;
+      if (vendorContact?.phone) poData.vendorPhone = vendorContact.phone;
+
+      // Auto-populate payment terms from vendor credit terms if not explicitly provided
+      if (!terms.paymentTerms && vendorCreditDays) {
+        poData.paymentTerms = `Net ${vendorCreditDays} days`;
+      }
+
+      // Multi-tenancy: inherit entityId from offer
+      if (offer.entityId) poData.entityId = offer.entityId;
+
       // Add structured commercial terms if provided
       if (terms.commercialTermsTemplateId) {
         poData.commercialTermsTemplateId = terms.commercialTermsTemplateId;
@@ -301,6 +337,41 @@ export async function createPOFromOffer(
         rfqItemMap.set(id, data);
       });
 
+      // Collect unique project IDs from RFQ items and fetch project names
+      const uniqueProjectIds = [
+        ...new Set(
+          Array.from(rfqItemMap.values())
+            .map((info) => info.projectId)
+            .filter(Boolean)
+        ),
+      ];
+
+      const projectNameMap = new Map<string, string>();
+      if (uniqueProjectIds.length > 0) {
+        const projectFetches = await Promise.all(
+          uniqueProjectIds.map(async (projectId) => {
+            try {
+              const projectDoc = await getDoc(doc(db, COLLECTIONS.PROJECTS, projectId));
+              if (projectDoc.exists()) {
+                return { id: projectId, name: (projectDoc.data().name as string) || '' };
+              }
+            } catch (err) {
+              logger.warn('Failed to fetch project name', { projectId, error: err });
+            }
+            return null;
+          })
+        );
+        for (const result of projectFetches) {
+          if (result) projectNameMap.set(result.id, result.name);
+        }
+      }
+
+      // Update PO with project IDs and names
+      await updateDoc(poRef, {
+        projectIds: uniqueProjectIds,
+        projectNames: uniqueProjectIds.map((id) => projectNameMap.get(id) || ''),
+      });
+
       const batch = writeBatch(db);
 
       offerItems.forEach((item) => {
@@ -352,8 +423,13 @@ export async function createPOFromOffer(
         updatedAt: now,
       });
 
-      // Mark RFQ as COMPLETED to prevent creating duplicate POs from the same RFQ
+      // Mark RFQ as COMPLETED — validate transition first
       if (offer.rfqId) {
+        const rfqDoc = await getDoc(doc(db, COLLECTIONS.RFQS, offer.rfqId));
+        if (rfqDoc.exists()) {
+          const rfqStatus = rfqDoc.data().status as import('@vapour/types').RFQStatus;
+          requireValidTransition(rfqStateMachine, rfqStatus, 'COMPLETED', 'RFQ');
+        }
         batch.update(doc(db, COLLECTIONS.RFQS, offer.rfqId), {
           status: 'COMPLETED',
           selectedOfferId: offerId,

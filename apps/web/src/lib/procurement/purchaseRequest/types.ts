@@ -11,6 +11,9 @@ import type {
 } from '@vapour/types';
 
 export interface CreatePurchaseRequestInput {
+  // Multi-tenancy
+  entityId?: string;
+
   // Classification
   type: PurchaseRequestType;
   category: PurchaseRequestCategory;
@@ -77,6 +80,7 @@ export interface UpdatePurchaseRequestInput {
 }
 
 export interface ListPurchaseRequestsFilters {
+  entityId?: string;
   projectId?: string;
   type?: PurchaseRequestType;
   category?: PurchaseRequestCategory;

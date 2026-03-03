@@ -27,6 +27,9 @@ export interface PurchaseOrder {
   id: string;
   number: string; // PO/YYYY/MM/XXXX
 
+  // Multi-tenancy
+  entityId?: string;
+
   // Source
   rfqId: string;
   offerId: string;
@@ -35,6 +38,9 @@ export interface PurchaseOrder {
   // Vendor
   vendorId: string;
   vendorName: string; // Denormalized
+  vendorContactPerson?: string; // From entity master at PO creation
+  vendorEmail?: string;
+  vendorPhone?: string;
 
   // Projects (can span multiple)
   projectIds: string[];
