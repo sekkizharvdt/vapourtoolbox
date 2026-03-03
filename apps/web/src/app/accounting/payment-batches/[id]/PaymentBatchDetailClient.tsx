@@ -35,6 +35,7 @@ import {
   Delete as DeleteIcon,
   Edit as EditIcon,
   Warning as WarningIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewAccounting, canManageAccounting } from '@vapour/constants';
@@ -56,6 +57,7 @@ import type {
   BatchPayment,
   BatchPaymentCategory,
 } from '@vapour/types';
+import { downloadPaymentBatchPDF } from '@/lib/accounting/paymentBatchPDF';
 import AddReceiptDialog from '../components/AddReceiptDialog';
 import AddPaymentDialog from '../components/AddPaymentDialog';
 
@@ -114,6 +116,7 @@ export default function PaymentBatchDetailClient() {
   const [rejectReason, setRejectReason] = useState('');
   const [editingReceipt, setEditingReceipt] = useState<BatchReceipt | null>(null);
   const [editingPayment, setEditingPayment] = useState<BatchPayment | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
   const hasManageAccess = claims?.permissions ? canManageAccounting(claims.permissions) : false;
@@ -327,6 +330,19 @@ export default function PaymentBatchDetailClient() {
     setPaymentDialogOpen(true);
   };
 
+  const handleDownloadPDF = async () => {
+    if (!batch) return;
+    setDownloadingPdf(true);
+    try {
+      await downloadPaymentBatchPDF(batch);
+    } catch (err) {
+      console.error('PDF download failed:', err);
+      setError('Failed to generate PDF');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -417,6 +433,14 @@ export default function PaymentBatchDetailClient() {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<PdfIcon />}
+            onClick={handleDownloadPDF}
+            disabled={downloadingPdf}
+          >
+            {downloadingPdf ? 'Generating...' : 'Download PDF'}
+          </Button>
           {isDraft && hasManageAccess && (
             <Button
               variant="contained"

@@ -398,7 +398,7 @@ export default function DataHealthPage() {
           subtitle: 'Bills/invoices with wrong payment status',
           icon: <SyncIcon sx={{ fontSize: 40 }} />,
           color: 'error.main' as const,
-          path: '', // No detail page — reconcile button handles it
+          path: '/accounting/data-health/stale-payments',
           description: 'Payment allocations exist but bill status not updated',
         },
         {

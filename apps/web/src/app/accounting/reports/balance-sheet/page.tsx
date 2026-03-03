@@ -31,6 +31,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   OpenInNew as OpenInNewIcon,
+  FileDownload as DownloadIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
@@ -46,6 +47,11 @@ import {
   getTransactionTypeLabel,
   type GLDrilldownEntry,
 } from '@/lib/accounting/reports/glDrilldown';
+import {
+  downloadReportCSV,
+  downloadReportExcel,
+  type ExportSection,
+} from '@/lib/accounting/reports/exportReport';
 
 // ---------------------------------------------------------------------------
 // AccountRow: renders a single account row with an expandable GL drill-down
@@ -251,6 +257,63 @@ export default function BalanceSheetPage() {
 
   const validation = report ? validateAccountingEquation(report) : null;
 
+  const buildExportSections = (): ExportSection[] => {
+    if (!report) return [];
+    const cols = [
+      { header: 'Account', key: 'name', width: 30 },
+      {
+        header: 'Amount',
+        key: 'balance',
+        width: 18,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+    ];
+    const allAssets = [
+      ...report.assets.currentAssets,
+      ...report.assets.fixedAssets,
+      ...report.assets.otherAssets,
+    ];
+    const allLiabilities = [
+      ...report.liabilities.currentLiabilities,
+      ...report.liabilities.longTermLiabilities,
+    ];
+    return [
+      {
+        title: `Balance Sheet as of ${asOfDate}`,
+        columns: cols,
+        rows: [],
+      },
+      {
+        title: 'Assets',
+        columns: cols,
+        rows: allAssets.map((a) => ({ name: `  ${a.code} ${a.name}`, balance: a.balance })),
+        summary: { name: 'Total Assets', balance: report.assets.totalAssets },
+      },
+      {
+        title: 'Liabilities',
+        columns: cols,
+        rows: allLiabilities.map((a) => ({ name: `  ${a.code} ${a.name}`, balance: a.balance })),
+        summary: { name: 'Total Liabilities', balance: report.liabilities.totalLiabilities },
+      },
+      {
+        title: 'Equity',
+        columns: cols,
+        rows: [
+          { name: '  Capital', balance: report.equity.capital },
+          { name: '  Retained Earnings', balance: report.equity.retainedEarnings },
+          { name: '  Current Year Profit/Loss', balance: report.equity.currentYearProfit },
+        ],
+        summary: { name: 'Total Equity', balance: report.equity.totalEquity },
+      },
+    ];
+  };
+
+  const handleExportCSV = () =>
+    downloadReportCSV(buildExportSections(), `Balance_Sheet_${asOfDate}`);
+  const handleExportExcel = () =>
+    downloadReportExcel(buildExportSections(), `Balance_Sheet_${asOfDate}`, 'Balance Sheet');
+
   const accountRowProps = {
     expandedAccountId,
     drilldownData,
@@ -290,14 +353,30 @@ export default function BalanceSheetPage() {
 
       <Stack spacing={3}>
         {/* Header */}
-        <Stack direction="row" alignItems="center" spacing={2}>
-          <AccountBalanceIcon sx={{ fontSize: 40 }} color="primary" />
-          <Box>
-            <Typography variant="h4">Balance Sheet</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Statement of financial position showing assets, liabilities, and equity
-            </Typography>
-          </Box>
+        <Stack direction="row" alignItems="center" justifyContent="space-between">
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <AccountBalanceIcon sx={{ fontSize: 40 }} color="primary" />
+            <Box>
+              <Typography variant="h4">Balance Sheet</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Statement of financial position showing assets, liabilities, and equity
+              </Typography>
+            </Box>
+          </Stack>
+          {report && (
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Tooltip title="Export CSV">
+                <IconButton onClick={handleExportCSV} size="small">
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Export Excel">
+                <IconButton onClick={handleExportExcel} size="small" color="primary">
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
         </Stack>
 
         {/* Date Selector */}

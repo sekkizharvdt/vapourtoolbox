@@ -24,6 +24,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   OpenInNew as OpenInNewIcon,
+  FileDownload as DownloadIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
@@ -34,6 +35,11 @@ import {
   getTransactionTypeLabel,
   type GLDrilldownEntry,
 } from '@/lib/accounting/reports/glDrilldown';
+import {
+  downloadReportCSV,
+  downloadReportExcel,
+  type ExportSection,
+} from '@/lib/accounting/reports/exportReport';
 
 interface AccountBalance {
   id: string;
@@ -143,6 +149,54 @@ export default function TrialBalancePage() {
 
   const isBalanced = Math.abs(totals.debit - totals.credit) < 0.01;
 
+  const buildExportSections = (): ExportSection[] => {
+    const columns = [
+      { header: 'Code', key: 'code', width: 10 },
+      { header: 'Account Name', key: 'name', width: 30 },
+      { header: 'Type', key: 'type', width: 15 },
+      {
+        header: 'Debit',
+        key: 'debit',
+        width: 15,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+      {
+        header: 'Credit',
+        key: 'credit',
+        width: 15,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+    ];
+    return [
+      {
+        title: 'Trial Balance',
+        columns,
+        rows: accounts.map((a) => ({
+          code: a.code,
+          name: a.name,
+          type: a.type,
+          debit: a.debit > 0 ? a.debit : 0,
+          credit: a.credit > 0 ? a.credit : 0,
+        })),
+        summary: { code: '', name: 'TOTAL', type: '', debit: totals.debit, credit: totals.credit },
+      },
+    ];
+  };
+
+  const handleExportCSV = () =>
+    downloadReportCSV(
+      buildExportSections(),
+      `Trial_Balance_${new Date().toISOString().slice(0, 10)}`
+    );
+  const handleExportExcel = () =>
+    downloadReportExcel(
+      buildExportSections(),
+      `Trial_Balance_${new Date().toISOString().slice(0, 10)}`,
+      'Trial Balance'
+    );
+
   return (
     <Box p={3}>
       <Breadcrumbs sx={{ mb: 2 }}>
@@ -172,9 +226,25 @@ export default function TrialBalancePage() {
         <Typography color="text.primary">Trial Balance</Typography>
       </Breadcrumbs>
 
-      <Typography variant="h4" gutterBottom>
-        Trial Balance
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h4" gutterBottom>
+          Trial Balance
+        </Typography>
+        {accounts.length > 0 && (
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <Tooltip title="Export CSV">
+              <IconButton onClick={handleExportCSV} size="small">
+                <DownloadIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Export Excel">
+              <IconButton onClick={handleExportExcel} size="small" color="primary">
+                <DownloadIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )}
+      </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Click an account row to view the underlying transactions.
       </Typography>

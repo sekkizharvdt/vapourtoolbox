@@ -115,7 +115,7 @@ export async function generateBalanceSheet(
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
     const accountsSnapshot = await getDocs(accountsRef);
 
-    const accounts: AccountBalance[] = [];
+    const accounts: (AccountBalance & { openingBalance: number })[] = [];
     accountsSnapshot.forEach((doc) => {
       const data = doc.data();
       accounts.push({
@@ -125,6 +125,7 @@ export async function generateBalanceSheet(
         balance: data.balance || 0,
         debit: data.debit || 0,
         credit: data.credit || 0,
+        openingBalance: data.openingBalance || 0,
       });
     });
 
@@ -143,8 +144,8 @@ export async function generateBalanceSheet(
 
       // Assets (debit balance is positive for assets)
       if (accountType === '1') {
-        // Asset accounts
-        const assetBalance = account.debit - account.credit;
+        // Asset accounts: opening balance + transaction debits - transaction credits
+        const assetBalance = account.openingBalance + account.debit - account.credit;
         if (assetBalance !== 0) {
           const assetAccount = { ...account, balance: assetBalance };
           if (isCurrentAsset(account)) {
@@ -163,7 +164,7 @@ export async function generateBalanceSheet(
       }
       // Liabilities (credit balance is positive for liabilities)
       else if (accountType === '2') {
-        const liabilityBalance = account.credit - account.debit;
+        const liabilityBalance = account.openingBalance + account.credit - account.debit;
         if (liabilityBalance !== 0) {
           const liabilityAccount = { ...account, balance: liabilityBalance };
           if (isCurrentLiability(account)) {
@@ -175,7 +176,7 @@ export async function generateBalanceSheet(
       }
       // Equity (credit balance is positive for equity)
       else if (accountType === '3') {
-        const equityBalance = account.credit - account.debit;
+        const equityBalance = account.openingBalance + account.credit - account.debit;
         if (
           account.name.toLowerCase().includes('capital') ||
           account.name.toLowerCase().includes('equity')
