@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { Home as HomeIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { collection, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
@@ -33,11 +33,30 @@ interface LedgerEntry {
 interface Transaction {
   id: string;
   type: string;
-  date: Timestamp;
+  date: unknown;
+  transactionDate?: unknown;
   description: string;
   entries: LedgerEntry[];
+  transactionNumber?: string;
   referenceNumber?: string;
   vendorInvoiceNumber?: string;
+}
+
+// Helper to safely convert Firestore Timestamp or Date to Date
+function toDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (
+    typeof value === 'object' &&
+    'toDate' in value &&
+    typeof (value as { toDate: () => Date }).toDate === 'function'
+  ) {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    return new Date(value);
+  }
+  return null;
 }
 
 interface LedgerLine {
@@ -106,10 +125,11 @@ export default function AccountLedgerPage() {
         }
       });
 
-      // Sort by date ascending
+      // Sort by date ascending (use safe conversion — some transactions may have
+      // transactionDate instead of date, or Firestore Timestamps vs Date objects)
       relevantTransactions.sort((a, b) => {
-        const dateA = a.date.toDate();
-        const dateB = b.date.toDate();
+        const dateA = toDate(a.date) || toDate(a.transactionDate) || new Date(0);
+        const dateB = toDate(b.date) || toDate(b.transactionDate) || new Date(0);
         return dateA.getTime() - dateB.getTime();
       });
 
@@ -121,11 +141,15 @@ export default function AccountLedgerPage() {
             const credit = entry.credit || 0;
             runningBalance += debit - credit;
 
+            const txnDate =
+              toDate(transaction.date) || toDate(transaction.transactionDate) || new Date();
+
             lines.push({
-              date: transaction.date.toDate(),
+              date: txnDate,
               description: entry.description || transaction.description || '',
               typeLabel: getTransactionTypeLabel(transaction.type),
-              reference: transaction.referenceNumber || transaction.id,
+              reference:
+                transaction.transactionNumber || transaction.referenceNumber || transaction.id,
               vendorRef: transaction.vendorInvoiceNumber,
               debit,
               credit,

@@ -170,7 +170,7 @@ export function RecordDirectPaymentDialog({
           debit: amount,
           credit: 0,
           description: description || 'Direct payment',
-          costCentreId: projectId || undefined,
+          ...(projectId && { costCentreId: projectId }),
         },
         {
           accountId: bankAccountId,
@@ -179,7 +179,7 @@ export function RecordDirectPaymentDialog({
           debit: 0,
           credit: amount,
           description: description || 'Direct payment',
-          costCentreId: projectId || undefined,
+          ...(projectId && { costCentreId: projectId }),
         },
       ];
 
@@ -187,6 +187,7 @@ export function RecordDirectPaymentDialog({
       const paymentData: Record<string, unknown> = {
         type: 'DIRECT_PAYMENT',
         transactionNumber: transactionNumber || '',
+        referenceNumber: transactionNumber || '',
         transactionDate: Timestamp.fromDate(new Date(paymentDate)),
         paymentDate: Timestamp.fromDate(new Date(paymentDate)),
         expenseAccountId,
@@ -198,7 +199,7 @@ export function RecordDirectPaymentDialog({
         reference: reference || '',
         status: 'POSTED',
         entries,
-        createdAt: editingPayment ? undefined : Timestamp.now(),
+        ...(editingPayment ? {} : { createdAt: Timestamp.now() }),
         updatedAt: Timestamp.now(),
         // Required BaseTransaction fields
         date: Timestamp.fromDate(new Date(paymentDate)),

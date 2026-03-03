@@ -71,29 +71,101 @@ export const checkOverdueItemsAndNotify = onSchedule(
       return;
     }
 
-    // Check overdue vendor bills
+    // Check overdue vendor bills — use entity-level balance to match Data Health page
     try {
-      const billsSnap = await db
-        .collection('transactions')
-        .where('type', '==', 'VENDOR_BILL')
-        .where('status', 'in', ['APPROVED', 'POSTED'])
-        .get();
+      const txnRef = db.collection('transactions');
+      const [billsSnap, invoicesSnap, paymentsSnap, journalSnap] = await Promise.all([
+        txnRef
+          .where('type', '==', 'VENDOR_BILL')
+          .where('status', 'in', ['APPROVED', 'POSTED'])
+          .get(),
+        txnRef
+          .where('type', '==', 'CUSTOMER_INVOICE')
+          .where('status', 'in', ['APPROVED', 'POSTED'])
+          .get(),
+        txnRef.where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT']).get(),
+        txnRef.where('type', '==', 'JOURNAL_ENTRY').get(),
+      ]);
+
+      // Build entity-level balance map (positive = receivable, negative = payable)
+      const entityBalance = new Map<string, number>();
+      const addBalance = (entityId: string | undefined, delta: number) => {
+        if (!entityId) return;
+        entityBalance.set(entityId, (entityBalance.get(entityId) ?? 0) + delta);
+      };
+
+      invoicesSnap.docs.forEach((d) => {
+        if (d.data().isDeleted) return;
+        const data = d.data();
+        addBalance(data.entityId, data.baseAmount || data.totalAmount || 0);
+      });
+      billsSnap.docs.forEach((d) => {
+        if (d.data().isDeleted) return;
+        const data = d.data();
+        addBalance(data.entityId, -(data.baseAmount || data.totalAmount || 0));
+      });
+      paymentsSnap.docs.forEach((d) => {
+        if (d.data().isDeleted) return;
+        const data = d.data();
+        const amt = data.baseAmount || data.totalAmount || data.amount || 0;
+        addBalance(data.entityId, data.type === 'CUSTOMER_PAYMENT' ? -amt : amt);
+      });
+      journalSnap.docs.forEach((d) => {
+        if (d.data().isDeleted) return;
+        const entries = (d.data().entries || []) as Array<{
+          entityId?: string;
+          debit?: number;
+          credit?: number;
+        }>;
+        const perEntity = new Map<string, number>();
+        entries.forEach((e) => {
+          if (!e.entityId) return;
+          perEntity.set(
+            e.entityId,
+            (perEntity.get(e.entityId) ?? 0) + (e.debit || 0) - (e.credit || 0)
+          );
+        });
+        perEntity.forEach((delta, eid) => addBalance(eid, delta));
+      });
+
+      // Add entity opening balances
+      const entityIds = [...entityBalance.keys()];
+      for (let i = 0; i < entityIds.length; i += 30) {
+        const batch = entityIds.slice(i, i + 30);
+        const entitiesSnap = await db
+          .collection('entities')
+          .where(admin.firestore.FieldPath.documentId(), 'in', batch)
+          .get();
+        entitiesSnap.forEach((entityDoc) => {
+          const data = entityDoc.data();
+          const opening = data.openingBalance || 0;
+          const signed = data.openingBalanceType === 'CR' ? -opening : opening;
+          entityBalance.set(entityDoc.id, signed + (entityBalance.get(entityDoc.id) ?? 0));
+        });
+      }
 
       const overdueBills: { number: string; vendor: string; amount: number; dueDate: string }[] =
         [];
 
       billsSnap.forEach((doc) => {
         const data = doc.data();
-        // Skip bills that are already fully paid
-        if (data.paymentStatus === 'PAID') {
-          return;
-        }
+        if (data.isDeleted || data.paymentStatus === 'PAID') return;
+
         const dueDate = data.dueDate?.toDate?.() || new Date(data.dueDate);
         if (dueDate && dueDate < now) {
+          // Skip if entity net position shows no payable (matches Data Health logic)
+          if (data.entityId) {
+            const balance = entityBalance.get(data.entityId) ?? 0;
+            if (balance >= 0) return;
+          }
+
+          const outstanding = data.outstandingAmount ?? data.baseAmount ?? data.totalAmount ?? 0;
+          if (outstanding < 0.01) return; // Skip floating-point residues
+
           overdueBills.push({
             number: data.transactionNumber || doc.id,
             vendor: data.entityName || '-',
-            amount: data.outstandingAmount || data.totalAmount || 0,
+            amount: outstanding,
             dueDate: dueDate.toLocaleDateString('en-IN'),
           });
         }
