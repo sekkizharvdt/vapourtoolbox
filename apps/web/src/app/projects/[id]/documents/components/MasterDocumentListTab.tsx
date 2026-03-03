@@ -334,8 +334,8 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
       {hasNumberingConfig === false && documents.length === 0 && (
         <Alert severity="info" sx={{ mb: 3 }}>
           <Typography variant="body2" sx={{ mb: 1.5 }}>
-            <strong>Get started with your document register.</strong> Choose how you want to set up
-            your master document list:
+            <strong>Tip:</strong> You can add documents manually, or set up auto-numbering / import
+            a register to get started faster:
           </Typography>
           <Stack direction="row" spacing={1.5}>
             <Button
@@ -388,7 +388,6 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={() => setCreateDialogOpen(true)}
-                disabled={!hasNumberingConfig}
               >
                 New Document
               </Button>
@@ -538,7 +537,6 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
                   variant="contained"
                   startIcon={<AddIcon />}
                   onClick={() => setCreateDialogOpen(true)}
-                  disabled={!hasNumberingConfig}
                 >
                   Create First Document
                 </Button>

@@ -56,6 +56,7 @@ export default function CreateDocumentDialog({
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [manualDocumentNumber, setManualDocumentNumber] = useState('');
   const [disciplineCode, setDisciplineCode] = useState('');
   const [subCode, setSubCode] = useState('');
   const [documentType, setDocumentType] = useState('');
@@ -66,10 +67,13 @@ export default function CreateDocumentDialog({
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [assignedTo, setAssignedTo] = useState<string[]>([]);
 
-  // Discipline codes
+  // Discipline codes & numbering config
   const [disciplines, setDisciplines] = useState<DisciplineCode[]>([]);
+  const [hasNumberingConfig, setHasNumberingConfig] = useState<boolean | null>(null);
   const [projectCode, setProjectCode] = useState<string>('');
   const [previewNumber, setPreviewNumber] = useState<string>('');
+
+  const isAutoMode = hasNumberingConfig && disciplines.length > 0;
 
   useEffect(() => {
     if (open && projectId) {
@@ -97,16 +101,16 @@ export default function CreateDocumentDialog({
 
   const loadProjectConfig = async () => {
     try {
+      const config = await getNumberingConfig(projectId);
+      setHasNumberingConfig(!!config);
       if (projectCodeProp) {
         setProjectCode(projectCodeProp);
-      } else {
-        const config = await getNumberingConfig(projectId);
-        if (config) {
-          setProjectCode(projectId.substring(0, 7).toUpperCase());
-        }
+      } else if (config) {
+        setProjectCode(projectId.substring(0, 7).toUpperCase());
       }
     } catch (err) {
       console.error('[CreateDocumentDialog] Error loading config:', err);
+      setHasNumberingConfig(false);
     }
   };
 
@@ -133,8 +137,13 @@ export default function CreateDocumentDialog({
       return;
     }
 
-    if (!disciplineCode) {
+    if (isAutoMode && !disciplineCode) {
       setError('Discipline code is required');
+      return;
+    }
+
+    if (!isAutoMode && !manualDocumentNumber.trim()) {
+      setError('Document number is required');
       return;
     }
 
@@ -142,17 +151,29 @@ export default function CreateDocumentDialog({
     setError(null);
 
     try {
-      // Generate document number
-      const documentNumber = await generateDocumentNumber(
-        projectId,
-        projectCode,
-        disciplineCode,
-        subCode || undefined
-      );
+      let documentNumber: string;
+      let disciplineName = '';
+      let resolvedDisciplineCode = '';
+      let resolvedSubCode: string | undefined;
+      let sequenceNumber = '';
 
-      // Get discipline name
-      const selectedDisc = disciplines.find((d) => d.code === disciplineCode);
-      const disciplineName = selectedDisc?.name || disciplineCode;
+      if (isAutoMode) {
+        // Auto-numbering mode
+        documentNumber = await generateDocumentNumber(
+          projectId,
+          projectCode,
+          disciplineCode,
+          subCode || undefined
+        );
+        const selectedDisc = disciplines.find((d) => d.code === disciplineCode);
+        disciplineName = selectedDisc?.name || disciplineCode;
+        resolvedDisciplineCode = disciplineCode;
+        resolvedSubCode = subCode || undefined;
+        sequenceNumber = documentNumber.split('-').pop() || '001';
+      } else {
+        // Manual mode
+        documentNumber = manualDocumentNumber.trim();
+      }
 
       // Create master document
       const now = Timestamp.now();
@@ -160,10 +181,10 @@ export default function CreateDocumentDialog({
         projectId,
         projectCode,
         documentNumber,
-        disciplineCode,
+        disciplineCode: resolvedDisciplineCode,
         disciplineName,
-        subCode: subCode || undefined,
-        sequenceNumber: documentNumber.split('-').pop() || '001',
+        ...(resolvedSubCode && { subCode: resolvedSubCode }),
+        sequenceNumber,
         documentTitle: title,
         documentType: documentType || 'General',
         description: description || '',
@@ -173,7 +194,7 @@ export default function CreateDocumentDialog({
         successors: [],
         relatedDocuments: [],
         assignedTo,
-        assignedToNames: [], // Would need to fetch user names
+        assignedToNames: [],
         assignedBy: user.uid,
         assignedByName: user.displayName || user.email || 'Unknown',
         assignedDate: now,
@@ -210,6 +231,7 @@ export default function CreateDocumentDialog({
   const resetForm = () => {
     setTitle('');
     setDescription('');
+    setManualDocumentNumber('');
     setDisciplineCode('');
     setSubCode('');
     setDocumentType('');
@@ -238,13 +260,68 @@ export default function CreateDocumentDialog({
         <Stack spacing={3} sx={{ mt: 2 }}>
           {error && <Alert severity="error">{error}</Alert>}
 
-          {/* Document Number Preview */}
-          {previewNumber && (
-            <Alert severity="info">
-              <Typography variant="body2">
-                Document Number: <strong>{previewNumber}</strong>
-              </Typography>
-            </Alert>
+          {isAutoMode ? (
+            <>
+              {/* Document Number Preview */}
+              {previewNumber && (
+                <Alert severity="info">
+                  <Typography variant="body2">
+                    Document Number: <strong>{previewNumber}</strong>
+                  </Typography>
+                </Alert>
+              )}
+
+              {/* Discipline Code */}
+              <FormControl required fullWidth>
+                <InputLabel>Discipline Code</InputLabel>
+                <Select
+                  value={disciplineCode}
+                  onChange={(e) => {
+                    setDisciplineCode(e.target.value);
+                    setSubCode('');
+                  }}
+                  label="Discipline Code"
+                >
+                  {disciplines.map((disc) => (
+                    <MenuItem key={disc.code} value={disc.code}>
+                      {disc.code} - {disc.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {/* Sub-Code (if available for selected discipline) */}
+              {availableSubCodes.length > 0 && (
+                <FormControl fullWidth>
+                  <InputLabel>Sub-Code (Optional)</InputLabel>
+                  <Select
+                    value={subCode}
+                    onChange={(e) => setSubCode(e.target.value)}
+                    label="Sub-Code (Optional)"
+                  >
+                    <MenuItem value="">
+                      <em>None</em>
+                    </MenuItem>
+                    {availableSubCodes.map((subCodeObj) => (
+                      <MenuItem key={subCodeObj.subCode} value={subCodeObj.subCode}>
+                        {subCodeObj.subCode} - {subCodeObj.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+            </>
+          ) : (
+            /* Manual document number entry */
+            <TextField
+              label="Document Number"
+              value={manualDocumentNumber}
+              onChange={(e) => setManualDocumentNumber(e.target.value)}
+              required
+              fullWidth
+              placeholder="e.g., PRJ-001-01-001"
+              helperText="Enter the document number manually. Set up auto-numbering to generate numbers automatically."
+            />
           )}
 
           {/* Title */}
@@ -267,46 +344,6 @@ export default function CreateDocumentDialog({
             rows={2}
             placeholder="Optional description of the document"
           />
-
-          {/* Discipline Code */}
-          <FormControl required fullWidth>
-            <InputLabel>Discipline Code</InputLabel>
-            <Select
-              value={disciplineCode}
-              onChange={(e) => {
-                setDisciplineCode(e.target.value);
-                setSubCode(''); // Reset sub-code when discipline changes
-              }}
-              label="Discipline Code"
-            >
-              {disciplines.map((disc) => (
-                <MenuItem key={disc.code} value={disc.code}>
-                  {disc.code} - {disc.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          {/* Sub-Code (if available for selected discipline) */}
-          {availableSubCodes.length > 0 && (
-            <FormControl fullWidth>
-              <InputLabel>Sub-Code (Optional)</InputLabel>
-              <Select
-                value={subCode}
-                onChange={(e) => setSubCode(e.target.value)}
-                label="Sub-Code (Optional)"
-              >
-                <MenuItem value="">
-                  <em>None</em>
-                </MenuItem>
-                {availableSubCodes.map((subCodeObj) => (
-                  <MenuItem key={subCodeObj.subCode} value={subCodeObj.subCode}>
-                    {subCodeObj.subCode} - {subCodeObj.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
 
           {/* Document Type */}
           <TextField

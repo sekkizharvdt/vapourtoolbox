@@ -6,8 +6,7 @@
  * Entry point for the project documents module.
  * Tab 0: Master Document List
  * Tab 1: Transmittals
- * Tab 2: Submissions
- * Tab 3: Templates
+ * Tab 2: Templates
  */
 
 import { useState } from 'react';
@@ -21,9 +20,6 @@ const MasterDocumentListTab = dynamic(() => import('./components/MasterDocumentL
   ssr: false,
 });
 const TransmittalsTab = dynamic(() => import('./components/TransmittalsTab'), {
-  ssr: false,
-});
-const SubmissionsTab = dynamic(() => import('./components/SubmissionsTab'), {
   ssr: false,
 });
 const TemplatesTab = dynamic(() => import('./components/TemplatesTab'), {
@@ -54,15 +50,13 @@ export default function DocumentsPageClient() {
             >
               <Tab label="Master Document List" />
               <Tab label="Transmittals" />
-              <Tab label="Submissions" />
               <Tab label="Templates" />
             </Tabs>
           </Paper>
 
           {activeTab === 0 && <MasterDocumentListTab project={project} />}
           {activeTab === 1 && <TransmittalsTab project={project} />}
-          {activeTab === 2 && <SubmissionsTab project={project} />}
-          {activeTab === 3 && <TemplatesTab project={project} />}
+          {activeTab === 2 && <TemplatesTab project={project} />}
         </Box>
       )}
     </ProjectSubPageWrapper>
