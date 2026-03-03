@@ -17,11 +17,13 @@ import {
   Grid,
   Button,
   CircularProgress,
+  IconButton,
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Business as BusinessIcon,
   Home as HomeIcon,
+  FileDownload as DownloadIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -40,6 +42,11 @@ import {
   EntityInfoCard,
 } from './components';
 import type { AllocationRef } from './components/types';
+import {
+  downloadReportCSV,
+  downloadReportExcel,
+  type ExportSection,
+} from '@/lib/accounting/reports/exportReport';
 
 // Helper to get fiscal year start (April 1st)
 function getFiscalYearStart(date: Date = new Date()): Date {
@@ -457,6 +464,92 @@ function EntityLedgerInner() {
     return <LoadingState message="Loading entities..." variant="page" />;
   }
 
+  const buildEntityLedgerExport = (): ExportSection[] => {
+    if (!selectedEntity || filteredTransactions.length === 0) return [];
+    const cols = [
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'Type', key: 'type', width: 14 },
+      { header: 'Number', key: 'number', width: 16 },
+      { header: 'Description', key: 'description', width: 25 },
+      {
+        header: 'Debit',
+        key: 'debit',
+        width: 14,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+      {
+        header: 'Credit',
+        key: 'credit',
+        width: 14,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+    ];
+    const typeLabels: Record<string, string> = {
+      CUSTOMER_INVOICE: 'Invoice',
+      CUSTOMER_PAYMENT: 'Receipt',
+      VENDOR_BILL: 'Bill',
+      VENDOR_PAYMENT: 'Payment',
+      JOURNAL_ENTRY: 'Journal',
+    };
+    const rows = filteredTransactions.map((txn) => {
+      const d = toDate(txn.date);
+      const amount = txn.baseAmount || txn.totalAmount || txn.amount || 0;
+      let debit = 0;
+      let credit = 0;
+      switch (txn.type) {
+        case 'CUSTOMER_INVOICE':
+        case 'VENDOR_PAYMENT':
+          debit = amount;
+          break;
+        case 'CUSTOMER_PAYMENT':
+        case 'VENDOR_BILL':
+          credit = amount;
+          break;
+        case 'JOURNAL_ENTRY':
+          debit = txn._journalDebit || 0;
+          credit = txn._journalCredit || 0;
+          break;
+      }
+      return {
+        date: d ? d.toLocaleDateString('en-IN') : '',
+        type: typeLabels[txn.type] || txn.type,
+        number: txn.transactionNumber || '',
+        description: txn.description || '',
+        debit: debit > 0 ? debit : 0,
+        credit: credit > 0 ? credit : 0,
+      };
+    });
+    return [
+      {
+        title: `Entity Ledger — ${selectedEntity.name}`,
+        columns: cols,
+        rows,
+        summary: {
+          date: null,
+          type: null,
+          number: null,
+          description: `Closing Balance: ${financialSummary.closingBalance >= 0 ? 'Receivable' : 'Payable'}`,
+          debit: rows.reduce((s, r) => s + (typeof r.debit === 'number' ? r.debit : 0), 0),
+          credit: rows.reduce((s, r) => s + (typeof r.credit === 'number' ? r.credit : 0), 0),
+        },
+      },
+    ];
+  };
+
+  const handleExportCSV = () =>
+    downloadReportCSV(
+      buildEntityLedgerExport(),
+      `Entity_Ledger_${selectedEntity?.code || 'unknown'}_${new Date().toISOString().slice(0, 10)}`
+    );
+  const handleExportExcel = () =>
+    downloadReportExcel(
+      buildEntityLedgerExport(),
+      `Entity_Ledger_${selectedEntity?.code || 'unknown'}_${new Date().toISOString().slice(0, 10)}`,
+      'Entity Ledger'
+    );
+
   return (
     <Box>
       <Breadcrumbs sx={{ mb: 2 }}>
@@ -486,10 +579,27 @@ function EntityLedgerInner() {
         <Typography color="text.primary">Entity Ledger</Typography>
       </Breadcrumbs>
 
-      <PageHeader
-        title="Entity Ledger"
-        subtitle="View financial history and outstanding balances for vendors and customers"
-      />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <PageHeader
+          title="Entity Ledger"
+          subtitle="View financial history and outstanding balances for vendors and customers"
+        />
+        {filteredTransactions.length > 0 && (
+          <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
+            <IconButton onClick={handleExportCSV} size="small" title="Export CSV">
+              <DownloadIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              onClick={handleExportExcel}
+              size="small"
+              color="primary"
+              title="Export Excel"
+            >
+              <DownloadIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
+      </Box>
 
       {/* Entity Selection and Date Range */}
       <Paper sx={{ p: 3, mb: 3 }}>

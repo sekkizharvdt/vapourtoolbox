@@ -109,10 +109,13 @@ export async function listRFQs(filters: ListRFQsFilters = {}): Promise<Paginated
   const q = query(collection(db, COLLECTIONS.RFQS), ...constraints);
   const snapshot = await getDocs(q);
 
-  const rfqs: RFQ[] = snapshot.docs.map((docSnap) => ({
-    id: docSnap.id,
-    ...docSnap.data(),
-  })) as RFQ[];
+  // Client-side soft-delete filter (CLAUDE.md rule #3)
+  const rfqs: RFQ[] = snapshot.docs
+    .filter((docSnap) => !docSnap.data().isDeleted)
+    .map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    })) as RFQ[];
 
   // Check if there are more results
   const hasMore = rfqs.length > pageSize;

@@ -334,10 +334,10 @@ export async function listPurchaseRequests(
 
     const prs: PurchaseRequest[] = [];
     snapshot.forEach((docSnap) => {
-      prs.push({
-        id: docSnap.id,
-        ...docSnap.data(),
-      } as PurchaseRequest);
+      const data = docSnap.data();
+      // Client-side soft-delete filter (CLAUDE.md rule #3)
+      if (data.isDeleted) return;
+      prs.push({ id: docSnap.id, ...data } as PurchaseRequest);
     });
 
     // Check if there are more results

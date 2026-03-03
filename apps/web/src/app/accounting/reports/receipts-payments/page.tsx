@@ -52,6 +52,11 @@ import {
   type ReceiptPaymentLineItem,
 } from '@/lib/accounting/reports/receiptsPayments';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
+import {
+  downloadReportCSV,
+  downloadReportExcel,
+  type ExportSection,
+} from '@/lib/accounting/reports/exportReport';
 
 const MONTHS = [
   { value: 1, label: 'January' },
@@ -132,6 +137,72 @@ export default function ReceiptsPaymentsPage() {
       [projectId]: !prev[projectId],
     }));
   };
+
+  const buildRPExportSections = (): ExportSection[] => {
+    if (!report) return [];
+    const cols = [
+      { header: 'Category', key: 'category', width: 30 },
+      {
+        header: 'Amount',
+        key: 'amount',
+        width: 18,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+    ];
+    const receiptRows = report.receipts.projectReceipts.map((p: ProjectReceipt) => ({
+      category: `  ${p.projectName}`,
+      amount: p.total,
+    }));
+    const paymentCategories: PaymentCategoryBreakdown[] = [
+      report.payments.salaryWages,
+      report.payments.projectExpenses,
+      report.payments.dutiesTaxes,
+      report.payments.administrativeExpenses,
+      report.payments.loansOtherPayments,
+    ];
+    const paymentRows = paymentCategories.map((c) => ({
+      category: `  ${c.categoryLabel}`,
+      amount: c.total,
+    }));
+    return [
+      {
+        title: `Receipts & Payments — ${MONTHS.find((m) => m.value === month)?.label} ${year}`,
+        columns: cols,
+        rows: [],
+      },
+      {
+        title: 'Receipts',
+        columns: cols,
+        rows: receiptRows,
+        summary: { category: 'Total Receipts', amount: report.receipts.totalReceipts },
+      },
+      {
+        title: 'Payments',
+        columns: cols,
+        rows: paymentRows,
+        summary: { category: 'Total Payments', amount: report.payments.totalPayments },
+      },
+      {
+        title: 'Summary',
+        columns: cols,
+        rows: [
+          { category: 'Opening Balance', amount: report.openingBalance },
+          { category: 'Net Movement', amount: report.summary.netSurplusDeficit },
+          { category: 'Closing Balance', amount: report.summary.closingBalance },
+        ],
+      },
+    ];
+  };
+
+  const handleExportCSV = () =>
+    downloadReportCSV(buildRPExportSections(), `Receipts_Payments_${month}_${year}`);
+  const handleExportExcel = () =>
+    downloadReportExcel(
+      buildRPExportSections(),
+      `Receipts_Payments_${month}_${year}`,
+      'Receipts & Payments'
+    );
 
   if (!hasViewAccess) {
     return (
@@ -227,8 +298,16 @@ export default function ReceiptsPaymentsPage() {
                   <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint}>
                     Print
                   </Button>
-                  <Button variant="outlined" startIcon={<DownloadIcon />} disabled>
-                    Export PDF
+                  <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportCSV}>
+                    CSV
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<DownloadIcon />}
+                    onClick={handleExportExcel}
+                    color="primary"
+                  >
+                    Excel
                   </Button>
                 </>
               )}

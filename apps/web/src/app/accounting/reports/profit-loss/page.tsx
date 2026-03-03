@@ -32,6 +32,7 @@ import {
   ExpandLess as ExpandLessIcon,
   UnfoldMore as UnfoldMoreIcon,
   UnfoldLess as UnfoldLessIcon,
+  FileDownload as DownloadIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { getFirebase } from '@/lib/firebase';
@@ -42,6 +43,11 @@ import {
   type AccountLineItem,
   type PnLTransactionDetail,
 } from '@/lib/accounting/reports/profitLoss';
+import {
+  downloadReportCSV,
+  downloadReportExcel,
+  type ExportSection,
+} from '@/lib/accounting/reports/exportReport';
 
 function formatTxType(type: string): string {
   switch (type) {
@@ -287,6 +293,71 @@ export default function ProfitLossPage() {
   const allExpanded = Object.values(expandedSections).every(Boolean);
   const allCollapsed = Object.values(expandedSections).every((v) => !v);
 
+  const buildPnLExportSections = (): ExportSection[] => {
+    if (!report) return [];
+    const cols = [
+      { header: 'Account', key: 'name', width: 35 },
+      {
+        header: 'Amount',
+        key: 'amount',
+        width: 18,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+    ];
+    const flattenAccounts = (accounts: AccountLineItem[]) =>
+      accounts.map((a) => ({ name: `  ${a.code} ${a.name}`, amount: a.amount }));
+
+    return [
+      { title: `Profit & Loss: ${startDate} to ${endDate}`, columns: cols, rows: [] },
+      {
+        title: 'Revenue',
+        columns: cols,
+        rows: [
+          ...flattenAccounts(report.revenue.salesAccounts),
+          ...flattenAccounts(report.revenue.otherIncomeAccounts),
+        ],
+        summary: { name: 'Total Revenue', amount: report.revenue.total },
+      },
+      {
+        title: 'Cost of Goods Sold',
+        columns: cols,
+        rows: flattenAccounts(report.expenses.cogsAccounts),
+        summary: { name: 'Total COGS', amount: report.expenses.costOfGoodsSold },
+      },
+      {
+        title: 'Operating Expenses',
+        columns: cols,
+        rows: flattenAccounts(report.expenses.operatingAccounts),
+        summary: { name: 'Total Operating', amount: report.expenses.operatingExpenses },
+      },
+      {
+        title: 'Other Expenses',
+        columns: cols,
+        rows: flattenAccounts(report.expenses.otherAccounts),
+        summary: { name: 'Total Other', amount: report.expenses.otherExpenses },
+      },
+      {
+        title: 'Summary',
+        columns: cols,
+        rows: [
+          { name: 'Gross Profit', amount: report.grossProfit },
+          { name: 'Operating Profit', amount: report.operatingProfit },
+          { name: 'Net Profit', amount: report.netProfit },
+        ],
+      },
+    ];
+  };
+
+  const handleExportCSV = () =>
+    downloadReportCSV(buildPnLExportSections(), `PnL_${startDate}_to_${endDate}`);
+  const handleExportExcel = () =>
+    downloadReportExcel(
+      buildPnLExportSections(),
+      `PnL_${startDate}_to_${endDate}`,
+      'Profit & Loss'
+    );
+
   const handleGenerateReport = async () => {
     if (!startDate || !endDate) {
       setError('Please select both start and end dates');
@@ -347,14 +418,30 @@ export default function ProfitLossPage() {
 
       <Stack spacing={3}>
         {/* Header */}
-        <Stack direction="row" alignItems="center" spacing={2}>
-          <AssessmentIcon sx={{ fontSize: 40 }} color="primary" />
-          <Box>
-            <Typography variant="h4">Profit & Loss Statement</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Income statement showing revenue, expenses, and profit
-            </Typography>
-          </Box>
+        <Stack direction="row" alignItems="center" justifyContent="space-between">
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <AssessmentIcon sx={{ fontSize: 40 }} color="primary" />
+            <Box>
+              <Typography variant="h4">Profit & Loss Statement</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Income statement showing revenue, expenses, and profit
+              </Typography>
+            </Box>
+          </Stack>
+          {report && (
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Tooltip title="Export CSV">
+                <IconButton onClick={handleExportCSV} size="small">
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Export Excel">
+                <IconButton onClick={handleExportExcel} size="small" color="primary">
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
         </Stack>
 
         {/* Date Range Selector */}

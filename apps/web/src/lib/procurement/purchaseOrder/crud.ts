@@ -550,10 +550,13 @@ export async function listPOs(
   const q = query(collection(db, COLLECTIONS.PURCHASE_ORDERS), ...constraints);
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as PurchaseOrder[];
+  // Client-side soft-delete filter (CLAUDE.md rule #3)
+  return snapshot.docs
+    .filter((doc) => !doc.data().isDeleted)
+    .map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as PurchaseOrder[];
 }
 
 // ============================================================================
