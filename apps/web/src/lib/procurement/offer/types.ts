@@ -78,6 +78,11 @@ export interface CreateOfferItemInput {
 
   // Notes
   vendorNotes?: string;
+
+  // Material database linkage (from RFQ item)
+  materialId?: string;
+  materialCode?: string;
+  materialName?: string;
 }
 
 /**

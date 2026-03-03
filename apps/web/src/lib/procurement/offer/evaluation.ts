@@ -19,11 +19,12 @@ import {
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import type { RFQ, RFQItem, OfferComparisonData } from '@vapour/types';
+import type { RFQ, RFQItem, OfferComparisonData, CurrencyCode } from '@vapour/types';
 import type { EvaluateOfferInput } from './types';
-import { getOfferById, getOfferItemsBatch } from './crud';
+import { getOfferById, getOfferItems, getOfferItemsBatch } from './crud';
 import { getOffersByRFQ } from './queries';
 import { incrementOffersEvaluated } from '../rfq';
+import { recordProcurementPrices } from '@/lib/materials/pricing';
 
 const logger = createLogger({ context: 'offerService' });
 
@@ -71,6 +72,22 @@ export async function evaluateOffer(
     logger.error('Failed to increment RFQ evaluations count', { rfqId: offer.rfqId, error: err });
     // Don't fail offer evaluation if counter update fails
   }
+
+  // Record budgetary prices to material database (fire-and-forget)
+  getOfferItems(offerId)
+    .then((items) =>
+      recordProcurementPrices(
+        db,
+        items.map((i) => ({ materialId: i.materialId, unitPrice: i.unitPrice, unit: i.unit })),
+        offer.vendorId,
+        offer.vendorName,
+        `${offer.number} (${offer.vendorName})`,
+        (offer.currency as CurrencyCode) || 'INR',
+        'budgetary',
+        userId
+      )
+    )
+    .catch((err) => logger.error('Failed to record budgetary prices', { offerId, error: err }));
 
   logger.info('Offer evaluated', { offerId });
 }

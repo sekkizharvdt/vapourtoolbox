@@ -70,6 +70,31 @@ export interface Material {
   substituteMaterials?: string[]; // Alternative material IDs
   substituteNotes?: string; // When to use substitutes
 
+  // Piping Dimensions (for flanges, pipes, fittings — flat model, no variants)
+  nps?: string; // Nominal Pipe Size: "1/2", "2", "4"
+  dn?: string; // DN metric designation: "15", "50", "100"
+  pressureClass?: string; // Flanges: "150#", "300#", "600#"
+  schedule?: string; // Pipes: "10", "40", "80", "STD", "XS"
+  fittingType?: string; // Fittings: "90° Elbow Long Radius", "Tee"
+
+  // Engineering Data (piping)
+  outsideDiameter_mm?: number; // OD in mm
+  wallThickness_mm?: number; // Pipes: wall thickness in mm
+  thickness_mm?: number; // Flanges: flange thickness in mm
+  boltCircle_mm?: number; // Flanges: bolt circle diameter
+  boltHoles?: number; // Flanges: number of bolt holes
+  boltSize_inch?: string; // Flanges: bolt size e.g. "5/8"
+  raisedFace_mm?: number; // Flanges: raised face height
+  centerToEnd_mm?: number; // Fittings: center-to-end dimension
+  weightPerPiece_kg?: number; // Flanges, fittings: weight per piece
+  weightPerMeter_kg?: number; // Pipes: weight per meter
+
+  // Family Grouping (groups all sizes/ratings of same base material)
+  familyCode?: string; // e.g. "FL-WN-CS-A105" for all WN flanges CS A105
+
+  // Migration flag (old subcollection-based parent docs)
+  isMigrated?: boolean;
+
   // Audit
   createdAt: Timestamp;
   createdBy: string;
@@ -623,10 +648,66 @@ export const PIPE_MATERIAL_CODES: Partial<Record<MaterialCategory, [string, stri
 };
 
 /**
+ * Flange Material Code Mappings
+ * Format: FL-{TYPE}-{MATERIAL}-{GRADE}
+ * Example: FL-WN-CS-A105, FL-SO-SS-A182
+ */
+export const FLANGE_MATERIAL_CODES: Partial<Record<MaterialCategory, [string, string]>> = {
+  [MaterialCategory.FLANGES_WELD_NECK]: ['FL', 'WN'],
+  [MaterialCategory.FLANGES_SLIP_ON]: ['FL', 'SO'],
+  [MaterialCategory.FLANGES_BLIND]: ['FL', 'BL'],
+  [MaterialCategory.FLANGES]: ['FL', 'GEN'],
+};
+
+/**
+ * Fitting Material Code Mappings
+ * Format: FT-{TYPE}-{MATERIAL}-{GRADE}
+ * Example: FT-BW-CS-A234, FT-SW-SS-A182
+ */
+export const FITTING_MATERIAL_CODES: Partial<Record<MaterialCategory, [string, string]>> = {
+  [MaterialCategory.FITTINGS_BUTT_WELD]: ['FT', 'BW'],
+  [MaterialCategory.FITTINGS_SOCKET_WELD]: ['FT', 'SW'],
+  [MaterialCategory.FITTINGS_THREADED]: ['FT', 'TH'],
+  [MaterialCategory.FITTINGS_FLANGED]: ['FT', 'FL'],
+};
+
+/**
+ * Piping material category type — determines selection UI and data model
+ */
+export type PipingCategory = 'PLATE' | 'FLANGE' | 'PIPE' | 'FITTING' | 'OTHER';
+
+/**
+ * Determine the piping category from a MaterialCategory.
+ * Plates use variants (thickness). Flanges/pipes/fittings use flat documents.
+ */
+export function getPipingCategory(category: MaterialCategory): PipingCategory {
+  const cat = category as string;
+  if (cat.startsWith('PLATES_')) return 'PLATE';
+  if (cat.startsWith('FLANGES') || cat === 'FLANGES') return 'FLANGE';
+  if (cat.startsWith('PIPES_')) return 'PIPE';
+  if (cat.startsWith('FITTINGS_')) return 'FITTING';
+  return 'OTHER';
+}
+
+/**
+ * Check if a category uses flat material documents (one doc per size/rating)
+ * as opposed to variants (one parent doc with variant sub-items).
+ */
+export function isFlatPipingCategory(category: MaterialCategory): boolean {
+  const pc = getPipingCategory(category);
+  return pc === 'FLANGE' || pc === 'PIPE' || pc === 'FITTING';
+}
+
+/**
  * Helper to get form and material code from category
  */
 export function getMaterialCodeParts(category: MaterialCategory): [string, string] | undefined {
-  return PLATE_MATERIAL_CODES[category] || PIPE_MATERIAL_CODES[category];
+  return (
+    PLATE_MATERIAL_CODES[category] ||
+    PIPE_MATERIAL_CODES[category] ||
+    FLANGE_MATERIAL_CODES[category] ||
+    FITTING_MATERIAL_CODES[category]
+  );
 }
 
 // ============================================================================

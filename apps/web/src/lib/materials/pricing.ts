@@ -21,7 +21,7 @@ import {
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
-import type { MaterialPrice } from '@vapour/types';
+import type { MaterialPrice, CurrencyCode } from '@vapour/types';
 import { getMaterialById } from './crud';
 
 const logger = createLogger({ context: 'materialService:pricing' });
@@ -169,5 +169,89 @@ export async function getCurrentPrice(
     throw new Error(
       `Failed to get current price: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
+  }
+}
+
+// ============================================================================
+// Procurement Price Feedback
+// ============================================================================
+
+export interface ProcurementPriceItem {
+  materialId?: string;
+  unitPrice: number;
+  unit: string;
+}
+
+/**
+ * Record prices from procurement events back to the material database.
+ *
+ * Fire-and-forget — errors are logged but never thrown, so procurement
+ * operations are not blocked by pricing failures.
+ *
+ * @param db - Firestore instance
+ * @param items - Line items (only those with materialId are processed)
+ * @param vendorId - Vendor entity ID
+ * @param vendorName - Vendor display name
+ * @param documentRef - Source document reference (PO number or offer ref)
+ * @param currency - Currency code
+ * @param priceType - 'budgetary' (offer evaluation) or 'confirmed' (PO creation)
+ * @param userId - User performing the action
+ */
+export async function recordProcurementPrices(
+  db: Firestore,
+  items: ProcurementPriceItem[],
+  vendorId: string,
+  vendorName: string,
+  documentRef: string,
+  currency: CurrencyCode,
+  priceType: 'budgetary' | 'confirmed',
+  userId: string
+): Promise<void> {
+  const itemsWithMaterial = items.filter((item) => item.materialId);
+
+  if (itemsWithMaterial.length === 0) return;
+
+  const now = Timestamp.now();
+  const isForecast = priceType === 'budgetary';
+  const remarks = isForecast
+    ? `Budgetary price from vendor quote (${documentRef})`
+    : `Confirmed price from PO (${documentRef})`;
+
+  const results = await Promise.allSettled(
+    itemsWithMaterial.map((item) =>
+      addMaterialPrice(
+        db,
+        {
+          materialId: item.materialId!,
+          pricePerUnit: { amount: item.unitPrice, currency },
+          unit: item.unit,
+          currency,
+          vendorId,
+          vendorName,
+          sourceType: 'VENDOR_QUOTE',
+          effectiveDate: now,
+          isActive: !isForecast,
+          isForecast,
+          documentReference: documentRef,
+          remarks,
+        },
+        userId
+      )
+    )
+  );
+
+  const failed = results.filter((r) => r.status === 'rejected');
+  if (failed.length > 0) {
+    logger.error('Some procurement prices failed to record', {
+      total: itemsWithMaterial.length,
+      failed: failed.length,
+      documentRef,
+    });
+  } else {
+    logger.info('Procurement prices recorded', {
+      count: itemsWithMaterial.length,
+      priceType,
+      documentRef,
+    });
   }
 }

@@ -145,6 +145,11 @@ export async function createOffer(
     if (item.deviations) itemData.deviations = item.deviations;
     if (item.vendorNotes) itemData.vendorNotes = item.vendorNotes;
 
+    // Material database linkage
+    if (item.materialId) itemData.materialId = item.materialId;
+    if (item.materialCode) itemData.materialCode = item.materialCode;
+    if (item.materialName) itemData.materialName = item.materialName;
+
     const itemRef = doc(collection(db, COLLECTIONS.OFFER_ITEMS));
     batch.set(itemRef, itemData);
   });

@@ -167,6 +167,11 @@ export interface PurchaseOrderItem {
 
   deliveryStatus: 'PENDING' | 'PARTIAL' | 'COMPLETE';
 
+  // Material database linkage (carried from offer/RFQ chain)
+  materialId?: string;
+  materialCode?: string;
+  materialName?: string;
+
   // Timestamps
   createdAt: Timestamp;
   updatedAt: Timestamp;

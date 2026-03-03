@@ -110,6 +110,11 @@ export interface RFQItem {
   // Item-specific conditions
   conditions?: string;
 
+  // Material database linkage (carried from PR item)
+  materialId?: string;
+  materialCode?: string;
+  materialName?: string;
+
   // Timestamps
   createdAt: Timestamp;
   updatedAt: Timestamp;

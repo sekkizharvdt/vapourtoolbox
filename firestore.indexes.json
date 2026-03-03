@@ -1663,6 +1663,34 @@
       ]
     },
     {
+      "collectionGroup": "materials",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "familyCode",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "materialCode",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "materials",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "familyCode",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nps",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "shapes",
       "queryScope": "COLLECTION",
       "fields": [

@@ -14,6 +14,7 @@ import {
   type Firestore,
   type Query,
   type DocumentData,
+  type QueryConstraint,
 } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
@@ -250,6 +251,93 @@ export async function getMaterialsByVendor(
     logger.error('Failed to get materials by vendor', { vendorId, error });
     throw new Error(
       `Failed to get materials by vendor: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+/**
+ * Query flat piping materials by family code.
+ *
+ * Used by the material picker to load all sizes/ratings for a given
+ * material family (e.g., all WN flanges for CS A105).
+ *
+ * @param db - Firestore instance
+ * @param familyCode - Family grouping code (e.g., "FL-WN-CS-A105")
+ * @returns Array of materials sorted by materialCode
+ */
+export async function queryMaterialsByFamily(
+  db: Firestore,
+  familyCode: string
+): Promise<Material[]> {
+  try {
+    logger.debug('Querying materials by family', { familyCode });
+
+    const constraints: QueryConstraint[] = [
+      where('familyCode', '==', familyCode),
+      orderBy('materialCode', 'asc'),
+    ];
+
+    const q = query(collection(db, COLLECTIONS.MATERIALS), ...constraints);
+    const snapshot = await getDocs(q);
+
+    const materials: Material[] = snapshot.docs
+      .map((doc) => docToTyped<Material>(doc.id, doc.data()))
+      .filter((m) => m.isActive !== false);
+
+    logger.debug('Family query returned', { familyCode, count: materials.length });
+    return materials;
+  } catch (error) {
+    logger.error('Failed to query materials by family', { familyCode, error });
+    throw new Error(
+      `Failed to query materials by family: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+/**
+ * Get unique family entries for piping categories.
+ *
+ * Returns one representative material per familyCode for display in the
+ * material picker's left panel (family list).
+ *
+ * @param db - Firestore instance
+ * @param categories - Material categories to query
+ * @returns Array of unique family representatives
+ */
+export async function queryPipingFamilies(
+  db: Firestore,
+  categories: MaterialCategory[]
+): Promise<Material[]> {
+  try {
+    logger.debug('Querying piping families', { categories });
+
+    const constraints: QueryConstraint[] = [
+      where('category', 'in', categories),
+      orderBy('materialCode', 'asc'),
+      limit(500),
+    ];
+
+    const q = query(collection(db, COLLECTIONS.MATERIALS), ...constraints);
+    const snapshot = await getDocs(q);
+
+    // Group by familyCode, take the first as representative
+    const familyMap = new Map<string, Material>();
+    for (const doc of snapshot.docs) {
+      const material = docToTyped<Material>(doc.id, doc.data());
+      if (material.isActive === false) continue;
+      if (material.isMigrated === true) continue; // Skip old parent docs
+
+      const family = material.familyCode || material.materialCode;
+      if (!familyMap.has(family)) {
+        familyMap.set(family, material);
+      }
+    }
+
+    return Array.from(familyMap.values());
+  } catch (error) {
+    logger.error('Failed to query piping families', { categories, error });
+    throw new Error(
+      `Failed to query piping families: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
 }

@@ -124,6 +124,11 @@ export interface OfferItem {
   vendorNotes?: string;
   evaluationNotes?: string;
 
+  // Material database linkage (carried from RFQ item)
+  materialId?: string;
+  materialCode?: string;
+  materialName?: string;
+
   // Timestamps
   createdAt: Timestamp;
   updatedAt: Timestamp;

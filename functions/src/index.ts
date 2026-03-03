@@ -33,8 +33,8 @@ export { generateBOMQuotePDF } from './pdf/generateBOMQuote';
 export { generateRFQPDF } from './pdf/generateRFQ';
 
 // Import seed functions for materials
-// Import seed functions for materials
 export { seedMaterials } from './seed/seedMaterials';
+export { migratePipingMaterials } from './seed/migrateMaterials';
 
 // Import BOM functions
 export { onBOMItemWrite } from './bom';

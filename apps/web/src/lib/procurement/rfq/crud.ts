@@ -346,6 +346,11 @@ export async function createRFQFromPRs(
       if (prItem.requiredBy) rfqItem.requiredBy = prItem.requiredBy.toDate();
       if (prItem.deliveryLocation) rfqItem.deliveryLocation = prItem.deliveryLocation;
 
+      // Material database linkage
+      if (prItem.materialId) rfqItem.materialId = prItem.materialId;
+      if (prItem.materialCode) rfqItem.materialCode = prItem.materialCode;
+      if (prItem.materialName) rfqItem.materialName = prItem.materialName;
+
       allItems.push(rfqItem);
     });
   });

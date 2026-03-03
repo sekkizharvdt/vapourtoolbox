@@ -66,6 +66,11 @@ export interface CreateRFQItemInput {
 
   // Item-specific conditions
   conditions?: string;
+
+  // Material database linkage (from PR item)
+  materialId?: string;
+  materialCode?: string;
+  materialName?: string;
 }
 
 /**

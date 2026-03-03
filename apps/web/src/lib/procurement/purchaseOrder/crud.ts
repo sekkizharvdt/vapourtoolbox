@@ -32,10 +32,12 @@ import type {
   Offer,
   OfferItem,
   POCommercialTerms,
+  CurrencyCode,
 } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { withIdempotency, generateIdempotencyKey } from '@/lib/utils/idempotencyService';
+import { recordProcurementPrices } from '@/lib/materials/pricing';
 import {
   generateProcurementNumber,
   PROCUREMENT_NUMBER_CONFIGS,
@@ -254,7 +256,14 @@ export async function createPOFromOffer(
       // Batch fetch RFQ items to get projectId for each item (avoid N+1 query)
       const rfqItemMap = new Map<
         string,
-        { projectId: string; equipmentId?: string; equipmentCode?: string }
+        {
+          projectId: string;
+          equipmentId?: string;
+          equipmentCode?: string;
+          materialId?: string;
+          materialCode?: string;
+          materialName?: string;
+        }
       >();
 
       // Get unique RFQ item IDs
@@ -272,6 +281,9 @@ export async function createPOFromOffer(
                 projectId: rfqItemData.projectId || '',
                 equipmentId: rfqItemData.equipmentId,
                 equipmentCode: rfqItemData.equipmentCode,
+                materialId: rfqItemData.materialId,
+                materialCode: rfqItemData.materialCode,
+                materialName: rfqItemData.materialName,
               },
             };
           } else {
@@ -322,6 +334,14 @@ export async function createPOFromOffer(
         if (item.makeModel) poItemData.makeModel = item.makeModel;
         if (item.deliveryDate) poItemData.deliveryDate = item.deliveryDate;
 
+        // Material database linkage (prefer offer item, fallback to RFQ item)
+        const matId = item.materialId || rfqItemInfo.materialId;
+        const matCode = item.materialCode || rfqItemInfo.materialCode;
+        const matName = item.materialName || rfqItemInfo.materialName;
+        if (matId) poItemData.materialId = matId;
+        if (matCode) poItemData.materialCode = matCode;
+        if (matName) poItemData.materialName = matName;
+
         const itemRef = doc(collection(db, COLLECTIONS.PURCHASE_ORDER_ITEMS));
         batch.set(itemRef, poItemData);
       });
@@ -344,6 +364,18 @@ export async function createPOFromOffer(
       }
 
       await batch.commit();
+
+      // Record confirmed prices to material database (fire-and-forget)
+      recordProcurementPrices(
+        db,
+        offerItems.map((i) => ({ materialId: i.materialId, unitPrice: i.unitPrice, unit: i.unit })),
+        offer.vendorId,
+        offer.vendorName,
+        poNumber,
+        (offer.currency as CurrencyCode) || 'INR',
+        'confirmed',
+        userId
+      ).catch((err) => logger.error('Failed to record confirmed prices', { poNumber, error: err }));
 
       // Audit log: PO created
       const auditContext = createAuditContext(userId, '', userName);

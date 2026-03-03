@@ -8,3 +8,4 @@ export { default as MaterialVariantSelector } from './MaterialVariantSelector';
 export { default as MaterialVariantList } from './MaterialVariantList';
 export { default as MaterialPickerDialog } from './MaterialPickerDialog';
 export { default as MaterialVariantManager } from './MaterialVariantManager';
+export { default as PipingMaterialTable } from './PipingMaterialTable';
