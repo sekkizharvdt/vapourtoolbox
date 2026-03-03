@@ -29,7 +29,7 @@ export function canIssueRFQ(rfq: RFQ): boolean {
  * Check if RFQ can be cancelled
  */
 export function canCancelRFQ(rfq: RFQ): boolean {
-  return rfq.status !== 'COMPLETED' && rfq.status !== 'CANCELLED';
+  return rfq.status !== 'COMPLETED' && rfq.status !== 'PO_PROCESSED' && rfq.status !== 'CANCELLED';
 }
 
 /**
@@ -63,6 +63,7 @@ export function getRFQStatusText(status: RFQStatus): string {
     OFFERS_RECEIVED: 'Offers Received',
     UNDER_EVALUATION: 'Under Evaluation',
     COMPLETED: 'Completed',
+    PO_PROCESSED: 'PO Processed',
     CANCELLED: 'Cancelled',
   };
 
@@ -84,6 +85,7 @@ export function getRFQStatusColor(
     OFFERS_RECEIVED: 'primary',
     UNDER_EVALUATION: 'warning',
     COMPLETED: 'success',
+    PO_PROCESSED: 'secondary',
     CANCELLED: 'error',
   };
 
@@ -133,7 +135,8 @@ export function validateRFQForIssuance(rfq: RFQ): { valid: boolean; errors: stri
  */
 export function isRFQOverdue(rfq: RFQ): boolean {
   if (!rfq.dueDate) return false;
-  if (rfq.status === 'COMPLETED' || rfq.status === 'CANCELLED') return false;
+  if (rfq.status === 'COMPLETED' || rfq.status === 'PO_PROCESSED' || rfq.status === 'CANCELLED')
+    return false;
 
   const now = new Date();
   const dueDate = rfq.dueDate.toDate();
@@ -324,6 +327,7 @@ export function calculateRFQStats(rfqs: RFQ[]) {
     offersReceived: 0,
     underEvaluation: 0,
     completed: 0,
+    poProcessed: 0,
     cancelled: 0,
     overdue: 0,
     dueThisWeek: 0,
@@ -350,6 +354,9 @@ export function calculateRFQStats(rfqs: RFQ[]) {
       case 'COMPLETED':
         stats.completed++;
         break;
+      case 'PO_PROCESSED':
+        stats.poProcessed++;
+        break;
       case 'CANCELLED':
         stats.cancelled++;
         break;
@@ -361,7 +368,12 @@ export function calculateRFQStats(rfqs: RFQ[]) {
     }
 
     // Due this week
-    if (rfq.dueDate && rfq.status !== 'COMPLETED' && rfq.status !== 'CANCELLED') {
+    if (
+      rfq.dueDate &&
+      rfq.status !== 'COMPLETED' &&
+      rfq.status !== 'PO_PROCESSED' &&
+      rfq.status !== 'CANCELLED'
+    ) {
       const dueDate = rfq.dueDate.toDate();
       if (dueDate >= now && dueDate <= weekFromNow) {
         stats.dueThisWeek++;

@@ -422,12 +422,16 @@ export default function OfferComparisonPage() {
           </Typography>
           <Divider sx={{ mb: 2 }} />
 
-          {rfq?.status === 'COMPLETED' && (
+          {(rfq?.status === 'COMPLETED' || rfq?.status === 'PO_PROCESSED') && (
             <Alert
-              severity={offers.some((o) => o.status === 'PO_CREATED') ? 'success' : 'info'}
+              severity={
+                rfq?.status === 'PO_PROCESSED' || offers.some((o) => o.status === 'PO_CREATED')
+                  ? 'success'
+                  : 'info'
+              }
               sx={{ mb: 2 }}
             >
-              {offers.some((o) => o.status === 'PO_CREATED')
+              {rfq?.status === 'PO_PROCESSED' || offers.some((o) => o.status === 'PO_CREATED')
                 ? 'A Purchase Order has been created from the selected offer.'
                 : 'An offer has been selected. Create a Purchase Order to proceed.'}
             </Alert>
@@ -435,7 +439,7 @@ export default function OfferComparisonPage() {
 
           <Stack spacing={2}>
             {offers.map((offer: Offer) => {
-              const isRfqCompleted = rfq?.status === 'COMPLETED';
+              const isRfqCompleted = rfq?.status === 'COMPLETED' || rfq?.status === 'PO_PROCESSED';
               const isPOCreated = offer.status === 'PO_CREATED';
 
               return (

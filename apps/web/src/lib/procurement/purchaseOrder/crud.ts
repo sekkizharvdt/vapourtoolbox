@@ -423,15 +423,15 @@ export async function createPOFromOffer(
         updatedAt: now,
       });
 
-      // Mark RFQ as COMPLETED — validate transition first
+      // Mark RFQ as PO_PROCESSED — validate transition first
       if (offer.rfqId) {
         const rfqDoc = await getDoc(doc(db, COLLECTIONS.RFQS, offer.rfqId));
         if (rfqDoc.exists()) {
           const rfqStatus = rfqDoc.data().status as import('@vapour/types').RFQStatus;
-          requireValidTransition(rfqStateMachine, rfqStatus, 'COMPLETED', 'RFQ');
+          requireValidTransition(rfqStateMachine, rfqStatus, 'PO_PROCESSED', 'RFQ');
         }
         batch.update(doc(db, COLLECTIONS.RFQS, offer.rfqId), {
-          status: 'COMPLETED',
+          status: 'PO_PROCESSED',
           selectedOfferId: offerId,
           completedAt: now,
           updatedAt: now,

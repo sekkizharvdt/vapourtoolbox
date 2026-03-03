@@ -16,6 +16,7 @@ export type RFQStatus =
   | 'OFFERS_RECEIVED'
   | 'UNDER_EVALUATION'
   | 'COMPLETED'
+  | 'PO_PROCESSED'
   | 'CANCELLED';
 
 export interface RFQ {

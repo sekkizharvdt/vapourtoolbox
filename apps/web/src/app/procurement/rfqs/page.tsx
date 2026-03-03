@@ -203,20 +203,23 @@ export default function RFQsPage() {
 
         {/* Stats Cards */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 2 }}>
             <StatCard label="Total RFQs" value={stats.total} />
           </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 2 }}>
             <StatCard label="Draft" value={stats.draft} />
           </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 2 }}>
             <StatCard label="Issued" value={stats.issued} color="info" />
           </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 2 }}>
             <StatCard label="Under Evaluation" value={stats.underEvaluation} color="warning" />
           </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 2 }}>
             <StatCard label="Completed" value={stats.completed} color="success" />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+            <StatCard label="PO Processed" value={stats.poProcessed} color="secondary" />
           </Grid>
         </Grid>
 
@@ -245,6 +248,7 @@ export default function RFQsPage() {
               <MenuItem value="OFFERS_RECEIVED">Offers Received</MenuItem>
               <MenuItem value="UNDER_EVALUATION">Under Evaluation</MenuItem>
               <MenuItem value="COMPLETED">Completed</MenuItem>
+              <MenuItem value="PO_PROCESSED">PO Processed</MenuItem>
               <MenuItem value="CANCELLED">Cancelled</MenuItem>
             </Select>
           </FormControl>

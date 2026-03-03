@@ -161,23 +161,25 @@ export const offerStateMachine: StateMachine<OfferStatus> = createStateMachine(o
 /**
  * RFQ workflow states:
  *
- * DRAFT -> ISSUED -> OFFERS_RECEIVED -> UNDER_EVALUATION -> COMPLETED
+ * DRAFT -> ISSUED -> OFFERS_RECEIVED -> UNDER_EVALUATION -> COMPLETED -> PO_PROCESSED
  *
  * CANCELLED is reachable from DRAFT, ISSUED, OFFERS_RECEIVED, UNDER_EVALUATION
+ * PO_PROCESSED is set automatically when a PO is created from an offer
  */
 const rfqConfig: StateTransitionConfig<RFQStatus> = {
   transitions: {
     DRAFT: ['ISSUED', 'CANCELLED'],
     ISSUED: ['OFFERS_RECEIVED', 'CANCELLED'],
-    OFFERS_RECEIVED: ['UNDER_EVALUATION', 'COMPLETED', 'CANCELLED'],
-    UNDER_EVALUATION: ['COMPLETED', 'CANCELLED'],
-    COMPLETED: [], // Terminal
+    OFFERS_RECEIVED: ['UNDER_EVALUATION', 'COMPLETED', 'PO_PROCESSED', 'CANCELLED'],
+    UNDER_EVALUATION: ['COMPLETED', 'PO_PROCESSED', 'CANCELLED'],
+    COMPLETED: ['PO_PROCESSED'], // Auto-transition when PO is created
+    PO_PROCESSED: [], // Terminal
     CANCELLED: [], // Terminal
   },
   transitionPermissions: {
     DRAFT_ISSUED: PERMISSION_FLAGS.MANAGE_PROCUREMENT,
   },
-  terminalStates: ['COMPLETED', 'CANCELLED'],
+  terminalStates: ['PO_PROCESSED', 'CANCELLED'],
 };
 export const rfqStateMachine: StateMachine<RFQStatus> = createStateMachine(rfqConfig);
 
@@ -393,6 +395,7 @@ export function getTransitionLabels(transitions: string[]): Record<string, strin
     // RFQ (ISSUED already covered above)
     OFFERS_RECEIVED: 'Offers Received',
     UNDER_EVALUATION: 'Under Evaluation',
+    PO_PROCESSED: 'PO Processed',
     // GR
     PENDING: 'Pending',
     ISSUES_FOUND: 'Report Issues',
