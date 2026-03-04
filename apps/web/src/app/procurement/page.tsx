@@ -18,6 +18,7 @@ import {
   Edit as EditIcon,
   Folder as FolderIcon,
   HealthAndSafety as DataHealthIcon,
+  DeleteSweep as TrashIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewProcurement } from '@vapour/constants';
@@ -146,6 +147,13 @@ export default function ProcurementPage() {
           description: 'Monitor procurement data quality and identify stale or incomplete items',
           icon: <DataHealthIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
           path: '/procurement/data-health',
+        },
+        {
+          id: 'trash',
+          title: 'Trash',
+          description: 'View and restore deleted procurement documents',
+          icon: <TrashIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+          path: '/procurement/trash',
         },
       ],
     },

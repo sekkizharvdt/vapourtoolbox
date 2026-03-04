@@ -22,6 +22,7 @@ import {
   Business as EntityIcon,
   Home as HomeIcon,
   Payments as ReceiptsPaymentsIcon,
+  AccountBalanceWallet as GSTIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -91,6 +92,12 @@ export default function FinancialReportsPage() {
       description: 'Monthly cash receipts and payments with categorized breakdowns',
       icon: <ReceiptsPaymentsIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
       path: '/accounting/reports/receipts-payments',
+    },
+    {
+      title: 'GST Summary',
+      description: 'Net GST position across CGST, SGST, and IGST with input vs output breakdown',
+      icon: <GSTIcon sx={{ fontSize: 48, color: 'primary.main' }} />,
+      path: '/accounting/reports/gst-summary',
     },
     {
       title: 'Custom Reports',

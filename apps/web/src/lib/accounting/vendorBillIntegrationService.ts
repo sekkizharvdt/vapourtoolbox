@@ -113,6 +113,7 @@ export async function createVendorBillFromMatch(
       sourceModule: 'procurement',
       sourceDocumentId: threeWayMatchId,
       sourceDocumentType: 'vendorInvoice',
+      ...(match.poNumber && { sourcePoNumber: match.poNumber }),
 
       // Metadata
       createdAt: now,

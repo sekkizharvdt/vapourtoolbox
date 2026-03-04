@@ -240,10 +240,11 @@ export interface VendorBill extends BaseTransaction {
   tdsDeducted: boolean;
   tdsAmount?: number;
 
-  // Cross-module integration (for future use when Procurement module is implemented)
+  // Cross-module integration
   sourceModule?: 'procurement' | 'projects' | null; // Which module created this bill
   sourceDocumentId?: string; // ID of source document (e.g., vendor invoice from procurement)
   sourceDocumentType?: 'vendorInvoice' | 'projectExpense' | null; // Type of source document
+  sourcePoNumber?: string; // PO number from procurement (denormalized for display)
 }
 
 /**

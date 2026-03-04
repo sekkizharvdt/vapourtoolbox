@@ -534,6 +534,7 @@ export default function BillsPage() {
               <TableCell>Date</TableCell>
               <TableCell>Bill Number</TableCell>
               <TableCell>Vendor</TableCell>
+              <TableCell>PO #</TableCell>
               <TableCell>Description</TableCell>
               <TableCell align="right">Subtotal</TableCell>
               <TableCell align="right">GST</TableCell>
@@ -552,7 +553,7 @@ export default function BillsPage() {
                     : 'No bills found. Record your first vendor bill to get started.'
                 }
                 variant="table"
-                colSpan={10}
+                colSpan={11}
                 action={
                   canManage && !searchTerm && filterStatus === 'ALL' && filterMonth === 'ALL' ? (
                     <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
@@ -567,6 +568,7 @@ export default function BillsPage() {
                   <TableCell>{formatDate(bill.date)}</TableCell>
                   <TableCell>{bill.vendorInvoiceNumber || bill.transactionNumber}</TableCell>
                   <TableCell>{bill.entityName || '-'}</TableCell>
+                  <TableCell>{bill.sourcePoNumber || '-'}</TableCell>
                   <TableCell>{bill.description || '-'}</TableCell>
                   <TableCell align="right">
                     {formatCurrency(bill.subtotal || 0, bill.currency || 'INR')}

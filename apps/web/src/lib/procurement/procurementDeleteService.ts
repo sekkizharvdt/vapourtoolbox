@@ -5,7 +5,7 @@
  * During development, non-terminal statuses are deletable.
  */
 
-import { doc, getDoc, updateDoc, Timestamp, type Firestore } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteField, Timestamp, type Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
@@ -58,12 +58,13 @@ export async function softDeletePurchaseRequest(
 
     const data = snap.data();
 
-    const deletableStatuses = ['DRAFT', 'SUBMITTED', 'APPROVED'];
+    const deletableStatuses = ['DRAFT', 'SUBMITTED', 'APPROVED', 'CONVERTED_TO_RFQ'];
     if (!deletableStatuses.includes(data.status)) {
       return {
         success: false,
         id,
-        error: 'Only DRAFT, SUBMITTED, or APPROVED Purchase Requests can be deleted',
+        error:
+          'Only DRAFT, SUBMITTED, APPROVED, or CONVERTED_TO_RFQ Purchase Requests can be deleted',
       };
     }
 
@@ -482,6 +483,93 @@ export async function softDeleteAmendment(
     return { success: true, id };
   } catch (error) {
     logger.error('Error soft deleting amendment', { id, error });
+    return {
+      success: false,
+      id,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+// --- Restore (generic for all procurement collections) ---
+
+import type { AuditEntityType } from '@vapour/types';
+
+/** Map Firestore collection names to AuditEntityType */
+const COLLECTION_TO_ENTITY_TYPE: Record<string, AuditEntityType> = {
+  [COLLECTIONS.PURCHASE_REQUESTS]: 'PURCHASE_REQUEST',
+  [COLLECTIONS.RFQS]: 'RFQ',
+  [COLLECTIONS.PURCHASE_ORDERS]: 'PURCHASE_ORDER',
+  [COLLECTIONS.GOODS_RECEIPTS]: 'GOODS_RECEIPT',
+  [COLLECTIONS.PACKING_LISTS]: 'PACKING_LIST',
+  [COLLECTIONS.PURCHASE_ORDER_AMENDMENTS]: 'PURCHASE_ORDER_AMENDMENT',
+};
+
+/**
+ * Restore a soft-deleted procurement document.
+ * Clears isDeleted, deletedAt, deletedBy fields.
+ */
+export async function restoreProcurementDocument(
+  db: Firestore,
+  collectionName: string,
+  input: ProcurementSoftDeleteInput
+): Promise<ProcurementSoftDeleteResult> {
+  const { id, userId, userName, userPermissions } = input;
+
+  if (userPermissions !== undefined) {
+    requirePermission(
+      userPermissions,
+      PERMISSION_FLAGS.MANAGE_PROCUREMENT,
+      userId,
+      'restore procurement document'
+    );
+  }
+
+  try {
+    const ref = doc(db, collectionName, id);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      return { success: false, id, error: 'Document not found' };
+    }
+
+    const data = snap.data();
+
+    if (!data.isDeleted) {
+      return { success: false, id, error: 'Document is not deleted' };
+    }
+
+    await updateDoc(ref, {
+      isDeleted: deleteField(),
+      deletedAt: deleteField(),
+      deletedBy: deleteField(),
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    });
+
+    const auditContext = createAuditContext(userId, '', userName);
+    try {
+      await logAuditEvent(
+        db,
+        auditContext,
+        'DOCUMENT_UPDATED',
+        COLLECTION_TO_ENTITY_TYPE[collectionName] || 'PURCHASE_REQUEST',
+        id,
+        `Procurement document restored from trash: ${data.number || id}`,
+        { severity: 'INFO', metadata: { number: data.number, status: data.status } }
+      );
+    } catch (auditError) {
+      logger.warn('Failed to write audit log for procurement restore', { auditError, id });
+    }
+
+    logger.info('Procurement document restored', {
+      id,
+      collection: collectionName,
+      number: data.number,
+    });
+    return { success: true, id };
+  } catch (error) {
+    logger.error('Error restoring procurement document', { id, collectionName, error });
     return {
       success: false,
       id,

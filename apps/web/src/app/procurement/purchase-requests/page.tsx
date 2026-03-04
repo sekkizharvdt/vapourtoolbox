@@ -648,9 +648,9 @@ export default function PurchaseRequestsPage() {
                       >
                         <VisibilityIcon />
                       </IconButton>
-                      {(['DRAFT', 'SUBMITTED', 'APPROVED'] as string[]).includes(
-                        request.status
-                      ) && (
+                      {(
+                        ['DRAFT', 'SUBMITTED', 'APPROVED', 'CONVERTED_TO_RFQ'] as string[]
+                      ).includes(request.status) && (
                         <IconButton
                           size="small"
                           color="error"
