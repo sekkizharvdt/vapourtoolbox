@@ -326,6 +326,9 @@ export async function queryPipingFamilies(
       const material = docToTyped<Material>(doc.id, doc.data());
       if (material.isActive === false) continue;
       if (material.isMigrated === true) continue; // Skip old parent docs
+      // Skip old parent docs that haven't been migrated yet (they have
+      // hasVariants=true but no familyCode — their flat children don't exist)
+      if (material.hasVariants === true && !material.familyCode) continue;
 
       const family = material.familyCode || material.materialCode;
       if (!familyMap.has(family)) {

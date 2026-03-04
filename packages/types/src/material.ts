@@ -184,6 +184,8 @@ export enum MaterialCategory {
   PIPES_STAINLESS_304L = 'PIPES_STAINLESS_304L', // ASTM A312 Grade 304L (Seamless/Welded) - Sch 10S, 40S, 80S
   PIPES_STAINLESS_316L = 'PIPES_STAINLESS_316L', // ASTM A312 Grade 316L (Seamless/Welded) - Sch 10S, 40S, 80S
   PIPES_ALLOY_STEEL = 'PIPES_ALLOY_STEEL', // ASTM A335 (P11, P22, P91) - Sch 40, 80, 160
+  PIPES_DUPLEX_2205 = 'PIPES_DUPLEX_2205', // ASTM A790 UNS S31803 - Sch 10, 20, 40, 60, 80
+  PIPES_SUPER_DUPLEX_2507 = 'PIPES_SUPER_DUPLEX_2507', // ASTM A790 UNS S32750 - Sch 10, 20, 40, 60, 80
 
   // Bought-Out Components - Fittings (ASME B16.9, B16.11)
   FITTINGS_BUTT_WELD = 'FITTINGS_BUTT_WELD', // ASME B16.9 (Elbows, Tees, Reducers)
@@ -262,6 +264,8 @@ export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
   [MaterialCategory.PIPES_STAINLESS_304L]: 'Pipes - Stainless Steel 304L',
   [MaterialCategory.PIPES_STAINLESS_316L]: 'Pipes - Stainless Steel 316L',
   [MaterialCategory.PIPES_ALLOY_STEEL]: 'Pipes - Alloy Steel',
+  [MaterialCategory.PIPES_DUPLEX_2205]: 'Pipes - Duplex 2205',
+  [MaterialCategory.PIPES_SUPER_DUPLEX_2507]: 'Pipes - Super Duplex 2507',
   [MaterialCategory.FITTINGS_BUTT_WELD]: 'Fittings - Butt Weld',
   [MaterialCategory.FITTINGS_SOCKET_WELD]: 'Fittings - Socket Weld',
   [MaterialCategory.FITTINGS_THREADED]: 'Fittings - Threaded',
@@ -323,6 +327,8 @@ export const MATERIAL_CATEGORY_GROUPS = {
     MaterialCategory.PIPES_STAINLESS_304L,
     MaterialCategory.PIPES_STAINLESS_316L,
     MaterialCategory.PIPES_ALLOY_STEEL,
+    MaterialCategory.PIPES_DUPLEX_2205,
+    MaterialCategory.PIPES_SUPER_DUPLEX_2507,
   ],
   Fittings: [
     MaterialCategory.FITTINGS_BUTT_WELD,
@@ -404,6 +410,133 @@ export const MATERIAL_CATEGORY_GROUPS = {
   ],
   Other: [MaterialCategory.OTHER],
 };
+
+/**
+ * Picker-specific category groups for the MaterialPickerDialog.
+ * Each group defines a top-level card in the category-first landing view.
+ */
+export const PICKER_CATEGORY_GROUPS: Array<{
+  key: string;
+  label: string;
+  categories: MaterialCategory[];
+  pipingMode: boolean;
+}> = [
+  {
+    key: 'flanges',
+    label: 'Flanges',
+    categories: [
+      MaterialCategory.FLANGES,
+      MaterialCategory.FLANGES_WELD_NECK,
+      MaterialCategory.FLANGES_SLIP_ON,
+      MaterialCategory.FLANGES_BLIND,
+    ],
+    pipingMode: true,
+  },
+  {
+    key: 'pipes',
+    label: 'Pipes',
+    categories: [
+      MaterialCategory.PIPES_CARBON_STEEL,
+      MaterialCategory.PIPES_STAINLESS_304L,
+      MaterialCategory.PIPES_STAINLESS_316L,
+      MaterialCategory.PIPES_ALLOY_STEEL,
+      MaterialCategory.PIPES_DUPLEX_2205,
+      MaterialCategory.PIPES_SUPER_DUPLEX_2507,
+    ],
+    pipingMode: true,
+  },
+  {
+    key: 'fittings',
+    label: 'Fittings',
+    categories: [
+      MaterialCategory.FITTINGS_BUTT_WELD,
+      MaterialCategory.FITTINGS_SOCKET_WELD,
+      MaterialCategory.FITTINGS_THREADED,
+      MaterialCategory.FITTINGS_FLANGED,
+    ],
+    pipingMode: true,
+  },
+  {
+    key: 'plates',
+    label: 'Plates',
+    categories: [
+      MaterialCategory.PLATES_CARBON_STEEL,
+      MaterialCategory.PLATES_STAINLESS_STEEL,
+      MaterialCategory.PLATES_DUPLEX_STEEL,
+      MaterialCategory.PLATES_ALLOY_STEEL,
+    ],
+    pipingMode: false,
+  },
+  {
+    key: 'fasteners',
+    label: 'Fasteners',
+    categories: [
+      MaterialCategory.FASTENERS_BOLTS,
+      MaterialCategory.FASTENERS_NUTS,
+      MaterialCategory.FASTENERS_WASHERS,
+      MaterialCategory.FASTENERS_BOLT_NUT_WASHER_SETS,
+      MaterialCategory.FASTENERS_STUDS,
+      MaterialCategory.FASTENERS_SCREWS,
+    ],
+    pipingMode: false,
+  },
+  {
+    key: 'valves',
+    label: 'Valves',
+    categories: [
+      MaterialCategory.VALVE_GATE,
+      MaterialCategory.VALVE_GLOBE,
+      MaterialCategory.VALVE_BALL,
+      MaterialCategory.VALVE_BUTTERFLY,
+      MaterialCategory.VALVE_CHECK,
+      MaterialCategory.VALVE_OTHER,
+    ],
+    pipingMode: false,
+  },
+  {
+    key: 'gaskets',
+    label: 'Gaskets',
+    categories: [MaterialCategory.GASKETS],
+    pipingMode: false,
+  },
+  {
+    key: 'instruments',
+    label: 'Instruments',
+    categories: [
+      MaterialCategory.INSTRUMENT_PRESSURE_GAUGE,
+      MaterialCategory.INSTRUMENT_TEMPERATURE_SENSOR,
+      MaterialCategory.INSTRUMENT_FLOW_METER,
+      MaterialCategory.INSTRUMENT_LEVEL_TRANSMITTER,
+      MaterialCategory.INSTRUMENT_CONTROL_VALVE,
+      MaterialCategory.INSTRUMENT_OTHER,
+    ],
+    pipingMode: false,
+  },
+  {
+    key: 'other',
+    label: 'Other',
+    categories: [
+      MaterialCategory.PUMP_CENTRIFUGAL,
+      MaterialCategory.PUMP_POSITIVE_DISPLACEMENT,
+      MaterialCategory.MOTORS,
+      MaterialCategory.STRAINERS,
+      MaterialCategory.SEPARATORS,
+      MaterialCategory.ELECTRICAL,
+      MaterialCategory.BARS_AND_RODS,
+      MaterialCategory.SHEETS,
+      MaterialCategory.STRUCTURAL_SHAPES,
+      MaterialCategory.PLASTICS,
+      MaterialCategory.RUBBER,
+      MaterialCategory.COMPOSITES,
+      MaterialCategory.WELDING_CONSUMABLES,
+      MaterialCategory.PAINTS_COATINGS,
+      MaterialCategory.LUBRICANTS,
+      MaterialCategory.CHEMICALS,
+      MaterialCategory.OTHER,
+    ],
+    pipingMode: false,
+  },
+];
 
 // ============================================================================
 // Material Properties
@@ -645,6 +778,8 @@ export const PIPE_MATERIAL_CODES: Partial<Record<MaterialCategory, [string, stri
   [MaterialCategory.PIPES_STAINLESS_304L]: ['PP', 'SS304L'],
   [MaterialCategory.PIPES_STAINLESS_316L]: ['PP', 'SS316L'],
   [MaterialCategory.PIPES_ALLOY_STEEL]: ['PP', 'AS'],
+  [MaterialCategory.PIPES_DUPLEX_2205]: ['PP', 'DX2205'],
+  [MaterialCategory.PIPES_SUPER_DUPLEX_2507]: ['PP', 'SDX2507'],
 };
 
 /**

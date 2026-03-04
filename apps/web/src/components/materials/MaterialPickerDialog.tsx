@@ -18,8 +18,8 @@ import {
   Chip,
   Alert,
   CircularProgress,
-  Tabs,
-  Tab,
+  Grid,
+  Paper,
   Stack,
   Divider,
 } from '@mui/material';
@@ -29,12 +29,18 @@ import {
   ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import type { Material, MaterialVariant, MaterialCategory } from '@vapour/types';
-import { MATERIAL_CATEGORY_LABELS, getPipingCategory, isFlatPipingCategory } from '@vapour/types';
+import {
+  PICKER_CATEGORY_GROUPS,
+  MATERIAL_CATEGORY_LABELS,
+  getPipingCategory,
+  isFlatPipingCategory,
+} from '@vapour/types';
 import { getFirebase } from '@/lib/firebase';
 import {
   queryMaterials,
   queryMaterialsByFamily,
   queryPipingFamilies,
+  searchMaterials,
 } from '@/lib/materials/materialService';
 import MaterialVariantSelector from './MaterialVariantSelector';
 import PipingMaterialTable from './PipingMaterialTable';
@@ -49,13 +55,15 @@ interface MaterialPickerDialogProps {
   requireVariantSelection?: boolean;
 }
 
+type PickerView = 'categories' | 'list' | 'detail';
+
 /**
- * Material Picker Dialog
+ * Material Picker Dialog — Category-First Navigation
  *
- * A dialog for searching and selecting materials with category-aware UX:
- * - Plates: material list + variant selector (thickness)
- * - Flanges/Pipes/Fittings: family list + filterable table (NPS, rating, schedule)
- * - Other: simple material selection
+ * Three-phase drill-down:
+ * 1. Category selection (Flanges, Pipes, Fittings, Plates, etc.)
+ * 2. Material/family list within the selected category
+ * 3. Detail view (piping table or material detail)
  */
 export default function MaterialPickerDialog({
   open,
@@ -67,14 +75,18 @@ export default function MaterialPickerDialog({
 }: MaterialPickerDialogProps) {
   const { db } = getFirebase();
 
-  // State
+  // Navigation state
+  const [view, setView] = useState<PickerView>('categories');
+  const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
+
+  // Data state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [searchText, setSearchText] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<MaterialCategory | 'ALL'>('ALL');
+  const [searchResults, setSearchResults] = useState<Material[] | null>(null);
 
-  // Selection state — for non-piping (plates/other)
+  // Selection state — non-piping (plates/other)
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<MaterialVariant | null>(null);
   const [selectedFullCode, setSelectedFullCode] = useState<string>('');
@@ -85,59 +97,79 @@ export default function MaterialPickerDialog({
   const [loadingFamily, setLoadingFamily] = useState(false);
   const [selectedPipingMaterial, setSelectedPipingMaterial] = useState<Material | null>(null);
 
-  // Determine if we're in piping mode based on the current category filter
-  const isPipingMode = useMemo(() => {
-    if (selectedCategory !== 'ALL') {
-      return isFlatPipingCategory(selectedCategory);
-    }
-    // If categories prop restricts to piping only
-    if (categories && categories.length > 0) {
-      return categories.every(isFlatPipingCategory);
-    }
-    return false;
-  }, [selectedCategory, categories]);
+  // Derived: which groups are available based on the categories prop
+  const availableGroups = useMemo(() => {
+    if (!categories || categories.length === 0) return PICKER_CATEGORY_GROUPS;
+    return PICKER_CATEGORY_GROUPS.filter((group) =>
+      group.categories.some((cat) => categories.includes(cat))
+    ).map((group) => ({
+      ...group,
+      categories: group.categories.filter((cat) => categories.includes(cat)),
+    }));
+  }, [categories]);
+
+  // Derived: currently selected group
+  const selectedGroup = useMemo(
+    () => availableGroups.find((g) => g.key === selectedGroupKey) || null,
+    [availableGroups, selectedGroupKey]
+  );
+
+  const isPipingMode = selectedGroup?.pipingMode ?? false;
 
   const currentPipingCategory = useMemo(() => {
-    if (selectedCategory !== 'ALL') {
-      return getPipingCategory(selectedCategory);
-    }
-    if (categories && categories.length === 1 && categories[0]) {
-      return getPipingCategory(categories[0]);
-    }
-    return 'OTHER';
-  }, [selectedCategory, categories]);
+    if (!selectedGroup) return 'OTHER';
+    // Use the first category to determine the piping display type
+    const firstCat = selectedGroup.categories[0];
+    return firstCat ? getPipingCategory(firstCat) : 'OTHER';
+  }, [selectedGroup]);
 
+  // Reset ALL state when dialog opens
+  useEffect(() => {
+    if (open) {
+      setView('categories');
+      setSelectedGroupKey(null);
+      setMaterials([]);
+      setSearchText('');
+      setSearchResults(null);
+      setError(null);
+      setLoading(false);
+      setSelectedMaterial(null);
+      setSelectedVariant(null);
+      setSelectedFullCode('');
+      setSelectedFamily(null);
+      setFamilyMaterials([]);
+      setLoadingFamily(false);
+      setSelectedPipingMaterial(null);
+    }
+  }, [open]);
+
+  // Auto-skip category view if only one group is available
+  useEffect(() => {
+    if (open && view === 'categories' && availableGroups.length === 1 && availableGroups[0]) {
+      const group = availableGroups[0];
+      setSelectedGroupKey(group.key);
+      setView('list');
+    }
+  }, [open, view, availableGroups]);
+
+  // Load materials when entering list view
   const loadMaterials = useCallback(async () => {
-    if (!db) return;
+    if (!db || !selectedGroup) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      const categoriesToQuery =
-        selectedCategory === 'ALL' && categories
-          ? categories
-          : selectedCategory === 'ALL'
-            ? undefined
-            : [selectedCategory];
-
-      // For piping categories, load families (one per familyCode)
-      if (
-        categoriesToQuery &&
-        categoriesToQuery.length > 0 &&
-        categoriesToQuery.every(isFlatPipingCategory)
-      ) {
-        const families = await queryPipingFamilies(db, categoriesToQuery);
+      if (selectedGroup.pipingMode) {
+        const families = await queryPipingFamilies(db, selectedGroup.categories);
         setMaterials(families);
       } else {
         const result = await queryMaterials(db, {
-          categories: categoriesToQuery,
+          categories: selectedGroup.categories,
           sortField: 'materialCode',
           sortDirection: 'asc',
-          limitResults: 100,
+          limitResults: 200,
         });
-
-        // Filter out explicitly deactivated and migrated parent docs
         setMaterials(result.materials.filter((m) => m.isActive !== false && m.isMigrated !== true));
       }
     } catch (err) {
@@ -145,31 +177,39 @@ export default function MaterialPickerDialog({
     } finally {
       setLoading(false);
     }
-  }, [db, selectedCategory, categories]);
+  }, [db, selectedGroup]);
 
-  // Load materials on open or category change
   useEffect(() => {
-    if (open && db) {
+    if (open && db && view === 'list' && selectedGroup) {
       loadMaterials();
     }
-  }, [open, db, loadMaterials]);
+  }, [open, db, view, selectedGroup, loadMaterials]);
 
-  // Reset state when dialog opens
+  // Cross-category search from landing
   useEffect(() => {
-    if (open) {
-      setSelectedMaterial(null);
-      setSelectedVariant(null);
-      setSelectedFullCode('');
-      setSelectedFamily(null);
-      setFamilyMaterials([]);
-      setSelectedPipingMaterial(null);
-      setSearchText('');
+    if (!db || !searchText.trim() || view !== 'categories') {
+      setSearchResults(null);
+      return;
     }
-  }, [open]);
 
-  // Filter materials by search text
+    const timer = setTimeout(async () => {
+      try {
+        setLoading(true);
+        const results = await searchMaterials(db, searchText.trim(), 50);
+        setSearchResults(results.filter((m) => m.isActive !== false && m.isMigrated !== true));
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [db, searchText, view]);
+
+  // Filter materials by search text (within list view)
   const filteredMaterials = useMemo(() => {
-    if (!searchText.trim()) return materials;
+    if (view !== 'list' || !searchText.trim()) return materials;
 
     const searchLower = searchText.toLowerCase();
     return materials.filter(
@@ -181,22 +221,17 @@ export default function MaterialPickerDialog({
         material.specification?.grade?.toLowerCase().includes(searchLower) ||
         material.familyCode?.toLowerCase().includes(searchLower)
     );
-  }, [materials, searchText]);
+  }, [materials, searchText, view]);
 
-  // Get unique categories from filtered materials
-  const availableCategories = useMemo(() => {
-    if (categories) return categories;
-    return Array.from(new Set(materials.map((m) => m.category)));
-  }, [materials, categories]);
+  // ========== Handlers ==========
 
-  // Handle material selection (non-piping)
-  const handleMaterialSelect = (material: Material) => {
-    setSelectedMaterial(material);
-    setSelectedVariant(null);
-    setSelectedFullCode(material.materialCode);
+  const handleGroupSelect = (groupKey: string) => {
+    setSelectedGroupKey(groupKey);
+    setView('list');
+    setSearchText('');
+    setSearchResults(null);
   };
 
-  // Handle family selection (piping)
   const handleFamilySelect = async (material: Material) => {
     const family = material.familyCode || material.materialCode;
     setSelectedFamily(family);
@@ -215,34 +250,58 @@ export default function MaterialPickerDialog({
     }
   };
 
-  // Handle piping material selection from table
+  const handleMaterialSelect = (material: Material) => {
+    setSelectedMaterial(material);
+    setSelectedVariant(null);
+    setSelectedFullCode(material.materialCode);
+  };
+
   const handlePipingSelect = (material: Material) => {
     setSelectedPipingMaterial(material);
   };
 
-  // Handle variant selection (plates)
   const handleVariantSelect = (variant: MaterialVariant | null, fullCode: string) => {
     setSelectedVariant(variant);
     setSelectedFullCode(fullCode);
   };
 
-  // Handle back to list
-  const handleBack = () => {
-    if (isPipingMode && selectedFamily) {
-      setSelectedFamily(null);
-      setFamilyMaterials([]);
-      setSelectedPipingMaterial(null);
+  // Handle search result click — navigate to the right group and select
+  const handleSearchResultSelect = (material: Material) => {
+    // Determine the piping category type
+    if (isFlatPipingCategory(material.category)) {
+      // It's a piping material — select it directly
+      setSelectedPipingMaterial(material);
+      onSelect(material, undefined, material.materialCode);
+      onClose();
     } else {
-      setSelectedMaterial(null);
-      setSelectedVariant(null);
-      setSelectedFullCode('');
+      // Non-piping — select directly
+      onSelect(material, undefined, material.materialCode);
+      onClose();
     }
   };
 
-  // Handle confirm
+  const handleBack = () => {
+    if (view === 'list' && selectedFamily) {
+      // Back from family detail to family list
+      setSelectedFamily(null);
+      setFamilyMaterials([]);
+      setSelectedPipingMaterial(null);
+    } else if (view === 'list' && selectedMaterial) {
+      // Back from material detail to material list
+      setSelectedMaterial(null);
+      setSelectedVariant(null);
+      setSelectedFullCode('');
+    } else if (view === 'list') {
+      // Back to category selection
+      setView('categories');
+      setSelectedGroupKey(null);
+      setMaterials([]);
+      setSearchText('');
+    }
+  };
+
   const handleConfirm = () => {
     if (isPipingMode && selectedPipingMaterial) {
-      // Piping: the material IS the specific item (no variant needed)
       onSelect(selectedPipingMaterial, undefined, selectedPipingMaterial.materialCode);
       onClose();
       return;
@@ -250,7 +309,6 @@ export default function MaterialPickerDialog({
 
     if (!selectedMaterial) return;
 
-    // If material has variants and requireVariantSelection is true, ensure variant is selected
     if (requireVariantSelection && hasVariants(selectedMaterial) && !selectedVariant) {
       setError('Please select a variant');
       return;
@@ -260,23 +318,46 @@ export default function MaterialPickerDialog({
     onClose();
   };
 
-  // Can confirm?
   const canConfirm = isPipingMode
     ? !!selectedPipingMaterial
     : selectedMaterial &&
       (!requireVariantSelection || !hasVariants(selectedMaterial) || selectedVariant);
 
-  // Currently showing detail panel?
   const showingDetail = isPipingMode ? !!selectedFamily : !!selectedMaterial;
+
+  // ========== Render ==========
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{title}</DialogTitle>
+      <DialogTitle>
+        {view === 'list' && selectedGroup ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={handleBack}
+              size="small"
+              sx={{ minWidth: 'auto' }}
+              disabled={!!selectedFamily || !!selectedMaterial}
+            >
+              Back
+            </Button>
+            <Typography variant="h6" component="span">
+              {title} &mdash; {selectedGroup.label}
+            </Typography>
+          </Box>
+        ) : (
+          title
+        )}
+      </DialogTitle>
       <DialogContent>
         {/* Search */}
         <TextField
           fullWidth
-          placeholder="Search materials by code, name, or specification..."
+          placeholder={
+            view === 'categories'
+              ? 'Search all materials by code, name, or specification...'
+              : `Search ${selectedGroup?.label || 'materials'}...`
+          }
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           InputProps={{
@@ -289,34 +370,6 @@ export default function MaterialPickerDialog({
           sx={{ mb: 2 }}
         />
 
-        {/* Category Tabs */}
-        {availableCategories.length > 1 && (
-          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-            <Tabs
-              value={selectedCategory}
-              onChange={(_, value) => {
-                setSelectedCategory(value);
-                // Reset selection on category change
-                setSelectedMaterial(null);
-                setSelectedFamily(null);
-                setFamilyMaterials([]);
-                setSelectedPipingMaterial(null);
-              }}
-              variant="scrollable"
-              scrollButtons="auto"
-            >
-              <Tab label="All" value="ALL" />
-              {availableCategories.map((category) => (
-                <Tab
-                  key={category}
-                  label={MATERIAL_CATEGORY_LABELS[category].replace(/^.*? - /, '')}
-                  value={category}
-                />
-              ))}
-            </Tabs>
-          </Box>
-        )}
-
         {/* Error */}
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
@@ -324,209 +377,287 @@ export default function MaterialPickerDialog({
           </Alert>
         )}
 
-        {/* Two-Column Layout: List + Detail */}
-        <Box sx={{ display: 'flex', gap: 2, minHeight: 400 }}>
-          {/* Left: Materials/Family List */}
-          <Box sx={{ flex: 1, borderRight: 1, borderColor: 'divider', pr: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-              {isPipingMode ? 'Material Families' : 'Materials'} ({filteredMaterials.length})
-            </Typography>
+        {/* ===== CATEGORY LANDING VIEW ===== */}
+        {view === 'categories' && !searchResults && (
+          <Grid container spacing={2}>
+            {availableGroups.map((group) => (
+              <Grid key={group.key} size={{ xs: 6, sm: 4, md: 3 }}>
+                <Paper
+                  elevation={0}
+                  onClick={() => handleGroupSelect(group.key)}
+                  sx={{
+                    p: 2,
+                    cursor: 'pointer',
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    textAlign: 'center',
+                    transition: 'all 0.15s',
+                    '&:hover': {
+                      borderColor: 'primary.main',
+                      bgcolor: 'action.hover',
+                    },
+                  }}
+                >
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    {group.label}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {group.categories.length === 1 ? '1 type' : `${group.categories.length} types`}
+                  </Typography>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        )}
 
+        {/* ===== SEARCH RESULTS (from landing) ===== */}
+        {view === 'categories' && searchResults && (
+          <Box sx={{ minHeight: 300 }}>
             {loading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                 <CircularProgress />
               </Box>
-            ) : filteredMaterials.length === 0 ? (
-              <Box>
-                <Alert severity="info" sx={{ mb: 1 }}>
-                  {searchText
-                    ? 'No materials found matching your search'
-                    : 'No materials available'}
-                </Alert>
-                <Button size="small" onClick={() => window.open('/materials', '_blank')}>
-                  Add to Materials Database &rarr;
-                </Button>
-              </Box>
+            ) : searchResults.length === 0 ? (
+              <Alert severity="info">No materials found matching your search</Alert>
             ) : (
-              <List sx={{ maxHeight: 400, overflow: 'auto' }}>
-                {filteredMaterials.map((material) => {
-                  const isSelected = isPipingMode
-                    ? (material.familyCode || material.materialCode) === selectedFamily
-                    : selectedMaterial?.id === material.id;
-
-                  return (
+              <>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                  Search Results ({searchResults.length})
+                </Typography>
+                <List sx={{ maxHeight: 400, overflow: 'auto' }}>
+                  {searchResults.map((material) => (
                     <ListItem key={material.id} disablePadding>
                       <ListItemButton
-                        selected={isSelected}
-                        onClick={() =>
-                          isPipingMode
-                            ? handleFamilySelect(material)
-                            : handleMaterialSelect(material)
-                        }
+                        onClick={() => handleSearchResultSelect(material)}
                         sx={{ borderRadius: 1, mb: 0.5 }}
                       >
                         <ListItemText
                           primary={
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Typography variant="body2" fontWeight="medium">
-                                {isPipingMode
-                                  ? material.familyCode || material.materialCode
-                                  : material.materialCode}
+                                {material.materialCode}
                               </Typography>
-                              {isSelected && <CheckCircleIcon color="primary" fontSize="small" />}
+                              <Chip
+                                label={
+                                  MATERIAL_CATEGORY_LABELS[material.category]?.replace(
+                                    /^.*? - /,
+                                    ''
+                                  ) || material.category
+                                }
+                                size="small"
+                                variant="outlined"
+                              />
                             </Box>
                           }
-                          secondary={
-                            <>
-                              <Typography variant="body2">{material.name}</Typography>
-                              <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                                {material.specification?.standard && (
-                                  <Chip
-                                    label={material.specification.standard}
-                                    size="small"
-                                    variant="outlined"
-                                  />
-                                )}
-                                {material.specification?.grade && (
-                                  <Chip
-                                    label={material.specification.grade}
-                                    size="small"
-                                    variant="outlined"
-                                  />
-                                )}
-                                {!isPipingMode && hasVariants(material) && (
-                                  <Chip
-                                    label={`${material.variants?.length || 0} variants`}
-                                    size="small"
-                                    color="primary"
-                                  />
-                                )}
-                              </Stack>
-                            </>
-                          }
+                          secondary={material.name}
                         />
                       </ListItemButton>
                     </ListItem>
-                  );
-                })}
-              </List>
-            )}
-            {!loading && (
-              <Button
-                size="small"
-                onClick={() => window.open('/materials', '_blank')}
-                sx={{ mt: 1 }}
-              >
-                Material not listed? Add to database &rarr;
-              </Button>
-            )}
-          </Box>
-
-          {/* Right: Detail Panel */}
-          <Box sx={{ flex: 1 }}>
-            {showingDetail ? (
-              <>
-                {/* Back button */}
-                <Button
-                  startIcon={<ArrowBackIcon />}
-                  onClick={handleBack}
-                  size="small"
-                  sx={{ mb: 1 }}
-                >
-                  Back to list
-                </Button>
-
-                {isPipingMode && selectedFamily ? (
-                  /* =========================================
-                     PIPING MODE: Family table
-                     ========================================= */
-                  <>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                      Select Size / Rating
-                    </Typography>
-                    <Typography variant="h6" sx={{ mb: 1 }}>
-                      {selectedFamily}
-                    </Typography>
-                    <Divider sx={{ my: 1 }} />
-
-                    <PipingMaterialTable
-                      materials={familyMaterials}
-                      pipingCategory={currentPipingCategory}
-                      loading={loadingFamily}
-                      selectedMaterialId={selectedPipingMaterial?.id}
-                      onSelect={handlePipingSelect}
-                    />
-
-                    {/* Selected item summary */}
-                    {selectedPipingMaterial && (
-                      <Alert severity="success" sx={{ mt: 2 }}>
-                        <Typography variant="body2">
-                          Selected: <strong>{selectedPipingMaterial.materialCode}</strong>
-                          {' — '}
-                          {selectedPipingMaterial.name}
-                        </Typography>
-                      </Alert>
-                    )}
-                  </>
-                ) : selectedMaterial ? (
-                  /* =========================================
-                     NON-PIPING MODE: Material detail + variants
-                     ========================================= */
-                  <>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                      Material Details
-                    </Typography>
-
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="h6">{selectedMaterial.name}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {selectedMaterial.materialCode}
-                      </Typography>
-                      {selectedMaterial.description && (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ mt: 1, display: 'block' }}
-                        >
-                          {selectedMaterial.description}
-                        </Typography>
-                      )}
-                    </Box>
-
-                    <Divider sx={{ my: 2 }} />
-
-                    {/* Variant Selector */}
-                    <MaterialVariantSelector
-                      material={selectedMaterial}
-                      selectedVariantId={selectedVariant?.id}
-                      onVariantSelect={handleVariantSelect}
-                      compact
-                    />
-                  </>
-                ) : null}
+                  ))}
+                </List>
               </>
-            ) : (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100%',
-                  color: 'text.secondary',
-                }}
-              >
-                <Typography variant="body2">
-                  {isPipingMode
-                    ? 'Select a material family to view sizes'
-                    : 'Select a material to view details'}
-                </Typography>
-              </Box>
             )}
           </Box>
-        </Box>
+        )}
+
+        {/* ===== LIST + DETAIL VIEW ===== */}
+        {view === 'list' && (
+          <Box sx={{ display: 'flex', gap: 2, minHeight: 400 }}>
+            {/* Left: Materials/Family List */}
+            <Box sx={{ flex: 1, borderRight: 1, borderColor: 'divider', pr: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                {isPipingMode ? 'Material Families' : 'Materials'} ({filteredMaterials.length})
+              </Typography>
+
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : filteredMaterials.length === 0 ? (
+                <Box>
+                  <Alert severity="info" sx={{ mb: 1 }}>
+                    {searchText
+                      ? 'No materials found matching your search'
+                      : 'No materials available in this category'}
+                  </Alert>
+                  <Button size="small" onClick={() => window.open('/materials', '_blank')}>
+                    Add to Materials Database &rarr;
+                  </Button>
+                </Box>
+              ) : (
+                <List sx={{ maxHeight: 400, overflow: 'auto' }}>
+                  {filteredMaterials.map((material) => {
+                    const isSelected = isPipingMode
+                      ? (material.familyCode || material.materialCode) === selectedFamily
+                      : selectedMaterial?.id === material.id;
+
+                    return (
+                      <ListItem key={material.id} disablePadding>
+                        <ListItemButton
+                          selected={isSelected}
+                          onClick={() =>
+                            isPipingMode
+                              ? handleFamilySelect(material)
+                              : handleMaterialSelect(material)
+                          }
+                          sx={{ borderRadius: 1, mb: 0.5 }}
+                        >
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {isPipingMode
+                                    ? material.familyCode || material.materialCode
+                                    : material.materialCode}
+                                </Typography>
+                                {isSelected && <CheckCircleIcon color="primary" fontSize="small" />}
+                              </Box>
+                            }
+                            secondary={
+                              <>
+                                <Typography variant="body2">{material.name}</Typography>
+                                <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
+                                  {material.specification?.standard && (
+                                    <Chip
+                                      label={material.specification.standard}
+                                      size="small"
+                                      variant="outlined"
+                                    />
+                                  )}
+                                  {material.specification?.grade && (
+                                    <Chip
+                                      label={material.specification.grade}
+                                      size="small"
+                                      variant="outlined"
+                                    />
+                                  )}
+                                  {!isPipingMode && hasVariants(material) && (
+                                    <Chip
+                                      label={`${material.variants?.length || 0} variants`}
+                                      size="small"
+                                      color="primary"
+                                    />
+                                  )}
+                                </Stack>
+                              </>
+                            }
+                          />
+                        </ListItemButton>
+                      </ListItem>
+                    );
+                  })}
+                </List>
+              )}
+              {!loading && (
+                <Button
+                  size="small"
+                  onClick={() => window.open('/materials', '_blank')}
+                  sx={{ mt: 1 }}
+                >
+                  Material not listed? Add to database &rarr;
+                </Button>
+              )}
+            </Box>
+
+            {/* Right: Detail Panel */}
+            <Box sx={{ flex: 1 }}>
+              {showingDetail ? (
+                <>
+                  {/* Back within detail */}
+                  <Button
+                    startIcon={<ArrowBackIcon />}
+                    onClick={handleBack}
+                    size="small"
+                    sx={{ mb: 1 }}
+                  >
+                    Back to list
+                  </Button>
+
+                  {isPipingMode && selectedFamily ? (
+                    <>
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                        Select Size / Rating
+                      </Typography>
+                      <Typography variant="h6" sx={{ mb: 1 }}>
+                        {selectedFamily}
+                      </Typography>
+                      <Divider sx={{ my: 1 }} />
+
+                      <PipingMaterialTable
+                        materials={familyMaterials}
+                        pipingCategory={currentPipingCategory}
+                        loading={loadingFamily}
+                        selectedMaterialId={selectedPipingMaterial?.id}
+                        onSelect={handlePipingSelect}
+                      />
+
+                      {selectedPipingMaterial && (
+                        <Alert severity="success" sx={{ mt: 2 }}>
+                          <Typography variant="body2">
+                            Selected: <strong>{selectedPipingMaterial.materialCode}</strong>
+                            {' \u2014 '}
+                            {selectedPipingMaterial.name}
+                          </Typography>
+                        </Alert>
+                      )}
+                    </>
+                  ) : selectedMaterial ? (
+                    <>
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                        Material Details
+                      </Typography>
+
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="h6">{selectedMaterial.name}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {selectedMaterial.materialCode}
+                        </Typography>
+                        {selectedMaterial.description && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ mt: 1, display: 'block' }}
+                          >
+                            {selectedMaterial.description}
+                          </Typography>
+                        )}
+                      </Box>
+
+                      <Divider sx={{ my: 2 }} />
+
+                      <MaterialVariantSelector
+                        material={selectedMaterial}
+                        selectedVariantId={selectedVariant?.id}
+                        onVariantSelect={handleVariantSelect}
+                        compact
+                      />
+                    </>
+                  ) : null}
+                </>
+              ) : (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100%',
+                    color: 'text.secondary',
+                  }}
+                >
+                  <Typography variant="body2">
+                    {isPipingMode
+                      ? 'Select a material family to view sizes'
+                      : 'Select a material to view details'}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Box>
+        )}
 
         {/* Selected Full Code Display (non-piping) */}
-        {!isPipingMode && selectedMaterial && selectedFullCode && (
+        {view === 'list' && !isPipingMode && selectedMaterial && selectedFullCode && (
           <Alert severity="success" sx={{ mt: 2 }}>
             <Typography variant="body2">
               Selected Material: <strong>{selectedFullCode}</strong>
