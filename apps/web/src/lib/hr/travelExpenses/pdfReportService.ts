@@ -16,45 +16,10 @@ import type { ReceiptImageData } from '@/components/pdf/TravelExpenseReportPDF';
 import type { TravelExpenseReport } from '@vapour/types';
 import { fetchAllReceipts } from './receiptUtils';
 import { mergePdfWithReceipts } from './pdfMergeUtils';
+import { downloadBlob } from '@/lib/pdf/pdfUtils';
+import { fetchLogoAsDataUri } from '@/lib/pdf/logoUtils';
 
 const logger = createLogger({ context: 'pdfReportService' });
-
-// Cache the logo data URI to avoid repeated fetches
-let cachedLogoDataUri: string | null = null;
-
-/**
- * Fetch the company logo as a base64 data URI
- */
-async function fetchLogoAsDataUri(): Promise<string | undefined> {
-  if (cachedLogoDataUri) {
-    return cachedLogoDataUri;
-  }
-
-  try {
-    const response = await fetch('/logo.png');
-    if (!response.ok) {
-      logger.warn('Failed to fetch logo', { status: response.status });
-      return undefined;
-    }
-
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        cachedLogoDataUri = reader.result as string;
-        resolve(cachedLogoDataUri);
-      };
-      reader.onerror = () => {
-        logger.warn('Failed to read logo as data URI');
-        resolve(undefined);
-      };
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    logger.warn('Error fetching logo', { error });
-    return undefined;
-  }
-}
 
 /**
  * Options for PDF generation
@@ -192,15 +157,7 @@ export async function downloadTravelExpenseReportPDF(
       ...options,
     });
 
-    // Create download link
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${report.reportNumber}_Travel_Expense_Report.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, `${report.reportNumber}_Travel_Expense_Report.pdf`);
 
     const receiptCount = report.items.filter((i) => i.hasReceipt).length;
     logger.info('Downloaded travel expense PDF', {

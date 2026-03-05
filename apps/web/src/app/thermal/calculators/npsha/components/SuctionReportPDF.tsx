@@ -1,150 +1,28 @@
 /**
  * Suction System Design Report — PDF Document
  *
- * React-PDF template following the SiphonReportPDF pattern.
+ * Uses standardised report components from @/lib/pdf/reportComponents.
  */
 
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Text, View } from '@react-pdf/renderer';
 import type { SuctionSystemResult } from '@/lib/thermal/suctionSystemCalculator';
 import { FLUID_TYPE_LABELS } from './types';
 import type { SuctionReportInputs } from './SuctionResults';
-
-const styles = StyleSheet.create({
-  page: {
-    padding: 30,
-    fontSize: 9,
-    fontFamily: 'Helvetica',
-  },
-  header: {
-    marginBottom: 15,
-    paddingBottom: 10,
-    borderBottom: '2pt solid #1976d2',
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#1976d2',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 10,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  headerItem: {
-    flexDirection: 'row',
-  },
-  headerLabel: {
-    fontWeight: 'bold',
-    marginRight: 5,
-  },
-  section: {
-    marginTop: 10,
-    marginBottom: 6,
-  },
-  sectionTitle: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    color: '#1976d2',
-    backgroundColor: '#e3f2fd',
-    padding: 4,
-  },
-  table: {
-    width: '100%',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    borderBottom: '0.5pt solid #e0e0e0',
-    paddingVertical: 2.5,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#f5f5f5',
-    borderBottom: '1pt solid #ccc',
-    paddingVertical: 3,
-    fontWeight: 'bold',
-  },
-  totalRow: {
-    flexDirection: 'row',
-    borderTop: '1.5pt solid #333',
-    paddingVertical: 3,
-    fontWeight: 'bold',
-  },
-  col15: { width: '15%', paddingHorizontal: 3 },
-  col20: { width: '20%', paddingHorizontal: 3 },
-  col25: { width: '25%', paddingHorizontal: 3 },
-  col30: { width: '30%', paddingHorizontal: 3 },
-  col40: { width: '40%', paddingHorizontal: 3 },
-  col50: { width: '50%', paddingHorizontal: 3 },
-  colRight: { textAlign: 'right' },
-  colCenter: { textAlign: 'center' },
-  twoColumn: {
-    flexDirection: 'row',
-    gap: 20,
-  },
-  column: {
-    flex: 1,
-  },
-  bold: {
-    fontWeight: 'bold',
-  },
-  primaryResult: {
-    backgroundColor: '#e3f2fd',
-    padding: 8,
-    marginBottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  primaryValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1976d2',
-  },
-  warning: {
-    backgroundColor: '#fff3e0',
-    padding: 5,
-    marginTop: 3,
-    fontSize: 8,
-  },
-  warningText: {
-    color: '#e65100',
-  },
-  noteSection: {
-    marginTop: 8,
-    padding: 6,
-    backgroundColor: '#fafafa',
-    border: '0.5pt solid #e0e0e0',
-  },
-  noteTitle: {
-    fontSize: 9,
-    fontWeight: 'bold',
-    marginBottom: 3,
-  },
-  noteText: {
-    fontSize: 8,
-    lineHeight: 1.4,
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 20,
-    left: 30,
-    right: 30,
-    fontSize: 7,
-    color: '#666',
-    textAlign: 'center',
-    borderTop: '0.5pt solid #ccc',
-    paddingTop: 8,
-  },
-});
+import {
+  ReportPage,
+  ReportHeader,
+  ReportSection,
+  ReportTable,
+  KeyValueTable,
+  TwoColumnLayout,
+  PrimaryResultBanner,
+  WarningsBox,
+  NotesSection,
+  ReportFooter,
+  REPORT_THEME,
+  reportStyles as s,
+} from '@/lib/pdf/reportComponents';
 
 interface SuctionReportPDFProps {
   result: SuctionSystemResult;
@@ -169,468 +47,298 @@ export const SuctionReportPDF = ({
       maximumFractionDigits: decimals,
     });
 
-  const today = new Date().toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-
   const fluidLabel = FLUID_TYPE_LABELS[inputs.fluidType] || inputs.fluidType;
+
+  // Build conditional KV rows for left input parameters
+  const leftParams = [
+    { label: 'Effect Pressure', value: `${inputs.effectPressure} mbar(a)` },
+    { label: 'Fluid Type', value: fluidLabel },
+    ...(inputs.fluidType === 'brine'
+      ? [{ label: 'Salinity', value: `${inputs.salinity} ppm` }]
+      : []),
+    { label: 'Mass Flow Rate', value: `${inputs.flowRate} ton/hr` },
+    { label: 'Pump NPSHr', value: `${inputs.pumpNPSHr} m` },
+    { label: 'Safety Margin', value: `${inputs.safetyMargin} m` },
+  ];
+
+  const rightParams = [
+    { label: 'Nozzle Vel. Target', value: `${inputs.nozzleVelocityTarget} m/s` },
+    { label: 'Suction Vel. Target', value: `${inputs.suctionVelocityTarget} m/s` },
+    { label: '90° Elbows', value: String(inputs.elbowCount) },
+    { label: 'Vertical Run', value: `${inputs.verticalPipeRun} m` },
+    { label: 'Horizontal Run', value: `${inputs.horizontalPipeRun} m` },
+  ];
 
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>MED SUCTION SYSTEM DESIGN</Text>
-          <Text style={styles.subtitle}>CALCULATION REPORT</Text>
-          {projectName && <Text style={styles.subtitle}>{projectName}</Text>}
-          <View style={styles.headerRow}>
-            <View style={styles.headerItem}>
-              <Text style={styles.headerLabel}>Doc No:</Text>
-              <Text>{documentNumber}</Text>
-            </View>
-            <View style={styles.headerItem}>
-              <Text style={styles.headerLabel}>Rev:</Text>
-              <Text>{revision}</Text>
-            </View>
-            <View style={styles.headerItem}>
-              <Text style={styles.headerLabel}>Date:</Text>
-              <Text>{today}</Text>
-            </View>
-          </View>
-        </View>
+      <ReportPage>
+        <ReportHeader
+          title="MED SUCTION SYSTEM DESIGN"
+          subtitle="CALCULATION REPORT"
+          projectName={projectName}
+          documentNumber={documentNumber}
+          revision={revision}
+        />
 
-        {/* Primary Result Banner */}
-        <View style={styles.primaryResult}>
-          <View>
-            <Text style={{ fontSize: 8, color: '#666' }}>Required Elevation</Text>
-            <Text style={styles.primaryValue}>{fmt(result.requiredElevation)} m</Text>
-          </View>
-          <View style={{ alignItems: 'center' }}>
-            <Text style={{ fontSize: 8, color: '#666' }}>NPSHa (Dirty)</Text>
-            <Text style={{ fontSize: 14, fontWeight: 'bold' }}>
-              {fmt(result.npshaDirty.npsha)} m
-            </Text>
-          </View>
-          <View style={{ alignItems: 'center' }}>
-            <Text style={{ fontSize: 8, color: '#666' }}>Nozzle / Suction</Text>
-            <Text style={{ fontSize: 12, fontWeight: 'bold' }}>
-              {result.nozzlePipe.nps}&quot; / {result.suctionPipe.nps}&quot;
-            </Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ fontSize: 8, color: '#666' }}>Margin</Text>
-            <Text
-              style={{
-                fontSize: 12,
-                fontWeight: 'bold',
-                color: result.npshaDirty.isAdequate ? '#2e7d32' : '#c62828',
-              }}
-            >
-              {result.npshaDirty.margin >= 0 ? '+' : ''}
-              {fmt(result.npshaDirty.margin)} m
-            </Text>
-          </View>
-        </View>
+        <PrimaryResultBanner
+          items={[
+            { label: 'Required Elevation', value: `${fmt(result.requiredElevation)} m` },
+            { label: 'NPSHa (Dirty)', value: `${fmt(result.npshaDirty.npsha)} m`, fontSize: 14 },
+            {
+              label: 'Nozzle / Suction',
+              value: `${result.nozzlePipe.nps}" / ${result.suctionPipe.nps}"`,
+              fontSize: 12,
+            },
+            {
+              label: 'Margin',
+              value: `${result.npshaDirty.margin >= 0 ? '+' : ''}${fmt(result.npshaDirty.margin)} m`,
+              fontSize: 12,
+              color: result.npshaDirty.isAdequate ? REPORT_THEME.successText : '#c62828',
+            },
+          ]}
+        />
 
         {/* 1. Input Parameters */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>1. INPUT PARAMETERS</Text>
-          <View style={styles.twoColumn}>
-            <View style={styles.column}>
-              <View style={styles.table}>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Effect Pressure</Text>
-                  <Text style={[styles.col50, styles.colRight]}>
-                    {inputs.effectPressure} mbar(a)
-                  </Text>
-                </View>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Fluid Type</Text>
-                  <Text style={[styles.col50, styles.colRight]}>{fluidLabel}</Text>
-                </View>
-                {inputs.fluidType === 'brine' && (
-                  <View style={styles.tableRow}>
-                    <Text style={styles.col50}>Salinity</Text>
-                    <Text style={[styles.col50, styles.colRight]}>{inputs.salinity} ppm</Text>
-                  </View>
-                )}
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Mass Flow Rate</Text>
-                  <Text style={[styles.col50, styles.colRight]}>{inputs.flowRate} ton/hr</Text>
-                </View>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Pump NPSHr</Text>
-                  <Text style={[styles.col50, styles.colRight]}>{inputs.pumpNPSHr} m</Text>
-                </View>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Safety Margin</Text>
-                  <Text style={[styles.col50, styles.colRight]}>{inputs.safetyMargin} m</Text>
-                </View>
-              </View>
-            </View>
-            <View style={styles.column}>
-              <View style={styles.table}>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Nozzle Vel. Target</Text>
-                  <Text style={[styles.col50, styles.colRight]}>
-                    {inputs.nozzleVelocityTarget} m/s
-                  </Text>
-                </View>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Suction Vel. Target</Text>
-                  <Text style={[styles.col50, styles.colRight]}>
-                    {inputs.suctionVelocityTarget} m/s
-                  </Text>
-                </View>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>90° Elbows</Text>
-                  <Text style={[styles.col50, styles.colRight]}>{inputs.elbowCount}</Text>
-                </View>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Vertical Run</Text>
-                  <Text style={[styles.col50, styles.colRight]}>{inputs.verticalPipeRun} m</Text>
-                </View>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Horizontal Run</Text>
-                  <Text style={[styles.col50, styles.colRight]}>{inputs.horizontalPipeRun} m</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
+        <ReportSection title="1. INPUT PARAMETERS">
+          <TwoColumnLayout
+            left={<KeyValueTable rows={leftParams} />}
+            right={<KeyValueTable rows={rightParams} />}
+          />
+        </ReportSection>
 
         {/* 2. Pipe Selection */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>2. PIPE SELECTION</Text>
-          <View style={styles.table}>
-            <View style={styles.tableHeader}>
-              <Text style={styles.col20}>Function</Text>
-              <Text style={styles.col15}>NPS</Text>
-              <Text style={styles.col15}>DN</Text>
-              <Text style={[styles.col15, styles.colRight]}>ID (mm)</Text>
-              <Text style={[styles.col15, styles.colRight]}>OD (mm)</Text>
-              <Text style={[styles.col20, styles.colRight]}>Velocity (m/s)</Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={styles.col20}>Nozzle</Text>
-              <Text style={styles.col15}>{result.nozzlePipe.nps}&quot;</Text>
-              <Text style={styles.col15}>{result.nozzlePipe.dn}</Text>
-              <Text style={[styles.col15, styles.colRight]}>{fmt(result.nozzlePipe.id_mm, 1)}</Text>
-              <Text style={[styles.col15, styles.colRight]}>{fmt(result.nozzlePipe.od_mm, 1)}</Text>
-              <Text style={[styles.col20, styles.colRight]}>
-                {fmt(result.nozzleVelocity, 3)} ({result.nozzleVelocityStatus})
-              </Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={styles.col20}>Suction</Text>
-              <Text style={styles.col15}>{result.suctionPipe.nps}&quot;</Text>
-              <Text style={styles.col15}>{result.suctionPipe.dn}</Text>
-              <Text style={[styles.col15, styles.colRight]}>
-                {fmt(result.suctionPipe.id_mm, 1)}
-              </Text>
-              <Text style={[styles.col15, styles.colRight]}>
-                {fmt(result.suctionPipe.od_mm, 1)}
-              </Text>
-              <Text style={[styles.col20, styles.colRight]}>
-                {fmt(result.suctionVelocity, 2)} ({result.suctionVelocityStatus})
-              </Text>
-            </View>
-          </View>
-          <Text style={{ fontSize: 8, color: '#666', marginTop: 3 }}>
+        <ReportSection title="2. PIPE SELECTION">
+          <ReportTable
+            columns={[
+              { key: 'function', header: 'Function', width: '20%' },
+              { key: 'nps', header: 'NPS', width: '15%' },
+              { key: 'dn', header: 'DN', width: '15%' },
+              { key: 'id', header: 'ID (mm)', width: '15%', align: 'right' },
+              { key: 'od', header: 'OD (mm)', width: '15%', align: 'right' },
+              { key: 'velocity', header: 'Velocity (m/s)', width: '20%', align: 'right' },
+            ]}
+            rows={[
+              {
+                function: 'Nozzle',
+                nps: `${result.nozzlePipe.nps}"`,
+                dn: String(result.nozzlePipe.dn),
+                id: fmt(result.nozzlePipe.id_mm, 1),
+                od: fmt(result.nozzlePipe.od_mm, 1),
+                velocity: `${fmt(result.nozzleVelocity, 3)} (${result.nozzleVelocityStatus})`,
+              },
+              {
+                function: 'Suction',
+                nps: `${result.suctionPipe.nps}"`,
+                dn: String(result.suctionPipe.dn),
+                id: fmt(result.suctionPipe.id_mm, 1),
+                od: fmt(result.suctionPipe.od_mm, 1),
+                velocity: `${fmt(result.suctionVelocity, 2)} (${result.suctionVelocityStatus})`,
+              },
+            ]}
+          />
+          <Text style={{ fontSize: 8, color: REPORT_THEME.textSecondary, marginTop: 3 }}>
             Reducer: Concentric ({result.reducer.largePipeNPS}&quot; to{' '}
             {result.reducer.smallPipeNPS}&quot;, Beta={fmt(result.reducer.beta, 3)}, K=
             {fmt(result.reducer.kFactor, 4)})
           </Text>
-        </View>
+        </ReportSection>
 
         {/* 3. Fittings */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>3. FITTINGS &amp; K-FACTORS</Text>
-          <View style={styles.table}>
-            <View style={styles.tableHeader}>
-              <Text style={styles.col40}>Fitting</Text>
-              <Text style={[styles.col15, styles.colCenter]}>Count</Text>
-              <Text style={[styles.col20, styles.colRight]}>K-factor</Text>
-              <Text style={[styles.col25, styles.colRight]}>Loss (m H2O)</Text>
-            </View>
-            {result.fittings.map((f, i) => (
-              <View key={i} style={styles.tableRow}>
-                <Text style={styles.col40}>{f.name}</Text>
-                <Text style={[styles.col15, styles.colCenter]}>{f.count}</Text>
-                <Text style={[styles.col20, styles.colRight]}>{fmt(f.kFactor, 4)}</Text>
-                <Text style={[styles.col25, styles.colRight]}>{fmt(f.loss, 4)}</Text>
-              </View>
-            ))}
-          </View>
-          <Text style={{ fontSize: 8, color: '#666', marginTop: 3 }}>
+        <ReportSection title="3. FITTINGS &amp; K-FACTORS">
+          <ReportTable
+            columns={[
+              { key: 'fitting', header: 'Fitting', width: '40%' },
+              { key: 'count', header: 'Count', width: '15%', align: 'center' },
+              { key: 'kFactor', header: 'K-factor', width: '20%', align: 'right' },
+              { key: 'loss', header: 'Loss (m H2O)', width: '25%', align: 'right' },
+            ]}
+            rows={result.fittings.map((f) => ({
+              fitting: f.name,
+              count: String(f.count),
+              kFactor: fmt(f.kFactor, 4),
+              loss: fmt(f.loss, 4),
+            }))}
+          />
+          <Text style={{ fontSize: 8, color: REPORT_THEME.textSecondary, marginTop: 3 }}>
             Auto-selected: {result.valveType === 'gate' ? 'Gate' : 'Ball'} valve,{' '}
             {result.strainerType === 'bucket_type' ? 'Bucket' : 'Y-type'} strainer (NPS{' '}
             {result.suctionPipe.nps}&quot; threshold at 4&quot;)
           </Text>
-        </View>
+        </ReportSection>
 
         {/* 4. Strainer Pressure Drop */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            4. STRAINER PRESSURE DROP — {result.strainerPressureDrop.strainerName.toUpperCase()}
-          </Text>
-          <View style={styles.table}>
-            <View style={styles.tableHeader}>
-              <Text style={styles.col30}>Condition</Text>
-              <Text style={[styles.col20, styles.colRight]}>K-factor</Text>
-              <Text style={[styles.col25, styles.colRight]}>Loss (m H2O)</Text>
-              <Text style={[styles.col25, styles.colRight]}>Loss (mbar)</Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={styles.col30}>Clean</Text>
-              <Text style={[styles.col20, styles.colRight]}>
-                {result.strainerPressureDrop.cleanKFactor}
-              </Text>
-              <Text style={[styles.col25, styles.colRight]}>
-                {fmt(result.strainerPressureDrop.cleanLoss, 3)}
-              </Text>
-              <Text style={[styles.col25, styles.colRight]}>
-                {fmt(result.strainerPressureDrop.cleanLossMbar, 1)}
-              </Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={styles.col30}>Dirty</Text>
-              <Text style={[styles.col20, styles.colRight]}>
-                {result.strainerPressureDrop.dirtyKFactor}
-              </Text>
-              <Text style={[styles.col25, styles.colRight]}>
-                {fmt(result.strainerPressureDrop.dirtyLoss, 3)}
-              </Text>
-              <Text style={[styles.col25, styles.colRight]}>
-                {fmt(result.strainerPressureDrop.dirtyLossMbar, 1)}
-              </Text>
-            </View>
-          </View>
-        </View>
+        <ReportSection
+          title={`4. STRAINER PRESSURE DROP — ${result.strainerPressureDrop.strainerName.toUpperCase()}`}
+        >
+          <ReportTable
+            columns={[
+              { key: 'condition', header: 'Condition', width: '30%' },
+              { key: 'kFactor', header: 'K-factor', width: '20%', align: 'right' },
+              { key: 'lossM', header: 'Loss (m H2O)', width: '25%', align: 'right' },
+              { key: 'lossMbar', header: 'Loss (mbar)', width: '25%', align: 'right' },
+            ]}
+            rows={[
+              {
+                condition: 'Clean',
+                kFactor: String(result.strainerPressureDrop.cleanKFactor),
+                lossM: fmt(result.strainerPressureDrop.cleanLoss, 3),
+                lossMbar: fmt(result.strainerPressureDrop.cleanLossMbar, 1),
+              },
+              {
+                condition: 'Dirty',
+                kFactor: String(result.strainerPressureDrop.dirtyKFactor),
+                lossM: fmt(result.strainerPressureDrop.dirtyLoss, 3),
+                lossMbar: fmt(result.strainerPressureDrop.dirtyLossMbar, 1),
+              },
+            ]}
+          />
+        </ReportSection>
 
         {/* 5. NPSHa Breakdown */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>5. NPSHa BREAKDOWN (CLEAN vs DIRTY)</Text>
-          <Text style={{ fontSize: 8, color: '#666', marginBottom: 4 }}>
+        <ReportSection title="5. NPSHa BREAKDOWN (CLEAN vs DIRTY)">
+          <Text style={{ fontSize: 8, color: REPORT_THEME.textSecondary, marginBottom: 4 }}>
             NPSHa = Hs + Hp - Hvp - Hf
           </Text>
-          <View style={styles.table}>
-            <View style={styles.tableHeader}>
-              <Text style={styles.col30}>Component</Text>
-              <Text style={[styles.col15, styles.colCenter]}>Sign</Text>
-              <Text style={[styles.col25, styles.colRight]}>Clean (m)</Text>
-              <Text style={[styles.col25, styles.colRight]}>Dirty (m)</Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={styles.col30}>Hs — Static head</Text>
-              <Text style={[styles.col15, styles.colCenter]}>+</Text>
-              <Text style={[styles.col25, styles.colRight]}>
-                {fmt(result.npshaClean.staticHead, 3)}
-              </Text>
-              <Text style={[styles.col25, styles.colRight]}>
-                {fmt(result.npshaDirty.staticHead, 3)}
-              </Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={styles.col30}>Hp — Pressure head</Text>
-              <Text style={[styles.col15, styles.colCenter]}>+</Text>
-              <Text style={[styles.col25, styles.colRight]}>
-                {fmt(result.npshaClean.pressureHead, 3)}
-              </Text>
-              <Text style={[styles.col25, styles.colRight]}>
-                {fmt(result.npshaDirty.pressureHead, 3)}
-              </Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={styles.col30}>Hvp — Vapor pressure</Text>
-              <Text style={[styles.col15, styles.colCenter]}>-</Text>
-              <Text style={[styles.col25, styles.colRight]}>
-                {fmt(result.npshaClean.vaporPressureHead, 3)}
-              </Text>
-              <Text style={[styles.col25, styles.colRight]}>
-                {fmt(result.npshaDirty.vaporPressureHead, 3)}
-              </Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={styles.col30}>Hf — Friction loss</Text>
-              <Text style={[styles.col15, styles.colCenter]}>-</Text>
-              <Text style={[styles.col25, styles.colRight]}>
-                {fmt(result.npshaClean.frictionLoss, 3)}
-              </Text>
-              <Text style={[styles.col25, styles.colRight]}>
-                {fmt(result.npshaDirty.frictionLoss, 3)}
-              </Text>
-            </View>
-            <View style={styles.totalRow}>
-              <Text style={styles.col30}>NPSHa</Text>
-              <Text style={[styles.col15, styles.colCenter]}>=</Text>
-              <Text style={[styles.col25, styles.colRight]}>{fmt(result.npshaClean.npsha, 3)}</Text>
-              <Text style={[styles.col25, styles.colRight]}>{fmt(result.npshaDirty.npsha, 3)}</Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={styles.col30}>Margin (NPSHa - NPSHr)</Text>
-              <Text style={styles.col15} />
-              <Text style={[styles.col25, styles.colRight]}>
-                {result.npshaClean.margin >= 0 ? '+' : ''}
-                {fmt(result.npshaClean.margin, 3)}
-              </Text>
-              <Text style={[styles.col25, styles.colRight]}>
-                {result.npshaDirty.margin >= 0 ? '+' : ''}
-                {fmt(result.npshaDirty.margin, 3)}
-              </Text>
-            </View>
+          <ReportTable
+            columns={[
+              { key: 'component', header: 'Component', width: '30%' },
+              { key: 'sign', header: 'Sign', width: '15%', align: 'center' },
+              { key: 'clean', header: 'Clean (m)', width: '25%', align: 'right' },
+              { key: 'dirty', header: 'Dirty (m)', width: '25%', align: 'right' },
+            ]}
+            rows={[
+              {
+                component: 'Hs — Static head',
+                sign: '+',
+                clean: fmt(result.npshaClean.staticHead, 3),
+                dirty: fmt(result.npshaDirty.staticHead, 3),
+              },
+              {
+                component: 'Hp — Pressure head',
+                sign: '+',
+                clean: fmt(result.npshaClean.pressureHead, 3),
+                dirty: fmt(result.npshaDirty.pressureHead, 3),
+              },
+              {
+                component: 'Hvp — Vapor pressure',
+                sign: '-',
+                clean: fmt(result.npshaClean.vaporPressureHead, 3),
+                dirty: fmt(result.npshaDirty.vaporPressureHead, 3),
+              },
+              {
+                component: 'Hf — Friction loss',
+                sign: '-',
+                clean: fmt(result.npshaClean.frictionLoss, 3),
+                dirty: fmt(result.npshaDirty.frictionLoss, 3),
+              },
+            ]}
+            totalRow={{
+              component: 'NPSHa',
+              sign: '=',
+              clean: fmt(result.npshaClean.npsha, 3),
+              dirty: fmt(result.npshaDirty.npsha, 3),
+            }}
+          />
+          {/* Margin row below the total */}
+          <View style={s.kvRow}>
+            <Text style={[s.kvLabel, { width: '30%' }]}>Margin (NPSHa - NPSHr)</Text>
+            <Text style={{ width: '15%', paddingHorizontal: 3 }} />
+            <Text style={{ width: '25%', paddingHorizontal: 3, textAlign: 'right' }}>
+              {result.npshaClean.margin >= 0 ? '+' : ''}
+              {fmt(result.npshaClean.margin, 3)}
+            </Text>
+            <Text style={{ width: '25%', paddingHorizontal: 3, textAlign: 'right' }}>
+              {result.npshaDirty.margin >= 0 ? '+' : ''}
+              {fmt(result.npshaDirty.margin, 3)}
+            </Text>
           </View>
-        </View>
+        </ReportSection>
 
         {/* 6. Holdup Volume & Elevation */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>6. HOLDUP VOLUME &amp; ELEVATION</Text>
-          <View style={styles.twoColumn}>
-            <View style={styles.column}>
-              <View style={styles.table}>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Holdup Pipe</Text>
-                  <Text style={[styles.col50, styles.colRight]}>
-                    {result.holdup.holdupPipeNPS}&quot; (ID {fmt(result.holdup.holdupPipeID, 1)} mm)
-                  </Text>
-                </View>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>From Residence Time</Text>
-                  <Text style={[styles.col50, styles.colRight]}>
-                    {fmt(result.holdup.heightFromResidenceTime, 2)} m
-                  </Text>
-                </View>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>From Min Column</Text>
-                  <Text style={[styles.col50, styles.colRight]}>
-                    {fmt(result.holdup.heightFromMinColumn, 2)} m
-                  </Text>
-                </View>
-                <View style={styles.tableRow}>
-                  <Text style={[styles.col50, styles.bold]}>Governing Height</Text>
-                  <Text style={[styles.col50, styles.colRight, styles.bold]}>
-                    {fmt(result.holdup.governingHeight, 2)} m
-                  </Text>
-                </View>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Volume</Text>
-                  <Text style={[styles.col50, styles.colRight]}>
-                    {fmt(result.holdup.holdupVolume, 1)} litres
-                  </Text>
-                </View>
-              </View>
-            </View>
-            <View style={styles.column}>
-              <View style={styles.table}>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Holdup Height</Text>
-                  <Text style={[styles.col50, styles.colRight]}>
-                    {fmt(result.elevationBreakdown.holdupHeight, 2)} m
-                  </Text>
-                </View>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Additional for NPSHa</Text>
-                  <Text style={[styles.col50, styles.colRight]}>
-                    {fmt(result.elevationBreakdown.additionalHeadRequired, 2)} m
-                  </Text>
-                </View>
-                <View style={styles.totalRow}>
-                  <Text style={styles.col50}>Required Elevation</Text>
-                  <Text style={[styles.col50, styles.colRight]}>
-                    {fmt(result.elevationBreakdown.total, 2)} m
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
+        <ReportSection title="6. HOLDUP VOLUME &amp; ELEVATION">
+          <TwoColumnLayout
+            left={
+              <KeyValueTable
+                rows={[
+                  {
+                    label: 'Holdup Pipe',
+                    value: `${result.holdup.holdupPipeNPS}" (ID ${fmt(result.holdup.holdupPipeID, 1)} mm)`,
+                  },
+                  {
+                    label: 'From Residence Time',
+                    value: `${fmt(result.holdup.heightFromResidenceTime, 2)} m`,
+                  },
+                  {
+                    label: 'From Min Column',
+                    value: `${fmt(result.holdup.heightFromMinColumn, 2)} m`,
+                  },
+                  {
+                    label: 'Governing Height',
+                    value: `${fmt(result.holdup.governingHeight, 2)} m`,
+                  },
+                  { label: 'Volume', value: `${fmt(result.holdup.holdupVolume, 1)} litres` },
+                ]}
+              />
+            }
+            right={
+              <KeyValueTable
+                rows={[
+                  {
+                    label: 'Holdup Height',
+                    value: `${fmt(result.elevationBreakdown.holdupHeight, 2)} m`,
+                  },
+                  {
+                    label: 'Additional for NPSHa',
+                    value: `${fmt(result.elevationBreakdown.additionalHeadRequired, 2)} m`,
+                  },
+                  {
+                    label: 'Required Elevation',
+                    value: `${fmt(result.elevationBreakdown.total, 2)} m`,
+                  },
+                ]}
+              />
+            }
+          />
+        </ReportSection>
 
         {/* 7. Fluid Properties */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>7. FLUID PROPERTIES</Text>
-          <View style={styles.twoColumn}>
-            <View style={styles.column}>
-              <View style={styles.table}>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Sat. Temperature</Text>
-                  <Text style={[styles.col50, styles.colRight]}>
-                    {fmt(result.saturationTemperature, 1)} C
-                  </Text>
-                </View>
-                {result.boilingPointElevation > 0 && (
-                  <View style={styles.tableRow}>
-                    <Text style={styles.col50}>BPE</Text>
-                    <Text style={[styles.col50, styles.colRight]}>
-                      {fmt(result.boilingPointElevation, 2)} C
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Fluid Temperature</Text>
-                  <Text style={[styles.col50, styles.colRight]}>
-                    {fmt(result.fluidTemperature, 1)} C
-                  </Text>
-                </View>
-              </View>
-            </View>
-            <View style={styles.column}>
-              <View style={styles.table}>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Density</Text>
-                  <Text style={[styles.col50, styles.colRight]}>
-                    {fmt(result.fluidDensity, 2)} kg/m3
-                  </Text>
-                </View>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Viscosity</Text>
-                  <Text style={[styles.col50, styles.colRight]}>
-                    {fmt(result.fluidViscosity * 1000, 3)} mPa.s
-                  </Text>
-                </View>
-                <View style={styles.tableRow}>
-                  <Text style={styles.col50}>Vapor Pressure</Text>
-                  <Text style={[styles.col50, styles.colRight]}>
-                    {fmt(result.vaporPressure * 1000, 1)} mbar
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
+        <ReportSection title="7. FLUID PROPERTIES">
+          <TwoColumnLayout
+            left={
+              <KeyValueTable
+                rows={[
+                  { label: 'Sat. Temperature', value: `${fmt(result.saturationTemperature, 1)} C` },
+                  ...(result.boilingPointElevation > 0
+                    ? [{ label: 'BPE', value: `${fmt(result.boilingPointElevation, 2)} C` }]
+                    : []),
+                  { label: 'Fluid Temperature', value: `${fmt(result.fluidTemperature, 1)} C` },
+                ]}
+              />
+            }
+            right={
+              <KeyValueTable
+                rows={[
+                  { label: 'Density', value: `${fmt(result.fluidDensity, 2)} kg/m3` },
+                  { label: 'Viscosity', value: `${fmt(result.fluidViscosity * 1000, 3)} mPa.s` },
+                  { label: 'Vapor Pressure', value: `${fmt(result.vaporPressure * 1000, 1)} mbar` },
+                ]}
+              />
+            }
+          />
+        </ReportSection>
 
-        {/* Warnings */}
-        {result.warnings.length > 0 && (
-          <View style={styles.warning}>
-            {result.warnings.map((w, i) => (
-              <Text key={i} style={styles.warningText}>
-                {'\u2022'} {w}
-              </Text>
-            ))}
-          </View>
-        )}
+        <WarningsBox warnings={result.warnings} />
 
-        {/* Notes */}
-        {notes && (
-          <View style={styles.noteSection}>
-            <Text style={styles.noteTitle}>NOTES:</Text>
-            <Text style={styles.noteText}>{notes}</Text>
-          </View>
-        )}
+        {notes && <NotesSection notes={notes} />}
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text>Generated by Vapour Toolbox | Suction System Designer</Text>
-          <Text>
-            Method: Darcy-Weisbach + Crane TP-410 | NPSHa: Hydraulic Institute | Steam Tables:
-            IAPWS-IF97
-          </Text>
-          <Text style={{ marginTop: 4 }}>
-            This is a computer-generated document for preliminary design purposes only.
-          </Text>
-        </View>
-      </Page>
+        <ReportFooter
+          lines={[
+            'Generated by Vapour Toolbox | Suction System Designer',
+            'Method: Darcy-Weisbach + Crane TP-410 | NPSHa: Hydraulic Institute | Steam Tables: IAPWS-IF97',
+            'This is a computer-generated document for preliminary design purposes only.',
+          ]}
+        />
+      </ReportPage>
     </Document>
   );
 };

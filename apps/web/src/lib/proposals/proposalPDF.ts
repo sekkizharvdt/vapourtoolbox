@@ -6,11 +6,11 @@
  * Supports saving PDFs to Firebase Storage for later retrieval.
  */
 
-import { pdf } from '@react-pdf/renderer';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, updateDoc, Firestore, Timestamp } from 'firebase/firestore';
 import type { Proposal } from '@vapour/types';
 import { ProposalPDFDocument } from '@/components/pdf/ProposalPDFDocument';
+import { generatePDFBlob, downloadBlob } from '@/lib/pdf/pdfUtils';
 import { createLogger } from '@vapour/logger';
 
 const logger = createLogger({ context: 'proposalPDF' });
@@ -42,20 +42,16 @@ export async function generateProposalPDF(
     watermark,
   } = options;
 
-  // Create PDF document component
-  const pdfDocument = ProposalPDFDocument({
-    proposal,
-    showCostBreakdown,
-    showIndirectCosts,
-    includeTerms,
-    includeDeliverySchedule,
-    watermark,
-  });
-
-  // Generate PDF blob
-  const blob = await pdf(pdfDocument).toBlob();
-
-  return blob;
+  return generatePDFBlob(
+    ProposalPDFDocument({
+      proposal,
+      showCostBreakdown,
+      showIndirectCosts,
+      includeTerms,
+      includeDeliverySchedule,
+      watermark,
+    })
+  );
 }
 
 /**
@@ -69,16 +65,7 @@ export async function downloadProposalPDF(
   options: ProposalPDFOptions = {}
 ): Promise<void> {
   const blob = await generateProposalPDF(proposal, options);
-
-  // Create download link
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${proposal.proposalNumber}_Rev${proposal.revision}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, `${proposal.proposalNumber}_Rev${proposal.revision}.pdf`);
 }
 
 export interface SaveProposalPDFResult {
@@ -159,18 +146,8 @@ export async function generateAndDownloadProposalPDF(
   options: ProposalPDFOptions = {},
   saveToStorage: boolean = false
 ): Promise<SaveProposalPDFResult | void> {
-  // Generate PDF blob
   const blob = await generateProposalPDF(proposal, options);
-
-  // Download locally
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${proposal.proposalNumber}_Rev${proposal.revision}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, `${proposal.proposalNumber}_Rev${proposal.revision}.pdf`);
 
   // Optionally save to storage
   if (saveToStorage && db) {

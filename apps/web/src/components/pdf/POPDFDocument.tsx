@@ -1,29 +1,32 @@
 /**
  * Purchase Order PDF Document Template
  *
- * React-PDF template for professional PO documents.
+ * Uses standardised report components from @/lib/pdf/reportComponents.
  * Includes: header, vendor info, line items table, financial summary, terms.
  */
 
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Text, View, StyleSheet } from '@react-pdf/renderer';
 import type { PurchaseOrder, PurchaseOrderItem } from '@vapour/types';
+import {
+  ReportPage,
+  ReportSection,
+  ReportTable,
+  KeyValueTable,
+  ReportFooter,
+  REPORT_THEME,
+} from '@/lib/pdf/reportComponents';
 
-const styles = StyleSheet.create({
-  page: {
-    padding: 40,
-    fontSize: 10,
-    fontFamily: 'Helvetica',
-  },
+const local = StyleSheet.create({
   header: {
     marginBottom: 20,
     paddingBottom: 10,
-    borderBottom: '2pt solid #1976d2',
+    borderBottom: `2pt solid ${REPORT_THEME.primary}`,
   },
   companyName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1976d2',
+    color: REPORT_THEME.primary,
     marginBottom: 5,
   },
   documentTitle: {
@@ -36,54 +39,6 @@ const styles = StyleSheet.create({
     color: '#555',
     marginTop: 2,
   },
-  section: {
-    marginTop: 15,
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#1976d2',
-    borderBottom: '1pt solid #e0e0e0',
-    paddingBottom: 4,
-  },
-  row: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  label: {
-    width: '30%',
-    fontWeight: 'bold',
-  },
-  value: {
-    width: '70%',
-  },
-  table: {
-    marginTop: 10,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#f5f5f5',
-    padding: 6,
-    fontWeight: 'bold',
-    borderBottom: '1pt solid #ccc',
-    fontSize: 9,
-  },
-  tableRow: {
-    flexDirection: 'row',
-    padding: 6,
-    borderBottom: '0.5pt solid #e0e0e0',
-    fontSize: 9,
-  },
-  colSno: { width: '6%' },
-  colDesc: { width: '30%' },
-  colSpec: { width: '14%' },
-  colQty: { width: '8%', textAlign: 'right' },
-  colUnit: { width: '8%' },
-  colRate: { width: '12%', textAlign: 'right' },
-  colGST: { width: '8%', textAlign: 'right' },
-  colAmount: { width: '14%', textAlign: 'right' },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -127,18 +82,18 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   termsValue: {
-    color: '#333',
+    color: REPORT_THEME.text,
   },
-  footer: {
-    position: 'absolute',
-    bottom: 30,
-    left: 40,
-    right: 40,
-    textAlign: 'center',
-    fontSize: 8,
-    color: '#999',
-    borderTop: '0.5pt solid #e0e0e0',
-    paddingTop: 5,
+  row: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  label: {
+    width: '30%',
+    fontWeight: 'bold',
+  },
+  value: {
+    width: '70%',
   },
 });
 
@@ -172,284 +127,235 @@ export function POPDFDocument({
 }: POPDFDocumentProps): React.JSX.Element {
   const sortedItems = [...items].sort((a, b) => a.lineNumber - b.lineNumber);
 
+  const orderDetails = [
+    { label: 'PO Number', value: po.number },
+    { label: 'Date', value: formatTimestamp(po.createdAt) },
+    { label: 'Status', value: po.status },
+    ...(po.title ? [{ label: 'Title', value: po.title }] : []),
+    ...(po.description ? [{ label: 'Description', value: po.description }] : []),
+  ];
+
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <ReportPage style={{ padding: 40, fontSize: 10 }}>
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.companyName}>{companyName}</Text>
-          <Text style={styles.documentTitle}>PURCHASE ORDER</Text>
-          <Text style={styles.poNumber}>{po.number}</Text>
+        <View style={local.header}>
+          <Text style={local.companyName}>{companyName}</Text>
+          <Text style={local.documentTitle}>PURCHASE ORDER</Text>
+          <Text style={local.poNumber}>{po.number}</Text>
         </View>
 
         {/* PO Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Order Details</Text>
-          <View style={styles.row}>
-            <Text style={styles.label}>PO Number:</Text>
-            <Text style={styles.value}>{po.number}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Date:</Text>
-            <Text style={styles.value}>{formatTimestamp(po.createdAt)}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Status:</Text>
-            <Text style={styles.value}>{po.status}</Text>
-          </View>
-          {po.title && (
-            <View style={styles.row}>
-              <Text style={styles.label}>Title:</Text>
-              <Text style={styles.value}>{po.title}</Text>
-            </View>
-          )}
-          {po.description && (
-            <View style={styles.row}>
-              <Text style={styles.label}>Description:</Text>
-              <Text style={styles.value}>{po.description}</Text>
-            </View>
-          )}
-        </View>
+        <ReportSection title="Order Details">
+          <KeyValueTable rows={orderDetails} labelWidth="30%" valueWidth="70%" />
+        </ReportSection>
 
         {/* Vendor Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Vendor</Text>
-          <View style={styles.row}>
-            <Text style={styles.label}>Vendor Name:</Text>
-            <Text style={styles.value}>{po.vendorName}</Text>
-          </View>
-        </View>
+        <ReportSection title="Vendor">
+          <KeyValueTable
+            rows={[{ label: 'Vendor Name', value: po.vendorName }]}
+            labelWidth="30%"
+            valueWidth="70%"
+          />
+        </ReportSection>
 
         {/* Project Info */}
         {po.projectNames.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Projects</Text>
-            <View style={styles.row}>
-              <Text style={styles.label}>Project(s):</Text>
-              <Text style={styles.value}>{po.projectNames.join(', ')}</Text>
-            </View>
-          </View>
+          <ReportSection title="Projects">
+            <KeyValueTable
+              rows={[{ label: 'Project(s)', value: po.projectNames.join(', ') }]}
+              labelWidth="30%"
+              valueWidth="70%"
+            />
+          </ReportSection>
         )}
 
         {/* Line Items */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Line Items</Text>
-          <View style={styles.table}>
-            <View style={styles.tableHeader}>
-              <Text style={styles.colSno}>#</Text>
-              <Text style={styles.colDesc}>Description</Text>
-              <Text style={styles.colSpec}>Specification</Text>
-              <Text style={styles.colQty}>Qty</Text>
-              <Text style={styles.colUnit}>Unit</Text>
-              <Text style={styles.colRate}>Unit Price</Text>
-              <Text style={styles.colGST}>GST %</Text>
-              <Text style={styles.colAmount}>Amount</Text>
-            </View>
-            {sortedItems.map((item) => (
-              <View key={item.id} style={styles.tableRow}>
-                <Text style={styles.colSno}>{item.lineNumber}</Text>
-                <Text style={styles.colDesc}>{item.description}</Text>
-                <Text style={styles.colSpec}>{item.specification || '—'}</Text>
-                <Text style={styles.colQty}>{item.quantity}</Text>
-                <Text style={styles.colUnit}>{item.unit}</Text>
-                <Text style={styles.colRate}>{formatCurrency(item.unitPrice, po.currency)}</Text>
-                <Text style={styles.colGST}>{item.gstRate}%</Text>
-                <Text style={styles.colAmount}>{formatCurrency(item.amount, po.currency)}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
+        <ReportSection title="Line Items">
+          <ReportTable
+            columns={[
+              { key: 'sno', header: '#', width: '6%' },
+              { key: 'description', header: 'Description', width: '30%' },
+              { key: 'specification', header: 'Specification', width: '14%' },
+              { key: 'qty', header: 'Qty', width: '8%', align: 'right' },
+              { key: 'unit', header: 'Unit', width: '8%' },
+              { key: 'rate', header: 'Unit Price', width: '12%', align: 'right' },
+              { key: 'gst', header: 'GST %', width: '8%', align: 'right' },
+              { key: 'amount', header: 'Amount', width: '14%', align: 'right' },
+            ]}
+            rows={sortedItems.map((item) => ({
+              sno: item.lineNumber,
+              description: item.description,
+              specification: item.specification || '—',
+              qty: item.quantity,
+              unit: item.unit,
+              rate: formatCurrency(item.unitPrice, po.currency),
+              gst: `${item.gstRate}%`,
+              amount: formatCurrency(item.amount, po.currency),
+            }))}
+            fontSize={9}
+          />
+        </ReportSection>
 
         {/* Financial Summary */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Financial Summary</Text>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Subtotal:</Text>
-            <Text style={styles.summaryValue}>{formatCurrency(po.subtotal, po.currency)}</Text>
+        <ReportSection title="Financial Summary">
+          <View style={local.summaryRow}>
+            <Text style={local.summaryLabel}>Subtotal:</Text>
+            <Text style={local.summaryValue}>{formatCurrency(po.subtotal, po.currency)}</Text>
           </View>
           {po.cgst > 0 && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>CGST:</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(po.cgst, po.currency)}</Text>
+            <View style={local.summaryRow}>
+              <Text style={local.summaryLabel}>CGST:</Text>
+              <Text style={local.summaryValue}>{formatCurrency(po.cgst, po.currency)}</Text>
             </View>
           )}
           {po.sgst > 0 && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>SGST:</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(po.sgst, po.currency)}</Text>
+            <View style={local.summaryRow}>
+              <Text style={local.summaryLabel}>SGST:</Text>
+              <Text style={local.summaryValue}>{formatCurrency(po.sgst, po.currency)}</Text>
             </View>
           )}
           {po.igst > 0 && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>IGST:</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(po.igst, po.currency)}</Text>
+            <View style={local.summaryRow}>
+              <Text style={local.summaryLabel}>IGST:</Text>
+              <Text style={local.summaryValue}>{formatCurrency(po.igst, po.currency)}</Text>
             </View>
           )}
           {po.totalTax > 0 && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total Tax:</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(po.totalTax, po.currency)}</Text>
+            <View style={local.summaryRow}>
+              <Text style={local.summaryLabel}>Total Tax:</Text>
+              <Text style={local.summaryValue}>{formatCurrency(po.totalTax, po.currency)}</Text>
             </View>
           )}
-          <View style={styles.summaryTotal}>
-            <Text style={styles.totalLabel}>Grand Total:</Text>
-            <Text style={styles.totalValue}>{formatCurrency(po.grandTotal, po.currency)}</Text>
+          <View style={local.summaryTotal}>
+            <Text style={local.totalLabel}>Grand Total:</Text>
+            <Text style={local.totalValue}>{formatCurrency(po.grandTotal, po.currency)}</Text>
           </View>
-        </View>
-      </Page>
+        </ReportSection>
+      </ReportPage>
 
       {/* Page 2: Terms & Conditions */}
-      <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
-          <Text style={styles.companyName}>{companyName}</Text>
-          <Text style={styles.poNumber}>{po.number} — Terms &amp; Conditions</Text>
+      <ReportPage style={{ padding: 40, fontSize: 10 }}>
+        <View style={local.header}>
+          <Text style={local.companyName}>{companyName}</Text>
+          <Text style={local.poNumber}>{po.number} — Terms &amp; Conditions</Text>
         </View>
 
-        {/* Terms */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Terms &amp; Conditions</Text>
-
+        <ReportSection title="Terms &amp; Conditions">
           {po.paymentTerms && (
-            <View style={styles.termsItem}>
-              <Text style={styles.termsLabel}>Payment Terms:</Text>
-              <Text style={styles.termsValue}>{po.paymentTerms}</Text>
+            <View style={local.termsItem}>
+              <Text style={local.termsLabel}>Payment Terms:</Text>
+              <Text style={local.termsValue}>{po.paymentTerms}</Text>
             </View>
           )}
-
           {po.deliveryTerms && (
-            <View style={styles.termsItem}>
-              <Text style={styles.termsLabel}>Delivery Terms:</Text>
-              <Text style={styles.termsValue}>{po.deliveryTerms}</Text>
+            <View style={local.termsItem}>
+              <Text style={local.termsLabel}>Delivery Terms:</Text>
+              <Text style={local.termsValue}>{po.deliveryTerms}</Text>
             </View>
           )}
-
           {po.deliveryAddress && (
-            <View style={styles.termsItem}>
-              <Text style={styles.termsLabel}>Delivery Address:</Text>
-              <Text style={styles.termsValue}>{po.deliveryAddress}</Text>
+            <View style={local.termsItem}>
+              <Text style={local.termsLabel}>Delivery Address:</Text>
+              <Text style={local.termsValue}>{po.deliveryAddress}</Text>
             </View>
           )}
-
           {po.expectedDeliveryDate && (
-            <View style={styles.termsItem}>
-              <Text style={styles.termsLabel}>Expected Delivery:</Text>
-              <Text style={styles.termsValue}>{formatTimestamp(po.expectedDeliveryDate)}</Text>
+            <View style={local.termsItem}>
+              <Text style={local.termsLabel}>Expected Delivery:</Text>
+              <Text style={local.termsValue}>{formatTimestamp(po.expectedDeliveryDate)}</Text>
             </View>
           )}
-
           {po.warrantyTerms && (
-            <View style={styles.termsItem}>
-              <Text style={styles.termsLabel}>Warranty:</Text>
-              <Text style={styles.termsValue}>{po.warrantyTerms}</Text>
+            <View style={local.termsItem}>
+              <Text style={local.termsLabel}>Warranty:</Text>
+              <Text style={local.termsValue}>{po.warrantyTerms}</Text>
             </View>
           )}
-
           {po.penaltyClause && (
-            <View style={styles.termsItem}>
-              <Text style={styles.termsLabel}>Penalty Clause:</Text>
-              <Text style={styles.termsValue}>{po.penaltyClause}</Text>
+            <View style={local.termsItem}>
+              <Text style={local.termsLabel}>Penalty Clause:</Text>
+              <Text style={local.termsValue}>{po.penaltyClause}</Text>
             </View>
           )}
-
           {po.otherClauses && po.otherClauses.length > 0 && (
-            <View style={styles.termsItem}>
-              <Text style={styles.termsLabel}>Other Clauses:</Text>
+            <View style={local.termsItem}>
+              <Text style={local.termsLabel}>Other Clauses:</Text>
               {po.otherClauses.map((clause, i) => (
-                <Text key={i} style={styles.termsValue}>
+                <Text key={i} style={local.termsValue}>
                   {i + 1}. {clause}
                 </Text>
               ))}
             </View>
           )}
-        </View>
+        </ReportSection>
 
-        {/* Commercial Terms (if structured terms present) */}
+        {/* Commercial Terms */}
         {po.commercialTerms && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Commercial Terms</Text>
-
-            <View style={styles.row}>
-              <Text style={styles.label}>Price Basis:</Text>
-              <Text style={styles.value}>
-                {po.commercialTerms.priceBasis === 'FOR_SITE'
-                  ? 'FOR Site'
-                  : po.commercialTerms.priceBasis === 'EX_WORKS'
-                    ? 'Ex-Works'
-                    : 'FOR Destination'}
-              </Text>
-            </View>
-
-            <View style={styles.row}>
-              <Text style={styles.label}>Currency:</Text>
-              <Text style={styles.value}>{po.commercialTerms.currency}</Text>
-            </View>
-
-            <View style={styles.row}>
-              <Text style={styles.label}>Delivery:</Text>
-              <Text style={styles.value}>
-                {po.commercialTerms.deliveryUnit === 'READY_STOCK'
-                  ? 'Ready Stock'
-                  : po.commercialTerms.deliveryUnit
-                    ? `${po.commercialTerms.deliveryPeriod} ${po.commercialTerms.deliveryUnit.toLowerCase()} from ${po.commercialTerms.deliveryTrigger === 'PO_DATE' ? 'PO date' : po.commercialTerms.deliveryTrigger === 'ADVANCE_PAYMENT' ? 'advance payment' : 'drawing approval'}`
-                    : po.commercialTerms.deliveryWeeks
-                      ? `${po.commercialTerms.deliveryWeeks} weeks`
-                      : '—'}
-              </Text>
-            </View>
-
-            <View style={styles.row}>
-              <Text style={styles.label}>Freight:</Text>
-              <Text style={styles.value}>
-                {po.commercialTerms.freightScope === 'VENDOR' ? 'Vendor' : 'Buyer'}
-              </Text>
-            </View>
-
-            <View style={styles.row}>
-              <Text style={styles.label}>Warranty:</Text>
-              <Text style={styles.value}>
-                {po.commercialTerms.warrantyMonthsFromSupply} months from supply /{' '}
-                {po.commercialTerms.warrantyMonthsFromCommissioning} months from commissioning
-              </Text>
-            </View>
-
-            <View style={styles.row}>
-              <Text style={styles.label}>LD:</Text>
-              <Text style={styles.value}>
-                {po.commercialTerms.ldPerWeekPercent}% per week, max{' '}
-                {po.commercialTerms.ldMaxPercent}%
-              </Text>
-            </View>
-          </View>
+          <ReportSection title="Commercial Terms">
+            <KeyValueTable
+              rows={[
+                {
+                  label: 'Price Basis',
+                  value:
+                    po.commercialTerms.priceBasis === 'FOR_SITE'
+                      ? 'FOR Site'
+                      : po.commercialTerms.priceBasis === 'EX_WORKS'
+                        ? 'Ex-Works'
+                        : 'FOR Destination',
+                },
+                { label: 'Currency', value: po.commercialTerms.currency },
+                {
+                  label: 'Delivery',
+                  value:
+                    po.commercialTerms.deliveryUnit === 'READY_STOCK'
+                      ? 'Ready Stock'
+                      : po.commercialTerms.deliveryUnit
+                        ? `${po.commercialTerms.deliveryPeriod} ${po.commercialTerms.deliveryUnit.toLowerCase()} from ${po.commercialTerms.deliveryTrigger === 'PO_DATE' ? 'PO date' : po.commercialTerms.deliveryTrigger === 'ADVANCE_PAYMENT' ? 'advance payment' : 'drawing approval'}`
+                        : po.commercialTerms.deliveryWeeks
+                          ? `${po.commercialTerms.deliveryWeeks} weeks`
+                          : '—',
+                },
+                {
+                  label: 'Freight',
+                  value: po.commercialTerms.freightScope === 'VENDOR' ? 'Vendor' : 'Buyer',
+                },
+                {
+                  label: 'Warranty',
+                  value: `${po.commercialTerms.warrantyMonthsFromSupply} months from supply / ${po.commercialTerms.warrantyMonthsFromCommissioning} months from commissioning`,
+                },
+                {
+                  label: 'LD',
+                  value: `${po.commercialTerms.ldPerWeekPercent}% per week, max ${po.commercialTerms.ldMaxPercent}%`,
+                },
+              ]}
+              labelWidth="30%"
+              valueWidth="70%"
+            />
+          </ReportSection>
         )}
 
         {/* Approval Info */}
         {po.approvedByName && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Approval</Text>
-            <View style={styles.row}>
-              <Text style={styles.label}>Approved By:</Text>
-              <Text style={styles.value}>{po.approvedByName}</Text>
-            </View>
-            {po.approvedAt && (
-              <View style={styles.row}>
-                <Text style={styles.label}>Approved On:</Text>
-                <Text style={styles.value}>{formatTimestamp(po.approvedAt)}</Text>
-              </View>
-            )}
-            {po.approvalComments && (
-              <View style={styles.row}>
-                <Text style={styles.label}>Comments:</Text>
-                <Text style={styles.value}>{po.approvalComments}</Text>
-              </View>
-            )}
-          </View>
+          <ReportSection title="Approval">
+            <KeyValueTable
+              rows={[
+                { label: 'Approved By', value: po.approvedByName },
+                ...(po.approvedAt
+                  ? [{ label: 'Approved On', value: formatTimestamp(po.approvedAt) }]
+                  : []),
+                ...(po.approvalComments ? [{ label: 'Comments', value: po.approvalComments }] : []),
+              ]}
+              labelWidth="30%"
+              valueWidth="70%"
+            />
+          </ReportSection>
         )}
 
-        {/* Footer */}
-        <Text style={styles.footer}>
-          Generated on {new Date().toLocaleDateString('en-IN')} | {po.number}
-        </Text>
-      </Page>
+        <ReportFooter
+          lines={[`Generated on ${new Date().toLocaleDateString('en-IN')} | ${po.number}`]}
+        />
+      </ReportPage>
     </Document>
   );
 }

@@ -2,85 +2,31 @@
  * Packing List PDF Document Template
  *
  * React-PDF template for a tabular listing of packing lists.
- * Used for exporting the filtered PL list from the list page.
+ * Uses standardised report components from @/lib/pdf/reportComponents.
  */
 
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document } from '@react-pdf/renderer';
 import type { PackingList } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
+import {
+  ReportPage,
+  ListHeader,
+  ReportTable,
+  ListFooter,
+  type TableColumn,
+} from '@/lib/pdf/reportComponents';
 
-const styles = StyleSheet.create({
-  page: {
-    padding: 30,
-    fontSize: 9,
-    fontFamily: 'Helvetica',
-    orientation: 'landscape',
-  },
-  header: {
-    marginBottom: 15,
-    paddingBottom: 8,
-    borderBottom: '2pt solid #1976d2',
-  },
-  companyName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1976d2',
-    marginBottom: 3,
-  },
-  documentTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
-  subtitle: {
-    fontSize: 8,
-    color: '#666',
-    marginTop: 2,
-  },
-  table: {
-    marginTop: 8,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#f5f5f5',
-    padding: 5,
-    fontWeight: 'bold',
-    borderBottom: '1pt solid #ccc',
-    fontSize: 8,
-  },
-  tableRow: {
-    flexDirection: 'row',
-    padding: 5,
-    borderBottom: '0.5pt solid #e0e0e0',
-    fontSize: 8,
-  },
-  tableRowAlt: {
-    flexDirection: 'row',
-    padding: 5,
-    borderBottom: '0.5pt solid #e0e0e0',
-    fontSize: 8,
-    backgroundColor: '#fafafa',
-  },
-  colNumber: { width: '12%' },
-  colPO: { width: '12%' },
-  colVendor: { width: '14%' },
-  colProject: { width: '14%' },
-  colStatus: { width: '12%' },
-  colPackages: { width: '10%' },
-  colShipping: { width: '12%' },
-  colDate: { width: '14%' },
-  footer: {
-    position: 'absolute',
-    bottom: 20,
-    left: 30,
-    right: 30,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    fontSize: 7,
-    color: '#999',
-  },
-});
+const columns: TableColumn[] = [
+  { key: 'number', header: 'PL Number', width: '12%' },
+  { key: 'po', header: 'PO Number', width: '12%' },
+  { key: 'vendor', header: 'Vendor', width: '14%' },
+  { key: 'project', header: 'Project', width: '14%' },
+  { key: 'status', header: 'Status', width: '12%' },
+  { key: 'packages', header: 'Packages', width: '10%', align: 'center' },
+  { key: 'shipping', header: 'Shipping Method', width: '12%' },
+  { key: 'date', header: 'Created Date', width: '14%' },
+];
 
 interface PLListPDFDocumentProps {
   pls: PackingList[];
@@ -93,50 +39,27 @@ export function PLListPDFDocument({ pls }: PLListPDFDocumentProps) {
     year: 'numeric',
   });
 
+  const rows = pls.map((pl) => ({
+    number: pl.number,
+    po: pl.poNumber || '-',
+    vendor: pl.vendorName || '-',
+    project: pl.projectName || '-',
+    status: pl.status.replace(/_/g, ' '),
+    packages: String(pl.numberOfPackages ?? 0),
+    shipping: pl.shippingMethod || '-',
+    date: formatDate(pl.createdAt),
+  }));
+
   return (
     <Document>
-      <Page size="A4" orientation="landscape" style={styles.page}>
-        <View style={styles.header}>
-          <Text style={styles.companyName}>Vapour Toolbox</Text>
-          <Text style={styles.documentTitle}>Packing Lists</Text>
-          <Text style={styles.subtitle}>
-            Generated on {generatedAt} — {pls.length} record(s)
-          </Text>
-        </View>
-
-        <View style={styles.table}>
-          {/* Table Header */}
-          <View style={styles.tableHeader}>
-            <Text style={styles.colNumber}>PL Number</Text>
-            <Text style={styles.colPO}>PO Number</Text>
-            <Text style={styles.colVendor}>Vendor</Text>
-            <Text style={styles.colProject}>Project</Text>
-            <Text style={styles.colStatus}>Status</Text>
-            <Text style={styles.colPackages}>Packages</Text>
-            <Text style={styles.colShipping}>Shipping Method</Text>
-            <Text style={styles.colDate}>Created Date</Text>
-          </View>
-
-          {/* Table Rows */}
-          {pls.map((pl, i) => (
-            <View key={pl.id} style={i % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
-              <Text style={styles.colNumber}>{pl.number}</Text>
-              <Text style={styles.colPO}>{pl.poNumber || '-'}</Text>
-              <Text style={styles.colVendor}>{pl.vendorName || '-'}</Text>
-              <Text style={styles.colProject}>{pl.projectName || '-'}</Text>
-              <Text style={styles.colStatus}>{pl.status.replace(/_/g, ' ')}</Text>
-              <Text style={styles.colPackages}>{String(pl.numberOfPackages ?? 0)}</Text>
-              <Text style={styles.colShipping}>{pl.shippingMethod || '-'}</Text>
-              <Text style={styles.colDate}>{formatDate(pl.createdAt)}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.footer}>
-          <Text>Vapour Toolbox — Packing Lists</Text>
-          <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
-        </View>
-      </Page>
+      <ReportPage orientation="landscape">
+        <ListHeader
+          title="Packing Lists"
+          subtitle={`Generated on ${generatedAt} — ${pls.length} record(s)`}
+        />
+        <ReportTable columns={columns} rows={rows} striped={true} fontSize={8} />
+        <ListFooter label="Vapour Toolbox — Packing Lists" />
+      </ReportPage>
     </Document>
   );
 }

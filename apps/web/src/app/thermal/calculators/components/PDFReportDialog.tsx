@@ -27,6 +27,7 @@ import {
 } from '@mui/material';
 import { Download as DownloadIcon } from '@mui/icons-material';
 import { fetchLogoAsDataUri } from '@/lib/pdf/logoUtils';
+import { downloadPDF, sanitiseFilename } from '@/lib/pdf/pdfUtils';
 
 export interface PDFReportMeta {
   documentNumber: string;
@@ -86,19 +87,8 @@ export function PDFReportDialog({
       };
 
       const doc = buildDocument(meta);
-
-      // Dynamic import keeps @react-pdf/renderer out of this module's static chunk
-      const { pdf } = await import('@react-pdf/renderer');
-      const blob = await pdf(doc).toBlob();
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${documentNumber.replace(/[^a-zA-Z0-9-]/g, '_')}_Rev${revision}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      const filename = `${sanitiseFilename(documentNumber)}_Rev${revision}.pdf`;
+      await downloadPDF(doc, filename);
 
       onClose();
     } catch (err) {
