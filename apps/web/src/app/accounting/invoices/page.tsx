@@ -23,6 +23,8 @@ import {
   Breadcrumbs,
   Link,
   Typography,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -38,6 +40,7 @@ import {
   AssignmentTurnedIn as SubmitIcon,
   Home as HomeIcon,
   Block as VoidIcon,
+  FileDownload as DownloadIcon,
 } from '@mui/icons-material';
 import {
   PageHeader,
@@ -56,6 +59,11 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { CustomerInvoice } from '@vapour/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
+import {
+  downloadReportCSV,
+  downloadReportExcel,
+  type ExportSection,
+} from '@/lib/accounting/reports/exportReport';
 import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -280,6 +288,81 @@ export default function InvoicesPage() {
     page * rowsPerPage + rowsPerPage
   );
 
+  const buildExportSections = (): ExportSection[] => {
+    const columns = [
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'Invoice Number', key: 'number', width: 18 },
+      { header: 'Customer', key: 'customer', width: 25 },
+      { header: 'Description', key: 'description', width: 30 },
+      {
+        header: 'Subtotal',
+        key: 'subtotal',
+        width: 15,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+      {
+        header: 'GST',
+        key: 'gst',
+        width: 12,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+      {
+        header: 'Total (INR)',
+        key: 'total',
+        width: 15,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+      { header: 'Currency', key: 'currency', width: 8 },
+      { header: 'Status', key: 'status', width: 15 },
+    ];
+    return [
+      {
+        title: 'Customer Invoices',
+        columns,
+        rows: filteredInvoices.map((inv) => ({
+          date: formatDate(inv.date),
+          number: inv.transactionNumber,
+          customer: inv.entityName || '',
+          description: inv.description || '',
+          subtotal: inv.subtotal || 0,
+          gst: inv.gstDetails?.totalGST || inv.taxAmount || 0,
+          total: inv.baseAmount || inv.totalAmount || 0,
+          currency: inv.currency || 'INR',
+          status: inv.status,
+        })),
+        summary: {
+          date: '',
+          number: '',
+          customer: 'TOTAL',
+          description: '',
+          subtotal: filteredInvoices.reduce((s, i) => s + (i.subtotal || 0), 0),
+          gst: filteredInvoices.reduce(
+            (s, i) => s + (i.gstDetails?.totalGST || i.taxAmount || 0),
+            0
+          ),
+          total: filteredInvoices.reduce((s, i) => s + (i.baseAmount || i.totalAmount || 0), 0),
+          currency: '',
+          status: '',
+        },
+      },
+    ];
+  };
+
+  const handleExportCSV = () =>
+    downloadReportCSV(
+      buildExportSections(),
+      `Customer_Invoices_${new Date().toISOString().slice(0, 10)}`
+    );
+  const handleExportExcel = () =>
+    downloadReportExcel(
+      buildExportSections(),
+      `Customer_Invoices_${new Date().toISOString().slice(0, 10)}`,
+      'Customer Invoices'
+    );
+
   if (loading) {
     return (
       <Box sx={{ py: 4 }}>
@@ -311,11 +394,27 @@ export default function InvoicesPage() {
         subtitle="Manage customer invoices and track payments"
         help={invoiceListHelp}
         action={
-          canManage && (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
-              New Invoice
-            </Button>
-          )
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {filteredInvoices.length > 0 && (
+              <>
+                <Tooltip title="Export CSV">
+                  <IconButton onClick={handleExportCSV} size="small">
+                    <DownloadIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Export Excel">
+                  <IconButton onClick={handleExportExcel} size="small" color="primary">
+                    <DownloadIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </>
+            )}
+            {canManage && (
+              <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
+                New Invoice
+              </Button>
+            )}
+          </Box>
         }
       />
 

@@ -28,6 +28,8 @@ import {
   Breadcrumbs,
   Link,
   Typography,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -44,6 +46,7 @@ import {
   Block as VoidIcon,
   Home as HomeIcon,
   Business as AssetIcon,
+  FileDownload as DownloadIcon,
 } from '@mui/icons-material';
 import {
   PageHeader,
@@ -61,6 +64,11 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { VendorBill } from '@vapour/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
+import {
+  downloadReportCSV,
+  downloadReportExcel,
+  type ExportSection,
+} from '@/lib/accounting/reports/exportReport';
 import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { useRouter } from 'next/navigation';
@@ -352,6 +360,87 @@ export default function BillsPage() {
   // Paginate filtered bills
   const paginatedBills = filteredBills.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
+  const buildExportSections = (): ExportSection[] => {
+    const columns = [
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'Bill Number', key: 'number', width: 18 },
+      { header: 'Vendor', key: 'vendor', width: 25 },
+      { header: 'PO #', key: 'poNumber', width: 15 },
+      { header: 'Description', key: 'description', width: 30 },
+      {
+        header: 'Subtotal',
+        key: 'subtotal',
+        width: 15,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+      {
+        header: 'GST',
+        key: 'gst',
+        width: 12,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+      {
+        header: 'TDS',
+        key: 'tds',
+        width: 12,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+      {
+        header: 'Total (INR)',
+        key: 'total',
+        width: 15,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+      { header: 'Status', key: 'status', width: 15 },
+    ];
+    return [
+      {
+        title: 'Vendor Bills',
+        columns,
+        rows: filteredBills.map((bill) => ({
+          date: formatDate(bill.date),
+          number: bill.vendorInvoiceNumber || bill.transactionNumber,
+          vendor: bill.entityName || '',
+          poNumber: bill.sourcePoNumber || '',
+          description: bill.description || '',
+          subtotal: bill.subtotal || 0,
+          gst: bill.gstDetails?.totalGST || 0,
+          tds: bill.tdsDeducted ? bill.tdsAmount || 0 : 0,
+          total: bill.baseAmount || bill.totalAmount || 0,
+          status: bill.status,
+        })),
+        summary: {
+          date: '',
+          number: '',
+          vendor: 'TOTAL',
+          poNumber: '',
+          description: '',
+          subtotal: monthTotals.subtotal,
+          gst: monthTotals.gst,
+          tds: monthTotals.tds,
+          total: monthTotals.total,
+          status: '',
+        },
+      },
+    ];
+  };
+
+  const handleExportCSV = () =>
+    downloadReportCSV(
+      buildExportSections(),
+      `Vendor_Bills_${new Date().toISOString().slice(0, 10)}`
+    );
+  const handleExportExcel = () =>
+    downloadReportExcel(
+      buildExportSections(),
+      `Vendor_Bills_${new Date().toISOString().slice(0, 10)}`,
+      'Vendor Bills'
+    );
+
   if (loading) {
     return (
       <Box sx={{ py: 4 }}>
@@ -382,11 +471,27 @@ export default function BillsPage() {
         title="Vendor Bills"
         subtitle="Track vendor bills and manage payments"
         action={
-          canManage && (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
-              Record Bill
-            </Button>
-          )
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {filteredBills.length > 0 && (
+              <>
+                <Tooltip title="Export CSV">
+                  <IconButton onClick={handleExportCSV} size="small">
+                    <DownloadIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Export Excel">
+                  <IconButton onClick={handleExportExcel} size="small" color="primary">
+                    <DownloadIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </>
+            )}
+            {canManage && (
+              <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
+                Record Bill
+              </Button>
+            )}
+          </Box>
         }
       />
 

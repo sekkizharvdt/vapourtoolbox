@@ -21,11 +21,14 @@ import {
   InputAdornment,
   Breadcrumbs,
   Link,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Visibility as ViewIcon,
   Search as SearchIcon,
   Home as HomeIcon,
+  FileDownload as DownloadIcon,
 } from '@mui/icons-material';
 import {
   PageHeader,
@@ -41,6 +44,11 @@ import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BaseTransaction, TransactionType } from '@vapour/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
+import {
+  downloadReportCSV,
+  downloadReportExcel,
+  type ExportSection,
+} from '@/lib/accounting/reports/exportReport';
 import { DualCurrencyAmount } from '@/components/accounting/DualCurrencyAmount';
 import { useRouter } from 'next/navigation';
 
@@ -140,6 +148,63 @@ export default function TransactionsPage() {
     setFilterStatus('ALL');
   };
 
+  const buildExportSections = (): ExportSection[] => {
+    const columns = [
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'Type', key: 'type', width: 15 },
+      { header: 'Transaction Number', key: 'number', width: 18 },
+      { header: 'Entity', key: 'entity', width: 25 },
+      { header: 'Description', key: 'description', width: 30 },
+      { header: 'Reference', key: 'reference', width: 20 },
+      {
+        header: 'Amount (INR)',
+        key: 'amount',
+        width: 15,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+      { header: 'Status', key: 'status', width: 12 },
+    ];
+    return [
+      {
+        title: 'All Transactions',
+        columns,
+        rows: filteredTransactions.map((txn) => ({
+          date: formatDate(txn.date),
+          type: getTransactionTypeLabel(txn.type),
+          number: txn.transactionNumber || '',
+          entity: ('entityName' in txn ? (txn as { entityName?: string }).entityName : '') || '',
+          description: txn.description || '',
+          reference: txn.reference || '',
+          amount: txn.baseAmount || txn.amount || 0,
+          status: txn.status,
+        })),
+        summary: {
+          date: '',
+          type: '',
+          number: '',
+          entity: 'TOTAL',
+          description: '',
+          reference: '',
+          amount: filteredTransactions.reduce((s, t) => s + (t.baseAmount || t.amount || 0), 0),
+          status: '',
+        },
+      },
+    ];
+  };
+
+  const handleExportCSV = () =>
+    downloadReportCSV(
+      buildExportSections(),
+      `All_Transactions_${new Date().toISOString().slice(0, 10)}`
+    );
+  const handleExportExcel = () =>
+    downloadReportExcel(
+      buildExportSections(),
+      `All_Transactions_${new Date().toISOString().slice(0, 10)}`,
+      'All Transactions'
+    );
+
   if (loading) {
     return (
       <Box sx={{ py: 4 }}>
@@ -166,7 +231,26 @@ export default function TransactionsPage() {
         <Typography color="text.primary">All Transactions</Typography>
       </Breadcrumbs>
 
-      <PageHeader title="All Transactions" subtitle="View and manage all accounting transactions" />
+      <PageHeader
+        title="All Transactions"
+        subtitle="View and manage all accounting transactions"
+        action={
+          filteredTransactions.length > 0 && (
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Tooltip title="Export CSV">
+                <IconButton onClick={handleExportCSV} size="small">
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Export Excel">
+                <IconButton onClick={handleExportExcel} size="small" color="primary">
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )
+        }
+      />
 
       <FilterBar onClear={handleClearFilters}>
         <TextField

@@ -38,6 +38,7 @@ import {
   Home as HomeIcon,
   AccountBalance as DirectPaymentIcon,
   Search as SearchIcon,
+  FileDownload as DownloadIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
@@ -48,6 +49,11 @@ import type { CustomerPayment, VendorPayment, PaymentMethod } from '@vapour/type
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import { useFirestoreQuery } from '@/hooks/useFirestoreQuery';
 import { formatDate } from '@/lib/utils/formatters';
+import {
+  downloadReportCSV,
+  downloadReportExcel,
+  type ExportSection,
+} from '@/lib/accounting/reports/exportReport';
 import { useRouter } from 'next/navigation';
 import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 import { softDeleteTransaction } from '@/lib/accounting/transactionDeleteService';
@@ -236,6 +242,70 @@ export default function PaymentsPage() {
     page * rowsPerPage + rowsPerPage
   );
 
+  const buildExportSections = (): ExportSection[] => {
+    const columns = [
+      { header: 'Type', key: 'type', width: 12 },
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'Payment Number', key: 'number', width: 18 },
+      { header: 'Entity', key: 'entity', width: 25 },
+      { header: 'Payment Method', key: 'method', width: 15 },
+      {
+        header: 'Amount',
+        key: 'amount',
+        width: 15,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+      { header: 'Reference', key: 'reference', width: 20 },
+      { header: 'Status', key: 'status', width: 12 },
+    ];
+    return [
+      {
+        title: 'Payments',
+        columns,
+        rows: filteredPayments.map((p) => ({
+          type:
+            p.type === 'CUSTOMER_PAYMENT'
+              ? 'Receipt'
+              : (p as unknown as { type: string }).type === 'DIRECT_PAYMENT'
+                ? 'Direct'
+                : 'Payment',
+          date: formatDate(p.paymentDate),
+          number: p.transactionNumber || '',
+          entity: p.entityName || '',
+          method: p.paymentMethod || '',
+          amount: p.totalAmount || 0,
+          reference:
+            p.paymentMethod === 'CHEQUE' && p.chequeNumber
+              ? `Cheque #${p.chequeNumber}`
+              : p.paymentMethod === 'UPI' && p.upiTransactionId
+                ? `UPI: ${p.upiTransactionId}`
+                : p.reference || '',
+          status: p.status,
+        })),
+        summary: {
+          type: '',
+          date: '',
+          number: '',
+          entity: 'TOTAL',
+          method: '',
+          amount: filteredPayments.reduce((s, p) => s + (p.totalAmount || 0), 0),
+          reference: '',
+          status: '',
+        },
+      },
+    ];
+  };
+
+  const handleExportCSV = () =>
+    downloadReportCSV(buildExportSections(), `Payments_${new Date().toISOString().slice(0, 10)}`);
+  const handleExportExcel = () =>
+    downloadReportExcel(
+      buildExportSections(),
+      `Payments_${new Date().toISOString().slice(0, 10)}`,
+      'Payments'
+    );
+
   if (loading) {
     return (
       <Box sx={{ p: 3 }}>
@@ -264,34 +334,50 @@ export default function PaymentsPage() {
 
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4">Payments</Typography>
-        {canManage && (
-          <Stack direction="row" spacing={2}>
-            <Button
-              variant="contained"
-              startIcon={<ReceiptIcon />}
-              onClick={handleCreateCustomerPayment}
-              color="success"
-            >
-              Customer Receipt
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<PaymentIcon />}
-              onClick={handleCreateVendorPayment}
-              color="primary"
-            >
-              Vendor Payment
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<DirectPaymentIcon />}
-              onClick={handleCreateDirectPayment}
-              color="secondary"
-            >
-              Direct Payment
-            </Button>
-          </Stack>
-        )}
+        <Stack direction="row" spacing={1} alignItems="center">
+          {filteredPayments.length > 0 && (
+            <>
+              <Tooltip title="Export CSV">
+                <IconButton onClick={handleExportCSV} size="small">
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Export Excel">
+                <IconButton onClick={handleExportExcel} size="small" color="primary">
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
+          {canManage && (
+            <Stack direction="row" spacing={2}>
+              <Button
+                variant="contained"
+                startIcon={<ReceiptIcon />}
+                onClick={handleCreateCustomerPayment}
+                color="success"
+              >
+                Customer Receipt
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<PaymentIcon />}
+                onClick={handleCreateVendorPayment}
+                color="primary"
+              >
+                Vendor Payment
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<DirectPaymentIcon />}
+                onClick={handleCreateDirectPayment}
+                color="secondary"
+              >
+                Direct Payment
+              </Button>
+            </Stack>
+          )}
+        </Stack>
       </Stack>
 
       {/* Filters */}

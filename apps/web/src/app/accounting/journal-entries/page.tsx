@@ -28,6 +28,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Home as HomeIcon,
+  FileDownload as DownloadIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
@@ -36,6 +37,11 @@ import { COLLECTIONS } from '@vapour/firebase';
 import { hasPermission, PERMISSION_FLAGS } from '@vapour/constants';
 import type { JournalEntry } from '@vapour/types';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
+import {
+  downloadReportCSV,
+  downloadReportExcel,
+  type ExportSection,
+} from '@/lib/accounting/reports/exportReport';
 import { CreateJournalEntryDialog } from './components/CreateJournalEntryDialog';
 import { formatDate } from '@/lib/utils/formatters';
 import { useRouter } from 'next/navigation';
@@ -146,6 +152,57 @@ export default function JournalEntriesPage() {
     page * rowsPerPage + rowsPerPage
   );
 
+  const buildExportSections = (): ExportSection[] => {
+    const columns = [
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'Transaction Number', key: 'number', width: 18 },
+      { header: 'Description', key: 'description', width: 35 },
+      { header: 'Reference', key: 'reference', width: 20 },
+      {
+        header: 'Amount',
+        key: 'amount',
+        width: 15,
+        align: 'right' as const,
+        format: 'currency' as const,
+      },
+      { header: 'Status', key: 'status', width: 12 },
+    ];
+    return [
+      {
+        title: 'Journal Entries',
+        columns,
+        rows: filteredEntries.map((entry) => ({
+          date: formatDate(entry.date),
+          number: entry.transactionNumber,
+          description: entry.description || '',
+          reference: entry.reference || '',
+          amount: entry.amount,
+          status: entry.status,
+        })),
+        summary: {
+          date: '',
+          number: '',
+          description: 'TOTAL',
+          reference: '',
+          amount: filteredEntries.reduce((s, e) => s + (e.amount || 0), 0),
+          status: '',
+        },
+      },
+    ];
+  };
+
+  const handleExportCSV = () =>
+    downloadReportCSV(
+      buildExportSections(),
+      `Journal_Entries_${new Date().toISOString().slice(0, 10)}`
+    );
+  const handleExportExcel = () =>
+    downloadReportExcel(
+      buildExportSections(),
+      `Journal_Entries_${new Date().toISOString().slice(0, 10)}`,
+      'Journal Entries'
+    );
+
   if (loading) {
     return (
       <Box sx={{ p: 3 }}>
@@ -174,11 +231,27 @@ export default function JournalEntriesPage() {
 
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4">Journal Entries</Typography>
-        {canManage && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
-            Create Journal Entry
-          </Button>
-        )}
+        <Stack direction="row" spacing={1} alignItems="center">
+          {filteredEntries.length > 0 && (
+            <>
+              <Tooltip title="Export CSV">
+                <IconButton onClick={handleExportCSV} size="small">
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Export Excel">
+                <IconButton onClick={handleExportExcel} size="small" color="primary">
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
+          {canManage && (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
+              Create Journal Entry
+            </Button>
+          )}
+        </Stack>
       </Stack>
 
       <FilterBar onClear={() => setSearchTerm('')}>
