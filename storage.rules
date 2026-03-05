@@ -13,6 +13,20 @@ service firebase.storage {
       allow write: if isAuthenticated();
     }
 
+    // Document uploads (via documentService) - general document storage
+    // Path: documents/{projectId}/{module}/{entityType}/{entityId}/{filename}
+    match /documents/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Document templates
+    // Path: templates/{filename}
+    match /templates/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
     // Accounting files - authenticated users can read and write
     match /accounting/{allPaths=**} {
       allow read: if isAuthenticated();
