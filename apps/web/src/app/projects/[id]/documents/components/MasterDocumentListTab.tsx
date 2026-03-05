@@ -330,8 +330,8 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
 
   return (
     <Box>
-      {/* Setup Banner — show when no numbering config AND no documents */}
-      {hasNumberingConfig === false && documents.length === 0 && (
+      {/* Setup Banner — show when no numbering config AND no documents AND user can manage */}
+      {hasManageAccess && hasNumberingConfig === false && documents.length === 0 && (
         <Alert severity="info" sx={{ mb: 3 }}>
           <Typography variant="body2" sx={{ mb: 1.5 }}>
             <strong>Tip:</strong> You can add documents manually, or set up auto-numbering / import
