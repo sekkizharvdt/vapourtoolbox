@@ -207,122 +207,133 @@ export const onTransactionWrite = onDocumentWritten(
  * Resets all account debit/credit/balance counters to zero, then rebuilds
  * from all non-deleted transaction GL entries.
  */
-export const recalculateAccountBalances = onCall(async (request) => {
-  // Require authentication
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'User must be authenticated');
-  }
-
-  // Rate limiting check
-  try {
-    enforceRateLimit(writeRateLimiter, request.auth.uid);
-  } catch (error) {
-    if (error instanceof RateLimitError) {
-      throw new HttpsError('resource-exhausted', error.message);
-    }
-    throw error;
-  }
-
-  // Require admin role
-  const userDoc = await db.collection('users').doc(request.auth.uid).get();
-  const userRole = userDoc.data()?.role;
-  if (userRole !== 'admin' && userRole !== 'accountant') {
-    throw new HttpsError(
-      'permission-denied',
-      'Only admins and accountants can recalculate balances'
-    );
-  }
-
-  const BATCH_LIMIT = 450; // Firestore batch limit is 500, leave headroom
-
-  try {
-    logger.info('Starting full account balance recalculation');
-
-    // Step 1: Reset all account balances to zero (chunked for large CoAs)
-    const accountsSnapshot = await db.collection('accounts').get();
-    const accountDocs = accountsSnapshot.docs;
-
-    for (let i = 0; i < accountDocs.length; i += BATCH_LIMIT) {
-      const chunk = accountDocs.slice(i, i + BATCH_LIMIT);
-      const resetBatch = db.batch();
-      chunk.forEach((doc) => {
-        resetBatch.update(doc.ref, {
-          debit: 0,
-          credit: 0,
-          balance: 0,
-          lastUpdated: FieldValue.serverTimestamp(),
-        });
-      });
-      await resetBatch.commit();
+export const recalculateAccountBalances = onCall(
+  { timeoutSeconds: 300, memory: '1GiB' },
+  async (request) => {
+    // Require authentication
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
     }
 
-    logger.info(`Reset ${accountsSnapshot.size} account balances to zero`);
-
-    // Step 2: Recalculate from all non-deleted transactions
-    const transactionsSnapshot = await db.collection('transactions').get();
-
-    // Aggregate all changes by account, skipping soft-deleted transactions
-    const aggregatedChanges = new Map<string, { debit: number; credit: number }>();
-    let skippedDeleted = 0;
-
-    transactionsSnapshot.docs.forEach((doc) => {
-      const transaction = doc.data() as Transaction;
-
-      // Skip soft-deleted transactions
-      if (transaction.isDeleted) {
-        skippedDeleted++;
-        return;
+    // Rate limiting check
+    try {
+      enforceRateLimit(writeRateLimiter, request.auth.uid);
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        throw new HttpsError('resource-exhausted', error.message);
       }
+      throw error;
+    }
 
-      if (transaction.entries && Array.isArray(transaction.entries)) {
-        for (const entry of transaction.entries) {
-          if (!entry.accountId) continue;
+    // Require MANAGE_ACCOUNTING permission via custom claims
+    const permissions = request.auth.token.permissions as number | undefined;
+    const MANAGE_ACCOUNTING = 1 << 14; // 16384, matches PERMISSION_FLAGS.MANAGE_ACCOUNTING
+    if (!permissions || (permissions & MANAGE_ACCOUNTING) === 0) {
+      throw new HttpsError(
+        'permission-denied',
+        'Only users with accounting management permissions can recalculate balances'
+      );
+    }
 
-          const current = aggregatedChanges.get(entry.accountId) || { debit: 0, credit: 0 };
-          aggregatedChanges.set(entry.accountId, {
-            debit: current.debit + (entry.debit || 0),
-            credit: current.credit + (entry.credit || 0),
+    const BATCH_LIMIT = 450; // Firestore batch limit is 500, leave headroom
+
+    try {
+      logger.info('Starting full account balance recalculation');
+
+      // Step 1: Reset all account balances to zero (chunked for large CoAs)
+      const accountsSnapshot = await db.collection('accounts').get();
+      const accountDocs = accountsSnapshot.docs;
+
+      for (let i = 0; i < accountDocs.length; i += BATCH_LIMIT) {
+        const chunk = accountDocs.slice(i, i + BATCH_LIMIT);
+        const resetBatch = db.batch();
+        chunk.forEach((doc) => {
+          resetBatch.update(doc.ref, {
+            debit: 0,
+            credit: 0,
+            balance: 0,
+            lastUpdated: FieldValue.serverTimestamp(),
           });
-        }
-      }
-    });
-
-    // Step 3: Apply aggregated changes directly (no read needed — accounts are at zero)
-    const accountsRef = db.collection('accounts');
-    const entries = Array.from(aggregatedChanges.entries());
-
-    for (let i = 0; i < entries.length; i += BATCH_LIMIT) {
-      const chunk = entries.slice(i, i + BATCH_LIMIT);
-      const updateBatch = db.batch();
-
-      for (const [accountId, change] of chunk) {
-        const accountRef = accountsRef.doc(accountId);
-        updateBatch.update(accountRef, {
-          debit: change.debit,
-          credit: change.credit,
-          balance: change.debit - change.credit,
-          lastUpdated: FieldValue.serverTimestamp(),
         });
+        await resetBatch.commit();
       }
 
-      await updateBatch.commit();
+      logger.info(`Reset ${accountsSnapshot.size} account balances to zero`);
+
+      // Step 2: Recalculate from all non-deleted transactions
+      const transactionsSnapshot = await db.collection('transactions').get();
+
+      // Aggregate all changes by account, skipping soft-deleted transactions
+      const aggregatedChanges = new Map<string, { debit: number; credit: number }>();
+      let skippedDeleted = 0;
+
+      transactionsSnapshot.docs.forEach((doc) => {
+        const transaction = doc.data() as Transaction;
+
+        // Skip soft-deleted transactions
+        if (transaction.isDeleted) {
+          skippedDeleted++;
+          return;
+        }
+
+        if (transaction.entries && Array.isArray(transaction.entries)) {
+          for (const entry of transaction.entries) {
+            if (!entry.accountId) continue;
+
+            const current = aggregatedChanges.get(entry.accountId) || { debit: 0, credit: 0 };
+            aggregatedChanges.set(entry.accountId, {
+              debit: current.debit + (entry.debit || 0),
+              credit: current.credit + (entry.credit || 0),
+            });
+          }
+        }
+      });
+
+      // Step 3: Apply aggregated changes directly (no read needed — accounts are at zero)
+      const accountsRef = db.collection('accounts');
+      const entries = Array.from(aggregatedChanges.entries());
+
+      for (let i = 0; i < entries.length; i += BATCH_LIMIT) {
+        const chunk = entries.slice(i, i + BATCH_LIMIT);
+        const updateBatch = db.batch();
+
+        for (const [accountId, change] of chunk) {
+          const accountRef = accountsRef.doc(accountId);
+          const debit = Math.round(change.debit * 100) / 100;
+          const credit = Math.round(change.credit * 100) / 100;
+          updateBatch.set(
+            accountRef,
+            {
+              debit,
+              credit,
+              balance: Math.round((debit - credit) * 100) / 100,
+              lastUpdated: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+        }
+
+        await updateBatch.commit();
+      }
+
+      logger.info(
+        `Recalculated balances for ${aggregatedChanges.size} accounts ` +
+          `from ${transactionsSnapshot.size - skippedDeleted} transactions ` +
+          `(${skippedDeleted} soft-deleted skipped)`
+      );
+
+      return {
+        success: true,
+        accountsReset: accountsSnapshot.size,
+        accountsUpdated: aggregatedChanges.size,
+        transactionsProcessed: transactionsSnapshot.size - skippedDeleted,
+        transactionsSkipped: skippedDeleted,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      logger.error('Error recalculating account balances:', { errorMessage, errorStack, error });
+      throw new HttpsError('internal', `Failed to recalculate account balances: ${errorMessage}`);
     }
-
-    logger.info(
-      `Recalculated balances for ${aggregatedChanges.size} accounts ` +
-        `from ${transactionsSnapshot.size - skippedDeleted} transactions ` +
-        `(${skippedDeleted} soft-deleted skipped)`
-    );
-
-    return {
-      success: true,
-      accountsReset: accountsSnapshot.size,
-      accountsUpdated: aggregatedChanges.size,
-      transactionsProcessed: transactionsSnapshot.size - skippedDeleted,
-      transactionsSkipped: skippedDeleted,
-    };
-  } catch (error) {
-    logger.error('Error recalculating account balances:', error);
-    throw new HttpsError('internal', 'Failed to recalculate account balances');
   }
-});
+);
