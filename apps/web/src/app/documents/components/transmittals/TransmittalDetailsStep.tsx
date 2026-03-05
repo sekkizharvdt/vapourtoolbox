@@ -9,24 +9,38 @@
  * - Purpose of issue
  */
 
-import { Stack, TextField, Typography, Alert } from '@mui/material';
+import {
+  Stack,
+  TextField,
+  Typography,
+  Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+} from '@mui/material';
+import type { TransmittalDeliveryMethod } from '@vapour/types';
 
 interface TransmittalDetailsStepProps {
   subject: string;
   coverNotes: string;
   purposeOfIssue: string;
+  deliveryMethod: TransmittalDeliveryMethod | '';
   onSubjectChange: (value: string) => void;
   onCoverNotesChange: (value: string) => void;
   onPurposeChange: (value: string) => void;
+  onDeliveryMethodChange: (value: TransmittalDeliveryMethod | '') => void;
 }
 
 export default function TransmittalDetailsStep({
   subject,
   coverNotes,
   purposeOfIssue,
+  deliveryMethod,
   onSubjectChange,
   onCoverNotesChange,
   onPurposeChange,
+  onDeliveryMethodChange,
 }: TransmittalDetailsStepProps) {
   return (
     <Stack spacing={3}>
@@ -50,6 +64,23 @@ export default function TransmittalDetailsStep({
         placeholder="e.g., For Approval, For Review, For Information"
         fullWidth
       />
+
+      <FormControl fullWidth>
+        <InputLabel id="delivery-method-label">Delivery Method</InputLabel>
+        <Select
+          labelId="delivery-method-label"
+          value={deliveryMethod}
+          label="Delivery Method"
+          onChange={(e) => onDeliveryMethodChange(e.target.value as TransmittalDeliveryMethod | '')}
+        >
+          <MenuItem value="">
+            <em>None</em>
+          </MenuItem>
+          <MenuItem value="HARD_COPY">Hard Copy Only</MenuItem>
+          <MenuItem value="SOFT_COPY">Soft Copy Only</MenuItem>
+          <MenuItem value="BOTH">Both Hard &amp; Soft Copy</MenuItem>
+        </Select>
+      </FormControl>
 
       <TextField
         label="Cover Notes"

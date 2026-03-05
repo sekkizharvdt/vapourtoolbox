@@ -5,6 +5,7 @@
  *
  * Shows full details of a master document with tabs for:
  * - Overview
+ * - Revisions & Submissions
  * - Comments
  * - Supply List
  * - Work List
@@ -32,6 +33,7 @@ import Link from 'next/link';
 import type { MasterDocumentEntry } from '@vapour/types';
 import { getMasterDocumentById } from '@/lib/documents/masterDocumentService';
 import DocumentOverview from '../components/DocumentOverview';
+import DocumentRevisions from '../components/DocumentRevisions';
 import DocumentComments from '../components/DocumentComments';
 import DocumentSupplyList from '../components/DocumentSupplyList';
 import DocumentWorkList from '../components/DocumentWorkList';
@@ -91,10 +93,11 @@ export default function DocumentDetailClient() {
   useEffect(() => {
     // Set tab from URL parameter
     const tab = searchParams.get('tab');
-    if (tab === 'comments') setCurrentTab(1);
-    else if (tab === 'supply') setCurrentTab(2);
-    else if (tab === 'work') setCurrentTab(3);
-    else if (tab === 'links') setCurrentTab(4);
+    if (tab === 'revisions') setCurrentTab(1);
+    else if (tab === 'comments') setCurrentTab(2);
+    else if (tab === 'supply') setCurrentTab(3);
+    else if (tab === 'work') setCurrentTab(4);
+    else if (tab === 'links') setCurrentTab(5);
     else setCurrentTab(0);
   }, [searchParams]);
 
@@ -221,6 +224,7 @@ export default function DocumentDetailClient() {
             scrollButtons="auto"
           >
             <Tab label="Overview" />
+            <Tab label="Revisions" />
             <Tab label="Comments" />
             <Tab label="Supply List" />
             <Tab label="Work List" />
@@ -233,18 +237,22 @@ export default function DocumentDetailClient() {
           </TabPanel>
 
           <TabPanel value={currentTab} index={1}>
-            <DocumentComments document={document} onUpdate={loadDocument} />
+            <DocumentRevisions document={document} onUpdate={loadDocument} />
           </TabPanel>
 
           <TabPanel value={currentTab} index={2}>
-            <DocumentSupplyList document={document} onUpdate={loadDocument} />
+            <DocumentComments document={document} onUpdate={loadDocument} />
           </TabPanel>
 
           <TabPanel value={currentTab} index={3}>
-            <DocumentWorkList document={document} onUpdate={loadDocument} />
+            <DocumentSupplyList document={document} onUpdate={loadDocument} />
           </TabPanel>
 
           <TabPanel value={currentTab} index={4}>
+            <DocumentWorkList document={document} onUpdate={loadDocument} />
+          </TabPanel>
+
+          <TabPanel value={currentTab} index={5}>
             <DocumentLinks document={document} onUpdate={loadDocument} />
           </TabPanel>
         </Paper>

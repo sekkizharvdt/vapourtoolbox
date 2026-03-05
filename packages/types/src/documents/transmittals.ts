@@ -17,6 +17,11 @@ import type { MasterDocumentStatus } from './masterDocumentList';
 export type TransmittalStatus = 'DRAFT' | 'GENERATED' | 'SENT' | 'ACKNOWLEDGED';
 
 /**
+ * Delivery Method for Transmittals
+ */
+export type TransmittalDeliveryMethod = 'HARD_COPY' | 'SOFT_COPY' | 'BOTH';
+
+/**
  * Document Transmittal
  * Tracks bulk document submissions to clients
  */
@@ -43,6 +48,7 @@ export interface DocumentTransmittal {
   subject?: string;
   coverNotes?: string;
   purposeOfIssue?: string;
+  deliveryMethod?: TransmittalDeliveryMethod;
 
   // Files
   transmittalPdfUrl?: string; // Generated PDF location
@@ -78,6 +84,7 @@ export interface TransmittalDocumentEntry {
   status: MasterDocumentStatus;
   purposeOfIssue?: string;
   remarks?: string;
+  fileTypes?: ('NATIVE' | 'PDF')[];
 
   // File references
   submissionId?: string;

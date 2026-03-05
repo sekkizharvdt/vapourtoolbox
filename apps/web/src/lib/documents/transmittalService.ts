@@ -20,10 +20,18 @@ import {
   orderBy,
   limit,
   Timestamp,
+  writeBatch,
   type Firestore,
 } from 'firebase/firestore';
 import { docToTyped } from '@/lib/firebase/typeHelpers';
-import type { DocumentTransmittal, TransmittalStatus } from '@vapour/types';
+import type {
+  DocumentTransmittal,
+  TransmittalDeliveryMethod,
+  TransmittalStatus,
+  MasterDocumentEntry,
+  MasterDocumentStatus,
+} from '@vapour/types';
+import { masterDocumentStateMachine } from '@/lib/workflow/stateMachines';
 
 /**
  * Generate next transmittal number for a project
@@ -69,6 +77,7 @@ export interface CreateTransmittalData {
   subject?: string;
   coverNotes?: string;
   purposeOfIssue?: string;
+  deliveryMethod?: TransmittalDeliveryMethod;
   createdBy: string;
   createdByName: string;
 }
@@ -96,6 +105,7 @@ export async function createTransmittal(
     subject: data.subject,
     coverNotes: data.coverNotes,
     purposeOfIssue: data.purposeOfIssue,
+    ...(data.deliveryMethod !== undefined && { deliveryMethod: data.deliveryMethod }),
     createdBy: data.createdBy,
     createdByName: data.createdByName,
     createdAt: now,
@@ -207,6 +217,64 @@ export async function updateTransmittalFiles(
     status: 'GENERATED',
     updatedAt: Timestamp.now(),
   } as Record<string, unknown>);
+
+  // Auto-transition: mark included documents as SUBMITTED
+  const transmittal = await getTransmittal(db, projectId, transmittalId);
+  if (transmittal?.documentIds?.length) {
+    await markTransmittalDocumentsAsSubmitted(db, projectId, transmittal.documentIds);
+  }
+}
+
+/**
+ * Mark documents included in a transmittal as SUBMITTED.
+ *
+ * Only transitions documents whose current status allows moving to SUBMITTED
+ * (e.g., IN_PROGRESS → SUBMITTED). Documents already in SUBMITTED or a later
+ * state are left unchanged. Uses a batch write for atomicity.
+ */
+export async function markTransmittalDocumentsAsSubmitted(
+  db: Firestore,
+  projectId: string,
+  documentIds: string[]
+): Promise<{ updated: number; skipped: number }> {
+  if (documentIds.length === 0) return { updated: 0, skipped: 0 };
+
+  const now = Timestamp.now();
+  let updated = 0;
+  let skipped = 0;
+
+  // Process in batches of 500 (Firestore limit)
+  for (let i = 0; i < documentIds.length; i += 500) {
+    const chunk = documentIds.slice(i, i + 500);
+    const batch = writeBatch(db);
+
+    for (const docId of chunk) {
+      const docRef = doc(db, 'projects', projectId, 'masterDocuments', docId);
+      const snap = await getDoc(docRef);
+
+      if (!snap.exists()) {
+        skipped++;
+        continue;
+      }
+
+      const data = snap.data() as MasterDocumentEntry;
+      const currentStatus = data.status as MasterDocumentStatus;
+
+      // Only transition if the state machine allows it
+      if (masterDocumentStateMachine.canTransitionTo(currentStatus, 'SUBMITTED')) {
+        batch.update(docRef, { status: 'SUBMITTED', updatedAt: now });
+        updated++;
+      } else {
+        skipped++;
+      }
+    }
+
+    if (updated > 0) {
+      await batch.commit();
+    }
+  }
+
+  return { updated, skipped };
 }
 
 /**

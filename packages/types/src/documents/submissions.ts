@@ -278,3 +278,45 @@ export interface CommentResolutionSheet {
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
+
+// ============================================================================
+// CLIENT APPROVAL LETTERS
+// ============================================================================
+
+/**
+ * Client Approval Letter
+ * An approval email/letter from the client that can cover multiple documents.
+ * One letter may approve N documents at once.
+ */
+export interface ClientApprovalLetter {
+  id: string;
+  projectId: string;
+
+  // Letter Info
+  letterReference?: string; // Client's reference number (e.g., "ABC-APP-2026-001")
+  letterDate: Timestamp; // Date of the approval letter
+  subject?: string;
+
+  // File
+  fileName: string;
+  fileUrl: string;
+  storagePath: string;
+  fileSize: number;
+  mimeType: string;
+
+  // Approved Documents
+  approvedDocumentIds: string[]; // Master document IDs covered by this letter
+  approvedDocumentCount: number;
+
+  // Upload Info
+  uploadedBy: string;
+  uploadedByName: string;
+  uploadedAt: Timestamp;
+
+  // Notes
+  notes?: string;
+
+  // Audit
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}

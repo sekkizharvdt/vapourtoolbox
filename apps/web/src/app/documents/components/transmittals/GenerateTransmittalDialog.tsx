@@ -27,7 +27,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import type { MasterDocumentEntry } from '@vapour/types';
+import type { MasterDocumentEntry, TransmittalDeliveryMethod } from '@vapour/types';
 import DocumentSelectionStep from './DocumentSelectionStep';
 import TransmittalDetailsStep from './TransmittalDetailsStep';
 import PreviewStep from './PreviewStep';
@@ -63,6 +63,7 @@ export default function GenerateTransmittalDialog({
   const [subject, setSubject] = useState('');
   const [coverNotes, setCoverNotes] = useState('');
   const [purposeOfIssue, setPurposeOfIssue] = useState('');
+  const [deliveryMethod, setDeliveryMethod] = useState<TransmittalDeliveryMethod | ''>('');
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,6 +82,7 @@ export default function GenerateTransmittalDialog({
       setSubject('');
       setCoverNotes('');
       setPurposeOfIssue('');
+      setDeliveryMethod('');
       setError(null);
       onClose();
     }
@@ -216,9 +218,11 @@ export default function GenerateTransmittalDialog({
                 subject={subject}
                 coverNotes={coverNotes}
                 purposeOfIssue={purposeOfIssue}
+                deliveryMethod={deliveryMethod}
                 onSubjectChange={setSubject}
                 onCoverNotesChange={setCoverNotes}
                 onPurposeChange={setPurposeOfIssue}
+                onDeliveryMethodChange={setDeliveryMethod}
               />
             )}
 

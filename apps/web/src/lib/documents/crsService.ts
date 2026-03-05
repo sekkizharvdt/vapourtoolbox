@@ -23,9 +23,11 @@ import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/
 import type {
   CommentResolutionSheet,
   MasterDocumentEntry,
+  MasterDocumentStatus,
   DocumentSubmission,
 } from '@vapour/types';
 import { createLogger } from '@vapour/logger';
+import { masterDocumentStateMachine } from '@/lib/workflow/stateMachines';
 
 const logger = createLogger({ context: 'crsService' });
 
@@ -137,6 +139,25 @@ export async function uploadCommentResolutionSheet(
 
   const crsRef = collection(db, 'projects', projectId, 'commentResolutionSheets');
   const docRef = await addDoc(crsRef, crsData);
+
+  // Auto-transition: mark master document as UNDER_REVIEW when CRS is uploaded
+  try {
+    const currentStatus = masterDocument.status as MasterDocumentStatus;
+    if (masterDocumentStateMachine.canTransitionTo(currentStatus, 'UNDER_REVIEW')) {
+      const masterDocRef = doc(db, 'projects', projectId, 'masterDocuments', masterDocument.id);
+      await updateDoc(masterDocRef, {
+        status: 'UNDER_REVIEW',
+        updatedAt: Timestamp.now(),
+      });
+    }
+  } catch (err) {
+    // Don't fail the CRS upload if the status update fails
+    logger.error('Failed to auto-transition document to UNDER_REVIEW', {
+      masterDocumentId: masterDocument.id,
+      currentStatus: masterDocument.status,
+      error: err,
+    });
+  }
 
   return {
     crsId: docRef.id,

@@ -1153,10 +1153,26 @@ service cloud.firestore {
 
     /**
      * Document Numbering Configuration (per project)
+     * Permission bits:
+     *   MANAGE_DOCUMENTS = 134217728 (bit 27)
+     *   VIEW_ALL_PROJECTS = 32 (bit 5)
      */
     match /projects/{projectId}/documentNumberingConfig/{configId} {
-      allow read: if isInternalUser() && isAssignedToProject(projectId);
-      allow write: if isInternalUser() && hasPermission(134217728); // MANAGE_DOCUMENTS
+      // Read: Internal users assigned to project OR with VIEW_ALL_PROJECTS or MANAGE_DOCUMENTS
+      allow read: if isInternalUser() && (
+                       isAssignedToProject(projectId) ||
+                       hasPermission(32) || // VIEW_ALL_PROJECTS
+                       hasPermission(134217728) // MANAGE_DOCUMENTS
+                     );
+
+      // Create/Update: Internal users with MANAGE_DOCUMENTS
+      allow create: if isInternalUser() &&
+                       hasPermission(134217728); // MANAGE_DOCUMENTS
+      allow update: if isInternalUser() &&
+                       hasPermission(134217728); // MANAGE_DOCUMENTS
+
+      // Delete: Only Super Admin
+      allow delete: if isSuperAdmin();
     }
 
     /**
@@ -1286,6 +1302,70 @@ service cloud.firestore {
 
       // Delete: Only Super Admin
       allow delete: if isSuperAdmin();
+    }
+
+    /**
+     * Transmittals (per project)
+     * Permission bits:
+     *   MANAGE_DOCUMENTS = 134217728 (bit 27)
+     *   VIEW_ALL_PROJECTS = 32 (bit 5)
+     */
+    match /projects/{projectId}/transmittals/{transmittalId} {
+      // Read: Internal users assigned to project OR with VIEW_ALL_PROJECTS or MANAGE_DOCUMENTS
+      allow read: if isInternalUser() && (
+                       isAssignedToProject(projectId) ||
+                       hasPermission(32) || // VIEW_ALL_PROJECTS
+                       hasPermission(134217728) // MANAGE_DOCUMENTS
+                     );
+
+      // Create: Internal users with MANAGE_DOCUMENTS
+      allow create: if isInternalUser() &&
+                       hasPermission(134217728); // MANAGE_DOCUMENTS
+
+      // Update: Internal users with MANAGE_DOCUMENTS
+      allow update: if isInternalUser() &&
+                       hasPermission(134217728); // MANAGE_DOCUMENTS
+
+      // Delete: Only MANAGE_DOCUMENTS or Super Admin
+      allow delete: if isInternalUser() &&
+                       (hasPermission(134217728) || isSuperAdmin());
+    }
+
+    /**
+     * Comment Resolution Sheets (per project)
+     * Permission bits:
+     *   MANAGE_DOCUMENTS = 134217728 (bit 27)
+     *   SUBMIT_DOCUMENTS = 268435456 (bit 28)
+     *   REVIEW_DOCUMENTS = 536870912 (bit 29)
+     *   VIEW_ALL_PROJECTS = 32 (bit 5)
+     */
+    match /projects/{projectId}/commentResolutionSheets/{crsId} {
+      // Read: Internal users assigned to project OR with VIEW_ALL_PROJECTS or MANAGE_DOCUMENTS
+      //       OR external CLIENT_PM with REVIEW_DOCUMENTS
+      allow read: if (isInternalUser() && (
+                       isAssignedToProject(projectId) ||
+                       hasPermission(32) || // VIEW_ALL_PROJECTS
+                       hasPermission(134217728) // MANAGE_DOCUMENTS
+                     )) ||
+                     (isExternalUser() && isAssignedToProject(projectId) &&
+                      hasPermission(536870912)); // REVIEW_DOCUMENTS (external client access)
+
+      // Create: Internal users with MANAGE_DOCUMENTS or SUBMIT_DOCUMENTS
+      //         OR external CLIENT_PM with REVIEW_DOCUMENTS (clients can upload CRS)
+      allow create: if (isInternalUser() &&
+                        (hasPermission(134217728) || // MANAGE_DOCUMENTS (bypass)
+                         (isAssignedToProject(projectId) && hasPermission(268435456)))) || // SUBMIT_DOCUMENTS
+                       (isExternalUser() && isAssignedToProject(projectId) &&
+                        hasPermission(536870912)); // REVIEW_DOCUMENTS
+
+      // Update: Internal users with MANAGE_DOCUMENTS or SUBMIT_DOCUMENTS
+      allow update: if isInternalUser() &&
+                       (hasPermission(134217728) || // MANAGE_DOCUMENTS (bypass)
+                        (isAssignedToProject(projectId) && hasPermission(268435456))); // SUBMIT_DOCUMENTS
+
+      // Delete: Only MANAGE_DOCUMENTS or Super Admin
+      allow delete: if isInternalUser() &&
+                       (hasPermission(134217728) || isSuperAdmin());
     }
 
     /**

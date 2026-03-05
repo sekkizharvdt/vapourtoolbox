@@ -28,6 +28,8 @@ import type {
   DocumentLink,
   DocumentReference,
 } from '@vapour/types';
+import { masterDocumentStateMachine } from '@/lib/workflow/stateMachines';
+import { requireValidTransition } from '@/lib/utils/stateMachine';
 
 // Helper to get database instance
 const getDb = () => getFirebase().db;
@@ -183,7 +185,11 @@ export async function updateMasterDocument(
 }
 
 /**
- * Update document status
+ * Update document status with state machine validation.
+ *
+ * Validates the transition against the masterDocumentStateMachine
+ * before writing. Throws InvalidTransitionError if the transition
+ * is not allowed.
  */
 export async function updateDocumentStatus(
   projectId: string,
@@ -191,17 +197,23 @@ export async function updateDocumentStatus(
   status: MasterDocumentStatus,
   _updatedBy: string
 ): Promise<void> {
+  // Fetch current document to validate the transition
+  const currentDoc = await getMasterDocumentById(projectId, masterDocumentId);
+  if (!currentDoc) {
+    throw new Error(`Document not found: ${masterDocumentId}`);
+  }
+
+  // Validate state machine transition
+  requireValidTransition(masterDocumentStateMachine, currentDoc.status, status, 'MasterDocument');
+
   const updates: Partial<MasterDocumentEntry> = {
     status,
     updatedAt: Timestamp.now(),
   };
 
   // Track actual start/completion dates
-  if (status === 'IN_PROGRESS') {
-    const doc = await getMasterDocumentById(projectId, masterDocumentId);
-    if (doc && !doc.actualStartDate) {
-      updates.actualStartDate = Timestamp.now();
-    }
+  if (status === 'IN_PROGRESS' && !currentDoc.actualStartDate) {
+    updates.actualStartDate = Timestamp.now();
   } else if (status === 'ACCEPTED') {
     updates.actualCompletionDate = Timestamp.now();
   }
@@ -334,8 +346,10 @@ export async function checkPredecessorsCompleted(
 
   // Fetch all predecessors in parallel (instead of N+1 sequential queries)
   const predecessorPromises = docData.predecessors.map((predecessor) =>
-    getMasterDocumentById(projectId, predecessor.masterDocumentId)
-      .then((predecessorDoc) => ({ predecessor, predecessorDoc }))
+    getMasterDocumentById(projectId, predecessor.masterDocumentId).then((predecessorDoc) => ({
+      predecessor,
+      predecessorDoc,
+    }))
   );
 
   const results = await Promise.all(predecessorPromises);
@@ -402,10 +416,7 @@ export async function getSuccessorsReadyToStart(
   // Check predecessors for all draft successors in parallel
   const readyChecks = await Promise.all(
     draftSuccessors.map(async (successorDoc) => {
-      const { allCompleted } = await checkPredecessorsCompleted(
-        projectId,
-        successorDoc.id
-      );
+      const { allCompleted } = await checkPredecessorsCompleted(projectId, successorDoc.id);
       return { successorDoc, allCompleted };
     })
   );
@@ -523,16 +534,16 @@ export async function getDocumentStatistics(
   // For discipline breakdown, we need to fetch documents since Firestore doesn't support
   // groupBy aggregations. However, we only select minimal fields needed.
   // This is still better than the previous approach which loaded all document data.
-  const disciplinePromise = getDocs(
-    query(collectionRef, where('isDeleted', '==', false))
-  ).then((snapshot) => {
-    const byDiscipline: Record<string, number> = {};
-    snapshot.forEach((doc) => {
-      const disciplineCode = doc.data().disciplineCode as string;
-      byDiscipline[disciplineCode] = (byDiscipline[disciplineCode] || 0) + 1;
-    });
-    return byDiscipline;
-  });
+  const disciplinePromise = getDocs(query(collectionRef, where('isDeleted', '==', false))).then(
+    (snapshot) => {
+      const byDiscipline: Record<string, number> = {};
+      snapshot.forEach((doc) => {
+        const disciplineCode = doc.data().disciplineCode as string;
+        byDiscipline[disciplineCode] = (byDiscipline[disciplineCode] || 0) + 1;
+      });
+      return byDiscipline;
+    }
+  );
 
   // Execute all queries in parallel
   const [statusCounts, overdueCount, totalCount, byDiscipline] = await Promise.all([
