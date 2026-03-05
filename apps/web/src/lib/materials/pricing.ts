@@ -71,15 +71,21 @@ export async function addMaterialPrice(
     // Add price document
     const priceRef = await addDoc(collection(db, COLLECTIONS.MATERIAL_PRICES), newPrice);
 
-    // Update material's current price if this is the latest active price
+    // Update material's current price only if this is newer than the existing price
     if (newPrice.isActive) {
-      const materialRef = doc(db, COLLECTIONS.MATERIALS, price.materialId);
-      await updateDoc(materialRef, {
-        currentPrice: { ...newPrice, id: priceRef.id },
-        lastPriceUpdate: now,
-        updatedAt: now,
-        updatedBy: userId,
-      });
+      const material = await getMaterialById(db, price.materialId);
+      const existingDate = material?.currentPrice?.effectiveDate;
+      const isNewer = !existingDate || newPrice.effectiveDate.toMillis() >= existingDate.toMillis();
+
+      if (isNewer) {
+        const materialRef = doc(db, COLLECTIONS.MATERIALS, price.materialId);
+        await updateDoc(materialRef, {
+          currentPrice: { ...newPrice, id: priceRef.id },
+          lastPriceUpdate: now,
+          updatedAt: now,
+          updatedBy: userId,
+        });
+      }
     }
 
     logger.info('Material price added successfully', { priceId: priceRef.id });

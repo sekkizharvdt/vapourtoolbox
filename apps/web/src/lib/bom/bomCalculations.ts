@@ -68,15 +68,18 @@ export async function calculateBoughtOutItemCost(
     const currency = material.currentPrice?.pricePerUnit.currency || 'INR';
 
     // For bought-out items:
-    // - No weight calculation (items are bought complete)
+    // - Weight from material document (weightPerPiece_kg for flanges/fittings, weightPerMeter_kg for pipes)
     // - No fabrication cost (no fabrication needed)
     // - Cost is direct from material price
-    const weight = 0; // Not applicable for bought-out items
+    const weight =
+      material.baseUnit === 'meter'
+        ? material.weightPerMeter_kg || 0
+        : material.weightPerPiece_kg || 0;
     const materialCostPerUnit = materialPrice;
     const fabricationCostPerUnit = 0; // No fabrication for bought-out items
 
-    // Apply quantity
-    const totalWeight = 0;
+    // Apply quantity (for pipes, quantity = meters; for flanges/fittings, quantity = pieces)
+    const totalWeight = weight * item.quantity;
     const totalMaterialCost = materialCostPerUnit * item.quantity;
     const totalFabricationCost = 0;
 

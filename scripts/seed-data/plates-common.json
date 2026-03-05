@@ -23,14 +23,335 @@
         "density": 7850,
         "densityUnit": "kg/m3"
       },
-      "hasVariants": false,
+      "hasVariants": true,
       "baseUnit": "kg",
       "tags": ["plate", "carbon-steel", "structural", "A36", "ASTM"],
       "isActive": true,
       "isStandard": true,
       "preferredVendors": [],
       "priceHistory": [],
-      "certifications": []
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 23.55,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 31.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 39.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 47.1,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 62.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 78.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 94.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 109.9,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 125.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 141.3,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 157,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 172.7,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 196.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 219.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 235.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 251.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 274.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 298.3,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 314,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 353.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 392.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 431.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 471,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 510.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 549.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 588.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 628,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 706.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 785,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
     },
     {
       "materialCode": "PL-CS-516-60",
@@ -50,14 +371,335 @@
         "tensileStrength": 415,
         "yieldStrength": 220
       },
-      "hasVariants": false,
+      "hasVariants": true,
       "baseUnit": "kg",
       "tags": ["plate", "carbon-steel", "pressure-vessel", "SA516", "Gr60", "ASTM"],
       "isActive": true,
       "isStandard": true,
       "preferredVendors": [],
       "priceHistory": [],
-      "certifications": []
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 23.55,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 31.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 39.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 47.1,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 62.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 78.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 94.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 109.9,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 125.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 141.3,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 157,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 172.7,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 196.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 219.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 235.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 251.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 274.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 298.3,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 314,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 353.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 392.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 431.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 471,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 510.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 549.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 588.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 628,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 706.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 785,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
     },
     {
       "materialCode": "PL-CS-516-70",
@@ -77,14 +719,335 @@
         "tensileStrength": 485,
         "yieldStrength": 260
       },
-      "hasVariants": false,
+      "hasVariants": true,
       "baseUnit": "kg",
       "tags": ["plate", "carbon-steel", "pressure-vessel", "SA516", "Gr70", "ASTM"],
       "isActive": true,
       "isStandard": true,
       "preferredVendors": [],
       "priceHistory": [],
-      "certifications": []
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 23.55,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 31.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 39.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 47.1,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 62.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 78.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 94.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 109.9,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 125.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 141.3,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 157,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 172.7,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 196.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 219.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 235.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 251.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 274.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 298.3,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 314,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 353.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 392.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 431.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 471,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 510.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 549.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 588.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 628,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 706.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 785,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
     },
     {
       "materialCode": "PL-SS-304",
@@ -104,14 +1067,335 @@
         "tensileStrength": 515,
         "yieldStrength": 205
       },
-      "hasVariants": false,
+      "hasVariants": true,
       "baseUnit": "kg",
       "tags": ["plate", "stainless-steel", "304", "austenitic", "ASTM", "A240"],
       "isActive": true,
       "isStandard": true,
       "preferredVendors": [],
       "priceHistory": [],
-      "certifications": []
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 23.79,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 31.72,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 39.65,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 47.58,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 63.44,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 79.3,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 95.16,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 111.02,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 126.88,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 142.74,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 158.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 174.46,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 198.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 222.04,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 237.9,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 253.76,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 277.55,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 301.34,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 317.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 356.85,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 396.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 436.15,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 475.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 515.45,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 555.1,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 594.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 634.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 713.7,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 793,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
     },
     {
       "materialCode": "PL-SS-304L",
@@ -131,14 +1415,335 @@
         "tensileStrength": 485,
         "yieldStrength": 170
       },
-      "hasVariants": false,
+      "hasVariants": true,
       "baseUnit": "kg",
       "tags": ["plate", "stainless-steel", "304L", "low-carbon", "austenitic", "ASTM", "A240"],
       "isActive": true,
       "isStandard": true,
       "preferredVendors": [],
       "priceHistory": [],
-      "certifications": []
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 23.79,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 31.72,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 39.65,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 47.58,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 63.44,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 79.3,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 95.16,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 111.02,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 126.88,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 142.74,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 158.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 174.46,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 198.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 222.04,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 237.9,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 253.76,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 277.55,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 301.34,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 317.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 356.85,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 396.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 436.15,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 475.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 515.45,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 555.1,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 594.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 634.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 713.7,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 793,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
     },
     {
       "materialCode": "PL-SS-316",
@@ -158,14 +1763,335 @@
         "tensileStrength": 515,
         "yieldStrength": 205
       },
-      "hasVariants": false,
+      "hasVariants": true,
       "baseUnit": "kg",
       "tags": ["plate", "stainless-steel", "316", "austenitic", "molybdenum", "ASTM", "A240"],
       "isActive": true,
       "isStandard": true,
       "preferredVendors": [],
       "priceHistory": [],
-      "certifications": []
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 24,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 32,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 40,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 48,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 64,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 80,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 96,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 112,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 128,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 144,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 160,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 176,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 200,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 224,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 240,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 256,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 280,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 304,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 320,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 360,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 400,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 440,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 480,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 520,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 560,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 600,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 640,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 720,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 800,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
     },
     {
       "materialCode": "PL-SS-316L",
@@ -185,7 +2111,7 @@
         "tensileStrength": 485,
         "yieldStrength": 170
       },
-      "hasVariants": false,
+      "hasVariants": true,
       "baseUnit": "kg",
       "tags": [
         "plate",
@@ -201,7 +2127,328 @@
       "isStandard": true,
       "preferredVendors": [],
       "priceHistory": [],
-      "certifications": []
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 24,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 32,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 40,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 48,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 64,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 80,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 96,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 112,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 128,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 144,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 160,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 176,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 200,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 224,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 240,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 256,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 280,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 304,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 320,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 360,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 400,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 440,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 480,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 520,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 560,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 600,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 640,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 720,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 800,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
     },
     {
       "materialCode": "PL-SS-321",
@@ -222,7 +2469,7 @@
         "yieldStrength": 205,
         "maxOperatingTemp": 900
       },
-      "hasVariants": false,
+      "hasVariants": true,
       "baseUnit": "kg",
       "tags": [
         "plate",
@@ -237,7 +2484,328 @@
       "isStandard": true,
       "preferredVendors": [],
       "priceHistory": [],
-      "certifications": []
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 23.76,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 31.68,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 39.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 47.52,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 63.36,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 79.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 95.04,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 110.88,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 126.72,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 142.56,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 158.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 174.24,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 198,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 221.76,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 237.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 253.44,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 277.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 300.96,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 316.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 356.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 396,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 435.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 475.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 514.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 554.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 594,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 633.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 712.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 792,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
     },
     {
       "materialCode": "PL-DS-2205",
@@ -257,14 +2825,335 @@
         "tensileStrength": 655,
         "yieldStrength": 450
       },
-      "hasVariants": false,
+      "hasVariants": true,
       "baseUnit": "kg",
       "tags": ["plate", "duplex-steel", "2205", "S31803", "high-strength", "ASTM", "A240"],
       "isActive": true,
       "isStandard": true,
       "preferredVendors": [],
       "priceHistory": [],
-      "certifications": []
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 23.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 31.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 39,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 46.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 62.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 78,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 93.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 109.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 124.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 140.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 156,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 171.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 195,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 218.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 234,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 249.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 273,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 296.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 312,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 351,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 390,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 429,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 468,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 507,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 546,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 585,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 624,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 702,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 780,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
     },
     {
       "materialCode": "PL-DS-2507",
@@ -284,14 +3173,335 @@
         "tensileStrength": 750,
         "yieldStrength": 550
       },
-      "hasVariants": false,
+      "hasVariants": true,
       "baseUnit": "kg",
       "tags": ["plate", "super-duplex-steel", "2507", "S32750", "high-strength", "ASTM", "A240"],
       "isActive": true,
       "isStandard": true,
       "preferredVendors": [],
       "priceHistory": [],
-      "certifications": []
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 23.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 31.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 39,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 46.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 62.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 78,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 93.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 109.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 124.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 140.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 156,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 171.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 195,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 218.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 234,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 249.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 273,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 296.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 312,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 351,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 390,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 429,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 468,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 507,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 546,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 585,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 624,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 702,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 780,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
     },
     {
       "materialCode": "PL-AS-P11",
@@ -312,14 +3522,335 @@
         "yieldStrength": 205,
         "maxOperatingTemp": 593
       },
-      "hasVariants": false,
+      "hasVariants": true,
       "baseUnit": "kg",
       "tags": ["plate", "alloy-steel", "P11", "1.25Cr-0.5Mo", "high-temp", "ASTM", "A387"],
       "isActive": true,
       "isStandard": true,
       "preferredVendors": [],
       "priceHistory": [],
-      "certifications": []
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 23.55,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 31.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 39.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 47.1,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 62.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 78.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 94.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 109.9,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 125.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 141.3,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 157,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 172.7,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 196.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 219.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 235.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 251.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 274.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 298.3,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 314,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 353.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 392.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 431.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 471,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 510.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 549.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 588.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 628,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 706.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 785,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
     },
     {
       "materialCode": "PL-AS-P22",
@@ -340,14 +3871,335 @@
         "yieldStrength": 205,
         "maxOperatingTemp": 649
       },
-      "hasVariants": false,
+      "hasVariants": true,
       "baseUnit": "kg",
       "tags": ["plate", "alloy-steel", "P22", "2.25Cr-1Mo", "high-temp", "ASTM", "A387"],
       "isActive": true,
       "isStandard": true,
       "preferredVendors": [],
       "priceHistory": [],
-      "certifications": []
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 23.55,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 31.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 39.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 47.1,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 62.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 78.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 94.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 109.9,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 125.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 141.3,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 157,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 172.7,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 196.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 219.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 235.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 251.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 274.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 298.3,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 314,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 353.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 392.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 431.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 471,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 510.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 549.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 588.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 628,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 706.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 785,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
     },
     {
       "materialCode": "PL-AS-P91",
@@ -368,14 +4220,1373 @@
         "yieldStrength": 415,
         "maxOperatingTemp": 649
       },
-      "hasVariants": false,
+      "hasVariants": true,
       "baseUnit": "kg",
       "tags": ["plate", "alloy-steel", "P91", "9Cr-1Mo-V", "high-temp", "ASTM", "A387"],
       "isActive": true,
       "isStandard": true,
       "preferredVendors": [],
       "priceHistory": [],
-      "certifications": []
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 23.55,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 31.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 39.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 47.1,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 62.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 78.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 94.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 109.9,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 125.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 141.3,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 157,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 172.7,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 196.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 219.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 235.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 251.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 274.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 298.3,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 314,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 353.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 392.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 431.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 471,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 510.25,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 549.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 588.75,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 628,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 706.5,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 785,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
+    },
+    {
+      "materialCode": "PL-DS-2101",
+      "customCode": "PL-DS-2101",
+      "name": "Lean Duplex Steel 2101 Plate (UNS S32101)",
+      "description": "Lean duplex stainless steel plate for structural and pressure applications",
+      "category": "PLATES_DUPLEX_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A240/A240M",
+        "grade": "UNS S32101 (2101)",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 7800,
+        "densityUnit": "kg/m3"
+      },
+      "hasVariants": true,
+      "baseUnit": "kg",
+      "tags": ["plate", "duplex", "lean-duplex", "2101", "S32101", "ASTM"],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 23.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 31.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 39,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 46.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 62.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 78,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 93.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 109.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 124.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 140.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 156,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 171.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 195,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 218.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 234,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 249.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 273,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 296.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 312,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 351,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 390,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 429,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 468,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 507,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 546,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 585,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 624,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 702,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 780,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
+    },
+    {
+      "materialCode": "PL-DS-2304",
+      "customCode": "PL-DS-2304",
+      "name": "Lean Duplex Steel 2304 Plate (UNS S32304)",
+      "description": "Lean duplex stainless steel plate with good corrosion resistance",
+      "category": "PLATES_DUPLEX_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A240/A240M",
+        "grade": "UNS S32304 (2304)",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 7800,
+        "densityUnit": "kg/m3"
+      },
+      "hasVariants": true,
+      "baseUnit": "kg",
+      "tags": ["plate", "duplex", "lean-duplex", "2304", "S32304", "ASTM"],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 23.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 31.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 39,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 46.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 62.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 78,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 93.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 109.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 124.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 140.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 156,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 171.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 195,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 218.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 234,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 249.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 273,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 296.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 312,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 351,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 390,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 429,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 468,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 507,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 546,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 585,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 624,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 702,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 780,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
+    },
+    {
+      "materialCode": "PL-DS-S32760",
+      "customCode": "PL-DS-S32760",
+      "name": "Super Duplex Steel Zeron 100 Plate (UNS S32760)",
+      "description": "Super duplex stainless steel plate for highly corrosive environments",
+      "category": "PLATES_DUPLEX_STEEL",
+      "materialType": "RAW_MATERIAL",
+      "specification": {
+        "standard": "ASTM A240/A240M",
+        "grade": "UNS S32760 (Zeron 100)",
+        "form": "Plate"
+      },
+      "properties": {
+        "density": 7800,
+        "densityUnit": "kg/m3"
+      },
+      "hasVariants": true,
+      "baseUnit": "kg",
+      "tags": ["plate", "duplex", "super-duplex", "zeron-100", "S32760", "ASTM"],
+      "isActive": true,
+      "isStandard": true,
+      "preferredVendors": [],
+      "priceHistory": [],
+      "certifications": [],
+      "variants": [
+        {
+          "id": "v001",
+          "variantCode": "3mm",
+          "displayName": "3mm thickness",
+          "dimensions": {
+            "thickness": 3
+          },
+          "weightPerUnit": 23.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v002",
+          "variantCode": "4mm",
+          "displayName": "4mm thickness",
+          "dimensions": {
+            "thickness": 4
+          },
+          "weightPerUnit": 31.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v003",
+          "variantCode": "5mm",
+          "displayName": "5mm thickness",
+          "dimensions": {
+            "thickness": 5
+          },
+          "weightPerUnit": 39,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v004",
+          "variantCode": "6mm",
+          "displayName": "6mm thickness",
+          "dimensions": {
+            "thickness": 6
+          },
+          "weightPerUnit": 46.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v005",
+          "variantCode": "8mm",
+          "displayName": "8mm thickness",
+          "dimensions": {
+            "thickness": 8
+          },
+          "weightPerUnit": 62.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v006",
+          "variantCode": "10mm",
+          "displayName": "10mm thickness",
+          "dimensions": {
+            "thickness": 10
+          },
+          "weightPerUnit": 78,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v007",
+          "variantCode": "12mm",
+          "displayName": "12mm thickness",
+          "dimensions": {
+            "thickness": 12
+          },
+          "weightPerUnit": 93.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v008",
+          "variantCode": "14mm",
+          "displayName": "14mm thickness",
+          "dimensions": {
+            "thickness": 14
+          },
+          "weightPerUnit": 109.2,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v009",
+          "variantCode": "16mm",
+          "displayName": "16mm thickness",
+          "dimensions": {
+            "thickness": 16
+          },
+          "weightPerUnit": 124.8,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v010",
+          "variantCode": "18mm",
+          "displayName": "18mm thickness",
+          "dimensions": {
+            "thickness": 18
+          },
+          "weightPerUnit": 140.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v011",
+          "variantCode": "20mm",
+          "displayName": "20mm thickness",
+          "dimensions": {
+            "thickness": 20
+          },
+          "weightPerUnit": 156,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v012",
+          "variantCode": "22mm",
+          "displayName": "22mm thickness",
+          "dimensions": {
+            "thickness": 22
+          },
+          "weightPerUnit": 171.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v013",
+          "variantCode": "25mm",
+          "displayName": "25mm thickness",
+          "dimensions": {
+            "thickness": 25
+          },
+          "weightPerUnit": 195,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v014",
+          "variantCode": "28mm",
+          "displayName": "28mm thickness",
+          "dimensions": {
+            "thickness": 28
+          },
+          "weightPerUnit": 218.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v015",
+          "variantCode": "30mm",
+          "displayName": "30mm thickness",
+          "dimensions": {
+            "thickness": 30
+          },
+          "weightPerUnit": 234,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v016",
+          "variantCode": "32mm",
+          "displayName": "32mm thickness",
+          "dimensions": {
+            "thickness": 32
+          },
+          "weightPerUnit": 249.6,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v017",
+          "variantCode": "35mm",
+          "displayName": "35mm thickness",
+          "dimensions": {
+            "thickness": 35
+          },
+          "weightPerUnit": 273,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v018",
+          "variantCode": "38mm",
+          "displayName": "38mm thickness",
+          "dimensions": {
+            "thickness": 38
+          },
+          "weightPerUnit": 296.4,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v019",
+          "variantCode": "40mm",
+          "displayName": "40mm thickness",
+          "dimensions": {
+            "thickness": 40
+          },
+          "weightPerUnit": 312,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v020",
+          "variantCode": "45mm",
+          "displayName": "45mm thickness",
+          "dimensions": {
+            "thickness": 45
+          },
+          "weightPerUnit": 351,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v021",
+          "variantCode": "50mm",
+          "displayName": "50mm thickness",
+          "dimensions": {
+            "thickness": 50
+          },
+          "weightPerUnit": 390,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v022",
+          "variantCode": "55mm",
+          "displayName": "55mm thickness",
+          "dimensions": {
+            "thickness": 55
+          },
+          "weightPerUnit": 429,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v023",
+          "variantCode": "60mm",
+          "displayName": "60mm thickness",
+          "dimensions": {
+            "thickness": 60
+          },
+          "weightPerUnit": 468,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v024",
+          "variantCode": "65mm",
+          "displayName": "65mm thickness",
+          "dimensions": {
+            "thickness": 65
+          },
+          "weightPerUnit": 507,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v025",
+          "variantCode": "70mm",
+          "displayName": "70mm thickness",
+          "dimensions": {
+            "thickness": 70
+          },
+          "weightPerUnit": 546,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v026",
+          "variantCode": "75mm",
+          "displayName": "75mm thickness",
+          "dimensions": {
+            "thickness": 75
+          },
+          "weightPerUnit": 585,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v027",
+          "variantCode": "80mm",
+          "displayName": "80mm thickness",
+          "dimensions": {
+            "thickness": 80
+          },
+          "weightPerUnit": 624,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v028",
+          "variantCode": "90mm",
+          "displayName": "90mm thickness",
+          "dimensions": {
+            "thickness": 90
+          },
+          "weightPerUnit": 702,
+          "isAvailable": true,
+          "priceHistory": []
+        },
+        {
+          "id": "v029",
+          "variantCode": "100mm",
+          "displayName": "100mm thickness",
+          "dimensions": {
+            "thickness": 100
+          },
+          "weightPerUnit": 780,
+          "isAvailable": true,
+          "priceHistory": []
+        }
+      ]
     }
   ]
 }

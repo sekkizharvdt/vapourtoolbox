@@ -1,0 +1,691 @@
+{
+  "metadata": {
+    "standard": "ASME B36.19M-2022",
+    "title": "Stainless Steel Pipe",
+    "material": "Stainless Steel 304L",
+    "specification": "ASTM A312 TP304L",
+    "description": "Seamless stainless steel 304L pipe per ASME B36.19M",
+    "source": "ASME B36.19M-2022 Table 1"
+  },
+  "material": {
+    "materialCode": "PP-SS304L-A312-SMLS",
+    "name": "Stainless Steel 304L Pipe ASTM A312 Seamless",
+    "description": "Seamless Stainless Steel Pipe TP304L per ASME B36.19M-2022",
+    "category": "PIPES_STAINLESS_304L",
+    "materialType": "RAW_MATERIAL",
+    "specification": {
+      "standard": "ASME B36.19M-2022",
+      "grade": "TP304L",
+      "form": "Pipe"
+    },
+    "hasVariants": true,
+    "baseUnit": "meter",
+    "tags": ["pipe", "stainless-steel", "304L", "seamless", "ASME", "B36.19", "A312"],
+    "isActive": true,
+    "isStandard": true
+  },
+  "variants": [
+    {
+      "nps": "1/2",
+      "dn": "15",
+      "schedule": "10",
+      "od_inch": 0.84,
+      "od_mm": 21.34,
+      "wt_inch": 0.083,
+      "wt_mm": 2.11,
+      "weight_kgm": 1.0
+    },
+    {
+      "nps": "1/2",
+      "dn": "15",
+      "schedule": "20",
+      "od_inch": 0.84,
+      "od_mm": 21.34,
+      "wt_inch": 0.095,
+      "wt_mm": 2.41,
+      "weight_kgm": 1.12
+    },
+    {
+      "nps": "1/2",
+      "dn": "15",
+      "schedule": "40",
+      "od_inch": 0.84,
+      "od_mm": 21.34,
+      "wt_inch": 0.109,
+      "wt_mm": 2.77,
+      "weight_kgm": 1.27
+    },
+    {
+      "nps": "1/2",
+      "dn": "15",
+      "schedule": "60",
+      "od_inch": 0.84,
+      "od_mm": 21.34,
+      "wt_inch": 0.126,
+      "wt_mm": 3.2,
+      "weight_kgm": 1.43
+    },
+    {
+      "nps": "1/2",
+      "dn": "15",
+      "schedule": "80",
+      "od_inch": 0.84,
+      "od_mm": 21.34,
+      "wt_inch": 0.147,
+      "wt_mm": 3.73,
+      "weight_kgm": 1.62
+    },
+
+    {
+      "nps": "3/4",
+      "dn": "20",
+      "schedule": "10",
+      "od_inch": 1.05,
+      "od_mm": 26.67,
+      "wt_inch": 0.083,
+      "wt_mm": 2.11,
+      "weight_kgm": 1.28
+    },
+    {
+      "nps": "3/4",
+      "dn": "20",
+      "schedule": "20",
+      "od_inch": 1.05,
+      "od_mm": 26.67,
+      "wt_inch": 0.095,
+      "wt_mm": 2.41,
+      "weight_kgm": 1.44
+    },
+    {
+      "nps": "3/4",
+      "dn": "20",
+      "schedule": "40",
+      "od_inch": 1.05,
+      "od_mm": 26.67,
+      "wt_inch": 0.113,
+      "wt_mm": 2.87,
+      "weight_kgm": 1.68
+    },
+    {
+      "nps": "3/4",
+      "dn": "20",
+      "schedule": "60",
+      "od_inch": 1.05,
+      "od_mm": 26.67,
+      "wt_inch": 0.131,
+      "wt_mm": 3.33,
+      "weight_kgm": 1.91
+    },
+    {
+      "nps": "3/4",
+      "dn": "20",
+      "schedule": "80",
+      "od_inch": 1.05,
+      "od_mm": 26.67,
+      "wt_inch": 0.154,
+      "wt_mm": 3.91,
+      "weight_kgm": 2.19
+    },
+
+    {
+      "nps": "1",
+      "dn": "25",
+      "schedule": "10",
+      "od_inch": 1.315,
+      "od_mm": 33.4,
+      "wt_inch": 0.109,
+      "wt_mm": 2.77,
+      "weight_kgm": 2.09
+    },
+    {
+      "nps": "1",
+      "dn": "25",
+      "schedule": "20",
+      "od_inch": 1.315,
+      "od_mm": 33.4,
+      "wt_inch": 0.114,
+      "wt_mm": 2.9,
+      "weight_kgm": 2.18
+    },
+    {
+      "nps": "1",
+      "dn": "25",
+      "schedule": "40",
+      "od_inch": 1.315,
+      "od_mm": 33.4,
+      "wt_inch": 0.133,
+      "wt_mm": 3.38,
+      "weight_kgm": 2.5
+    },
+    {
+      "nps": "1",
+      "dn": "25",
+      "schedule": "60",
+      "od_inch": 1.315,
+      "od_mm": 33.4,
+      "wt_inch": 0.152,
+      "wt_mm": 3.86,
+      "weight_kgm": 2.81
+    },
+    {
+      "nps": "1",
+      "dn": "25",
+      "schedule": "80",
+      "od_inch": 1.315,
+      "od_mm": 33.4,
+      "wt_inch": 0.179,
+      "wt_mm": 4.55,
+      "weight_kgm": 3.23
+    },
+
+    {
+      "nps": "1 1/4",
+      "dn": "32",
+      "schedule": "10",
+      "od_inch": 1.66,
+      "od_mm": 42.16,
+      "wt_inch": 0.109,
+      "wt_mm": 2.77,
+      "weight_kgm": 2.69
+    },
+    {
+      "nps": "1 1/4",
+      "dn": "32",
+      "schedule": "20",
+      "od_inch": 1.66,
+      "od_mm": 42.16,
+      "wt_inch": 0.117,
+      "wt_mm": 2.97,
+      "weight_kgm": 2.86
+    },
+    {
+      "nps": "1 1/4",
+      "dn": "32",
+      "schedule": "40",
+      "od_inch": 1.66,
+      "od_mm": 42.16,
+      "wt_inch": 0.14,
+      "wt_mm": 3.56,
+      "weight_kgm": 3.38
+    },
+    {
+      "nps": "1 1/4",
+      "dn": "32",
+      "schedule": "60",
+      "od_inch": 1.66,
+      "od_mm": 42.16,
+      "wt_inch": 0.161,
+      "wt_mm": 4.09,
+      "weight_kgm": 3.83
+    },
+    {
+      "nps": "1 1/4",
+      "dn": "32",
+      "schedule": "80",
+      "od_inch": 1.66,
+      "od_mm": 42.16,
+      "wt_inch": 0.191,
+      "wt_mm": 4.85,
+      "weight_kgm": 4.45
+    },
+
+    {
+      "nps": "1 1/2",
+      "dn": "40",
+      "schedule": "10",
+      "od_inch": 1.9,
+      "od_mm": 48.26,
+      "wt_inch": 0.109,
+      "wt_mm": 2.77,
+      "weight_kgm": 3.1
+    },
+    {
+      "nps": "1 1/2",
+      "dn": "40",
+      "schedule": "20",
+      "od_inch": 1.9,
+      "od_mm": 48.26,
+      "wt_inch": 0.117,
+      "wt_mm": 2.97,
+      "weight_kgm": 3.31
+    },
+    {
+      "nps": "1 1/2",
+      "dn": "40",
+      "schedule": "40",
+      "od_inch": 1.9,
+      "od_mm": 48.26,
+      "wt_inch": 0.145,
+      "wt_mm": 3.68,
+      "weight_kgm": 4.04
+    },
+    {
+      "nps": "1 1/2",
+      "dn": "40",
+      "schedule": "60",
+      "od_inch": 1.9,
+      "od_mm": 48.26,
+      "wt_inch": 0.17,
+      "wt_mm": 4.32,
+      "weight_kgm": 4.67
+    },
+    {
+      "nps": "1 1/2",
+      "dn": "40",
+      "schedule": "80",
+      "od_inch": 1.9,
+      "od_mm": 48.26,
+      "wt_inch": 0.2,
+      "wt_mm": 5.08,
+      "weight_kgm": 5.4
+    },
+
+    {
+      "nps": "2",
+      "dn": "50",
+      "schedule": "10",
+      "od_inch": 2.375,
+      "od_mm": 60.33,
+      "wt_inch": 0.109,
+      "wt_mm": 2.77,
+      "weight_kgm": 3.93
+    },
+    {
+      "nps": "2",
+      "dn": "50",
+      "schedule": "20",
+      "od_inch": 2.375,
+      "od_mm": 60.33,
+      "wt_inch": 0.12,
+      "wt_mm": 3.05,
+      "weight_kgm": 4.3
+    },
+    {
+      "nps": "2",
+      "dn": "50",
+      "schedule": "40",
+      "od_inch": 2.375,
+      "od_mm": 60.33,
+      "wt_inch": 0.154,
+      "wt_mm": 3.91,
+      "weight_kgm": 5.43
+    },
+    {
+      "nps": "2",
+      "dn": "50",
+      "schedule": "60",
+      "od_inch": 2.375,
+      "od_mm": 60.33,
+      "wt_inch": 0.181,
+      "wt_mm": 4.6,
+      "weight_kgm": 6.3
+    },
+    {
+      "nps": "2",
+      "dn": "50",
+      "schedule": "80",
+      "od_inch": 2.375,
+      "od_mm": 60.33,
+      "wt_inch": 0.218,
+      "wt_mm": 5.54,
+      "weight_kgm": 7.47
+    },
+
+    {
+      "nps": "2 1/2",
+      "dn": "65",
+      "schedule": "10",
+      "od_inch": 2.875,
+      "od_mm": 73.03,
+      "wt_inch": 0.12,
+      "wt_mm": 3.05,
+      "weight_kgm": 5.26
+    },
+    {
+      "nps": "2 1/2",
+      "dn": "65",
+      "schedule": "20",
+      "od_inch": 2.875,
+      "od_mm": 73.03,
+      "wt_inch": 0.134,
+      "wt_mm": 3.4,
+      "weight_kgm": 5.83
+    },
+    {
+      "nps": "2 1/2",
+      "dn": "65",
+      "schedule": "40",
+      "od_inch": 2.875,
+      "od_mm": 73.03,
+      "wt_inch": 0.203,
+      "wt_mm": 5.16,
+      "weight_kgm": 8.61
+    },
+    {
+      "nps": "2 1/2",
+      "dn": "65",
+      "schedule": "60",
+      "od_inch": 2.875,
+      "od_mm": 73.03,
+      "wt_inch": 0.237,
+      "wt_mm": 6.02,
+      "weight_kgm": 9.91
+    },
+    {
+      "nps": "2 1/2",
+      "dn": "65",
+      "schedule": "80",
+      "od_inch": 2.875,
+      "od_mm": 73.03,
+      "wt_inch": 0.276,
+      "wt_mm": 7.01,
+      "weight_kgm": 11.38
+    },
+
+    {
+      "nps": "3",
+      "dn": "80",
+      "schedule": "10",
+      "od_inch": 3.5,
+      "od_mm": 88.9,
+      "wt_inch": 0.12,
+      "wt_mm": 3.05,
+      "weight_kgm": 6.45
+    },
+    {
+      "nps": "3",
+      "dn": "80",
+      "schedule": "20",
+      "od_inch": 3.5,
+      "od_mm": 88.9,
+      "wt_inch": 0.145,
+      "wt_mm": 3.68,
+      "weight_kgm": 7.72
+    },
+    {
+      "nps": "3",
+      "dn": "80",
+      "schedule": "40",
+      "od_inch": 3.5,
+      "od_mm": 88.9,
+      "wt_inch": 0.216,
+      "wt_mm": 5.49,
+      "weight_kgm": 11.27
+    },
+    {
+      "nps": "3",
+      "dn": "80",
+      "schedule": "60",
+      "od_inch": 3.5,
+      "od_mm": 88.9,
+      "wt_inch": 0.26,
+      "wt_mm": 6.6,
+      "weight_kgm": 13.37
+    },
+    {
+      "nps": "3",
+      "dn": "80",
+      "schedule": "80",
+      "od_inch": 3.5,
+      "od_mm": 88.9,
+      "wt_inch": 0.3,
+      "wt_mm": 7.62,
+      "weight_kgm": 15.25
+    },
+
+    {
+      "nps": "4",
+      "dn": "100",
+      "schedule": "10",
+      "od_inch": 4.5,
+      "od_mm": 114.3,
+      "wt_inch": 0.12,
+      "wt_mm": 3.05,
+      "weight_kgm": 8.36
+    },
+    {
+      "nps": "4",
+      "dn": "100",
+      "schedule": "20",
+      "od_inch": 4.5,
+      "od_mm": 114.3,
+      "wt_inch": 0.156,
+      "wt_mm": 3.96,
+      "weight_kgm": 10.76
+    },
+    {
+      "nps": "4",
+      "dn": "100",
+      "schedule": "40",
+      "od_inch": 4.5,
+      "od_mm": 114.3,
+      "wt_inch": 0.237,
+      "wt_mm": 6.02,
+      "weight_kgm": 16.04
+    },
+    {
+      "nps": "4",
+      "dn": "100",
+      "schedule": "60",
+      "od_inch": 4.5,
+      "od_mm": 114.3,
+      "wt_inch": 0.281,
+      "wt_mm": 7.14,
+      "weight_kgm": 18.83
+    },
+    {
+      "nps": "4",
+      "dn": "100",
+      "schedule": "80",
+      "od_inch": 4.5,
+      "od_mm": 114.3,
+      "wt_inch": 0.337,
+      "wt_mm": 8.56,
+      "weight_kgm": 22.26
+    },
+
+    {
+      "nps": "6",
+      "dn": "150",
+      "schedule": "10",
+      "od_inch": 6.625,
+      "od_mm": 168.28,
+      "wt_inch": 0.134,
+      "wt_mm": 3.4,
+      "weight_kgm": 13.81
+    },
+    {
+      "nps": "6",
+      "dn": "150",
+      "schedule": "20",
+      "od_inch": 6.625,
+      "od_mm": 168.28,
+      "wt_inch": 0.188,
+      "wt_mm": 4.78,
+      "weight_kgm": 19.23
+    },
+    {
+      "nps": "6",
+      "dn": "150",
+      "schedule": "40",
+      "od_inch": 6.625,
+      "od_mm": 168.28,
+      "wt_inch": 0.28,
+      "wt_mm": 7.11,
+      "weight_kgm": 28.16
+    },
+    {
+      "nps": "6",
+      "dn": "150",
+      "schedule": "60",
+      "od_inch": 6.625,
+      "od_mm": 168.28,
+      "wt_inch": 0.354,
+      "wt_mm": 8.99,
+      "weight_kgm": 35.23
+    },
+    {
+      "nps": "6",
+      "dn": "150",
+      "schedule": "80",
+      "od_inch": 6.625,
+      "od_mm": 168.28,
+      "wt_inch": 0.432,
+      "wt_mm": 10.97,
+      "weight_kgm": 42.48
+    },
+
+    {
+      "nps": "8",
+      "dn": "200",
+      "schedule": "10",
+      "od_inch": 8.625,
+      "od_mm": 219.08,
+      "wt_inch": 0.148,
+      "wt_mm": 3.76,
+      "weight_kgm": 19.93
+    },
+    {
+      "nps": "8",
+      "dn": "200",
+      "schedule": "20",
+      "od_inch": 8.625,
+      "od_mm": 219.08,
+      "wt_inch": 0.25,
+      "wt_mm": 6.35,
+      "weight_kgm": 33.24
+    },
+    {
+      "nps": "8",
+      "dn": "200",
+      "schedule": "40",
+      "od_inch": 8.625,
+      "od_mm": 219.08,
+      "wt_inch": 0.322,
+      "wt_mm": 8.18,
+      "weight_kgm": 42.45
+    },
+    {
+      "nps": "8",
+      "dn": "200",
+      "schedule": "60",
+      "od_inch": 8.625,
+      "od_mm": 219.08,
+      "wt_inch": 0.406,
+      "wt_mm": 10.31,
+      "weight_kgm": 52.94
+    },
+    {
+      "nps": "8",
+      "dn": "200",
+      "schedule": "80",
+      "od_inch": 8.625,
+      "od_mm": 219.08,
+      "wt_inch": 0.5,
+      "wt_mm": 12.7,
+      "weight_kgm": 64.53
+    },
+
+    {
+      "nps": "10",
+      "dn": "250",
+      "schedule": "10",
+      "od_inch": 10.75,
+      "od_mm": 273.05,
+      "wt_inch": 0.165,
+      "wt_mm": 4.19,
+      "weight_kgm": 27.73
+    },
+    {
+      "nps": "10",
+      "dn": "250",
+      "schedule": "20",
+      "od_inch": 10.75,
+      "od_mm": 273.05,
+      "wt_inch": 0.25,
+      "wt_mm": 6.35,
+      "weight_kgm": 41.69
+    },
+    {
+      "nps": "10",
+      "dn": "250",
+      "schedule": "40",
+      "od_inch": 10.75,
+      "od_mm": 273.05,
+      "wt_inch": 0.365,
+      "wt_mm": 9.27,
+      "weight_kgm": 60.16
+    },
+    {
+      "nps": "10",
+      "dn": "250",
+      "schedule": "60",
+      "od_inch": 10.75,
+      "od_mm": 273.05,
+      "wt_inch": 0.5,
+      "wt_mm": 12.7,
+      "weight_kgm": 81.39
+    },
+    {
+      "nps": "10",
+      "dn": "250",
+      "schedule": "80",
+      "od_inch": 10.75,
+      "od_mm": 273.05,
+      "wt_inch": 0.5,
+      "wt_mm": 12.7,
+      "weight_kgm": 81.39
+    },
+
+    {
+      "nps": "12",
+      "dn": "300",
+      "schedule": "10",
+      "od_inch": 12.75,
+      "od_mm": 323.85,
+      "wt_inch": 0.18,
+      "wt_mm": 4.57,
+      "weight_kgm": 35.92
+    },
+    {
+      "nps": "12",
+      "dn": "300",
+      "schedule": "20",
+      "od_inch": 12.75,
+      "od_mm": 323.85,
+      "wt_inch": 0.25,
+      "wt_mm": 6.35,
+      "weight_kgm": 49.65
+    },
+    {
+      "nps": "12",
+      "dn": "300",
+      "schedule": "40",
+      "od_inch": 12.75,
+      "od_mm": 323.85,
+      "wt_inch": 0.375,
+      "wt_mm": 9.52,
+      "weight_kgm": 73.71
+    },
+    {
+      "nps": "12",
+      "dn": "300",
+      "schedule": "60",
+      "od_inch": 12.75,
+      "od_mm": 323.85,
+      "wt_inch": 0.5,
+      "wt_mm": 12.7,
+      "weight_kgm": 97.32
+    },
+    {
+      "nps": "12",
+      "dn": "300",
+      "schedule": "80",
+      "od_inch": 12.75,
+      "od_mm": 323.85,
+      "wt_inch": 0.5,
+      "wt_mm": 12.7,
+      "weight_kgm": 97.32
+    }
+  ]
+}

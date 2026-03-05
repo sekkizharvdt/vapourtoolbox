@@ -4,21 +4,59 @@ import { logger } from 'firebase-functions/v2';
 import * as path from 'path';
 import * as fs from 'fs';
 
-// Helper function to load seed data - called inside the handler, not at module level
-function loadSeedData(
-  dataType: 'pipes' | 'fittings' | 'flanges' | 'plates'
-): SeedData | PlatesSeedData {
-  const seedDataDir = path.join(__dirname, '..', 'seed-data');
-  const fileMap = {
-    pipes: 'pipes-carbon-steel.json',
-    fittings: 'fittings-butt-weld.json',
-    flanges: 'flanges-weld-neck.json',
-    plates: 'plates-common.json',
-  };
+/**
+ * File registry for seed data.
+ * Each type maps to an array of JSON files to load.
+ */
+const SEED_FILE_REGISTRY: Record<string, string[]> = {
+  pipes: [
+    'pipes-carbon-steel.json',
+    'pipes-duplex-2205.json',
+    'pipes-super-duplex-2507.json',
+    'pipes-stainless-304l.json',
+    'pipes-stainless-316l.json',
+  ],
+  fittings: ['fittings-butt-weld.json', 'fittings-butt-weld-ss.json'],
+  flanges: [
+    'flanges-weld-neck-cs.json',
+    'flanges-weld-neck-ss.json',
+    'flanges-slip-on-cs.json',
+    'flanges-slip-on-ss.json',
+    'flanges-blind-cs.json',
+    'flanges-blind-ss.json',
+  ],
+  plates: ['plates-common.json'],
+};
 
-  const filePath = path.join(seedDataDir, fileMap[dataType]);
+// Helper function to load seed data - called inside the handler, not at module level
+function loadSeedData(fileName: string): SeedData | PlatesSeedData {
+  const seedDataDir = path.join(__dirname, '..', 'seed-data');
+  const filePath = path.join(seedDataDir, fileName);
   const data = fs.readFileSync(filePath, 'utf8');
   return JSON.parse(data) as SeedData | PlatesSeedData;
+}
+
+/**
+ * Load all seed data files for a given type.
+ * Skips files that don't exist (allows incremental data addition).
+ */
+function loadAllSeedDataForType(
+  dataType: string
+): Array<{ fileName: string; data: SeedData | PlatesSeedData }> {
+  const files = SEED_FILE_REGISTRY[dataType] || [];
+  const seedDataDir = path.join(__dirname, '..', 'seed-data');
+  const results: Array<{ fileName: string; data: SeedData | PlatesSeedData }> = [];
+
+  for (const fileName of files) {
+    const filePath = path.join(seedDataDir, fileName);
+    if (fs.existsSync(filePath)) {
+      results.push({ fileName, data: loadSeedData(fileName) });
+    } else {
+      logger.warn(`Seed data file not found, skipping: ${fileName}`);
+    }
+  }
+
+  return results;
 }
 
 interface SeedDataMetadata {
@@ -236,22 +274,42 @@ function mapPipeToMaterialFields(variant: Record<string, unknown>): Record<strin
 }
 
 function mapFittingToMaterialFields(variant: Record<string, unknown>): Record<string, unknown> {
-  return {
+  const fields: Record<string, unknown> = {
     nps: variant.nps,
     dn: variant.dn,
     fittingType: variant.type,
-    outsideDiameter_mm: variant.outsideDiameter_mm,
-    centerToEnd_mm: variant.centerToEnd_mm,
     ...(variant.applicableSchedules !== undefined && {
       applicableSchedules: variant.applicableSchedules,
     }),
-    // Keep imperial for reference
-    ...(variant.outsideDiameter_inch !== undefined && {
-      outsideDiameter_inch: variant.outsideDiameter_inch,
-    }),
-    ...(variant.centerToEnd_inch !== undefined && { centerToEnd_inch: variant.centerToEnd_inch }),
     ...(variant.weight_kg !== undefined && { weightPerPiece_kg: variant.weight_kg }),
   };
+
+  // Elbows, tees, caps have outsideDiameter + centerToEnd
+  if (variant.outsideDiameter_mm !== undefined) {
+    fields.outsideDiameter_mm = variant.outsideDiameter_mm;
+    if (variant.outsideDiameter_inch !== undefined)
+      fields.outsideDiameter_inch = variant.outsideDiameter_inch;
+  }
+  if (variant.centerToEnd_mm !== undefined) {
+    fields.centerToEnd_mm = variant.centerToEnd_mm;
+    if (variant.centerToEnd_inch !== undefined) fields.centerToEnd_inch = variant.centerToEnd_inch;
+  }
+
+  // Reducers have largeEnd/smallEnd + endToEnd instead
+  if (variant.largeEnd_mm !== undefined) {
+    fields.largeEnd_mm = variant.largeEnd_mm;
+    if (variant.largeEnd_inch !== undefined) fields.largeEnd_inch = variant.largeEnd_inch;
+  }
+  if (variant.smallEnd_mm !== undefined) {
+    fields.smallEnd_mm = variant.smallEnd_mm;
+    if (variant.smallEnd_inch !== undefined) fields.smallEnd_inch = variant.smallEnd_inch;
+  }
+  if (variant.endToEnd_mm !== undefined) {
+    fields.endToEnd_mm = variant.endToEnd_mm;
+    if (variant.endToEnd_inch !== undefined) fields.endToEnd_inch = variant.endToEnd_inch;
+  }
+
+  return fields;
 }
 
 /**
@@ -292,44 +350,51 @@ export const seedMaterials = onCall<SeedMaterialsRequest, Promise<SeedMaterialsR
       // Handle plates separately (different structure — keeps variant model)
       if (dataType === 'plates' || dataType === 'all') {
         logger.info('Processing plates data');
-        const platesData = loadSeedData('plates') as PlatesSeedData;
+        const platesFiles = loadAllSeedDataForType('plates');
+        for (const { data: platesFileData } of platesFiles) {
+          const platesData = platesFileData as PlatesSeedData;
 
-        let platesCreated = 0;
-        for (const materialData of platesData.materials) {
-          const existingQuery = await db
-            .collection('materials')
-            .where('materialCode', '==', materialData.materialCode)
-            .limit(1)
-            .get();
+          let platesCreated = 0;
+          for (const materialData of platesData.materials) {
+            const existingQuery = await db
+              .collection('materials')
+              .where('materialCode', '==', materialData.materialCode)
+              .limit(1)
+              .get();
 
-          if (!existingQuery.empty) {
-            if (deleteExisting) {
-              await db
-                .collection('materials')
-                .doc(existingQuery.docs[0].id)
-                .update({
-                  ...materialData,
-                  updatedAt: FieldValue.serverTimestamp(),
-                });
-              logger.info(`Updated existing plate material: ${materialData.materialCode}`);
+            if (!existingQuery.empty) {
+              if (deleteExisting) {
+                await db
+                  .collection('materials')
+                  .doc(existingQuery.docs[0].id)
+                  .update({
+                    ...materialData,
+                    updatedAt: FieldValue.serverTimestamp(),
+                  });
+                logger.info(`Updated existing plate material: ${materialData.materialCode}`);
+              } else {
+                logger.warn(
+                  `Plate material ${materialData.materialCode} already exists. Skipping.`
+                );
+                continue;
+              }
             } else {
-              logger.warn(`Plate material ${materialData.materialCode} already exists. Skipping.`);
-              continue;
+              await db.collection('materials').add({
+                ...materialData,
+                createdAt: FieldValue.serverTimestamp(),
+                updatedAt: FieldValue.serverTimestamp(),
+              });
+              platesCreated++;
+              result.materialsCreated++;
+              logger.info(`Created new plate material: ${materialData.materialCode}`);
             }
-          } else {
-            await db.collection('materials').add({
-              ...materialData,
-              createdAt: FieldValue.serverTimestamp(),
-              updatedAt: FieldValue.serverTimestamp(),
-            });
-            platesCreated++;
-            result.materialsCreated++;
-            logger.info(`Created new plate material: ${materialData.materialCode}`);
           }
-        }
 
-        result.details.plates = { materialsCount: platesCreated };
-        logger.info(`Completed seeding plates: ${platesCreated} materials created`);
+          result.details.plates = {
+            materialsCount: (result.details.plates?.materialsCount || 0) + platesCreated,
+          };
+          logger.info(`Completed seeding plates file: ${platesCreated} materials created`);
+        } // end plates file loop
       }
 
       // ================================================================
@@ -338,14 +403,14 @@ export const seedMaterials = onCall<SeedMaterialsRequest, Promise<SeedMaterialsR
 
       const dataSources: Array<{ type: 'pipes' | 'fittings' | 'flanges'; data: SeedData }> = [];
 
-      if (dataType === 'pipes' || dataType === 'all') {
-        dataSources.push({ type: 'pipes', data: loadSeedData('pipes') as SeedData });
-      }
-      if (dataType === 'fittings' || dataType === 'all') {
-        dataSources.push({ type: 'fittings', data: loadSeedData('fittings') as SeedData });
-      }
-      if (dataType === 'flanges' || dataType === 'all') {
-        dataSources.push({ type: 'flanges', data: loadSeedData('flanges') as SeedData });
+      const flatTypes: Array<'pipes' | 'fittings' | 'flanges'> = ['pipes', 'fittings', 'flanges'];
+      for (const flatType of flatTypes) {
+        if (dataType === flatType || dataType === 'all') {
+          const files = loadAllSeedDataForType(flatType);
+          for (const { data } of files) {
+            dataSources.push({ type: flatType, data: data as SeedData });
+          }
+        }
       }
 
       for (const source of dataSources) {
