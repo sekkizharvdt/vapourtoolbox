@@ -352,6 +352,12 @@ export interface FiscalYear {
   yearEndClosingJournalId?: string;
   closedBy?: string;
 
+  // Adjustment period support (April spillover for Indian FY)
+  adjustmentPeriodId?: string;
+  closingStage?: 'PROVISIONAL' | 'FINAL';
+  provisionalClosingDate?: Date;
+  provisionalClosingJournalId?: string;
+
   // Metadata
   createdAt: Date;
   createdBy: string;
@@ -367,7 +373,7 @@ export interface AccountingPeriod {
   id: string;
   fiscalYearId: string;
   name: string; // e.g., "Apr 2024", "Q1 2024-25"
-  periodType: 'MONTH' | 'QUARTER';
+  periodType: 'MONTH' | 'QUARTER' | 'ADJUSTMENT';
   startDate: Date;
   endDate: Date;
   status: 'OPEN' | 'CLOSED' | 'LOCKED';

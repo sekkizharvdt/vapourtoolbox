@@ -170,15 +170,38 @@ export async function isPeriodOpen(db: Firestore, transactionDate: Date): Promis
     const period = periodDoc.data() as AccountingPeriod;
 
     // Check if period is open
-    const isOpen = period.status === 'OPEN';
-    if (!isOpen) {
-      logger.info('Accounting period is not open', {
-        period: period.name,
-        status: period.status,
-      });
+    if (period.status === 'OPEN') {
+      return true;
     }
 
-    return isOpen;
+    // If normal period is closed, check for an open adjustment period in this FY
+    // (allows April spillover transactions to be posted to the prior year's adjustment period)
+    const adjQuery = query(
+      periodsRef,
+      where('fiscalYearId', '==', fiscalYearDoc.id),
+      where('periodType', '==', 'ADJUSTMENT'),
+      where('startDate', '<=', Timestamp.fromDate(transactionDate)),
+      where('endDate', '>=', Timestamp.fromDate(transactionDate))
+    );
+    const adjSnapshot = await getDocs(adjQuery);
+
+    if (!adjSnapshot.empty && adjSnapshot.docs[0]) {
+      const adjPeriod = adjSnapshot.docs[0].data() as AccountingPeriod;
+      if (adjPeriod.status === 'OPEN') {
+        logger.info('Transaction falls in open adjustment period', {
+          period: adjPeriod.name,
+          transactionDate,
+        });
+        return true;
+      }
+    }
+
+    logger.info('Accounting period is not open', {
+      period: period.name,
+      status: period.status,
+    });
+
+    return false;
   } catch (error) {
     logger.error('Failed to check if period is open', { error, transactionDate });
     throw new Error('Failed to check period status');
@@ -435,6 +458,204 @@ export async function calculateYearEndBalances(
     logger.error('Failed to calculate year-end balances', { error, fiscalYearId });
     throw new Error('Failed to calculate year-end balances');
   }
+}
+
+/**
+ * Create an adjustment period for April spillover
+ *
+ * Indian companies close books on March 31, but vendor bills, receipts, and
+ * adjustments continue into April that belong to the prior fiscal year.
+ * This creates a 13th "ADJUSTMENT" period (April 1-30) tied to the prior FY.
+ *
+ * Transactions posted to this period are included in the prior year's closing.
+ */
+export async function createAdjustmentPeriod(
+  db: Firestore,
+  fiscalYearId: string,
+  userId: string
+): Promise<string> {
+  const fiscalYear = await getFiscalYear(db, fiscalYearId);
+  if (!fiscalYear) throw new Error('Fiscal year not found');
+
+  if (fiscalYear.adjustmentPeriodId) {
+    throw new Error('Adjustment period already exists for this fiscal year');
+  }
+
+  if (fiscalYear.closingStage === 'FINAL') {
+    throw new Error('Cannot create adjustment period after final close');
+  }
+
+  // Adjustment period: April 1 to April 30 (the month after FY end)
+  const fyEndDate =
+    fiscalYear.endDate instanceof Date
+      ? fiscalYear.endDate
+      : (fiscalYear.endDate as unknown as { toDate: () => Date }).toDate();
+  const adjStart = new Date(fyEndDate.getFullYear(), fyEndDate.getMonth() + 1, 1);
+  const adjEnd = new Date(fyEndDate.getFullYear(), fyEndDate.getMonth() + 2, 0); // last day of April
+
+  const periodRef = await addDoc(collection(db, COLLECTIONS.ACCOUNTING_PERIODS), {
+    fiscalYearId,
+    name: `Adjustment Period (${adjStart.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })})`,
+    periodType: 'ADJUSTMENT',
+    startDate: Timestamp.fromDate(adjStart),
+    endDate: Timestamp.fromDate(adjEnd),
+    status: 'OPEN',
+    periodNumber: 13,
+    year: adjStart.getFullYear(),
+    createdAt: serverTimestamp(),
+    createdBy: userId,
+    updatedAt: serverTimestamp(),
+  });
+
+  // Update fiscal year to reference the adjustment period
+  await updateDoc(doc(db, COLLECTIONS.FISCAL_YEARS, fiscalYearId), {
+    adjustmentPeriodId: periodRef.id,
+    updatedAt: serverTimestamp(),
+    updatedBy: userId,
+  });
+
+  logger.info('Adjustment period created', {
+    fiscalYearId,
+    periodId: periodRef.id,
+    startDate: adjStart,
+    endDate: adjEnd,
+  });
+
+  return periodRef.id;
+}
+
+/**
+ * Provisional close — closes all 12 monthly periods but keeps adjustment period open.
+ * Generates a provisional closing JE that can be regenerated after spillover entries.
+ */
+export async function provisionalClose(
+  db: Firestore,
+  fiscalYearId: string,
+  userId: string,
+  retainedEarningsAccountId: string
+): Promise<{ journalId: string; adjustmentPeriodId: string }> {
+  const fiscalYear = await getFiscalYear(db, fiscalYearId);
+  if (!fiscalYear) throw new Error('Fiscal year not found');
+
+  if (fiscalYear.closingStage === 'FINAL') {
+    throw new Error('Fiscal year already has a final close');
+  }
+
+  // Close all OPEN monthly periods
+  const periods = await getAccountingPeriods(db, fiscalYearId);
+  for (const period of periods) {
+    if (period.periodType !== 'ADJUSTMENT' && period.status === 'OPEN') {
+      await closePeriod(db, period.id, userId, 'Provisional year-end close');
+    }
+  }
+
+  // Create adjustment period if it doesn't exist
+  let adjustmentPeriodId = fiscalYear.adjustmentPeriodId;
+  if (!adjustmentPeriodId) {
+    adjustmentPeriodId = await createAdjustmentPeriod(db, fiscalYearId, userId);
+  }
+
+  // Calculate and create provisional closing JE
+  const balances = await calculateYearEndBalances(db, fiscalYearId);
+
+  // Import yearEndClosingService inline to avoid circular deps
+  const { createClosingJournalEntry } = await import('./yearEndClosingService');
+  const journalId = await createClosingJournalEntry(db, {
+    fiscalYearId,
+    fiscalYearName: fiscalYear.name,
+    retainedEarningsAccountId,
+    balances,
+    userId,
+    isProvisional: true,
+  });
+
+  // Update fiscal year
+  await updateDoc(doc(db, COLLECTIONS.FISCAL_YEARS, fiscalYearId), {
+    closingStage: 'PROVISIONAL',
+    provisionalClosingDate: serverTimestamp(),
+    provisionalClosingJournalId: journalId,
+    updatedAt: serverTimestamp(),
+    updatedBy: userId,
+  });
+
+  logger.info('Provisional close completed', { fiscalYearId, journalId, adjustmentPeriodId });
+
+  return { journalId, adjustmentPeriodId };
+}
+
+/**
+ * Final close — locks adjustment period, regenerates closing JE with adjustments, locks FY.
+ */
+export async function finalClose(
+  db: Firestore,
+  fiscalYearId: string,
+  userId: string,
+  retainedEarningsAccountId: string
+): Promise<string> {
+  const fiscalYear = await getFiscalYear(db, fiscalYearId);
+  if (!fiscalYear) throw new Error('Fiscal year not found');
+
+  if (fiscalYear.closingStage !== 'PROVISIONAL') {
+    throw new Error('Fiscal year must be provisionally closed before final close');
+  }
+
+  // Close and lock the adjustment period
+  if (fiscalYear.adjustmentPeriodId) {
+    const adjPeriod = await getDoc(
+      doc(db, COLLECTIONS.ACCOUNTING_PERIODS, fiscalYear.adjustmentPeriodId)
+    );
+    if (adjPeriod.exists()) {
+      const adjData = adjPeriod.data();
+      if (adjData?.status === 'OPEN') {
+        await closePeriod(db, fiscalYear.adjustmentPeriodId, userId, 'Final year-end close');
+      }
+      if (adjData?.status !== 'LOCKED') {
+        await lockPeriod(db, fiscalYear.adjustmentPeriodId, userId, 'Final year-end close');
+      }
+    }
+  }
+
+  // Lock all monthly periods
+  const periods = await getAccountingPeriods(db, fiscalYearId);
+  for (const period of periods) {
+    if (period.status === 'CLOSED') {
+      await lockPeriod(db, period.id, userId, 'Final year-end close');
+    }
+  }
+
+  // Void provisional closing JE if exists
+  if (fiscalYear.provisionalClosingJournalId) {
+    const { voidClosingJournalEntry } = await import('./yearEndClosingService');
+    await voidClosingJournalEntry(db, fiscalYear.provisionalClosingJournalId, userId);
+  }
+
+  // Recalculate and create final closing JE (now includes adjustment period transactions)
+  const balances = await calculateYearEndBalances(db, fiscalYearId);
+  const { createClosingJournalEntry } = await import('./yearEndClosingService');
+  const journalId = await createClosingJournalEntry(db, {
+    fiscalYearId,
+    fiscalYearName: fiscalYear.name,
+    retainedEarningsAccountId,
+    balances,
+    userId,
+    isProvisional: false,
+  });
+
+  // Update fiscal year to CLOSED + FINAL
+  await updateDoc(doc(db, COLLECTIONS.FISCAL_YEARS, fiscalYearId), {
+    status: 'CLOSED',
+    isYearEndClosed: true,
+    yearEndClosingDate: serverTimestamp(),
+    yearEndClosingJournalId: journalId,
+    closingStage: 'FINAL',
+    closedBy: userId,
+    updatedAt: serverTimestamp(),
+    updatedBy: userId,
+  });
+
+  logger.info('Final close completed', { fiscalYearId, journalId });
+
+  return journalId;
 }
 
 /**

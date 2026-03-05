@@ -333,10 +333,17 @@ export async function checkYearEndClosingReadiness(
     }
   });
 
-  // Check if all periods are closed or locked
-  if (openPeriods.length > 0) {
+  // Check if all periods are closed or locked (adjustment periods can remain open for provisional close)
+  const openNonAdjPeriods = openPeriods.filter((p) => p.periodType !== 'ADJUSTMENT');
+  if (openNonAdjPeriods.length > 0) {
     errors.push(
-      `${openPeriods.length} period(s) are still open: ${openPeriods.map((p) => p.name).join(', ')}`
+      `${openNonAdjPeriods.length} period(s) are still open: ${openNonAdjPeriods.map((p) => p.name).join(', ')}`
+    );
+  }
+  const openAdjPeriods = openPeriods.filter((p) => p.periodType === 'ADJUSTMENT');
+  if (openAdjPeriods.length > 0) {
+    warnings.push(
+      `Adjustment period "${openAdjPeriods.map((p) => p.name).join(', ')}" is still open. You can do a provisional close now and final close after April entries are complete.`
     );
   }
 
@@ -832,6 +839,104 @@ export async function reverseYearEndClosing(
       error: error instanceof Error ? error.message : 'Unknown error during reversal',
     };
   }
+}
+
+/**
+ * Create a closing journal entry (used by provisional and final close)
+ *
+ * This is a lower-level function called by fiscalYearService.provisionalClose()
+ * and fiscalYearService.finalClose() to create the actual journal entry.
+ */
+export async function createClosingJournalEntry(
+  db: Firestore,
+  params: {
+    fiscalYearId: string;
+    fiscalYearName: string;
+    retainedEarningsAccountId: string;
+    balances: {
+      revenueAccounts: ClosedAccountBalance[];
+      expenseAccounts: ClosedAccountBalance[];
+      totalRevenue: number;
+      totalExpenses: number;
+      netIncome: number;
+    };
+    userId: string;
+    isProvisional: boolean;
+  }
+): Promise<string> {
+  const retainedEarningsDoc = await getDoc(
+    doc(db, COLLECTIONS.ACCOUNTS, params.retainedEarningsAccountId)
+  );
+  if (!retainedEarningsDoc.exists()) {
+    throw new Error('Retained earnings account not found');
+  }
+  const retainedEarningsAccount = docToTyped<Account>(
+    retainedEarningsDoc.id,
+    retainedEarningsDoc.data()
+  );
+
+  const closingEntries = generateClosingEntries(
+    params.balances.revenueAccounts,
+    params.balances.expenseAccounts,
+    retainedEarningsAccount
+  );
+
+  const journalEntryNumber = await generateTransactionNumber('JOURNAL_ENTRY');
+  const prefix = params.isProvisional ? 'Provisional year-end' : 'Final year-end';
+
+  const journalEntryRef = doc(collection(db, COLLECTIONS.TRANSACTIONS));
+  const journalEntryData = {
+    type: 'JOURNAL_ENTRY' as const,
+    transactionNumber: journalEntryNumber,
+    journalDate: Timestamp.now(),
+    date: Timestamp.now(),
+    journalType: 'CLOSING' as const,
+    description: `${prefix} closing for ${params.fiscalYearName}`,
+    reference: `${prefix} Closing - ${params.fiscalYearName}`,
+    entries: closingEntries,
+    amount: Math.abs(params.balances.netIncome),
+    status: 'POSTED' as const,
+    isReversed: false,
+    isProvisional: params.isProvisional,
+    createdAt: Timestamp.now(),
+    createdBy: params.userId,
+    updatedAt: Timestamp.now(),
+    updatedBy: params.userId,
+    doubleEntryValidatedAt: Timestamp.now(),
+  };
+
+  // Use setDoc instead of transaction since the calling functions manage their own workflow
+  const { setDoc } = await import('firebase/firestore');
+  await setDoc(journalEntryRef, journalEntryData);
+
+  logger.info(`${prefix} closing JE created`, {
+    journalId: journalEntryRef.id,
+    journalNumber: journalEntryNumber,
+    netIncome: params.balances.netIncome,
+  });
+
+  return journalEntryRef.id;
+}
+
+/**
+ * Void a provisional closing journal entry
+ */
+export async function voidClosingJournalEntry(
+  db: Firestore,
+  journalId: string,
+  userId: string
+): Promise<void> {
+  const { updateDoc: updateDocFn } = await import('firebase/firestore');
+  await updateDocFn(doc(db, COLLECTIONS.TRANSACTIONS, journalId), {
+    status: 'VOID',
+    isReversed: true,
+    voidedAt: Timestamp.now(),
+    voidedBy: userId,
+    updatedAt: Timestamp.now(),
+    updatedBy: userId,
+  });
+
+  logger.info('Provisional closing JE voided', { journalId });
 }
 
 /**

@@ -112,6 +112,11 @@ interface SingleParserResult {
     paymentTerms?: string;
     deliveryTerms?: string;
     warrantyTerms?: string;
+    exWorks?: string;
+    transportation?: string;
+    packingForwarding?: string;
+    insurance?: string;
+    erectionAfterPurchase?: string;
   };
   items: ParsedOfferItem[];
   totalItemsFound: number;
@@ -411,6 +416,13 @@ export default function UploadOfferDialog({
       if (result.header.paymentTerms) setPaymentTerms(result.header.paymentTerms);
       if (result.header.deliveryTerms) setDeliveryTerms(result.header.deliveryTerms);
       if (result.header.warrantyTerms) setWarrantyTerms(result.header.warrantyTerms);
+      // Commercial terms (AI-extracted)
+      if (result.header.exWorks) setExWorks(result.header.exWorks);
+      if (result.header.transportation) setTransportation(result.header.transportation);
+      if (result.header.packingForwarding) setPackingForwarding(result.header.packingForwarding);
+      if (result.header.insurance) setInsurance(result.header.insurance);
+      if (result.header.erectionAfterPurchase)
+        setErectionAfterPurchase(result.header.erectionAfterPurchase);
     }
 
     const updatedItems = [...offerItems];

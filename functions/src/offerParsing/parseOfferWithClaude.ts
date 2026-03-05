@@ -60,6 +60,11 @@ interface ParsedOfferHeader {
   deliveryTerms?: string;
   warrantyTerms?: string;
   remarks?: string;
+  exWorks?: string;
+  transportation?: string;
+  packingForwarding?: string;
+  insurance?: string;
+  erectionAfterPurchase?: string;
   confidence: number;
 }
 
@@ -98,11 +103,13 @@ interface ClaudeParseRequest {
 }
 
 // System prompt for Claude to parse offer documents
-const OFFER_PARSING_PROMPT = `You are a document parsing assistant specialized in extracting structured data from vendor quotations and offers.
+const OFFER_PARSING_PROMPT = `You are a document parsing assistant specialized in extracting structured data from vendor quotations and offers for EPC (Engineering, Procurement, Construction) projects.
 
 Your task is to analyze the provided document and extract:
 1. Header information (quotation number, dates, terms, totals)
-2. Line items with pricing details
+2. Commercial cost breakdown (ex-works, transportation, packing, insurance, erection)
+3. Line items with pricing details
+4. Any deviations or non-compliance notes per item
 
 Return ONLY valid JSON in exactly this format (no other text before or after):
 
@@ -117,7 +124,12 @@ Return ONLY valid JSON in exactly this format (no other text before or after):
     "currency": "INR",
     "paymentTerms": "string or null",
     "deliveryTerms": "string or null",
-    "warrantyTerms": "string or null"
+    "warrantyTerms": "string or null",
+    "exWorks": "string or null — e.g. 'Included', 'At buyer cost', price if separate",
+    "transportation": "string or null — e.g. 'Included in price', 'Extra @ actual', 'FOR destination'",
+    "packingForwarding": "string or null — e.g. 'Included', 'At cost', 'Extra 2%'",
+    "insurance": "string or null — e.g. 'Transit insurance by vendor', 'At buyer expense'",
+    "erectionAfterPurchase": "string or null — e.g. 'Not in scope', 'Available at extra cost', 'Included'"
   },
   "items": [
     {
@@ -129,7 +141,9 @@ Return ONLY valid JSON in exactly this format (no other text before or after):
       "amount": number (quantity * unitPrice),
       "gstRate": number or null (percentage value like 18),
       "deliveryPeriod": "string or null",
-      "makeModel": "string or null"
+      "makeModel": "string or null",
+      "deviations": "string or null — any noted deviations from spec, non-compliance, or conditions",
+      "vendorNotes": "string or null — vendor's remarks specific to this item"
     }
   ]
 }
@@ -141,6 +155,8 @@ Important rules:
 - Normalize units: NOS (numbers/pieces), KG, MTR (meters), SET, LOT, EA (each)
 - If quantity is not specified, assume 1
 - Calculate amount as quantity * unitPrice if not explicitly stated
+- For commercial terms (exWorks, transportation, packingForwarding, insurance, erection): look in terms & conditions sections, commercial sections, notes, and cost breakdown tables. Common Indian EPC patterns include "Ex-Works price", "P&F extra", "Transit insurance", "Freight included/extra"
+- For deviations: look for phrases like "deviation", "exception", "subject to", "alternate offered", "not as per spec"
 - Do not make up data - only extract what's in the document
 - Return null for fields that cannot be found`;
 
@@ -259,6 +275,11 @@ Return the JSON with an additional "matchedRfqItemId" field for each item that m
         paymentTerms?: string;
         deliveryTerms?: string;
         warrantyTerms?: string;
+        exWorks?: string;
+        transportation?: string;
+        packingForwarding?: string;
+        insurance?: string;
+        erectionAfterPurchase?: string;
       };
       items?: Array<{
         lineNumber?: number;
@@ -271,6 +292,8 @@ Return the JSON with an additional "matchedRfqItemId" field for each item that m
         deliveryPeriod?: string;
         makeModel?: string;
         matchedRfqItemId?: string;
+        deviations?: string;
+        vendorNotes?: string;
       }>;
     };
 
@@ -300,6 +323,11 @@ Return the JSON with an additional "matchedRfqItemId" field for each item that m
       paymentTerms: parsedData.header?.paymentTerms || undefined,
       deliveryTerms: parsedData.header?.deliveryTerms || undefined,
       warrantyTerms: parsedData.header?.warrantyTerms || undefined,
+      exWorks: parsedData.header?.exWorks || undefined,
+      transportation: parsedData.header?.transportation || undefined,
+      packingForwarding: parsedData.header?.packingForwarding || undefined,
+      insurance: parsedData.header?.insurance || undefined,
+      erectionAfterPurchase: parsedData.header?.erectionAfterPurchase || undefined,
       confidence: 0.85, // Claude generally has good confidence
     };
 
@@ -349,7 +377,9 @@ Return the JSON with an additional "matchedRfqItemId" field for each item that m
         gstAmount: item.gstRate ? (amount * item.gstRate) / 100 : undefined,
         deliveryPeriod: item.deliveryPeriod,
         makeModel: item.makeModel,
-        meetsSpec: true,
+        meetsSpec: !item.deviations, // If deviations found, mark as not meeting spec
+        deviations: item.deviations,
+        vendorNotes: item.vendorNotes,
         confidence: {
           description: item.description ? 0.9 : 0.3,
           unitPrice: unitPrice > 0 ? 0.9 : 0.3,
