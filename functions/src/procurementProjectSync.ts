@@ -57,103 +57,109 @@ async function updateCharterItemStatus(
 ): Promise<boolean> {
   try {
     const projectRef = db.collection(PROJECTS_COLLECTION).doc(projectId);
-    const projectSnap = await projectRef.get();
 
-    if (!projectSnap.exists) {
-      logger.warn('[updateCharterItemStatus] Project not found', { projectId });
-      return false;
-    }
+    // Use a Firestore transaction to prevent concurrent array mutations.
+    // Without this, two triggers updating different charter items on the same
+    // project could overwrite each other (last write wins on the full array).
+    return await db.runTransaction(async (transaction) => {
+      const projectSnap = await transaction.get(projectRef);
 
-    const projectData = projectSnap.data();
-    const procurementItems = (projectData?.procurementItems || []) as Array<{
-      id: string;
-      status: string;
-      linkedPurchaseRequestId?: string;
-      linkedRFQId?: string;
-      linkedPOId?: string;
-      [key: string]: unknown;
-    }>;
+      if (!projectSnap.exists) {
+        logger.warn('[updateCharterItemStatus] Project not found', { projectId });
+        return false;
+      }
 
-    // Find the charter item by ID or by linked document ID
-    let itemIndex = -1;
-    if (charterItemId) {
-      itemIndex = procurementItems.findIndex((item) => item.id === charterItemId);
-    }
+      const projectData = projectSnap.data();
+      const procurementItems = (projectData?.procurementItems || []) as Array<{
+        id: string;
+        status: string;
+        linkedPurchaseRequestId?: string;
+        linkedRFQId?: string;
+        linkedPOId?: string;
+        [key: string]: unknown;
+      }>;
 
-    // If not found by charterItemId, search by linked document ID
-    if (itemIndex === -1) {
-      itemIndex = procurementItems.findIndex((item) => item[linkedField] === linkedId);
-    }
+      // Find the charter item by ID or by linked document ID
+      let itemIndex = -1;
+      if (charterItemId) {
+        itemIndex = procurementItems.findIndex((item) => item.id === charterItemId);
+      }
 
-    if (itemIndex === -1) {
-      logger.info('[updateCharterItemStatus] Charter item not found', {
+      // If not found by charterItemId, search by linked document ID
+      if (itemIndex === -1) {
+        itemIndex = procurementItems.findIndex((item) => item[linkedField] === linkedId);
+      }
+
+      if (itemIndex === -1) {
+        logger.info('[updateCharterItemStatus] Charter item not found', {
+          projectId,
+          charterItemId,
+          linkedField,
+          linkedId,
+        });
+        return false;
+      }
+
+      const item = procurementItems[itemIndex];
+      if (!item) {
+        return false;
+      }
+
+      // Check if status actually needs updating
+      const currentStatus = item.status as CharterItemStatus;
+      if (currentStatus === newStatus) {
+        logger.debug('[updateCharterItemStatus] Status already up to date', {
+          projectId,
+          charterItemId: item.id,
+          status: newStatus,
+        });
+        return false;
+      }
+
+      // Don't downgrade status (e.g., from DELIVERED back to PO_PLACED)
+      const statusPriority: Record<CharterItemStatus, number> = {
+        PLANNING: 0,
+        PR_DRAFTED: 1,
+        RFQ_ISSUED: 2,
+        PO_PLACED: 3,
+        DELIVERED: 4,
+        CANCELLED: 5,
+      };
+
+      if (newStatus !== 'CANCELLED' && statusPriority[newStatus] <= statusPriority[currentStatus]) {
+        logger.debug('[updateCharterItemStatus] Skipping status downgrade', {
+          projectId,
+          charterItemId: item.id,
+          currentStatus,
+          newStatus,
+        });
+        return false;
+      }
+
+      // Update the item
+      const updatedItems = [...procurementItems];
+      updatedItems[itemIndex] = {
+        ...item,
+        status: newStatus,
+        [linkedField]: linkedId,
+      };
+
+      transaction.update(projectRef, {
+        procurementItems: updatedItems,
+        updatedAt: Timestamp.now(),
+      });
+
+      logger.info('[updateCharterItemStatus] Updated charter item status', {
         projectId,
-        charterItemId,
+        charterItemId: item.id,
+        oldStatus: currentStatus,
+        newStatus,
         linkedField,
         linkedId,
       });
-      return false;
-    }
 
-    const item = procurementItems[itemIndex];
-    if (!item) {
-      return false;
-    }
-
-    // Check if status actually needs updating
-    const currentStatus = item.status as CharterItemStatus;
-    if (currentStatus === newStatus) {
-      logger.debug('[updateCharterItemStatus] Status already up to date', {
-        projectId,
-        charterItemId: item.id,
-        status: newStatus,
-      });
-      return false;
-    }
-
-    // Don't downgrade status (e.g., from DELIVERED back to PO_PLACED)
-    const statusPriority: Record<CharterItemStatus, number> = {
-      PLANNING: 0,
-      PR_DRAFTED: 1,
-      RFQ_ISSUED: 2,
-      PO_PLACED: 3,
-      DELIVERED: 4,
-      CANCELLED: 5,
-    };
-
-    if (newStatus !== 'CANCELLED' && statusPriority[newStatus] <= statusPriority[currentStatus]) {
-      logger.debug('[updateCharterItemStatus] Skipping status downgrade', {
-        projectId,
-        charterItemId: item.id,
-        currentStatus,
-        newStatus,
-      });
-      return false;
-    }
-
-    // Update the item
-    const updatedItems = [...procurementItems];
-    updatedItems[itemIndex] = {
-      ...item,
-      status: newStatus,
-      [linkedField]: linkedId,
-    };
-
-    await projectRef.update({
-      procurementItems: updatedItems,
-      updatedAt: Timestamp.now(),
+      return true;
     });
-
-    logger.info('[updateCharterItemStatus] Updated charter item status', {
-      projectId,
-      charterItemId: item.id,
-      oldStatus: currentStatus,
-      newStatus,
-      linkedField,
-      linkedId,
-    });
-
-    return true;
   } catch (error) {
     logger.error('[updateCharterItemStatus] Error:', { projectId, error });
     return false;
