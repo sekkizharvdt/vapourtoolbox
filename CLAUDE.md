@@ -14,7 +14,7 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
 
 2. **Every `where()` + `orderBy()` combo MUST have a composite index** in `firestore.indexes.json`. Queries will silently fail in production without them.
 
-3. **Soft-deleted data MUST be filtered** — use client-side filtering (not `where('isDeleted', '!=', true)` which excludes docs missing the field). Only the Trash page shows deleted items.
+3. **Soft-deleted data MUST be filtered** — use client-side filtering (not `where('isDeleted', '!=', true)` which excludes docs missing the field). Only the Trash page shows deleted items. This applies to Cloud Functions too — triggers like `onTransactionWrite` must filter out soft-deleted documents before recalculating aggregates.
 
 4. **New collections MUST have Firestore security rules** in `firestore.rules` matching the permission model:
    - `read` requires `hasPermission(<VIEW_* flag>)`
@@ -129,3 +129,107 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
 17. **State machines go in `stateMachines.ts`**, not inline in service files. Status types come from `@vapour/types`.
 
 18. **Sensitive operations need audit trails** — permission changes, employee updates, hard deletes, and financial approvals should log to an `auditLogs` collection (pattern in progress).
+
+## Concurrency & Transactions
+
+19. **Read-modify-write MUST use a Firestore transaction** — never read a document, modify it in memory, and write it back without `db.runTransaction()`. Cloud Functions can fire concurrently on the same collection, and two reads of the same document will both see stale state. Use `FieldValue.increment()` for counters and `db.runTransaction()` for array/object mutations:
+
+    ```typescript
+    // Good — atomic counter
+    batch.update(ref, { totalDelivered: FieldValue.increment(qty) });
+
+    // Good — transactional array mutation
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(projectRef);
+      const items = snap.data()!.procurementItems;
+      items[idx].status = 'COMPLETED';
+      tx.update(projectRef, { procurementItems: items });
+    });
+
+    // Bad — concurrent triggers overwrite each other
+    const snap = await getDoc(projectRef);
+    const items = snap.data()!.procurementItems;
+    items[idx].status = 'COMPLETED';
+    await updateDoc(projectRef, { procurementItems: items });
+    ```
+
+20. **Firestore batch writes are limited to 500 operations** — chunk larger operations. Cloud Functions that recalculate balances or sync denormalized fields across many documents must split into batches:
+
+    ```typescript
+    for (let i = 0; i < updates.length; i += 500) {
+      const batch = db.batch();
+      updates.slice(i, i + 500).forEach((u) => batch.update(u.ref, u.data));
+      await batch.commit();
+    }
+    ```
+
+## Financial Math
+
+21. **Monetary calculations MUST be precise** — never use fallback chains that mask missing data, and round at every calculation step:
+
+    ```typescript
+    // Good — derive from source values
+    const outstanding = roundToPaisa(baseAmount - (amountPaid ?? 0));
+
+    // Bad — fallback chain hides bugs and can double amounts
+    const outstanding = data.outstandingAmount ?? data.baseAmount ?? 0;
+    ```
+
+    Rules:
+    - Derive outstanding amounts: `outstanding = total - paid`, never trust a cached `outstandingAmount` without verifying it.
+    - Round to paisa (2 decimals) at every step: `Math.round(n * 100) / 100`.
+    - For multi-currency: always aggregate using `baseAmount` (INR), not `totalAmount` (foreign currency). Mixing currencies in sums silently corrupts reports.
+    - Use a tolerance for zero-checks (e.g., `Math.abs(outstanding) < 0.01`) to prevent floating-point residues from marking fully-paid items as overdue.
+
+## Forms & Data Completeness
+
+22. **Every typed field MUST be written on create, every saved field MUST be restored on edit** — forms that forget to write a field create documents with missing data that break downstream logic. Forms that forget to restore a field lose user data on edit:
+
+    ```typescript
+    // Create — write every field the type requires
+    const bill: VendorBill = {
+      billDate: Timestamp.fromDate(billDate), // Don't forget this!
+      vendorId,
+      entityId,
+      // ... every field
+    };
+
+    // Edit — restore every field in the reset effect
+    useEffect(() => {
+      if (editingBill) {
+        setBillDate(toDate(editingBill.billDate)); // Restore dates
+        setAllocations(editingBill.allocations ?? []); // Restore arrays
+        setEntityId(editingBill.entityId); // Restore IDs
+      }
+    }, [open, editingBill]);
+    ```
+
+    Test form round-trips: create → save → open edit → save again. All values must survive unchanged.
+
+## Service-Layer Validation
+
+23. **Service functions MUST validate constraints before writing** — permissions (rule 5) prevent unauthorized access, but data constraints prevent invalid state. Validate quantities, amounts, and referential integrity inside a transaction:
+
+    ```typescript
+    await db.runTransaction(async (tx) => {
+      const poSnap = await tx.get(poRef);
+      const poData = poSnap.data()!;
+      const remaining = poData.quantity - poData.quantityDelivered;
+
+      if (receivedQty > remaining) {
+        throw new Error(`Received qty (${receivedQty}) exceeds remaining PO qty (${remaining})`);
+      }
+      if (allocatedAmount > invoice.outstandingAmount) {
+        throw new Error('Allocation exceeds outstanding amount');
+      }
+
+      tx.set(grRef, grData);
+      tx.update(poRef, { quantityDelivered: FieldValue.increment(receivedQty) });
+    });
+    ```
+
+    Key validations to enforce:
+    - Goods receipt qty <= PO remaining qty
+    - Payment allocation <= invoice outstanding amount
+    - Amendment cannot modify a completed/cancelled PO
+    - Budget spend cannot exceed approved budget without explicit override
