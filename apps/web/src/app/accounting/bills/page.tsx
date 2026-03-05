@@ -613,7 +613,11 @@ export default function BillsPage() {
                           icon: <EditIcon />,
                           label: 'Edit Bill',
                           onClick: () => handleEdit(bill),
-                          show: canManage && bill.status === 'DRAFT',
+                          show:
+                            canManage &&
+                            bill.status !== 'VOID' &&
+                            bill.paymentStatus !== 'PAID' &&
+                            bill.paymentStatus !== 'PARTIALLY_PAID',
                         },
                         {
                           icon: <SendIcon />,

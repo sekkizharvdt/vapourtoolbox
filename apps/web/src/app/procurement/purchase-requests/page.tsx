@@ -16,7 +16,6 @@ import {
   Stack,
   Card,
   CardContent,
-  Divider,
   Table,
   TableBody,
   TableCell,
@@ -41,11 +40,6 @@ import {
   Visibility as VisibilityIcon,
   FilterList as FilterListIcon,
   Assignment as AssignmentIcon,
-  Edit as EditIcon,
-  Send as SendIcon,
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
-  HourglassEmpty as HourglassEmptyIcon,
   Archive as ArchiveIcon,
   Home as HomeIcon,
   Delete as DeleteIcon,
@@ -184,13 +178,13 @@ export default function PurchaseRequestsPage() {
   const applyFilters = () => {
     let filtered = [...requests];
 
-    // First, filter by active/archived tab
-    if (activeTab === 'active') {
-      // Active tab: show all except CONVERTED_TO_RFQ
-      filtered = filtered.filter((req) => req.status !== 'CONVERTED_TO_RFQ');
-    } else {
-      // Archived tab: show only CONVERTED_TO_RFQ
-      filtered = filtered.filter((req) => req.status === 'CONVERTED_TO_RFQ');
+    // Filter by active/archived tab (skip when a specific status chip is selected)
+    if (statusFilter === 'ALL') {
+      if (activeTab === 'active') {
+        filtered = filtered.filter((req) => req.status !== 'CONVERTED_TO_RFQ');
+      } else {
+        filtered = filtered.filter((req) => req.status === 'CONVERTED_TO_RFQ');
+      }
     }
 
     // Search filter
@@ -204,12 +198,9 @@ export default function PurchaseRequestsPage() {
       );
     }
 
-    // Status filter (only applicable in active tab)
-    if (activeTab === 'active' && statusFilter !== 'ALL') {
-      if (statusFilter === 'ALL_SUBMITTED') {
-        // All non-draft active PRs (submitted, approved, rejected, under review)
-        filtered = filtered.filter((req) => req.status !== 'DRAFT');
-      } else if (statusFilter === 'PENDING') {
+    // Status filter
+    if (statusFilter !== 'ALL') {
+      if (statusFilter === 'PENDING') {
         // Special case: PENDING = SUBMITTED + UNDER_REVIEW
         filtered = filtered.filter(
           (req) => req.status === 'SUBMITTED' || req.status === 'UNDER_REVIEW'
@@ -341,128 +332,62 @@ export default function PurchaseRequestsPage() {
           </Button>
         </Stack>
 
-        {/* Stats Dashboard - Hierarchical View */}
+        {/* Stats Dashboard */}
         <Card variant="outlined">
           <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-            {/* Total PRs */}
-            <Box
-              onClick={() => setStatusFilter('ALL')}
-              sx={{
-                cursor: 'pointer',
-                p: 1.5,
-                borderRadius: 1,
-                bgcolor: statusFilter === 'ALL' ? 'action.selected' : 'transparent',
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              <Stack direction="row" alignItems="center" spacing={1.5}>
-                <AssignmentIcon color="primary" />
-                <Typography variant="subtitle1" fontWeight="bold">
-                  Total PRs
-                </Typography>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ ml: 'auto' }}>
-                  {stats.total}
-                </Typography>
-              </Stack>
-            </Box>
-
-            <Divider sx={{ my: 0.5 }} />
-
-            {/* Level 1: Draft */}
-            <Box
-              onClick={() => setStatusFilter('DRAFT')}
-              sx={{
-                cursor: 'pointer',
-                p: 1,
-                pl: 4,
-                borderRadius: 1,
-                bgcolor: statusFilter === 'DRAFT' ? 'action.selected' : 'transparent',
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              <Stack direction="row" alignItems="center" spacing={1.5}>
-                <EditIcon color="secondary" fontSize="small" />
-                <Typography variant="body2">Draft</Typography>
-                <Chip label={stats.draft} size="small" color="secondary" sx={{ ml: 'auto' }} />
-              </Stack>
-            </Box>
-
-            {/* Level 1: Submitted (parent) */}
-            <Box
-              onClick={() => setStatusFilter('ALL_SUBMITTED')}
-              sx={{
-                cursor: 'pointer',
-                p: 1,
-                pl: 4,
-                borderRadius: 1,
-                bgcolor: statusFilter === 'ALL_SUBMITTED' ? 'action.selected' : 'transparent',
-                '&:hover': { bgcolor: 'action.hover' },
-                mt: 0.5,
-              }}
-            >
-              <Stack direction="row" alignItems="center" spacing={1.5}>
-                <SendIcon color="info" fontSize="small" />
-                <Typography variant="body2">Submitted</Typography>
-                <Chip label={stats.allSubmitted} size="small" color="info" sx={{ ml: 'auto' }} />
-              </Stack>
-            </Box>
-
-            {/* Level 2: Approved */}
-            <Box
-              onClick={() => setStatusFilter('APPROVED')}
-              sx={{
-                cursor: 'pointer',
-                p: 0.75,
-                pl: 8,
-                borderRadius: 1,
-                bgcolor: statusFilter === 'APPROVED' ? 'action.selected' : 'transparent',
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              <Stack direction="row" alignItems="center" spacing={1.5}>
-                <CheckCircleIcon color="success" fontSize="small" />
-                <Typography variant="body2">Approved</Typography>
-                <Chip label={stats.approved} size="small" color="success" sx={{ ml: 'auto' }} />
-              </Stack>
-            </Box>
-
-            {/* Level 2: Rejected */}
-            <Box
-              onClick={() => setStatusFilter('REJECTED')}
-              sx={{
-                cursor: 'pointer',
-                p: 0.75,
-                pl: 8,
-                borderRadius: 1,
-                bgcolor: statusFilter === 'REJECTED' ? 'action.selected' : 'transparent',
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              <Stack direction="row" alignItems="center" spacing={1.5}>
-                <CancelIcon color="error" fontSize="small" />
-                <Typography variant="body2">Rejected</Typography>
-                <Chip label={stats.rejected} size="small" color="error" sx={{ ml: 'auto' }} />
-              </Stack>
-            </Box>
-
-            {/* Level 2: Pending Approval */}
-            <Box
-              onClick={() => setStatusFilter('PENDING')}
-              sx={{
-                cursor: 'pointer',
-                p: 0.75,
-                pl: 8,
-                borderRadius: 1,
-                bgcolor: statusFilter === 'PENDING' ? 'action.selected' : 'transparent',
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              <Stack direction="row" alignItems="center" spacing={1.5}>
-                <HourglassEmptyIcon color="warning" fontSize="small" />
-                <Typography variant="body2">Pending Approval</Typography>
-                <Chip label={stats.pending} size="small" color="warning" sx={{ ml: 'auto' }} />
-              </Stack>
-            </Box>
+            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
+              <AssignmentIcon color="primary" />
+              <Typography variant="subtitle1" fontWeight="bold">
+                Total PRs
+              </Typography>
+              <Typography variant="subtitle1" fontWeight="bold">
+                {stats.total}
+              </Typography>
+            </Stack>
+            <Stack direction="row" flexWrap="wrap" gap={1}>
+              {[
+                { label: 'Draft', value: stats.draft, filter: 'DRAFT', color: 'default' as const },
+                {
+                  label: 'Submitted',
+                  value: stats.submitted,
+                  filter: 'SUBMITTED',
+                  color: 'info' as const,
+                },
+                {
+                  label: 'Pending Approval',
+                  value: stats.pending,
+                  filter: 'PENDING',
+                  color: 'warning' as const,
+                },
+                {
+                  label: 'Approved',
+                  value: stats.approved,
+                  filter: 'APPROVED',
+                  color: 'success' as const,
+                },
+                {
+                  label: 'Rejected',
+                  value: stats.rejected,
+                  filter: 'REJECTED',
+                  color: 'error' as const,
+                },
+                {
+                  label: 'Converted to RFQ',
+                  value: stats.archived,
+                  filter: 'CONVERTED_TO_RFQ',
+                  color: 'primary' as const,
+                },
+              ].map((item) => (
+                <Chip
+                  key={item.filter}
+                  label={`${item.label}: ${item.value}`}
+                  color={item.color}
+                  variant={statusFilter === item.filter ? 'filled' : 'outlined'}
+                  onClick={() => setStatusFilter(item.filter)}
+                  sx={{ cursor: 'pointer' }}
+                />
+              ))}
+            </Stack>
           </CardContent>
         </Card>
 
@@ -496,24 +421,22 @@ export default function PurchaseRequestsPage() {
               sx={{ minWidth: 300 }}
             />
 
-            {/* Status filter only shown on Active tab */}
-            {activeTab === 'active' && (
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={statusFilter}
-                  label="Status"
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <MenuItem value="ALL">All Status</MenuItem>
-                  <MenuItem value="DRAFT">Draft</MenuItem>
-                  <MenuItem value="SUBMITTED">Submitted</MenuItem>
-                  <MenuItem value="PENDING">Pending Approval</MenuItem>
-                  <MenuItem value="APPROVED">Approved</MenuItem>
-                  <MenuItem value="REJECTED">Rejected</MenuItem>
-                </Select>
-              </FormControl>
-            )}
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={statusFilter}
+                label="Status"
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <MenuItem value="ALL">All Status</MenuItem>
+                <MenuItem value="DRAFT">Draft</MenuItem>
+                <MenuItem value="SUBMITTED">Submitted</MenuItem>
+                <MenuItem value="PENDING">Pending Approval</MenuItem>
+                <MenuItem value="APPROVED">Approved</MenuItem>
+                <MenuItem value="REJECTED">Rejected</MenuItem>
+                <MenuItem value="CONVERTED_TO_RFQ">Converted to RFQ</MenuItem>
+              </Select>
+            </FormControl>
 
             <FormControl size="small" sx={{ minWidth: 150 }}>
               <InputLabel>Type</InputLabel>

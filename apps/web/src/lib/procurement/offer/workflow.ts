@@ -4,7 +4,7 @@
  * Functions for managing offer lifecycle (select, reject, withdraw)
  */
 
-import { doc, updateDoc, Timestamp, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp, writeBatch } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
@@ -13,7 +13,8 @@ import { getOfferById } from './crud';
 import { getOffersByRFQ } from './queries';
 import { logAuditEvent, createAuditContext } from '@/lib/audit';
 import { requirePermission } from '@/lib/auth';
-import { offerStateMachine } from '@/lib/workflow/stateMachines';
+import { offerStateMachine, rfqStateMachine } from '@/lib/workflow/stateMachines';
+import { requireValidTransition } from '@/lib/utils/stateMachine';
 
 const logger = createLogger({ context: 'offerService' });
 
@@ -67,15 +68,21 @@ export async function selectOffer(
     }
   });
 
-  // Complete the RFQ with the selected offer
-  batch.update(doc(db, COLLECTIONS.RFQS, offer.rfqId), {
-    status: 'COMPLETED',
-    selectedOfferId: offerId,
-    completionNotes: completionNotes || `Offer ${offer.number} selected from ${offer.vendorName}`,
-    completedAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
-    updatedBy: userId,
-  });
+  // Complete the RFQ with the selected offer — but don't regress if already PO_PROCESSED
+  const rfqRef = doc(db, COLLECTIONS.RFQS, offer.rfqId);
+  const rfqSnap = await getDoc(rfqRef);
+  const rfqStatus = rfqSnap.data()?.status;
+  if (rfqStatus !== 'PO_PROCESSED') {
+    requireValidTransition(rfqStateMachine, rfqStatus, 'COMPLETED', 'RFQ');
+    batch.update(rfqRef, {
+      status: 'COMPLETED',
+      selectedOfferId: offerId,
+      completionNotes: completionNotes || `Offer ${offer.number} selected from ${offer.vendorName}`,
+      completedAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+      updatedBy: userId,
+    });
+  }
 
   await batch.commit();
 
