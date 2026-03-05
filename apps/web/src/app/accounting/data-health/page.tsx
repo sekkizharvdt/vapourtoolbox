@@ -26,6 +26,7 @@ import {
   Home as HomeIcon,
   SyncProblem as SyncIcon,
   Savings as AdvanceIcon,
+  Calculate as RecalculateIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@vapour/ui';
@@ -33,8 +34,10 @@ import { Breadcrumbs, Link } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { COLLECTIONS } from '@vapour/firebase';
 import { reconcilePaymentStatuses } from '@/lib/accounting/paymentHelpers';
+import { useConfirmDialog } from '@/components/common/ConfirmDialog';
 
 interface DataHealthStats {
   unappliedPayments: { count: number; total: number };
@@ -65,10 +68,16 @@ export default function DataHealthPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DataHealthStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { confirm } = useConfirmDialog();
   const [reconciling, setReconciling] = useState(false);
   const [reconcileResult, setReconcileResult] = useState<{
     fixed: number;
     checked: number;
+  } | null>(null);
+  const [recalculating, setRecalculating] = useState(false);
+  const [recalculateResult, setRecalculateResult] = useState<{
+    accountsUpdated: number;
+    transactionsProcessed: number;
   } | null>(null);
 
   const handleReconcile = async () => {
@@ -87,6 +96,37 @@ export default function DataHealthPage() {
       setError('Reconciliation failed. Please try again.');
     } finally {
       setReconciling(false);
+    }
+  };
+
+  const handleRecalculateBalances = async () => {
+    const confirmed = await confirm({
+      title: 'Recalculate Account Balances',
+      message:
+        'This will reset all account running totals (debit/credit/balance) to zero and rebuild them from transaction GL entries. This is safe but should be done during a quiet period when no transactions are being created. Continue?',
+      confirmText: 'Recalculate',
+      confirmColor: 'warning',
+    });
+    if (!confirmed) return;
+
+    setRecalculating(true);
+    setRecalculateResult(null);
+    try {
+      const { functions } = getFirebase();
+      const recalculateFn = httpsCallable<
+        void,
+        { success: boolean; accountsUpdated: number; transactionsProcessed: number }
+      >(functions, 'recalculateAccountBalances');
+      const result = await recalculateFn();
+      setRecalculateResult({
+        accountsUpdated: result.data.accountsUpdated,
+        transactionsProcessed: result.data.transactionsProcessed,
+      });
+    } catch (err) {
+      console.error('Recalculation failed:', err);
+      setError('Account balance recalculation failed. Please try again.');
+    } finally {
+      setRecalculating(false);
     }
   };
 
@@ -665,6 +705,25 @@ export default function DataHealthPage() {
                 >
                   {stats.overdueItems.count} overdue items totaling{' '}
                   {formatCurrency(stats.overdueItems.total)} need follow-up.
+                </Alert>
+              )}
+              <Alert
+                severity="info"
+                icon={<RecalculateIcon />}
+                action={
+                  <Button size="small" onClick={handleRecalculateBalances} disabled={recalculating}>
+                    {recalculating ? 'Recalculating...' : 'Recalculate'}
+                  </Button>
+                }
+              >
+                <strong>Account Balances:</strong> Rebuild all account running totals from
+                transaction GL entries. Use this if the Balance Sheet or Trial Balance shows
+                incorrect numbers.
+              </Alert>
+              {recalculateResult && (
+                <Alert severity="success">
+                  Recalculation complete: {recalculateResult.accountsUpdated} accounts updated from{' '}
+                  {recalculateResult.transactionsProcessed} transactions.
                 </Alert>
               )}
             </Box>
