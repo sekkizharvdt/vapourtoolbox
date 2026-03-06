@@ -395,7 +395,7 @@ export async function submitDocument(
         fileSize: fileSize,
         mimeType: fileData.file.type || 'application/octet-stream',
         isPrimary: fileData.isPrimary,
-        documentRecordId,
+        ...(documentRecordId !== undefined && { documentRecordId }),
         uploadedAt: Timestamp.now(),
       });
     }

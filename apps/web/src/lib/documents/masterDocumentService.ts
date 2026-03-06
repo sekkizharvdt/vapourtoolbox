@@ -261,8 +261,12 @@ export async function addPredecessor(
     documentTitle: predecessor.documentTitle,
     linkType: 'PREREQUISITE',
     status: predecessor.status,
-    currentRevision: predecessor.currentRevision,
-    assignedToNames: predecessor.assignedToNames,
+    ...(predecessor.currentRevision !== undefined && {
+      currentRevision: predecessor.currentRevision,
+    }),
+    ...(predecessor.assignedToNames !== undefined && {
+      assignedToNames: predecessor.assignedToNames,
+    }),
     createdAt: Timestamp.now(),
   };
 
@@ -279,8 +283,8 @@ export async function addPredecessor(
     documentTitle: doc.documentTitle,
     linkType: 'SUCCESSOR',
     status: doc.status,
-    currentRevision: doc.currentRevision,
-    assignedToNames: doc.assignedToNames,
+    ...(doc.currentRevision !== undefined && { currentRevision: doc.currentRevision }),
+    ...(doc.assignedToNames !== undefined && { assignedToNames: doc.assignedToNames }),
     createdAt: Timestamp.now(),
   };
 
