@@ -76,8 +76,13 @@ const RecordDirectPaymentDialog = dynamic(
     import('./components/RecordDirectPaymentDialog').then((mod) => mod.RecordDirectPaymentDialog),
   { ssr: false }
 );
+const RecordDirectReceiptDialog = dynamic(
+  () =>
+    import('./components/RecordDirectReceiptDialog').then((mod) => mod.RecordDirectReceiptDialog),
+  { ssr: false }
+);
 
-type PaymentType = 'all' | 'customer' | 'vendor' | 'direct';
+type PaymentType = 'all' | 'customer' | 'vendor' | 'direct' | 'direct-receipt';
 type Payment = CustomerPayment | VendorPayment;
 
 /** Generate month options for the last 12 months */
@@ -103,6 +108,7 @@ export default function PaymentsPage() {
   const [customerPaymentDialogOpen, setCustomerPaymentDialogOpen] = useState(false);
   const [vendorPaymentDialogOpen, setVendorPaymentDialogOpen] = useState(false);
   const [directPaymentDialogOpen, setDirectPaymentDialogOpen] = useState(false);
+  const [directReceiptDialogOpen, setDirectReceiptDialogOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
@@ -118,7 +124,12 @@ export default function PaymentsPage() {
     () =>
       query(
         collection(db, COLLECTIONS.TRANSACTIONS),
-        where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT', 'DIRECT_PAYMENT']),
+        where('type', 'in', [
+          'CUSTOMER_PAYMENT',
+          'VENDOR_PAYMENT',
+          'DIRECT_PAYMENT',
+          'DIRECT_RECEIPT',
+        ]),
         orderBy('paymentDate', 'desc')
       ),
     [db]
@@ -142,14 +153,22 @@ export default function PaymentsPage() {
     setDirectPaymentDialogOpen(true);
   };
 
+  const handleCreateDirectReceipt = () => {
+    setEditingPayment(null);
+    setDirectReceiptDialogOpen(true);
+  };
+
   const handleEdit = (payment: Payment) => {
     setEditingPayment(payment);
+    const paymentType = (payment as unknown as { type: string }).type;
     if (payment.type === 'CUSTOMER_PAYMENT') {
       setCustomerPaymentDialogOpen(true);
     } else if (payment.type === 'VENDOR_PAYMENT') {
       setVendorPaymentDialogOpen(true);
-    } else if ((payment as unknown as { type: string }).type === 'DIRECT_PAYMENT') {
+    } else if (paymentType === 'DIRECT_PAYMENT') {
       setDirectPaymentDialogOpen(true);
+    } else if (paymentType === 'DIRECT_RECEIPT') {
+      setDirectReceiptDialogOpen(true);
     }
   };
 
@@ -195,6 +214,11 @@ export default function PaymentsPage() {
     setEditingPayment(null);
   };
 
+  const handleDirectReceiptDialogClose = () => {
+    setDirectReceiptDialogOpen(false);
+    setEditingPayment(null);
+  };
+
   // Filter payments by type, month, and search term
   const filteredPayments = payments.filter((payment) => {
     // Filter by type
@@ -203,6 +227,8 @@ export default function PaymentsPage() {
     else if (paymentType === 'vendor') matchesType = payment.type === 'VENDOR_PAYMENT';
     else if (paymentType === 'direct')
       matchesType = (payment as unknown as { type: string }).type === 'DIRECT_PAYMENT';
+    else if (paymentType === 'direct-receipt')
+      matchesType = (payment as unknown as { type: string }).type === 'DIRECT_RECEIPT';
 
     // Filter by month
     let matchesMonth = true;
@@ -268,8 +294,10 @@ export default function PaymentsPage() {
             p.type === 'CUSTOMER_PAYMENT'
               ? 'Receipt'
               : (p as unknown as { type: string }).type === 'DIRECT_PAYMENT'
-                ? 'Direct'
-                : 'Payment',
+                ? 'Direct Payment'
+                : (p as unknown as { type: string }).type === 'DIRECT_RECEIPT'
+                  ? 'Direct Receipt'
+                  : 'Payment',
           date: formatDate(p.paymentDate),
           number: p.transactionNumber || '',
           entity: p.entityName || '',
@@ -375,6 +403,14 @@ export default function PaymentsPage() {
               >
                 Direct Payment
               </Button>
+              <Button
+                variant="outlined"
+                startIcon={<ReceiptIcon />}
+                onClick={handleCreateDirectReceipt}
+                color="success"
+              >
+                Direct Receipt
+              </Button>
             </Stack>
           )}
         </Stack>
@@ -392,6 +428,7 @@ export default function PaymentsPage() {
           <ToggleButton value="customer">Customer Receipts</ToggleButton>
           <ToggleButton value="vendor">Vendor Payments</ToggleButton>
           <ToggleButton value="direct">Direct Payments</ToggleButton>
+          <ToggleButton value="direct-receipt">Direct Receipts</ToggleButton>
         </ToggleButtonGroup>
 
         <TextField
@@ -481,6 +518,8 @@ export default function PaymentsPage() {
                           <ReceiptIcon />
                         ) : (payment as unknown as { type: string }).type === 'DIRECT_PAYMENT' ? (
                           <DirectPaymentIcon />
+                        ) : (payment as unknown as { type: string }).type === 'DIRECT_RECEIPT' ? (
+                          <ReceiptIcon />
                         ) : (
                           <PaymentIcon />
                         )
@@ -489,8 +528,10 @@ export default function PaymentsPage() {
                         payment.type === 'CUSTOMER_PAYMENT'
                           ? 'Receipt'
                           : (payment as unknown as { type: string }).type === 'DIRECT_PAYMENT'
-                            ? 'Direct'
-                            : 'Payment'
+                            ? 'Direct Pmt'
+                            : (payment as unknown as { type: string }).type === 'DIRECT_RECEIPT'
+                              ? 'Direct Rcpt'
+                              : 'Payment'
                       }
                       size="small"
                       color={
@@ -498,7 +539,9 @@ export default function PaymentsPage() {
                           ? 'success'
                           : (payment as unknown as { type: string }).type === 'DIRECT_PAYMENT'
                             ? 'secondary'
-                            : 'primary'
+                            : (payment as unknown as { type: string }).type === 'DIRECT_RECEIPT'
+                              ? 'success'
+                              : 'primary'
                       }
                     />
                   </TableCell>
@@ -599,6 +642,31 @@ export default function PaymentsPage() {
                 paymentDate: unknown;
                 expenseAccountId: string;
                 bankAccountId: string;
+                paymentMethod: PaymentMethod;
+                amount: number;
+                description?: string;
+                reference?: string;
+                projectId?: string;
+                chequeNumber?: string;
+                upiTransactionId?: string;
+              })
+            : null
+        }
+      />
+
+      <RecordDirectReceiptDialog
+        open={directReceiptDialogOpen}
+        onClose={handleDirectReceiptDialogClose}
+        editingReceipt={
+          (editingPayment as unknown as { type: string })?.type === 'DIRECT_RECEIPT'
+            ? (editingPayment as unknown as {
+                id?: string;
+                type: 'DIRECT_RECEIPT';
+                transactionNumber: string;
+                receiptDate: unknown;
+                revenueAccountId: string;
+                bankAccountId: string;
+                bankAccountName?: string;
                 paymentMethod: PaymentMethod;
                 amount: number;
                 description?: string;

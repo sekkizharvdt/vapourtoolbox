@@ -92,7 +92,6 @@ export default function PurchaseRequestsPage() {
       underReview: 0,
       approved: 0,
       rejected: 0,
-      pending: 0, // SUBMITTED + UNDER_REVIEW
       archived: 0, // CONVERTED_TO_RFQ
     };
 
@@ -104,12 +103,10 @@ export default function PurchaseRequestsPage() {
           break;
         case 'SUBMITTED':
           counts.submitted++;
-          counts.pending++;
           counts.active++;
           break;
         case 'UNDER_REVIEW':
           counts.underReview++;
-          counts.pending++;
           counts.active++;
           break;
         case 'APPROVED':
@@ -126,7 +123,7 @@ export default function PurchaseRequestsPage() {
       }
     });
 
-    return { ...counts, allSubmitted: counts.active - counts.draft };
+    return counts;
   }, [requests]);
 
   useEffect(() => {
@@ -200,14 +197,7 @@ export default function PurchaseRequestsPage() {
 
     // Status filter
     if (statusFilter !== 'ALL') {
-      if (statusFilter === 'PENDING') {
-        // Special case: PENDING = SUBMITTED + UNDER_REVIEW
-        filtered = filtered.filter(
-          (req) => req.status === 'SUBMITTED' || req.status === 'UNDER_REVIEW'
-        );
-      } else {
-        filtered = filtered.filter((req) => req.status === statusFilter);
-      }
+      filtered = filtered.filter((req) => req.status === statusFilter);
     }
 
     // Type filter
@@ -354,9 +344,9 @@ export default function PurchaseRequestsPage() {
                   color: 'info' as const,
                 },
                 {
-                  label: 'Pending Approval',
-                  value: stats.pending,
-                  filter: 'PENDING',
+                  label: 'Under Review',
+                  value: stats.underReview,
+                  filter: 'UNDER_REVIEW',
                   color: 'warning' as const,
                 },
                 {
@@ -431,7 +421,7 @@ export default function PurchaseRequestsPage() {
                 <MenuItem value="ALL">All Status</MenuItem>
                 <MenuItem value="DRAFT">Draft</MenuItem>
                 <MenuItem value="SUBMITTED">Submitted</MenuItem>
-                <MenuItem value="PENDING">Pending Approval</MenuItem>
+                <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
                 <MenuItem value="APPROVED">Approved</MenuItem>
                 <MenuItem value="REJECTED">Rejected</MenuItem>
                 <MenuItem value="CONVERTED_TO_RFQ">Converted to RFQ</MenuItem>

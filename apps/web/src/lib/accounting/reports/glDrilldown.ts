@@ -33,6 +33,7 @@ export function getTransactionRoute(type: string): string {
     case 'CUSTOMER_PAYMENT':
     case 'VENDOR_PAYMENT':
     case 'DIRECT_PAYMENT':
+    case 'DIRECT_RECEIPT':
       return '/accounting/payments';
     case 'JOURNAL_ENTRY':
       return '/accounting/journal-entries';
@@ -56,6 +57,8 @@ export function getTransactionTypeLabel(type: string): string {
       return 'Payment';
     case 'DIRECT_PAYMENT':
       return 'Direct Payment';
+    case 'DIRECT_RECEIPT':
+      return 'Direct Receipt';
     case 'JOURNAL_ENTRY':
       return 'Journal Entry';
     default:

@@ -25,6 +25,7 @@ const TRANSACTION_PREFIXES: Record<TransactionType, string> = {
   BANK_TRANSFER: 'TRF',
   EXPENSE_CLAIM: 'EXP',
   DIRECT_PAYMENT: 'DPAY',
+  DIRECT_RECEIPT: 'DRCPT',
 };
 
 /**

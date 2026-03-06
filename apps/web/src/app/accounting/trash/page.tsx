@@ -248,6 +248,7 @@ export default function TrashPage() {
             <MenuItem value="CUSTOMER_PAYMENT">Customer Payments</MenuItem>
             <MenuItem value="VENDOR_PAYMENT">Vendor Payments</MenuItem>
             <MenuItem value="DIRECT_PAYMENT">Direct Payments</MenuItem>
+            <MenuItem value="DIRECT_RECEIPT">Direct Receipts</MenuItem>
           </Select>
         </FormControl>
       </FilterBar>

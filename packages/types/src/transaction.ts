@@ -2,7 +2,7 @@
  * Transaction Types
  * Comprehensive transaction management for accounting system
  *
- * Supports 8 transaction types:
+ * Supports 9 transaction types:
  * 1. Customer Invoice
  * 2. Customer Payment (Receipt)
  * 3. Vendor Bill
@@ -11,6 +11,7 @@
  * 6. Bank Transfer
  * 7. Expense Claim
  * 8. Direct Payment (expense payments without vendor bill)
+ * 9. Direct Receipt (income receipts posted directly to GL accounts)
  */
 
 import type { GSTDetails, TDSDetails, LedgerEntry } from './accounting';
@@ -27,7 +28,8 @@ export type TransactionType =
   | 'JOURNAL_ENTRY'
   | 'BANK_TRANSFER'
   | 'EXPENSE_CLAIM'
-  | 'DIRECT_PAYMENT';
+  | 'DIRECT_PAYMENT'
+  | 'DIRECT_RECEIPT';
 
 /**
  * Transaction Status
@@ -485,4 +487,8 @@ export function isBankTransfer(transaction: BaseTransaction): transaction is Ban
 
 export function isExpenseClaim(transaction: BaseTransaction): transaction is ExpenseClaim {
   return transaction.type === 'EXPENSE_CLAIM';
+}
+
+export function isDirectReceipt(transaction: BaseTransaction): boolean {
+  return transaction.type === 'DIRECT_RECEIPT';
 }

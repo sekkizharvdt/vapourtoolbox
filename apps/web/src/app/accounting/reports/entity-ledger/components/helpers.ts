@@ -10,6 +10,7 @@ export const getTransactionTypeLabel = (type: TransactionType): string => {
     BANK_TRANSFER: 'Transfer',
     EXPENSE_CLAIM: 'Expense',
     DIRECT_PAYMENT: 'Direct',
+    DIRECT_RECEIPT: 'Direct Rcpt',
   };
   return labels[type] || type;
 };
@@ -28,6 +29,8 @@ export const getTransactionTypeColor = (
       return 'info';
     case 'DIRECT_PAYMENT':
       return 'secondary';
+    case 'DIRECT_RECEIPT':
+      return 'success';
     default:
       return 'default';
   }

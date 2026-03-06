@@ -138,6 +138,7 @@ export default function TransactionsPage() {
       BANK_TRANSFER: 'Transfer',
       EXPENSE_CLAIM: 'Expense',
       DIRECT_PAYMENT: 'Direct Payment',
+      DIRECT_RECEIPT: 'Direct Receipt',
     };
     return labels[type] || type;
   };
@@ -376,6 +377,7 @@ export default function TransactionsPage() {
                               VENDOR_PAYMENT: `/accounting/payments/${txn.id}`,
                               CUSTOMER_PAYMENT: `/accounting/payments/${txn.id}`,
                               DIRECT_PAYMENT: `/accounting/payments/${txn.id}`,
+                              DIRECT_RECEIPT: `/accounting/payments/${txn.id}`,
                             };
                             const route = routes[txn.type];
                             if (route) router.push(route);

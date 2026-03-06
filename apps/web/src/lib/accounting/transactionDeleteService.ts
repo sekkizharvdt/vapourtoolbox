@@ -385,6 +385,7 @@ const TRANSACTION_TYPE_LABELS: Record<string, string> = {
   CUSTOMER_PAYMENT: 'Customer Payment',
   VENDOR_PAYMENT: 'Vendor Payment',
   DIRECT_PAYMENT: 'Direct Payment',
+  DIRECT_RECEIPT: 'Direct Receipt',
   BANK_TRANSFER: 'Bank Transfer',
   EXPENSE_CLAIM: 'Expense Claim',
 };

@@ -75,7 +75,8 @@ export default function AccountingPage() {
         {
           id: 'payments',
           title: 'Payments',
-          description: 'Record customer receipts and vendor payments with allocation',
+          description:
+            'Record customer receipts, vendor payments, and direct receipts with Chart of Accounts',
           icon: <PaymentIcon sx={{ fontSize: 32, color: 'primary.main' }} />,
           path: '/accounting/payments',
         },

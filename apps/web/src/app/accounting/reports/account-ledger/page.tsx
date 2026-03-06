@@ -104,6 +104,8 @@ function getTransactionTypeLabel(type: string): string {
     case 'VENDOR_PAYMENT':
     case 'DIRECT_PAYMENT':
       return 'Payment';
+    case 'DIRECT_RECEIPT':
+      return 'Receipt';
     case 'CUSTOMER_INVOICE':
       return 'Invoice';
     case 'VENDOR_BILL':
