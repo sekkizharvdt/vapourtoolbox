@@ -28,9 +28,11 @@ import {
   Button,
   Divider,
 } from '@mui/material';
-import { ArrowBack as ArrowBackIcon, Edit as EditIcon } from '@mui/icons-material';
+import { Edit as EditIcon } from '@mui/icons-material';
 import Link from 'next/link';
+import { doc, getDoc } from 'firebase/firestore';
 import type { MasterDocumentEntry } from '@vapour/types';
+import { getFirebase } from '@/lib/firebase';
 import { getMasterDocumentById } from '@/lib/documents/masterDocumentService';
 import DocumentOverview from '../components/DocumentOverview';
 import DocumentRevisions from '../components/DocumentRevisions';
@@ -71,6 +73,7 @@ export default function DocumentDetailClient() {
   const [document, setDocument] = useState<MasterDocumentEntry | null>(null);
   const [currentTab, setCurrentTab] = useState(0);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [projectName, setProjectName] = useState<string | null>(null);
 
   // Extract document ID from pathname for static export compatibility
   useEffect(() => {
@@ -100,6 +103,19 @@ export default function DocumentDetailClient() {
     else if (tab === 'links') setCurrentTab(5);
     else setCurrentTab(0);
   }, [searchParams]);
+
+  // Fetch project name for breadcrumb
+  useEffect(() => {
+    const pid = document?.projectId || searchParams.get('projectId');
+    if (!pid) return;
+    const { db } = getFirebase();
+    getDoc(doc(db, 'projects', pid)).then((snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as { name?: string; code?: string };
+        setProjectName(data.name || data.code || null);
+      }
+    });
+  }, [document?.projectId, searchParams]);
 
   const loadDocument = async () => {
     if (!documentId) return;
@@ -155,7 +171,7 @@ export default function DocumentDetailClient() {
           <Typography variant="h6" color="error">
             Document not found
           </Typography>
-          <Button component={Link} href={backHref} startIcon={<ArrowBackIcon />} sx={{ mt: 2 }}>
+          <Button component={Link} href={backHref} sx={{ mt: 2 }}>
             Back to Documents
           </Button>
         </Paper>
@@ -168,8 +184,18 @@ export default function DocumentDetailClient() {
       <Stack spacing={3}>
         {/* Breadcrumbs */}
         <Breadcrumbs>
+          {projectId ? (
+            <MuiLink
+              component={Link}
+              href={`/projects/${projectId}`}
+              underline="hover"
+              color="inherit"
+            >
+              {projectName || 'Project'}
+            </MuiLink>
+          ) : null}
           <MuiLink component={Link} href={backHref} underline="hover" color="inherit">
-            Master Documents
+            Documents
           </MuiLink>
           <Typography color="text.primary">{document.documentNumber}</Typography>
         </Breadcrumbs>

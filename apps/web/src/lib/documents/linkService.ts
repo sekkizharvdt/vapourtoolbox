@@ -59,7 +59,7 @@ async function hasCircularDependency(
   const targetDoc = targetSnapshot.data() as MasterDocumentEntry;
 
   // Check all successors of the target
-  for (const successor of targetDoc.successors) {
+  for (const successor of targetDoc.successors ?? []) {
     if (await hasCircularDependency(db, projectId, sourceId, successor.masterDocumentId, visited)) {
       return true;
     }
@@ -132,18 +132,20 @@ export async function createDocumentLink(db: Firestore, request: CreateLinkReque
   }
 
   // Create link objects
+  // Use request IDs (not .data().id which is undefined — .data() doesn't include the doc ID)
   const sourceLinkToTarget: DocumentLink = {
-    masterDocumentId: targetDoc.id,
+    masterDocumentId: request.targetDocumentId,
     documentNumber: targetDoc.documentNumber,
     documentTitle: targetDoc.documentTitle,
     linkType: request.linkType,
     status: targetDoc.status,
-    currentRevision: targetDoc.currentRevision,
+    ...(targetDoc.currentRevision !== undefined && { currentRevision: targetDoc.currentRevision }),
+    ...(targetDoc.assignedToNames?.length && { assignedToNames: targetDoc.assignedToNames }),
     createdAt: Timestamp.now(),
   };
 
   const targetLinkToSource: DocumentLink = {
-    masterDocumentId: sourceDoc.id,
+    masterDocumentId: request.sourceDocumentId,
     documentNumber: sourceDoc.documentNumber,
     documentTitle: sourceDoc.documentTitle,
     linkType:
@@ -153,7 +155,8 @@ export async function createDocumentLink(db: Firestore, request: CreateLinkReque
           ? 'PREREQUISITE'
           : 'RELATED',
     status: sourceDoc.status,
-    currentRevision: sourceDoc.currentRevision,
+    ...(sourceDoc.currentRevision !== undefined && { currentRevision: sourceDoc.currentRevision }),
+    ...(sourceDoc.assignedToNames?.length && { assignedToNames: sourceDoc.assignedToNames }),
     createdAt: Timestamp.now(),
   };
 
