@@ -145,6 +145,9 @@ export default function DocumentDetailClient() {
     );
   }
 
+  const projectId = document?.projectId || searchParams.get('projectId') || '';
+  const backHref = projectId ? `/projects/${projectId}/documents` : '/documents';
+
   if (!document) {
     return (
       <Box sx={{ p: 3 }}>
@@ -152,7 +155,7 @@ export default function DocumentDetailClient() {
           <Typography variant="h6" color="error">
             Document not found
           </Typography>
-          <Button component={Link} href="/documents" startIcon={<ArrowBackIcon />} sx={{ mt: 2 }}>
+          <Button component={Link} href={backHref} startIcon={<ArrowBackIcon />} sx={{ mt: 2 }}>
             Back to Documents
           </Button>
         </Paper>
@@ -165,7 +168,7 @@ export default function DocumentDetailClient() {
       <Stack spacing={3}>
         {/* Breadcrumbs */}
         <Breadcrumbs>
-          <MuiLink component={Link} href="/documents" underline="hover" color="inherit">
+          <MuiLink component={Link} href={backHref} underline="hover" color="inherit">
             Master Documents
           </MuiLink>
           <Typography color="text.primary">{document.documentNumber}</Typography>
