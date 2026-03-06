@@ -10,6 +10,7 @@ import { useAllModuleStats, getStatsForModule } from '@/lib/hooks/useModuleStats
 
 export default function DashboardPage() {
   const { user, claims } = useAuth();
+  const entityId = claims?.entityId || '';
   const userPermissions = claims?.permissions || 0;
   const userPermissions2 = claims?.permissions2 || 0;
 
@@ -62,7 +63,7 @@ export default function DashboardPage() {
     data: moduleStats,
     isLoading: isLoadingStats,
     error: statsError,
-  } = useAllModuleStats(accessibleModuleIds);
+  } = useAllModuleStats(accessibleModuleIds, entityId);
 
   return (
     <Container maxWidth="xl">

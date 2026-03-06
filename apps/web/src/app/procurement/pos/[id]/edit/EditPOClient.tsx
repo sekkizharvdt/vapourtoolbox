@@ -164,7 +164,7 @@ export default function EditPOClient() {
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!commercialTerms.deliveryAddress.trim()) {
+    if (!(commercialTerms.deliveryAddress ?? '').trim()) {
       errors.deliveryAddress = 'Delivery address is required';
     }
 
@@ -173,13 +173,13 @@ export default function EditPOClient() {
       errors.paymentSchedule = scheduleValidation.error || 'Invalid payment schedule';
     }
 
-    if (!commercialTerms.buyerContactName.trim()) {
+    if (!(commercialTerms.buyerContactName ?? '').trim()) {
       errors.buyerContactName = 'Buyer contact name is required';
     }
-    if (!commercialTerms.buyerContactPhone.trim()) {
+    if (!(commercialTerms.buyerContactPhone ?? '').trim()) {
       errors.buyerContactPhone = 'Buyer contact phone is required';
     }
-    if (!commercialTerms.buyerContactEmail.trim()) {
+    if (!(commercialTerms.buyerContactEmail ?? '').trim()) {
       errors.buyerContactEmail = 'Buyer contact email is required';
     }
 

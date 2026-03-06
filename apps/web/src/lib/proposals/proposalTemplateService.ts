@@ -115,14 +115,14 @@ export async function createProposalTemplate(
  */
 export async function listProposalTemplates(
   db: Firestore,
-  options: ListProposalTemplatesOptions = {}
+  options: ListProposalTemplatesOptions
 ): Promise<ProposalTemplate[]> {
   try {
-    let q = query(collection(db, COLLECTION), orderBy('createdAt', 'desc'));
-
-    if (options.entityId) {
-      q = query(q, where('entityId', '==', options.entityId));
-    }
+    let q = query(
+      collection(db, COLLECTION),
+      where('entityId', '==', options.entityId),
+      orderBy('createdAt', 'desc')
+    );
 
     if (options.category) {
       q = query(q, where('category', '==', options.category));

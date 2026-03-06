@@ -56,10 +56,10 @@ export default function ProposalTemplatesPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<ProposalTemplate | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const entityId = claims?.entityId || 'default-entity';
+  const entityId = claims?.entityId;
 
   useEffect(() => {
-    if (!db) return;
+    if (!db || !entityId) return;
 
     const loadTemplates = async () => {
       try {

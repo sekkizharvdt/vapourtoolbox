@@ -63,7 +63,10 @@ export interface UpdateLeaveTypeInput {
 /**
  * Get all leave types
  */
-export async function getLeaveTypes(includeInactive = false): Promise<LeaveType[]> {
+export async function getLeaveTypes(
+  entityId: string,
+  includeInactive = false
+): Promise<LeaveType[]> {
   const { db } = getFirebase();
 
   try {
@@ -71,11 +74,16 @@ export async function getLeaveTypes(includeInactive = false): Promise<LeaveType[
     if (!includeInactive) {
       q = query(
         collection(db, COLLECTIONS.HR_LEAVE_TYPES),
+        where('entityId', '==', entityId),
         where('isActive', '==', true),
         orderBy('code', 'asc')
       );
     } else {
-      q = query(collection(db, COLLECTIONS.HR_LEAVE_TYPES), orderBy('code', 'asc'));
+      q = query(
+        collection(db, COLLECTIONS.HR_LEAVE_TYPES),
+        where('entityId', '==', entityId),
+        orderBy('code', 'asc')
+      );
     }
     const snapshot = await getDocs(q);
 

@@ -38,7 +38,7 @@ import type { LeaveType, LeaveBalance } from '@vapour/types';
 
 export default function NewLeaveRequestPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
 
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
@@ -77,7 +77,7 @@ export default function NewLeaveRequestPage() {
       const nextYear = new Date(today.getFullYear() + 1, 11, 31);
 
       const [typesData, balancesData, holidaysData] = await Promise.all([
-        getLeaveTypes(),
+        getLeaveTypes(claims?.entityId || ''),
         getUserLeaveBalances(user.uid, fiscalYear),
         getAllHolidaysInRange(today, nextYear),
       ]);

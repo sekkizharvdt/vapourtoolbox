@@ -48,18 +48,19 @@ describe('projectService', () => {
       });
       (getDocs as jest.Mock).mockClear(); // Clear previous calls if any regarding mock implementation details
 
-      const result = await getProjects();
+      const result = await getProjects('entity-1');
 
       expect(result).toHaveLength(1);
       expect(result[0]!.id).toBe('proj-1');
 
       // Check query construction
+      expect(where).toHaveBeenCalledWith('entityId', '==', 'entity-1');
       expect(orderBy).toHaveBeenCalledWith('createdAt', 'desc');
     });
 
     it('should return empty array on error', async () => {
       (getDocs as jest.Mock).mockRejectedValue(new Error('Firestore error'));
-      const result = await getProjects();
+      const result = await getProjects('entity-1');
       expect(result).toEqual([]);
     });
   });
@@ -72,14 +73,15 @@ describe('projectService', () => {
           [{ id: 'proj-1', data: () => mockProject }].forEach(cb),
       });
 
-      await getProjectsByStatus('IN_PROGRESS');
+      await getProjectsByStatus('entity-1', 'IN_PROGRESS');
 
+      expect(where).toHaveBeenCalledWith('entityId', '==', 'entity-1');
       expect(where).toHaveBeenCalledWith('status', '==', 'IN_PROGRESS');
     });
 
     it('should return empty array on error', async () => {
       (getDocs as jest.Mock).mockRejectedValue(new Error('Firestore error'));
-      const result = await getProjectsByStatus('IN_PROGRESS');
+      const result = await getProjectsByStatus('entity-1', 'IN_PROGRESS');
       expect(result).toEqual([]);
     });
   });
@@ -92,14 +94,15 @@ describe('projectService', () => {
           [{ id: 'proj-1', data: () => mockProject }].forEach(cb),
       });
 
-      await getActiveProjects();
+      await getActiveProjects('entity-1');
 
+      expect(where).toHaveBeenCalledWith('entityId', '==', 'entity-1');
       expect(where).toHaveBeenCalledWith('status', 'in', ['PLANNING', 'IN_PROGRESS', 'ON_HOLD']);
     });
 
     it('should return empty array on error', async () => {
       (getDocs as jest.Mock).mockRejectedValue(new Error('Firestore error'));
-      const result = await getActiveProjects();
+      const result = await getActiveProjects('entity-1');
       expect(result).toEqual([]);
     });
   });

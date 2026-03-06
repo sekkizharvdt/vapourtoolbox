@@ -462,9 +462,14 @@ export async function getInterprojectLoan(
  */
 export async function getInterprojectLoans(
   db: Firestore,
+  entityId: string,
   filters?: LoanListFilters
 ): Promise<InterprojectLoan[]> {
-  let q = query(collection(db, COLLECTIONS.INTERPROJECT_LOANS), orderBy('createdAt', 'desc'));
+  let q = query(
+    collection(db, COLLECTIONS.INTERPROJECT_LOANS),
+    where('entityId', '==', entityId),
+    orderBy('createdAt', 'desc')
+  );
 
   if (filters?.status) {
     q = query(q, where('status', '==', filters.status));
@@ -487,11 +492,12 @@ export async function getInterprojectLoans(
  */
 export async function getLoansByProject(
   db: Firestore,
+  entityId: string,
   projectId: string
 ): Promise<{ asLender: InterprojectLoan[]; asBorrower: InterprojectLoan[] }> {
   const [lenderLoans, borrowerLoans] = await Promise.all([
-    getInterprojectLoans(db, { lendingProjectId: projectId }),
-    getInterprojectLoans(db, { borrowingProjectId: projectId }),
+    getInterprojectLoans(db, entityId, { lendingProjectId: projectId }),
+    getInterprojectLoans(db, entityId, { borrowingProjectId: projectId }),
   ]);
 
   return {
@@ -734,6 +740,7 @@ export async function updateLoanStatus(
  */
 export async function getProjectLoanSummary(
   db: Firestore,
+  entityId: string,
   projectId: string
 ): Promise<{
   totalLent: number;
@@ -743,7 +750,7 @@ export async function getProjectLoanSummary(
   activeLoansAsLender: number;
   activeLoansAsBorrower: number;
 }> {
-  const { asLender, asBorrower } = await getLoansByProject(db, projectId);
+  const { asLender, asBorrower } = await getLoansByProject(db, entityId, projectId);
 
   const activeStatuses = ['ACTIVE', 'PARTIALLY_REPAID'];
 

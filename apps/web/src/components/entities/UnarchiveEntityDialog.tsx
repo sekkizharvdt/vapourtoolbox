@@ -104,7 +104,13 @@ export function UnarchiveEntityDialog({
   // Format archive date for display
   const formatDate = (date: Date | undefined) => {
     if (!date) return 'Unknown';
-    return new Date(date).toLocaleDateString('en-IN', {
+    const d =
+      date && typeof date === 'object' && 'toDate' in date
+        ? (date as { toDate: () => Date }).toDate()
+        : date instanceof Date
+          ? date
+          : new Date(date as string);
+    return d.toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',

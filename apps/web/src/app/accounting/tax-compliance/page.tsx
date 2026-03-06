@@ -152,25 +152,34 @@ export default function TaxCompliancePage() {
         address: companyAddress,
       };
 
+      const entityId = claims?.entityId || '';
+
       // Generate Form 26Q (Quarterly Return)
-      const form26q = await generateForm26Q(db, quarter, financialYear, deductorDetails);
+      const form26q = await generateForm26Q(db, entityId, quarter, financialYear, deductorDetails);
       setForm26qData(form26q);
 
       // Get list of deductees for Form 16A selection
-      const deducteesList = await getDeducteesWithTDS(db, quarter, financialYear);
+      const deducteesList = await getDeducteesWithTDS(db, entityId, quarter, financialYear);
       setDeductees(deducteesList);
 
       // If there's a selected deductee, generate Form 16A
       if (selectedDeducteeId) {
-        const form16a = await generateForm16A(db, selectedDeducteeId, quarter, financialYear, {
-          name: companyName,
-          tan: companyTAN,
-          pan: companyPAN,
-          address: companyAddress,
-          city: 'New Delhi',
-          state: 'Delhi',
-          pincode: '110001',
-        });
+        const form16a = await generateForm16A(
+          db,
+          entityId,
+          selectedDeducteeId,
+          quarter,
+          financialYear,
+          {
+            name: companyName,
+            tan: companyTAN,
+            pan: companyPAN,
+            address: companyAddress,
+            city: 'New Delhi',
+            state: 'Delhi',
+            pincode: '110001',
+          }
+        );
         setForm16aData(form16a);
       } else {
         setForm16aData(null);
@@ -190,7 +199,8 @@ export default function TaxCompliancePage() {
 
     try {
       const { db } = getFirebase();
-      const form16a = await generateForm16A(db, deducteeId, quarter, financialYear, {
+      const entityId = claims?.entityId || '';
+      const form16a = await generateForm16A(db, entityId, deducteeId, quarter, financialYear, {
         name: companyName,
         tan: companyTAN,
         pan: companyPAN,

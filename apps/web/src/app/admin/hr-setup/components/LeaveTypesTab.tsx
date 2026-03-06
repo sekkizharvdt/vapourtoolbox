@@ -7,7 +7,7 @@
  * Admin-only access (used in /admin/hr-setup)
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Typography,
   Box,
@@ -130,7 +130,7 @@ const defaultFormData: FormData = {
 };
 
 export default function LeaveTypesTab() {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -141,12 +141,14 @@ export default function LeaveTypesTab() {
   const [seeding, setSeeding] = useState(false);
   const [seedSuccess, setSeedSuccess] = useState<string | null>(null);
 
-  const loadData = async () => {
+  const entityId = claims?.entityId || '';
+
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const data = await getLeaveTypes(true); // Include inactive
+      const data = await getLeaveTypes(entityId, true); // Include inactive
       setLeaveTypes(data);
     } catch (err) {
       console.error('Failed to load leave types:', err);
@@ -154,11 +156,11 @@ export default function LeaveTypesTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [entityId]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const handleAdd = () => {
     setEditingType(null);

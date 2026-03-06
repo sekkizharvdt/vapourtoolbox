@@ -7,7 +7,7 @@
  * Distinct from EditDocumentDialog which edits MasterDocumentEntry for project documents.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -47,6 +47,15 @@ export function EditCompanyDocumentDialog({
   const [description, setDescription] = useState(document.description);
   const [category, setCategory] = useState<CompanyDocumentCategory>(document.category);
   const [saving, setSaving] = useState(false);
+
+  // Sync state when document prop changes (e.g., opening dialog for a different document)
+  useEffect(() => {
+    if (open) {
+      setTitle(document.title);
+      setDescription(document.description);
+      setCategory(document.category);
+    }
+  }, [open, document]);
 
   const handleSubmit = async () => {
     if (!db || !user) return;

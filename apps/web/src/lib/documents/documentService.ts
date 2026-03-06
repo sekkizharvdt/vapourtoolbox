@@ -114,22 +114,22 @@ export async function uploadDocument(
       documentType: request.documentType,
 
       // Linking
-      projectId: request.projectId,
-      equipmentId: request.equipmentId,
+      ...(request.projectId !== undefined && { projectId: request.projectId }),
+      ...(request.equipmentId !== undefined && { equipmentId: request.equipmentId }),
       entityType: request.entityType,
       entityId: request.entityId,
 
       // Version control
       version,
       isLatest: true,
-      previousVersionId,
-      revisionNotes: request.revisionNotes,
+      ...(previousVersionId !== undefined && { previousVersionId }),
+      ...(request.revisionNotes !== undefined && { revisionNotes: request.revisionNotes }),
 
       // Metadata
       title: request.title || request.file.name,
-      description: request.description,
+      ...(request.description !== undefined && { description: request.description }),
       tags: request.tags || [],
-      folder: request.folder,
+      ...(request.folder !== undefined && { folder: request.folder }),
 
       // Status
       status: 'ACTIVE',

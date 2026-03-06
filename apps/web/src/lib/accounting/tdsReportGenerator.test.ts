@@ -195,7 +195,7 @@ describe('TDS Report Generator', () => {
       });
 
       await expect(
-        generateForm16A(mockDb, 'vendor-123', 1, '2024-25', mockDeductorDetails)
+        generateForm16A(mockDb, 'entity-1', 'vendor-123', 1, '2024-25', mockDeductorDetails)
       ).rejects.toThrow('No TDS transactions found for this deductee');
     });
 
@@ -231,7 +231,14 @@ describe('TDS Report Generator', () => {
         ],
       });
 
-      const result = await generateForm16A(mockDb, 'vendor-123', 1, '2024-25', mockDeductorDetails);
+      const result = await generateForm16A(
+        mockDb,
+        'entity-1',
+        'vendor-123',
+        1,
+        '2024-25',
+        mockDeductorDetails
+      );
 
       expect(result.summary.totalPayment).toBe(15000);
       expect(result.summary.totalTDS).toBe(1500);
@@ -271,7 +278,14 @@ describe('TDS Report Generator', () => {
         ],
       });
 
-      const result = await generateForm16A(mockDb, 'vendor-123', 1, '2024-25', mockDeductorDetails);
+      const result = await generateForm16A(
+        mockDb,
+        'entity-1',
+        'vendor-123',
+        1,
+        '2024-25',
+        mockDeductorDetails
+      );
 
       expect(result.summary.transactionCount).toBe(1);
       expect(result.summary.totalTDS).toBe(1000);
@@ -291,7 +305,7 @@ describe('TDS Report Generator', () => {
     it('should generate empty report when no transactions', async () => {
       mockGetDocs.mockResolvedValueOnce({ docs: [] });
 
-      const result = await generateForm26Q(mockDb, 1, '2024-25', mockDeductorDetails);
+      const result = await generateForm26Q(mockDb, 'entity-1', 1, '2024-25', mockDeductorDetails);
 
       expect(result.summary.totalTransactions).toBe(0);
       expect(result.summary.totalTDS).toBe(0);
@@ -337,7 +351,7 @@ describe('TDS Report Generator', () => {
         ],
       });
 
-      const result = await generateForm26Q(mockDb, 1, '2024-25', mockDeductorDetails);
+      const result = await generateForm26Q(mockDb, 'entity-1', 1, '2024-25', mockDeductorDetails);
 
       expect(result.summary.totalTransactions).toBe(3);
       expect(result.summary.totalTDS).toBe(3500);
@@ -353,7 +367,7 @@ describe('TDS Report Generator', () => {
     it('should return empty array when no deductees', async () => {
       mockGetDocs.mockResolvedValueOnce({ docs: [] });
 
-      const result = await getDeducteesWithTDS(mockDb, 1, '2024-25');
+      const result = await getDeducteesWithTDS(mockDb, 'entity-1', 1, '2024-25');
 
       expect(result).toEqual([]);
     });
@@ -397,7 +411,7 @@ describe('TDS Report Generator', () => {
         ],
       });
 
-      const result = await getDeducteesWithTDS(mockDb, 1, '2024-25');
+      const result = await getDeducteesWithTDS(mockDb, 'entity-1', 1, '2024-25');
 
       expect(result).toHaveLength(2);
       // Should be sorted by totalTDS descending

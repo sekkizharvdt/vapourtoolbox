@@ -156,6 +156,7 @@ export async function getUserLeaveBalanceByType(
  * Creates balance records for all active leave types
  */
 export async function initializeUserLeaveBalances(
+  entityId: string,
   userId: string,
   userName: string,
   userEmail: string,
@@ -174,7 +175,7 @@ export async function initializeUserLeaveBalances(
     }
 
     // Get all active leave types
-    const leaveTypes = await getLeaveTypes();
+    const leaveTypes = await getLeaveTypes(entityId);
 
     if (leaveTypes.length === 0) {
       logger.warn('No active leave types found during balance initialization', {
@@ -354,12 +355,19 @@ export async function removePendingLeave(
 /**
  * Get all leave balances for a fiscal year (admin view)
  */
-export async function getAllLeaveBalances(fiscalYear?: number): Promise<LeaveBalance[]> {
+export async function getAllLeaveBalances(
+  entityId: string,
+  fiscalYear?: number
+): Promise<LeaveBalance[]> {
   const { db } = getFirebase();
   const year = fiscalYear ?? getCurrentFiscalYear();
 
   try {
-    const q = query(collection(db, COLLECTIONS.HR_LEAVE_BALANCES), where('fiscalYear', '==', year));
+    const q = query(
+      collection(db, COLLECTIONS.HR_LEAVE_BALANCES),
+      where('entityId', '==', entityId),
+      where('fiscalYear', '==', year)
+    );
 
     const snapshot = await getDocs(q);
 

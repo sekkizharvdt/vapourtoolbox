@@ -143,7 +143,7 @@ export default function NewPOPage() {
     const errors: Record<string, string> = {};
 
     // Validate delivery address
-    if (!commercialTerms.deliveryAddress.trim()) {
+    if (!(commercialTerms.deliveryAddress ?? '').trim()) {
       errors.deliveryAddress = 'Delivery address is required';
     }
 
@@ -154,13 +154,13 @@ export default function NewPOPage() {
     }
 
     // Validate buyer contact
-    if (!commercialTerms.buyerContactName.trim()) {
+    if (!(commercialTerms.buyerContactName ?? '').trim()) {
       errors.buyerContactName = 'Buyer contact name is required';
     }
-    if (!commercialTerms.buyerContactPhone.trim()) {
+    if (!(commercialTerms.buyerContactPhone ?? '').trim()) {
       errors.buyerContactPhone = 'Buyer contact phone is required';
     }
-    if (!commercialTerms.buyerContactEmail.trim()) {
+    if (!(commercialTerms.buyerContactEmail ?? '').trim()) {
       errors.buyerContactEmail = 'Buyer contact email is required';
     }
 

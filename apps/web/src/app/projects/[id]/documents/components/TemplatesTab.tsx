@@ -111,7 +111,7 @@ export default function TemplatesTab({ project }: TemplatesTabProps) {
     setLoading(true);
     setError(null);
     try {
-      const data = await getTemplatesForProject(project.id);
+      const data = await getTemplatesForProject(project.client.entityId, project.id);
       setTemplates(data);
     } catch (err) {
       console.error('[TemplatesTab] Error loading templates:', err);
@@ -119,7 +119,7 @@ export default function TemplatesTab({ project }: TemplatesTabProps) {
     } finally {
       setLoading(false);
     }
-  }, [project.id]);
+  }, [project.id, project.client.entityId]);
 
   useEffect(() => {
     loadTemplates();

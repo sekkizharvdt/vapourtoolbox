@@ -73,6 +73,8 @@ export default function PaymentBatchesPage() {
           statusFilter === 'ALL' ? undefined : [statusFilter as PaymentBatchStatus];
 
         const entityId = claims?.entityId;
+        if (!entityId) return;
+
         const [batchList, batchStats] = await Promise.all([
           listPaymentBatches(db, {
             entityId,

@@ -838,11 +838,9 @@ export function detectCrossProjectPayments(batch: PaymentBatch): Array<{
  */
 export async function getPaymentBatchStats(
   db: Firestore,
-  entityId?: string
+  entityId: string
 ): Promise<PaymentBatchStats> {
-  const q = entityId
-    ? query(collection(db, COLLECTIONS.PAYMENT_BATCHES), where('entityId', '==', entityId))
-    : query(collection(db, COLLECTIONS.PAYMENT_BATCHES));
+  const q = query(collection(db, COLLECTIONS.PAYMENT_BATCHES), where('entityId', '==', entityId));
   const snapshot = await getDocs(q);
 
   const stats: PaymentBatchStats = {
@@ -876,9 +874,16 @@ export async function getPaymentBatchStats(
     } else if (status === 'APPROVED') {
       stats.approvedAmount += totalPayment;
     } else if (status === 'COMPLETED') {
+      const rawExecutedAt = data.executedAt;
       const executedAt =
-        data.executedAt instanceof Timestamp ? data.executedAt.toDate() : data.executedAt;
-      if (executedAt && new Date(executedAt as string) >= startOfMonth) {
+        rawExecutedAt && typeof rawExecutedAt === 'object' && 'toDate' in rawExecutedAt
+          ? (rawExecutedAt as { toDate: () => Date }).toDate()
+          : rawExecutedAt instanceof Date
+            ? rawExecutedAt
+            : rawExecutedAt
+              ? new Date(rawExecutedAt as string)
+              : null;
+      if (executedAt && executedAt >= startOfMonth) {
         stats.completedThisMonth++;
         stats.paidThisMonthAmount += totalPayment;
       }

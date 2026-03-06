@@ -23,12 +23,16 @@ export interface ModuleStats {
 /**
  * Get stats for Tasks module (Time Tracking)
  */
-async function getTasksStats(): Promise<ModuleStats> {
+async function getTasksStats(entityId: string): Promise<ModuleStats> {
   const { db } = getFirebase();
 
   try {
     // Count pending tasks
-    const pendingTasksQuery = query(collection(db, 'tasks'), where('status', '==', 'PENDING'));
+    const pendingTasksQuery = query(
+      collection(db, 'tasks'),
+      where('entityId', '==', entityId),
+      where('status', '==', 'PENDING')
+    );
     const pendingSnapshot = await getCountFromServer(pendingTasksQuery);
 
     // Count on-duty today
@@ -36,6 +40,7 @@ async function getTasksStats(): Promise<ModuleStats> {
     today.setHours(0, 0, 0, 0);
     const onDutyQuery = query(
       collection(db, 'onDutyRecords'),
+      where('entityId', '==', entityId),
       where('date', '>=', Timestamp.fromDate(today)),
       where('status', '==', 'APPROVED')
     );
@@ -56,7 +61,7 @@ async function getTasksStats(): Promise<ModuleStats> {
 /**
  * Get stats for Document Management module
  */
-async function getDocumentStats(): Promise<ModuleStats> {
+async function getDocumentStats(entityId: string): Promise<ModuleStats> {
   const { db } = getFirebase();
 
   try {
@@ -66,6 +71,7 @@ async function getDocumentStats(): Promise<ModuleStats> {
 
     const recentDocsQuery = query(
       collection(db, 'documents'),
+      where('entityId', '==', entityId),
       where('createdAt', '>=', Timestamp.fromDate(sevenDaysAgo))
     );
     const recentSnapshot = await getCountFromServer(recentDocsQuery);
@@ -84,13 +90,14 @@ async function getDocumentStats(): Promise<ModuleStats> {
 /**
  * Get stats for Procurement module
  */
-async function getProcurementStats(): Promise<ModuleStats> {
+async function getProcurementStats(entityId: string): Promise<ModuleStats> {
   const { db } = getFirebase();
 
   try {
     // Count pending purchase requests
     const pendingPRsQuery = query(
       collection(db, 'purchaseRequests'),
+      where('entityId', '==', entityId),
       where('status', '==', 'PENDING_APPROVAL')
     );
     const pendingPRsSnapshot = await getCountFromServer(pendingPRsQuery);
@@ -98,6 +105,7 @@ async function getProcurementStats(): Promise<ModuleStats> {
     // Count pending RFQs
     const pendingRFQsQuery = query(
       collection(db, 'rfqs'),
+      where('entityId', '==', entityId),
       where('status', 'in', ['DRAFT', 'SENT', 'PENDING_REVIEW'])
     );
     const pendingRFQsSnapshot = await getCountFromServer(pendingRFQsQuery);
@@ -105,6 +113,7 @@ async function getProcurementStats(): Promise<ModuleStats> {
     // Count pending POs
     const pendingPOsQuery = query(
       collection(db, 'purchaseOrders'),
+      where('entityId', '==', entityId),
       where('status', 'in', ['DRAFT', 'PENDING_APPROVAL'])
     );
     const pendingPOsSnapshot = await getCountFromServer(pendingPOsQuery);
@@ -128,13 +137,14 @@ async function getProcurementStats(): Promise<ModuleStats> {
 /**
  * Get stats for Accounting module
  */
-async function getAccountingStats(): Promise<ModuleStats> {
+async function getAccountingStats(entityId: string): Promise<ModuleStats> {
   const { db } = getFirebase();
 
   try {
     // Count pending customer invoices
     const pendingInvoicesQuery = query(
       collection(db, 'customerInvoices'),
+      where('entityId', '==', entityId),
       where('status', 'in', ['DRAFT', 'PENDING_APPROVAL'])
     );
     const pendingInvoicesSnapshot = await getCountFromServer(pendingInvoicesQuery);
@@ -142,6 +152,7 @@ async function getAccountingStats(): Promise<ModuleStats> {
     // Count pending vendor bills
     const pendingBillsQuery = query(
       collection(db, 'vendorBills'),
+      where('entityId', '==', entityId),
       where('status', 'in', ['DRAFT', 'PENDING_APPROVAL'])
     );
     const pendingBillsSnapshot = await getCountFromServer(pendingBillsQuery);
@@ -149,6 +160,7 @@ async function getAccountingStats(): Promise<ModuleStats> {
     // Count unreconciled bank transactions
     const unreconciledQuery = query(
       collection(db, 'bankReconciliation'),
+      where('entityId', '==', entityId),
       where('status', '==', 'UNRECONCILED')
     );
     const unreconciledSnapshot = await getCountFromServer(unreconciledQuery);
@@ -172,13 +184,14 @@ async function getAccountingStats(): Promise<ModuleStats> {
 /**
  * Get stats for Project Management module
  */
-async function getProjectStats(): Promise<ModuleStats> {
+async function getProjectStats(entityId: string): Promise<ModuleStats> {
   const { db } = getFirebase();
 
   try {
     // Count active projects
     const activeProjectsQuery = query(
       collection(db, 'projects'),
+      where('entityId', '==', entityId),
       where('status', 'in', ['ACTIVE', 'IN_PROGRESS'])
     );
     const activeSnapshot = await getCountFromServer(activeProjectsQuery);
@@ -197,12 +210,16 @@ async function getProjectStats(): Promise<ModuleStats> {
 /**
  * Get stats for Estimation module
  */
-async function getEstimationStats(): Promise<ModuleStats> {
+async function getEstimationStats(entityId: string): Promise<ModuleStats> {
   const { db } = getFirebase();
 
   try {
     // Count draft estimates
-    const draftEstimatesQuery = query(collection(db, 'estimates'), where('status', '==', 'DRAFT'));
+    const draftEstimatesQuery = query(
+      collection(db, 'estimates'),
+      where('entityId', '==', entityId),
+      where('status', '==', 'DRAFT')
+    );
     const draftSnapshot = await getCountFromServer(draftEstimatesQuery);
 
     return {
@@ -263,13 +280,14 @@ async function getUserStats(): Promise<ModuleStats> {
 /**
  * Get stats for HR module
  */
-async function getHRStats(): Promise<ModuleStats> {
+async function getHRStats(entityId: string): Promise<ModuleStats> {
   const { db } = getFirebase();
 
   try {
     // Count pending leave requests
     const pendingLeavesQuery = query(
       collection(db, 'leaveRequests'),
+      where('entityId', '==', entityId),
       where('status', '==', 'PENDING')
     );
     const pendingSnapshot = await getCountFromServer(pendingLeavesQuery);
@@ -288,13 +306,14 @@ async function getHRStats(): Promise<ModuleStats> {
 /**
  * Get stats for Proposals module
  */
-async function getProposalStats(): Promise<ModuleStats> {
+async function getProposalStats(entityId: string): Promise<ModuleStats> {
   const { db } = getFirebase();
 
   try {
     // Count proposals in draft or internal review
     const pendingProposalsQuery = query(
       collection(db, 'proposals'),
+      where('entityId', '==', entityId),
       where('status', 'in', ['DRAFT', 'INTERNAL_REVIEW'])
     );
     const pendingSnapshot = await getCountFromServer(pendingProposalsQuery);
@@ -314,28 +333,31 @@ async function getProposalStats(): Promise<ModuleStats> {
  * Get stats for all modules
  * Returns stats for modules the user has access to
  */
-export async function getAllModuleStats(accessibleModuleIds: string[]): Promise<ModuleStats[]> {
+export async function getAllModuleStats(
+  accessibleModuleIds: string[],
+  entityId: string
+): Promise<ModuleStats[]> {
   const statsPromises: Promise<ModuleStats>[] = [];
 
   for (const moduleId of accessibleModuleIds) {
     switch (moduleId) {
       case 'time-tracking':
-        statsPromises.push(getTasksStats());
+        statsPromises.push(getTasksStats(entityId));
         break;
       case 'document-management':
-        statsPromises.push(getDocumentStats());
+        statsPromises.push(getDocumentStats(entityId));
         break;
       case 'procurement':
-        statsPromises.push(getProcurementStats());
+        statsPromises.push(getProcurementStats(entityId));
         break;
       case 'accounting':
-        statsPromises.push(getAccountingStats());
+        statsPromises.push(getAccountingStats(entityId));
         break;
       case 'project-management':
-        statsPromises.push(getProjectStats());
+        statsPromises.push(getProjectStats(entityId));
         break;
       case 'estimation':
-        statsPromises.push(getEstimationStats());
+        statsPromises.push(getEstimationStats(entityId));
         break;
       case 'entity-management':
         statsPromises.push(getEntityStats());
@@ -344,10 +366,10 @@ export async function getAllModuleStats(accessibleModuleIds: string[]): Promise<
         statsPromises.push(getUserStats());
         break;
       case 'hr-management':
-        statsPromises.push(getHRStats());
+        statsPromises.push(getHRStats(entityId));
         break;
       case 'proposal-management':
-        statsPromises.push(getProposalStats());
+        statsPromises.push(getProposalStats(entityId));
         break;
       // Modules without stats (reference data / calculators)
       case 'material-database':
@@ -374,28 +396,31 @@ export async function getAllModuleStats(accessibleModuleIds: string[]): Promise<
 /**
  * Get stats for a single module
  */
-export async function getModuleStats(moduleId: string): Promise<ModuleStats | null> {
+export async function getModuleStats(
+  moduleId: string,
+  entityId: string
+): Promise<ModuleStats | null> {
   switch (moduleId) {
     case 'time-tracking':
-      return getTasksStats();
+      return getTasksStats(entityId);
     case 'document-management':
-      return getDocumentStats();
+      return getDocumentStats(entityId);
     case 'procurement':
-      return getProcurementStats();
+      return getProcurementStats(entityId);
     case 'accounting':
-      return getAccountingStats();
+      return getAccountingStats(entityId);
     case 'project-management':
-      return getProjectStats();
+      return getProjectStats(entityId);
     case 'estimation':
-      return getEstimationStats();
+      return getEstimationStats(entityId);
     case 'entity-management':
       return getEntityStats();
     case 'user-management':
       return getUserStats();
     case 'hr-management':
-      return getHRStats();
+      return getHRStats(entityId);
     case 'proposal-management':
-      return getProposalStats();
+      return getProposalStats(entityId);
     default:
       return null;
   }

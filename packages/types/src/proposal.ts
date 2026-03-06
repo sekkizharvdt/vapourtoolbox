@@ -844,7 +844,7 @@ export interface UpdateProposalInput {
  * List Proposals Options
  */
 export interface ListProposalsOptions {
-  entityId?: string;
+  entityId: string;
   enquiryId?: string;
   status?: ProposalStatus | ProposalStatus[];
   clientId?: string;
@@ -921,7 +921,7 @@ export interface CreateProposalTemplateInput {
  * List Proposal Templates Options
  */
 export interface ListProposalTemplatesOptions {
-  entityId?: string;
+  entityId: string;
   category?: string;
   isActive?: boolean;
   searchTerm?: string;

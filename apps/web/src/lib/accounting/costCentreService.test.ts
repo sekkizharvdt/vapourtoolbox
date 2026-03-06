@@ -188,7 +188,7 @@ describe('costCentreService', () => {
         ],
       });
 
-      const result = await getProjectCostCentre(mockDb, 'project-123');
+      const result = await getProjectCostCentre(mockDb, 'entity-1', 'project-123');
 
       expect(result).not.toBeNull();
       expect(result?.id).toBe('cost-centre-123');
@@ -202,7 +202,7 @@ describe('costCentreService', () => {
         docs: [],
       });
 
-      const result = await getProjectCostCentre(mockDb, 'project-456');
+      const result = await getProjectCostCentre(mockDb, 'entity-1', 'project-456');
 
       expect(result).toBeNull();
     });
@@ -213,7 +213,7 @@ describe('costCentreService', () => {
         docs: [undefined], // Edge case where doc might be undefined
       });
 
-      const result = await getProjectCostCentre(mockDb, 'project-789');
+      const result = await getProjectCostCentre(mockDb, 'entity-1', 'project-789');
 
       expect(result).toBeNull();
     });
@@ -221,7 +221,9 @@ describe('costCentreService', () => {
     it('throws error when Firestore operation fails', async () => {
       mockGetDocs.mockRejectedValue(new Error('Firestore error'));
 
-      await expect(getProjectCostCentre(mockDb, 'project-123')).rejects.toThrow('Firestore error');
+      await expect(getProjectCostCentre(mockDb, 'entity-1', 'project-123')).rejects.toThrow(
+        'Firestore error'
+      );
     });
   });
 });

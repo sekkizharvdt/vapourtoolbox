@@ -272,7 +272,16 @@ export function FileUpload({
                     <Chip label={getFileExtension(attachment.name)} size="small" />
                   </Box>
                 }
-                secondary={`${formatFileSize(attachment.size)} • ${attachment.uploadedAt instanceof Date ? attachment.uploadedAt.toLocaleDateString() : new Date(attachment.uploadedAt).toLocaleDateString()}`}
+                secondary={`${formatFileSize(attachment.size)} • ${(() => {
+                  const raw = attachment.uploadedAt;
+                  const d =
+                    raw && typeof raw === 'object' && 'toDate' in raw
+                      ? (raw as { toDate: () => Date }).toDate()
+                      : raw instanceof Date
+                        ? raw
+                        : new Date(raw as string);
+                  return d.toLocaleDateString();
+                })()}`}
               />
               <ListItemSecondaryAction>
                 {attachment.type === 'application/pdf' && (
@@ -325,9 +334,7 @@ export function FileUpload({
           sx: { height: '90vh' },
         }}
       >
-        <DialogTitle>
-          {previewFile?.name}
-        </DialogTitle>
+        <DialogTitle>{previewFile?.name}</DialogTitle>
         <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
           {previewFile?.type === 'application/pdf' ? (
             <iframe
@@ -348,9 +355,7 @@ export function FileUpload({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => previewFile && handleDownload(previewFile)}>
-            Download
-          </Button>
+          <Button onClick={() => previewFile && handleDownload(previewFile)}>Download</Button>
           <Button onClick={handleClosePreview} variant="contained">
             Close
           </Button>

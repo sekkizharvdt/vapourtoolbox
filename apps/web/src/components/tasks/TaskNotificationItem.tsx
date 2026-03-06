@@ -207,15 +207,27 @@ function TaskNotificationItemComponent({
 
           {/* Time Info */}
           <Typography variant="caption" color="text.secondary">
-            Created: {new Date(notification.createdAt.toMillis()).toLocaleString()}
+            Created:{' '}
+            {notification.createdAt?.toMillis
+              ? new Date(notification.createdAt.toMillis()).toLocaleString()
+              : 'Unknown'}
             {notification.acknowledgedAt && (
               <>
                 {' '}
-                • Acknowledged: {new Date(notification.acknowledgedAt.toMillis()).toLocaleString()}
+                • Acknowledged:{' '}
+                {notification.acknowledgedAt?.toMillis
+                  ? new Date(notification.acknowledgedAt.toMillis()).toLocaleString()
+                  : 'Unknown'}
               </>
             )}
             {notification.timeCompleted && (
-              <> • Completed: {new Date(notification.timeCompleted.toMillis()).toLocaleString()}</>
+              <>
+                {' '}
+                • Completed:{' '}
+                {notification.timeCompleted?.toMillis
+                  ? new Date(notification.timeCompleted.toMillis()).toLocaleString()
+                  : 'Unknown'}
+              </>
             )}
           </Typography>
 

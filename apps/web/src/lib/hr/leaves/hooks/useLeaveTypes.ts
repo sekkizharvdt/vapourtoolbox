@@ -24,6 +24,7 @@ import type { LeaveTypeCode } from '@vapour/types';
  * @param options - Additional query options
  */
 export function useLeaveTypes(
+  entityId: string | undefined,
   includeInactive = false,
   options?: {
     enabled?: boolean;
@@ -32,8 +33,8 @@ export function useLeaveTypes(
 ) {
   return useQuery({
     queryKey: leaveTypeKeys.list({ isActive: !includeInactive }),
-    queryFn: () => getLeaveTypes(includeInactive),
-    enabled: options?.enabled ?? true,
+    queryFn: () => getLeaveTypes(entityId || '', includeInactive),
+    enabled: (options?.enabled ?? true) && !!entityId,
     // Leave types rarely change - cache for 10 minutes
     staleTime: options?.staleTime ?? 10 * 60 * 1000,
     // Keep in cache for 30 minutes

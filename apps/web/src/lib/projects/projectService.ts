@@ -25,11 +25,15 @@ const logger = createLogger({ context: 'projectService' });
 /**
  * Get all projects accessible by the current user
  */
-export async function getProjects(): Promise<Project[]> {
+export async function getProjects(entityId: string): Promise<Project[]> {
   const { db } = getFirebase();
 
   try {
-    const q = query(collection(db, COLLECTIONS.PROJECTS), orderBy('createdAt', 'desc'));
+    const q = query(
+      collection(db, COLLECTIONS.PROJECTS),
+      where('entityId', '==', entityId),
+      orderBy('createdAt', 'desc')
+    );
 
     const snapshot = await getDocs(q);
     const projects: Project[] = [];
@@ -51,12 +55,13 @@ export async function getProjects(): Promise<Project[]> {
 /**
  * Get projects with a specific status
  */
-export async function getProjectsByStatus(status: string): Promise<Project[]> {
+export async function getProjectsByStatus(entityId: string, status: string): Promise<Project[]> {
   const { db } = getFirebase();
 
   try {
     const q = query(
       collection(db, COLLECTIONS.PROJECTS),
+      where('entityId', '==', entityId),
       where('status', '==', status),
       orderBy('createdAt', 'desc')
     );
@@ -81,12 +86,13 @@ export async function getProjectsByStatus(status: string): Promise<Project[]> {
 /**
  * Get active projects (not completed or cancelled)
  */
-export async function getActiveProjects(): Promise<Project[]> {
+export async function getActiveProjects(entityId: string): Promise<Project[]> {
   const { db } = getFirebase();
 
   try {
     const q = query(
       collection(db, COLLECTIONS.PROJECTS),
+      where('entityId', '==', entityId),
       where('status', 'in', ['PLANNING', 'IN_PROGRESS', 'ON_HOLD']),
       orderBy('createdAt', 'desc')
     );
@@ -113,10 +119,14 @@ export async function getActiveProjects(): Promise<Project[]> {
  * Users with MANAGE_PROJECTS see all projects.
  * Others see only projects in their assignedProjects array.
  */
-export async function getProjectsForUser(userId: string, permissions: number): Promise<Project[]> {
+export async function getProjectsForUser(
+  entityId: string,
+  userId: string,
+  permissions: number
+): Promise<Project[]> {
   // Users with MANAGE_PROJECTS permission see all projects
   if (canManageProjects(permissions)) {
-    return getProjects();
+    return getProjects(entityId);
   }
 
   const { db } = getFirebase();
@@ -146,6 +156,7 @@ export async function getProjectsForUser(userId: string, permissions: number): P
     for (const chunk of chunks) {
       const q = query(
         collection(db, COLLECTIONS.PROJECTS),
+        where('entityId', '==', entityId),
         where(documentId(), 'in', chunk),
         orderBy('createdAt', 'desc')
       );

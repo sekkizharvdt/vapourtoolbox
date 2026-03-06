@@ -255,16 +255,24 @@ export async function getHolidaysForYear(year: number): Promise<Holiday[]> {
 /**
  * Get all company holidays (for admin view)
  */
-export async function getAllHolidays(includeInactive = false): Promise<Holiday[]> {
+export async function getAllHolidays(
+  entityId: string,
+  includeInactive = false
+): Promise<Holiday[]> {
   const { db } = getFirebase();
 
   try {
     let q;
     if (includeInactive) {
-      q = query(collection(db, COLLECTIONS.HR_HOLIDAYS), orderBy('date', 'desc'));
+      q = query(
+        collection(db, COLLECTIONS.HR_HOLIDAYS),
+        where('entityId', '==', entityId),
+        orderBy('date', 'desc')
+      );
     } else {
       q = query(
         collection(db, COLLECTIONS.HR_HOLIDAYS),
+        where('entityId', '==', entityId),
         where('isActive', '==', true),
         orderBy('date', 'desc')
       );

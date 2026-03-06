@@ -32,20 +32,21 @@ export { moduleStatsKeys };
  */
 export function useAllModuleStats(
   accessibleModuleIds: string[],
+  entityId: string,
   options?: {
     enabled?: boolean;
     staleTime?: number;
   }
 ) {
   return useQuery({
-    queryKey: moduleStatsKeys.list(accessibleModuleIds),
+    queryKey: [...moduleStatsKeys.list(accessibleModuleIds), entityId],
     queryFn: async () => {
-      logger.debug('Fetching module stats', { moduleIds: accessibleModuleIds });
-      const stats = await getAllModuleStats(accessibleModuleIds);
+      logger.debug('Fetching module stats', { moduleIds: accessibleModuleIds, entityId });
+      const stats = await getAllModuleStats(accessibleModuleIds, entityId);
       logger.info('Module stats fetched successfully', { count: stats.length });
       return stats;
     },
-    enabled: options?.enabled ?? accessibleModuleIds.length > 0,
+    enabled: options?.enabled ?? (accessibleModuleIds.length > 0 && !!entityId),
     staleTime: options?.staleTime ?? 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -58,21 +59,22 @@ export function useAllModuleStats(
  */
 export function useModuleStats(
   moduleId: string | null,
+  entityId: string,
   options?: {
     enabled?: boolean;
     staleTime?: number;
   }
 ) {
   return useQuery({
-    queryKey: moduleId ? moduleStatsKeys.detail(moduleId) : ['moduleStats', 'null'],
+    queryKey: moduleId ? [...moduleStatsKeys.detail(moduleId), entityId] : ['moduleStats', 'null'],
     queryFn: async () => {
       if (!moduleId) return null;
-      logger.debug('Fetching single module stats', { moduleId });
-      const stats = await getModuleStats(moduleId);
+      logger.debug('Fetching single module stats', { moduleId, entityId });
+      const stats = await getModuleStats(moduleId, entityId);
       logger.info('Single module stats fetched', { moduleId, stats });
       return stats;
     },
-    enabled: options?.enabled ?? !!moduleId,
+    enabled: options?.enabled ?? (!!moduleId && !!entityId),
     staleTime: options?.staleTime ?? 5 * 60 * 1000, // 5 minutes
   });
 }

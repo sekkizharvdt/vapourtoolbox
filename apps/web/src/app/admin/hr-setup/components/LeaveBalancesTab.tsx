@@ -57,7 +57,7 @@ interface GroupedBalance {
 }
 
 export default function LeaveBalancesTab() {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,7 +76,7 @@ export default function LeaveBalancesTab() {
 
     try {
       const [balanceData, usersData] = await Promise.all([
-        getAllLeaveBalances(selectedYear),
+        getAllLeaveBalances(claims?.entityId || '', selectedYear),
         loadActiveUsers(),
       ]);
 
@@ -88,7 +88,7 @@ export default function LeaveBalancesTab() {
     } finally {
       setLoading(false);
     }
-  }, [selectedYear]);
+  }, [selectedYear, claims?.entityId]);
 
   const loadActiveUsers = async (): Promise<UserInfo[]> => {
     const { db } = getFirebase();

@@ -75,13 +75,14 @@ export default function SSOTPage() {
 
   // PE-6: Load projects scoped to user access
   useEffect(() => {
-    if (!user?.uid || !claims) return;
+    if (!user?.uid || !claims?.entityId) return;
 
+    const entityId = claims.entityId;
     const loadProjects = async () => {
       setLoading(true);
       setError('');
       try {
-        const projectList = await getProjectsForUser(user.uid, claims.permissions);
+        const projectList = await getProjectsForUser(entityId, user.uid, claims.permissions);
         setProjects(projectList);
         // Auto-select first project if available
         const firstProject = projectList[0];

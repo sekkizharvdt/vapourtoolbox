@@ -103,11 +103,6 @@ export default function ProposalListPage() {
   const fetchProposals = useCallback(async () => {
     if (!db) return;
 
-    // Check if user has permission to manage entities (Superadmin/Director)
-    const canManageEntities = claims?.permissions
-      ? hasPermission(claims.permissions, PERMISSION_FLAGS.EDIT_ENTITIES)
-      : false;
-
     // Require VIEW_PROPOSALS permission
     if (
       !claims?.permissions ||
@@ -117,8 +112,8 @@ export default function ProposalListPage() {
       return;
     }
 
-    // If user has no entity ID and cannot manage entities, stop loading
-    if (!claims?.entityId && !canManageEntities) {
+    // entityId is required for multi-tenancy filtering
+    if (!claims?.entityId) {
       setLoading(false);
       return;
     }
@@ -128,7 +123,7 @@ export default function ProposalListPage() {
       setError(null);
 
       const data = await listProposals(db, {
-        entityId: claims?.entityId, // Optional for Superadmin
+        entityId: claims.entityId,
         status: statusFilter.length > 0 ? (statusFilter as ProposalStatus[]) : undefined,
         searchTerm: searchTerm || undefined,
         dateFrom: dateRange.start ? Timestamp.fromDate(dateRange.start) : undefined,

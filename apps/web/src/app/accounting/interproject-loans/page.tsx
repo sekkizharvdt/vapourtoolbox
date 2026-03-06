@@ -122,7 +122,9 @@ export default function InterprojectLoansPage() {
       if (!db) return [];
       const filters =
         statusFilter !== 'all' ? { status: statusFilter as InterprojectLoan['status'] } : undefined;
-      return getInterprojectLoans(db, filters);
+      const entityId = claims?.entityId;
+      if (!entityId) return [];
+      return getInterprojectLoans(db, entityId, filters);
     },
     enabled: !!db,
   });

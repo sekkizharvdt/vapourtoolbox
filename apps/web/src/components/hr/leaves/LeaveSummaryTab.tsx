@@ -22,6 +22,7 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
+import { useAuth } from '@/contexts/AuthContext';
 import { getAllLeaveBalances, getCurrentFiscalYear } from '@/lib/hr/leaves';
 import type { LeaveBalance } from '@vapour/types';
 
@@ -43,6 +44,7 @@ interface UserSummary {
 }
 
 export default function LeaveSummaryTab() {
+  const { claims } = useAuth();
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export default function LeaveSummaryTab() {
     setError(null);
 
     try {
-      const data = await getAllLeaveBalances(selectedYear);
+      const data = await getAllLeaveBalances(claims?.entityId || '', selectedYear);
       setBalances(data);
     } catch (err) {
       console.error('Failed to load leave balances:', err);
