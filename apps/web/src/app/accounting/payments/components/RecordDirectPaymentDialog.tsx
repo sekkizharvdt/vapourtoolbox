@@ -357,11 +357,10 @@ export function RecordDirectPaymentDialog({
             <AccountSelector
               value={expenseAccountId}
               onChange={setExpenseAccountId}
-              label="Expense/Income Account"
-              filterByType={['EXPENSE', 'ASSET']}
+              label="Account to Debit"
               excludeGroups
               required
-              placeholder="Select account to debit"
+              placeholder="Search chart of accounts..."
             />
           </Grid>
 

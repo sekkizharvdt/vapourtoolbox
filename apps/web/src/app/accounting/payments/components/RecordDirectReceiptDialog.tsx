@@ -360,11 +360,10 @@ export function RecordDirectReceiptDialog({
             <AccountSelector
               value={revenueAccountId}
               onChange={setRevenueAccountId}
-              label="Income/Revenue Account"
-              filterByType={['INCOME', 'ASSET']}
+              label="Account to Credit"
               excludeGroups
               required
-              placeholder="Select account to credit"
+              placeholder="Search chart of accounts..."
             />
           </Grid>
 
