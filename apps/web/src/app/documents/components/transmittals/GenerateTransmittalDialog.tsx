@@ -32,7 +32,8 @@ import type {
   TransmittalDeliveryMethod,
   TransmittalDocumentEntry,
 } from '@vapour/types';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, doc, getDoc } from 'firebase/firestore';
+import { COLLECTIONS } from '@vapour/firebase';
 import DocumentSelectionStep from './DocumentSelectionStep';
 import TransmittalDetailsStep from './TransmittalDetailsStep';
 import PreviewStep from './PreviewStep';
@@ -43,6 +44,7 @@ import {
   updateTransmittalStatus,
   getTransmittal,
 } from '@/lib/documents/transmittalService';
+import { getSubmissionById } from '@/lib/documents/documentSubmissionService';
 import { generateTransmittalPdf } from '@/lib/documents/transmittalPdfService';
 import { downloadTransmittalZip } from '@/lib/documents/transmittalZipService';
 
@@ -132,16 +134,50 @@ export default function GenerateTransmittalDialog({
       }
 
       // Step 3: Build TransmittalDocumentEntry[] from selected MasterDocumentEntry[]
-      const transmittalDocs: TransmittalDocumentEntry[] = selectedDocuments.map((doc) => ({
-        masterDocumentId: doc.id,
-        documentNumber: doc.documentNumber,
-        documentTitle: doc.documentTitle,
-        disciplineCode: doc.disciplineCode,
-        revision: doc.currentRevision,
-        submissionDate: doc.lastSubmissionDate ?? Timestamp.now(),
-        status: doc.status,
-        purposeOfIssue: purposeOfIssue || undefined,
-      }));
+      // Fetch file URLs from the latest submission for each document
+      const transmittalDocs: TransmittalDocumentEntry[] = await Promise.all(
+        selectedDocuments.map(async (mdlDoc) => {
+          let documentFileUrl: string | undefined;
+
+          // Try to get file URL from the latest submission
+          if (mdlDoc.lastSubmissionId) {
+            const submission = await getSubmissionById(projectId, mdlDoc.lastSubmissionId);
+            if (submission) {
+              // Check submission.files[] for primary file first
+              if (submission.files && submission.files.length > 0) {
+                const primaryFile = submission.primaryFileId
+                  ? submission.files.find((f) => f.id === submission.primaryFileId)
+                  : submission.files.find((f) => f.isPrimary);
+                const file = primaryFile ?? submission.files[0];
+                if (file) {
+                  documentFileUrl = file.fileUrl;
+                }
+              }
+              // Fall back to DocumentRecord via documentId
+              if (!documentFileUrl && submission.documentId) {
+                const docRecordRef = doc(db, COLLECTIONS.DOCUMENTS, submission.documentId);
+                const docRecordSnap = await getDoc(docRecordRef);
+                if (docRecordSnap.exists()) {
+                  documentFileUrl = docRecordSnap.data().fileUrl;
+                }
+              }
+            }
+          }
+
+          return {
+            masterDocumentId: mdlDoc.id,
+            documentNumber: mdlDoc.documentNumber,
+            documentTitle: mdlDoc.documentTitle,
+            disciplineCode: mdlDoc.disciplineCode,
+            revision: mdlDoc.currentRevision,
+            submissionDate: mdlDoc.lastSubmissionDate ?? Timestamp.now(),
+            status: mdlDoc.status,
+            purposeOfIssue: purposeOfIssue || undefined,
+            submissionId: mdlDoc.lastSubmissionId,
+            documentFileUrl,
+          };
+        })
+      );
 
       // Step 4: Generate cover sheet PDF client-side using @react-pdf/renderer
       console.warn('[GenerateTransmittal] Generating PDF cover sheet...');
