@@ -304,13 +304,16 @@ async function updateMasterDocument(
   projectId: string,
   masterDocumentId: string,
   revision: string,
-  submissionCount: number
+  submissionCount: number,
+  submissionId: string
 ): Promise<void> {
   const masterDocRef = doc(db, 'projects', projectId, 'masterDocuments', masterDocumentId);
 
   await updateDoc(masterDocRef, {
     currentRevision: revision,
     submissionCount: submissionCount,
+    lastSubmissionId: submissionId,
+    lastSubmissionDate: Timestamp.now(),
     status: 'SUBMITTED',
     updatedAt: Timestamp.now(),
   });
@@ -450,7 +453,8 @@ export async function submitDocument(
       request.projectId,
       request.masterDocumentId,
       request.revision,
-      submissionNumber
+      submissionNumber,
+      submissionId
     );
 
     // 6. Create task notification for assigned reviewer

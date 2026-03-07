@@ -44,7 +44,10 @@ import {
   updateTransmittalStatus,
   getTransmittal,
 } from '@/lib/documents/transmittalService';
-import { getSubmissionById } from '@/lib/documents/documentSubmissionService';
+import {
+  getSubmissionById,
+  getSubmissionsByMasterDocument,
+} from '@/lib/documents/documentSubmissionService';
 import { generateTransmittalPdf } from '@/lib/documents/transmittalPdfService';
 import { downloadTransmittalZip } from '@/lib/documents/transmittalZipService';
 
@@ -138,28 +141,34 @@ export default function GenerateTransmittalDialog({
       const transmittalDocs: TransmittalDocumentEntry[] = await Promise.all(
         selectedDocuments.map(async (mdlDoc) => {
           let documentFileUrl: string | undefined;
+          let submissionId = mdlDoc.lastSubmissionId;
 
-          // Try to get file URL from the latest submission
-          if (mdlDoc.lastSubmissionId) {
-            const submission = await getSubmissionById(projectId, mdlDoc.lastSubmissionId);
-            if (submission) {
-              // Check submission.files[] for primary file first
-              if (submission.files && submission.files.length > 0) {
-                const primaryFile = submission.primaryFileId
-                  ? submission.files.find((f) => f.id === submission.primaryFileId)
-                  : submission.files.find((f) => f.isPrimary);
-                const file = primaryFile ?? submission.files[0];
-                if (file) {
-                  documentFileUrl = file.fileUrl;
-                }
+          // Find the latest submission — by ID if available, otherwise query
+          const submission = submissionId
+            ? await getSubmissionById(projectId, submissionId)
+            : await getSubmissionsByMasterDocument(projectId, mdlDoc.id).then(
+                (subs) => subs[0] ?? null
+              );
+
+          if (submission) {
+            submissionId = submission.id;
+
+            // Get file URL from submission.files[] (primary file first)
+            if (submission.files && submission.files.length > 0) {
+              const primaryFile = submission.primaryFileId
+                ? submission.files.find((f) => f.id === submission.primaryFileId)
+                : submission.files.find((f) => f.isPrimary);
+              const file = primaryFile ?? submission.files[0];
+              if (file) {
+                documentFileUrl = file.fileUrl;
               }
-              // Fall back to DocumentRecord via documentId
-              if (!documentFileUrl && submission.documentId) {
-                const docRecordRef = doc(db, COLLECTIONS.DOCUMENTS, submission.documentId);
-                const docRecordSnap = await getDoc(docRecordRef);
-                if (docRecordSnap.exists()) {
-                  documentFileUrl = docRecordSnap.data().fileUrl;
-                }
+            }
+            // Fall back to DocumentRecord via documentId
+            if (!documentFileUrl && submission.documentId) {
+              const docRecordRef = doc(db, COLLECTIONS.DOCUMENTS, submission.documentId);
+              const docRecordSnap = await getDoc(docRecordRef);
+              if (docRecordSnap.exists()) {
+                documentFileUrl = docRecordSnap.data().fileUrl;
               }
             }
           }
@@ -173,7 +182,7 @@ export default function GenerateTransmittalDialog({
             submissionDate: mdlDoc.lastSubmissionDate ?? Timestamp.now(),
             status: mdlDoc.status,
             purposeOfIssue: purposeOfIssue || undefined,
-            submissionId: mdlDoc.lastSubmissionId,
+            submissionId,
             documentFileUrl,
           };
         })

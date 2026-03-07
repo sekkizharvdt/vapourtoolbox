@@ -85,14 +85,15 @@ export default function ChartOfAccountsPage() {
     };
   }, [accounts]);
 
+  // Entity ID for multi-tenancy (fallback matches Cloud Function default)
+  const entityId = claims?.entityId || 'default-entity';
+
   // Auto-initialize Chart of Accounts if empty (runs once per mount)
   const hasAttemptedInit = useRef(false);
   useEffect(() => {
-    if (!hasViewAccess || !canManage || !user || !claims?.entityId) return;
+    if (!hasViewAccess || !canManage || !user) return;
     if (loading || initializing || hasAttemptedInit.current) return;
     if (accounts.length > 0) return;
-
-    const entityId = claims.entityId;
     hasAttemptedInit.current = true;
 
     const initializeIfEmpty = async () => {
@@ -111,11 +112,11 @@ export default function ChartOfAccountsPage() {
     };
 
     initializeIfEmpty();
-  }, [accounts.length, hasViewAccess, canManage, user, claims?.entityId, loading, initializing]);
+  }, [accounts.length, hasViewAccess, canManage, user, entityId, loading, initializing]);
 
   // Load accounts from Firestore
   useEffect(() => {
-    if (!hasViewAccess || !claims?.entityId) {
+    if (!hasViewAccess) {
       setLoading(false);
       return;
     }
@@ -124,7 +125,7 @@ export default function ChartOfAccountsPage() {
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
 
     // Query accounts ordered by code, filtered by entityId for multi-tenancy
-    const q = query(accountsRef, where('entityId', '==', claims.entityId), orderBy('code', 'asc'));
+    const q = query(accountsRef, where('entityId', '==', entityId), orderBy('code', 'asc'));
 
     // Subscribe to real-time updates
     const unsubscribe = onSnapshot(
@@ -177,7 +178,7 @@ export default function ChartOfAccountsPage() {
     );
 
     return () => unsubscribe();
-  }, [hasViewAccess, claims?.entityId]);
+  }, [hasViewAccess, entityId]);
 
   // Tree-aware filtering to maintain hierarchy
   const filteredAccounts = useMemo(() => {
@@ -389,10 +390,9 @@ export default function ChartOfAccountsPage() {
                     variant="contained"
                     color="primary"
                     onClick={async () => {
-                      if (!user || !claims?.entityId) return;
-                      const eid = claims.entityId;
+                      if (!user) return;
                       setInitializing(true);
-                      const result = await initializeChartOfAccounts(user.uid, eid);
+                      const result = await initializeChartOfAccounts(user.uid, entityId);
                       if (!result.success) {
                         setError(`Failed to initialize: ${result.error}`);
                       }

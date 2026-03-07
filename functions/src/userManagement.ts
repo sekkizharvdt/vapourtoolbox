@@ -263,8 +263,12 @@ export const onUserUpdate = onDocumentWritten(
         ? userData.assignedProjects
         : [];
 
+      // Entity ID for multi-tenancy (default-entity when not explicitly set)
+      const entityId = userData.entityId || 'default-entity';
+
       // Set custom claims (permissions-based, no roles)
       const customClaims = {
+        entityId,
         permissions,
         permissions2,
         domain,
