@@ -87,7 +87,7 @@ function applyBalanceChanges(
     batch.update(accountRef, {
       debit: FieldValue.increment(multiplier * change.debit),
       credit: FieldValue.increment(multiplier * change.credit),
-      balance: FieldValue.increment(multiplier * (change.debit - change.credit)),
+      currentBalance: FieldValue.increment(multiplier * (change.debit - change.credit)),
       lastUpdated: FieldValue.serverTimestamp(),
     });
 
@@ -251,7 +251,7 @@ export const recalculateAccountBalances = onCall(
           resetBatch.update(doc.ref, {
             debit: 0,
             credit: 0,
-            balance: 0,
+            currentBalance: 0,
             lastUpdated: FieldValue.serverTimestamp(),
           });
         });
@@ -306,7 +306,7 @@ export const recalculateAccountBalances = onCall(
             {
               debit,
               credit,
-              balance: Math.round((debit - credit) * 100) / 100,
+              currentBalance: Math.round((debit - credit) * 100) / 100,
               lastUpdated: FieldValue.serverTimestamp(),
             },
             { merge: true }

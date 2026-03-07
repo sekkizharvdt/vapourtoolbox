@@ -148,7 +148,7 @@ export default function ChartOfAccountsPage() {
             isActive: data.isActive ?? true,
             isSystemAccount: data.isSystemAccount ?? false,
             openingBalance: data.openingBalance ?? 0,
-            currentBalance: data.currentBalance ?? 0,
+            currentBalance: data.currentBalance ?? data.balance ?? 0,
             currency: data.currency ?? 'INR',
             isGSTAccount: data.isGSTAccount ?? false,
             gstType: data.gstType,
