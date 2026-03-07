@@ -26,7 +26,8 @@ export { createEntity, updateEntity } from './entities';
 export { createJournalEntry, validateTransactionAmount } from './accounting';
 
 // Export transmittal functions
-export { generateTransmittal, getTransmittalDownloadUrl } from './transmittals';
+// generateTransmittal removed — migrated to client-side @react-pdf/renderer
+export { getTransmittalDownloadUrl } from './transmittals';
 
 // Export feedback functions
 export { onFeedbackResolved } from './feedback';

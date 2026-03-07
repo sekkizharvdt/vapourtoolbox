@@ -28,9 +28,9 @@ export { onDocumentUploaded } from './documentRequirements';
 // Import module integration functions
 export { seedAccountingIntegrations } from './moduleIntegrations';
 
-// Import PDF generation functions
-export { generateBOMQuotePDF } from './pdf/generateBOMQuote';
-// generateRFQPDF removed — migrated to client-side @react-pdf/renderer (rfqPdfService.ts)
+// PDF generation functions — all migrated to client-side @react-pdf/renderer
+// generateRFQPDF: see rfqPdfService.ts
+// generateBOMQuotePDF: see bomQuotePdfService.ts
 
 // Import seed functions for materials
 export { seedMaterials } from './seed/seedMaterials';
@@ -67,7 +67,8 @@ export {
 export { onFeedbackResolved } from './feedback';
 
 // Import transmittal functions
-export { generateTransmittal, getTransmittalDownloadUrl } from './transmittals';
+// generateTransmittal removed — migrated to client-side @react-pdf/renderer (transmittalPdfService.ts)
+export { getTransmittalDownloadUrl } from './transmittals';
 
 // Import document parsing functions
 export { parseDocumentForPR } from './documentParsing';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Typography,
   Box,
@@ -85,29 +85,33 @@ export default function ChartOfAccountsPage() {
     };
   }, [accounts]);
 
-  // Auto-initialize Chart of Accounts if empty
+  // Auto-initialize Chart of Accounts if empty (runs once per mount)
+  const hasAttemptedInit = useRef(false);
   useEffect(() => {
-    if (!hasViewAccess || !canManage || !user) return;
+    if (!hasViewAccess || !canManage || !user || !claims?.entityId) return;
+    if (loading || initializing || hasAttemptedInit.current) return;
+    if (accounts.length > 0) return;
+
+    const entityId = claims.entityId;
+    hasAttemptedInit.current = true;
 
     const initializeIfEmpty = async () => {
-      if (accounts.length === 0 && !loading && !initializing) {
-        logger.info('Accounts collection is empty, initializing');
-        setInitializing(true);
+      logger.info('Accounts collection is empty, initializing');
+      setInitializing(true);
 
-        const result = await initializeChartOfAccounts(user.uid);
+      const result = await initializeChartOfAccounts(user.uid, entityId);
 
-        if (!result.success) {
-          setError(`Failed to initialize Chart of Accounts: ${result.error}`);
-        } else if (result.accountsCreated > 0) {
-          logger.info('Initialized accounts', { count: result.accountsCreated });
-        }
-
-        setInitializing(false);
+      if (!result.success) {
+        setError(`Failed to initialize Chart of Accounts: ${result.error}`);
+      } else if (result.accountsCreated > 0) {
+        logger.info('Initialized accounts', { count: result.accountsCreated });
       }
+
+      setInitializing(false);
     };
 
     initializeIfEmpty();
-  }, [accounts.length, hasViewAccess, canManage, user, loading, initializing]);
+  }, [accounts.length, hasViewAccess, canManage, user, claims?.entityId, loading, initializing]);
 
   // Load accounts from Firestore
   useEffect(() => {
@@ -385,9 +389,10 @@ export default function ChartOfAccountsPage() {
                     variant="contained"
                     color="primary"
                     onClick={async () => {
-                      if (!user) return;
+                      if (!user || !claims?.entityId) return;
+                      const eid = claims.entityId;
                       setInitializing(true);
-                      const result = await initializeChartOfAccounts(user.uid);
+                      const result = await initializeChartOfAccounts(user.uid, eid);
                       if (!result.success) {
                         setError(`Failed to initialize: ${result.error}`);
                       }

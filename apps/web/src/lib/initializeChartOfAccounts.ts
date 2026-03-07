@@ -3,7 +3,15 @@
  * Automatically populates the Indian COA template on first access
  */
 
-import { collection, doc, serverTimestamp, getDocs, writeBatch } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  serverTimestamp,
+  getDocs,
+  writeBatch,
+  query,
+  where,
+} from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
@@ -20,18 +28,25 @@ export interface InitializationResult {
 /**
  * Check if Chart of Accounts is empty and initialize with template
  * @param userId - ID of the user triggering initialization (for audit trail)
+ * @param entityId - Entity ID for multi-tenancy scoping
  * @returns Promise with initialization result
  */
 export async function initializeChartOfAccounts(
   userId: string,
+  entityId: string,
   forceReinit = false
 ): Promise<InitializationResult> {
+  if (!entityId) {
+    return { success: false, accountsCreated: 0, error: 'entityId is required' };
+  }
+
   try {
     const { db } = getFirebase();
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
 
-    // Check if accounts already exist
-    const snapshot = await getDocs(accountsRef);
+    // Check if accounts already exist for this entity
+    const entityQuery = query(accountsRef, where('entityId', '==', entityId));
+    const snapshot = await getDocs(entityQuery);
     if (!snapshot.empty && !forceReinit) {
       return {
         success: true,
@@ -96,6 +111,7 @@ export async function initializeChartOfAccounts(
         ifscCode: null,
         branch: null,
         parentAccountId,
+        entityId,
         createdAt: serverTimestamp(),
         createdBy: userId,
         updatedAt: serverTimestamp(),

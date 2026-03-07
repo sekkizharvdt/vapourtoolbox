@@ -27,14 +27,24 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import type { MasterDocumentEntry, TransmittalDeliveryMethod } from '@vapour/types';
+import type {
+  MasterDocumentEntry,
+  TransmittalDeliveryMethod,
+  TransmittalDocumentEntry,
+} from '@vapour/types';
+import { Timestamp } from 'firebase/firestore';
 import DocumentSelectionStep from './DocumentSelectionStep';
 import TransmittalDetailsStep from './TransmittalDetailsStep';
 import PreviewStep from './PreviewStep';
 import { getFirebase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import { createTransmittal } from '@/lib/documents/transmittalService';
-import { httpsCallable } from 'firebase/functions';
+import {
+  createTransmittal,
+  updateTransmittalStatus,
+  getTransmittal,
+} from '@/lib/documents/transmittalService';
+import { generateTransmittalPdf } from '@/lib/documents/transmittalPdfService';
+import { downloadTransmittalZip } from '@/lib/documents/transmittalZipService';
 
 interface GenerateTransmittalDialogProps {
   open: boolean;
@@ -55,7 +65,7 @@ export default function GenerateTransmittalDialog({
   documents,
   preSelectedDocuments = [],
 }: GenerateTransmittalDialogProps) {
-  const { db, functions } = getFirebase();
+  const { db } = getFirebase();
   const { user } = useAuth();
 
   const [activeStep, setActiveStep] = useState(0);
@@ -89,7 +99,7 @@ export default function GenerateTransmittalDialog({
   };
 
   const handleGenerate = async () => {
-    if (!db || !functions || !user) {
+    if (!db || !user) {
       setError('Firebase not initialized or user not authenticated');
       return;
     }
@@ -115,48 +125,42 @@ export default function GenerateTransmittalDialog({
 
       console.warn('[GenerateTransmittal] Transmittal record created:', transmittalId);
 
-      // Step 2: Call Cloud Function to generate PDF and ZIP
-      console.warn('[GenerateTransmittal] Calling generateTransmittal Cloud Function...');
-      const generateTransmittalFn = httpsCallable(functions, 'generateTransmittal');
-      const result = await generateTransmittalFn({
-        transmittalId,
-        projectId,
-      });
+      // Step 2: Fetch the created transmittal for PDF generation
+      const transmittal = await getTransmittal(db, projectId, transmittalId);
+      if (!transmittal) {
+        throw new Error('Failed to retrieve created transmittal');
+      }
 
-      const data = result.data as {
-        success: boolean;
-        transmittalNumber: string;
-        zipUrl: string;
-        zipSize: number;
-        fileCount: number;
-      };
+      // Step 3: Build TransmittalDocumentEntry[] from selected MasterDocumentEntry[]
+      const transmittalDocs: TransmittalDocumentEntry[] = selectedDocuments.map((doc) => ({
+        masterDocumentId: doc.id,
+        documentNumber: doc.documentNumber,
+        documentTitle: doc.documentTitle,
+        disciplineCode: doc.disciplineCode,
+        revision: doc.currentRevision,
+        submissionDate: doc.lastSubmissionDate ?? Timestamp.now(),
+        status: doc.status,
+        purposeOfIssue: purposeOfIssue || undefined,
+      }));
 
-      console.warn('[GenerateTransmittal] Generation complete:', data);
+      // Step 4: Generate cover sheet PDF client-side using @react-pdf/renderer
+      console.warn('[GenerateTransmittal] Generating PDF cover sheet...');
+      const pdfBlob = await generateTransmittalPdf(transmittal, transmittalDocs);
 
-      // Step 3: Get download URL for the ZIP file
-      const getDownloadUrlFn = httpsCallable(functions, 'getTransmittalDownloadUrl');
-      const downloadResult = await getDownloadUrlFn({ fileUrl: data.zipUrl });
-      const downloadData = downloadResult.data as { downloadUrl: string };
-
-      // Step 4: Trigger download
-      const link = document.createElement('a');
-      link.href = downloadData.downloadUrl;
-      link.download = `${data.transmittalNumber}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      console.warn('[GenerateTransmittal] Download triggered');
-
-      // Show success message
-      alert(
-        `Transmittal generated successfully!\n\n` +
-          `Transmittal Number: ${data.transmittalNumber}\n` +
-          `Files Included: ${data.fileCount}\n` +
-          `ZIP Size: ${(data.zipSize / (1024 * 1024)).toFixed(2)} MB\n\n` +
-          `Download started automatically.`
+      // Step 5: Generate and download ZIP with cover sheet + document files
+      console.warn('[GenerateTransmittal] Generating ZIP archive...');
+      const dlMethod = deliveryMethod || undefined;
+      await downloadTransmittalZip(
+        transmittal.transmittalNumber,
+        transmittalDocs,
+        dlMethod,
+        pdfBlob
       );
 
+      // Step 6: Update transmittal status to GENERATED
+      await updateTransmittalStatus(db, projectId, transmittalId, 'GENERATED');
+
+      console.warn('[GenerateTransmittal] Download triggered');
       handleClose();
     } catch (err) {
       console.error('[GenerateTransmittal] Failed to generate transmittal:', err);
