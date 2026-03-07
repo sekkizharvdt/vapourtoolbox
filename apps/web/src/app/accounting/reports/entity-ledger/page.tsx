@@ -273,6 +273,9 @@ function EntityLedgerInner() {
         case 'VENDOR_PAYMENT':
           balance += amount; // We paid vendor (reduces our liability)
           break;
+        case 'DIRECT_PAYMENT':
+          balance += amount; // Direct payment to entity (reduces our liability, like vendor payment)
+          break;
         case 'JOURNAL_ENTRY': {
           // Journal entries: debit increases balance, credit decreases
           const jDebit = (txn as EntityTransaction & { _journalDebit?: number })._journalDebit || 0;
@@ -363,6 +366,10 @@ function EntityLedgerInner() {
           totalPaid += amount;
           periodMovement += amount;
           break;
+        case 'DIRECT_PAYMENT':
+          totalPaid += amount;
+          periodMovement += amount;
+          break;
         case 'JOURNAL_ENTRY': {
           const jDebit = (txn as EntityTransaction & { _journalDebit?: number })._journalDebit || 0;
           const jCredit =
@@ -415,7 +422,9 @@ function EntityLedgerInner() {
       return sorted.filter((txn) => ['CUSTOMER_INVOICE', 'CUSTOMER_PAYMENT'].includes(txn.type));
     }
     if (filterType === 'PAYABLE') {
-      return sorted.filter((txn) => ['VENDOR_BILL', 'VENDOR_PAYMENT'].includes(txn.type));
+      return sorted.filter((txn) =>
+        ['VENDOR_BILL', 'VENDOR_PAYMENT', 'DIRECT_PAYMENT'].includes(txn.type)
+      );
     }
     return sorted;
   }, [periodTransactions, filterType]);
@@ -491,6 +500,7 @@ function EntityLedgerInner() {
       CUSTOMER_PAYMENT: 'Receipt',
       VENDOR_BILL: 'Bill',
       VENDOR_PAYMENT: 'Payment',
+      DIRECT_PAYMENT: 'Direct Payment',
       JOURNAL_ENTRY: 'Journal',
     };
     const rows = filteredTransactions.map((txn) => {
@@ -501,6 +511,7 @@ function EntityLedgerInner() {
       switch (txn.type) {
         case 'CUSTOMER_INVOICE':
         case 'VENDOR_PAYMENT':
+        case 'DIRECT_PAYMENT':
           debit = amount;
           break;
         case 'CUSTOMER_PAYMENT':

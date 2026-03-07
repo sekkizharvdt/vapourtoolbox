@@ -58,6 +58,7 @@ function getDebitCredit(txn: EntityTransaction): { debit: number; credit: number
       // We owe vendor - Credit to their account (our liability)
       return { debit: 0, credit: amount };
     case 'VENDOR_PAYMENT':
+    case 'DIRECT_PAYMENT':
       // We paid vendor - Debit to their account (reduce liability)
       return { debit: amount, credit: 0 };
     case 'JOURNAL_ENTRY': {
@@ -87,6 +88,7 @@ function getBalanceImpact(txn: EntityTransaction): number {
     case 'VENDOR_BILL':
       return -amount; // We owe vendor more (negative balance)
     case 'VENDOR_PAYMENT':
+    case 'DIRECT_PAYMENT':
       return amount; // We paid vendor, owe less
     case 'JOURNAL_ENTRY': {
       const jDebit = (txn as EntityTransaction & { _journalDebit?: number })._journalDebit || 0;
@@ -327,7 +329,10 @@ function AllocationDetail({
   allocationMap?: Map<string, AllocationRef[]>;
 }) {
   const isBillOrInvoice = txn.type === 'CUSTOMER_INVOICE' || txn.type === 'VENDOR_BILL';
-  const isPayment = txn.type === 'CUSTOMER_PAYMENT' || txn.type === 'VENDOR_PAYMENT';
+  const isPayment =
+    txn.type === 'CUSTOMER_PAYMENT' ||
+    txn.type === 'VENDOR_PAYMENT' ||
+    txn.type === 'DIRECT_PAYMENT';
 
   // For bills/invoices: show payments allocated to them
   if (isBillOrInvoice) {

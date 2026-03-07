@@ -239,7 +239,9 @@ export default function DataHealthPage() {
           }
         }
       });
-      [...bills, ...invoices].forEach((d) => {
+      // Stale status check is deferred until after entity balance map is built,
+      // so we can skip items where the entity's net position is zero.
+      const staleCandidates = [...bills, ...invoices].map((d) => {
         const data = d.data();
         const totalINR = data.baseAmount || data.totalAmount || 0;
         const correctPaid = allocationMap.get(d.id) ?? 0;
@@ -249,10 +251,14 @@ export default function DataHealthPage() {
         if (correctPaid >= totalINR && totalINR > 0) correctStatus = 'PAID';
         else if (correctPaid > 0) correctStatus = 'PARTIALLY_PAID';
         else correctStatus = 'UNPAID';
-        if (Math.abs(currentPaid - correctPaid) > 0.01 || currentStatus !== correctStatus) {
-          staleStatusCount++;
-          transactionsWithIssues.add(d.id);
-        }
+        const isStale =
+          Math.abs(currentPaid - correctPaid) > 0.01 || currentStatus !== correctStatus;
+        return {
+          id: d.id,
+          isStale,
+          entityId: data.entityId as string | undefined,
+          type: data.type as string,
+        };
       });
 
       // Build entity-level closing balance map to avoid flagging invoices where the
@@ -315,6 +321,19 @@ export default function DataHealthPage() {
             );
           });
         }
+      }
+
+      // Now count stale items, skipping entities with zero net balance
+      for (const candidate of staleCandidates) {
+        if (!candidate.isStale) continue;
+        // Skip if entity-level net position is zero in the relevant direction
+        if (candidate.entityId) {
+          const entityBalance = entityBalanceMap.get(candidate.entityId) ?? 0;
+          if (candidate.type === 'CUSTOMER_INVOICE' && entityBalance <= 0) continue;
+          if (candidate.type === 'VENDOR_BILL' && entityBalance >= 0) continue;
+        }
+        staleStatusCount++;
+        transactionsWithIssues.add(candidate.id);
       }
 
       // Count overdue items

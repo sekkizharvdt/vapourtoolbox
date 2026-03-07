@@ -31,7 +31,7 @@ import dynamic from 'next/dynamic';
 import { PageHeader, LoadingState, StatCard, FilterBar, EmptyState } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { VendorBill, CustomerInvoice } from '@vapour/types';
 import { formatCurrency } from '@/lib/utils/formatters';
@@ -92,7 +92,7 @@ export default function StalePaymentsPage() {
       const { db } = getFirebase();
       const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
 
-      const [billsSnap, invoicesSnap, paymentsSnap] = await Promise.all([
+      const [billsSnap, invoicesSnap, paymentsSnap, journalEntriesSnap] = await Promise.all([
         getDocs(
           query(
             transactionsRef,
@@ -110,6 +110,7 @@ export default function StalePaymentsPage() {
         getDocs(
           query(transactionsRef, where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT']))
         ),
+        getDocs(query(transactionsRef, where('type', '==', 'JOURNAL_ENTRY'))),
       ]);
 
       // Build allocation map from payments
@@ -138,6 +139,72 @@ export default function StalePaymentsPage() {
         }
       });
 
+      // Build entity-level balance map to skip stale items for settled entities.
+      // Positive = entity owes us (receivable), Negative = we owe entity (payable).
+      const entityTxnBalance = new Map<string, number>();
+      const addToEntityBalance = (entityId: string | undefined, delta: number) => {
+        if (!entityId) return;
+        entityTxnBalance.set(entityId, (entityTxnBalance.get(entityId) ?? 0) + delta);
+      };
+
+      const bills = billsSnap.docs.filter((d) => !d.data().isDeleted);
+      const invoices = invoicesSnap.docs.filter((d) => !d.data().isDeleted);
+      const payments = paymentsSnap.docs.filter((d) => !d.data().isDeleted);
+      const journalEntries = journalEntriesSnap.docs.filter((d) => !d.data().isDeleted);
+
+      invoices.forEach((d) => {
+        const data = d.data();
+        addToEntityBalance(data.entityId, data.baseAmount || data.totalAmount || 0);
+      });
+      bills.forEach((d) => {
+        const data = d.data();
+        addToEntityBalance(data.entityId, -(data.baseAmount || data.totalAmount || 0));
+      });
+      payments.forEach((d) => {
+        const data = d.data();
+        const amount = data.baseAmount || data.totalAmount || data.amount || 0;
+        addToEntityBalance(data.entityId, data.type === 'CUSTOMER_PAYMENT' ? -amount : amount);
+      });
+      journalEntries.forEach((d) => {
+        const data = d.data();
+        const entries = (data.entries || []) as Array<{
+          entityId?: string;
+          debit?: number;
+          credit?: number;
+        }>;
+        const perEntity = new Map<string, number>();
+        entries.forEach((entry) => {
+          if (!entry.entityId) return;
+          perEntity.set(
+            entry.entityId,
+            (perEntity.get(entry.entityId) ?? 0) + (entry.debit || 0) - (entry.credit || 0)
+          );
+        });
+        perEntity.forEach((delta, entityId) => addToEntityBalance(entityId, delta));
+      });
+
+      // Fetch entity opening balances
+      const entityBalanceMap = new Map<string, number>();
+      entityTxnBalance.forEach((balance, entityId) => entityBalanceMap.set(entityId, balance));
+      const entityIds = [...entityTxnBalance.keys()];
+      if (entityIds.length > 0) {
+        const entitiesRef = collection(db, COLLECTIONS.ENTITIES);
+        for (let i = 0; i < entityIds.length; i += 30) {
+          const batchIds = entityIds.slice(i, i + 30);
+          const entitySnap = await getDocs(query(entitiesRef, where(documentId(), 'in', batchIds)));
+          entitySnap.forEach((entityDoc) => {
+            const data = entityDoc.data();
+            const openingBalance = data.openingBalance || 0;
+            const signedOpening =
+              data.openingBalanceType === 'CR' ? -openingBalance : openingBalance;
+            entityBalanceMap.set(
+              entityDoc.id,
+              signedOpening + (entityTxnBalance.get(entityDoc.id) ?? 0)
+            );
+          });
+        }
+      }
+
       const stale: StaleItem[] = [];
 
       const processDoc = (
@@ -146,6 +213,14 @@ export default function StalePaymentsPage() {
       ) => {
         const data = doc.data();
         if (data.isDeleted) return;
+
+        // Skip if entity-level net position is zero in the relevant direction
+        const entityId = data.entityId as string | undefined;
+        if (entityId) {
+          const entityBalance = entityBalanceMap.get(entityId) ?? 0;
+          if (type === 'CUSTOMER_INVOICE' && entityBalance <= 0) return;
+          if (type === 'VENDOR_BILL' && entityBalance >= 0) return;
+        }
 
         const totalINR = (data.baseAmount as number) || (data.totalAmount as number) || 0;
         const correctPaid = allocationMap.get(doc.id) ?? 0;

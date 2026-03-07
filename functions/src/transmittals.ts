@@ -431,11 +431,24 @@ export const generateTransmittal = onCall(async (request) => {
       if (docSnapshot.exists) {
         const docData = docSnapshot.data();
         if (docData) {
+          // Safe Timestamp conversion (CLAUDE.md rule 14)
+          let submissionDateStr = '-';
+          const rawSubDate = docData.lastSubmissionDate;
+          if (rawSubDate) {
+            const subDate =
+              rawSubDate && typeof rawSubDate === 'object' && 'toDate' in rawSubDate
+                ? (rawSubDate as { toDate: () => Date }).toDate()
+                : rawSubDate instanceof Date
+                  ? rawSubDate
+                  : new Date(rawSubDate as string);
+            submissionDateStr = subDate.toLocaleDateString();
+          }
+
           documents.push({
             documentNumber: docData.documentNumber,
             documentTitle: docData.documentTitle,
             revision: docData.currentRevision,
-            submissionDate: docData.lastSubmissionDate?.toDate().toLocaleDateString() || '-',
+            submissionDate: submissionDateStr,
             status: docData.status,
             purposeOfIssue: docData.purposeOfIssue,
             remarks: docData.remarks,
@@ -447,9 +460,18 @@ export const generateTransmittal = onCall(async (request) => {
 
     // Generate PDF
     logger.info('Generating transmittal PDF...');
+    // Safe Timestamp conversion for transmittalDate (CLAUDE.md rule 14)
+    const rawTxDate = transmittalData.transmittalDate;
+    const txDate =
+      rawTxDate && typeof rawTxDate === 'object' && 'toDate' in rawTxDate
+        ? (rawTxDate as { toDate: () => Date }).toDate()
+        : rawTxDate instanceof Date
+          ? rawTxDate
+          : new Date(rawTxDate as string);
+
     const pdfBuffer = await generateTransmittalPDF({
       transmittalNumber: transmittalData.transmittalNumber,
-      transmittalDate: transmittalData.transmittalDate.toDate().toLocaleDateString(),
+      transmittalDate: txDate.toLocaleDateString(),
       projectName: transmittalData.projectName,
       clientName: transmittalData.clientName,
       clientContact: transmittalData.clientContact,
@@ -531,7 +553,8 @@ export const generateTransmittal = onCall(async (request) => {
     };
   } catch (error) {
     logger.error('Error generating transmittal:', error);
-    throw new HttpsError('internal', 'Failed to generate transmittal');
+    const message = error instanceof Error ? error.message : 'Failed to generate transmittal';
+    throw new HttpsError('internal', message);
   }
 });
 
