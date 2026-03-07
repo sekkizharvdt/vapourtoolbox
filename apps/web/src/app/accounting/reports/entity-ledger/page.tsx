@@ -33,6 +33,7 @@ import { getFirebase } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, where } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BusinessEntity, LedgerEntry } from '@vapour/types';
+import { TRANSACTION_TYPE_SHORT_LABELS } from '@vapour/constants';
 import {
   EntityTransaction,
   FinancialSummary,
@@ -276,6 +277,9 @@ function EntityLedgerInner() {
         case 'DIRECT_PAYMENT':
           balance += amount; // Direct payment to entity (reduces our liability, like vendor payment)
           break;
+        case 'DIRECT_RECEIPT':
+          balance -= amount; // Income received from entity (like customer payment)
+          break;
         case 'JOURNAL_ENTRY': {
           // Journal entries: debit increases balance, credit decreases
           const jDebit = (txn as EntityTransaction & { _journalDebit?: number })._journalDebit || 0;
@@ -284,6 +288,10 @@ function EntityLedgerInner() {
           balance += jDebit - jCredit;
           break;
         }
+        case 'BANK_TRANSFER':
+        case 'EXPENSE_CLAIM':
+          // These don't appear in entity ledgers
+          break;
       }
     });
     return balance;
@@ -370,23 +378,27 @@ function EntityLedgerInner() {
           totalPaid += amount;
           periodMovement += amount;
           break;
+        case 'DIRECT_RECEIPT':
+          totalReceived += amount;
+          periodMovement -= amount;
+          break;
         case 'JOURNAL_ENTRY': {
           const jDebit = (txn as EntityTransaction & { _journalDebit?: number })._journalDebit || 0;
           const jCredit =
             (txn as EntityTransaction & { _journalCredit?: number })._journalCredit || 0;
           periodMovement += jDebit - jCredit;
-          // Include JE amounts in summary totals based on entity role.
-          // Use if/else to prevent double-counting for dual-role entities.
-          // Outstanding is derived from closing balance (below), not accumulated per-transaction.
           if (selectedEntity?.roles.includes('CUSTOMER')) {
-            totalInvoiced += jDebit; // AR Debit = receivable increase (like invoice)
-            totalReceived += jCredit; // AR Credit = receivable reduction (like payment)
+            totalInvoiced += jDebit;
+            totalReceived += jCredit;
           } else if (selectedEntity?.roles.includes('VENDOR')) {
-            totalBilled += jCredit; // AP Credit = payable increase (like bill)
-            totalPaid += jDebit; // AP Debit = payable reduction (like payment)
+            totalBilled += jCredit;
+            totalPaid += jDebit;
           }
           break;
         }
+        case 'BANK_TRANSFER':
+        case 'EXPENSE_CLAIM':
+          break;
       }
     });
 
@@ -419,7 +431,9 @@ function EntityLedgerInner() {
     const sorted = [...periodTransactions].reverse();
     if (filterType === 'ALL') return sorted;
     if (filterType === 'RECEIVABLE') {
-      return sorted.filter((txn) => ['CUSTOMER_INVOICE', 'CUSTOMER_PAYMENT'].includes(txn.type));
+      return sorted.filter((txn) =>
+        ['CUSTOMER_INVOICE', 'CUSTOMER_PAYMENT', 'DIRECT_RECEIPT'].includes(txn.type)
+      );
     }
     if (filterType === 'PAYABLE') {
       return sorted.filter((txn) =>
@@ -496,12 +510,7 @@ function EntityLedgerInner() {
       },
     ];
     const typeLabels: Record<string, string> = {
-      CUSTOMER_INVOICE: 'Invoice',
-      CUSTOMER_PAYMENT: 'Receipt',
-      VENDOR_BILL: 'Bill',
-      VENDOR_PAYMENT: 'Payment',
-      DIRECT_PAYMENT: 'Direct Payment',
-      JOURNAL_ENTRY: 'Journal',
+      ...TRANSACTION_TYPE_SHORT_LABELS,
     };
     const rows = filteredTransactions.map((txn) => {
       const d = toDate(txn.date);
@@ -516,11 +525,15 @@ function EntityLedgerInner() {
           break;
         case 'CUSTOMER_PAYMENT':
         case 'VENDOR_BILL':
+        case 'DIRECT_RECEIPT':
           credit = amount;
           break;
         case 'JOURNAL_ENTRY':
           debit = txn._journalDebit || 0;
           credit = txn._journalCredit || 0;
+          break;
+        case 'BANK_TRANSFER':
+        case 'EXPENSE_CLAIM':
           break;
       }
       return {

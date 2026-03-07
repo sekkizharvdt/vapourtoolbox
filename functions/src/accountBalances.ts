@@ -19,6 +19,9 @@ import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { enforceRateLimit, writeRateLimiter, RateLimitError } from './utils/rateLimiter';
 
+// Field names MUST match packages/constants/src/fields.ts (ACCOUNT_FIELD_*)
+// and the Account type in packages/types. If renaming, update all three locations.
+
 const db = admin.firestore();
 
 interface LedgerEntry {

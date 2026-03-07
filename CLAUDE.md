@@ -10,7 +10,12 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
    where('entityId', '==', entityId);
    ```
 
-   The only exceptions are user-global collections (e.g., `users`, `taskNotifications` which use `userId`).
+   On the client side, `entityId` comes from `claims?.entityId` via `useAuth()`. Pages extract it and pass it down to service functions.
+
+   **Global (non-entity-scoped) collections that are exceptions:**
+   - `users`, `taskNotifications` — scoped by `userId` instead
+   - `entities` — the entity registry itself (queried by admins)
+   - `materials`, `shapes`, `boughtOutItems` — shared reference data across all entities
 
 2. **Every `where()` + `orderBy()` combo MUST have a composite index** in `firestore.indexes.json`. Queries will silently fail in production without them.
 
@@ -101,6 +106,32 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
     This applies to edit forms (pre-filling date inputs), display code (formatting dates), comparisons, and JSON export. The `instanceof Date` check alone is insufficient — always check for `toDate` method first.
 
 ## Forms & Edit Mode
+
+14b. **Dialog/form state MUST sync via `useEffect` when props change** — `useState(prop.value)` only captures the value on first render. Dialogs that reopen for different items will show stale data unless state is re-synced:
+
+    ```typescript
+    // Bad — shows stale data when dialog reopens for a different document
+    const [title, setTitle] = useState(document.title);
+
+    // Good — sync state when the dialog opens or the item changes
+    const [title, setTitle] = useState(document.title);
+    useEffect(() => {
+      if (open) {
+        setTitle(document.title);
+        setDescription(document.description);
+      }
+    }, [open, document]);
+    ```
+
+14c. **Form validation MUST null-coalesce before calling string methods** — form fields bound to optional Firestore data may be `undefined`. Always use `(field ?? '').trim()` instead of `field.trim()` in validation:
+
+    ```typescript
+    // Bad — crashes if deliveryAddress is undefined
+    if (!commercialTerms.deliveryAddress.trim()) { ... }
+
+    // Good — safe for undefined values
+    if (!(commercialTerms.deliveryAddress ?? '').trim()) { ... }
+    ```
 
 15. **Selector callbacks only fire on user interaction** — `onEntitySelect`, `onAccountSelect`, and similar callbacks on `EntitySelector`, `AccountSelector`, etc. do NOT fire when the component's `value` prop is pre-populated in edit mode. Never rely on these callbacks to set state that effects or submit handlers depend on:
 
@@ -233,3 +264,44 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
     - Payment allocation <= invoice outstanding amount
     - Amendment cannot modify a completed/cancelled PO
     - Budget spend cannot exceed approved budget without explicit override
+
+## Transaction Type Safety
+
+24. **All switches on `TransactionType` MUST handle all 9 types** — use `Record<TransactionType, T>` lookup maps from `@vapour/constants` for labels/routes/colors. For behavioral switches, list every case explicitly (no `default` catch-all):
+
+    ```typescript
+    // Good — lookup map (compile error if a type is added)
+    import { TRANSACTION_TYPE_LABELS } from '@vapour/constants';
+    const label = TRANSACTION_TYPE_LABELS[txn.type];
+
+    // Good — exhaustive switch for behavioral logic
+    switch (txn.type) {
+      case 'CUSTOMER_INVOICE': ...
+      case 'CUSTOMER_PAYMENT': ...
+      case 'VENDOR_BILL': ...
+      case 'VENDOR_PAYMENT': ...
+      case 'JOURNAL_ENTRY': ...
+      case 'BANK_TRANSFER': ...
+      case 'EXPENSE_CLAIM': ...
+      case 'DIRECT_PAYMENT': ...
+      case 'DIRECT_RECEIPT': ...
+      // No default — compiler catches missing cases
+    }
+    ```
+
+    The 9 types: `CUSTOMER_INVOICE`, `CUSTOMER_PAYMENT`, `VENDOR_BILL`, `VENDOR_PAYMENT`, `JOURNAL_ENTRY`, `BANK_TRANSFER`, `EXPENSE_CLAIM`, `DIRECT_PAYMENT`, `DIRECT_RECEIPT`.
+
+25. **Cross-boundary field names MUST use shared constants** — fields written by Cloud Functions and read by the client (e.g., account balances) are defined in `packages/constants/src/fields.ts`. If renaming a Firestore field, update the constant and fix all compile errors.
+
+## Data Dictionary — Key Collections
+
+| Collection                      | Entity-scoped              | Key Fields                                                                                                                                     | Written By                                             | Read By                                            |
+| ------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------- |
+| `accounts`                      | Yes (`entityId`)           | `code`, `name`, `accountType`, `currentBalance`, `debit`, `credit`, `openingBalance`, `isGroup`, `isActive`                                    | Cloud Function `accountBalances`, client (create/edit) | Chart of Accounts page, selectors, reports         |
+| `transactions`                  | Yes (`entityId`)           | `type` (TransactionType), `transactionNumber`, `date`, `totalAmount`, `baseAmount`, `entries[]` (GL), `paymentStatus`, `entityId`, `isDeleted` | Client (create/edit), Cloud Functions (status sync)    | All accounting reports, data health, entity ledger |
+| `entities`                      | No (global)                | `name`, `roles[]`, `openingBalance`, `isActive`                                                                                                | Client                                                 | Entity selectors, entity ledger, reports           |
+| `users`                         | No (scoped by `userId`)    | `displayName`, `email`, `permissions`, `entityId`                                                                                              | Auth system, admin                                     | Auth context, permission checks                    |
+| `projects/{id}/transmittals`    | No (project subcollection) | `transmittalNumber`, `documentIds[]`, `status`, `zipFileUrl`, `transmittalPdfUrl`                                                              | Client, Cloud Function `generateTransmittal`           | Transmittals list, detail dialog                   |
+| `projects/{id}/masterDocuments` | No (project subcollection) | `documentNumber`, `documentTitle`, `currentRevision`, `status`, `lastSubmissionDate`                                                           | Client                                                 | Document list, transmittals                        |
+
+**Account balance fields** (`currentBalance`, `debit`, `credit`) are written atomically by the `onTransactionWrite` Cloud Function trigger using `FieldValue.increment()`. The client reads them on the Chart of Accounts page. After deploying Cloud Function changes, run "Recalculate Balances" from the Data Health page.

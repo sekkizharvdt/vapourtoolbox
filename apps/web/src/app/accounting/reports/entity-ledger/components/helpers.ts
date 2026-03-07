@@ -1,39 +1,29 @@
 import type { TransactionType } from '@vapour/types';
+import { TRANSACTION_TYPE_SHORT_LABELS } from '@vapour/constants';
 
 export const getTransactionTypeLabel = (type: TransactionType): string => {
-  const labels: Record<TransactionType, string> = {
-    CUSTOMER_INVOICE: 'Invoice',
-    CUSTOMER_PAYMENT: 'Receipt',
-    VENDOR_BILL: 'Bill',
-    VENDOR_PAYMENT: 'Payment',
-    JOURNAL_ENTRY: 'Journal',
-    BANK_TRANSFER: 'Transfer',
-    EXPENSE_CLAIM: 'Expense',
-    DIRECT_PAYMENT: 'Direct',
-    DIRECT_RECEIPT: 'Direct Rcpt',
-  };
-  return labels[type] || type;
+  return TRANSACTION_TYPE_SHORT_LABELS[type] || type;
+};
+
+export const TRANSACTION_TYPE_COLORS: Record<
+  TransactionType,
+  'primary' | 'success' | 'warning' | 'info' | 'secondary' | 'default'
+> = {
+  CUSTOMER_INVOICE: 'primary',
+  CUSTOMER_PAYMENT: 'success',
+  VENDOR_BILL: 'warning',
+  VENDOR_PAYMENT: 'info',
+  JOURNAL_ENTRY: 'default',
+  BANK_TRANSFER: 'info',
+  EXPENSE_CLAIM: 'warning',
+  DIRECT_PAYMENT: 'secondary',
+  DIRECT_RECEIPT: 'success',
 };
 
 export const getTransactionTypeColor = (
   type: TransactionType
 ): 'primary' | 'success' | 'warning' | 'info' | 'secondary' | 'default' => {
-  switch (type) {
-    case 'CUSTOMER_INVOICE':
-      return 'primary';
-    case 'CUSTOMER_PAYMENT':
-      return 'success';
-    case 'VENDOR_BILL':
-      return 'warning';
-    case 'VENDOR_PAYMENT':
-      return 'info';
-    case 'DIRECT_PAYMENT':
-      return 'secondary';
-    case 'DIRECT_RECEIPT':
-      return 'success';
-    default:
-      return 'default';
-  }
+  return TRANSACTION_TYPE_COLORS[type] || 'default';
 };
 
 export const getPaymentStatusColor = (

@@ -61,13 +61,18 @@ function getDebitCredit(txn: EntityTransaction): { debit: number; credit: number
     case 'DIRECT_PAYMENT':
       // We paid vendor - Debit to their account (reduce liability)
       return { debit: amount, credit: 0 };
+    case 'DIRECT_RECEIPT':
+      // Income received from entity - Credit to their account
+      return { debit: 0, credit: amount };
     case 'JOURNAL_ENTRY': {
       // Journal entries: entity-specific debit/credit computed during loading
       const jDebit = (txn as EntityTransaction & { _journalDebit?: number })._journalDebit || 0;
       const jCredit = (txn as EntityTransaction & { _journalCredit?: number })._journalCredit || 0;
       return { debit: jDebit, credit: jCredit };
     }
-    default:
+    case 'BANK_TRANSFER':
+    case 'EXPENSE_CLAIM':
+      // These don't typically appear in entity ledgers
       return { debit: 0, credit: 0 };
   }
 }
@@ -90,12 +95,15 @@ function getBalanceImpact(txn: EntityTransaction): number {
     case 'VENDOR_PAYMENT':
     case 'DIRECT_PAYMENT':
       return amount; // We paid vendor, owe less
+    case 'DIRECT_RECEIPT':
+      return -amount; // Income received, like customer payment
     case 'JOURNAL_ENTRY': {
       const jDebit = (txn as EntityTransaction & { _journalDebit?: number })._journalDebit || 0;
       const jCredit = (txn as EntityTransaction & { _journalCredit?: number })._journalCredit || 0;
       return jDebit - jCredit;
     }
-    default:
+    case 'BANK_TRANSFER':
+    case 'EXPENSE_CLAIM':
       return 0;
   }
 }
@@ -332,7 +340,8 @@ function AllocationDetail({
   const isPayment =
     txn.type === 'CUSTOMER_PAYMENT' ||
     txn.type === 'VENDOR_PAYMENT' ||
-    txn.type === 'DIRECT_PAYMENT';
+    txn.type === 'DIRECT_PAYMENT' ||
+    txn.type === 'DIRECT_RECEIPT';
 
   // For bills/invoices: show payments allocated to them
   if (isBillOrInvoice) {

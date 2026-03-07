@@ -40,4 +40,8 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# EntityId multi-tenancy check (warning only, non-blocking)
+echo "🔍 Checking entityId filtering in queries..."
+bash scripts/check-entityid-queries.sh
+
 echo "✅ Pre-commit checks passed!"

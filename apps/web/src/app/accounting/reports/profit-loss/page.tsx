@@ -48,22 +48,11 @@ import {
   downloadReportExcel,
   type ExportSection,
 } from '@/lib/accounting/reports/exportReport';
+import type { TransactionType } from '@vapour/types';
+import { TRANSACTION_TYPE_SHORT_LABELS } from '@vapour/constants';
 
 function formatTxType(type: string): string {
-  switch (type) {
-    case 'CUSTOMER_INVOICE':
-      return 'Invoice';
-    case 'VENDOR_BILL':
-      return 'Bill';
-    case 'CUSTOMER_PAYMENT':
-      return 'Receipt';
-    case 'VENDOR_PAYMENT':
-      return 'Payment';
-    case 'JOURNAL_ENTRY':
-      return 'Journal';
-    default:
-      return type || '—';
-  }
+  return TRANSACTION_TYPE_SHORT_LABELS[type as TransactionType] ?? (type || '—');
 }
 
 /**

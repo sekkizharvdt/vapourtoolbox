@@ -140,12 +140,14 @@ export async function generateCashFlowStatement(
     // Categorize by transaction type
     switch (txn.type) {
       case 'CUSTOMER_PAYMENT':
+      case 'DIRECT_RECEIPT':
         customerPayments.amount += cashImpact;
         customerPayments.count++;
         operatingTotal += cashImpact;
         break;
 
       case 'VENDOR_PAYMENT':
+      case 'DIRECT_PAYMENT':
         vendorPayments.amount += cashImpact;
         vendorPayments.count++;
         operatingTotal += cashImpact;
@@ -154,6 +156,15 @@ export async function generateCashFlowStatement(
       case 'CUSTOMER_INVOICE':
       case 'VENDOR_BILL':
         // These don't affect cash until paid
+        break;
+
+      case 'EXPENSE_CLAIM':
+        // Expense claims affect cash when reimbursed
+        operatingTotal += cashImpact;
+        break;
+
+      case 'BANK_TRANSFER':
+        // Internal transfers don't change total cash position
         break;
 
       case 'JOURNAL_ENTRY': {
@@ -181,10 +192,6 @@ export async function generateCashFlowStatement(
         }
         break;
       }
-
-      default:
-        // Default to operating activities
-        operatingTotal += cashImpact;
     }
   });
 

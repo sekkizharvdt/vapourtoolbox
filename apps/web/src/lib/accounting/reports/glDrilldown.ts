@@ -9,6 +9,8 @@
 import { collection, getDocs } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
+import type { TransactionType } from '@vapour/types';
+import { TRANSACTION_TYPE_LABELS, TRANSACTION_TYPE_ROUTES } from '@vapour/constants';
 
 export interface GLDrilldownEntry {
   transactionId: string;
@@ -25,45 +27,14 @@ export interface GLDrilldownEntry {
  * Maps a transaction type to the list page where it can be viewed and edited.
  */
 export function getTransactionRoute(type: string): string {
-  switch (type) {
-    case 'CUSTOMER_INVOICE':
-      return '/accounting/invoices';
-    case 'VENDOR_BILL':
-      return '/accounting/bills';
-    case 'CUSTOMER_PAYMENT':
-    case 'VENDOR_PAYMENT':
-    case 'DIRECT_PAYMENT':
-    case 'DIRECT_RECEIPT':
-      return '/accounting/payments';
-    case 'JOURNAL_ENTRY':
-      return '/accounting/journal-entries';
-    default:
-      return '/accounting';
-  }
+  return TRANSACTION_TYPE_ROUTES[type as TransactionType] ?? '/accounting';
 }
 
 /**
  * Returns a human-readable label for a transaction type.
  */
 export function getTransactionTypeLabel(type: string): string {
-  switch (type) {
-    case 'CUSTOMER_INVOICE':
-      return 'Invoice';
-    case 'VENDOR_BILL':
-      return 'Bill';
-    case 'CUSTOMER_PAYMENT':
-      return 'Receipt';
-    case 'VENDOR_PAYMENT':
-      return 'Payment';
-    case 'DIRECT_PAYMENT':
-      return 'Direct Payment';
-    case 'DIRECT_RECEIPT':
-      return 'Direct Receipt';
-    case 'JOURNAL_ENTRY':
-      return 'Journal Entry';
-    default:
-      return type;
-  }
+  return TRANSACTION_TYPE_LABELS[type as TransactionType] ?? type;
 }
 
 /**

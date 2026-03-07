@@ -30,6 +30,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
+import type { TransactionType } from '@vapour/types';
+import { TRANSACTION_TYPE_SHORT_LABELS } from '@vapour/constants';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
 import { getTransactionRoute } from '@/lib/accounting/reports/glDrilldown';
 import {
@@ -97,22 +99,7 @@ interface LedgerLine {
 }
 
 function getTransactionTypeLabel(type: string): string {
-  switch (type) {
-    case 'JOURNAL_ENTRY':
-      return 'Journal';
-    case 'CUSTOMER_PAYMENT':
-    case 'VENDOR_PAYMENT':
-    case 'DIRECT_PAYMENT':
-      return 'Payment';
-    case 'DIRECT_RECEIPT':
-      return 'Receipt';
-    case 'CUSTOMER_INVOICE':
-      return 'Invoice';
-    case 'VENDOR_BILL':
-      return 'Bill';
-    default:
-      return type || 'Entry';
-  }
+  return TRANSACTION_TYPE_SHORT_LABELS[type as TransactionType] ?? (type || 'Entry');
 }
 
 export default function AccountLedgerPage() {
