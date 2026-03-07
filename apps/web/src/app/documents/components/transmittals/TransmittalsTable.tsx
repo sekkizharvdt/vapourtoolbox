@@ -27,6 +27,8 @@ import {
   Visibility as ViewIcon,
   Download as DownloadIcon,
   CheckCircle as AcknowledgedIcon,
+  Refresh as RegenerateIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import type { DocumentTransmittal, TransmittalStatus } from '@vapour/types';
 import { formatDate } from '@/lib/utils/formatters';
@@ -35,12 +37,16 @@ interface TransmittalsTableProps {
   transmittals: DocumentTransmittal[];
   onViewTransmittal: (transmittal: DocumentTransmittal) => void;
   onDownloadZip: (transmittal: DocumentTransmittal) => void;
+  onRegenerate?: (transmittal: DocumentTransmittal) => void;
+  onDelete?: (transmittal: DocumentTransmittal) => void;
 }
 
 export default function TransmittalsTable({
   transmittals,
   onViewTransmittal,
   onDownloadZip,
+  onRegenerate,
+  onDelete,
 }: TransmittalsTableProps) {
   const getStatusColor = (
     status: TransmittalStatus
@@ -53,7 +59,6 @@ export default function TransmittalsTable({
     };
     return colors[status] || 'default';
   };
-
 
   if (transmittals.length === 0) {
     return (
@@ -79,7 +84,7 @@ export default function TransmittalsTable({
               </TableCell>
               <TableCell width="120px">Status</TableCell>
               <TableCell>Created By</TableCell>
-              <TableCell width="120px" align="right">
+              <TableCell width="180px" align="right">
                 Actions
               </TableCell>
             </TableRow>
@@ -161,6 +166,24 @@ export default function TransmittalsTable({
                           color="primary"
                         >
                           <DownloadIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {onRegenerate && (
+                      <Tooltip title="Regenerate">
+                        <IconButton size="small" onClick={() => onRegenerate(transmittal)}>
+                          <RegenerateIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {onDelete && (
+                      <Tooltip title="Delete">
+                        <IconButton
+                          size="small"
+                          onClick={() => onDelete(transmittal)}
+                          color="error"
+                        >
+                          <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                     )}

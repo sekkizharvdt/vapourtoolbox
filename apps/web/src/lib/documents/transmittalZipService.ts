@@ -50,12 +50,21 @@ function getFileExtension(url: string): string {
 
 /**
  * Extract a reasonable filename from a URL.
+ *
+ * Firebase Storage URLs encode the full storage path as a single path segment
+ * (slashes become %2F), e.g. `/v0/b/bucket/o/projects%2Fxyz%2Ffile.pdf`.
+ * After decoding, we extract only the final segment to avoid creating deep
+ * nested folders inside the ZIP.
  */
 function getFilenameFromUrl(url: string): string {
   try {
     const pathname = new URL(url).pathname;
-    const decoded = decodeURIComponent(pathname.split('/').pop() || 'document');
-    return decoded;
+    // Get the last URL path segment, then decode it
+    const lastSegment = pathname.split('/').pop() || 'document';
+    const decoded = decodeURIComponent(lastSegment);
+    // decoded may still contain '/' from encoded storage paths — take only the final part
+    const filename = decoded.split('/').pop() || 'document';
+    return filename;
   } catch {
     return 'document';
   }
@@ -154,9 +163,11 @@ export async function generateTransmittalZip(
       return;
     }
 
-    const filename = getFilenameFromUrl(doc.documentFileUrl);
-    const folderPath = `${doc.documentNumber}/${doc.revision}`;
-    zip.file(`${folderPath}/${filename}`, buffer);
+    const rawFilename = getFilenameFromUrl(doc.documentFileUrl);
+    // Prefix with document number and revision for clarity, flat structure
+    const ext = rawFilename.includes('.') ? '.' + rawFilename.split('.').pop() : '';
+    const filename = `${doc.documentNumber}_R${doc.revision}${ext}`;
+    zip.file(filename, buffer);
   });
 
   await Promise.all(fetchPromises);

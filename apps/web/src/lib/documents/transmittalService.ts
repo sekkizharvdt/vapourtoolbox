@@ -301,6 +301,19 @@ export async function acknowledgeTransmittal(
 }
 
 /**
+ * Delete a transmittal record
+ */
+export async function deleteTransmittal(
+  db: Firestore,
+  projectId: string,
+  transmittalId: string
+): Promise<void> {
+  const { deleteDoc: firestoreDeleteDoc } = await import('firebase/firestore');
+  const transmittalRef = doc(db, 'projects', projectId, 'transmittals', transmittalId);
+  await firestoreDeleteDoc(transmittalRef);
+}
+
+/**
  * Get transmittals by status
  */
 export async function getTransmittalsByStatus(
