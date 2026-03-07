@@ -30,7 +30,7 @@ export { seedAccountingIntegrations } from './moduleIntegrations';
 
 // Import PDF generation functions
 export { generateBOMQuotePDF } from './pdf/generateBOMQuote';
-export { generateRFQPDF } from './pdf/generateRFQ';
+// generateRFQPDF removed — migrated to client-side @react-pdf/renderer (rfqPdfService.ts)
 
 // Import seed functions for materials
 export { seedMaterials } from './seed/seedMaterials';

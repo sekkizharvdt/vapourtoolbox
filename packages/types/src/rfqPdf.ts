@@ -211,6 +211,12 @@ export interface RFQPDFData {
     description?: string;
     projectNames: string[];
     purchaseRequestNumbers: string[];
+    attachments?: Array<{
+      fileName: string;
+      attachmentType: string;
+      description?: string;
+      publicUrl?: string;
+    }>;
   };
 
   // Line items

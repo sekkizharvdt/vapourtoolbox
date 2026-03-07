@@ -103,11 +103,12 @@ export default function GenerateTransmittalDialog({
       const transmittalId = await createTransmittal(db, {
         projectId,
         projectName,
-        clientName: 'Client Name', // Uses default; client name can be passed from project context
+        clientName: 'Client Name',
         documentIds: selectedDocIds,
-        subject,
-        coverNotes,
-        purposeOfIssue,
+        subject: subject || undefined,
+        coverNotes: coverNotes || undefined,
+        purposeOfIssue: purposeOfIssue || undefined,
+        deliveryMethod: deliveryMethod || undefined,
         createdBy: user.uid,
         createdByName: user.displayName || user.email || 'Unknown',
       });

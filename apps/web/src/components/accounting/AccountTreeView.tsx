@@ -1,5 +1,15 @@
 import { useState, useMemo } from 'react';
-import { Box, Typography, IconButton, Chip, Stack, Collapse, Paper, Button } from '@mui/material';
+import {
+  Box,
+  Typography,
+  IconButton,
+  Chip,
+  Stack,
+  Collapse,
+  Paper,
+  Button,
+  Tooltip,
+} from '@mui/material';
 import {
   ChevronRight as ChevronRightIcon,
   ExpandMore as ExpandMoreIcon,
@@ -11,7 +21,9 @@ import {
   UnfoldMore as ExpandAllIcon,
   UnfoldLess as CollapseAllIcon,
   Edit as EditIcon,
+  MenuBook as LedgerIcon,
 } from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
 import type { Account, AccountTreeNode } from '@vapour/types';
 
 interface AccountTreeViewProps {
@@ -19,7 +31,17 @@ interface AccountTreeViewProps {
   onEdit?: (account: Account) => void;
 }
 
+/**
+ * Derive Dr/Cr normal balance from account code.
+ * Assets (1xxx) and Expenses (5-7xxx) = Debit; Liabilities (2xxx), Equity (3xxx), Income (4xxx) = Credit.
+ */
+function getNormalBalanceType(code: string): 'Dr' | 'Cr' {
+  const firstChar = code.charAt(0);
+  return ['1', '5', '6', '7'].includes(firstChar) ? 'Dr' : 'Cr';
+}
+
 export function AccountTreeView({ accounts, onEdit }: AccountTreeViewProps) {
+  const router = useRouter();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   // Build tree structure from flat account list (memoized)
@@ -226,6 +248,16 @@ export function AccountTreeView({ accounts, onEdit }: AccountTreeViewProps) {
               )}
             </Stack>
 
+            {/* Opening Balance (Dr/Cr) */}
+            {!account.isGroup && account.openingBalance !== 0 && (
+              <Chip
+                label={`OB: ${formatCurrency(Math.abs(account.openingBalance), account.currency)} ${getNormalBalanceType(account.code)}`}
+                size="small"
+                variant="outlined"
+                sx={{ height: 20, fontSize: '0.7rem', fontFamily: 'monospace' }}
+              />
+            )}
+
             {/* Current Balance */}
             {!account.isGroup && (
               <Typography
@@ -239,6 +271,21 @@ export function AccountTreeView({ accounts, onEdit }: AccountTreeViewProps) {
               >
                 {formatCurrency(account.currentBalance, account.currency)}
               </Typography>
+            )}
+
+            {/* View Ledger Button */}
+            {!account.isGroup && (
+              <Tooltip title="View Ledger">
+                <IconButton
+                  size="small"
+                  onClick={() =>
+                    router.push(`/accounting/reports/account-ledger?accountId=${account.id}`)
+                  }
+                  aria-label="View Ledger"
+                >
+                  <LedgerIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             )}
 
             {/* Edit Button */}

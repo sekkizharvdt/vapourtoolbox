@@ -26,8 +26,8 @@ import {
   OpenInNew as OpenInNewIcon,
   FileDownload as DownloadIcon,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
-import { collection, getDocs } from 'firebase/firestore';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import { AccountSelector } from '@/components/common/forms/AccountSelector';
@@ -117,12 +117,22 @@ function getTransactionTypeLabel(type: string): string {
 
 export default function AccountLedgerPage() {
   const router = useRouter();
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const preselectedAccountId = searchParams.get('accountId');
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(preselectedAccountId);
   const [ledgerLines, setLedgerLines] = useState<LedgerLine[]>([]);
   const [loadingLedger, setLoadingLedger] = useState(false);
   const [openingBalance, setOpeningBalance] = useState(0);
+  const [openingBalanceType, setOpeningBalanceType] = useState<'Dr' | 'Cr'>('Dr');
   const [closingBalance, setClosingBalance] = useState(0);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
+
+  // Sync preselected account from URL
+  useEffect(() => {
+    if (preselectedAccountId) {
+      setSelectedAccountId(preselectedAccountId);
+    }
+  }, [preselectedAccountId]);
 
   useEffect(() => {
     if (selectedAccountId) {
@@ -139,11 +149,22 @@ export default function AccountLedgerPage() {
     setExpandedRow(null);
     try {
       const { db } = getFirebase();
+
+      // Fetch account record to get actual opening balance
+      const accountDoc = await getDoc(doc(db, COLLECTIONS.ACCOUNTS, accountId));
+      const accountData = accountDoc.data();
+      const acctOpeningBalance = accountData?.openingBalance ?? 0;
+      const acctCode = accountData?.code ?? '';
+      const firstChar = acctCode.charAt(0);
+      const balType: 'Dr' | 'Cr' = ['1', '5', '6', '7'].includes(firstChar) ? 'Dr' : 'Cr';
+      setOpeningBalance(acctOpeningBalance);
+      setOpeningBalanceType(balType);
+
       const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
       const snapshot = await getDocs(transactionsRef);
 
       const lines: LedgerLine[] = [];
-      let runningBalance = 0;
+      let runningBalance = acctOpeningBalance;
 
       // Get all transactions and filter those affecting this account
       const relevantTransactions: Transaction[] = [];
@@ -194,7 +215,6 @@ export default function AccountLedgerPage() {
         });
       });
 
-      setOpeningBalance(0); // Could be calculated from a specific date
       setClosingBalance(runningBalance);
       setLedgerLines(lines);
     } catch (error) {
@@ -360,10 +380,22 @@ export default function AccountLedgerPage() {
                       <TableRow sx={{ bgcolor: 'grey.50' }}>
                         <TableCell sx={{ p: 0.5 }} />
                         <TableCell colSpan={3}>
-                          <strong>Opening Balance</strong>
+                          <strong>Opening Balance ({openingBalanceType})</strong>
                         </TableCell>
-                        <TableCell align="right">-</TableCell>
-                        <TableCell align="right">-</TableCell>
+                        <TableCell align="right">
+                          {openingBalanceType === 'Dr' ? (
+                            <strong>{Math.abs(openingBalance).toFixed(2)}</strong>
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
+                        <TableCell align="right">
+                          {openingBalanceType === 'Cr' ? (
+                            <strong>{Math.abs(openingBalance).toFixed(2)}</strong>
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
                         <TableCell align="right">
                           <strong>{openingBalance.toFixed(2)}</strong>
                         </TableCell>

@@ -27,7 +27,7 @@ import {
   Home as HomeIcon,
 } from '@mui/icons-material';
 import { PageHeader, LoadingState, EmptyState, StatCard, FilterBar } from '@vapour/ui';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, where, onSnapshot } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { Account, AccountType } from '@vapour/types';
@@ -111,7 +111,7 @@ export default function ChartOfAccountsPage() {
 
   // Load accounts from Firestore
   useEffect(() => {
-    if (!hasViewAccess) {
+    if (!hasViewAccess || !claims?.entityId) {
       setLoading(false);
       return;
     }
@@ -119,8 +119,8 @@ export default function ChartOfAccountsPage() {
     const { db } = getFirebase();
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
 
-    // Query accounts ordered by code
-    const q = query(accountsRef, orderBy('code', 'asc'));
+    // Query accounts ordered by code, filtered by entityId for multi-tenancy
+    const q = query(accountsRef, where('entityId', '==', claims.entityId), orderBy('code', 'asc'));
 
     // Subscribe to real-time updates
     const unsubscribe = onSnapshot(
@@ -173,7 +173,7 @@ export default function ChartOfAccountsPage() {
     );
 
     return () => unsubscribe();
-  }, [hasViewAccess]);
+  }, [hasViewAccess, claims?.entityId]);
 
   // Tree-aware filtering to maintain hierarchy
   const filteredAccounts = useMemo(() => {

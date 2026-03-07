@@ -32,10 +32,10 @@ import {
   Add as AddIcon,
 } from '@mui/icons-material';
 import { getFirebase } from '@/lib/firebase';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 import type { RFQ, DocumentRecord } from '@vapour/types';
 import type { RFQPDFGenerationOptions, RFQPDFGenerationResult, RFQPDFMode } from '@vapour/types';
+import { generateRFQPDFs } from '@/lib/pdf/rfqPdfService';
 import { ExistingPDFsTab, GenerateNewTab, PDFGenerationResult, type ExistingPDF } from './rfq-pdf';
 
 interface GenerateRFQPDFDialogProps {
@@ -210,7 +210,7 @@ export default function GenerateRFQPDFDialog({
     try {
       setGenerating(true);
 
-      const { app, auth } = getFirebase();
+      const { db, storage, auth } = getFirebase();
       const user = auth.currentUser;
 
       if (!user) {
@@ -240,23 +240,13 @@ export default function GenerateRFQPDFDialog({
         contactPersonPhone: contactPersonPhone || undefined,
       };
 
-      const functions = getFunctions(app, 'asia-south1');
-      const generatePDF = httpsCallable<
-        { rfqId: string; options: RFQPDFGenerationOptions; userId: string },
-        RFQPDFGenerationResult
-      >(functions, 'generateRFQPDF');
+      const response = await generateRFQPDFs(db, storage, options, user.uid);
 
-      const response = await generatePDF({
-        rfqId: rfq.id,
-        options,
-        userId: user.uid,
-      });
-
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'PDF generation failed');
+      if (!response.success) {
+        throw new Error(response.error || 'PDF generation failed');
       }
 
-      setResult(response.data);
+      setResult(response);
       onSuccess?.();
     } catch (err) {
       console.error('Error generating RFQ PDF:', err);

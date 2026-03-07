@@ -426,7 +426,12 @@ export const generateTransmittal = onCall(async (request) => {
             documentNumber: docData.documentNumber,
             documentTitle: docData.documentTitle,
             revision: docData.currentRevision,
-            submissionDate: docData.lastSubmissionDate?.toDate().toLocaleDateString() || '-',
+            submissionDate: docData.lastSubmissionDate
+              ? (typeof docData.lastSubmissionDate.toDate === 'function'
+                  ? docData.lastSubmissionDate.toDate()
+                  : new Date(docData.lastSubmissionDate)
+                ).toLocaleDateString()
+              : '-',
             status: docData.status,
             purposeOfIssue: docData.purposeOfIssue,
             remarks: docData.remarks,
@@ -440,13 +445,18 @@ export const generateTransmittal = onCall(async (request) => {
     logger.info('Generating transmittal PDF...');
     const pdfBuffer = await generateTransmittalPDF({
       transmittalNumber: transmittalData.transmittalNumber,
-      transmittalDate: transmittalData.transmittalDate.toDate().toLocaleDateString(),
+      transmittalDate: transmittalData.transmittalDate
+        ? (typeof transmittalData.transmittalDate.toDate === 'function'
+            ? transmittalData.transmittalDate.toDate()
+            : new Date(transmittalData.transmittalDate)
+          ).toLocaleDateString()
+        : new Date().toLocaleDateString(),
       projectName: transmittalData.projectName,
-      clientName: transmittalData.clientName,
-      clientContact: transmittalData.clientContact,
-      subject: transmittalData.subject,
-      coverNotes: transmittalData.coverNotes,
-      purposeOfIssue: transmittalData.purposeOfIssue,
+      clientName: transmittalData.clientName || '',
+      clientContact: transmittalData.clientContact || '',
+      subject: transmittalData.subject || '',
+      coverNotes: transmittalData.coverNotes || '',
+      purposeOfIssue: transmittalData.purposeOfIssue || '',
       createdByName: transmittalData.createdByName,
       documents,
     });
@@ -522,7 +532,11 @@ export const generateTransmittal = onCall(async (request) => {
     };
   } catch (error) {
     logger.error('Error generating transmittal:', error);
-    throw new HttpsError('internal', 'Failed to generate transmittal');
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : 'Failed to generate transmittal';
+    throw new HttpsError('internal', message);
   }
 });
 
