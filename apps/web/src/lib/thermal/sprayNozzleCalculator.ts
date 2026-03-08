@@ -43,6 +43,10 @@ export interface NozzleEntry {
   angleAtMid: number;
   /** Spray angle at high pressure (°) */
   angleAtHigh: number;
+  /** Per-nozzle flow exponent override (e.g. WSQ uses 0.44 vs SQ 0.46) */
+  flowExponent?: number;
+  /** Per-nozzle angle pressures override [low, mid, high] in bar */
+  anglePressures?: [number, number, number];
 }
 
 export interface NozzleCategoryConfig {
@@ -84,6 +88,8 @@ export interface NozzleMatch {
   coverage?: number;
   /** Deviation from required flow per nozzle (%) */
   deviationPercent: number;
+  /** Catalogue ordering model designation (e.g. '1HH-WSQ-130') */
+  modelNumber: string;
 }
 
 export interface SprayNozzleResult {
@@ -105,10 +111,16 @@ export interface NozzleLayoutInput {
   operatingPressure: number;
   /** Tube bundle length (mm) — nozzles are arrayed along this dimension */
   bundleLength: number;
-  /** Tube bundle width (mm) — rows are added across this dimension */
+  /** Tube bundle width (mm) — one nozzle covers this via derived height */
   bundleWidth: number;
-  /** Spray height: distance from nozzle orifice to tube bundle top (mm) */
-  sprayHeight: number;
+  /** Target spray height (mm) — nozzles closest to this height ranked first (default 500) */
+  targetHeight?: number;
+  /** Minimum acceptable derived spray height (mm, default 300) */
+  minHeight?: number;
+  /** Maximum acceptable derived spray height (mm, default 800) */
+  maxHeight?: number;
+  /** Overshoot margin per side (mm) — spray extends past bundle edge (default 50) */
+  overshootMargin?: number;
   /** Minimum overlap between adjacent nozzle coverages as fraction (default 0.15 = 15%) */
   minOverlap?: number;
   /** Flow tolerance for matching (default 0.25 = ±25%) */
@@ -121,15 +133,17 @@ export interface NozzleLayoutMatch {
   flowAtPressure: number;
   /** Interpolated spray angle at operating pressure (°) */
   sprayAngle: number;
-  /** Coverage diameter/side at spray height (mm) */
+  /** Derived spray height where nozzle coverage meets required width (mm) */
+  derivedHeight: number;
+  /** Coverage diameter/side at derived height (mm) */
   coverageDiameter: number;
   /** Effective pitch between nozzle centres along length (mm) */
   pitchAlongLength: number;
-  /** Effective pitch between nozzle rows across width (mm) */
+  /** Effective pitch between rows across width (mm) — 0 if single row */
   pitchAcrossWidth: number;
   /** Number of nozzles along the bundle length */
   nozzlesAlongLength: number;
-  /** Number of rows across the bundle width */
+  /** Number of rows across the bundle width (1 = single row) */
   rowsAcrossWidth: number;
   /** Total number of nozzles = nozzlesAlongLength × rowsAcrossWidth */
   totalNozzles: number;
@@ -139,16 +153,18 @@ export interface NozzleLayoutMatch {
   deviationPercent: number;
   /** Actual overlap along length (%) */
   actualOverlapLength: number;
-  /** Actual overlap across width (%) */
+  /** Actual overlap across width between rows (%) — 0 if single row */
   actualOverlapWidth: number;
   /** Total spray coverage along length (mm) — outer edge to outer edge */
   totalCoverageLength: number;
-  /** Total spray coverage across width (mm) */
-  totalCoverageWidth: number;
+  /** Deviation of derived height from target height (mm) */
+  heightDeviation: number;
   /** Percentage of total spray that falls outside the bundle area (%) */
   wastedFlowPercent: number;
   /** Absolute wasted flow (lpm) — spray falling outside the bundle */
   wastedFlowLpm: number;
+  /** Catalogue ordering model designation (e.g. '1HH-WSQ-130') */
+  modelNumber: string;
 }
 
 export interface NozzleLayoutResult {
@@ -157,7 +173,10 @@ export interface NozzleLayoutResult {
   operatingPressure: number;
   bundleLength: number;
   bundleWidth: number;
-  sprayHeight: number;
+  targetHeight: number;
+  minHeight: number;
+  maxHeight: number;
+  overshootMargin: number;
   minOverlap: number;
   totalFlow: number;
 }
@@ -1229,9 +1248,9 @@ const FULL_CONE_WIDE: NozzleEntry[] = [
 ];
 
 // -- Full Cone Square (FullJet G-SQ/H-SQ standard + H-WSQ/HH-WSQ wide) --
-// Standard square: rated pressure 3 bar, flow exponent 0.46
-// Wide square: rated pressure 3 bar, flow exponent 0.44
-// For simplicity, all square nozzles use exponent 0.46 (standard square dominates)
+// Standard square (SQ): rated pressure 3 bar, flow exponent 0.46, angles at [0.5, 1.5, 6] bar
+// Wide square (WSQ): rated pressure 3 bar, flow exponent 0.44, angles at [0.4, 0.7, 6] bar
+// Category defaults are for SQ (0.46, [0.5, 1.5, 6]); WSQ entries carry per-nozzle overrides
 // Spray angles at: 0.5 bar (low), 1.5 bar (mid), 6 bar (high) — standard
 //                  0.4 bar (low), 0.7 bar (mid), 6 bar (high) — wide square
 const FULL_CONE_SQUARE: NozzleEntry[] = [
@@ -1245,6 +1264,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 99,
     angleAtMid: 101,
     angleAtHigh: 93,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '17WSQ',
@@ -1255,6 +1276,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 99,
     angleAtMid: 101,
     angleAtHigh: 93,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '20WSQ',
@@ -1265,6 +1288,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 104,
     angleAtMid: 110,
     angleAtHigh: 94,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '24WSQ',
@@ -1275,6 +1300,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 104,
     angleAtMid: 110,
     angleAtHigh: 94,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '27WSQ',
@@ -1285,6 +1312,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 104,
     angleAtMid: 110,
     angleAtHigh: 98,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '30WSQ',
@@ -1295,6 +1324,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 104,
     angleAtMid: 110,
     angleAtHigh: 102,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '35WSQ',
@@ -1305,6 +1336,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 104,
     angleAtMid: 110,
     angleAtHigh: 102,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '40WSQ',
@@ -1315,6 +1348,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 104,
     angleAtMid: 110,
     angleAtHigh: 102,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '45WSQ',
@@ -1325,6 +1360,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 104,
     angleAtMid: 110,
     angleAtHigh: 102,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '50WSQ',
@@ -1335,6 +1372,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 104,
     angleAtMid: 110,
     angleAtHigh: 102,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '71WSQ',
@@ -1345,6 +1384,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 105,
     angleAtMid: 110,
     angleAtHigh: 102,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '130WSQ',
@@ -1355,6 +1396,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 107,
     angleAtMid: 110,
     angleAtHigh: 107,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '190WSQ',
@@ -1365,6 +1408,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 108,
     angleAtMid: 111,
     angleAtHigh: 109,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '290WSQ',
@@ -1375,6 +1420,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 109,
     angleAtMid: 114,
     angleAtHigh: 109,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '560WSQ',
@@ -1385,6 +1432,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 110,
     angleAtMid: 114,
     angleAtHigh: 109,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '830WSQ',
@@ -1395,6 +1444,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 110,
     angleAtMid: 115,
     angleAtHigh: 109,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   {
     capacitySize: '1070WSQ',
@@ -1405,6 +1456,8 @@ const FULL_CONE_SQUARE: NozzleEntry[] = [
     angleAtLow: 110,
     angleAtMid: 115,
     angleAtHigh: 109,
+    flowExponent: 0.44,
+    anglePressures: [0.4, 0.7, 6] as [number, number, number],
   },
   // Standard Square (SQ) — larger sizes, rated at 3 bar
   {
@@ -1914,6 +1967,69 @@ export const NOZZLE_CATEGORIES: Record<NozzleCategory, NozzleCategoryConfig> = {
   },
 };
 
+// ── Ordering Model Number ────────────────────────────────────────────────────
+
+/**
+ * Parse a fractional-inch connection string to a numeric value.
+ * Handles: '1/4' → 0.25, '3/4' → 0.75, '1' → 1, '1-1/4' → 1.25, '2-1/2' → 2.5
+ */
+function parseConnectionInches(conn: string): number {
+  if (conn.includes('-')) {
+    const [whole, frac] = conn.split('-');
+    return parseInt(whole!) + parseConnectionInches(frac!);
+  }
+  if (conn.includes('/')) {
+    const [num, den] = conn.split('/');
+    return parseInt(num!) / parseInt(den!);
+  }
+  return parseFloat(conn);
+}
+
+/**
+ * Get the catalogue ordering model designation for a nozzle.
+ *
+ * Format: {conn}{bodyType}-{capacityNumber}
+ * Example: 1HH-WSQ-130 for a 130WSQ nozzle with 1" male connection
+ *
+ * Body type is determined by category + connection size:
+ *   Full Cone Circular: HH (≤3/4"), H (≥1")
+ *   Full Cone Wide: HH-W (≤3/4"), H-W (≥1")
+ *   Full Cone Square SQ: HH-SQ (≤1"), H-SQ (>1")
+ *   Full Cone Wide Square WSQ: HH-WSQ (≤1"), H-WSQ (>1")
+ *   Hollow Cone: BX (all sizes)
+ *
+ * Material code is not included — user selects at ordering time.
+ */
+export function getOrderingModel(nozzle: NozzleEntry, category: NozzleCategory): string {
+  const conn = nozzle.inletConn;
+  const connInches = parseConnectionInches(conn);
+
+  let bodyType: string;
+  switch (category) {
+    case 'full_cone_circular':
+      bodyType = connInches >= 1.0 ? 'H' : 'HH';
+      break;
+    case 'full_cone_wide':
+      bodyType = connInches >= 1.0 ? 'H-W' : 'HH-W';
+      break;
+    case 'full_cone_square':
+      if (nozzle.capacitySize.endsWith('WSQ')) {
+        bodyType = connInches > 1.0 ? 'H-WSQ' : 'HH-WSQ';
+      } else {
+        bodyType = connInches > 1.0 ? 'H-SQ' : 'HH-SQ';
+      }
+      break;
+    case 'hollow_cone_circular':
+      bodyType = 'BX';
+      break;
+  }
+
+  // Capacity number = strip suffix (body type already encodes SQ/WSQ/W)
+  const capNum = nozzle.capacitySize.replace(/WSQ$|SQ$|W$/, '');
+
+  return `${conn}${bodyType}-${capNum}`;
+}
+
 // ── Calculations ─────────────────────────────────────────────────────────────
 
 /**
@@ -1997,18 +2113,21 @@ export function selectSprayNozzles(input: SprayNozzleInput): SprayNozzleResult {
   const matches: NozzleMatch[] = [];
 
   for (const nozzle of config.nozzles) {
+    const exponent = nozzle.flowExponent ?? config.flowExponent;
+    const pressures = nozzle.anglePressures ?? config.anglePressures;
+
     const flowAtPressure = calculateFlowAtPressure(
       nozzle.ratedFlow,
       config.ratedPressure,
       operatingPressure,
-      config.flowExponent
+      exponent
     );
 
     const deviation = (flowAtPressure - flowPerNozzle) / flowPerNozzle;
     const deviationPercent = deviation * 100;
 
     if (Math.abs(deviation) <= tolerance) {
-      const sprayAngle = interpolateSprayAngle(nozzle, operatingPressure, config.anglePressures);
+      const sprayAngle = interpolateSprayAngle(nozzle, operatingPressure, pressures);
 
       const coverage =
         sprayDistance !== undefined && sprayDistance > 0
@@ -2021,6 +2140,7 @@ export function selectSprayNozzles(input: SprayNozzleInput): SprayNozzleResult {
         sprayAngle: Math.round(sprayAngle * 10) / 10,
         coverage: coverage !== undefined ? Math.round(coverage * 10) / 10 : undefined,
         deviationPercent: Math.round(deviationPercent * 10) / 10,
+        modelNumber: getOrderingModel(nozzle, category),
       });
     }
   }
@@ -2040,20 +2160,17 @@ export function selectSprayNozzles(input: SprayNozzleInput): SprayNozzleResult {
 /**
  * Calculate nozzle layout for a rectangular tube bundle.
  *
- * For each nozzle in the catalogue, determines the grid layout (nozzles along
- * length × rows across width) that covers the bundle area with at least the
- * specified minimum overlap, then checks whether the nozzle's flow matches
- * the required flow per nozzle.
+ * For each nozzle, DERIVES the spray height so that one nozzle covers the
+ * bundle width (plus overshoot margin for full wetting). Nozzles are then
+ * arrayed along the bundle length with the specified minimum overlap.
  *
  * Algorithm:
- * 1. For each nozzle, compute coverage at spray height
- * 2. Compute max pitch = coverage × (1 - minOverlap)
- * 3. nozzles along = ceil(bundleLength / maxPitch), minimum 1
- * 4. rows across = ceil(bundleWidth / maxPitch), minimum 1
- * 5. Actual pitch = bundleLength / nAlong (or width / nRows)
- * 6. Total nozzles = nAlong × nRows
- * 7. Required flow per nozzle = totalFlow / totalNozzles
- * 8. If nozzle flow is within tolerance of required, it's a match
+ * 1. targetCoverage = bundleWidth + 2 × overshootMargin
+ * 2. derivedHeight = targetCoverage / (2 × tan(angle/2))
+ * 3. Skip if derivedHeight outside [minHeight, maxHeight]
+ * 4. nozzlesAlongLength = ceil(bundleLength / maxPitch), single row across width
+ * 5. Flow check: nozzle flow vs totalFlow / totalNozzles
+ * 6. Sort by height proximity to target, then by flow deviation
  */
 export function calculateNozzleLayout(input: NozzleLayoutInput): NozzleLayoutResult {
   const {
@@ -2062,7 +2179,10 @@ export function calculateNozzleLayout(input: NozzleLayoutInput): NozzleLayoutRes
     operatingPressure,
     bundleLength,
     bundleWidth,
-    sprayHeight,
+    targetHeight = 500,
+    minHeight = 300,
+    maxHeight = 800,
+    overshootMargin = 50,
     minOverlap = 0.15,
     tolerance = 0.25,
   } = input;
@@ -2071,99 +2191,133 @@ export function calculateNozzleLayout(input: NozzleLayoutInput): NozzleLayoutRes
   if (operatingPressure <= 0) throw new Error('Operating pressure must be positive');
   if (bundleLength <= 0) throw new Error('Bundle length must be positive');
   if (bundleWidth <= 0) throw new Error('Bundle width must be positive');
-  if (sprayHeight <= 0) throw new Error('Spray height must be positive');
   if (minOverlap < 0 || minOverlap >= 1) throw new Error('Overlap must be between 0 and 1');
 
   const config = NOZZLE_CATEGORIES[category];
   const matches: NozzleLayoutMatch[] = [];
 
   for (const nozzle of config.nozzles) {
+    const exponent = nozzle.flowExponent ?? config.flowExponent;
+    const pressures = nozzle.anglePressures ?? config.anglePressures;
+
     const flowAtPressure = calculateFlowAtPressure(
       nozzle.ratedFlow,
       config.ratedPressure,
       operatingPressure,
-      config.flowExponent
+      exponent
     );
 
-    const sprayAngle = interpolateSprayAngle(nozzle, operatingPressure, config.anglePressures);
-    const coverageDiameter = calculateCoverage(sprayAngle, sprayHeight);
+    const sprayAngle = interpolateSprayAngle(nozzle, operatingPressure, pressures);
+    if (sprayAngle <= 0) continue;
 
-    if (coverageDiameter <= 0) continue;
+    const halfAngleRad = ((sprayAngle / 2) * Math.PI) / 180;
+    const tanHalf = Math.tan(halfAngleRad);
+    if (tanHalf <= 0) continue;
 
-    // Maximum pitch that guarantees minimum overlap
-    const maxPitch = coverageDiameter * (1 - minOverlap);
-    if (maxPitch <= 0) continue;
+    // Try 1 row, then 2, 3, etc. — stop when derived height drops below minHeight
+    for (let rows = 1; rows <= 10; rows++) {
+      // Each row covers: bundleWidth / rows + overshoot on the outer edges
+      // With overlap between adjacent rows (same minOverlap fraction)
+      const coveragePerRow =
+        rows === 1
+          ? bundleWidth + 2 * overshootMargin
+          : bundleWidth / rows + (overshootMargin * 2) / rows + (bundleWidth / rows) * minOverlap;
 
-    // Grid count — at least 1 in each direction
-    const nozzlesAlongLength = Math.max(1, Math.ceil(bundleLength / maxPitch));
-    const rowsAcrossWidth = Math.max(1, Math.ceil(bundleWidth / maxPitch));
-    const totalNozzles = nozzlesAlongLength * rowsAcrossWidth;
+      // Derive height so one nozzle covers coveragePerRow
+      const derivedHeight = coveragePerRow / (2 * tanHalf);
 
-    // Actual pitch (evenly distribute across the dimension)
-    // For single nozzle, pitch is the full dimension (nozzle centred)
-    const pitchAlongLength =
-      nozzlesAlongLength > 1 ? bundleLength / nozzlesAlongLength : bundleLength;
-    const pitchAcrossWidth = rowsAcrossWidth > 1 ? bundleWidth / rowsAcrossWidth : bundleWidth;
+      // If below minHeight even at 1 row, skip this nozzle entirely
+      if (derivedHeight < minHeight) break;
+      // If above maxHeight, try more rows
+      if (derivedHeight > maxHeight) continue;
 
-    // Actual overlap percentages
-    const actualOverlapLength =
-      coverageDiameter > 0
-        ? Math.round((1 - pitchAlongLength / coverageDiameter) * 100 * 10) / 10
-        : 0;
-    const actualOverlapWidth =
-      coverageDiameter > 0
-        ? Math.round((1 - pitchAcrossWidth / coverageDiameter) * 100 * 10) / 10
-        : 0;
+      const coverageDiameter = Math.round(coveragePerRow * 10) / 10;
 
-    // Total spray coverage (outer edge to outer edge)
-    const totalCoverageLength =
-      nozzlesAlongLength > 1
-        ? pitchAlongLength * (nozzlesAlongLength - 1) + coverageDiameter
-        : coverageDiameter;
-    const totalCoverageWidth =
-      rowsAcrossWidth > 1
-        ? pitchAcrossWidth * (rowsAcrossWidth - 1) + coverageDiameter
-        : coverageDiameter;
+      // Array nozzles along the bundle length
+      const maxPitch = coveragePerRow * (1 - minOverlap);
+      if (maxPitch <= 0) continue;
 
-    // Wasted flow — spray falling outside the bundle area.
-    // Total spray footprint area vs bundle area. Assumes uniform spray density.
-    const totalCoverageArea = totalCoverageLength * totalCoverageWidth;
-    const bundleArea = bundleLength * bundleWidth;
-    const wastedFraction =
-      totalCoverageArea > 0 ? Math.max(0, 1 - bundleArea / totalCoverageArea) : 0;
+      const nozzlesAlongLength = Math.max(1, Math.ceil(bundleLength / maxPitch));
+      const totalNozzles = nozzlesAlongLength * rows;
 
-    // Flow check
-    const actualTotalFlow = flowAtPressure * totalNozzles;
-    const requiredFlowPerNozzle = totalFlow / totalNozzles;
-    const deviation = (flowAtPressure - requiredFlowPerNozzle) / requiredFlowPerNozzle;
-    const wastedFlowLpm = Math.round(actualTotalFlow * wastedFraction * 100) / 100;
-    const wastedFlowPercent = Math.round(wastedFraction * 1000) / 10;
+      // Pitch along length
+      const pitchAlongLength =
+        nozzlesAlongLength > 1 ? bundleLength / nozzlesAlongLength : bundleLength;
 
-    if (Math.abs(deviation) <= tolerance) {
-      matches.push({
-        nozzle,
-        flowAtPressure: Math.round(flowAtPressure * 100) / 100,
-        sprayAngle: Math.round(sprayAngle * 10) / 10,
-        coverageDiameter: Math.round(coverageDiameter * 10) / 10,
-        pitchAlongLength: Math.round(pitchAlongLength * 10) / 10,
-        pitchAcrossWidth: Math.round(pitchAcrossWidth * 10) / 10,
-        nozzlesAlongLength,
-        rowsAcrossWidth,
-        totalNozzles,
-        requiredFlowPerNozzle: Math.round(requiredFlowPerNozzle * 100) / 100,
-        deviationPercent: Math.round(deviation * 1000) / 10,
-        actualOverlapLength,
-        actualOverlapWidth,
-        totalCoverageLength: Math.round(totalCoverageLength * 10) / 10,
-        totalCoverageWidth: Math.round(totalCoverageWidth * 10) / 10,
-        wastedFlowPercent,
-        wastedFlowLpm,
-      });
+      // Pitch across width
+      const pitchAcrossWidth = rows > 1 ? bundleWidth / rows : 0;
+
+      // Overlap along length
+      const actualOverlapLength =
+        coveragePerRow > 0
+          ? Math.round((1 - pitchAlongLength / coveragePerRow) * 100 * 10) / 10
+          : 0;
+
+      // Overlap across width
+      const actualOverlapWidth =
+        rows > 1 && coveragePerRow > 0
+          ? Math.round((1 - pitchAcrossWidth / coveragePerRow) * 100 * 10) / 10
+          : 0;
+
+      // Total spray coverage along length (outer edge to outer edge)
+      const totalCoverageLength =
+        nozzlesAlongLength > 1
+          ? pitchAlongLength * (nozzlesAlongLength - 1) + coveragePerRow
+          : coveragePerRow;
+
+      // Total coverage across width
+      const totalCoverageWidth =
+        rows > 1 ? pitchAcrossWidth * (rows - 1) + coveragePerRow : coveragePerRow;
+
+      // Overspray — spray outside the bundle footprint
+      const totalCoverageArea = totalCoverageLength * totalCoverageWidth;
+      const bundleArea = bundleLength * bundleWidth;
+      const wastedFraction =
+        totalCoverageArea > 0 ? Math.max(0, 1 - bundleArea / totalCoverageArea) : 0;
+
+      // Flow check
+      const actualTotalFlow = flowAtPressure * totalNozzles;
+      const requiredFlowPerNozzle = totalFlow / totalNozzles;
+      const deviation = (flowAtPressure - requiredFlowPerNozzle) / requiredFlowPerNozzle;
+      const wastedFlowLpm = Math.round(actualTotalFlow * wastedFraction * 100) / 100;
+      const wastedFlowPercent = Math.round(wastedFraction * 1000) / 10;
+
+      if (Math.abs(deviation) <= tolerance) {
+        matches.push({
+          nozzle,
+          flowAtPressure: Math.round(flowAtPressure * 100) / 100,
+          sprayAngle: Math.round(sprayAngle * 10) / 10,
+          derivedHeight: Math.round(derivedHeight),
+          coverageDiameter,
+          pitchAlongLength: Math.round(pitchAlongLength * 10) / 10,
+          pitchAcrossWidth: Math.round(pitchAcrossWidth * 10) / 10,
+          nozzlesAlongLength,
+          rowsAcrossWidth: rows,
+          totalNozzles,
+          requiredFlowPerNozzle: Math.round(requiredFlowPerNozzle * 100) / 100,
+          deviationPercent: Math.round(deviation * 1000) / 10,
+          actualOverlapLength,
+          actualOverlapWidth,
+          totalCoverageLength: Math.round(totalCoverageLength * 10) / 10,
+          heightDeviation: Math.round(derivedHeight - targetHeight),
+          wastedFlowPercent,
+          wastedFlowLpm,
+          modelNumber: getOrderingModel(nozzle, category),
+        });
+      }
+
+      // Found a valid match at this row count — don't try more rows for same nozzle
+      // (lower row counts are preferred)
+      if (derivedHeight >= minHeight && derivedHeight <= maxHeight) break;
     }
   }
 
-  // Sort by absolute deviation (closest flow match first)
-  matches.sort((a, b) => Math.abs(a.deviationPercent) - Math.abs(b.deviationPercent));
+  // Sort by height proximity to target first, then by flow deviation
+  matches.sort((a, b) => {
+    const heightDiff = Math.abs(a.heightDeviation) - Math.abs(b.heightDeviation);
+    if (Math.abs(heightDiff) > 10) return heightDiff; // 10mm tolerance band
+    return Math.abs(a.deviationPercent) - Math.abs(b.deviationPercent);
+  });
 
   return {
     matches,
@@ -2171,7 +2325,10 @@ export function calculateNozzleLayout(input: NozzleLayoutInput): NozzleLayoutRes
     operatingPressure,
     bundleLength,
     bundleWidth,
-    sprayHeight,
+    targetHeight,
+    minHeight,
+    maxHeight,
+    overshootMargin,
     minOverlap,
     totalFlow,
   };

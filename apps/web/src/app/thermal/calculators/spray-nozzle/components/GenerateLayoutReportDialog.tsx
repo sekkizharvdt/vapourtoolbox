@@ -41,8 +41,8 @@ export function GenerateLayoutReportDialog({
           <Box sx={{ bgcolor: 'action.hover', p: 2, borderRadius: 1 }}>
             <Stack spacing={0.5}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Nozzle:</span>
-                <strong>{best.nozzle.capacitySize}</strong>
+                <span>Model:</span>
+                <strong>{best.modelNumber}</strong>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Layout:</span>
@@ -51,14 +51,12 @@ export function GenerateLayoutReportDialog({
                 </strong>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Coverage:</span>
-                <strong>{best.coverageDiameter} mm</strong>
+                <span>Derived Height:</span>
+                <strong>{best.derivedHeight} mm</strong>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Overlap (L/W):</span>
-                <strong>
-                  {best.actualOverlapLength}% / {best.actualOverlapWidth}%
-                </strong>
+                <span>Overlap:</span>
+                <strong>{best.actualOverlapLength}%</strong>
               </Box>
             </Stack>
           </Box>

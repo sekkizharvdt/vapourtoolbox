@@ -26,7 +26,8 @@ export interface NozzleLayoutReportInputs {
   operatingPressure: string;
   bundleLength: string;
   bundleWidth: string;
-  sprayHeight: string;
+  targetHeight: string;
+  overshootMargin: string;
   minOverlap: string;
   tolerance: string;
 }
@@ -72,36 +73,41 @@ export const NozzleLayoutReportPDF = ({
   const rightParams = [
     { label: 'Bundle Length', value: `${inputs.bundleLength} mm` },
     { label: 'Bundle Width', value: `${inputs.bundleWidth} mm` },
-    { label: 'Spray Height', value: `${inputs.sprayHeight} mm` },
+    { label: 'Target Height', value: `${inputs.targetHeight} mm` },
+    { label: 'Overshoot Margin', value: `${inputs.overshootMargin} mm/side` },
     { label: 'Min. Overlap', value: `${inputs.minOverlap}%` },
     { label: 'Flow Tolerance', value: `\u00B1${inputs.tolerance}%` },
   ];
 
   const columns = [
-    { key: 'rank', header: '#', width: '5%' },
-    { key: 'capacitySize', header: 'Capacity', width: '11%' },
-    { key: 'connection', header: 'Conn.', width: '7%' },
-    { key: 'layout', header: 'Layout', width: '10%', align: 'right' as const },
-    { key: 'total', header: 'Total', width: '7%', align: 'right' as const },
+    { key: 'rank', header: '#', width: '4%' },
+    { key: 'model', header: 'Model', width: '13%' },
+    { key: 'layout', header: 'Layout', width: '8%', align: 'right' as const },
+    { key: 'total', header: 'Total', width: '6%', align: 'right' as const },
+    { key: 'height', header: 'Height (mm)', width: '10%', align: 'right' as const },
     { key: 'flow', header: 'Flow (lpm)', width: '10%', align: 'right' as const },
     { key: 'deviation', header: 'Dev.', width: '8%', align: 'right' as const },
-    { key: 'coverage', header: 'Cov. (mm)', width: '10%', align: 'right' as const },
-    { key: 'pitch', header: 'Pitch (mm)', width: '12%', align: 'right' as const },
-    { key: 'overlap', header: 'Overlap', width: '10%', align: 'right' as const },
+    { key: 'pitch', header: 'Pitch (mm)', width: '11%', align: 'right' as const },
+    { key: 'overlap', header: 'Overlap', width: '9%', align: 'right' as const },
     { key: 'waste', header: 'Overspray', width: '8%', align: 'right' as const },
   ];
 
   const rows = result.matches.map((m: NozzleLayoutMatch, idx: number) => ({
     rank: String(idx + 1),
-    capacitySize: m.nozzle.capacitySize + (idx === selectedIdx ? ' *' : ''),
-    connection: `${m.nozzle.inletConn}"`,
+    model: m.modelNumber + (idx === selectedIdx ? ' *' : ''),
     layout: `${m.nozzlesAlongLength} \u00D7 ${m.rowsAcrossWidth}`,
     total: String(m.totalNozzles),
+    height: String(m.derivedHeight),
     flow: String(m.flowAtPressure),
     deviation: `${m.deviationPercent > 0 ? '+' : ''}${m.deviationPercent}%`,
-    coverage: String(m.coverageDiameter),
-    pitch: `${m.pitchAlongLength} / ${m.pitchAcrossWidth}`,
-    overlap: `${m.actualOverlapLength}% / ${m.actualOverlapWidth}%`,
+    pitch:
+      m.rowsAcrossWidth > 1
+        ? `${m.pitchAlongLength} / ${m.pitchAcrossWidth}`
+        : String(m.pitchAlongLength),
+    overlap:
+      m.rowsAcrossWidth > 1
+        ? `${m.actualOverlapLength}% / ${m.actualOverlapWidth}%`
+        : `${m.actualOverlapLength}%`,
     waste: `${m.wastedFlowPercent}%`,
   }));
 
@@ -120,13 +126,13 @@ export const NozzleLayoutReportPDF = ({
         {best && (
           <PrimaryResultBanner
             items={[
-              { label: 'Selected Nozzle', value: best.nozzle.capacitySize },
+              { label: 'Selected Nozzle', value: best.modelNumber },
               {
                 label: 'Layout',
                 value: `${best.nozzlesAlongLength} \u00D7 ${best.rowsAcrossWidth} = ${best.totalNozzles}`,
               },
+              { label: 'Derived Height', value: `${best.derivedHeight} mm` },
               { label: 'Flow / Nozzle', value: `${best.flowAtPressure} lpm` },
-              { label: 'Coverage', value: `${best.coverageDiameter} mm \u00D8` },
             ]}
           />
         )}
@@ -144,6 +150,7 @@ export const NozzleLayoutReportPDF = ({
               left={
                 <KeyValueTable
                   rows={[
+                    { label: 'Model Number', value: best.modelNumber },
                     { label: 'Capacity Size', value: best.nozzle.capacitySize },
                     { label: 'Inlet Connection', value: `${best.nozzle.inletConn}"` },
                     { label: 'Nozzles Along Length', value: String(best.nozzlesAlongLength) },
@@ -155,6 +162,7 @@ export const NozzleLayoutReportPDF = ({
               right={
                 <KeyValueTable
                   rows={[
+                    { label: 'Derived Height', value: `${best.derivedHeight} mm` },
                     { label: 'Flow at Pressure', value: `${best.flowAtPressure} lpm` },
                     { label: 'Required per Nozzle', value: `${best.requiredFlowPerNozzle} lpm` },
                     {
@@ -165,15 +173,17 @@ export const NozzleLayoutReportPDF = ({
                     { label: 'Coverage Diameter', value: `${best.coverageDiameter} mm` },
                     {
                       label: 'Pitch (L / W)',
-                      value: `${best.pitchAlongLength} / ${best.pitchAcrossWidth} mm`,
+                      value:
+                        best.rowsAcrossWidth > 1
+                          ? `${best.pitchAlongLength} / ${best.pitchAcrossWidth} mm`
+                          : `${best.pitchAlongLength} mm`,
                     },
                     {
                       label: 'Overlap (L / W)',
-                      value: `${best.actualOverlapLength}% / ${best.actualOverlapWidth}%`,
-                    },
-                    {
-                      label: 'Total Coverage',
-                      value: `${best.totalCoverageLength} \u00D7 ${best.totalCoverageWidth} mm`,
+                      value:
+                        best.rowsAcrossWidth > 1
+                          ? `${best.actualOverlapLength}% / ${best.actualOverlapWidth}%`
+                          : `${best.actualOverlapLength}%`,
                     },
                     {
                       label: 'Overspray (wasted)',
@@ -207,7 +217,7 @@ export const NozzleLayoutReportPDF = ({
           lines={[
             'Generated by Vapour Toolbox | Spray Nozzle Layout Calculator',
             `Source: Spraying Systems Co. CAT75HYD (Metric) | Flow: Q = Q_rated \u00D7 (P/P_rated)^${config.flowExponent}`,
-            `Coverage: 2 \u00D7 height \u00D7 tan(angle/2) | Min. overlap: ${result.minOverlap * 100}%`,
+            `Height derived to cover bundle width + ${result.overshootMargin} mm overshoot/side | Min. overlap: ${result.minOverlap * 100}%`,
             'This is a computer-generated document for preliminary design purposes only.',
           ]}
         />

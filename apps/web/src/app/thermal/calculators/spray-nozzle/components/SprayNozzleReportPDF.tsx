@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Document } from '@react-pdf/renderer';
+import { Document, View } from '@react-pdf/renderer';
 import type { SprayNozzleResult, NozzleMatch } from '@/lib/thermal/sprayNozzleCalculator';
 import { NOZZLE_CATEGORIES } from '@/lib/thermal/sprayNozzleCalculator';
 import {
@@ -19,6 +19,7 @@ import {
   NotesSection,
   ReportFooter,
 } from '@/lib/pdf/reportComponents';
+import { SprayPatternDiagramPDF } from './SprayPatternDiagramPDF';
 
 export interface SprayNozzleReportInputs {
   category: string;
@@ -81,22 +82,24 @@ export const SprayNozzleReportPDF = ({
 
   // Build results table columns
   const columns = [
-    { key: 'rank', header: '#', width: '5%' },
-    { key: 'capacitySize', header: 'Capacity', width: '12%' },
-    { key: 'connection', header: 'Conn.', width: '8%' },
-    { key: 'orificeDia', header: 'Orifice (mm)', width: '12%', align: 'right' as const },
-    { key: 'freePass', header: 'Free Pass. (mm)', width: '13%', align: 'right' as const },
-    { key: 'flow', header: 'Flow (lpm)', width: '12%', align: 'right' as const },
-    { key: 'deviation', header: 'Deviation', width: '10%', align: 'right' as const },
-    { key: 'angle', header: 'Angle', width: '8%', align: 'right' as const },
+    { key: 'rank', header: '#', width: '4%' },
+    { key: 'modelNumber', header: 'Model', width: '14%' },
+    { key: 'capacitySize', header: 'Capacity', width: '10%' },
+    { key: 'connection', header: 'Conn.', width: '7%' },
+    { key: 'orificeDia', header: 'Orifice (mm)', width: '10%', align: 'right' as const },
+    { key: 'freePass', header: 'Free Pass. (mm)', width: '12%', align: 'right' as const },
+    { key: 'flow', header: 'Flow (lpm)', width: '10%', align: 'right' as const },
+    { key: 'deviation', header: 'Deviation', width: '9%', align: 'right' as const },
+    { key: 'angle', header: 'Angle', width: '7%', align: 'right' as const },
     ...(hasCoverage
-      ? [{ key: 'coverage', header: 'Coverage (mm)', width: '12%', align: 'right' as const }]
+      ? [{ key: 'coverage', header: 'Coverage (mm)', width: '11%', align: 'right' as const }]
       : []),
   ];
 
   const rows = result.matches.map((m: NozzleMatch, idx: number) => ({
     rank: String(idx + 1),
-    capacitySize: m.nozzle.capacitySize + (idx === 0 ? ' *' : ''),
+    modelNumber: m.modelNumber + (idx === 0 ? ' *' : ''),
+    capacitySize: m.nozzle.capacitySize,
     connection: `${m.nozzle.inletConn}"`,
     orificeDia: String(m.nozzle.orificeDia),
     freePass: String(m.nozzle.maxFreePassage),
@@ -121,7 +124,7 @@ export const SprayNozzleReportPDF = ({
         {best && (
           <PrimaryResultBanner
             items={[
-              { label: 'Best Match', value: best.nozzle.capacitySize },
+              { label: 'Best Match', value: best.modelNumber },
               { label: 'Flow at Pressure', value: `${best.flowAtPressure} lpm` },
               {
                 label: 'Deviation',
@@ -142,6 +145,22 @@ export const SprayNozzleReportPDF = ({
             right={<KeyValueTable rows={rightParams} />}
           />
         </ReportSection>
+
+        {/* Spray Pattern Diagram */}
+        {best && (
+          <ReportSection title="SPRAY PATTERN">
+            <View style={{ alignItems: 'center', paddingVertical: 4 }}>
+              <SprayPatternDiagramPDF
+                sprayAngle={best.sprayAngle}
+                coverageMm={best.coverage}
+                distanceMm={hasDistance ? distMm : undefined}
+                modelNumber={best.modelNumber}
+                flowLpm={best.flowAtPressure}
+                isHollow={inputs.category === 'hollow_cone_circular'}
+              />
+            </View>
+          </ReportSection>
+        )}
 
         {/* 2. Matching Nozzles */}
         <ReportSection title="2. MATCHING NOZZLES">
@@ -166,6 +185,7 @@ export const SprayNozzleReportPDF = ({
               left={
                 <KeyValueTable
                   rows={[
+                    { label: 'Model Number', value: best.modelNumber },
                     { label: 'Capacity Size', value: best.nozzle.capacitySize },
                     { label: 'Inlet Connection', value: `${best.nozzle.inletConn}"` },
                     { label: 'Orifice Diameter', value: `${best.nozzle.orificeDia} mm` },

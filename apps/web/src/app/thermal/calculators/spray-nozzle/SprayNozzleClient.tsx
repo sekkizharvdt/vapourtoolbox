@@ -124,7 +124,8 @@ export default function SprayNozzleClient() {
   // Layout-mode state
   const [bundleLength, setBundleLength] = useState<string>('');
   const [bundleWidth, setBundleWidth] = useState<string>('');
-  const [sprayHeight, setSprayHeight] = useState<string>('');
+  const [targetHeight, setTargetHeight] = useState<string>('500');
+  const [overshootMargin, setOvershootMargin] = useState<string>('50');
   const [minOverlap, setMinOverlap] = useState<string>('15');
 
   const config = NOZZLE_CATEGORIES[category];
@@ -173,19 +174,20 @@ export default function SprayNozzleClient() {
       if (isNaN(bLen) || bLen <= 0) return null;
       const bWid = parseFloat(bundleWidth);
       if (isNaN(bWid) || bWid <= 0) return null;
-      const height = parseFloat(sprayHeight);
-      if (isNaN(height) || height <= 0) return null;
       const tol = parseFloat(tolerance) / 100;
       if (isNaN(tol) || tol <= 0) return null;
       const overlap = parseFloat(minOverlap) / 100;
       if (isNaN(overlap) || overlap < 0 || overlap >= 1) return null;
+      const tgtH = parseFloat(targetHeight);
+      const margin = parseFloat(overshootMargin);
       return calculateNozzleLayout({
         category,
         totalFlow: flow,
         operatingPressure: pressure,
         bundleLength: bLen,
         bundleWidth: bWid,
-        sprayHeight: height,
+        targetHeight: !isNaN(tgtH) && tgtH > 0 ? tgtH : 500,
+        overshootMargin: !isNaN(margin) && margin >= 0 ? margin : 50,
         minOverlap: overlap,
         tolerance: tol,
       });
@@ -200,7 +202,8 @@ export default function SprayNozzleClient() {
     operatingPressure,
     bundleLength,
     bundleWidth,
-    sprayHeight,
+    targetHeight,
+    overshootMargin,
     tolerance,
     minOverlap,
   ]);
@@ -434,13 +437,32 @@ export default function SprayNozzleClient() {
                   />
 
                   <TextField
-                    label="Spray Height"
-                    value={sprayHeight}
-                    onChange={(e) => setSprayHeight(e.target.value)}
+                    label="Target Spray Height"
+                    value={targetHeight}
+                    onChange={(e) => setTargetHeight(e.target.value)}
                     fullWidth
                     size="small"
                     type="number"
-                    helperText="Distance from nozzle orifice to tube bundle top"
+                    helperText="Actual height derived per nozzle to cover bundle width"
+                    slotProps={{
+                      input: {
+                        endAdornment: (
+                          <Typography variant="caption" sx={{ ml: 1 }}>
+                            mm
+                          </Typography>
+                        ),
+                      },
+                    }}
+                  />
+
+                  <TextField
+                    label="Overshoot Margin"
+                    value={overshootMargin}
+                    onChange={(e) => setOvershootMargin(e.target.value)}
+                    fullWidth
+                    size="small"
+                    type="number"
+                    helperText="Spray extends past each bundle edge to prevent dry spots"
                     slotProps={{
                       input: {
                         endAdornment: (
@@ -525,7 +547,6 @@ export default function SprayNozzleClient() {
               category={category}
               bundleLength={parseFloat(bundleLength)}
               bundleWidth={parseFloat(bundleWidth)}
-              sprayHeight={parseFloat(sprayHeight)}
               onReportOpen={(idx) => {
                 setLayoutSelectedIdx(idx);
                 setLayoutReportOpen(true);
@@ -566,7 +587,8 @@ export default function SprayNozzleClient() {
             operatingPressure,
             bundleLength,
             bundleWidth,
-            sprayHeight,
+            targetHeight,
+            overshootMargin,
             minOverlap,
             tolerance,
           }}
@@ -586,7 +608,7 @@ export default function SprayNozzleClient() {
           tolerance,
           ...(mode === 'selection'
             ? { numberOfNozzles, sprayDistance }
-            : { bundleLength, bundleWidth, sprayHeight, minOverlap }),
+            : { bundleLength, bundleWidth, targetHeight, overshootMargin, minOverlap }),
         }}
       />
 
@@ -607,7 +629,11 @@ export default function SprayNozzleClient() {
           if (typeof inputs.sprayDistance === 'string') setSprayDistance(inputs.sprayDistance);
           if (typeof inputs.bundleLength === 'string') setBundleLength(inputs.bundleLength);
           if (typeof inputs.bundleWidth === 'string') setBundleWidth(inputs.bundleWidth);
-          if (typeof inputs.sprayHeight === 'string') setSprayHeight(inputs.sprayHeight);
+          // Backward compat: old saved layouts used 'sprayHeight'
+          if (typeof inputs.targetHeight === 'string') setTargetHeight(inputs.targetHeight);
+          else if (typeof inputs.sprayHeight === 'string') setTargetHeight(inputs.sprayHeight);
+          if (typeof inputs.overshootMargin === 'string')
+            setOvershootMargin(inputs.overshootMargin);
           if (typeof inputs.minOverlap === 'string') setMinOverlap(inputs.minOverlap);
         }}
       />
@@ -705,6 +731,7 @@ function SelectionResults({
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>Capacity Size</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Model</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Connection</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                   <Tooltip title="Nominal orifice diameter">
@@ -754,6 +781,14 @@ function SelectionResults({
                         <Chip label="Best" size="small" color="success" variant="outlined" />
                       )}
                     </Stack>
+                  </TableCell>
+                  <TableCell>
+                    <Typography
+                      variant="body2"
+                      sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
+                    >
+                      {match.modelNumber}
+                    </Typography>
                   </TableCell>
                   <TableCell>{match.nozzle.inletConn}&quot;</TableCell>
                   <TableCell align="right">{match.nozzle.orificeDia}</TableCell>
@@ -829,7 +864,6 @@ function LayoutResults({
   category,
   bundleLength,
   bundleWidth,
-  sprayHeight,
   onReportOpen,
   onSaveOpen,
 }: {
@@ -837,7 +871,6 @@ function LayoutResults({
   category: NozzleCategory;
   bundleLength: number;
   bundleWidth: number;
-  sprayHeight: number;
   onReportOpen: (selectedIdx: number) => void;
   onSaveOpen: () => void;
 }) {
@@ -882,7 +915,7 @@ function LayoutResults({
               label="Bundle"
               value={`${result.bundleLength} \u00D7 ${result.bundleWidth} mm`}
             />
-            <SummaryItem label="Spray Height" value={`${result.sprayHeight} mm`} />
+            <SummaryItem label="Target Height" value={`${result.targetHeight} mm`} />
             <SummaryItem
               label="Matches"
               value={`${result.matches.length} nozzle${result.matches.length !== 1 ? 's' : ''}`}
@@ -916,13 +949,12 @@ function LayoutResults({
       {result.matches.length > 0 ? (
         <>
           {/* Layout diagram for selected nozzle */}
-          {best && !isNaN(bundleLength) && !isNaN(bundleWidth) && !isNaN(sprayHeight) && (
+          {best && !isNaN(bundleLength) && !isNaN(bundleWidth) && (
             <NozzleLayoutDiagram
               match={best}
               category={category}
               bundleLength={bundleLength}
               bundleWidth={bundleWidth}
-              sprayHeight={sprayHeight}
             />
           )}
 
@@ -932,18 +964,14 @@ function LayoutResults({
               sx={{ p: 2, bgcolor: 'success.50', border: '1px solid', borderColor: 'success.main' }}
             >
               <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                {selectedIdx === 0 ? 'Best Match' : `Option ${selectedIdx + 1}`}:{' '}
-                {best.nozzle.capacitySize}
+                {selectedIdx === 0 ? 'Best Match' : `Option ${selectedIdx + 1}`}: {best.modelNumber}
               </Typography>
               <Grid container spacing={2}>
                 <Grid size={{ xs: 6, sm: 3 }}>
                   <SummaryItem
                     label="Layout"
-                    value={`${best.nozzlesAlongLength} \u00D7 ${best.rowsAcrossWidth}`}
+                    value={`${best.nozzlesAlongLength} \u00D7 ${best.rowsAcrossWidth} = ${best.totalNozzles}`}
                   />
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3 }}>
-                  <SummaryItem label="Total Nozzles" value={String(best.totalNozzles)} />
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
                   <SummaryItem label="Flow / Nozzle" value={`${best.flowAtPressure} lpm`} />
@@ -955,24 +983,21 @@ function LayoutResults({
                   />
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
+                  <SummaryItem label="Derived Height" value={`${best.derivedHeight} mm`} />
+                </Grid>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <SummaryItem label="Coverage" value={`${best.coverageDiameter} mm`} />
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
-                  <SummaryItem label="Pitch (L)" value={`${best.pitchAlongLength} mm`} />
+                  <SummaryItem label="Pitch" value={`${best.pitchAlongLength} mm`} />
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
-                  <SummaryItem label="Pitch (W)" value={`${best.pitchAcrossWidth} mm`} />
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3 }}>
-                  <SummaryItem
-                    label="Overlap"
-                    value={`L=${best.actualOverlapLength}%, W=${best.actualOverlapWidth}%`}
-                  />
+                  <SummaryItem label="Overlap" value={`${best.actualOverlapLength}%`} />
                 </Grid>
                 {best.wastedFlowPercent > 0 && (
                   <Grid size={{ xs: 6, sm: 3 }}>
                     <SummaryItem
-                      label="Overspray (wasted)"
+                      label="Overspray"
                       value={`${best.wastedFlowLpm} lpm (${best.wastedFlowPercent}%)`}
                     />
                   </Grid>
@@ -987,12 +1012,19 @@ function LayoutResults({
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 'bold' }}>Capacity</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Conn.</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Model</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                    Layout
+                    <Tooltip title="Nozzles along length × rows across width">
+                      <span>Layout</span>
+                    </Tooltip>
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                     Total
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                    <Tooltip title="Derived spray height to cover bundle width">
+                      <span>Height (mm)</span>
+                    </Tooltip>
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                     <Tooltip title="Flow this nozzle delivers at operating pressure">
@@ -1003,15 +1035,12 @@ function LayoutResults({
                     Deviation
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                    <Tooltip title="Coverage diameter at spray height">
-                      <span>Coverage (mm)</span>
+                    <Tooltip title="Pitch between nozzle centres">
+                      <span>Pitch (mm)</span>
                     </Tooltip>
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                    Pitch (mm)
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                    <Tooltip title="Actual overlap between adjacent nozzles (length / width)">
+                    <Tooltip title="Overlap between adjacent nozzles">
                       <span>Overlap</span>
                     </Tooltip>
                   </TableCell>
@@ -1052,13 +1081,21 @@ function LayoutResults({
                         )}
                       </Stack>
                     </TableCell>
-                    <TableCell>{match.nozzle.inletConn}&quot;</TableCell>
+                    <TableCell>
+                      <Typography
+                        variant="body2"
+                        sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
+                      >
+                        {match.modelNumber}
+                      </Typography>
+                    </TableCell>
                     <TableCell align="right">
                       {match.nozzlesAlongLength} &times; {match.rowsAcrossWidth}
                     </TableCell>
                     <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                       {match.totalNozzles}
                     </TableCell>
+                    <TableCell align="right">{match.derivedHeight}</TableCell>
                     <TableCell align="right">{match.flowAtPressure}</TableCell>
                     <TableCell
                       align="right"
@@ -1074,12 +1111,13 @@ function LayoutResults({
                       {match.deviationPercent > 0 ? '+' : ''}
                       {match.deviationPercent}%
                     </TableCell>
-                    <TableCell align="right">{match.coverageDiameter}</TableCell>
                     <TableCell align="right">
-                      {match.pitchAlongLength} / {match.pitchAcrossWidth}
+                      {match.pitchAlongLength}
+                      {match.rowsAcrossWidth > 1 ? ` / ${match.pitchAcrossWidth}` : ''}
                     </TableCell>
                     <TableCell align="right">
-                      {match.actualOverlapLength}% / {match.actualOverlapWidth}%
+                      {match.actualOverlapLength}%
+                      {match.rowsAcrossWidth > 1 ? ` / ${match.actualOverlapWidth}%` : ''}
                     </TableCell>
                     <TableCell
                       align="right"
@@ -1112,7 +1150,7 @@ function LayoutResults({
         >
           <Typography variant="body1" color="text.secondary">
             No matching nozzle layout found. Try increasing the flow tolerance or adjusting the
-            bundle dimensions / spray height.
+            bundle dimensions.
           </Typography>
         </Paper>
       )}
@@ -1120,13 +1158,15 @@ function LayoutResults({
       {/* Reference note */}
       <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
         <Typography variant="caption" color="text.secondary" component="div">
-          <strong>Layout method:</strong> Nozzles are evenly distributed to cover the bundle area
-          with at least {result.minOverlap * 100}% overlap between adjacent coverages.
+          <strong>Layout method:</strong> Spray height is derived so each nozzle covers the bundle
+          width plus {result.overshootMargin} mm overshoot per side. Nozzles arrayed along length
+          with &ge;{result.minOverlap * 100}% overlap.
           <br />
-          <strong>Coverage:</strong> Theoretical coverage = 2 &times; height &times; tan(angle / 2).
+          <strong>Height range:</strong> {result.minHeight}&ndash;{result.maxHeight} mm (target{' '}
+          {result.targetHeight} mm).
           <br />
           <strong>Note:</strong> Click any row to see its layout diagram. Actual coverage depends on
-          spray distance and operating conditions.
+          operating conditions.
         </Typography>
       </Box>
     </Stack>

@@ -188,6 +188,7 @@ export {
   interpolateSprayAngle,
   calculateCoverage,
   calculateNozzleLayout,
+  getOrderingModel,
   NOZZLE_CATEGORIES,
   NOZZLE_CATEGORY_LABELS,
   type NozzleCategory,

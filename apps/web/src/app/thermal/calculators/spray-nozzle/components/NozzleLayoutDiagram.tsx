@@ -8,7 +8,6 @@ interface NozzleLayoutDiagramProps {
   category: NozzleCategory;
   bundleLength: number;
   bundleWidth: number;
-  sprayHeight: number;
 }
 
 /**
@@ -25,7 +24,6 @@ export function NozzleLayoutDiagram({
   category,
   bundleLength,
   bundleWidth,
-  sprayHeight,
 }: NozzleLayoutDiagramProps) {
   const theme = useTheme();
 
@@ -59,7 +57,6 @@ export function NozzleLayoutDiagram({
           <ElevationView
             match={match}
             bundleLength={bundleLength}
-            sprayHeight={sprayHeight}
             isSquare={isSquare}
             isHollow={isHollow}
             pipeColor={pipeColor}
@@ -103,7 +100,6 @@ export function NozzleLayoutDiagram({
 function ElevationView({
   match,
   bundleLength,
-  sprayHeight,
   isSquare: _isSquare,
   isHollow,
   pipeColor,
@@ -116,7 +112,6 @@ function ElevationView({
 }: {
   match: NozzleLayoutMatch;
   bundleLength: number;
-  sprayHeight: number;
   isSquare: boolean;
   isHollow: boolean;
   pipeColor: string;
@@ -356,7 +351,7 @@ function ElevationView({
         fontWeight="bold"
         fill={accentColor}
       >
-        {sprayHeight} mm
+        {match.derivedHeight} mm
       </text>
       <text
         x={padding.left + drawW + 28}
@@ -364,7 +359,7 @@ function ElevationView({
         fontSize={8}
         fill={accentColor}
       >
-        (height)
+        (derived height)
       </text>
 
       {/* === Pitch dimension (between first two nozzles) === */}
@@ -487,14 +482,15 @@ function PlanView({
 
   const covR = (match.coverageDiameter / 2) * scale;
   const pitchL = match.pitchAlongLength * scale;
+
   const pitchW = match.pitchAcrossWidth * scale;
 
   const nozzlePositions: Array<{ cx: number; cy: number }> = [];
   for (let row = 0; row < match.rowsAcrossWidth; row++) {
-    const cy = match.rowsAcrossWidth === 1 ? by + drawH / 2 : by + pitchW / 2 + row * pitchW;
+    const rowCy = match.rowsAcrossWidth === 1 ? by + drawH / 2 : by + pitchW / 2 + row * pitchW;
     for (let col = 0; col < match.nozzlesAlongLength; col++) {
       const cx = match.nozzlesAlongLength === 1 ? bx + drawW / 2 : bx + pitchL / 2 + col * pitchL;
-      nozzlePositions.push({ cx, cy });
+      nozzlePositions.push({ cx, cy: rowCy });
     }
   }
 
@@ -690,9 +686,10 @@ function PlanView({
 
       {/* Summary text */}
       <text x={bx + drawW / 2} y={by + drawH + 46} textAnchor="middle" fontSize={9} fill={dimColor}>
-        {match.nozzlesAlongLength} x {match.rowsAcrossWidth} = {match.totalNozzles} nozzles |
-        Overlap: L=
-        {match.actualOverlapLength}%, W={match.actualOverlapWidth}%
+        {match.nozzlesAlongLength} x {match.rowsAcrossWidth} = {match.totalNozzles} nozzle
+        {match.totalNozzles !== 1 ? 's' : ''} | Height: {match.derivedHeight} mm | Overlap: L=
+        {match.actualOverlapLength}%
+        {match.rowsAcrossWidth > 1 ? `, W=${match.actualOverlapWidth}%` : ''}
       </text>
     </svg>
   );
