@@ -48,6 +48,7 @@ import {
   type VacuumSystemResult,
   type StageResult,
 } from '@/lib/thermal/vacuumSystemCalculator';
+import { getSaturationTemperature } from '@vapour/constants';
 import { VacuumTrainDiagram } from './components/VacuumTrainDiagram';
 import { GenerateReportDialog } from './components/GenerateReportDialog';
 import { SaveCalculationDialog } from './components/SaveCalculationDialog';
@@ -87,6 +88,22 @@ export default function VacuumSystemClient() {
   const [reportOpen, setReportOpen] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
+
+  // ── Saturation temperature at suction pressure ──────────────────────────
+
+  const satTempInfo = useMemo(() => {
+    const p = parseFloat(suctionPressure);
+    const t = parseFloat(suctionTemperature);
+    if (isNaN(p) || p <= 0) return null;
+    try {
+      const tSat = getSaturationTemperature(p / 1000); // mbar → bar
+      const tSatRound = Math.round(tSat * 10) / 10;
+      const subcooling = !isNaN(t) ? Math.round((tSat - t) * 10) / 10 : null;
+      return { tSat: tSatRound, subcooling };
+    } catch {
+      return null;
+    }
+  }, [suctionPressure, suctionTemperature]);
 
   // ── Calculation ────────────────────────────────────────────────────────
 
@@ -250,7 +267,18 @@ export default function VacuumSystemClient() {
                   fullWidth
                   size="small"
                   type="number"
-                  helperText="Vent gas temperature"
+                  error={
+                    satTempInfo !== null &&
+                    satTempInfo.subcooling !== null &&
+                    satTempInfo.subcooling < 2
+                  }
+                  helperText={
+                    satTempInfo
+                      ? satTempInfo.subcooling !== null && satTempInfo.subcooling < 2
+                        ? `Tsat = ${satTempInfo.tSat}\u00B0C at suction pressure \u2014 vent gas should be subcooled 3\u20135\u00B0C below Tsat`
+                        : `Tsat = ${satTempInfo.tSat}\u00B0C at suction pressure (${satTempInfo.subcooling}\u00B0C subcooling)`
+                      : 'Vent gas temperature'
+                  }
                   slotProps={{
                     input: {
                       endAdornment: (

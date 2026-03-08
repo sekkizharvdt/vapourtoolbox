@@ -875,9 +875,18 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
     warnings.push('Very low NCG load. Verify input values.');
   }
   if (vapourWithNcgKgH > totalDryNcgKgH * 50) {
-    warnings.push(
-      'Water vapour load is very high relative to NCG. This is typical at deep vacuum but verify suction conditions.'
-    );
+    const tSat = getSaturationTemperature(suctionPressureBar);
+    const subcooling = Math.round((tSat - suctionTemperatureC) * 10) / 10;
+    if (subcooling < 3) {
+      warnings.push(
+        `Water vapour load is very high relative to NCG. Suction temperature (${suctionTemperatureC}\u00B0C) is within ${subcooling}\u00B0C of saturation (${Math.round(tSat * 10) / 10}\u00B0C). ` +
+          'The vent gas should be subcooled 3\u20135\u00B0C below Tsat in the condenser NCG cooling section to reduce vapour carry-over.'
+      );
+    } else {
+      warnings.push(
+        'Water vapour load is very high relative to NCG. This is typical at deep vacuum but verify suction conditions.'
+      );
+    }
   }
 
   return {
