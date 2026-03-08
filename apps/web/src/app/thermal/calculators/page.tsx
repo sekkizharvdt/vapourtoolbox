@@ -215,7 +215,8 @@ const CATEGORIES: CalculatorCategory[] = [
         description:
           'Select spray nozzles from the Spraying Systems catalogue for desuperheating and distribution applications.',
         icon: <SprayIcon sx={{ fontSize: 40 }} />,
-        status: 'coming_soon',
+        href: '/thermal/calculators/spray-nozzle',
+        status: 'available',
         reference: 'Spraying Systems Co.',
       },
     ],

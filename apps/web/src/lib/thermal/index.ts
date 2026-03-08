@@ -170,3 +170,19 @@ export {
   type AutoSelectedFitting,
   type ReducerDetail,
 } from './suctionSystemCalculator';
+
+// Spray Nozzle Selection Calculator
+export {
+  selectSprayNozzles,
+  calculateFlowAtPressure,
+  interpolateSprayAngle,
+  calculateCoverage,
+  NOZZLE_CATEGORIES,
+  NOZZLE_CATEGORY_LABELS,
+  type NozzleCategory,
+  type NozzleEntry,
+  type NozzleCategoryConfig,
+  type SprayNozzleInput,
+  type NozzleMatch,
+  type SprayNozzleResult,
+} from './sprayNozzleCalculator';
