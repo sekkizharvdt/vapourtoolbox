@@ -512,7 +512,8 @@ export interface SavedCalculation {
     | 'HEAT_TRANSFER'
     | 'NCG_PROPERTIES'
     | 'SPRAY_NOZZLE'
-    | 'SPRAY_NOZZLE_LAYOUT';
+    | 'SPRAY_NOZZLE_LAYOUT'
+    | 'VACUUM_SYSTEM';
   name: string;
   inputs: Record<string, unknown>;
   createdAt: Date;

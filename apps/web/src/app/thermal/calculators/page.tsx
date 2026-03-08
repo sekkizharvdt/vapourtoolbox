@@ -238,14 +238,15 @@ const CATEGORIES: CalculatorCategory[] = [
   },
   {
     title: 'System Performance',
-    description: 'Plant-level performance metrics and vacuum system design — coming soon.',
+    description: 'Plant-level performance metrics and vacuum system design.',
     calculators: [
       {
         title: 'Vacuum System Design',
         description:
           'Size liquid ring vacuum pumps (LRVP) and steam ejector trains to maintain vacuum against NCG load and leakage.',
         icon: <VacuumIcon sx={{ fontSize: 40 }} />,
-        status: 'coming_soon',
+        href: '/thermal/calculators/vacuum-system',
+        status: 'available',
         reference: 'HEI Standards',
       },
       {

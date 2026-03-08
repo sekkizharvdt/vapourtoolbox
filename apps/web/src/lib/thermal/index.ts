@@ -171,6 +171,16 @@ export {
   type ReducerDetail,
 } from './suctionSystemCalculator';
 
+// Vacuum System Design
+export {
+  calculateVacuumSystem,
+  type NCGLoadMode,
+  type TrainConfig,
+  type VacuumSystemInput,
+  type StageResult,
+  type VacuumSystemResult,
+} from './vacuumSystemCalculator';
+
 // Spray Nozzle Selection Calculator
 export {
   selectSprayNozzles,
