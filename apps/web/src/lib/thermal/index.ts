@@ -177,6 +177,7 @@ export {
   calculateFlowAtPressure,
   interpolateSprayAngle,
   calculateCoverage,
+  calculateNozzleLayout,
   NOZZLE_CATEGORIES,
   NOZZLE_CATEGORY_LABELS,
   type NozzleCategory,
@@ -185,4 +186,7 @@ export {
   type SprayNozzleInput,
   type NozzleMatch,
   type SprayNozzleResult,
+  type NozzleLayoutInput,
+  type NozzleLayoutMatch,
+  type NozzleLayoutResult,
 } from './sprayNozzleCalculator';

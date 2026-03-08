@@ -95,6 +95,73 @@ export interface SprayNozzleResult {
   numberOfNozzles: number;
 }
 
+// ── Layout Types ──────────────────────────────────────────────────────────────
+
+export interface NozzleLayoutInput {
+  category: NozzleCategory;
+  /** Total required flow rate (lpm) */
+  totalFlow: number;
+  /** Operating pressure (bar) */
+  operatingPressure: number;
+  /** Tube bundle length (mm) — nozzles are arrayed along this dimension */
+  bundleLength: number;
+  /** Tube bundle width (mm) — rows are added across this dimension */
+  bundleWidth: number;
+  /** Spray height: distance from nozzle orifice to tube bundle top (mm) */
+  sprayHeight: number;
+  /** Minimum overlap between adjacent nozzle coverages as fraction (default 0.15 = 15%) */
+  minOverlap?: number;
+  /** Flow tolerance for matching (default 0.25 = ±25%) */
+  tolerance?: number;
+}
+
+export interface NozzleLayoutMatch {
+  nozzle: NozzleEntry;
+  /** Flow this nozzle delivers at operating pressure (lpm) */
+  flowAtPressure: number;
+  /** Interpolated spray angle at operating pressure (°) */
+  sprayAngle: number;
+  /** Coverage diameter/side at spray height (mm) */
+  coverageDiameter: number;
+  /** Effective pitch between nozzle centres along length (mm) */
+  pitchAlongLength: number;
+  /** Effective pitch between nozzle rows across width (mm) */
+  pitchAcrossWidth: number;
+  /** Number of nozzles along the bundle length */
+  nozzlesAlongLength: number;
+  /** Number of rows across the bundle width */
+  rowsAcrossWidth: number;
+  /** Total number of nozzles = nozzlesAlongLength × rowsAcrossWidth */
+  totalNozzles: number;
+  /** Required flow per nozzle = totalFlow / totalNozzles (lpm) */
+  requiredFlowPerNozzle: number;
+  /** Deviation of actual nozzle flow from required flow per nozzle (%) */
+  deviationPercent: number;
+  /** Actual overlap along length (%) */
+  actualOverlapLength: number;
+  /** Actual overlap across width (%) */
+  actualOverlapWidth: number;
+  /** Total spray coverage along length (mm) — outer edge to outer edge */
+  totalCoverageLength: number;
+  /** Total spray coverage across width (mm) */
+  totalCoverageWidth: number;
+  /** Percentage of total spray that falls outside the bundle area (%) */
+  wastedFlowPercent: number;
+  /** Absolute wasted flow (lpm) — spray falling outside the bundle */
+  wastedFlowLpm: number;
+}
+
+export interface NozzleLayoutResult {
+  matches: NozzleLayoutMatch[];
+  category: NozzleCategory;
+  operatingPressure: number;
+  bundleLength: number;
+  bundleWidth: number;
+  sprayHeight: number;
+  minOverlap: number;
+  totalFlow: number;
+}
+
 // ── Catalogue Data ───────────────────────────────────────────────────────────
 //
 // Extracted from Spraying Systems Co. CAT75HYD (Metric).
@@ -1967,6 +2034,146 @@ export function selectSprayNozzles(input: SprayNozzleInput): SprayNozzleResult {
     operatingPressure,
     flowPerNozzle: Math.round(flowPerNozzle * 100) / 100,
     numberOfNozzles,
+  };
+}
+
+/**
+ * Calculate nozzle layout for a rectangular tube bundle.
+ *
+ * For each nozzle in the catalogue, determines the grid layout (nozzles along
+ * length × rows across width) that covers the bundle area with at least the
+ * specified minimum overlap, then checks whether the nozzle's flow matches
+ * the required flow per nozzle.
+ *
+ * Algorithm:
+ * 1. For each nozzle, compute coverage at spray height
+ * 2. Compute max pitch = coverage × (1 - minOverlap)
+ * 3. nozzles along = ceil(bundleLength / maxPitch), minimum 1
+ * 4. rows across = ceil(bundleWidth / maxPitch), minimum 1
+ * 5. Actual pitch = bundleLength / nAlong (or width / nRows)
+ * 6. Total nozzles = nAlong × nRows
+ * 7. Required flow per nozzle = totalFlow / totalNozzles
+ * 8. If nozzle flow is within tolerance of required, it's a match
+ */
+export function calculateNozzleLayout(input: NozzleLayoutInput): NozzleLayoutResult {
+  const {
+    category,
+    totalFlow,
+    operatingPressure,
+    bundleLength,
+    bundleWidth,
+    sprayHeight,
+    minOverlap = 0.15,
+    tolerance = 0.25,
+  } = input;
+
+  if (totalFlow <= 0) throw new Error('Total flow must be positive');
+  if (operatingPressure <= 0) throw new Error('Operating pressure must be positive');
+  if (bundleLength <= 0) throw new Error('Bundle length must be positive');
+  if (bundleWidth <= 0) throw new Error('Bundle width must be positive');
+  if (sprayHeight <= 0) throw new Error('Spray height must be positive');
+  if (minOverlap < 0 || minOverlap >= 1) throw new Error('Overlap must be between 0 and 1');
+
+  const config = NOZZLE_CATEGORIES[category];
+  const matches: NozzleLayoutMatch[] = [];
+
+  for (const nozzle of config.nozzles) {
+    const flowAtPressure = calculateFlowAtPressure(
+      nozzle.ratedFlow,
+      config.ratedPressure,
+      operatingPressure,
+      config.flowExponent
+    );
+
+    const sprayAngle = interpolateSprayAngle(nozzle, operatingPressure, config.anglePressures);
+    const coverageDiameter = calculateCoverage(sprayAngle, sprayHeight);
+
+    if (coverageDiameter <= 0) continue;
+
+    // Maximum pitch that guarantees minimum overlap
+    const maxPitch = coverageDiameter * (1 - minOverlap);
+    if (maxPitch <= 0) continue;
+
+    // Grid count — at least 1 in each direction
+    const nozzlesAlongLength = Math.max(1, Math.ceil(bundleLength / maxPitch));
+    const rowsAcrossWidth = Math.max(1, Math.ceil(bundleWidth / maxPitch));
+    const totalNozzles = nozzlesAlongLength * rowsAcrossWidth;
+
+    // Actual pitch (evenly distribute across the dimension)
+    // For single nozzle, pitch is the full dimension (nozzle centred)
+    const pitchAlongLength =
+      nozzlesAlongLength > 1 ? bundleLength / nozzlesAlongLength : bundleLength;
+    const pitchAcrossWidth = rowsAcrossWidth > 1 ? bundleWidth / rowsAcrossWidth : bundleWidth;
+
+    // Actual overlap percentages
+    const actualOverlapLength =
+      coverageDiameter > 0
+        ? Math.round((1 - pitchAlongLength / coverageDiameter) * 100 * 10) / 10
+        : 0;
+    const actualOverlapWidth =
+      coverageDiameter > 0
+        ? Math.round((1 - pitchAcrossWidth / coverageDiameter) * 100 * 10) / 10
+        : 0;
+
+    // Total spray coverage (outer edge to outer edge)
+    const totalCoverageLength =
+      nozzlesAlongLength > 1
+        ? pitchAlongLength * (nozzlesAlongLength - 1) + coverageDiameter
+        : coverageDiameter;
+    const totalCoverageWidth =
+      rowsAcrossWidth > 1
+        ? pitchAcrossWidth * (rowsAcrossWidth - 1) + coverageDiameter
+        : coverageDiameter;
+
+    // Wasted flow — spray falling outside the bundle area.
+    // Total spray footprint area vs bundle area. Assumes uniform spray density.
+    const totalCoverageArea = totalCoverageLength * totalCoverageWidth;
+    const bundleArea = bundleLength * bundleWidth;
+    const wastedFraction =
+      totalCoverageArea > 0 ? Math.max(0, 1 - bundleArea / totalCoverageArea) : 0;
+
+    // Flow check
+    const actualTotalFlow = flowAtPressure * totalNozzles;
+    const requiredFlowPerNozzle = totalFlow / totalNozzles;
+    const deviation = (flowAtPressure - requiredFlowPerNozzle) / requiredFlowPerNozzle;
+    const wastedFlowLpm = Math.round(actualTotalFlow * wastedFraction * 100) / 100;
+    const wastedFlowPercent = Math.round(wastedFraction * 1000) / 10;
+
+    if (Math.abs(deviation) <= tolerance) {
+      matches.push({
+        nozzle,
+        flowAtPressure: Math.round(flowAtPressure * 100) / 100,
+        sprayAngle: Math.round(sprayAngle * 10) / 10,
+        coverageDiameter: Math.round(coverageDiameter * 10) / 10,
+        pitchAlongLength: Math.round(pitchAlongLength * 10) / 10,
+        pitchAcrossWidth: Math.round(pitchAcrossWidth * 10) / 10,
+        nozzlesAlongLength,
+        rowsAcrossWidth,
+        totalNozzles,
+        requiredFlowPerNozzle: Math.round(requiredFlowPerNozzle * 100) / 100,
+        deviationPercent: Math.round(deviation * 1000) / 10,
+        actualOverlapLength,
+        actualOverlapWidth,
+        totalCoverageLength: Math.round(totalCoverageLength * 10) / 10,
+        totalCoverageWidth: Math.round(totalCoverageWidth * 10) / 10,
+        wastedFlowPercent,
+        wastedFlowLpm,
+      });
+    }
+  }
+
+  // Sort by absolute deviation (closest flow match first)
+  matches.sort((a, b) => Math.abs(a.deviationPercent) - Math.abs(b.deviationPercent));
+
+  return {
+    matches,
+    category,
+    operatingPressure,
+    bundleLength,
+    bundleWidth,
+    sprayHeight,
+    minOverlap,
+    totalFlow,
   };
 }
 

@@ -510,7 +510,9 @@ export interface SavedCalculation {
     | 'DESUPERHEATING'
     | 'TVC'
     | 'HEAT_TRANSFER'
-    | 'NCG_PROPERTIES';
+    | 'NCG_PROPERTIES'
+    | 'SPRAY_NOZZLE'
+    | 'SPRAY_NOZZLE_LAYOUT';
   name: string;
   inputs: Record<string, unknown>;
   createdAt: Date;
