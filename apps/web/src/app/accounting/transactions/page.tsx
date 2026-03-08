@@ -40,7 +40,7 @@ import {
 } from '@vapour/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { BaseTransaction, TransactionType } from '@vapour/types';
 import { formatCurrency, formatDate } from '@/lib/utils/formatters';
@@ -54,8 +54,7 @@ import { useRouter } from 'next/navigation';
 
 export default function TransactionsPage() {
   const router = useRouter();
-  // Note: Auth context available but not currently used
-  useAuth();
+  const { claims } = useAuth();
   const [transactions, setTransactions] = useState<BaseTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<TransactionType | 'ALL'>('ALL');
@@ -66,9 +65,15 @@ export default function TransactionsPage() {
 
   // Real-time listener for transactions
   useEffect(() => {
+    if (!claims?.entityId) return;
+
     const { db } = getFirebase();
     const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    const q = query(transactionsRef, orderBy('date', 'desc'));
+    const q = query(
+      transactionsRef,
+      where('entityId', '==', claims.entityId),
+      orderBy('date', 'desc')
+    );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const transactionsData: BaseTransaction[] = [];
@@ -83,7 +88,7 @@ export default function TransactionsPage() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [claims?.entityId]);
 
   // Filter transactions
   const filteredTransactions = transactions.filter((txn) => {

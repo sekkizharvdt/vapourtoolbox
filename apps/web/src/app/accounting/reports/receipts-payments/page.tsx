@@ -110,7 +110,12 @@ export default function ReceiptsPaymentsPage() {
 
     try {
       const { db } = getFirebase();
-      const result = await generateReceiptsPaymentsReport(db, month, year);
+      const entityId = claims?.entityId;
+      if (!entityId) {
+        setError('No entity selected');
+        return;
+      }
+      const result = await generateReceiptsPaymentsReport(db, month, year, entityId);
       setReport(result);
     } catch (err) {
       console.error('[ReceiptsPayments] Error generating report:', err);

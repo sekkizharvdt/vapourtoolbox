@@ -188,7 +188,7 @@ export function RecordCustomerPaymentDialog({
       // Generate transaction number for new payments
       let transactionNumber = editingPayment?.transactionNumber;
       if (!editingPayment) {
-        transactionNumber = await generateTransactionNumber('CUSTOMER_PAYMENT');
+        transactionNumber = await generateTransactionNumber('CUSTOMER_PAYMENT', entityId || '');
       }
 
       // Only include allocations with non-zero amounts

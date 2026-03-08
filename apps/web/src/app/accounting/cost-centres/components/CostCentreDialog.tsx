@@ -125,11 +125,11 @@ export default function CostCentreDialog({ open, costCentre, onClose }: CostCent
   };
 
   const validateForm = (): boolean => {
-    if (!formData.code.trim()) {
+    if (!(formData.code ?? '').trim()) {
       setError('Code is required');
       return false;
     }
-    if (!formData.name.trim()) {
+    if (!(formData.name ?? '').trim()) {
       setError('Name is required');
       return false;
     }

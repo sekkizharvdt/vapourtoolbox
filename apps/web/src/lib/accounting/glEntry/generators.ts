@@ -39,7 +39,7 @@ export async function generateInvoiceGLEntries(
 
   try {
     // Fetch system accounts
-    const accounts = await getSystemAccountIds(db);
+    const accounts = await getSystemAccountIds(db, input.entityId || '');
 
     // Validate required accounts exist
     if (!accounts.accountsReceivable) {
@@ -208,7 +208,7 @@ export async function generateBillGLEntries(
 
   try {
     // Fetch system accounts
-    const accounts = await getSystemAccountIds(db);
+    const accounts = await getSystemAccountIds(db, input.entityId || '');
 
     // Validate required accounts
     if (!accounts.expenses) {
@@ -392,7 +392,7 @@ export async function generateCustomerPaymentGLEntries(
 
   try {
     // Fetch system accounts to get Accounts Receivable
-    const accounts = await getSystemAccountIds(db);
+    const accounts = await getSystemAccountIds(db, input.entityId || '');
 
     // Use provided account or fall back to system account
     const receivableAccountId = input.receivableOrPayableAccountId || accounts.accountsReceivable;
@@ -484,7 +484,7 @@ export async function generateVendorPaymentGLEntries(
 
   try {
     // Fetch system accounts to get Accounts Payable
-    const accounts = await getSystemAccountIds(db);
+    const accounts = await getSystemAccountIds(db, input.entityId || '');
 
     // Use provided account or fall back to system account
     const payableAccountId = input.receivableOrPayableAccountId || accounts.accountsPayable;

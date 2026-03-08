@@ -452,7 +452,7 @@ export function RecordVendorPaymentDialog({
       // Generate transaction number for new payments
       let transactionNumber = editingPayment?.transactionNumber;
       if (!editingPayment) {
-        transactionNumber = await generateTransactionNumber('VENDOR_PAYMENT');
+        transactionNumber = await generateTransactionNumber('VENDOR_PAYMENT', entityId || '');
       }
 
       // Only include allocations with non-zero amounts

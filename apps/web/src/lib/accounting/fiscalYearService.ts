@@ -532,7 +532,8 @@ export async function provisionalClose(
   db: Firestore,
   fiscalYearId: string,
   userId: string,
-  retainedEarningsAccountId: string
+  retainedEarningsAccountId: string,
+  entityId: string
 ): Promise<{ journalId: string; adjustmentPeriodId: string }> {
   const fiscalYear = await getFiscalYear(db, fiscalYearId);
   if (!fiscalYear) throw new Error('Fiscal year not found');
@@ -567,6 +568,7 @@ export async function provisionalClose(
     balances,
     userId,
     isProvisional: true,
+    entityId,
   });
 
   // Update fiscal year
@@ -590,7 +592,8 @@ export async function finalClose(
   db: Firestore,
   fiscalYearId: string,
   userId: string,
-  retainedEarningsAccountId: string
+  retainedEarningsAccountId: string,
+  entityId: string
 ): Promise<string> {
   const fiscalYear = await getFiscalYear(db, fiscalYearId);
   if (!fiscalYear) throw new Error('Fiscal year not found');
@@ -639,6 +642,7 @@ export async function finalClose(
     balances,
     userId,
     isProvisional: false,
+    entityId,
   });
 
   // Update fiscal year to CLOSED + FINAL

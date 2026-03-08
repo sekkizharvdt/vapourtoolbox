@@ -19,6 +19,7 @@ import {
   Error as ErrorIcon,
   Payment as PaymentIcon,
   AccountTree as GLIcon,
+  ContentCopy as DuplicateIcon,
   Category as CategoryIcon,
   Schedule as OverdueIcon,
   Refresh as RefreshIcon,
@@ -46,6 +47,7 @@ interface DataHealthStats {
   unmappedAccounts: { count: number };
   overdueItems: { count: number; total: number };
   stalePaymentStatuses: { count: number };
+  duplicateNumbers: { count: number };
   totalTransactions: number;
   healthScore: number;
 }
@@ -64,7 +66,7 @@ function getHealthLabel(score: number): string {
 
 export default function DataHealthPage() {
   const router = useRouter();
-  useAuth();
+  const { claims } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DataHealthStats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +87,7 @@ export default function DataHealthPage() {
     setReconcileResult(null);
     try {
       const { db } = getFirebase();
-      const result = await reconcilePaymentStatuses(db);
+      const result = await reconcilePaymentStatuses(db, claims?.entityId || '');
       setReconcileResult({ fixed: result.fixed, checked: result.checked });
       // Refresh stats after reconciliation
       if (result.fixed > 0) {
@@ -131,6 +133,8 @@ export default function DataHealthPage() {
   };
 
   const fetchStats = async () => {
+    if (!claims?.entityId) return;
+
     setLoading(true);
     setError(null);
 
@@ -141,11 +145,33 @@ export default function DataHealthPage() {
       // Fetch all relevant transactions
       const [paymentsSnap, billsSnap, invoicesSnap, journalEntriesSnap] = await Promise.all([
         getDocs(
-          query(transactionsRef, where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT']))
+          query(
+            transactionsRef,
+            where('entityId', '==', claims.entityId),
+            where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT'])
+          )
         ),
-        getDocs(query(transactionsRef, where('type', '==', 'VENDOR_BILL'))),
-        getDocs(query(transactionsRef, where('type', '==', 'CUSTOMER_INVOICE'))),
-        getDocs(query(transactionsRef, where('type', '==', 'JOURNAL_ENTRY'))),
+        getDocs(
+          query(
+            transactionsRef,
+            where('entityId', '==', claims.entityId),
+            where('type', '==', 'VENDOR_BILL')
+          )
+        ),
+        getDocs(
+          query(
+            transactionsRef,
+            where('entityId', '==', claims.entityId),
+            where('type', '==', 'CUSTOMER_INVOICE')
+          )
+        ),
+        getDocs(
+          query(
+            transactionsRef,
+            where('entityId', '==', claims.entityId),
+            where('type', '==', 'JOURNAL_ENTRY')
+          )
+        ),
       ]);
 
       // Filter out soft-deleted transactions from all snapshots
@@ -377,6 +403,17 @@ export default function DataHealthPage() {
       checkOverdue(bills, 'VENDOR_BILL');
       checkOverdue(invoices, 'CUSTOMER_INVOICE');
 
+      // Detect duplicate transaction numbers
+      const allTransactions = [...payments, ...bills, ...invoices, ...journalEntries];
+      const numberCounts = new Map<string, number>();
+      allTransactions.forEach((doc) => {
+        const num = doc.data().transactionNumber;
+        if (num) {
+          numberCounts.set(num, (numberCounts.get(num) || 0) + 1);
+        }
+      });
+      const duplicateCount = Array.from(numberCounts.values()).filter((c) => c > 1).length;
+
       const totalTransactions = payments.length + bills.length + invoices.length;
 
       // Health score = % of transactions with no issues
@@ -390,6 +427,7 @@ export default function DataHealthPage() {
         unmappedAccounts: { count: unmappedCount },
         overdueItems: { count: overdueCount, total: overdueTotal },
         stalePaymentStatuses: { count: staleStatusCount },
+        duplicateNumbers: { count: duplicateCount },
         totalTransactions,
         healthScore,
       });
@@ -403,7 +441,8 @@ export default function DataHealthPage() {
 
   useEffect(() => {
     fetchStats();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claims?.entityId]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -468,6 +507,15 @@ export default function DataHealthPage() {
           color: 'error.main' as const,
           path: '/accounting/data-health/overdue',
           description: 'Invoices and bills past their due date',
+        },
+        {
+          title: 'Duplicate Transaction Numbers',
+          count: stats.duplicateNumbers.count,
+          subtitle: 'Groups with the same transaction number',
+          icon: <DuplicateIcon sx={{ fontSize: 40 }} />,
+          color: 'error.main' as const,
+          path: undefined as unknown as string,
+          description: 'Multiple transactions sharing the same number',
         },
       ].filter((card) => card.count > 0)
     : [];
@@ -654,6 +702,13 @@ export default function DataHealthPage() {
                   <strong>Priority 1:</strong> {stats.stalePaymentStatuses.count} bills/invoices
                   have stale payment statuses. Payments are allocated but the bill status was never
                   updated.
+                </Alert>
+              )}
+              {stats.duplicateNumbers.count > 0 && (
+                <Alert severity="error">
+                  <strong>Priority 1:</strong> {stats.duplicateNumbers.count} duplicate transaction
+                  number group{stats.duplicateNumbers.count > 1 ? 's' : ''} found. Each transaction
+                  should have a unique number to prevent confusion in reports and reconciliation.
                 </Alert>
               )}
               {reconcileResult && (

@@ -93,7 +93,8 @@ export interface AccountBalance {
 export async function generateProfitLossReport(
   db: Firestore,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  entityId: string
 ): Promise<ProfitLossReport> {
   try {
     // Convert dates to Firestore Timestamps
@@ -102,7 +103,8 @@ export async function generateProfitLossReport(
 
     // Fetch all accounts for reference
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-    const accountsSnapshot = await getDocs(accountsRef);
+    const accountsQuery = query(accountsRef, where('entityId', '==', entityId));
+    const accountsSnapshot = await getDocs(accountsQuery);
 
     // Build account lookup map
     const accountMap = new Map<string, AccountBalance>();
@@ -124,6 +126,7 @@ export async function generateProfitLossReport(
     const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
     const periodQuery = query(
       transactionsRef,
+      where('entityId', '==', entityId),
       where('date', '>=', startTimestamp),
       where('date', '<=', endTimestamp)
     );
@@ -340,7 +343,8 @@ export async function generateProfitLossReport(
 export async function generateComparativeProfitLossReport(
   db: Firestore,
   currentStartDate: Date,
-  currentEndDate: Date
+  currentEndDate: Date,
+  entityId: string
 ): Promise<{
   current: ProfitLossReport;
   previous: ProfitLossReport;
@@ -359,8 +363,8 @@ export async function generateComparativeProfitLossReport(
 
   // Generate both reports
   const [currentReport, previousReport] = await Promise.all([
-    generateProfitLossReport(db, currentStartDate, currentEndDate),
-    generateProfitLossReport(db, previousStartDate, previousEndDate),
+    generateProfitLossReport(db, currentStartDate, currentEndDate, entityId),
+    generateProfitLossReport(db, previousStartDate, previousEndDate, entityId),
   ]);
 
   // Calculate changes

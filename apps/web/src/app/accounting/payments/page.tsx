@@ -120,20 +120,20 @@ export default function PaymentsPage() {
 
   // Firestore query using custom hook
   const { db } = getFirebase();
-  const paymentsQuery = useMemo(
-    () =>
-      query(
-        collection(db, COLLECTIONS.TRANSACTIONS),
-        where('type', 'in', [
-          'CUSTOMER_PAYMENT',
-          'VENDOR_PAYMENT',
-          'DIRECT_PAYMENT',
-          'DIRECT_RECEIPT',
-        ]),
-        orderBy('paymentDate', 'desc')
-      ),
-    [db]
-  );
+  const paymentsQuery = useMemo(() => {
+    if (!claims?.entityId) return null;
+    return query(
+      collection(db, COLLECTIONS.TRANSACTIONS),
+      where('entityId', '==', claims.entityId),
+      where('type', 'in', [
+        'CUSTOMER_PAYMENT',
+        'VENDOR_PAYMENT',
+        'DIRECT_PAYMENT',
+        'DIRECT_RECEIPT',
+      ]),
+      orderBy('paymentDate', 'desc')
+    );
+  }, [db, claims?.entityId]);
 
   const { data: rawPayments, loading } = useFirestoreQuery<Payment>(paymentsQuery);
   const payments = useMemo(() => rawPayments.filter((p) => !p.isDeleted), [rawPayments]);

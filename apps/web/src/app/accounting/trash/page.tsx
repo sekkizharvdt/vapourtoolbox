@@ -76,12 +76,15 @@ export default function TrashPage() {
   const { db } = getFirebase();
   const trashQuery = useMemo(
     () =>
-      query(
-        collection(db, COLLECTIONS.TRANSACTIONS),
-        where('isDeleted', '==', true),
-        orderBy('deletedAt', 'desc')
-      ),
-    [db]
+      claims?.entityId
+        ? query(
+            collection(db, COLLECTIONS.TRANSACTIONS),
+            where('entityId', '==', claims.entityId),
+            where('isDeleted', '==', true),
+            orderBy('deletedAt', 'desc')
+          )
+        : null,
+    [db, claims?.entityId]
   );
 
   const { data: deletedTransactions, loading } = useFirestoreQuery<DeletedTransaction>(trashQuery);

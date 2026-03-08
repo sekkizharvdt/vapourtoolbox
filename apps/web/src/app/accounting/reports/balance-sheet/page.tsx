@@ -34,6 +34,7 @@ import {
   FileDownload as DownloadIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import {
@@ -187,6 +188,7 @@ function AccountRow({
 // ---------------------------------------------------------------------------
 export default function BalanceSheetPage() {
   const router = useRouter();
+  const { claims } = useAuth();
   const [asOfDate, setAsOfDate] = useState<string>(() => {
     const today = new Date().toISOString().split('T')[0];
     return today || '';
@@ -214,8 +216,13 @@ export default function BalanceSheetPage() {
 
     try {
       const { db } = getFirebase();
+      const entityId = claims?.entityId;
+      if (!entityId) {
+        setError('No entity selected');
+        return;
+      }
       const date = new Date(asOfDate);
-      const reportData = await generateBalanceSheet(db, date);
+      const reportData = await generateBalanceSheet(db, date, entityId);
       setReport(reportData);
     } catch (err) {
       console.error('[BalanceSheetPage] Error:', err);
@@ -238,7 +245,9 @@ export default function BalanceSheetPage() {
         setDrilldownLoading((prev) => new Set(prev).add(account.id));
         try {
           const { db } = getFirebase();
-          const entries = await fetchAccountGLEntries(db, account.id);
+          const entityId = claims?.entityId;
+          if (!entityId) return;
+          const entries = await fetchAccountGLEntries(db, account.id, entityId);
           setDrilldownData((prev) => new Map(prev).set(account.id, entries));
         } catch (err) {
           console.error('Error loading GL entries:', err);
@@ -252,7 +261,7 @@ export default function BalanceSheetPage() {
         }
       }
     },
-    [expandedAccountId, drilldownData]
+    [expandedAccountId, drilldownData, claims?.entityId]
   );
 
   const validation = report ? validateAccountingEquation(report) : null;

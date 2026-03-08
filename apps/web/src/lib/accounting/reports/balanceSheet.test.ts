@@ -21,6 +21,8 @@ jest.mock('@vapour/logger', () => ({
 const mockGetDocs = jest.fn();
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((_db, name) => ({ path: name })),
+  query: jest.fn((...args: unknown[]) => args[0]),
+  where: jest.fn(),
   getDocs: (...args: unknown[]) => mockGetDocs(...args),
 }));
 
@@ -75,7 +77,7 @@ describe('Balance Sheet Report', () => {
 
       mockGetDocs.mockResolvedValueOnce(mockSnapshot(accounts));
 
-      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'));
+      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'), 'entity-1');
 
       // All 1xxx codes are classified as current assets:
       // Cash (50000-10000=40000) + Receivables (20000-5000=15000) = 55000
@@ -99,7 +101,7 @@ describe('Balance Sheet Report', () => {
     it('should handle empty accounts', async () => {
       mockGetDocs.mockResolvedValueOnce(mockSnapshot([]));
 
-      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'));
+      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'), 'entity-1');
 
       expect(report.assets.totalAssets).toBe(0);
       expect(report.liabilities.totalLiabilities).toBe(0);
@@ -116,7 +118,7 @@ describe('Balance Sheet Report', () => {
 
       mockGetDocs.mockResolvedValueOnce(mockSnapshot(accounts));
 
-      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'));
+      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'), 'entity-1');
 
       expect(report.assets.currentAssets).toHaveLength(0);
       expect(report.liabilities.currentLiabilities).toHaveLength(0);
@@ -130,7 +132,7 @@ describe('Balance Sheet Report', () => {
 
       mockGetDocs.mockResolvedValueOnce(mockSnapshot(accounts));
 
-      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'));
+      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'), 'entity-1');
 
       expect(report.assets.currentAssets).toHaveLength(1);
       expect(report.assets.currentAssets[0]!.balance).toBe(5000);
@@ -148,7 +150,7 @@ describe('Balance Sheet Report', () => {
 
       mockGetDocs.mockResolvedValueOnce(mockSnapshot(accounts));
 
-      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'));
+      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'), 'entity-1');
 
       // All 1xxx accounts go to current assets since isCurrentAsset checks code range first
       expect(report.assets.currentAssets).toHaveLength(4);
@@ -165,7 +167,7 @@ describe('Balance Sheet Report', () => {
 
       mockGetDocs.mockResolvedValueOnce(mockSnapshot(accounts));
 
-      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'));
+      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'), 'entity-1');
 
       // All 2xxx codes are current liabilities
       expect(report.liabilities.currentLiabilities).toHaveLength(3);
@@ -187,7 +189,7 @@ describe('Balance Sheet Report', () => {
 
       mockGetDocs.mockResolvedValueOnce(mockSnapshot(accounts));
 
-      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'));
+      const report = await generateBalanceSheet(mockDb, new Date('2024-03-31'), 'entity-1');
 
       // Revenue: 100000 + 50000 = 150000
       // Expenses: 40000 + 10000 + 5000 = 55000
@@ -198,7 +200,7 @@ describe('Balance Sheet Report', () => {
     it('should throw on Firestore error', async () => {
       mockGetDocs.mockRejectedValueOnce(new Error('Firestore error'));
 
-      await expect(generateBalanceSheet(mockDb, new Date())).rejects.toThrow(
+      await expect(generateBalanceSheet(mockDb, new Date(), 'entity-1')).rejects.toThrow(
         'Failed to generate Balance Sheet'
       );
     });

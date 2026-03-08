@@ -161,7 +161,7 @@ export function CreateInvoiceDialog({
       const transactionNumber =
         editingInvoice?.transactionNumber ||
         customInvoiceNumber.trim() ||
-        (await generateTransactionNumber('CUSTOMER_INVOICE'));
+        (await generateTransactionNumber('CUSTOMER_INVOICE', formState.entityId || ''));
 
       // Calculate base amount (in INR) for foreign currency invoices
       const isForexInvoice = currency !== 'INR';

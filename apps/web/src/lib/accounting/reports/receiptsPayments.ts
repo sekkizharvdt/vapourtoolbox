@@ -283,7 +283,8 @@ function parseDate(dateField: { toDate?: () => Date } | Date | undefined): Date 
 export async function generateReceiptsPaymentsReport(
   db: Firestore,
   month: number, // 1-12
-  year: number
+  year: number,
+  entityId: string
 ): Promise<MonthlyReceiptsPaymentsReport> {
   // Calculate date range
   const startDate = new Date(year, month - 1, 1);
@@ -293,7 +294,8 @@ export async function generateReceiptsPaymentsReport(
 
   // Fetch all accounts
   const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-  const accountsSnapshot = await getDocs(accountsRef);
+  const accountsQuery = query(accountsRef, where('entityId', '==', entityId));
+  const accountsSnapshot = await getDocs(accountsQuery);
   const accounts = new Map<string, AccountInfo>();
   const cashBankAccountIds = new Set<string>();
 
@@ -349,6 +351,7 @@ export async function generateReceiptsPaymentsReport(
   const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
   const q = query(
     transactionsRef,
+    where('entityId', '==', entityId),
     where('status', '==', 'POSTED'),
     where('date', '>=', start),
     where('date', '<=', end)
@@ -358,6 +361,7 @@ export async function generateReceiptsPaymentsReport(
   // Also fetch historical transactions for opening balance
   const historicalQ = query(
     transactionsRef,
+    where('entityId', '==', entityId),
     where('status', '==', 'POSTED'),
     where('date', '<', start)
   );

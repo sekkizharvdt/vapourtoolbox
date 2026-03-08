@@ -72,7 +72,7 @@ export default function PaymentPlanningPage() {
       const { db } = getFirebase();
 
       // Get summary
-      const summaryData = await getCashFlowSummary(db, 0); // Would get from bank accounts
+      const summaryData = await getCashFlowSummary(db, claims?.entityId || '', 0); // Would get from bank accounts
       setSummary(summaryData);
 
       // Get 30-day forecast
@@ -80,7 +80,7 @@ export default function PaymentPlanningPage() {
       const thirtyDays = new Date(today);
       thirtyDays.setDate(thirtyDays.getDate() + 30);
 
-      const forecastData = await generateCashFlowForecast(db, {
+      const forecastData = await generateCashFlowForecast(db, claims?.entityId || '', {
         startDate: today,
         endDate: thirtyDays,
         includeOverdue: true,
@@ -100,7 +100,7 @@ export default function PaymentPlanningPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [claims?.entityId]);
 
   useEffect(() => {
     if (hasViewAccess) {
@@ -158,7 +158,9 @@ export default function PaymentPlanningPage() {
       </Breadcrumbs>
 
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}
+      >
         <Box>
           <Typography variant="h4" component="h1" gutterBottom>
             Payment Planning
@@ -175,10 +177,20 @@ export default function PaymentPlanningPage() {
           >
             Recurring
           </Button>
-          <Button variant="contained" color="success" startIcon={<AddIcon />} onClick={handleAddReceipt}>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<AddIcon />}
+            onClick={handleAddReceipt}
+          >
             Add Receipt
           </Button>
-          <Button variant="contained" color="error" startIcon={<AddIcon />} onClick={handleAddPayment}>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<AddIcon />}
+            onClick={handleAddPayment}
+          >
             Add Payment
           </Button>
           <Tooltip title="Refresh data">
@@ -213,7 +225,9 @@ export default function PaymentPlanningPage() {
                       Current Balance
                     </Typography>
                   </Box>
-                  <Typography variant="h5">{formatCurrency(summary?.currentBalance ?? 0)}</Typography>
+                  <Typography variant="h5">
+                    {formatCurrency(summary?.currentBalance ?? 0)}
+                  </Typography>
                   <Typography variant="caption" color="text.secondary">
                     From bank accounts
                   </Typography>
@@ -275,27 +289,37 @@ export default function PaymentPlanningPage() {
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Card
                 sx={{
-                  bgcolor: (summary?.projectedBalance30Days ?? 0) >= 0 ? 'primary.light' : 'warning.light',
+                  bgcolor:
+                    (summary?.projectedBalance30Days ?? 0) >= 0 ? 'primary.light' : 'warning.light',
                 }}
               >
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                     <CalendarIcon
                       sx={{
-                        color: (summary?.projectedBalance30Days ?? 0) >= 0 ? 'primary.dark' : 'warning.dark',
+                        color:
+                          (summary?.projectedBalance30Days ?? 0) >= 0
+                            ? 'primary.dark'
+                            : 'warning.dark',
                         mr: 1,
                       }}
                     />
                     <Typography
                       variant="subtitle2"
-                      color={(summary?.projectedBalance30Days ?? 0) >= 0 ? 'primary.dark' : 'warning.dark'}
+                      color={
+                        (summary?.projectedBalance30Days ?? 0) >= 0
+                          ? 'primary.dark'
+                          : 'warning.dark'
+                      }
                     >
                       Projected (30d)
                     </Typography>
                   </Box>
                   <Typography
                     variant="h5"
-                    color={(summary?.projectedBalance30Days ?? 0) >= 0 ? 'primary.dark' : 'warning.dark'}
+                    color={
+                      (summary?.projectedBalance30Days ?? 0) >= 0 ? 'primary.dark' : 'warning.dark'
+                    }
                   >
                     {formatCurrency(summary?.projectedBalance30Days ?? 0)}
                   </Typography>
@@ -375,8 +399,8 @@ export default function PaymentPlanningPage() {
                 {forecast.atRiskItems.length} items require attention
               </Typography>
               <Typography variant="body2">
-                Overdue receivables: {formatCurrency(forecast.overdueReceivables)} | Overdue payables:{' '}
-                {formatCurrency(forecast.overduePayables)}
+                Overdue receivables: {formatCurrency(forecast.overdueReceivables)} | Overdue
+                payables: {formatCurrency(forecast.overduePayables)}
               </Typography>
             </Alert>
           )}
@@ -403,14 +427,24 @@ export default function PaymentPlanningPage() {
                     No manual cash flow items yet
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Add expected receipts or payments that aren&apos;t captured by invoices, bills, or recurring
-                    transactions
+                    Add expected receipts or payments that aren&apos;t captured by invoices, bills,
+                    or recurring transactions
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-                    <Button variant="outlined" color="success" startIcon={<AddIcon />} onClick={handleAddReceipt}>
+                    <Button
+                      variant="outlined"
+                      color="success"
+                      startIcon={<AddIcon />}
+                      onClick={handleAddReceipt}
+                    >
                       Add Expected Receipt
                     </Button>
-                    <Button variant="outlined" color="error" startIcon={<AddIcon />} onClick={handleAddPayment}>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      startIcon={<AddIcon />}
+                      onClick={handleAddPayment}
+                    >
                       Add Expected Payment
                     </Button>
                   </Box>
@@ -427,7 +461,11 @@ export default function PaymentPlanningPage() {
       )}
 
       {/* Dialog */}
-      <ManualCashFlowDialog open={dialogOpen} direction={dialogDirection} onClose={handleDialogClose} />
+      <ManualCashFlowDialog
+        open={dialogOpen}
+        direction={dialogDirection}
+        onClose={handleDialogClose}
+      />
     </Container>
   );
 }

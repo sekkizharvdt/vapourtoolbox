@@ -84,7 +84,8 @@ describe('Cash Flow Statement', () => {
       const statement = await generateCashFlowStatement(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       expect(statement.operating.total).toBe(50000);
@@ -129,7 +130,8 @@ describe('Cash Flow Statement', () => {
       const statement = await generateCashFlowStatement(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       // Vendor payment = cash going out = negative
@@ -173,7 +175,8 @@ describe('Cash Flow Statement', () => {
       const statement = await generateCashFlowStatement(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       // Cash going out for asset purchase = negative investing
@@ -214,7 +217,8 @@ describe('Cash Flow Statement', () => {
       const statement = await generateCashFlowStatement(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       expect(statement.financing.total).toBe(500000);
@@ -260,7 +264,8 @@ describe('Cash Flow Statement', () => {
       const statement = await generateCashFlowStatement(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       // Cash outflow with ASSET account → categorized as investing
@@ -308,7 +313,8 @@ describe('Cash Flow Statement', () => {
       const statement = await generateCashFlowStatement(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       // No cash impact from invoices/bills
@@ -356,7 +362,8 @@ describe('Cash Flow Statement', () => {
       const statement = await generateCashFlowStatement(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       // Net = 80000 - 30000 = 50000
@@ -386,7 +393,8 @@ describe('Cash Flow Statement', () => {
       const statement = await generateCashFlowStatement(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       expect(statement.netCashFlow).toBe(0);
@@ -422,7 +430,8 @@ describe('Cash Flow Statement', () => {
       const statement = await generateCashFlowStatement(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       // "Petty Cash" should be identified as cash account by name
@@ -438,7 +447,7 @@ describe('Cash Flow Statement', () => {
 
       const start = new Date('2024-01-01');
       const end = new Date('2024-01-31');
-      const statement = await generateCashFlowStatement(mockDb, start, end);
+      const statement = await generateCashFlowStatement(mockDb, start, end, 'entity-1');
 
       expect(statement.startDate).toEqual(start);
       expect(statement.endDate).toEqual(end);
@@ -454,7 +463,8 @@ describe('Cash Flow Statement', () => {
       const statement = await generateCashFlowStatement(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       // Each section should have at least the subtotal line

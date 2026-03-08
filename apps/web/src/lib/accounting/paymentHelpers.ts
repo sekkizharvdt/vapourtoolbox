@@ -276,7 +276,8 @@ export async function processPaymentAllocations(
 export async function getOutstandingAmount(
   db: Firestore,
   transactionId: string,
-  transactionType: 'CUSTOMER_INVOICE' | 'VENDOR_BILL'
+  transactionType: 'CUSTOMER_INVOICE' | 'VENDOR_BILL',
+  entityId: string
 ): Promise<{ totalAmount: number; amountPaid: number; outstanding: number }> {
   try {
     // Get the invoice/bill
@@ -295,7 +296,12 @@ export async function getOutstandingAmount(
     const paymentsRef = collection(db, COLLECTIONS.TRANSACTIONS);
     const paymentType =
       transactionType === 'CUSTOMER_INVOICE' ? 'CUSTOMER_PAYMENT' : 'VENDOR_PAYMENT';
-    const q = query(paymentsRef, where('type', '==', paymentType), where('status', '==', 'POSTED'));
+    const q = query(
+      paymentsRef,
+      where('entityId', '==', entityId),
+      where('type', '==', paymentType),
+      where('status', '==', 'POSTED')
+    );
 
     const paymentsSnapshot = await getDocs(q);
     let totalPaid = 0;
@@ -336,10 +342,16 @@ export async function validatePaymentAllocation(
   db: Firestore,
   transactionId: string,
   newAllocation: number,
-  transactionType: 'CUSTOMER_INVOICE' | 'VENDOR_BILL'
+  transactionType: 'CUSTOMER_INVOICE' | 'VENDOR_BILL',
+  entityId: string
 ): Promise<{ valid: boolean; error?: string }> {
   try {
-    const { outstanding } = await getOutstandingAmount(db, transactionId, transactionType);
+    const { outstanding } = await getOutstandingAmount(
+      db,
+      transactionId,
+      transactionType,
+      entityId
+    );
 
     // Allow small tolerance for exchange rate rounding differences
     if (newAllocation > outstanding + 0.01) {
@@ -391,7 +403,8 @@ export async function createPaymentWithAllocationsAtomic(
       db,
       allocation.invoiceId,
       allocation.allocatedAmount,
-      invoiceType
+      invoiceType,
+      paymentData.entityId
     );
     if (!result.valid) {
       throw new Error(`Invalid allocation for ${allocation.invoiceId}: ${result.error}`);
@@ -661,6 +674,7 @@ export async function updatePaymentWithAllocationsAtomic(
  */
 export async function reconcilePaymentStatuses(
   db: Firestore,
+  entityId: string,
   options?: { dryRun?: boolean }
 ): Promise<{
   checked: number;
@@ -672,7 +686,11 @@ export async function reconcilePaymentStatuses(
 
   // 1. Get all payments and build allocation map: invoiceId -> total allocated
   const paymentSnap = await getDocs(
-    query(transactionsRef, where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT']))
+    query(
+      transactionsRef,
+      where('entityId', '==', entityId),
+      where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT'])
+    )
   );
 
   const allocationMap = new Map<string, number>();
@@ -693,8 +711,16 @@ export async function reconcilePaymentStatuses(
 
   // 2. Get all bills and invoices
   const [billSnap, invoiceSnap] = await Promise.all([
-    getDocs(query(transactionsRef, where('type', '==', 'VENDOR_BILL'))),
-    getDocs(query(transactionsRef, where('type', '==', 'CUSTOMER_INVOICE'))),
+    getDocs(
+      query(transactionsRef, where('entityId', '==', entityId), where('type', '==', 'VENDOR_BILL'))
+    ),
+    getDocs(
+      query(
+        transactionsRef,
+        where('entityId', '==', entityId),
+        where('type', '==', 'CUSTOMER_INVOICE')
+      )
+    ),
   ]);
 
   const allDocs = [...billSnap.docs, ...invoiceSnap.docs];

@@ -433,7 +433,7 @@ describe('paymentPlanningService', () => {
       const startDate = new Date('2024-02-01');
       const endDate = new Date('2024-02-07');
 
-      const forecast = await generateCashFlowForecast(mockDb, {
+      const forecast = await generateCashFlowForecast(mockDb, 'test-entity', {
         ...defaultForecastOptions,
         startDate,
         endDate,
@@ -473,7 +473,7 @@ describe('paymentPlanningService', () => {
         .mockResolvedValueOnce({ docs: [] }) // bills
         .mockResolvedValueOnce({ docs: [] }); // manual items
 
-      const forecast = await generateCashFlowForecast(mockDb, {
+      const forecast = await generateCashFlowForecast(mockDb, 'test-entity', {
         ...defaultForecastOptions,
         startDate,
         endDate,

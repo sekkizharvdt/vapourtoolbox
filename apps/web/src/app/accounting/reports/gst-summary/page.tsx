@@ -80,8 +80,13 @@ export default function GSTSummaryPage() {
     setLoading(true);
     setData(null);
     try {
+      const entityId = claims?.entityId;
+      if (!entityId) {
+        setData(null);
+        return;
+      }
       const { db } = getFirebase();
-      const accounts = await getSystemAccountIds(db);
+      const accounts = await getSystemAccountIds(db, entityId);
 
       const start = new Date(startDate);
       const end = new Date(endDate);
@@ -97,8 +102,8 @@ export default function GSTSummaryPage() {
       const results = await Promise.all(
         gstTypes.map(async ({ type, inputId, outputId }) => {
           const [inputEntries, outputEntries] = await Promise.all([
-            inputId ? fetchAccountGLEntries(db, inputId) : Promise.resolve([]),
-            outputId ? fetchAccountGLEntries(db, outputId) : Promise.resolve([]),
+            inputId ? fetchAccountGLEntries(db, inputId, entityId) : Promise.resolve([]),
+            outputId ? fetchAccountGLEntries(db, outputId, entityId) : Promise.resolve([]),
           ]);
 
           // Filter by date range
@@ -144,7 +149,7 @@ export default function GSTSummaryPage() {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, claims?.entityId]);
 
   const handleToggleExpand = (gstType: string, side: 'input' | 'output') => {
     if (expandedRow === gstType && expandedSide === side) {

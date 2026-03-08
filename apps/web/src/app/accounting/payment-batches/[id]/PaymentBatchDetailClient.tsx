@@ -252,7 +252,7 @@ export default function PaymentBatchDetailClient() {
   };
 
   const handleReject = async () => {
-    if (!batch || !rejectReason.trim()) return;
+    if (!batch || !(rejectReason ?? '').trim()) return;
     setSaving(true);
     setError(null);
 
@@ -779,7 +779,7 @@ export default function PaymentBatchDetailClient() {
             variant="contained"
             color="error"
             onClick={handleReject}
-            disabled={!rejectReason.trim() || saving}
+            disabled={!(rejectReason ?? '').trim() || saving}
           >
             Reject
           </Button>

@@ -26,12 +26,14 @@ const logger = createLogger({ context: 'bankReconciliation/autoMatching' });
  * Get enhanced suggested matches using advanced matching algorithm
  * @param db - Firestore instance
  * @param statementId - Bank statement ID
+ * @param entityId - Entity ID for multi-tenancy filtering
  * @param config - Optional matching configuration (uses defaults if not provided)
  * @returns Enhanced match suggestions with detailed scoring
  */
 export async function getEnhancedSuggestedMatches(
   db: Firestore,
   statementId: string,
+  entityId: string,
   config: MatchingConfig = DEFAULT_MATCHING_CONFIG
 ): Promise<EnhancedMatchSuggestion[]> {
   try {
@@ -49,7 +51,8 @@ export async function getEnhancedSuggestedMatches(
       db,
       statement.accountId,
       statement.startDate,
-      statement.endDate
+      statement.endDate,
+      entityId
     );
 
     // Use enhanced matching algorithm
@@ -76,6 +79,7 @@ export async function getEnhancedSuggestedMatches(
 export async function getEnhancedMatchStatistics(
   db: Firestore,
   statementId: string,
+  entityId: string,
   config: MatchingConfig = DEFAULT_MATCHING_CONFIG
 ): Promise<{
   totalBankTransactions: number;
@@ -101,7 +105,8 @@ export async function getEnhancedMatchStatistics(
       db,
       statement.accountId,
       statement.startDate,
-      statement.endDate
+      statement.endDate,
+      entityId
     );
 
     return getMatchStatistics(bankTransactions, accountingTransactions, config);
@@ -116,6 +121,7 @@ export async function getEnhancedMatchStatistics(
  * @param db - Firestore instance
  * @param statementId - Bank statement ID
  * @param userId - User ID performing the match
+ * @param entityId - Entity ID for multi-tenancy filtering
  * @param options - Matching options
  * @returns Number of transactions matched
  */
@@ -123,6 +129,7 @@ export async function autoMatchTransactions(
   db: Firestore,
   statementId: string,
   userId: string,
+  entityId: string,
   options: {
     matchHighConfidence?: boolean; // Default: true
     matchMediumConfidence?: boolean; // Default: false
@@ -152,7 +159,8 @@ export async function autoMatchTransactions(
       db,
       statement.accountId,
       statement.startDate,
-      statement.endDate
+      statement.endDate,
+      entityId
     );
 
     const result = batchAutoMatch(bankTransactions, accountingTransactions, config);
@@ -215,6 +223,7 @@ export async function autoMatchTransactions(
 export async function getMultiTransactionMatches(
   db: Firestore,
   statementId: string,
+  entityId: string,
   config: MatchingConfig = DEFAULT_MATCHING_CONFIG
 ): Promise<MultiTransactionMatch[]> {
   try {
@@ -230,7 +239,8 @@ export async function getMultiTransactionMatches(
       db,
       statement.accountId,
       statement.startDate,
-      statement.endDate
+      statement.endDate,
+      entityId
     );
 
     const result = batchAutoMatch(bankTransactions, accountingTransactions, config);

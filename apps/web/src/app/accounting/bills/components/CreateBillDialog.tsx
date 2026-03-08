@@ -162,7 +162,8 @@ export function CreateBillDialog({
 
       // Generate transaction number
       const transactionNumber =
-        editingBill?.transactionNumber || (await generateTransactionNumber('VENDOR_BILL'));
+        editingBill?.transactionNumber ||
+        (await generateTransactionNumber('VENDOR_BILL', formState.entityId || ''));
 
       // Generate GL entries using new GL entry generator
       const glInput: BillGLInput = {

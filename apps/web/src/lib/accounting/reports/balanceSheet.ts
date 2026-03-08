@@ -5,7 +5,7 @@
  * Formula: Assets = Liabilities + Equity
  */
 
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/logger';
@@ -108,12 +108,14 @@ function isCurrentLiability(account: AccountBalance): boolean {
  */
 export async function generateBalanceSheet(
   db: Firestore,
-  asOfDate: Date
+  asOfDate: Date,
+  entityId: string
 ): Promise<BalanceSheetReport> {
   try {
     // Fetch all accounts
     const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-    const accountsSnapshot = await getDocs(accountsRef);
+    const accountsQuery = query(accountsRef, where('entityId', '==', entityId));
+    const accountsSnapshot = await getDocs(accountsQuery);
 
     const accounts: (AccountBalance & { openingBalance: number })[] = [];
     accountsSnapshot.forEach((doc) => {

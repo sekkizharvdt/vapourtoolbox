@@ -49,7 +49,8 @@ export interface CashFlowStatement {
 export async function generateCashFlowStatement(
   db: Firestore,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  entityId: string
 ): Promise<CashFlowStatement> {
   const start = Timestamp.fromDate(startDate);
   const end = Timestamp.fromDate(endDate);
@@ -58,6 +59,7 @@ export async function generateCashFlowStatement(
   const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
   const q = query(
     transactionsRef,
+    where('entityId', '==', entityId),
     where('status', '==', 'POSTED'),
     where('date', '>=', start),
     where('date', '<=', end)
@@ -79,7 +81,8 @@ export async function generateCashFlowStatement(
 
   // Get bank/cash accounts
   const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-  const accountsSnapshot = await getDocs(accountsRef);
+  const accountsQuery = query(accountsRef, where('entityId', '==', entityId));
+  const accountsSnapshot = await getDocs(accountsQuery);
   const cashAccounts = new Set<string>();
   const assetAccounts = new Set<string>();
   const liabilityAccounts = new Set<string>();
@@ -103,7 +106,7 @@ export async function generateCashFlowStatement(
   });
 
   // Calculate opening cash balance (sum of cash accounts at start date)
-  const openingCash = await getCashBalance(db, startDate);
+  const openingCash = await getCashBalance(db, startDate, entityId);
 
   // Categorize transactions
   const operating: CashFlowLine[] = [];
@@ -282,9 +285,10 @@ export async function generateCashFlowStatement(
 /**
  * Get cash balance at a specific date
  */
-async function getCashBalance(db: Firestore, _date: Date): Promise<number> {
+async function getCashBalance(db: Firestore, _date: Date, entityId: string): Promise<number> {
   const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-  const snapshot = await getDocs(accountsRef);
+  const accountsQuery = query(accountsRef, where('entityId', '==', entityId));
+  const snapshot = await getDocs(accountsQuery);
 
   let totalCash = 0;
 

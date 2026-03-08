@@ -137,12 +137,15 @@ export default function InvoicesPage() {
   const { db } = getFirebase();
   const invoicesQuery = useMemo(
     () =>
-      query(
-        collection(db, COLLECTIONS.TRANSACTIONS),
-        where('type', '==', 'CUSTOMER_INVOICE'),
-        orderBy('date', 'desc')
-      ),
-    [db]
+      claims?.entityId
+        ? query(
+            collection(db, COLLECTIONS.TRANSACTIONS),
+            where('type', '==', 'CUSTOMER_INVOICE'),
+            where('entityId', '==', claims.entityId),
+            orderBy('date', 'desc')
+          )
+        : null,
+    [db, claims?.entityId]
   );
 
   const { data: rawInvoices, loading } =

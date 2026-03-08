@@ -164,7 +164,7 @@ describe('Receipts & Payments Report', () => {
     it('should generate report with correct period info', async () => {
       setupMocks(createStandardAccounts(), [], [], [], []);
 
-      const report = await generateReceiptsPaymentsReport(mockDb, 3, 2024);
+      const report = await generateReceiptsPaymentsReport(mockDb, 3, 2024, 'entity-1');
 
       expect(report.month).toBe(3);
       expect(report.year).toBe(2024);
@@ -178,7 +178,7 @@ describe('Receipts & Payments Report', () => {
     it('should calculate opening balance from cash/bank accounts', async () => {
       setupMocks(createStandardAccounts(), [], [], [], []);
 
-      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024);
+      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024, 'entity-1');
 
       // bank-acc (100000) + cash-acc (5000) = 105000
       expect(report.openingBalance).toBe(105000);
@@ -202,7 +202,7 @@ describe('Receipts & Payments Report', () => {
 
       setupMocks(accounts, [], [], [], historical);
 
-      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024);
+      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024, 'entity-1');
 
       // Opening: 105000 + historical debit 20000 = 125000
       expect(report.openingBalance).toBe(125000);
@@ -226,7 +226,7 @@ describe('Receipts & Payments Report', () => {
 
       setupMocks(createStandardAccounts(), [], [], currentTxns, []);
 
-      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024);
+      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024, 'entity-1');
 
       expect(report.receipts.totalReceipts).toBe(75000);
     });
@@ -248,7 +248,7 @@ describe('Receipts & Payments Report', () => {
 
       setupMocks(createStandardAccounts(), [], [], currentTxns, []);
 
-      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024);
+      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024, 'entity-1');
 
       expect(report.payments.totalPayments).toBe(40000);
       expect(report.payments.salaryWages.total).toBe(40000);
@@ -270,7 +270,7 @@ describe('Receipts & Payments Report', () => {
 
       setupMocks(createStandardAccounts(), [], [], currentTxns, []);
 
-      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024);
+      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024, 'entity-1');
 
       expect(report.payments.salaryWages.total).toBe(50000);
       expect(report.payments.salaryWages.items).toHaveLength(1);
@@ -293,7 +293,7 @@ describe('Receipts & Payments Report', () => {
 
       setupMocks(createStandardAccounts(), [], [], currentTxns, []);
 
-      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024);
+      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024, 'entity-1');
 
       expect(report.payments.dutiesTaxes.total).toBe(15000);
       expect(report.payments.dutiesTaxes.categoryLabel).toBe('Duties & Taxes');
@@ -315,7 +315,7 @@ describe('Receipts & Payments Report', () => {
 
       setupMocks(createStandardAccounts(), [], [], currentTxns, []);
 
-      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024);
+      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024, 'entity-1');
 
       expect(report.payments.loansOtherPayments.total).toBe(25000);
       expect(report.payments.loansOtherPayments.categoryLabel).toBe('Loans & Other Payments');
@@ -337,7 +337,7 @@ describe('Receipts & Payments Report', () => {
 
       setupMocks(createStandardAccounts(), [], [], currentTxns, []);
 
-      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024);
+      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024, 'entity-1');
 
       expect(report.payments.administrativeExpenses.total).toBe(12000);
     });
@@ -364,7 +364,7 @@ describe('Receipts & Payments Report', () => {
         []
       );
 
-      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024);
+      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024, 'entity-1');
 
       expect(report.receipts.projectReceipts).toHaveLength(1);
       expect(report.receipts.projectReceipts[0]!.projectName).toBe('Project Alpha');
@@ -388,7 +388,7 @@ describe('Receipts & Payments Report', () => {
 
       setupMocks(createStandardAccounts(), createStandardCostCentres(), [], currentTxns, []);
 
-      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024);
+      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024, 'entity-1');
 
       expect(report.receipts.otherIncome).toHaveLength(1);
       expect(report.receipts.totalOtherIncome).toBe(10000);
@@ -422,7 +422,7 @@ describe('Receipts & Payments Report', () => {
 
       setupMocks(createStandardAccounts(), [], [], currentTxns, []);
 
-      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024);
+      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024, 'entity-1');
 
       expect(report.summary.totalReceipts).toBe(80000);
       expect(report.summary.totalPayments).toBe(30000);
@@ -448,7 +448,7 @@ describe('Receipts & Payments Report', () => {
 
       setupMocks(createStandardAccounts(), [], [], currentTxns, []);
 
-      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024);
+      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024, 'entity-1');
 
       expect(report.summary.netSurplusDeficit).toBe(-60000);
       expect(report.summary.isDeficit).toBe(true);
@@ -457,7 +457,7 @@ describe('Receipts & Payments Report', () => {
     it('should handle empty transactions', async () => {
       setupMocks(createStandardAccounts(), [], [], [], []);
 
-      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024);
+      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024, 'entity-1');
 
       expect(report.receipts.totalReceipts).toBe(0);
       expect(report.payments.totalPayments).toBe(0);
@@ -477,7 +477,7 @@ describe('Receipts & Payments Report', () => {
 
       setupMocks(createStandardAccounts(), [], [], currentTxns, []);
 
-      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024);
+      const report = await generateReceiptsPaymentsReport(mockDb, 1, 2024, 'entity-1');
 
       expect(report.receipts.totalReceipts).toBe(0);
     });

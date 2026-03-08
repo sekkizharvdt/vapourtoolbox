@@ -298,7 +298,7 @@ export async function voidAndRecreateTransaction(
       }
 
       const voidDate = new Date();
-      const newTransactionNumber = await generateTransactionNumber(transactionType);
+      const newTransactionNumber = await generateTransactionNumber(transactionType, newEntityId);
 
       // Generate reversing entries
       const entries = transaction.entries as LedgerEntry[] | undefined;

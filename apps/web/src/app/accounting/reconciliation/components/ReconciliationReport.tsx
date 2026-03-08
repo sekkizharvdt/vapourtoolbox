@@ -37,6 +37,7 @@ interface ReconciliationReportProps {
   open: boolean;
   onClose: () => void;
   statementId: string;
+  entityId: string;
 }
 
 interface ReportData {
@@ -55,7 +56,12 @@ interface ReportData {
   unmatchedAccountingTransactions: unknown[];
 }
 
-export function ReconciliationReport({ open, onClose, statementId }: ReconciliationReportProps) {
+export function ReconciliationReport({
+  open,
+  onClose,
+  statementId,
+  entityId,
+}: ReconciliationReportProps) {
   const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [error, setError] = useState('');
@@ -79,7 +85,7 @@ export function ReconciliationReport({ open, onClose, statementId }: Reconciliat
       } as unknown as BankStatement;
 
       // Load statistics
-      const stats = await getReconciliationStats(db, statementId);
+      const stats = await getReconciliationStats(db, statementId, entityId);
 
       // Load all bank transactions
       const bankTxnQuery = query(
@@ -151,7 +157,7 @@ export function ReconciliationReport({ open, onClose, statementId }: Reconciliat
     } finally {
       setLoading(false);
     }
-  }, [statementId]);
+  }, [statementId, entityId]);
 
   useEffect(() => {
     if (open && statementId) {

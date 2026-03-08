@@ -6,7 +6,7 @@
  * requires fetching all transactions and filtering client-side.
  */
 
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { TransactionType } from '@vapour/types';
@@ -43,10 +43,12 @@ export function getTransactionTypeLabel(type: string): string {
  */
 export async function fetchAccountGLEntries(
   db: Firestore,
-  accountId: string
+  accountId: string,
+  entityId: string
 ): Promise<GLDrilldownEntry[]> {
   const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
-  const snapshot = await getDocs(transactionsRef);
+  const q = query(transactionsRef, where('entityId', '==', entityId));
+  const snapshot = await getDocs(q);
 
   const results: GLDrilldownEntry[] = [];
 

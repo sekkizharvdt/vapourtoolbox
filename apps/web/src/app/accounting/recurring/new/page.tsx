@@ -24,7 +24,13 @@ export default function NewRecurringTransactionPage() {
     setIsLoading(true);
     try {
       const { db } = getFirebase();
-      const id = await createRecurringTransaction(db, data, user.uid, user.displayName || undefined);
+      const id = await createRecurringTransaction(
+        db,
+        data,
+        user.uid,
+        claims?.entityId || '',
+        user.displayName || undefined
+      );
       router.push(`/accounting/recurring/${id}`);
     } finally {
       setIsLoading(false);

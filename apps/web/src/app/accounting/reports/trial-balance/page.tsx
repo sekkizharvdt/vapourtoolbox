@@ -27,7 +27,8 @@ import {
   FileDownload as DownloadIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import {
@@ -53,6 +54,7 @@ interface AccountBalance {
 
 export default function TrialBalancePage() {
   const router = useRouter();
+  const { claims } = useAuth();
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [totals, setTotals] = useState({ debit: 0, credit: 0 });
@@ -63,14 +65,19 @@ export default function TrialBalancePage() {
   const [drilldownLoading, setDrilldownLoading] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    loadTrialBalance();
-  }, []);
+    if (claims?.entityId) {
+      loadTrialBalance();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claims?.entityId]);
 
   const loadTrialBalance = async () => {
+    const entityId = claims?.entityId;
+    if (!entityId) return;
     try {
       const { db } = getFirebase();
       const accountsRef = collection(db, COLLECTIONS.ACCOUNTS);
-      const q = query(accountsRef, orderBy('code', 'asc'));
+      const q = query(accountsRef, where('entityId', '==', entityId), orderBy('code', 'asc'));
       const snapshot = await getDocs(q);
 
       const accountData: AccountBalance[] = [];
@@ -119,7 +126,9 @@ export default function TrialBalancePage() {
         setDrilldownLoading((prev) => new Set(prev).add(account.id));
         try {
           const { db } = getFirebase();
-          const entries = await fetchAccountGLEntries(db, account.id);
+          const entityId = claims?.entityId;
+          if (!entityId) return;
+          const entries = await fetchAccountGLEntries(db, account.id, entityId);
           setDrilldownData((prev) => new Map(prev).set(account.id, entries));
         } catch (err) {
           console.error('Error loading GL entries:', err);
@@ -133,7 +142,7 @@ export default function TrialBalancePage() {
         }
       }
     },
-    [expandedAccountId, drilldownData]
+    [expandedAccountId, drilldownData, claims?.entityId]
   );
 
   const formatDate = (date: Date): string =>

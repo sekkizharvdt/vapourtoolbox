@@ -241,7 +241,7 @@ export default function RecurringTransactionForm({
     setError(null);
 
     // Validation
-    if (!formData.name.trim()) {
+    if (!(formData.name ?? '').trim()) {
       setError('Name is required');
       return;
     }

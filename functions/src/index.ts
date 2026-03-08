@@ -122,3 +122,4 @@ export { sendTestEmail } from './email/testEmail';
 
 // Import migration functions
 export { migratePaymentStatus } from './migrations/migratePaymentStatus';
+export { backfillJournalEntryTotalAmount } from './migrations/backfillJournalEntryTotalAmount';

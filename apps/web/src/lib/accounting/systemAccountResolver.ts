@@ -46,16 +46,19 @@ export interface SystemAccountIds {
  * Fetch system accounts from Firestore
  * Caches results in memory for performance during a session
  */
-let cachedAccounts: SystemAccountIds | null = null;
-let cacheTimestamp: number = 0;
+const cachedAccountsByEntity = new Map<string, SystemAccountIds>();
+const cacheTimestampByEntity = new Map<string, number>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export async function getSystemAccountIds(
   db: Firestore,
+  entityId: string,
   forceRefresh = false
 ): Promise<SystemAccountIds> {
   // Return cached result if valid
   const now = Date.now();
+  const cachedAccounts = cachedAccountsByEntity.get(entityId);
+  const cacheTimestamp = cacheTimestampByEntity.get(entityId) ?? 0;
   if (!forceRefresh && cachedAccounts && now - cacheTimestamp < CACHE_TTL) {
     return cachedAccounts;
   }
@@ -85,7 +88,11 @@ export async function getSystemAccountIds(
       '5208', // Depreciation Expense
     ];
 
-    const q = query(accountsRef, where('code', 'in', systemCodes));
+    const q = query(
+      accountsRef,
+      where('entityId', '==', entityId),
+      where('code', 'in', systemCodes)
+    );
     const snapshot = await getDocs(q);
 
     // Build a lookup map: code -> doc
@@ -158,8 +165,8 @@ export async function getSystemAccountIds(
     if (depExpense && depExpense.data.isSystemAccount) accounts.depreciationExpense = depExpense.id;
 
     // Cache the results
-    cachedAccounts = accounts;
-    cacheTimestamp = now;
+    cachedAccountsByEntity.set(entityId, accounts);
+    cacheTimestampByEntity.set(entityId, now);
 
     return accounts;
   } catch (error) {
@@ -202,8 +209,8 @@ export function validateSystemAccounts(
  * Clear the cache (useful for testing or after Chart of Accounts changes)
  */
 export function clearSystemAccountsCache(): void {
-  cachedAccounts = null;
-  cacheTimestamp = 0;
+  cachedAccountsByEntity.clear();
+  cacheTimestampByEntity.clear();
 }
 
 /**
@@ -221,6 +228,7 @@ export function clearSystemAccountsCache(): void {
  */
 export async function getEntityControlAccount(
   db: Firestore,
+  entityId: string,
   entityRoles: string[],
   isDebit: boolean
 ): Promise<{
@@ -228,7 +236,7 @@ export async function getEntityControlAccount(
   accountCode: string;
   accountName: string;
 } | null> {
-  const accounts = await getSystemAccountIds(db);
+  const accounts = await getSystemAccountIds(db, entityId);
 
   // Determine which control account to use based on entity role and transaction type
   const isCustomer = entityRoles.includes('CUSTOMER');

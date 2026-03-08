@@ -68,7 +68,17 @@ export default function CashFlowStatementPage() {
 
     try {
       const { db } = getFirebase();
-      const result = await generateCashFlowStatement(db, new Date(startDate), new Date(endDate));
+      const entityId = claims?.entityId;
+      if (!entityId) {
+        setError('No entity selected');
+        return;
+      }
+      const result = await generateCashFlowStatement(
+        db,
+        new Date(startDate),
+        new Date(endDate),
+        entityId
+      );
       setStatement(result);
     } catch (err) {
       console.error('[CashFlowStatement] Error generating report:', err);

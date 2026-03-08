@@ -91,10 +91,16 @@ async function generateAssetNumber(): Promise<string> {
  * Resolve GL account IDs from COA by account code
  */
 async function resolveAccountByCode(
-  code: string
+  code: string,
+  entityId: string
 ): Promise<{ id: string; code: string; name: string } | null> {
   const { db } = getFirebase();
-  const q = query(collection(db, COLLECTIONS.ACCOUNTS), where('code', '==', code), limit(1));
+  const q = query(
+    collection(db, COLLECTIONS.ACCOUNTS),
+    where('entityId', '==', entityId),
+    where('code', '==', code),
+    limit(1)
+  );
   const snapshot = await getDocs(q);
 
   const docSnap = snapshot.docs[0];
@@ -135,9 +141,9 @@ export async function createFixedAsset(
 
   // Resolve GL accounts by category
   const categoryAccounts = ASSET_CATEGORY_ACCOUNTS[input.category];
-  const assetAccount = await resolveAccountByCode(categoryAccounts.asset);
-  const accumDepAccount = await resolveAccountByCode(categoryAccounts.accumDep);
-  const depExpenseAccount = await resolveAccountByCode(DEPRECIATION_EXPENSE_CODE);
+  const assetAccount = await resolveAccountByCode(categoryAccounts.asset, entityId);
+  const accumDepAccount = await resolveAccountByCode(categoryAccounts.accumDep, entityId);
+  const depExpenseAccount = await resolveAccountByCode(DEPRECIATION_EXPENSE_CODE, entityId);
 
   if (!assetAccount) {
     throw new Error(
@@ -610,7 +616,7 @@ export async function runDepreciation(
   });
 
   // Resolve depreciation expense account
-  const depExpenseAccount = await resolveAccountByCode(DEPRECIATION_EXPENSE_CODE);
+  const depExpenseAccount = await resolveAccountByCode(DEPRECIATION_EXPENSE_CODE, entityId);
   if (!depExpenseAccount) {
     throw new Error(
       'Depreciation expense account (5208) not found. Please add it to your Chart of Accounts.'

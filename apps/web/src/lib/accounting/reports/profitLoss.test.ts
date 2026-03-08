@@ -92,7 +92,8 @@ describe('Profit & Loss Report', () => {
       const report = await generateProfitLossReport(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       // Revenue
@@ -124,7 +125,8 @@ describe('Profit & Loss Report', () => {
       const report = await generateProfitLossReport(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       expect(report.revenue.total).toBe(0);
@@ -153,7 +155,8 @@ describe('Profit & Loss Report', () => {
       const report = await generateProfitLossReport(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       expect(report.revenue.total).toBe(0);
@@ -183,7 +186,8 @@ describe('Profit & Loss Report', () => {
       const report = await generateProfitLossReport(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       // 4xxx codes go to sales
@@ -221,7 +225,8 @@ describe('Profit & Loss Report', () => {
       const report = await generateProfitLossReport(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       expect(report.expenses.costOfGoodsSold).toBe(25000); // 5xxx
@@ -253,7 +258,8 @@ describe('Profit & Loss Report', () => {
       const report = await generateProfitLossReport(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       expect(report.revenue.salesAccounts[0]!.amount).toBe(50000);
@@ -266,7 +272,7 @@ describe('Profit & Loss Report', () => {
 
       const start = new Date('2024-01-01');
       const end = new Date('2024-03-31');
-      const report = await generateProfitLossReport(mockDb, start, end);
+      const report = await generateProfitLossReport(mockDb, start, end, 'entity-1');
 
       expect(report.period.startDate).toEqual(start);
       expect(report.period.endDate).toEqual(end);
@@ -275,9 +281,9 @@ describe('Profit & Loss Report', () => {
     it('should throw on Firestore error', async () => {
       mockGetDocs.mockRejectedValueOnce(new Error('Firestore error'));
 
-      await expect(generateProfitLossReport(mockDb, new Date(), new Date())).rejects.toThrow(
-        'Failed to generate Profit & Loss report'
-      );
+      await expect(
+        generateProfitLossReport(mockDb, new Date(), new Date(), 'entity-1')
+      ).rejects.toThrow('Failed to generate Profit & Loss report');
     });
   });
 
@@ -319,7 +325,8 @@ describe('Profit & Loss Report', () => {
       const result = await generateComparativeProfitLossReport(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       expect(result.current.revenue.total).toBe(120000);
@@ -356,7 +363,8 @@ describe('Profit & Loss Report', () => {
       const result = await generateComparativeProfitLossReport(
         mockDb,
         new Date('2024-01-01'),
-        new Date('2024-01-31')
+        new Date('2024-01-31'),
+        'entity-1'
       );
 
       // Percentage should be 0 when previous is 0

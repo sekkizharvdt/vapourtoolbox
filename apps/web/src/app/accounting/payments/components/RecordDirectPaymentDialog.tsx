@@ -51,7 +51,7 @@ export function RecordDirectPaymentDialog({
   onClose,
   editingPayment,
 }: RecordDirectPaymentDialogProps) {
-  const { user } = useAuth();
+  const { user, claims } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -156,7 +156,10 @@ export function RecordDirectPaymentDialog({
       // Generate transaction number for new payments
       let transactionNumber = editingPayment?.transactionNumber;
       if (!editingPayment) {
-        transactionNumber = await generateTransactionNumber('DIRECT_PAYMENT');
+        transactionNumber = await generateTransactionNumber(
+          'DIRECT_PAYMENT',
+          claims?.entityId || ''
+        );
       }
 
       // Generate GL entries

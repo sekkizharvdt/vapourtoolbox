@@ -97,7 +97,7 @@ export default function RecurringDetailClient() {
         const { db } = getFirebase();
         const [tx, occ] = await Promise.all([
           getRecurringTransaction(db, id),
-          getOccurrencesForTransaction(db, id),
+          getOccurrencesForTransaction(db, claims?.entityId || '', id),
         ]);
         setTransaction(tx);
         setOccurrences(occ);
@@ -109,7 +109,7 @@ export default function RecurringDetailClient() {
     };
 
     loadData();
-  }, [id, hasViewAccess]);
+  }, [id, hasViewAccess, claims?.entityId]);
 
   const handleToggleStatus = async () => {
     if (!transaction || !user) return;
@@ -162,7 +162,7 @@ export default function RecurringDetailClient() {
       await skipOccurrence(db, skipOccurrenceId, skipReason, user.uid);
 
       // Refresh occurrences
-      const occ = await getOccurrencesForTransaction(db, id);
+      const occ = await getOccurrencesForTransaction(db, claims?.entityId || '', id);
       setOccurrences(occ);
     } catch (error) {
       console.error('[RecurringDetail] Error skipping occurrence:', error);

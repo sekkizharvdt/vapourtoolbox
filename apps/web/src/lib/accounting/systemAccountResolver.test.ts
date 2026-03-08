@@ -74,7 +74,7 @@ describe('systemAccountResolver', () => {
     it('fetches all system accounts successfully', async () => {
       mockGetDocs.mockResolvedValueOnce({ docs: allSystemAccountDocs() });
 
-      const result = await getSystemAccountIds(mockDb);
+      const result = await getSystemAccountIds(mockDb, 'test-entity');
 
       expect(result.accountsReceivable).toBe('ar-account-id');
       expect(result.revenue).toBe('revenue-account-id');
@@ -92,7 +92,7 @@ describe('systemAccountResolver', () => {
     it('handles missing accounts gracefully', async () => {
       mockGetDocs.mockResolvedValueOnce({ docs: [] });
 
-      const result = await getSystemAccountIds(mockDb);
+      const result = await getSystemAccountIds(mockDb, 'test-entity');
 
       expect(result.accountsReceivable).toBeUndefined();
       expect(result.revenue).toBeUndefined();
@@ -103,11 +103,11 @@ describe('systemAccountResolver', () => {
       mockGetDocs.mockResolvedValueOnce({ docs: allSystemAccountDocs() });
 
       // First call
-      await getSystemAccountIds(mockDb);
+      await getSystemAccountIds(mockDb, 'test-entity');
       const callCount = mockGetDocs.mock.calls.length;
 
       // Second call should use cache
-      await getSystemAccountIds(mockDb);
+      await getSystemAccountIds(mockDb, 'test-entity');
 
       // Should not have made additional calls
       expect(mockGetDocs.mock.calls.length).toBe(callCount);
@@ -117,11 +117,11 @@ describe('systemAccountResolver', () => {
       mockGetDocs.mockResolvedValue({ docs: allSystemAccountDocs() });
 
       // First call
-      await getSystemAccountIds(mockDb);
+      await getSystemAccountIds(mockDb, 'test-entity');
       const callCountAfterFirst = mockGetDocs.mock.calls.length;
 
       // Second call with forceRefresh
-      await getSystemAccountIds(mockDb, true);
+      await getSystemAccountIds(mockDb, 'test-entity', true);
 
       // Should have made additional calls
       expect(mockGetDocs.mock.calls.length).toBeGreaterThan(callCountAfterFirst);
@@ -130,13 +130,13 @@ describe('systemAccountResolver', () => {
     it('throws error when Firestore operation fails', async () => {
       mockGetDocs.mockRejectedValueOnce(new Error('Firestore error'));
 
-      await expect(getSystemAccountIds(mockDb)).rejects.toThrow('Firestore error');
+      await expect(getSystemAccountIds(mockDb, 'test-entity')).rejects.toThrow('Firestore error');
     });
 
     it('only makes a single Firestore query', async () => {
       mockGetDocs.mockResolvedValueOnce({ docs: allSystemAccountDocs() });
 
-      await getSystemAccountIds(mockDb);
+      await getSystemAccountIds(mockDb, 'test-entity');
 
       expect(mockGetDocs).toHaveBeenCalledTimes(1);
     });
@@ -150,7 +150,7 @@ describe('systemAccountResolver', () => {
         ],
       });
 
-      const result = await getSystemAccountIds(mockDb);
+      const result = await getSystemAccountIds(mockDb, 'test-entity');
 
       expect(result.cgstPayable).toBeUndefined(); // Wrong gstType
       expect(result.accountsPayable).toBe('correct-ap'); // Correct
@@ -226,14 +226,14 @@ describe('systemAccountResolver', () => {
       mockGetDocs.mockResolvedValue({ docs: allSystemAccountDocs() });
 
       // First call
-      await getSystemAccountIds(mockDb);
+      await getSystemAccountIds(mockDb, 'test-entity');
       const callCountAfterFirst = mockGetDocs.mock.calls.length;
 
       // Clear cache
       clearSystemAccountsCache();
 
       // Next call should fetch again
-      await getSystemAccountIds(mockDb);
+      await getSystemAccountIds(mockDb, 'test-entity');
 
       expect(mockGetDocs.mock.calls.length).toBeGreaterThan(callCountAfterFirst);
     });
@@ -245,7 +245,7 @@ describe('systemAccountResolver', () => {
     });
 
     it('returns Accounts Receivable for CUSTOMER role', async () => {
-      const result = await getEntityControlAccount(mockDb, ['CUSTOMER'], true);
+      const result = await getEntityControlAccount(mockDb, 'test-entity', ['CUSTOMER'], true);
 
       expect(result).not.toBeNull();
       expect(result?.accountId).toBe('ar-account-id');
@@ -254,7 +254,7 @@ describe('systemAccountResolver', () => {
     });
 
     it('returns Accounts Payable for VENDOR role', async () => {
-      const result = await getEntityControlAccount(mockDb, ['VENDOR'], false);
+      const result = await getEntityControlAccount(mockDb, 'test-entity', ['VENDOR'], false);
 
       expect(result).not.toBeNull();
       expect(result?.accountId).toBe('ap-account-id');
@@ -263,7 +263,7 @@ describe('systemAccountResolver', () => {
     });
 
     it('returns Accounts Receivable for BOTH role with debit entry', async () => {
-      const result = await getEntityControlAccount(mockDb, ['BOTH'], true);
+      const result = await getEntityControlAccount(mockDb, 'test-entity', ['BOTH'], true);
 
       expect(result).not.toBeNull();
       expect(result?.accountId).toBe('ar-account-id');
@@ -271,7 +271,7 @@ describe('systemAccountResolver', () => {
     });
 
     it('returns Accounts Payable for BOTH role with credit entry', async () => {
-      const result = await getEntityControlAccount(mockDb, ['BOTH'], false);
+      const result = await getEntityControlAccount(mockDb, 'test-entity', ['BOTH'], false);
 
       expect(result).not.toBeNull();
       expect(result?.accountId).toBe('ap-account-id');
@@ -279,14 +279,24 @@ describe('systemAccountResolver', () => {
     });
 
     it('returns Accounts Receivable for dual CUSTOMER+VENDOR role with debit entry', async () => {
-      const result = await getEntityControlAccount(mockDb, ['CUSTOMER', 'VENDOR'], true);
+      const result = await getEntityControlAccount(
+        mockDb,
+        'test-entity',
+        ['CUSTOMER', 'VENDOR'],
+        true
+      );
 
       expect(result).not.toBeNull();
       expect(result?.accountId).toBe('ar-account-id');
     });
 
     it('returns Accounts Payable for dual CUSTOMER+VENDOR role with credit entry', async () => {
-      const result = await getEntityControlAccount(mockDb, ['CUSTOMER', 'VENDOR'], false);
+      const result = await getEntityControlAccount(
+        mockDb,
+        'test-entity',
+        ['CUSTOMER', 'VENDOR'],
+        false
+      );
 
       expect(result).not.toBeNull();
       expect(result?.accountId).toBe('ap-account-id');

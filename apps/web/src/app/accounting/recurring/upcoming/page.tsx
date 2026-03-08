@@ -42,12 +42,13 @@ const TYPE_LABELS: Record<RecurringTransactionType, string> = {
   JOURNAL_ENTRY: 'Journal Entry',
 };
 
-const TYPE_COLORS: Record<RecurringTransactionType, 'primary' | 'secondary' | 'success' | 'info'> = {
-  SALARY: 'secondary',
-  VENDOR_BILL: 'primary',
-  CUSTOMER_INVOICE: 'success',
-  JOURNAL_ENTRY: 'info',
-};
+const TYPE_COLORS: Record<RecurringTransactionType, 'primary' | 'secondary' | 'success' | 'info'> =
+  {
+    SALARY: 'secondary',
+    VENDOR_BILL: 'primary',
+    CUSTOMER_INVOICE: 'success',
+    JOURNAL_ENTRY: 'info',
+  };
 
 type DateRange = '7' | '14' | '30' | '60';
 
@@ -74,7 +75,7 @@ export default function UpcomingOccurrencesPage() {
         const endDate = new Date();
         endDate.setDate(endDate.getDate() + parseInt(dateRange));
 
-        const occ = await getUpcomingOccurrences(db, startDate, endDate);
+        const occ = await getUpcomingOccurrences(db, claims?.entityId || '', startDate, endDate);
         setOccurrences(occ);
       } catch (error) {
         console.error('[UpcomingOccurrences] Error loading data:', error);
@@ -84,7 +85,7 @@ export default function UpcomingOccurrencesPage() {
     };
 
     loadData();
-  }, [hasViewAccess, dateRange]);
+  }, [hasViewAccess, dateRange, claims?.entityId]);
 
   const formatCurrency = (amount: number, currency = 'INR') => {
     return `${amount.toLocaleString('en-IN', {
@@ -109,19 +110,16 @@ export default function UpcomingOccurrencesPage() {
   );
 
   // Group by date
-  const groupedByDate = occurrences.reduce<Record<string, RecurringOccurrence[]>>(
-    (acc, occ) => {
-      const scheduledDate = occ.scheduledDate as { toDate: () => Date };
-      const isoString = scheduledDate.toDate().toISOString();
-      const dateKey = isoString.substring(0, 10); // YYYY-MM-DD format
-      if (!acc[dateKey]) {
-        acc[dateKey] = [];
-      }
-      acc[dateKey].push(occ);
-      return acc;
-    },
-    {}
-  );
+  const groupedByDate = occurrences.reduce<Record<string, RecurringOccurrence[]>>((acc, occ) => {
+    const scheduledDate = occ.scheduledDate as { toDate: () => Date };
+    const isoString = scheduledDate.toDate().toISOString();
+    const dateKey = isoString.substring(0, 10); // YYYY-MM-DD format
+    if (!acc[dateKey]) {
+      acc[dateKey] = [];
+    }
+    acc[dateKey].push(occ);
+    return acc;
+  }, {});
 
   const sortedDates = Object.keys(groupedByDate).sort();
 
@@ -132,9 +130,7 @@ export default function UpcomingOccurrencesPage() {
           <Typography variant="h4" component="h1" gutterBottom>
             Upcoming Occurrences
           </Typography>
-          <Alert severity="error">
-            You do not have permission to view recurring transactions.
-          </Alert>
+          <Alert severity="error">You do not have permission to view recurring transactions.</Alert>
         </Box>
       </>
     );
@@ -285,8 +281,7 @@ export default function UpcomingOccurrencesPage() {
                     }}
                   >
                     <Typography variant="subtitle1" fontWeight="medium">
-                      {isToday ? 'Today' : isTomorrow ? 'Tomorrow' : ''}
-                      {' '}
+                      {isToday ? 'Today' : isTomorrow ? 'Tomorrow' : ''}{' '}
                       {date.toLocaleDateString('en-IN', {
                         weekday: 'long',
                         day: '2-digit',

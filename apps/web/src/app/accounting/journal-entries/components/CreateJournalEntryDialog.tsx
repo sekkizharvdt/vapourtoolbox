@@ -56,6 +56,7 @@ interface CreateJournalEntryDialogProps {
   open: boolean;
   onClose: () => void;
   editingEntry?: JournalEntry | null;
+  entityId: string;
 }
 
 // Helper to convert Firestore Timestamp/Date to YYYY-MM-DD string
@@ -85,6 +86,7 @@ export function CreateJournalEntryDialog({
   open,
   onClose,
   editingEntry,
+  entityId,
 }: CreateJournalEntryDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -307,7 +309,12 @@ export function CreateJournalEntryDialog({
             }
 
             const isDebit = entry.debit > 0;
-            const controlAccount = await getEntityControlAccount(db, entry.entityRoles, isDebit);
+            const controlAccount = await getEntityControlAccount(
+              db,
+              entityId,
+              entry.entityRoles,
+              isDebit
+            );
 
             if (!controlAccount) {
               throw new Error(
@@ -351,6 +358,7 @@ export function CreateJournalEntryDialog({
           status,
           entries: resolvedEntries,
           amount: balance.totalDebits,
+          totalAmount: balance.totalDebits,
           baseAmount: balance.totalDebits,
           updatedAt: Timestamp.now(),
           linkedCustomerInvoiceId: linkedCustomerInvoiceId || undefined,
@@ -367,6 +375,7 @@ export function CreateJournalEntryDialog({
         // Create new entry - include all fields
         const journalEntry = removeUndefinedValues({
           type: 'JOURNAL_ENTRY' as const,
+          entityId,
           date: journalDate,
           journalDate: journalDate,
           description: description || '',
@@ -375,7 +384,8 @@ export function CreateJournalEntryDialog({
           status,
           entries: resolvedEntries,
           amount: balance.totalDebits,
-          transactionNumber: await generateTransactionNumber('JOURNAL_ENTRY'),
+          totalAmount: balance.totalDebits,
+          transactionNumber: await generateTransactionNumber('JOURNAL_ENTRY', entityId),
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
           currency: 'INR',

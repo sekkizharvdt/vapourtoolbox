@@ -35,6 +35,7 @@ import {
   FileDownload as DownloadIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { getFirebase } from '@/lib/firebase';
 import { formatCurrency } from '@/lib/accounting/transactionHelpers';
 import {
@@ -228,6 +229,7 @@ function ExpandableRow({ label, amount, accounts, expanded, onToggle }: Expandab
 
 export default function ProfitLossPage() {
   const router = useRouter();
+  const { claims } = useAuth();
   const [startDate, setStartDate] = useState<string>(() => {
     // Default to first day of current month
     const now = new Date();
@@ -366,7 +368,11 @@ export default function ProfitLossPage() {
         throw new Error('Start date must be before end date');
       }
 
-      const reportData = await generateProfitLossReport(db, start, end);
+      const entityId = claims?.entityId;
+      if (!entityId) {
+        throw new Error('No entity selected');
+      }
+      const reportData = await generateProfitLossReport(db, start, end, entityId);
       setReport(reportData);
     } catch (err) {
       console.error('[ProfitLossPage] Error:', err);

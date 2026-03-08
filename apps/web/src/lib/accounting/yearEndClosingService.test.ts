@@ -369,6 +369,7 @@ describe('yearEndClosingService', () => {
         fiscalYearId: 'fy-2024-25',
         userId: 'user-1',
         userName: 'Test User',
+        entityId: 'entity-1',
       });
 
       expect(result.success).toBe(false);
@@ -439,6 +440,7 @@ describe('yearEndClosingService', () => {
         userId: 'user-1',
         userName: 'Test User',
         notes: 'Year-end closing test',
+        entityId: 'entity-1',
       });
 
       expect(result.success).toBe(true);
@@ -456,7 +458,8 @@ describe('yearEndClosingService', () => {
         'non-existent',
         'user-1',
         'Test User',
-        'Correction needed'
+        'Correction needed',
+        'entity-1'
       );
 
       expect(result.success).toBe(false);
@@ -494,7 +497,8 @@ describe('yearEndClosingService', () => {
         'closing-1',
         'user-1',
         'Test User',
-        'Correction needed'
+        'Correction needed',
+        'entity-1'
       );
 
       expect(result.success).toBe(false);
@@ -577,7 +581,8 @@ describe('yearEndClosingService', () => {
         'closing-1',
         'user-1',
         'Test User',
-        'Correction needed'
+        'Correction needed',
+        'entity-1'
       );
 
       expect(result.success).toBe(true);
@@ -973,6 +978,7 @@ describe('yearEndClosingService', () => {
         fiscalYearId: 'fy-2024-25',
         userId: 'user-1',
         userName: 'Test User',
+        entityId: 'entity-1',
       });
 
       expect(result.success).toBe(false);
@@ -986,6 +992,7 @@ describe('yearEndClosingService', () => {
         fiscalYearId: 'fy-2024-25',
         userId: 'user-1',
         userName: 'Test User',
+        entityId: 'entity-1',
       });
 
       expect(result.success).toBe(false);
