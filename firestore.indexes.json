@@ -891,24 +891,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "type",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "paymentDate",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "transactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
           "fieldPath": "status",
           "order": "ASCENDING"
         },
@@ -923,24 +905,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "entityId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "type",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "transactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
           "fieldPath": "projectId",
           "order": "ASCENDING"
         },
@@ -951,24 +915,6 @@
         {
           "fieldPath": "date",
           "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "transactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "entityId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "projectId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "ASCENDING"
         }
       ]
     },
@@ -1236,24 +1182,6 @@
         },
         {
           "fieldPath": "type",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "transactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "entityId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
           "order": "ASCENDING"
         },
         {
@@ -3183,20 +3111,6 @@
       ]
     },
     {
-      "collectionGroup": "transactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "entityId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "goodsReceipts",
       "queryScope": "COLLECTION",
       "fields": [
@@ -3925,24 +3839,6 @@
         {
           "fieldPath": "createdAt",
           "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "transactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "type",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "entityId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "paymentStatus",
-          "order": "ASCENDING"
         }
       ]
     },
