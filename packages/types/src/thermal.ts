@@ -522,7 +522,10 @@ export interface SavedCalculation {
     | 'NPSHA'
     | 'PIPE_SIZING'
     | 'PRESSURE_DROP'
-    | 'PUMP_SIZING';
+    | 'PUMP_SIZING'
+    | 'FOULING_SCALING'
+    | 'FALLING_FILM'
+    | 'GOR';
   name: string;
   inputs: Record<string, unknown>;
   createdAt: Date;

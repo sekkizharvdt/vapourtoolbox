@@ -228,6 +228,44 @@ export {
   type NozzleLayoutResult,
 } from './sprayNozzleCalculator';
 
+// Fouling & Scaling Prediction
+export {
+  calculateFoulingScaling,
+  STANDARD_SEAWATER_CHEMISTRY,
+  SCALING_THRESHOLDS,
+  getCaSO4Solubility,
+  getCaSO4BrineConcentration,
+  getCaSO4SaturationIndex,
+  calculateLSI,
+  evaluateMgOH2Risk,
+  getRecommendedFouling,
+  type FoulingScalingInput,
+  type FoulingScalingResult,
+  type ScalingPoint,
+} from './foulingScalingCalculator';
+
+// Falling Film Evaporator
+export {
+  calculateFallingFilm,
+  validateFallingFilmInput,
+  TUBE_MATERIALS as FF_TUBE_MATERIALS,
+  STANDARD_TUBE_SIZES as FF_STANDARD_TUBE_SIZES,
+  WETTING_LIMITS,
+  type FallingFilmInput,
+  type FallingFilmResult,
+} from './fallingFilmCalculator';
+
+// Performance Ratio / GOR
+export {
+  calculateGOR,
+  PLANT_CONFIGURATIONS,
+  TYPICAL_RANGES as GOR_TYPICAL_RANGES,
+  type PlantConfiguration,
+  type GORInput,
+  type EffectDetail,
+  type GORResult,
+} from './gorCalculator';
+
 // Heat Exchanger Sizing
 export {
   sizeHeatExchanger,

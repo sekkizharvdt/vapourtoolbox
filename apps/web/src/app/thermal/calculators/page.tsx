@@ -37,6 +37,8 @@ import {
   BubbleChart as NCGIcon,
   BlurOn as VacuumIcon,
   BarChart as GORIcon,
+  Waves as FallingFilmIcon,
+  Warning as ScalingIcon,
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
@@ -230,6 +232,15 @@ const CATEGORIES: CalculatorCategory[] = [
         status: 'available',
         reference: 'Spraying Systems Co.',
       },
+      {
+        title: 'Falling Film Evaporator',
+        description:
+          'Design horizontal-tube falling film evaporators with wetting rate analysis, heat transfer coefficients, and tube bundle layout for MED plants.',
+        icon: <FallingFilmIcon sx={{ fontSize: 40 }} />,
+        href: '/thermal/calculators/falling-film',
+        status: 'available',
+        reference: 'Chun-Seban 1971',
+      },
     ],
   },
   {
@@ -244,6 +255,15 @@ const CATEGORIES: CalculatorCategory[] = [
         href: '/thermal/calculators/chemical-dosing',
         status: 'available',
         reference: 'Mass Balance',
+      },
+      {
+        title: 'Fouling & Scaling Prediction',
+        description:
+          'Predict CaSO₄ and CaCO₃ scaling tendency at various operating temperatures. Determine maximum TBT and recommended fouling resistances.',
+        icon: <ScalingIcon sx={{ fontSize: 40 }} />,
+        href: '/thermal/calculators/fouling-scaling',
+        status: 'available',
+        reference: 'Langelier / Ostroff',
       },
     ],
   },
@@ -263,10 +283,11 @@ const CATEGORIES: CalculatorCategory[] = [
       {
         title: 'Performance Ratio / GOR',
         description:
-          'Calculate Gain Output Ratio (GOR) and Performance Ratio (PR) for MED and MSF thermal desalination plants.',
+          'Estimate Gain Output Ratio, specific thermal energy, and effect-by-effect temperature profile for MED desalination plants.',
         icon: <GORIcon sx={{ fontSize: 40 }} />,
-        status: 'coming_soon',
-        reference: 'MED / MSF',
+        href: '/thermal/calculators/gor',
+        status: 'available',
+        reference: 'El-Dessouky 2002',
       },
     ],
   },
