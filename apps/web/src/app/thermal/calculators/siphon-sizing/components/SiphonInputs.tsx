@@ -15,12 +15,13 @@ import {
   ToggleButton,
   Alert,
 } from '@mui/material';
-import type { SiphonFluidType, PressureUnit, ElbowConfig } from './types';
+import type { SiphonFluidType, PressureUnit, ElbowConfig, PipeMaterial } from './types';
 import {
   PRESSURE_UNIT_LABELS,
   FLUID_TYPE_LABELS,
   ELBOW_CONFIG_LABELS,
   PIPE_SCHEDULE_OPTIONS,
+  PIPE_MATERIAL_LABELS,
 } from './types';
 
 interface SiphonInputsProps {
@@ -44,9 +45,11 @@ interface SiphonInputsProps {
   targetVelocity: string;
   onTargetVelocityChange: (value: string) => void;
 
-  // Pipe schedule
+  // Pipe schedule & material
   pipeSchedule: string;
   onPipeScheduleChange: (value: string) => void;
+  pipeMaterial: PipeMaterial;
+  onPipeMaterialChange: (value: PipeMaterial) => void;
 
   // Custom pipe (plate-formed, >24")
   customPipeId: string;
@@ -90,6 +93,8 @@ export function SiphonInputs({
   onTargetVelocityChange,
   pipeSchedule,
   onPipeScheduleChange,
+  pipeMaterial,
+  onPipeMaterialChange,
   customPipeId,
   customPipeThickness,
   onCustomPipeIdChange,
@@ -251,6 +256,21 @@ export function SiphonInputs({
           {PIPE_SCHEDULE_OPTIONS.map((opt) => (
             <MenuItem key={opt.value} value={opt.value}>
               {opt.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      <FormControl fullWidth size="small">
+        <InputLabel>Pipe Material</InputLabel>
+        <Select
+          value={pipeMaterial}
+          label="Pipe Material"
+          onChange={(e) => onPipeMaterialChange(e.target.value as PipeMaterial)}
+        >
+          {Object.entries(PIPE_MATERIAL_LABELS).map(([key, label]) => (
+            <MenuItem key={key} value={key}>
+              {label}
             </MenuItem>
           ))}
         </Select>

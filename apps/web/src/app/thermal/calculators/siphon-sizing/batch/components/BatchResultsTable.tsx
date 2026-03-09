@@ -77,6 +77,8 @@ export function BatchResultsTable({
               <TableCell align="right">Flash (%)</TableCell>
               <TableCell align="right">ΔP (mbar)</TableCell>
               <TableCell align="right">Holdup (L)</TableCell>
+              <TableCell align="right">Dry Wt (kg)</TableCell>
+              <TableCell align="right">Oper. Wt (kg)</TableCell>
               {onGenerateReport && <TableCell align="center">Report</TableCell>}
             </TableRow>
           </TableHead>
@@ -146,6 +148,8 @@ export function BatchResultsTable({
                     {result.pressureDrop.totalPressureDropMbar.toFixed(1)}
                   </TableCell>
                   <TableCell align="right">{result.holdupVolumeLiters.toFixed(1)}</TableCell>
+                  <TableCell align="right">{result.totalDryWeight.toFixed(1)}</TableCell>
+                  <TableCell align="right">{result.totalOperatingWeight.toFixed(1)}</TableCell>
                   {onGenerateReport && (
                     <TableCell align="center">
                       <Tooltip title="Download PDF Report">
@@ -178,6 +182,12 @@ export function BatchResultsTable({
               </TableCell>
               <TableCell align="right">
                 {results.reduce((sum, r) => sum + r.result.holdupVolumeLiters, 0).toFixed(1)}
+              </TableCell>
+              <TableCell align="right">
+                {results.reduce((sum, r) => sum + r.result.totalDryWeight, 0).toFixed(1)}
+              </TableCell>
+              <TableCell align="right">
+                {results.reduce((sum, r) => sum + r.result.totalOperatingWeight, 0).toFixed(1)}
               </TableCell>
               {onGenerateReport && <TableCell />}
             </TableRow>

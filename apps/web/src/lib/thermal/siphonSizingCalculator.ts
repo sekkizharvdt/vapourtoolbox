@@ -51,6 +51,16 @@ export type SiphonFluidType = 'seawater' | 'brine' | 'distillate';
 export type PressureUnit = 'mbar_abs' | 'bar_abs' | 'kpa_abs';
 export type ElbowConfig = '2_elbows' | '3_elbows' | '4_elbows';
 
+/** Pipe material of construction */
+export type PipeMaterial =
+  | 'carbon_steel'
+  | 'ss_304l'
+  | 'ss_316l'
+  | 'duplex_2205'
+  | 'super_duplex_2507'
+  | 'titanium_gr2'
+  | 'cu_ni_90_10';
+
 export interface SiphonSizingInput {
   /** Upstream effect pressure (in selected unit) */
   upstreamPressure: number;
@@ -82,6 +92,9 @@ export interface SiphonSizingInput {
 
   /** Pipe schedule (e.g. '10', '40', '80'). Default: '40' */
   pipeSchedule?: string;
+
+  /** Pipe material of construction. Default: 'carbon_steel' */
+  pipeMaterial?: PipeMaterial;
 
   /** Custom pipe for plate-formed pipes exceeding standard sizes */
   customPipe?: {
@@ -150,6 +163,20 @@ export interface SiphonSizingResult {
   /** Holdup volume of liquid in the siphon pipe (liters) */
   holdupVolumeLiters: number;
 
+  /** Pipe material of construction */
+  pipeMaterial: PipeMaterial;
+
+  /** Weight of straight pipe (kg) */
+  pipeWeight: number;
+  /** Weight of all elbows (kg) */
+  elbowWeight: number;
+  /** Total dry weight — pipe + elbows (kg) */
+  totalDryWeight: number;
+  /** Weight of liquid holdup (kg) */
+  liquidWeight: number;
+  /** Total operating weight — dry + liquid (kg) */
+  totalOperatingWeight: number;
+
   /** Warnings */
   warnings: string[];
 }
@@ -164,6 +191,90 @@ const SIPHON_VELOCITY_MAX = 1.0;
 
 /** Minimum allowed safety factor (%) */
 const MIN_SAFETY_FACTOR = 20;
+
+/**
+ * Density ratio relative to carbon steel (7,850 kg/m³).
+ * Multiply CS pipe/elbow weight by this ratio for other materials.
+ */
+const MATERIAL_DENSITY_RATIO: Record<PipeMaterial, number> = {
+  carbon_steel: 1.0,
+  ss_304l: 1.023, // 8,030 kg/m³
+  ss_316l: 1.019, // 8,000 kg/m³
+  duplex_2205: 0.994, // 7,805 kg/m³
+  super_duplex_2507: 0.994, // 7,800 kg/m³
+  titanium_gr2: 0.574, // 4,510 kg/m³
+  cu_ni_90_10: 1.134, // 8,900 kg/m³
+};
+
+/**
+ * 90° Long Radius elbow weights (kg) per NPS — ASME B16.9
+ * Keyed by schedule, then NPS string.
+ * Values are for carbon steel; multiply by MATERIAL_DENSITY_RATIO for other materials.
+ */
+const ELBOW_90LR_WEIGHT_KG: Record<string, Record<string, number>> = {
+  '10': {
+    '1/2': 0.1,
+    '3/4': 0.17,
+    '1': 0.3,
+    '1-1/4': 0.45,
+    '1-1/2': 0.57,
+    '2': 0.91,
+    '2-1/2': 1.36,
+    '3': 1.82,
+    '4': 2.72,
+    '6': 6.8,
+    '8': 13.61,
+    '10': 21.77,
+    '12': 30.84,
+  },
+  '40': {
+    '1/2': 0.14,
+    '3/4': 0.23,
+    '1': 0.39,
+    '1-1/4': 0.59,
+    '1-1/2': 0.77,
+    '2': 1.27,
+    '2-1/2': 2.18,
+    '3': 3.18,
+    '4': 5.67,
+    '5': 9.07,
+    '6': 14.51,
+    '8': 28.12,
+    '10': 47.63,
+    '12': 65.77,
+    '14': 84.82,
+    '16': 108.86,
+    '18': 136.08,
+    '20': 172.37,
+    '24': 263.08,
+  },
+  '80': {
+    '1/2': 0.18,
+    '3/4': 0.3,
+    '1': 0.54,
+    '1-1/4': 0.82,
+    '1-1/2': 1.09,
+    '2': 1.82,
+    '2-1/2': 3.18,
+    '3': 4.54,
+    '4': 8.16,
+    '6': 22.68,
+    '8': 42.18,
+    '10': 74.39,
+    '12': 108.86,
+  },
+};
+
+/**
+ * Get the weight of a single 90° LR elbow for the given NPS and schedule.
+ * Falls back to Sch 40 if the exact schedule is unavailable.
+ * Returns 0 for custom pipes or unknown NPS.
+ */
+function getElbowWeightKg(nps: string, schedule: string, material: PipeMaterial): number {
+  const schedData = ELBOW_90LR_WEIGHT_KG[schedule] ?? ELBOW_90LR_WEIGHT_KG['40']!;
+  const csWeight = schedData[nps] ?? 0;
+  return Math.round(csWeight * MATERIAL_DENSITY_RATIO[material] * 100) / 100;
+}
 
 /** Maximum iterations for height convergence */
 const MAX_ITERATIONS = 10;
@@ -536,6 +647,26 @@ export function calculateSiphonSizing(
   // area (mm²) → m² ÷ 1e6, × length (m) → m³, × 1000 → liters
   const holdupVolumeLiters = (pipeResult.area_mm2 / 1e6) * totalPipeLength * 1000;
 
+  // Weight calculations
+  const pipeMaterial = input.pipeMaterial ?? 'carbon_steel';
+  const schedule = input.pipeSchedule ?? '40';
+  const materialRatio = MATERIAL_DENSITY_RATIO[pipeMaterial];
+
+  // Pipe weight: CS weight/m × material ratio × length
+  const pipeWeight =
+    Math.round(pipeResult.weight_kgm * materialRatio * totalPipeLength * 100) / 100;
+
+  // Elbow weight: single elbow weight × count
+  const singleElbowWeight = getElbowWeightKg(pipeResult.nps, schedule, pipeMaterial);
+  const elbowWeight = Math.round(singleElbowWeight * elbowCount * 100) / 100;
+
+  const totalDryWeight = Math.round((pipeWeight + elbowWeight) * 100) / 100;
+
+  // Liquid holdup weight: volume (L) × density (kg/m³) / 1000
+  const liquidWeight = Math.round(((holdupVolumeLiters * density) / 1000) * 100) / 100;
+
+  const totalOperatingWeight = Math.round((totalDryWeight + liquidWeight) * 100) / 100;
+
   return {
     pipe: pipeResult,
     velocity: pipeResult.actualVelocity,
@@ -567,6 +698,13 @@ export function calculateSiphonSizing(
     pressureDiffBar,
 
     holdupVolumeLiters,
+
+    pipeMaterial,
+    pipeWeight,
+    elbowWeight,
+    totalDryWeight,
+    liquidWeight,
+    totalOperatingWeight,
 
     warnings,
   };

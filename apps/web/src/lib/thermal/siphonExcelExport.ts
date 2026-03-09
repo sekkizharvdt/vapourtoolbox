@@ -13,6 +13,7 @@ import {
   PRESSURE_UNIT_LABELS,
   FLUID_TYPE_LABELS,
   ELBOW_CONFIG_LABELS,
+  PIPE_MATERIAL_LABELS,
 } from '@/app/thermal/calculators/siphon-sizing/components/types';
 
 interface ExportMeta {
@@ -126,6 +127,7 @@ export async function exportSiphonToExcel(
   addDataRow(summary, 'Mass Flow Rate', inputs.flowRate, 'ton/hr');
   addDataRow(summary, 'Target Velocity', inputs.targetVelocity, 'm/s');
   addDataRow(summary, 'Pipe Schedule', scheduleLabel);
+  addDataRow(summary, 'Pipe Material', PIPE_MATERIAL_LABELS[inputs.pipeMaterial] || 'Carbon Steel');
   addDataRow(summary, 'Elbow Configuration', elbowLabel);
   addDataRow(summary, 'Horizontal Distance', inputs.horizontalDistance, 'm');
   if (inputs.elbowConfig !== '2_elbows') {
@@ -249,6 +251,32 @@ export async function exportSiphonToExcel(
       : result.holdupVolumeLiters.toFixed(1),
     result.holdupVolumeLiters >= 1000 ? 'm³' : 'L'
   );
+  detailed.addRow([]);
+
+  // Weight Estimate
+  addSectionHeader(detailed, 'WEIGHT ESTIMATE');
+  addDataRow(
+    detailed,
+    'Pipe Material',
+    PIPE_MATERIAL_LABELS[result.pipeMaterial] || 'Carbon Steel'
+  );
+  addDataRow(detailed, 'Pipe Weight', result.pipeWeight.toFixed(1), 'kg');
+  addDataRow(
+    detailed,
+    `Elbow Weight (${result.elbowCount} nos.)`,
+    result.elbowWeight.toFixed(1),
+    'kg'
+  );
+  addDataRow(detailed, 'Total Dry Weight', result.totalDryWeight.toFixed(1), 'kg');
+  addDataRow(detailed, 'Liquid Holdup Weight', result.liquidWeight.toFixed(1), 'kg');
+  const opWeightRow = addDataRow(
+    detailed,
+    'Total Operating Weight',
+    result.totalOperatingWeight.toFixed(1),
+    'kg'
+  );
+  opWeightRow.font = { bold: true };
+  opWeightRow.border = { top: { style: 'medium' } };
 
   // Generate blob
   const buffer = await workbook.xlsx.writeBuffer();
@@ -271,6 +299,7 @@ export async function exportBatchSiphonToExcel(
     salinity: string;
     targetVelocity: string;
     pipeSchedule: string;
+    pipeMaterial: string;
     elbowConfig: string;
     horizontalDistance: string;
     offsetDistance: string;
@@ -307,6 +336,8 @@ export async function exportBatchSiphonToExcel(
     'Flash (%)',
     'ΔP (mbar)',
     'Holdup (L)',
+    'Dry Wt (kg)',
+    'Oper. Wt (kg)',
   ]);
   headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   headerRow.fill = {
@@ -326,6 +357,8 @@ export async function exportBatchSiphonToExcel(
   summary.getColumn(7).width = 12;
   summary.getColumn(8).width = 14;
   summary.getColumn(9).width = 14;
+  summary.getColumn(10).width = 14;
+  summary.getColumn(11).width = 14;
 
   // Data rows
   results.forEach(({ fromEffect, toEffect, result }, i) => {
@@ -344,6 +377,8 @@ export async function exportBatchSiphonToExcel(
       Number((result.flashVaporFraction * 100).toFixed(2)),
       Number(result.pressureDrop.totalPressureDropMbar.toFixed(1)),
       Number(result.holdupVolumeLiters.toFixed(1)),
+      Number(result.totalDryWeight.toFixed(1)),
+      Number(result.totalOperatingWeight.toFixed(1)),
     ]);
 
     // Color-code velocity status
@@ -362,6 +397,8 @@ export async function exportBatchSiphonToExcel(
     row.getCell(7).numFmt = '0.00';
     row.getCell(8).numFmt = '0.0';
     row.getCell(9).numFmt = '0.0';
+    row.getCell(10).numFmt = '0.0';
+    row.getCell(11).numFmt = '0.0';
   });
 
   // Common inputs section
@@ -385,6 +422,10 @@ export async function exportBatchSiphonToExcel(
   }
   addInput('Target Velocity', `${commonInputs.targetVelocity} m/s`);
   addInput('Pipe Schedule', scheduleLabel);
+  addInput(
+    'Pipe Material',
+    PIPE_MATERIAL_LABELS[commonInputs.pipeMaterial] || commonInputs.pipeMaterial || 'Carbon Steel'
+  );
   addInput('Elbow Configuration', elbowLabel);
   addInput('Horizontal Distance', `${commonInputs.horizontalDistance} m`);
   if (commonInputs.elbowConfig !== '2_elbows') {

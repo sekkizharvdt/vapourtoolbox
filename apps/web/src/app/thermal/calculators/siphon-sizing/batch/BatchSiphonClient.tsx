@@ -35,6 +35,7 @@ import {
   type SiphonFluidType,
   type PressureUnit,
   type ElbowConfig,
+  type PipeMaterial,
 } from '@/lib/thermal/siphonSizingCalculator';
 import { getStaticPipes } from '@/lib/thermal/pipeService';
 import { exportBatchSiphonToExcel } from '@/lib/thermal/siphonExcelExport';
@@ -54,6 +55,7 @@ import {
   FLUID_TYPE_LABELS,
   ELBOW_CONFIG_LABELS,
   PIPE_SCHEDULE_OPTIONS,
+  PIPE_MATERIAL_LABELS,
 } from '../components/types';
 import {
   EffectInputTable,
@@ -72,6 +74,7 @@ export default function BatchSiphonClient() {
   const [salinity, setSalinity] = useState<string>('35000');
   const [targetVelocity, setTargetVelocity] = useState<string>('1.0');
   const [pipeSchedule, setPipeSchedule] = useState<string>('40');
+  const [pipeMaterial, setPipeMaterial] = useState<PipeMaterial>('carbon_steel');
   const [elbowConfig, setElbowConfig] = useState<ElbowConfig>('2_elbows');
   const [horizontalDistance, setHorizontalDistance] = useState<string>('3');
   const [offsetDistance, setOffsetDistance] = useState<string>('1.5');
@@ -145,6 +148,7 @@ export default function BatchSiphonClient() {
           targetVelocity: vel,
           safetyFactor: sf,
           pipeSchedule,
+          pipeMaterial,
           ...(pipeOverrides[i] ? { overrideNps: pipeOverrides[i] } : {}),
         };
 
@@ -167,6 +171,7 @@ export default function BatchSiphonClient() {
     salinity,
     targetVelocity,
     pipeSchedule,
+    pipeMaterial,
     elbowConfig,
     horizontalDistance,
     offsetDistance,
@@ -181,6 +186,7 @@ export default function BatchSiphonClient() {
       salinity,
       targetVelocity,
       pipeSchedule,
+      pipeMaterial,
       elbowConfig,
       horizontalDistance,
       offsetDistance,
@@ -205,6 +211,7 @@ export default function BatchSiphonClient() {
     salinity,
     targetVelocity,
     pipeSchedule,
+    pipeMaterial,
     elbowConfig,
     horizontalDistance,
     offsetDistance,
@@ -221,6 +228,8 @@ export default function BatchSiphonClient() {
     if (typeof inputs.salinity === 'string') setSalinity(inputs.salinity);
     if (typeof inputs.targetVelocity === 'string') setTargetVelocity(inputs.targetVelocity);
     if (typeof inputs.pipeSchedule === 'string') setPipeSchedule(inputs.pipeSchedule);
+    if (typeof inputs.pipeMaterial === 'string')
+      setPipeMaterial(inputs.pipeMaterial as PipeMaterial);
     if (typeof inputs.elbowConfig === 'string') setElbowConfig(inputs.elbowConfig as ElbowConfig);
     if (typeof inputs.horizontalDistance === 'string')
       setHorizontalDistance(inputs.horizontalDistance);
@@ -243,6 +252,7 @@ export default function BatchSiphonClient() {
     flowRate: String(effects[br.fromEffect - 1]?.flowToNext ?? ''),
     targetVelocity,
     pipeSchedule,
+    pipeMaterial,
     elbowConfig,
     horizontalDistance,
     offsetDistance,
@@ -370,6 +380,21 @@ export default function BatchSiphonClient() {
                   {PIPE_SCHEDULE_OPTIONS.map((opt) => (
                     <MenuItem key={opt.value} value={opt.value}>
                       {opt.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth size="small">
+                <InputLabel>Pipe Material</InputLabel>
+                <Select
+                  value={pipeMaterial}
+                  label="Pipe Material"
+                  onChange={(e) => setPipeMaterial(e.target.value as PipeMaterial)}
+                >
+                  {Object.entries(PIPE_MATERIAL_LABELS).map(([key, label]) => (
+                    <MenuItem key={key} value={key}>
+                      {label}
                     </MenuItem>
                   ))}
                 </Select>

@@ -16,6 +16,7 @@ import {
   type SiphonFluidType,
   type PressureUnit,
   type ElbowConfig,
+  type PipeMaterial,
 } from '@/lib/thermal/siphonSizingCalculator';
 import { mbarAbsToBar } from '@vapour/constants';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
@@ -43,8 +44,9 @@ export default function SiphonSizingClient() {
   const [horizontalDistance, setHorizontalDistance] = useState<string>('3');
   const [offsetDistance, setOffsetDistance] = useState<string>('1.5');
 
-  // Pipe schedule state
+  // Pipe schedule & material state
   const [pipeSchedule, setPipeSchedule] = useState<string>('40');
+  const [pipeMaterial, setPipeMaterial] = useState<PipeMaterial>('carbon_steel');
 
   // Custom pipe state (for plate-formed pipes exceeding 24")
   const [customPipeId, setCustomPipeId] = useState<string>('');
@@ -131,6 +133,7 @@ export default function SiphonSizingClient() {
         targetVelocity: vel,
         safetyFactor: sf,
         pipeSchedule,
+        pipeMaterial,
         ...(customPipe ? { customPipe } : {}),
       };
 
@@ -148,6 +151,7 @@ export default function SiphonSizingClient() {
     flowRate,
     targetVelocity,
     pipeSchedule,
+    pipeMaterial,
     elbowConfig,
     horizontalDistance,
     offsetDistance,
@@ -220,6 +224,8 @@ export default function SiphonSizingClient() {
               onTargetVelocityChange={setTargetVelocity}
               pipeSchedule={pipeSchedule}
               onPipeScheduleChange={setPipeSchedule}
+              pipeMaterial={pipeMaterial}
+              onPipeMaterialChange={setPipeMaterial}
               customPipeId={customPipeId}
               customPipeThickness={customPipeThickness}
               onCustomPipeIdChange={setCustomPipeId}
@@ -265,6 +271,7 @@ export default function SiphonSizingClient() {
                 flowRate,
                 targetVelocity,
                 pipeSchedule,
+                pipeMaterial,
                 elbowConfig,
                 horizontalDistance,
                 offsetDistance,
@@ -333,6 +340,8 @@ export default function SiphonSizingClient() {
           if (typeof inputs.flowRate === 'string') setFlowRate(inputs.flowRate);
           if (typeof inputs.targetVelocity === 'string') setTargetVelocity(inputs.targetVelocity);
           if (typeof inputs.pipeSchedule === 'string') setPipeSchedule(inputs.pipeSchedule);
+          if (typeof inputs.pipeMaterial === 'string')
+            setPipeMaterial(inputs.pipeMaterial as PipeMaterial);
           if (typeof inputs.elbowConfig === 'string')
             setElbowConfig(inputs.elbowConfig as ElbowConfig);
           if (typeof inputs.horizontalDistance === 'string')

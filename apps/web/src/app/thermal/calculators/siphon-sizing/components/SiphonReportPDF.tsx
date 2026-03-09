@@ -8,7 +8,12 @@ import React from 'react';
 import { Document, Text, View, StyleSheet } from '@react-pdf/renderer';
 import type { SiphonSizingResult } from '@/lib/thermal/siphonSizingCalculator';
 import { FITTING_NAMES, type FittingType } from '@/lib/thermal/pressureDropCalculator';
-import { ELBOW_CONFIG_LABELS, FLUID_TYPE_LABELS, PRESSURE_UNIT_LABELS } from './types';
+import {
+  ELBOW_CONFIG_LABELS,
+  FLUID_TYPE_LABELS,
+  PRESSURE_UNIT_LABELS,
+  PIPE_MATERIAL_LABELS,
+} from './types';
 import type { ElbowConfig } from './types';
 import { SiphonDiagramPDF } from './SiphonDiagramPDF';
 import {
@@ -49,6 +54,7 @@ export interface SiphonReportInputs {
   flowRate: string;
   targetVelocity: string;
   pipeSchedule: string;
+  pipeMaterial: string;
   elbowConfig: string;
   horizontalDistance: string;
   offsetDistance: string;
@@ -84,6 +90,8 @@ export const SiphonReportPDF = ({
   const fluidLabel = FLUID_TYPE_LABELS[inputs.fluidType] || inputs.fluidType;
   const elbowLabel = ELBOW_CONFIG_LABELS[inputs.elbowConfig] || inputs.elbowConfig;
   const scheduleLabel = `Sch ${inputs.pipeSchedule || '40'}`;
+  const materialLabel =
+    PIPE_MATERIAL_LABELS[inputs.pipeMaterial] || inputs.pipeMaterial || 'Carbon Steel';
   const safetyPct = (
     (result.safetyMargin / (result.staticHead + result.frictionHead)) *
     100
@@ -106,6 +114,7 @@ export const SiphonReportPDF = ({
   const rightParams = [
     { label: 'Mass Flow Rate', value: `${inputs.flowRate} ton/hr` },
     { label: 'Target Velocity', value: `${inputs.targetVelocity} m/s` },
+    { label: 'Pipe Material', value: materialLabel },
     { label: 'Elbow Configuration', value: elbowLabel },
     { label: 'Horizontal Distance', value: `${inputs.horizontalDistance} m` },
     ...(inputs.elbowConfig !== '2_elbows'
@@ -300,6 +309,36 @@ export const SiphonReportPDF = ({
                   { label: 'Elbows', value: String(result.elbowCount) },
                   { label: 'Total Pipe Length', value: `${fmt(result.totalPipeLength, 1)} m` },
                   { label: 'Holdup Volume', value: holdupDisplay },
+                ]}
+              />
+            }
+          />
+        </ReportSection>
+
+        {/* 7. Weight Estimate */}
+        <ReportSection title="7. WEIGHT ESTIMATE">
+          <TwoColumnLayout
+            left={
+              <KeyValueTable
+                rows={[
+                  { label: 'Pipe Material', value: materialLabel },
+                  { label: 'Pipe Weight', value: `${fmt(result.pipeWeight, 1)} kg` },
+                  {
+                    label: 'Elbow Weight',
+                    value: `${fmt(result.elbowWeight, 1)} kg (${result.elbowCount} nos.)`,
+                  },
+                  { label: 'Total Dry Weight', value: `${fmt(result.totalDryWeight, 1)} kg` },
+                ]}
+              />
+            }
+            right={
+              <KeyValueTable
+                rows={[
+                  { label: 'Liquid Holdup Weight', value: `${fmt(result.liquidWeight, 1)} kg` },
+                  {
+                    label: 'Total Operating Weight',
+                    value: `${fmt(result.totalOperatingWeight, 1)} kg`,
+                  },
                 ]}
               />
             }

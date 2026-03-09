@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import type { SiphonSizingResult } from '@/lib/thermal/siphonSizingCalculator';
 import { FITTING_NAMES, type FittingType } from '@/lib/thermal/pressureDropCalculator';
+import { PIPE_MATERIAL_LABELS } from './types';
 import { exportSiphonToExcel } from '@/lib/thermal/siphonExcelExport';
 import { GenerateReportDialog } from './GenerateReportDialog';
 import { SaveCalculationDialog } from './SaveCalculationDialog';
@@ -438,6 +439,49 @@ export function SiphonResults({ result, inputs }: SiphonResultsProps) {
               </Typography>
             </Grid>
           )}
+        </Grid>
+      </Paper>
+
+      {/* === Weight Estimate === */}
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Typography variant="subtitle2" gutterBottom>
+          Weight Estimate ({PIPE_MATERIAL_LABELS[result.pipeMaterial] || 'Carbon Steel'})
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 6, sm: 4 }}>
+            <Typography variant="caption" color="text.secondary">
+              Pipe Weight
+            </Typography>
+            <Typography variant="body2">{result.pipeWeight.toFixed(1)} kg</Typography>
+          </Grid>
+          <Grid size={{ xs: 6, sm: 4 }}>
+            <Typography variant="caption" color="text.secondary">
+              Elbow Weight ({result.elbowCount} nos.)
+            </Typography>
+            <Typography variant="body2">{result.elbowWeight.toFixed(1)} kg</Typography>
+          </Grid>
+          <Grid size={{ xs: 6, sm: 4 }}>
+            <Typography variant="caption" color="text.secondary">
+              Total Dry Weight
+            </Typography>
+            <Typography variant="body2" fontWeight="bold">
+              {result.totalDryWeight.toFixed(1)} kg
+            </Typography>
+          </Grid>
+          <Grid size={{ xs: 6, sm: 4 }}>
+            <Typography variant="caption" color="text.secondary">
+              Liquid Holdup Weight
+            </Typography>
+            <Typography variant="body2">{result.liquidWeight.toFixed(1)} kg</Typography>
+          </Grid>
+          <Grid size={{ xs: 6, sm: 4 }}>
+            <Typography variant="caption" color="text.secondary">
+              Total Operating Weight
+            </Typography>
+            <Typography variant="body2" fontWeight="bold">
+              {result.totalOperatingWeight.toFixed(1)} kg
+            </Typography>
+          </Grid>
         </Grid>
       </Paper>
 
