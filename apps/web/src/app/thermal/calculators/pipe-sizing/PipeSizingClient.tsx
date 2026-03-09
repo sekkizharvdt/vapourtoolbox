@@ -7,8 +7,19 @@
  * Uses ASME B36.10 Schedule 40 pipe data.
  */
 
-import { useState, useMemo } from 'react';
-import { Container, Typography, Box, Paper, Grid, Chip, Stack } from '@mui/material';
+import { useState, useMemo, lazy, Suspense } from 'react';
+import {
+  Container,
+  Typography,
+  Box,
+  Paper,
+  Grid,
+  Chip,
+  Stack,
+  Button,
+  CircularProgress,
+} from '@mui/material';
+import { PictureAsPdf as PdfIcon } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   SCHEDULE_40_PIPES,
@@ -30,6 +41,10 @@ import {
   PipeResults,
   PipeReferenceTables,
 } from './components';
+
+const GenerateReportDialog = lazy(() =>
+  import('./components/GenerateReportDialog').then((m) => ({ default: m.GenerateReportDialog }))
+);
 
 export default function PipeSizingClient() {
   // Mode
@@ -54,6 +69,7 @@ export default function PipeSizingClient() {
   const [selectedNPS, setSelectedNPS] = useState<string>('4');
 
   const [error, setError] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Calculate fluid density
   const density = useMemo(() => {
@@ -285,6 +301,15 @@ export default function PipeSizingClient() {
         </Grid>
       </Grid>
 
+      {/* PDF Report Button */}
+      {result && (
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button variant="outlined" startIcon={<PdfIcon />} onClick={() => setReportOpen(true)}>
+            Generate Report
+          </Button>
+        </Box>
+      )}
+
       {/* Reference Tables */}
       <PipeReferenceTables onPipeSelect={handlePipeSelect} />
 
@@ -298,6 +323,29 @@ export default function PipeSizingClient() {
           general process piping applications.
         </Typography>
       </Box>
+      {/* Report Dialog */}
+      {reportOpen && result && (
+        <Suspense fallback={<CircularProgress />}>
+          <GenerateReportDialog
+            open={reportOpen}
+            onClose={() => setReportOpen(false)}
+            result={result}
+            inputs={{
+              mode,
+              flowRate,
+              flowUnit,
+              fluidType,
+              temperature,
+              salinity,
+              density,
+              targetVelocity,
+              minVelocity,
+              maxVelocity,
+              selectedNPS,
+            }}
+          />
+        </Suspense>
+      )}
     </Container>
   );
 }

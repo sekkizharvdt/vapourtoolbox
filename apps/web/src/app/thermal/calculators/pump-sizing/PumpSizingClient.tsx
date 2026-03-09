@@ -7,11 +7,27 @@
  * and recommended motor size for centrifugal pump sizing.
  */
 
-import { useState, useMemo } from 'react';
-import { Container, Typography, Box, Paper, Grid, Alert, Chip, Stack } from '@mui/material';
+import { useState, useMemo, lazy, Suspense } from 'react';
+import {
+  Container,
+  Typography,
+  Box,
+  Paper,
+  Grid,
+  Alert,
+  Chip,
+  Stack,
+  Button,
+  CircularProgress,
+} from '@mui/material';
+import { PictureAsPdf as PdfIcon } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculateTDH } from '@/lib/thermal';
 import { PumpSizingInputs, PumpSizingResults } from './components';
+
+const GenerateReportDialog = lazy(() =>
+  import('./components/GenerateReportDialog').then((m) => ({ default: m.GenerateReportDialog }))
+);
 
 export default function PumpSizingClient() {
   // Input state
@@ -26,6 +42,7 @@ export default function PumpSizingClient() {
   const [motorEfficiency, setMotorEfficiency] = useState<string>('95');
 
   const [error, setError] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Calculate pump sizing
   const result = useMemo(() => {
@@ -158,6 +175,15 @@ export default function PumpSizingClient() {
         </Grid>
       </Grid>
 
+      {/* PDF Report Button */}
+      {result && (
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button variant="outlined" startIcon={<PdfIcon />} onClick={() => setReportOpen(true)}>
+            Generate Report
+          </Button>
+        </Box>
+      )}
+
       {/* Formulas */}
       <Box sx={{ mt: 4, p: 3, bgcolor: 'action.hover', borderRadius: 2 }}>
         <Typography variant="subtitle2" gutterBottom>
@@ -184,6 +210,28 @@ export default function PumpSizingClient() {
           <strong>Reference:</strong> Hydraulic Institute Standards, Pump Handbook (Karassik)
         </Typography>
       </Box>
+
+      {/* Report Dialog */}
+      {reportOpen && result && (
+        <Suspense fallback={<CircularProgress />}>
+          <GenerateReportDialog
+            open={reportOpen}
+            onClose={() => setReportOpen(false)}
+            result={result}
+            inputs={{
+              flowRate,
+              fluidDensity,
+              suctionVesselPressure,
+              dischargeVesselPressure,
+              staticHead,
+              suctionPressureDrop,
+              dischargePressureDrop,
+              pumpEfficiency,
+              motorEfficiency,
+            }}
+          />
+        </Suspense>
+      )}
     </Container>
   );
 }

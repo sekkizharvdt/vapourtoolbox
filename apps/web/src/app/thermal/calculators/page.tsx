@@ -126,7 +126,8 @@ const CATEGORIES: CalculatorCategory[] = [
         description:
           'Calculate shaft power, discharge conditions, and specific energy for isentropic vapor compression in MVC desalination.',
         icon: <MfgIcon sx={{ fontSize: 40 }} />,
-        status: 'coming_soon',
+        href: '/thermal/calculators/mvc',
+        status: 'available',
         reference: 'Isentropic',
       },
     ],

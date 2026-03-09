@@ -7,8 +7,19 @@
  * Uses Darcy-Weisbach equation with Colebrook-White friction factor.
  */
 
-import { useState, useMemo } from 'react';
-import { Container, Typography, Box, Grid, Alert, Stack, Chip } from '@mui/material';
+import { useState, useMemo, lazy, Suspense } from 'react';
+import {
+  Container,
+  Typography,
+  Box,
+  Grid,
+  Alert,
+  Stack,
+  Chip,
+  Button,
+  CircularProgress,
+} from '@mui/material';
+import { PictureAsPdf as PdfIcon } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculatePressureDrop, type FittingType, type FittingCount } from '@/lib/thermal';
 import { getSeawaterDensity, getSeawaterViscosity, getDensityLiquid } from '@vapour/constants';
@@ -20,6 +31,10 @@ import {
   KFactorReference,
   MethodInfo,
 } from './components';
+
+const GenerateReportDialog = lazy(() =>
+  import('./components/GenerateReportDialog').then((m) => ({ default: m.GenerateReportDialog }))
+);
 
 // Water viscosity approximation (Pa·s)
 function getWaterViscosity(tempC: number): number {
@@ -54,6 +69,7 @@ export default function PressureDropClient() {
   const [elevationChange, setElevationChange] = useState<string>('0');
 
   const [error, setError] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Calculate fluid properties
   const fluidDensity = useMemo(() => {
@@ -211,8 +227,41 @@ export default function PressureDropClient() {
         </Grid>
       </Grid>
 
+      {/* PDF Report Button */}
+      {result && (
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button variant="outlined" startIcon={<PdfIcon />} onClick={() => setReportOpen(true)}>
+            Generate Report
+          </Button>
+        </Box>
+      )}
+
       <KFactorReference />
       <MethodInfo />
+
+      {/* Report Dialog */}
+      {reportOpen && result && (
+        <Suspense fallback={<CircularProgress />}>
+          <GenerateReportDialog
+            open={reportOpen}
+            onClose={() => setReportOpen(false)}
+            result={result}
+            inputs={{
+              selectedNPS,
+              pipeLength,
+              roughness,
+              flowRate,
+              fluidType,
+              temperature,
+              salinity,
+              fluidDensity,
+              fluidViscosity,
+              elevationChange,
+              fittings,
+            }}
+          />
+        </Suspense>
+      )}
     </Container>
   );
 }

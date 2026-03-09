@@ -7,7 +7,7 @@
  * with LMTD calculation for heat exchanger sizing.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
 import {
   Container,
   Typography,
@@ -18,9 +18,12 @@ import {
   Divider,
   Chip,
   Stack,
+  Button,
+  CircularProgress,
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
+import { PictureAsPdf as PdfIcon } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   calculateSensibleHeat,
@@ -40,6 +43,10 @@ import {
   LMTDResult,
   HTCReferenceTable,
 } from './components';
+
+const GenerateReportDialog = lazy(() =>
+  import('./components/GenerateReportDialog').then((m) => ({ default: m.GenerateReportDialog }))
+);
 
 export default function HeatDutyClient() {
   // Mode
@@ -69,6 +76,7 @@ export default function HeatDutyClient() {
   const [heatDutyForArea, setHeatDutyForArea] = useState<string>('');
 
   const [error, setError] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Calculate sensible heat
   const sensibleResult = useMemo(() => {
@@ -297,6 +305,15 @@ export default function HeatDutyClient() {
         </Grid>
       </Grid>
 
+      {/* PDF Report Button */}
+      {(sensibleResult || latentResult || lmtdResult) && (
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button variant="outlined" startIcon={<PdfIcon />} onClick={() => setReportOpen(true)}>
+            Generate Report
+          </Button>
+        </Box>
+      )}
+
       {/* Reference Tables */}
       <HTCReferenceTable onHTCSelect={setOverallHTC} />
 
@@ -325,6 +342,37 @@ export default function HeatDutyClient() {
           <strong>Reference:</strong> Perry&apos;s Chemical Engineers&apos; Handbook
         </Typography>
       </Box>
+      {/* Report Dialog */}
+      {reportOpen && (
+        <Suspense fallback={<CircularProgress />}>
+          <GenerateReportDialog
+            open={reportOpen}
+            onClose={() => setReportOpen(false)}
+            inputs={{
+              mode,
+              fluidType,
+              salinity,
+              massFlowRate,
+              inletTemp,
+              outletTemp,
+              latentFlowRate,
+              saturationTemp,
+              process,
+              hotInlet,
+              hotOutlet,
+              coldInlet,
+              coldOutlet,
+              flowArrangement,
+              overallHTC,
+              heatDutyForArea,
+            }}
+            sensibleResult={sensibleResult}
+            latentResult={latentResult}
+            lmtdResult={lmtdResult}
+            requiredArea={requiredArea}
+          />
+        </Suspense>
+      )}
     </Container>
   );
 }
