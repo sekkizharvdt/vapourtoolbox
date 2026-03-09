@@ -132,17 +132,16 @@ function ElevationView({
   const scale = drawW / bundleLength;
   const pitchPx = match.pitchAlongLength * scale;
 
-  // Vertical layout proportional to spray height vs coverage
-  const coneH = 140; // fixed cone height in px for visual clarity
+  // Use actual coverage diameter scaled to drawing for correct proportions
+  const halfSpreadPx = (match.coverageDiameter / 2) * scale;
+  // Derive cone height from actual geometry (height / coverage ratio)
+  const aspectRatio = match.derivedHeight / match.coverageDiameter;
+  const coneH = Math.max(60, Math.min(180, halfSpreadPx * 2 * aspectRatio));
   const nozzleTipY = headerY + nozzleBodyH + 6;
   const targetY = nozzleTipY + coneH;
   const bundleTopY = targetY;
   const svgW = padding.left + drawW + padding.right;
   const svgH = bundleTopY + bundleH + padding.bottom;
-
-  // Spray angle → half-spread at target
-  const halfAngleRad = ((match.sprayAngle / 2) * Math.PI) / 180;
-  const halfSpreadPx = coneH * Math.tan(halfAngleRad);
 
   // Nozzle x positions (along length)
   const nozzleXPositions: number[] = [];

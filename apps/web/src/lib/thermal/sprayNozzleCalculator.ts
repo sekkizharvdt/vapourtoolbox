@@ -2341,3 +2341,191 @@ export const NOZZLE_CATEGORY_LABELS: Record<NozzleCategory, string> = {
   full_cone_square: 'Full Cone — Square',
   hollow_cone_circular: 'Hollow Cone — Circular',
 };
+
+// ── Flow Rate Units ─────────────────────────────────────────────────────────
+
+export type FlowUnit = 'lpm' | 'kg_hr' | 'ton_hr';
+
+export const FLOW_UNIT_LABELS: Record<FlowUnit, string> = {
+  lpm: 'lpm',
+  kg_hr: 'kg/hr',
+  ton_hr: 'ton/hr',
+};
+
+/** Convert from display unit to lpm (assumes water density ≈ 1 kg/L) */
+export function flowToLpm(value: number, unit: FlowUnit): number {
+  switch (unit) {
+    case 'lpm':
+      return value;
+    case 'kg_hr':
+      return value / 60; // kg/hr ÷ 60 = lpm (at 1 kg/L)
+    case 'ton_hr':
+      return (value * 1000) / 60; // ton/hr × 1000 / 60 = lpm
+  }
+}
+
+/** Convert from lpm to display unit (assumes water density ≈ 1 kg/L) */
+export function lpmToFlowUnit(lpm: number, unit: FlowUnit): number {
+  switch (unit) {
+    case 'lpm':
+      return Math.round(lpm * 100) / 100;
+    case 'kg_hr':
+      return Math.round(lpm * 60 * 100) / 100;
+    case 'ton_hr':
+      return Math.round(((lpm * 60) / 1000) * 1000) / 1000;
+  }
+}
+
+// ── Bill of Materials ───────────────────────────────────────────────────────
+
+/** Standard pipe dimensions (Schedule 40, ASME B36.10) */
+interface PipeDimension {
+  nps: string; // Nominal Pipe Size (inches)
+  dn: number; // DN (mm)
+  od: number; // Outside diameter (mm)
+  wall: number; // Wall thickness (mm)
+  id: number; // Inside diameter (mm)
+}
+
+const PIPE_SCHEDULE_40: PipeDimension[] = [
+  { nps: '1/2', dn: 15, od: 21.3, wall: 2.77, id: 15.8 },
+  { nps: '3/4', dn: 20, od: 26.7, wall: 2.87, id: 20.9 },
+  { nps: '1', dn: 25, od: 33.4, wall: 3.38, id: 26.6 },
+  { nps: '1-1/4', dn: 32, od: 42.2, wall: 3.56, id: 35.1 },
+  { nps: '1-1/2', dn: 40, od: 48.3, wall: 3.68, id: 40.9 },
+  { nps: '2', dn: 50, od: 60.3, wall: 3.91, id: 52.5 },
+  { nps: '2-1/2', dn: 65, od: 73.0, wall: 5.16, id: 62.7 },
+  { nps: '3', dn: 80, od: 88.9, wall: 5.49, id: 77.9 },
+  { nps: '4', dn: 100, od: 114.3, wall: 6.02, id: 102.3 },
+  { nps: '6', dn: 150, od: 168.3, wall: 7.11, id: 154.1 },
+];
+
+/** BSP male thread outside diameter (mm) for nozzle inlet connection sizes */
+const BSP_THREAD_OD: Record<string, number> = {
+  '1/8': 9.7,
+  '1/4': 13.2,
+  '3/8': 16.7,
+  '1/2': 20.9,
+  '3/4': 26.4,
+  '1': 33.2,
+  '1-1/4': 41.9,
+  '1-1/2': 47.8,
+  '2': 59.6,
+  '2-1/2': 75.2,
+};
+
+/** Weldolet body OD (approximate) — slightly larger than the BSP thread OD */
+const WELDOLET_BODY_OD: Record<string, number> = {
+  '1/8': 16,
+  '1/4': 21,
+  '3/8': 25,
+  '1/2': 30,
+  '3/4': 38,
+  '1': 48,
+  '1-1/4': 57,
+  '1-1/2': 64,
+  '2': 76,
+  '2-1/2': 92,
+};
+
+export interface BomItem {
+  item: string;
+  description: string;
+  size: string;
+  quantity: number;
+  material: string;
+  notes: string;
+}
+
+/**
+ * Generate a bill of materials for the nozzle assembly.
+ *
+ * All Spraying Systems FullJet/WhirlJet nozzles use BSP male pipe threads.
+ * Assembly: nozzle screws into a female-threaded weldolet welded to the header pipe.
+ * Each nozzle penetrates the shell through a flanged pipe (ID > weldolet body OD).
+ */
+export function generateNozzleBom(
+  nozzle: NozzleEntry,
+  category: NozzleCategory,
+  totalNozzles: number
+): BomItem[] {
+  const modelNumber = getOrderingModel(nozzle, category);
+  const conn = nozzle.inletConn;
+  const threadOd = BSP_THREAD_OD[conn] ?? 0;
+  const weldoletOd = WELDOLET_BODY_OD[conn] ?? threadOd * 1.4;
+
+  // Find minimum pipe that clears the weldolet body OD
+  const nozzlePipe = PIPE_SCHEDULE_40.find((p) => p.id > weldoletOd);
+  // Header pipe: one size larger than nozzle connection (minimum)
+  const headerPipe = PIPE_SCHEDULE_40.find((p) => p.id > (nozzlePipe ? nozzlePipe.od : weldoletOd));
+
+  const items: BomItem[] = [
+    {
+      item: 'Spray Nozzle',
+      description: `${NOZZLE_CATEGORIES[category].seriesName} ${modelNumber}`,
+      size: `${conn}" BSP male`,
+      quantity: totalNozzles,
+      material: 'SS 316 (specify at order)',
+      notes: 'Spraying Systems Co.',
+    },
+    {
+      item: 'Weldolet',
+      description: `Threadolet / weldolet, female BSP ${conn}"`,
+      size: `${conn}" × ${headerPipe ? headerPipe.nps + '"' : 'header'}`,
+      quantity: totalNozzles,
+      material: 'ASTM A182 F316',
+      notes: `Female thread to receive nozzle (thread OD ${threadOd} mm)`,
+    },
+  ];
+
+  if (headerPipe) {
+    items.push({
+      item: 'Header Pipe',
+      description: `Sch 40 pipe, NPS ${headerPipe.nps}" (DN${headerPipe.dn})`,
+      size: `OD ${headerPipe.od} mm × ID ${headerPipe.id} mm`,
+      quantity: 1,
+      material: 'ASTM A312 TP316',
+      notes: 'Cut to length per layout',
+    });
+  }
+
+  if (nozzlePipe) {
+    items.push({
+      item: 'Shell Nozzle Pipe',
+      description: `Sch 40 pipe, NPS ${nozzlePipe.nps}" (DN${nozzlePipe.dn})`,
+      size: `OD ${nozzlePipe.od} mm × ID ${nozzlePipe.id} mm`,
+      quantity: totalNozzles,
+      material: 'ASTM A312 TP316',
+      notes: `ID ${nozzlePipe.id} mm clears weldolet body OD ${weldoletOd} mm`,
+    });
+
+    items.push({
+      item: 'Shell Flange (Custom)',
+      description: `Weld-neck flange, NPS ${nozzlePipe.nps}" (DN${nozzlePipe.dn})`,
+      size: `Bore ${nozzlePipe.id} mm`,
+      quantity: totalNozzles,
+      material: 'ASTM A182 F316',
+      notes: 'Custom machined — welded to shell; mating flange on nozzle pipe',
+    });
+
+    items.push({
+      item: 'Counter Flange',
+      description: `Slip-on or weld-neck flange, NPS ${nozzlePipe.nps}" (DN${nozzlePipe.dn})`,
+      size: `Bore ${nozzlePipe.id} mm`,
+      quantity: totalNozzles,
+      material: 'ASTM A182 F316',
+      notes: 'Mates with shell flange — welded to nozzle pipe',
+    });
+
+    items.push({
+      item: 'Gasket',
+      description: `Spiral wound gasket, NPS ${nozzlePipe.nps}" (DN${nozzlePipe.dn})`,
+      size: `Class 150, DN${nozzlePipe.dn}`,
+      quantity: totalNozzles,
+      material: 'SS 316 / graphite fill',
+      notes: 'ASME B16.20',
+    });
+  }
+
+  return items;
+}

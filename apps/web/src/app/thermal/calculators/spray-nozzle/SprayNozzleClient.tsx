@@ -35,6 +35,10 @@ import {
   Button,
   ToggleButtonGroup,
   ToggleButton,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import {
   Opacity as FullConeIcon,
@@ -55,6 +59,12 @@ import {
   type NozzleCategory,
   type NozzleMatch,
   type NozzleLayoutMatch,
+  type FlowUnit,
+  FLOW_UNIT_LABELS,
+  flowToLpm,
+  lpmToFlowUnit,
+  generateNozzleBom,
+  type BomItem,
 } from '@/lib/thermal/sprayNozzleCalculator';
 import { SprayNozzleDiagram } from './components/SprayNozzleDiagram';
 import { NozzleLayoutDiagram } from './components/NozzleLayoutDiagram';
@@ -108,6 +118,7 @@ export default function SprayNozzleClient() {
   const [mode, setMode] = useState<CalculatorMode>('selection');
   const [category, setCategory] = useState<NozzleCategory>('full_cone_circular');
   const [requiredFlow, setRequiredFlow] = useState<string>('');
+  const [flowUnit, setFlowUnit] = useState<FlowUnit>('lpm');
   const [operatingPressure, setOperatingPressure] = useState<string>('3');
   const [tolerance, setTolerance] = useState<string>('25');
   const [error, setError] = useState<string | null>(null);
@@ -138,6 +149,7 @@ export default function SprayNozzleClient() {
     try {
       const flow = parseFloat(requiredFlow);
       if (isNaN(flow) || flow <= 0) return null;
+      const flowLpm = flowToLpm(flow, flowUnit);
       const pressure = parseFloat(operatingPressure);
       if (isNaN(pressure) || pressure <= 0) return null;
       const nozzles = parseInt(numberOfNozzles, 10);
@@ -148,7 +160,7 @@ export default function SprayNozzleClient() {
       const distMm = !isNaN(dist) && dist > 0 ? dist : undefined;
       return selectSprayNozzles({
         category,
-        requiredFlow: flow,
+        requiredFlow: flowLpm,
         operatingPressure: pressure,
         numberOfNozzles: nozzles,
         sprayDistance: distMm,
@@ -158,7 +170,16 @@ export default function SprayNozzleClient() {
       setError(err instanceof Error ? err.message : 'Calculation error');
       return null;
     }
-  }, [mode, category, requiredFlow, operatingPressure, numberOfNozzles, sprayDistance, tolerance]);
+  }, [
+    mode,
+    category,
+    requiredFlow,
+    flowUnit,
+    operatingPressure,
+    numberOfNozzles,
+    sprayDistance,
+    tolerance,
+  ]);
 
   // ── Layout result ───────────────────────────────────────────────────────
 
@@ -168,6 +189,7 @@ export default function SprayNozzleClient() {
     try {
       const flow = parseFloat(requiredFlow);
       if (isNaN(flow) || flow <= 0) return null;
+      const flowLpm = flowToLpm(flow, flowUnit);
       const pressure = parseFloat(operatingPressure);
       if (isNaN(pressure) || pressure <= 0) return null;
       const bLen = parseFloat(bundleLength);
@@ -182,7 +204,7 @@ export default function SprayNozzleClient() {
       const margin = parseFloat(overshootMargin);
       return calculateNozzleLayout({
         category,
-        totalFlow: flow,
+        totalFlow: flowLpm,
         operatingPressure: pressure,
         bundleLength: bLen,
         bundleWidth: bWid,
@@ -199,6 +221,7 @@ export default function SprayNozzleClient() {
     mode,
     category,
     requiredFlow,
+    flowUnit,
     operatingPressure,
     bundleLength,
     bundleWidth,
@@ -298,23 +321,30 @@ export default function SprayNozzleClient() {
               </Typography>
               <Divider sx={{ mb: 2 }} />
               <Stack spacing={2}>
-                <TextField
-                  label="Total Required Flow Rate"
-                  value={requiredFlow}
-                  onChange={(e) => setRequiredFlow(e.target.value)}
-                  fullWidth
-                  size="small"
-                  type="number"
-                  slotProps={{
-                    input: {
-                      endAdornment: (
-                        <Typography variant="caption" sx={{ ml: 1 }}>
-                          lpm
-                        </Typography>
-                      ),
-                    },
-                  }}
-                />
+                <Stack direction="row" spacing={1} alignItems="flex-start">
+                  <TextField
+                    label="Total Required Flow Rate"
+                    value={requiredFlow}
+                    onChange={(e) => setRequiredFlow(e.target.value)}
+                    fullWidth
+                    size="small"
+                    type="number"
+                  />
+                  <FormControl size="small" sx={{ minWidth: 100 }}>
+                    <InputLabel>Unit</InputLabel>
+                    <Select
+                      value={flowUnit}
+                      label="Unit"
+                      onChange={(e) => setFlowUnit(e.target.value as FlowUnit)}
+                    >
+                      {(Object.keys(FLOW_UNIT_LABELS) as FlowUnit[]).map((u) => (
+                        <MenuItem key={u} value={u}>
+                          {FLOW_UNIT_LABELS[u]}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Stack>
 
                 <TextField
                   label="Operating Pressure"
@@ -536,8 +566,10 @@ export default function SprayNozzleClient() {
             <SelectionResults
               result={selectionResult}
               requiredFlow={requiredFlow}
+              flowUnit={flowUnit}
               tolerance={tolerance}
               config={config}
+              category={category}
               onReportOpen={() => setReportOpen(true)}
               onSaveOpen={() => setSaveDialogOpen(true)}
             />
@@ -545,6 +577,7 @@ export default function SprayNozzleClient() {
             <LayoutResults
               result={layoutResult}
               category={category}
+              flowUnit={flowUnit}
               bundleLength={parseFloat(bundleLength)}
               bundleWidth={parseFloat(bundleWidth)}
               onReportOpen={(idx) => {
@@ -604,6 +637,7 @@ export default function SprayNozzleClient() {
           mode,
           category,
           requiredFlow,
+          flowUnit,
           operatingPressure,
           tolerance,
           ...(mode === 'selection'
@@ -621,6 +655,7 @@ export default function SprayNozzleClient() {
           if (typeof inputs.mode === 'string') setMode(inputs.mode as CalculatorMode);
           if (typeof inputs.category === 'string') setCategory(inputs.category as NozzleCategory);
           if (typeof inputs.requiredFlow === 'string') setRequiredFlow(inputs.requiredFlow);
+          if (typeof inputs.flowUnit === 'string') setFlowUnit(inputs.flowUnit as FlowUnit);
           if (typeof inputs.operatingPressure === 'string')
             setOperatingPressure(inputs.operatingPressure);
           if (typeof inputs.tolerance === 'string') setTolerance(inputs.tolerance);
@@ -646,18 +681,23 @@ export default function SprayNozzleClient() {
 function SelectionResults({
   result,
   requiredFlow,
+  flowUnit,
   tolerance,
   config,
+  category,
   onReportOpen,
   onSaveOpen,
 }: {
   result: ReturnType<typeof selectSprayNozzles> | null;
   requiredFlow: string;
+  flowUnit: FlowUnit;
   tolerance: string;
   config: (typeof NOZZLE_CATEGORIES)[NozzleCategory];
+  category: NozzleCategory;
   onReportOpen: () => void;
   onSaveOpen: () => void;
 }) {
+  const flowLabel = FLOW_UNIT_LABELS[flowUnit];
   if (!result) {
     return (
       <Paper
@@ -689,9 +729,15 @@ function SelectionResults({
           justifyContent="space-between"
         >
           <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
-            <SummaryItem label="Required Flow (total)" value={`${parseFloat(requiredFlow)} lpm`} />
+            <SummaryItem
+              label="Required Flow (total)"
+              value={`${parseFloat(requiredFlow)} ${flowLabel}`}
+            />
             {result.numberOfNozzles > 1 && (
-              <SummaryItem label="Flow per Nozzle" value={`${result.flowPerNozzle} lpm`} />
+              <SummaryItem
+                label="Flow per Nozzle"
+                value={`${lpmToFlowUnit(result.flowPerNozzle, flowUnit)} ${flowLabel}`}
+              />
             )}
             <SummaryItem label="Pressure" value={`${result.operatingPressure} bar`} />
             <SummaryItem
@@ -744,7 +790,7 @@ function SelectionResults({
                   </Tooltip>
                 </TableCell>
                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                  Flow (lpm)
+                  Flow ({flowLabel})
                 </TableCell>
                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                   Deviation
@@ -794,7 +840,7 @@ function SelectionResults({
                   <TableCell align="right">{match.nozzle.orificeDia}</TableCell>
                   <TableCell align="right">{match.nozzle.maxFreePassage}</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                    {match.flowAtPressure}
+                    {lpmToFlowUnit(match.flowAtPressure, flowUnit)}
                   </TableCell>
                   <TableCell
                     align="right"
@@ -837,6 +883,14 @@ function SelectionResults({
         </Paper>
       )}
 
+      {/* Bill of Materials */}
+      {result.matches.length > 0 && result.matches[0] && (
+        <NozzleBomTable
+          bom={generateNozzleBom(result.matches[0].nozzle, category, result.numberOfNozzles)}
+          title={`Bill of Materials — ${result.matches[0].modelNumber}`}
+        />
+      )}
+
       {/* Reference note */}
       <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
         <Typography variant="caption" color="text.secondary" component="div">
@@ -862,6 +916,7 @@ function SelectionResults({
 function LayoutResults({
   result,
   category,
+  flowUnit,
   bundleLength,
   bundleWidth,
   onReportOpen,
@@ -869,12 +924,14 @@ function LayoutResults({
 }: {
   result: ReturnType<typeof calculateNozzleLayout> | null;
   category: NozzleCategory;
+  flowUnit: FlowUnit;
   bundleLength: number;
   bundleWidth: number;
   onReportOpen: (selectedIdx: number) => void;
   onSaveOpen: () => void;
 }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const flowLabel = FLOW_UNIT_LABELS[flowUnit];
 
   if (!result) {
     return (
@@ -909,7 +966,10 @@ function LayoutResults({
           justifyContent="space-between"
         >
           <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
-            <SummaryItem label="Total Flow" value={`${result.totalFlow} lpm`} />
+            <SummaryItem
+              label="Total Flow"
+              value={`${lpmToFlowUnit(result.totalFlow, flowUnit)} ${flowLabel}`}
+            />
             <SummaryItem label="Pressure" value={`${result.operatingPressure} bar`} />
             <SummaryItem
               label="Bundle"
@@ -974,7 +1034,10 @@ function LayoutResults({
                   />
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
-                  <SummaryItem label="Flow / Nozzle" value={`${best.flowAtPressure} lpm`} />
+                  <SummaryItem
+                    label="Flow / Nozzle"
+                    value={`${lpmToFlowUnit(best.flowAtPressure, flowUnit)} ${flowLabel}`}
+                  />
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
                   <SummaryItem
@@ -998,7 +1061,7 @@ function LayoutResults({
                   <Grid size={{ xs: 6, sm: 3 }}>
                     <SummaryItem
                       label="Overspray"
-                      value={`${best.wastedFlowLpm} lpm (${best.wastedFlowPercent}%)`}
+                      value={`${lpmToFlowUnit(best.wastedFlowLpm, flowUnit)} ${flowLabel} (${best.wastedFlowPercent}%)`}
                     />
                   </Grid>
                 )}
@@ -1028,7 +1091,7 @@ function LayoutResults({
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                     <Tooltip title="Flow this nozzle delivers at operating pressure">
-                      <span>Flow (lpm)</span>
+                      <span>Flow ({flowLabel})</span>
                     </Tooltip>
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 'bold' }}>
@@ -1096,7 +1159,9 @@ function LayoutResults({
                       {match.totalNozzles}
                     </TableCell>
                     <TableCell align="right">{match.derivedHeight}</TableCell>
-                    <TableCell align="right">{match.flowAtPressure}</TableCell>
+                    <TableCell align="right">
+                      {lpmToFlowUnit(match.flowAtPressure, flowUnit)}
+                    </TableCell>
                     <TableCell
                       align="right"
                       sx={{
@@ -1155,6 +1220,14 @@ function LayoutResults({
         </Paper>
       )}
 
+      {/* Bill of Materials */}
+      {best && (
+        <NozzleBomTable
+          bom={generateNozzleBom(best.nozzle, category, best.totalNozzles)}
+          title={`Bill of Materials — ${best.modelNumber}`}
+        />
+      )}
+
       {/* Reference note */}
       <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
         <Typography variant="caption" color="text.secondary" component="div">
@@ -1170,6 +1243,66 @@ function LayoutResults({
         </Typography>
       </Box>
     </Stack>
+  );
+}
+
+// ── BOM Table Component ──────────────────────────────────────────────────────
+
+function NozzleBomTable({ bom, title }: { bom: BomItem[]; title: string }) {
+  return (
+    <Paper sx={{ p: 2 }}>
+      <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+        {title}
+      </Typography>
+      <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+        All nozzles use BSP male threads. Assembly: nozzle &rarr; female weldolet &rarr; header
+        pipe. Shell penetration via flanged nozzle pipe.
+      </Typography>
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 'bold' }}>Item</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Size</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold' }}>
+                Qty
+              </TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Material</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Notes</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {bom.map((item, idx) => (
+              <TableRow key={idx}>
+                <TableCell>
+                  <Typography variant="body2" fontWeight="bold">
+                    {item.item}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2">{item.description}</Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                    {item.size}
+                  </Typography>
+                </TableCell>
+                <TableCell align="center">{item.quantity}</TableCell>
+                <TableCell>
+                  <Typography variant="caption">{item.material}</Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" color="text.secondary">
+                    {item.notes}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Paper>
   );
 }
 
