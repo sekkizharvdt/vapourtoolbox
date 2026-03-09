@@ -109,7 +109,7 @@ export default function RecurringDetailClient() {
     };
 
     loadData();
-  }, [id, hasViewAccess, claims?.entityId]);
+  }, [id, hasViewAccess]);
 
   const handleToggleStatus = async () => {
     if (!transaction || !user) return;

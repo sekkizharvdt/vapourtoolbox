@@ -85,7 +85,7 @@ export default function UpcomingOccurrencesPage() {
     };
 
     loadData();
-  }, [hasViewAccess, dateRange, claims?.entityId]);
+  }, [hasViewAccess, dateRange]);
 
   const formatCurrency = (amount: number, currency = 'INR') => {
     return `${amount.toLocaleString('en-IN', {
