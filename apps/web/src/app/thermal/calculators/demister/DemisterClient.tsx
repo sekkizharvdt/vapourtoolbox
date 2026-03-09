@@ -6,9 +6,10 @@
  * Sizes demister pads using the Souders-Brown correlation.
  * Supports steam/water auto-lookup from saturation conditions
  * or manual density entry for other fluids.
+ * Includes brine carryover estimation for desalination applications.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import {
   Container,
   Typography,
@@ -29,17 +30,27 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
+  TableHead,
   TableRow,
   Card,
   CardActionArea,
   CardContent,
+  Switch,
+  FormControlLabel,
+  Button,
+  Tooltip,
 } from '@mui/material';
+import { Download as DownloadIcon, Water as WaterIcon } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   calculateDemisterSizing,
+  calculateCarryoverComparison,
+  DEFAULT_PAD_THICKNESS,
   type DemisterType,
   type DemisterOrientation,
   type VesselGeometry,
+  type DemisterResult,
 } from '@/lib/thermal';
 import {
   getSaturationTemperature,
@@ -47,6 +58,12 @@ import {
   getDensityVapor,
   getDensityLiquid,
 } from '@vapour/constants';
+
+const GenerateReportDialog = lazy(() =>
+  import('./components/GenerateReportDialog').then((m) => ({
+    default: m.GenerateReportDialog,
+  }))
+);
 
 // ── Demister type cards ───────────────────────────────────────────────────────
 
@@ -87,6 +104,23 @@ const DEMISTER_TYPES: {
   },
 ];
 
+// ── Quality color helper ─────────────────────────────────────────────────────
+
+function getQualityColor(assessment: string): string {
+  switch (assessment) {
+    case 'excellent':
+      return '#2e7d32';
+    case 'good':
+      return '#1565c0';
+    case 'marginal':
+      return '#f57f17';
+    case 'poor':
+      return '#c62828';
+    default:
+      return '#666';
+  }
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function DemisterClient() {
@@ -109,8 +143,24 @@ export default function DemisterClient() {
   const [designMargin, setDesignMargin] = useState<string>('80');
   const [geometry, setGeometry] = useState<VesselGeometry>('circular');
   const [rectWidth, setRectWidth] = useState<string>('');
+  const [padThickness, setPadThickness] = useState<string>('');
 
+  // Carryover inputs
+  const [enableCarryover, setEnableCarryover] = useState(false);
+  const [brineSalinity, setBrineSalinity] = useState<string>('70000');
+  const [entrainmentMode, setEntrainmentMode] = useState<'estimate' | 'manual'>('estimate');
+  const [manualEntrainment, setManualEntrainment] = useState<string>('0.5');
+
+  // Report dialog
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+
+  // Error state — synced via useEffect instead of inside useMemo
   const [error, setError] = useState<string | null>(null);
+
+  // Reset pad thickness when demister type changes
+  useEffect(() => {
+    setPadThickness('');
+  }, [demisterType]);
 
   // ── Steam table auto-lookup ─────────────────────────────────────────────────
 
@@ -126,7 +176,6 @@ export default function DemisterClient() {
         const t = parseFloat(satTemperature);
         if (isNaN(t) || t <= 0) return null;
         tSat = t;
-        // Verify T is valid for steam tables
         getSaturationPressure(t);
       }
       const rhoV = getDensityVapor(tSat);
@@ -137,31 +186,32 @@ export default function DemisterClient() {
     }
   }, [fluidMode, satInput, satPressure, satTemperature]);
 
-  // ── Main calculation ────────────────────────────────────────────────────────
-
-  const result = useMemo(() => {
-    setError(null);
+  // ── Main calculation (error handling separated from useMemo) ────────────────
+  const computedResult = useMemo<{ result: DemisterResult | null; error: string | null }>(() => {
     try {
       const flow = parseFloat(vaporMassFlow);
-      if (isNaN(flow) || flow <= 0) return null;
+      if (isNaN(flow) || flow <= 0) return { result: null, error: null };
 
       const margin = parseFloat(designMargin) / 100;
-      if (isNaN(margin) || margin <= 0 || margin > 1) return null;
+      if (isNaN(margin) || margin <= 0 || margin > 1) return { result: null, error: null };
 
       let rhoV: number;
       let rhoL: number;
 
       if (fluidMode === 'saturation') {
-        if (!steamProps) return null;
+        if (!steamProps) return { result: null, error: null };
         rhoV = steamProps.rhoV;
         rhoL = steamProps.rhoL;
       } else {
         rhoV = parseFloat(manualVaporDensity);
         rhoL = parseFloat(manualLiquidDensity);
-        if (isNaN(rhoV) || rhoV <= 0 || isNaN(rhoL) || rhoL <= 0) return null;
+        if (isNaN(rhoV) || rhoV <= 0 || isNaN(rhoL) || rhoL <= 0)
+          return { result: null, error: null };
       }
 
-      return calculateDemisterSizing({
+      const thickness = padThickness ? parseFloat(padThickness) : undefined;
+
+      const r = calculateDemisterSizing({
         vaporMassFlow: flow,
         vaporDensity: rhoV,
         liquidDensity: rhoL,
@@ -170,10 +220,20 @@ export default function DemisterClient() {
         designMargin: margin,
         geometry,
         rectangleWidth: geometry === 'rectangular' ? parseFloat(rectWidth) || undefined : undefined,
+        padThickness: thickness && thickness > 0 ? thickness : undefined,
+        carryover: enableCarryover
+          ? {
+              brineSalinity: parseFloat(brineSalinity) || 0,
+              primaryEntrainment:
+                entrainmentMode === 'manual'
+                  ? (parseFloat(manualEntrainment) || 0) / 100
+                  : undefined,
+            }
+          : undefined,
       });
+      return { result: r, error: null };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [
     vaporMassFlow,
@@ -186,16 +246,84 @@ export default function DemisterClient() {
     designMargin,
     geometry,
     rectWidth,
+    padThickness,
+    enableCarryover,
+    brineSalinity,
+    entrainmentMode,
+    manualEntrainment,
   ]);
 
+  // Sync error state from computed result
+  useEffect(() => {
+    setError(computedResult.error);
+  }, [computedResult.error]);
+
+  const calcResult = computedResult.result;
+
   const loadingColor =
-    result?.loadingStatus === 'high'
+    calcResult?.loadingStatus === 'high'
       ? 'error.main'
-      : result?.loadingStatus === 'low'
+      : calcResult?.loadingStatus === 'low'
         ? 'warning.main'
         : 'success.main';
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Carryover comparison across all demister types ────────────────────────
+
+  const comparisonRows = useMemo(() => {
+    if (!calcResult?.carryover) return null;
+    return calculateCarryoverComparison(
+      calcResult.carryover.primaryEntrainment,
+      parseFloat(brineSalinity) || 0,
+      calcResult.loadingFraction
+    );
+  }, [calcResult, brineSalinity]);
+
+  // ── Collect inputs for report ──────────────────────────────────────────────
+
+  const reportInputs = useMemo(
+    () => ({
+      fluidMode,
+      satInput,
+      satPressure,
+      satTemperature,
+      manualVaporDensity,
+      manualLiquidDensity,
+      vaporMassFlow,
+      demisterType,
+      orientation,
+      designMargin,
+      geometry,
+      rectWidth,
+      padThickness: padThickness || String(DEFAULT_PAD_THICKNESS[demisterType]),
+      enableCarryover,
+      brineSalinity,
+      entrainmentMode,
+      manualEntrainment,
+      steamProps,
+    }),
+    [
+      fluidMode,
+      satInput,
+      satPressure,
+      satTemperature,
+      manualVaporDensity,
+      manualLiquidDensity,
+      vaporMassFlow,
+      demisterType,
+      orientation,
+      designMargin,
+      geometry,
+      rectWidth,
+      padThickness,
+      enableCarryover,
+      brineSalinity,
+      entrainmentMode,
+      manualEntrainment,
+      steamProps,
+    ]
+  );
+
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -208,7 +336,8 @@ export default function DemisterClient() {
         <Chip label="Souders-Brown" size="small" color="primary" variant="outlined" />
       </Stack>
       <Typography variant="body1" color="text.secondary" mb={3}>
-        Size demister pads for flash chambers, evaporator effects, and separators.
+        Size demister pads for flash chambers, evaporator effects, and separators. Includes brine
+        carryover estimation for desalination applications.
       </Typography>
 
       <Grid container spacing={3}>
@@ -429,6 +558,26 @@ export default function DemisterClient() {
                   }}
                 />
 
+                <TextField
+                  label="Pad Thickness"
+                  value={padThickness}
+                  onChange={(e) => setPadThickness(e.target.value)}
+                  fullWidth
+                  size="small"
+                  type="number"
+                  placeholder={String(DEFAULT_PAD_THICKNESS[demisterType])}
+                  helperText={`Default: ${DEFAULT_PAD_THICKNESS[demisterType]} mm for ${demisterType.replace(/_/g, ' ')}`}
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <Typography variant="caption" sx={{ ml: 1 }}>
+                          mm
+                        </Typography>
+                      ),
+                    },
+                  }}
+                />
+
                 <FormControl fullWidth size="small">
                   <InputLabel>Vessel Geometry</InputLabel>
                   <Select
@@ -463,6 +612,105 @@ export default function DemisterClient() {
               </Stack>
             </Paper>
 
+            {/* Brine Carryover */}
+            <Paper sx={{ p: 3 }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <WaterIcon color="primary" fontSize="small" />
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    Brine Carryover Estimation
+                  </Typography>
+                </Stack>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={enableCarryover}
+                      onChange={(e) => setEnableCarryover(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label=""
+                />
+              </Stack>
+              <Divider sx={{ mb: 2 }} />
+
+              {enableCarryover ? (
+                <Stack spacing={2}>
+                  <TextField
+                    label="Brine Salinity (TDS)"
+                    value={brineSalinity}
+                    onChange={(e) => setBrineSalinity(e.target.value)}
+                    fullWidth
+                    size="small"
+                    type="number"
+                    helperText="Total dissolved solids of the brine/liquid"
+                    slotProps={{
+                      input: {
+                        endAdornment: (
+                          <Typography variant="caption" sx={{ ml: 1 }}>
+                            ppm
+                          </Typography>
+                        ),
+                      },
+                    }}
+                  />
+
+                  <ToggleButtonGroup
+                    value={entrainmentMode}
+                    exclusive
+                    onChange={(_, v) => v && setEntrainmentMode(v)}
+                    fullWidth
+                    size="small"
+                  >
+                    <ToggleButton value="estimate">
+                      <Tooltip title="Estimate from vapor loading using Sterman-type correlation">
+                        <span>Auto-Estimate Entrainment</span>
+                      </Tooltip>
+                    </ToggleButton>
+                    <ToggleButton value="manual">
+                      <Tooltip title="Enter a known primary entrainment value">
+                        <span>Manual Entrainment</span>
+                      </Tooltip>
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+
+                  {entrainmentMode === 'manual' && (
+                    <TextField
+                      label="Primary Entrainment (before demister)"
+                      value={manualEntrainment}
+                      onChange={(e) => setManualEntrainment(e.target.value)}
+                      fullWidth
+                      size="small"
+                      type="number"
+                      helperText="Liquid carried by vapor before reaching demister. Typical: 0.1–2%"
+                      slotProps={{
+                        input: {
+                          endAdornment: (
+                            <Typography variant="caption" sx={{ ml: 1 }}>
+                              % of vapor
+                            </Typography>
+                          ),
+                        },
+                      }}
+                    />
+                  )}
+
+                  <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Carryover = Primary Entrainment × (1 − Demister Efficiency). The primary
+                      entrainment depends on vapor velocity at the boiling surface and liquid
+                      properties. For MED effects, typical values are 0.1–2% of vapor mass flow.
+                    </Typography>
+                  </Box>
+                </Stack>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  Enable to estimate brine carryover and distillate quality for desalination
+                  applications.
+                </Typography>
+              )}
+            </Paper>
+
             {error && (
               <Alert severity="error" onClose={() => setError(null)}>
                 {error}
@@ -473,20 +721,30 @@ export default function DemisterClient() {
 
         {/* ── Right: Results ── */}
         <Grid size={{ xs: 12, lg: 7 }}>
-          {result ? (
+          {calcResult ? (
             <Stack spacing={3}>
               {/* Key results */}
               <Paper sx={{ p: 3 }}>
-                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                  Results
-                </Typography>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    Results
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<DownloadIcon />}
+                    onClick={() => setReportDialogOpen(true)}
+                  >
+                    PDF Report
+                  </Button>
+                </Stack>
                 <Divider sx={{ mb: 2 }} />
 
                 <Grid container spacing={2} mb={2}>
                   {[
                     {
                       label: 'K Factor',
-                      value: result.kFactor.toFixed(3),
+                      value: calcResult.kFactor.toFixed(3),
                       unit: 'm/s',
                       color: '#e3f2fd',
                       border: '#1565c0',
@@ -494,7 +752,7 @@ export default function DemisterClient() {
                     },
                     {
                       label: 'Max. Velocity (V_max)',
-                      value: result.maxVelocity.toFixed(3),
+                      value: calcResult.maxVelocity.toFixed(3),
                       unit: 'm/s',
                       color: '#fff8e1',
                       border: '#f57f17',
@@ -502,7 +760,7 @@ export default function DemisterClient() {
                     },
                     {
                       label: 'Design Velocity',
-                      value: result.designVelocity.toFixed(3),
+                      value: calcResult.designVelocity.toFixed(3),
                       unit: 'm/s',
                       color: '#e8f5e9',
                       border: '#2e7d32',
@@ -540,10 +798,10 @@ export default function DemisterClient() {
                         Vapor volumetric flow
                       </TableCell>
                       <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                        {result.vaporVolumetricFlow.toFixed(4)} m³/s
+                        {calcResult.vaporVolumetricFlow.toFixed(4)} m³/s
                       </TableCell>
                       <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                        {(result.vaporVolumetricFlow * 3600).toFixed(2)} m³/h
+                        {(calcResult.vaporVolumetricFlow * 3600).toFixed(2)} m³/h
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -551,42 +809,54 @@ export default function DemisterClient() {
                         Required demister area
                       </TableCell>
                       <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '0.8rem' }}>
-                        {result.requiredArea.toFixed(3)} m²
+                        {calcResult.requiredArea.toFixed(3)} m²
                       </TableCell>
                       <TableCell />
                     </TableRow>
-                    {result.vesselDiameter !== undefined && (
+                    {calcResult.vesselDiameter !== undefined && (
                       <TableRow>
                         <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
                           Min. vessel diameter
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '0.8rem' }}>
-                          {result.vesselDiameter.toFixed(3)} m
+                          {calcResult.vesselDiameter.toFixed(3)} m
                         </TableCell>
                         <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                          {(result.vesselDiameter * 1000).toFixed(0)} mm
+                          {(calcResult.vesselDiameter * 1000).toFixed(0)} mm
                         </TableCell>
                       </TableRow>
                     )}
-                    {result.rectangleHeight !== undefined && (
+                    {calcResult.rectangleHeight !== undefined && (
                       <TableRow>
                         <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
                           Required height (at given width)
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '0.8rem' }}>
-                          {result.rectangleHeight.toFixed(3)} m
+                          {calcResult.rectangleHeight.toFixed(3)} m
                         </TableCell>
                         <TableCell />
                       </TableRow>
                     )}
                     <TableRow>
                       <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
-                        Estimated pressure drop
+                        Pad thickness
                       </TableCell>
                       <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                        {result.pressureDropMin}–{result.pressureDropMax} Pa
+                        {calcResult.padThickness} mm
                       </TableCell>
                       <TableCell />
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+                        Pressure drop (calculated)
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '0.8rem' }}>
+                        {calcResult.pressureDrop.toFixed(1)} Pa
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>
+                        ref: {calcResult.pressureDropRange.min}–{calcResult.pressureDropRange.max}{' '}
+                        Pa
+                      </TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
@@ -596,26 +866,279 @@ export default function DemisterClient() {
                         align="right"
                         sx={{ fontSize: '0.8rem', fontWeight: 'bold', color: loadingColor }}
                       >
-                        {(result.loadingFraction * 100).toFixed(0)}% of V_max
+                        {(calcResult.loadingFraction * 100).toFixed(0)}% of V_max
                       </TableCell>
                       <TableCell align="right" sx={{ fontSize: '0.8rem', color: loadingColor }}>
-                        {result.loadingStatus === 'high'
-                          ? '⚠ Over-loaded'
-                          : result.loadingStatus === 'low'
+                        {calcResult.loadingStatus === 'high'
+                          ? 'Over-loaded'
+                          : calcResult.loadingStatus === 'low'
                             ? 'Under-loaded'
-                            : '✓ Acceptable'}
+                            : 'Acceptable'}
                       </TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
               </Paper>
 
+              {/* Carryover results */}
+              {calcResult.carryover && (
+                <Paper sx={{ p: 3 }}>
+                  <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+                    <WaterIcon color="primary" fontSize="small" />
+                    <Typography variant="subtitle1" fontWeight="bold">
+                      Brine Carryover Analysis
+                    </Typography>
+                  </Stack>
+                  <Divider sx={{ mb: 2 }} />
+
+                  {/* Distillate TDS banner */}
+                  <Box
+                    sx={{
+                      mb: 2,
+                      p: 2,
+                      borderRadius: 2,
+                      bgcolor:
+                        calcResult.carryover.qualityAssessment === 'excellent'
+                          ? '#e8f5e9'
+                          : calcResult.carryover.qualityAssessment === 'good'
+                            ? '#e3f2fd'
+                            : calcResult.carryover.qualityAssessment === 'marginal'
+                              ? '#fff8e1'
+                              : '#ffebee',
+                      border: '1.5px solid',
+                      borderColor: getQualityColor(calcResult.carryover.qualityAssessment),
+                      textAlign: 'center',
+                    }}
+                  >
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      Predicted Distillate TDS
+                    </Typography>
+                    <Typography
+                      variant="h5"
+                      fontWeight="bold"
+                      sx={{
+                        color: getQualityColor(calcResult.carryover.qualityAssessment),
+                      }}
+                    >
+                      {calcResult.carryover.distillateTDS.toFixed(2)} ppm
+                    </Typography>
+                    <Chip
+                      label={calcResult.carryover.qualityAssessment.toUpperCase()}
+                      size="small"
+                      sx={{
+                        mt: 0.5,
+                        color: 'white',
+                        bgcolor: getQualityColor(calcResult.carryover.qualityAssessment),
+                      }}
+                    />
+                  </Box>
+
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+                          Primary entrainment
+                          {calcResult.carryover.primaryEntrainmentSource === 'estimated' && (
+                            <Chip
+                              label="estimated"
+                              size="small"
+                              variant="outlined"
+                              sx={{ ml: 1, height: 18, fontSize: '0.65rem' }}
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                          {(calcResult.carryover.primaryEntrainment * 100).toFixed(3)}% of vapor
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                          {(
+                            calcResult.carryover.primaryEntrainment *
+                            parseFloat(vaporMassFlow || '0')
+                          ).toFixed(5)}{' '}
+                          kg/s
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+                          Demister efficiency
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '0.8rem' }}>
+                          {(calcResult.carryover.demisterEfficiency * 100).toFixed(2)}%
+                        </TableCell>
+                        <TableCell />
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+                          Net carryover (after demister)
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '0.8rem' }}>
+                          {calcResult.carryover.carryoverPPM.toFixed(1)} ppm of vapor
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                          {calcResult.carryover.carryoverMassFlow.toExponential(3)} kg/s
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+                          Brine salinity
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                          {parseFloat(brineSalinity || '0').toLocaleString()} ppm
+                        </TableCell>
+                        <TableCell />
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+
+                  {calcResult.carryover.warnings.length > 0 && (
+                    <Stack spacing={1} mt={2}>
+                      {calcResult.carryover.warnings.map((w, i) => (
+                        <Alert key={i} severity="warning" sx={{ py: 0 }}>
+                          <Typography variant="caption">{w}</Typography>
+                        </Alert>
+                      ))}
+                    </Stack>
+                  )}
+
+                  {/* Comparison table across all demister types */}
+                  {comparisonRows && (
+                    <>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                        Distillate TDS Comparison — All Demister Types
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+                        Same primary entrainment (
+                        {(calcResult.carryover.primaryEntrainment * 100).toFixed(3)}% of vapor) and
+                        brine salinity ({parseFloat(brineSalinity || '0').toLocaleString()} ppm) at{' '}
+                        {(calcResult.loadingFraction * 100).toFixed(0)}% loading.
+                      </Typography>
+                      <TableContainer>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
+                                Scenario
+                              </TableCell>
+                              <TableCell
+                                align="right"
+                                sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}
+                              >
+                                Efficiency
+                              </TableCell>
+                              <TableCell
+                                align="right"
+                                sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}
+                              >
+                                Min. Droplet
+                              </TableCell>
+                              <TableCell
+                                align="right"
+                                sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}
+                              >
+                                Net Carryover
+                              </TableCell>
+                              <TableCell
+                                align="right"
+                                sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}
+                              >
+                                Distillate TDS
+                              </TableCell>
+                              <TableCell
+                                align="center"
+                                sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}
+                              >
+                                Quality
+                              </TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {comparisonRows.map((row) => {
+                              const isSelected = row.type === demisterType;
+                              return (
+                                <TableRow
+                                  key={row.label}
+                                  sx={{
+                                    bgcolor: isSelected ? 'primary.50' : undefined,
+                                    '& td': isSelected ? { fontWeight: 'bold' } : undefined,
+                                  }}
+                                >
+                                  <TableCell sx={{ fontSize: '0.75rem' }}>
+                                    {row.label}
+                                    {isSelected && (
+                                      <Chip
+                                        label="selected"
+                                        size="small"
+                                        color="primary"
+                                        sx={{ ml: 1, height: 16, fontSize: '0.6rem' }}
+                                      />
+                                    )}
+                                  </TableCell>
+                                  <TableCell align="right" sx={{ fontSize: '0.75rem' }}>
+                                    {row.type === null
+                                      ? '—'
+                                      : `${(row.efficiency * 100).toFixed(2)}%`}
+                                  </TableCell>
+                                  <TableCell align="right" sx={{ fontSize: '0.75rem' }}>
+                                    {row.minDroplet_um !== null ? `${row.minDroplet_um} µm` : '—'}
+                                  </TableCell>
+                                  <TableCell align="right" sx={{ fontSize: '0.75rem' }}>
+                                    {row.netCarryover > 0.001
+                                      ? `${(row.netCarryover * 100).toFixed(3)}%`
+                                      : `${(row.netCarryover * 1e6).toFixed(1)} ppm`}
+                                  </TableCell>
+                                  <TableCell
+                                    align="right"
+                                    sx={{
+                                      fontSize: '0.75rem',
+                                      fontWeight: 'bold',
+                                      color: getQualityColor(row.qualityAssessment),
+                                    }}
+                                  >
+                                    {row.distillateTDS < 0.01
+                                      ? '< 0.01'
+                                      : row.distillateTDS.toFixed(2)}{' '}
+                                    ppm
+                                  </TableCell>
+                                  <TableCell align="center" sx={{ fontSize: '0.75rem' }}>
+                                    <Chip
+                                      label={row.qualityAssessment}
+                                      size="small"
+                                      sx={{
+                                        height: 20,
+                                        fontSize: '0.65rem',
+                                        color: 'white',
+                                        bgcolor: getQualityColor(row.qualityAssessment),
+                                      }}
+                                    />
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </>
+                  )}
+                </Paper>
+              )}
+
               {/* Reference note */}
               <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
                 <Typography variant="caption" color="text.secondary" component="div">
-                  <strong>Correlation:</strong> V_max = K × √((ρ_L − ρ_V) / ρ_V) &nbsp;|&nbsp; A_min
-                  = Q_v / V_design &nbsp;|&nbsp; D_min = √(4A/π)
+                  <strong>Sizing:</strong> V_max = K × √((ρ_L − ρ_V) / ρ_V) &nbsp;|&nbsp; A_min =
+                  Q_v / V_design &nbsp;|&nbsp; D_min = √(4A/π)
                   <br />
+                  <strong>Pressure drop:</strong> ΔP = C × (t/t_ref) × ρ_V × V^n (velocity-based
+                  model, calibrated to GPSA/Koch data)
+                  <br />
+                  {calcResult.carryover && (
+                    <>
+                      <strong>Carryover:</strong> Net = E₀ × (1 − η) &nbsp;|&nbsp; Distillate TDS =
+                      net carryover × brine TDS
+                      <br />
+                    </>
+                  )}
                   <strong>K factors:</strong> GPSA Engineering Data Book / Koch-Otto York.
                   Horizontal orientation uses higher K than vertical upflow.
                   <br />
@@ -641,6 +1164,18 @@ export default function DemisterClient() {
           )}
         </Grid>
       </Grid>
+
+      {/* PDF Report Dialog */}
+      {calcResult && (
+        <Suspense fallback={null}>
+          <GenerateReportDialog
+            open={reportDialogOpen}
+            onClose={() => setReportDialogOpen(false)}
+            result={calcResult}
+            inputs={reportInputs}
+          />
+        </Suspense>
+      )}
     </Container>
   );
 }

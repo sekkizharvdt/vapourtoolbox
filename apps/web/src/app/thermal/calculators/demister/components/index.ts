@@ -1,1 +1,2 @@
-// Demister calculator has no separate sub-components — all inline in DemisterClient.tsx
+export { GenerateReportDialog } from './GenerateReportDialog';
+export { DemisterReportPDF, type DemisterReportInputs } from './DemisterReportPDF';

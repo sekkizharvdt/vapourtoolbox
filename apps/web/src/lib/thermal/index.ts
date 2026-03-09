@@ -135,12 +135,21 @@ export {
   DEMISTER_TYPE_LABELS,
   DEMISTER_K_FACTORS,
   DEMISTER_PRESSURE_DROP,
+  DEMISTER_EFFICIENCY,
+  DEFAULT_PAD_THICKNESS,
+  DP_MODEL,
+  estimatePrimaryEntrainment,
+  calculateDemisterEfficiency,
   type DemisterInput,
   type DemisterResult,
   type DemisterType,
   type DemisterOrientation,
   type VesselGeometry,
   type FluidInputMode,
+  type CarryoverInput,
+  type CarryoverResult,
+  calculateCarryoverComparison,
+  type CarryoverComparisonRow,
 } from './demisterCalculator';
 
 // Chemical Dosing Calculator (Antiscalant + Anti-foam)
