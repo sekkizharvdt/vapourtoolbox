@@ -19,7 +19,11 @@ import {
   Button,
   CircularProgress,
 } from '@mui/material';
-import { PictureAsPdf as PdfIcon } from '@mui/icons-material';
+import {
+  PictureAsPdf as PdfIcon,
+  FolderOpen as LoadIcon,
+  Save as SaveIcon,
+} from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculatePressureDrop, type FittingType, type FittingCount } from '@/lib/thermal';
 import { getSeawaterDensity, getSeawaterViscosity, getDensityLiquid } from '@vapour/constants';
@@ -35,6 +39,9 @@ import {
 const GenerateReportDialog = lazy(() =>
   import('./components/GenerateReportDialog').then((m) => ({ default: m.GenerateReportDialog }))
 );
+
+import { SaveCalculationDialog } from './components/SaveCalculationDialog';
+import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 
 // Water viscosity approximation (Pa·s)
 function getWaterViscosity(tempC: number): number {
@@ -70,6 +77,8 @@ export default function PressureDropClient() {
 
   const [error, setError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [loadOpen, setLoadOpen] = useState(false);
 
   // Calculate fluid properties
   const fluidDensity = useMemo(() => {
@@ -170,6 +179,14 @@ export default function PressureDropClient() {
           Calculate pressure drop in piping systems including straight pipe and fittings. Uses
           Darcy-Weisbach equation with Colebrook-White friction factor.
         </Typography>
+        <Button
+          startIcon={<LoadIcon />}
+          size="small"
+          onClick={() => setLoadOpen(true)}
+          sx={{ mt: 1 }}
+        >
+          Load Saved
+        </Button>
       </Box>
 
       <Grid container spacing={3}>
@@ -227,9 +244,12 @@ export default function PressureDropClient() {
         </Grid>
       </Grid>
 
-      {/* PDF Report Button */}
+      {/* Action Buttons */}
       {result && (
-        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveOpen(true)}>
+            Save
+          </Button>
           <Button variant="outlined" startIcon={<PdfIcon />} onClick={() => setReportOpen(true)}>
             Generate Report
           </Button>
@@ -262,6 +282,46 @@ export default function PressureDropClient() {
           />
         </Suspense>
       )}
+
+      {/* Save/Load Dialogs */}
+      <SaveCalculationDialog
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        calculatorType="PRESSURE_DROP"
+        inputs={{
+          selectedNPS,
+          pipeLength,
+          roughness,
+          flowRate,
+          fluidType,
+          temperature,
+          salinity,
+          customDensity,
+          customViscosity,
+          elevationChange,
+          fittings,
+        }}
+      />
+      <LoadCalculationDialog
+        open={loadOpen}
+        onClose={() => setLoadOpen(false)}
+        calculatorType="PRESSURE_DROP"
+        onLoad={(inputs) => {
+          if (typeof inputs.selectedNPS === 'string') setSelectedNPS(inputs.selectedNPS);
+          if (typeof inputs.pipeLength === 'string') setPipeLength(inputs.pipeLength);
+          if (typeof inputs.roughness === 'string') setRoughness(inputs.roughness);
+          if (typeof inputs.flowRate === 'string') setFlowRate(inputs.flowRate);
+          if (typeof inputs.fluidType === 'string') setFluidType(inputs.fluidType as FluidType);
+          if (typeof inputs.temperature === 'string') setTemperature(inputs.temperature);
+          if (typeof inputs.salinity === 'string') setSalinity(inputs.salinity);
+          if (typeof inputs.customDensity === 'string') setCustomDensity(inputs.customDensity);
+          if (typeof inputs.customViscosity === 'string')
+            setCustomViscosity(inputs.customViscosity);
+          if (typeof inputs.elevationChange === 'string')
+            setElevationChange(inputs.elevationChange);
+          if (Array.isArray(inputs.fittings)) setFittings(inputs.fittings as FittingCount[]);
+        }}
+      />
     </Container>
   );
 }

@@ -23,7 +23,11 @@ import {
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
-import { PictureAsPdf as PdfIcon } from '@mui/icons-material';
+import {
+  PictureAsPdf as PdfIcon,
+  FolderOpen as LoadIcon,
+  Save as SaveIcon,
+} from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   calculateSensibleHeat,
@@ -47,6 +51,9 @@ import {
 const GenerateReportDialog = lazy(() =>
   import('./components/GenerateReportDialog').then((m) => ({ default: m.GenerateReportDialog }))
 );
+
+import { SaveCalculationDialog } from './components/SaveCalculationDialog';
+import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 
 export default function HeatDutyClient() {
   // Mode
@@ -77,6 +84,8 @@ export default function HeatDutyClient() {
 
   const [error, setError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [loadOpen, setLoadOpen] = useState(false);
 
   // Calculate sensible heat
   const sensibleResult = useMemo(() => {
@@ -184,6 +193,14 @@ export default function HeatDutyClient() {
           Calculate sensible and latent heat duty for thermal processes. Includes LMTD calculation
           for heat exchanger sizing.
         </Typography>
+        <Button
+          startIcon={<LoadIcon />}
+          size="small"
+          onClick={() => setLoadOpen(true)}
+          sx={{ mt: 1 }}
+        >
+          Load Saved
+        </Button>
       </Box>
 
       <Grid container spacing={3}>
@@ -305,9 +322,12 @@ export default function HeatDutyClient() {
         </Grid>
       </Grid>
 
-      {/* PDF Report Button */}
+      {/* Action Buttons */}
       {(sensibleResult || latentResult || lmtdResult) && (
-        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveOpen(true)}>
+            Save
+          </Button>
           <Button variant="outlined" startIcon={<PdfIcon />} onClick={() => setReportOpen(true)}>
             Generate Report
           </Button>
@@ -373,6 +393,61 @@ export default function HeatDutyClient() {
           />
         </Suspense>
       )}
+
+      {/* Save/Load Dialogs */}
+      <SaveCalculationDialog
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        calculatorType="HEAT_DUTY"
+        inputs={{
+          mode,
+          fluidType,
+          salinity,
+          massFlowRate,
+          inletTemp,
+          outletTemp,
+          latentFlowRate,
+          saturationTemp,
+          process,
+          hotInlet,
+          hotOutlet,
+          coldInlet,
+          coldOutlet,
+          flowArrangement,
+          overallHTC,
+          heatDutyForArea,
+        }}
+      />
+      <LoadCalculationDialog
+        open={loadOpen}
+        onClose={() => setLoadOpen(false)}
+        calculatorType="HEAT_DUTY"
+        onLoad={(inputs) => {
+          if (typeof inputs.mode === 'string') setMode(inputs.mode as CalculationMode);
+          if (typeof inputs.fluidType === 'string') setFluidType(inputs.fluidType as HeatFluidType);
+          if (typeof inputs.salinity === 'string') setSalinity(inputs.salinity);
+          if (typeof inputs.massFlowRate === 'string') setMassFlowRate(inputs.massFlowRate);
+          if (typeof inputs.inletTemp === 'string') setInletTemp(inputs.inletTemp);
+          if (typeof inputs.outletTemp === 'string') setOutletTemp(inputs.outletTemp);
+          if (typeof inputs.latentFlowRate === 'string') setLatentFlowRate(inputs.latentFlowRate);
+          if (typeof inputs.saturationTemp === 'string') setSaturationTemp(inputs.saturationTemp);
+          if (inputs.process === 'EVAPORATION' || inputs.process === 'CONDENSATION')
+            setProcess(inputs.process);
+          if (typeof inputs.hotInlet === 'string') setHotInlet(inputs.hotInlet);
+          if (typeof inputs.hotOutlet === 'string') setHotOutlet(inputs.hotOutlet);
+          if (typeof inputs.coldInlet === 'string') setColdInlet(inputs.coldInlet);
+          if (typeof inputs.coldOutlet === 'string') setColdOutlet(inputs.coldOutlet);
+          if (
+            inputs.flowArrangement === 'COUNTER' ||
+            inputs.flowArrangement === 'PARALLEL' ||
+            inputs.flowArrangement === 'CROSSFLOW'
+          )
+            setFlowArrangement(inputs.flowArrangement);
+          if (typeof inputs.overallHTC === 'string') setOverallHTC(inputs.overallHTC);
+          if (typeof inputs.heatDutyForArea === 'string')
+            setHeatDutyForArea(inputs.heatDutyForArea);
+        }}
+      />
     </Container>
   );
 }

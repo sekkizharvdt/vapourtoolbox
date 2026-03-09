@@ -44,6 +44,8 @@ import {
   NavigateBefore as BackIcon,
   PictureAsPdf as PdfIcon,
   ExpandMore as ExpandMoreIcon,
+  FolderOpen as LoadIcon,
+  Save as SaveIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
@@ -71,6 +73,9 @@ const GenerateReportDialog = lazy(() =>
     default: m.GenerateReportDialog,
   }))
 );
+
+import { SaveCalculationDialog } from './components/SaveCalculationDialog';
+import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 
 const STEPS = ['Heat Duty & LMTD', 'Heat Transfer Coefficient', 'Tube Geometry & Sizing'];
 
@@ -111,6 +116,8 @@ function TdValue({ children, bold }: { children?: React.ReactNode; bold?: boolea
 export default function HeatExchangerClient() {
   const [activeStep, setActiveStep] = useState(0);
   const [reportOpen, setReportOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [loadOpen, setLoadOpen] = useState(false);
 
   // ── Step 1: Heat Duty & LMTD ────────────────────────────────────────────
   const [heatDutyMode, setHeatDutyMode] = useState<'manual' | 'sensible' | 'latent'>('manual');
@@ -321,9 +328,17 @@ export default function HeatExchangerClient() {
         </Typography>
         <Chip label="Shell & Tube" size="small" color="primary" variant="outlined" />
       </Stack>
-      <Typography variant="body1" color="text.secondary" mb={3}>
+      <Typography variant="body1" color="text.secondary">
         Size shell-and-tube heat exchangers from heat duty, LMTD, and HTC.
       </Typography>
+      <Button
+        startIcon={<LoadIcon />}
+        size="small"
+        onClick={() => setLoadOpen(true)}
+        sx={{ mt: 1, mb: 2 }}
+      >
+        Load Saved
+      </Button>
 
       <Grid container spacing={3}>
         {/* Left: Stepper inputs */}
@@ -1028,15 +1043,25 @@ export default function HeatExchangerClient() {
                 </AccordionDetails>
               </Accordion>
 
-              {/* Report button */}
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<PdfIcon />}
-                onClick={() => setReportOpen(true)}
-              >
-                Generate Report
-              </Button>
+              {/* Action buttons */}
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<SaveIcon />}
+                  onClick={() => setSaveOpen(true)}
+                >
+                  Save
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<PdfIcon />}
+                  onClick={() => setReportOpen(true)}
+                >
+                  Generate Report
+                </Button>
+              </Stack>
             </Stack>
           )}
         </Grid>
@@ -1056,6 +1081,89 @@ export default function HeatExchangerClient() {
           />
         </Suspense>
       )}
+
+      {/* Save/Load Dialogs */}
+      <SaveCalculationDialog
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        calculatorType="HEAT_EXCHANGER"
+        inputs={{
+          heatDutyMode,
+          manualDuty,
+          massFlowRate,
+          inletTemp,
+          outletTemp,
+          latentFlowRate,
+          satTemp,
+          hotInlet,
+          hotOutlet,
+          coldInlet,
+          coldOutlet,
+          flowArrangement,
+          htcMode,
+          manualHTC,
+          typicalHTCKey,
+          tubeOD,
+          tubeBWG,
+          tubeMaterial,
+          tubeLayout,
+          pitchRatio,
+          tubePasses,
+          tubeLength,
+          foulingMargin,
+          tubeSideMassFlow,
+          tubeSideDensity,
+          tubeSideViscosity,
+        }}
+      />
+      <LoadCalculationDialog
+        open={loadOpen}
+        onClose={() => setLoadOpen(false)}
+        calculatorType="HEAT_EXCHANGER"
+        onLoad={(inputs) => {
+          if (typeof inputs.heatDutyMode === 'string')
+            setHeatDutyMode(inputs.heatDutyMode as 'manual' | 'sensible' | 'latent');
+          if (typeof inputs.manualDuty === 'string') setManualDuty(inputs.manualDuty);
+          if (typeof inputs.massFlowRate === 'string') setMassFlowRate(inputs.massFlowRate);
+          if (typeof inputs.inletTemp === 'string') setInletTemp(inputs.inletTemp);
+          if (typeof inputs.outletTemp === 'string') setOutletTemp(inputs.outletTemp);
+          if (typeof inputs.latentFlowRate === 'string') setLatentFlowRate(inputs.latentFlowRate);
+          if (typeof inputs.satTemp === 'string') setSatTemp(inputs.satTemp);
+          if (typeof inputs.hotInlet === 'string') setHotInlet(inputs.hotInlet);
+          if (typeof inputs.hotOutlet === 'string') setHotOutlet(inputs.hotOutlet);
+          if (typeof inputs.coldInlet === 'string') setColdInlet(inputs.coldInlet);
+          if (typeof inputs.coldOutlet === 'string') setColdOutlet(inputs.coldOutlet);
+          if (
+            inputs.flowArrangement === 'COUNTER' ||
+            inputs.flowArrangement === 'PARALLEL' ||
+            inputs.flowArrangement === 'CROSSFLOW'
+          )
+            setFlowArrangement(inputs.flowArrangement);
+          if (typeof inputs.htcMode === 'string')
+            setHtcMode(inputs.htcMode as 'manual' | 'typical');
+          if (typeof inputs.manualHTC === 'string') setManualHTC(inputs.manualHTC);
+          if (typeof inputs.typicalHTCKey === 'string') setTypicalHTCKey(inputs.typicalHTCKey);
+          if (typeof inputs.tubeOD === 'number') setTubeOD(inputs.tubeOD);
+          if (typeof inputs.tubeBWG === 'number') setTubeBWG(inputs.tubeBWG);
+          if (typeof inputs.tubeMaterial === 'string') setTubeMaterial(inputs.tubeMaterial);
+          if (
+            inputs.tubeLayout === 'triangular' ||
+            inputs.tubeLayout === 'square' ||
+            inputs.tubeLayout === 'rotated_square'
+          )
+            setTubeLayout(inputs.tubeLayout);
+          if (typeof inputs.pitchRatio === 'string') setPitchRatio(inputs.pitchRatio);
+          if (typeof inputs.tubePasses === 'number') setTubePasses(inputs.tubePasses);
+          if (typeof inputs.tubeLength === 'string') setTubeLength(inputs.tubeLength);
+          if (typeof inputs.foulingMargin === 'string') setFoulingMargin(inputs.foulingMargin);
+          if (typeof inputs.tubeSideMassFlow === 'string')
+            setTubeSideMassFlow(inputs.tubeSideMassFlow);
+          if (typeof inputs.tubeSideDensity === 'string')
+            setTubeSideDensity(inputs.tubeSideDensity);
+          if (typeof inputs.tubeSideViscosity === 'string')
+            setTubeSideViscosity(inputs.tubeSideViscosity);
+        }}
+      />
     </Container>
   );
 }

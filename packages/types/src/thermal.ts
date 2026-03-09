@@ -513,7 +513,16 @@ export interface SavedCalculation {
     | 'NCG_PROPERTIES'
     | 'SPRAY_NOZZLE'
     | 'SPRAY_NOZZLE_LAYOUT'
-    | 'VACUUM_SYSTEM';
+    | 'VACUUM_SYSTEM'
+    | 'HEAT_DUTY'
+    | 'HEAT_EXCHANGER'
+    | 'CHEMICAL_DOSING'
+    | 'DEMISTER'
+    | 'MVC'
+    | 'NPSHA'
+    | 'PIPE_SIZING'
+    | 'PRESSURE_DROP'
+    | 'PUMP_SIZING';
   name: string;
   inputs: Record<string, unknown>;
   createdAt: Date;

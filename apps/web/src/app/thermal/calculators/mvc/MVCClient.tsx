@@ -13,7 +13,11 @@ import {
   Button,
   CircularProgress,
 } from '@mui/material';
-import { PictureAsPdf as PdfIcon } from '@mui/icons-material';
+import {
+  PictureAsPdf as PdfIcon,
+  FolderOpen as LoadIcon,
+  Save as SaveIcon,
+} from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculateMVC } from '@/lib/thermal';
 import { MVCInputs, MVCResults } from './components';
@@ -21,6 +25,9 @@ import { MVCInputs, MVCResults } from './components';
 const GenerateReportDialog = lazy(() =>
   import('./components/GenerateReportDialog').then((m) => ({ default: m.GenerateReportDialog }))
 );
+
+import { SaveCalculationDialog } from './components/SaveCalculationDialog';
+import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 
 export default function MVCClient() {
   const [suctionPressure, setSuctionPressure] = useState<string>('');
@@ -32,6 +39,8 @@ export default function MVCClient() {
 
   const [error, setError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [loadOpen, setLoadOpen] = useState(false);
 
   const result = useMemo(() => {
     setError(null);
@@ -84,6 +93,14 @@ export default function MVCClient() {
           Calculate shaft power, discharge conditions, and specific energy for isentropic vapor
           compression.
         </Typography>
+        <Button
+          startIcon={<LoadIcon />}
+          size="small"
+          onClick={() => setLoadOpen(true)}
+          sx={{ mt: 1 }}
+        >
+          Load Saved
+        </Button>
       </Box>
 
       <Grid container spacing={3}>
@@ -139,9 +156,12 @@ export default function MVCClient() {
         </Grid>
       </Grid>
 
-      {/* PDF Report Button */}
+      {/* Action Buttons */}
       {result && (
-        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveOpen(true)}>
+            Save
+          </Button>
           <Button variant="outlined" startIcon={<PdfIcon />} onClick={() => setReportOpen(true)}>
             Generate Report
           </Button>
@@ -189,6 +209,39 @@ export default function MVCClient() {
           />
         </Suspense>
       )}
+
+      {/* Save/Load Dialogs */}
+      <SaveCalculationDialog
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        calculatorType="MVC"
+        inputs={{
+          suctionPressure,
+          suctionTemperature,
+          dischargePressure,
+          flowRate,
+          isentropicEfficiency,
+          mechanicalEfficiency,
+        }}
+      />
+      <LoadCalculationDialog
+        open={loadOpen}
+        onClose={() => setLoadOpen(false)}
+        calculatorType="MVC"
+        onLoad={(inputs) => {
+          if (typeof inputs.suctionPressure === 'string')
+            setSuctionPressure(inputs.suctionPressure);
+          if (typeof inputs.suctionTemperature === 'string')
+            setSuctionTemperature(inputs.suctionTemperature);
+          if (typeof inputs.dischargePressure === 'string')
+            setDischargePressure(inputs.dischargePressure);
+          if (typeof inputs.flowRate === 'string') setFlowRate(inputs.flowRate);
+          if (typeof inputs.isentropicEfficiency === 'string')
+            setIsentropicEfficiency(inputs.isentropicEfficiency);
+          if (typeof inputs.mechanicalEfficiency === 'string')
+            setMechanicalEfficiency(inputs.mechanicalEfficiency);
+        }}
+      />
     </Container>
   );
 }

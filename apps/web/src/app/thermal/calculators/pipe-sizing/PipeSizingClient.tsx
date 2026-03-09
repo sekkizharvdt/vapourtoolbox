@@ -19,7 +19,11 @@ import {
   Button,
   CircularProgress,
 } from '@mui/material';
-import { PictureAsPdf as PdfIcon } from '@mui/icons-material';
+import {
+  PictureAsPdf as PdfIcon,
+  FolderOpen as LoadIcon,
+  Save as SaveIcon,
+} from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   SCHEDULE_40_PIPES,
@@ -46,6 +50,9 @@ const GenerateReportDialog = lazy(() =>
   import('./components/GenerateReportDialog').then((m) => ({ default: m.GenerateReportDialog }))
 );
 
+import { SaveCalculationDialog } from './components/SaveCalculationDialog';
+import { LoadCalculationDialog } from './components/LoadCalculationDialog';
+
 export default function PipeSizingClient() {
   // Mode
   const [mode, setMode] = useState<CalculationMode>('size_by_flow');
@@ -70,6 +77,8 @@ export default function PipeSizingClient() {
 
   const [error, setError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [loadOpen, setLoadOpen] = useState(false);
 
   // Calculate fluid density
   const density = useMemo(() => {
@@ -240,6 +249,14 @@ export default function PipeSizingClient() {
           Size pipes based on flow rate and velocity constraints, or check velocity for a given pipe
           size. Uses Schedule 40 pipe data.
         </Typography>
+        <Button
+          startIcon={<LoadIcon />}
+          size="small"
+          onClick={() => setLoadOpen(true)}
+          sx={{ mt: 1 }}
+        >
+          Load Saved
+        </Button>
       </Box>
 
       <Grid container spacing={3}>
@@ -301,9 +318,12 @@ export default function PipeSizingClient() {
         </Grid>
       </Grid>
 
-      {/* PDF Report Button */}
+      {/* Action Buttons */}
       {result && (
-        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveOpen(true)}>
+            Save
+          </Button>
           <Button variant="outlined" startIcon={<PdfIcon />} onClick={() => setReportOpen(true)}>
             Generate Report
           </Button>
@@ -346,6 +366,44 @@ export default function PipeSizingClient() {
           />
         </Suspense>
       )}
+
+      {/* Save/Load Dialogs */}
+      <SaveCalculationDialog
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        calculatorType="PIPE_SIZING"
+        inputs={{
+          mode,
+          flowRate,
+          flowUnit,
+          fluidType,
+          temperature,
+          salinity,
+          customDensity,
+          targetVelocity,
+          minVelocity,
+          maxVelocity,
+          selectedNPS,
+        }}
+      />
+      <LoadCalculationDialog
+        open={loadOpen}
+        onClose={() => setLoadOpen(false)}
+        calculatorType="PIPE_SIZING"
+        onLoad={(inputs) => {
+          if (typeof inputs.mode === 'string') setMode(inputs.mode as CalculationMode);
+          if (typeof inputs.flowRate === 'string') setFlowRate(inputs.flowRate);
+          if (typeof inputs.flowUnit === 'string') setFlowUnit(inputs.flowUnit as FlowUnit);
+          if (typeof inputs.fluidType === 'string') setFluidType(inputs.fluidType as FluidType);
+          if (typeof inputs.temperature === 'string') setTemperature(inputs.temperature);
+          if (typeof inputs.salinity === 'string') setSalinity(inputs.salinity);
+          if (typeof inputs.customDensity === 'string') setCustomDensity(inputs.customDensity);
+          if (typeof inputs.targetVelocity === 'string') setTargetVelocity(inputs.targetVelocity);
+          if (typeof inputs.minVelocity === 'string') setMinVelocity(inputs.minVelocity);
+          if (typeof inputs.maxVelocity === 'string') setMaxVelocity(inputs.maxVelocity);
+          if (typeof inputs.selectedNPS === 'string') setSelectedNPS(inputs.selectedNPS);
+        }}
+      />
     </Container>
   );
 }

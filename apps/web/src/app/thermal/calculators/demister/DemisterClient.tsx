@@ -41,7 +41,12 @@ import {
   Button,
   Tooltip,
 } from '@mui/material';
-import { Download as DownloadIcon, Water as WaterIcon } from '@mui/icons-material';
+import {
+  Download as DownloadIcon,
+  Water as WaterIcon,
+  FolderOpen as LoadIcon,
+  Save as SaveIcon,
+} from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   calculateDemisterSizing,
@@ -64,6 +69,9 @@ const GenerateReportDialog = lazy(() =>
     default: m.GenerateReportDialog,
   }))
 );
+
+import { SaveCalculationDialog } from './components/SaveCalculationDialog';
+import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 
 // ── Demister type cards ───────────────────────────────────────────────────────
 
@@ -153,6 +161,8 @@ export default function DemisterClient() {
 
   // Report dialog
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [loadOpen, setLoadOpen] = useState(false);
 
   // Error state — synced via useEffect instead of inside useMemo
   const [error, setError] = useState<string | null>(null);
@@ -335,10 +345,18 @@ export default function DemisterClient() {
         </Typography>
         <Chip label="Souders-Brown" size="small" color="primary" variant="outlined" />
       </Stack>
-      <Typography variant="body1" color="text.secondary" mb={3}>
+      <Typography variant="body1" color="text.secondary">
         Size demister pads for flash chambers, evaporator effects, and separators. Includes brine
         carryover estimation for desalination applications.
       </Typography>
+      <Button
+        startIcon={<LoadIcon />}
+        size="small"
+        onClick={() => setLoadOpen(true)}
+        sx={{ mt: 1, mb: 2 }}
+      >
+        Load Saved
+      </Button>
 
       <Grid container spacing={3}>
         {/* ── Left: Inputs ── */}
@@ -729,14 +747,24 @@ export default function DemisterClient() {
                   <Typography variant="subtitle1" fontWeight="bold">
                     Results
                   </Typography>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<DownloadIcon />}
-                    onClick={() => setReportDialogOpen(true)}
-                  >
-                    PDF Report
-                  </Button>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<SaveIcon />}
+                      onClick={() => setSaveOpen(true)}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<DownloadIcon />}
+                      onClick={() => setReportDialogOpen(true)}
+                    >
+                      PDF Report
+                    </Button>
+                  </Stack>
                 </Stack>
                 <Divider sx={{ mb: 2 }} />
 
@@ -1176,6 +1204,66 @@ export default function DemisterClient() {
           />
         </Suspense>
       )}
+
+      {/* Save/Load Dialogs */}
+      <SaveCalculationDialog
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        calculatorType="DEMISTER"
+        inputs={{
+          fluidMode,
+          satInput,
+          satPressure,
+          satTemperature,
+          manualVaporDensity,
+          manualLiquidDensity,
+          vaporMassFlow,
+          demisterType,
+          orientation,
+          designMargin,
+          geometry,
+          rectWidth,
+          padThickness,
+          enableCarryover,
+          brineSalinity,
+          entrainmentMode,
+          manualEntrainment,
+        }}
+      />
+      <LoadCalculationDialog
+        open={loadOpen}
+        onClose={() => setLoadOpen(false)}
+        calculatorType="DEMISTER"
+        onLoad={(inputs) => {
+          if (inputs.fluidMode === 'saturation' || inputs.fluidMode === 'manual')
+            setFluidMode(inputs.fluidMode);
+          if (inputs.satInput === 'pressure' || inputs.satInput === 'temperature')
+            setSatInput(inputs.satInput);
+          if (typeof inputs.satPressure === 'string') setSatPressure(inputs.satPressure);
+          if (typeof inputs.satTemperature === 'string') setSatTemperature(inputs.satTemperature);
+          if (typeof inputs.manualVaporDensity === 'string')
+            setManualVaporDensity(inputs.manualVaporDensity);
+          if (typeof inputs.manualLiquidDensity === 'string')
+            setManualLiquidDensity(inputs.manualLiquidDensity);
+          if (typeof inputs.vaporMassFlow === 'string') setVaporMassFlow(inputs.vaporMassFlow);
+          if (typeof inputs.demisterType === 'string')
+            setDemisterType(inputs.demisterType as DemisterType);
+          if (inputs.orientation === 'horizontal' || inputs.orientation === 'vertical')
+            setOrientation(inputs.orientation);
+          if (typeof inputs.designMargin === 'string') setDesignMargin(inputs.designMargin);
+          if (inputs.geometry === 'circular' || inputs.geometry === 'rectangular')
+            setGeometry(inputs.geometry);
+          if (typeof inputs.rectWidth === 'string') setRectWidth(inputs.rectWidth);
+          if (typeof inputs.padThickness === 'string') setPadThickness(inputs.padThickness);
+          if (typeof inputs.enableCarryover === 'boolean')
+            setEnableCarryover(inputs.enableCarryover);
+          if (typeof inputs.brineSalinity === 'string') setBrineSalinity(inputs.brineSalinity);
+          if (inputs.entrainmentMode === 'estimate' || inputs.entrainmentMode === 'manual')
+            setEntrainmentMode(inputs.entrainmentMode);
+          if (typeof inputs.manualEntrainment === 'string')
+            setManualEntrainment(inputs.manualEntrainment);
+        }}
+      />
     </Container>
   );
 }

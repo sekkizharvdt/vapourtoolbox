@@ -20,7 +20,11 @@ import {
   Button,
   CircularProgress,
 } from '@mui/material';
-import { PictureAsPdf as PdfIcon } from '@mui/icons-material';
+import {
+  PictureAsPdf as PdfIcon,
+  FolderOpen as LoadIcon,
+  Save as SaveIcon,
+} from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculateTDH } from '@/lib/thermal';
 import { PumpSizingInputs, PumpSizingResults } from './components';
@@ -28,6 +32,9 @@ import { PumpSizingInputs, PumpSizingResults } from './components';
 const GenerateReportDialog = lazy(() =>
   import('./components/GenerateReportDialog').then((m) => ({ default: m.GenerateReportDialog }))
 );
+
+import { SaveCalculationDialog } from './components/SaveCalculationDialog';
+import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 
 export default function PumpSizingClient() {
   // Input state
@@ -43,6 +50,8 @@ export default function PumpSizingClient() {
 
   const [error, setError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [loadOpen, setLoadOpen] = useState(false);
 
   // Calculate pump sizing
   const result = useMemo(() => {
@@ -109,6 +118,14 @@ export default function PumpSizingClient() {
           Calculate total differential head, hydraulic power, brake power, and recommended motor
           size for centrifugal pump sizing.
         </Typography>
+        <Button
+          startIcon={<LoadIcon />}
+          size="small"
+          onClick={() => setLoadOpen(true)}
+          sx={{ mt: 1 }}
+        >
+          Load Saved
+        </Button>
       </Box>
 
       <Grid container spacing={3}>
@@ -175,9 +192,12 @@ export default function PumpSizingClient() {
         </Grid>
       </Grid>
 
-      {/* PDF Report Button */}
+      {/* Action Buttons */}
       {result && (
-        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveOpen(true)}>
+            Save
+          </Button>
           <Button variant="outlined" startIcon={<PdfIcon />} onClick={() => setReportOpen(true)}>
             Generate Report
           </Button>
@@ -232,6 +252,45 @@ export default function PumpSizingClient() {
           />
         </Suspense>
       )}
+
+      {/* Save/Load Dialogs */}
+      <SaveCalculationDialog
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        calculatorType="PUMP_SIZING"
+        inputs={{
+          flowRate,
+          fluidDensity,
+          suctionVesselPressure,
+          dischargeVesselPressure,
+          staticHead,
+          suctionPressureDrop,
+          dischargePressureDrop,
+          pumpEfficiency,
+          motorEfficiency,
+        }}
+      />
+      <LoadCalculationDialog
+        open={loadOpen}
+        onClose={() => setLoadOpen(false)}
+        calculatorType="PUMP_SIZING"
+        onLoad={(inputs) => {
+          if (typeof inputs.flowRate === 'string') setFlowRate(inputs.flowRate);
+          if (typeof inputs.fluidDensity === 'string') setFluidDensity(inputs.fluidDensity);
+          if (typeof inputs.suctionVesselPressure === 'string')
+            setSuctionVesselPressure(inputs.suctionVesselPressure);
+          if (typeof inputs.dischargeVesselPressure === 'string')
+            setDischargeVesselPressure(inputs.dischargeVesselPressure);
+          if (typeof inputs.staticHead === 'string') setStaticHead(inputs.staticHead);
+          if (typeof inputs.suctionPressureDrop === 'string')
+            setSuctionPressureDrop(inputs.suctionPressureDrop);
+          if (typeof inputs.dischargePressureDrop === 'string')
+            setDischargePressureDrop(inputs.dischargePressureDrop);
+          if (typeof inputs.pumpEfficiency === 'string') setPumpEfficiency(inputs.pumpEfficiency);
+          if (typeof inputs.motorEfficiency === 'string')
+            setMotorEfficiency(inputs.motorEfficiency);
+        }}
+      />
     </Container>
   );
 }

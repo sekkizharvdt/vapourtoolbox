@@ -9,7 +9,8 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Container, Typography, Box, Grid, Stack, Chip, Paper, Alert } from '@mui/material';
+import { Container, Typography, Box, Grid, Stack, Chip, Paper, Alert, Button } from '@mui/material';
+import { FolderOpen as LoadIcon } from '@mui/icons-material';
 import {
   calculateSuctionSystem,
   type SuctionSystemInput,
@@ -21,6 +22,7 @@ import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { SuctionDiagram } from './components/SuctionDiagram';
 import { SuctionInputs } from './components/SuctionInputs';
 import { SuctionResults } from './components/SuctionResults';
+import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 
 export default function NPSHaClient() {
   // Operating conditions
@@ -56,6 +58,7 @@ export default function NPSHaClient() {
 
   // Error state
   const [error, setError] = useState<string | null>(null);
+  const [loadOpen, setLoadOpen] = useState(false);
 
   // Main calculation
   const result: SuctionSystemResult | null = useMemo(() => {
@@ -157,6 +160,14 @@ export default function NPSHaClient() {
           Sizes nozzle and suction piping, selects fittings, calculates friction losses, designs
           holdup volume, and determines required elevation for adequate NPSHa.
         </Typography>
+        <Button
+          startIcon={<LoadIcon />}
+          size="small"
+          onClick={() => setLoadOpen(true)}
+          sx={{ mt: 1 }}
+        >
+          Load Saved
+        </Button>
       </Box>
 
       {/* Main Content */}
@@ -263,6 +274,38 @@ export default function NPSHaClient() {
           )}
         </Grid>
       </Grid>
+
+      {/* Load Dialog */}
+      <LoadCalculationDialog
+        open={loadOpen}
+        onClose={() => setLoadOpen(false)}
+        calculatorType="NPSHA"
+        onLoad={(inputs) => {
+          if (typeof inputs.effectPressure === 'string') setEffectPressure(inputs.effectPressure);
+          if (typeof inputs.fluidType === 'string')
+            setFluidType(inputs.fluidType as SuctionFluidType);
+          if (typeof inputs.salinity === 'string') setSalinity(inputs.salinity);
+          if (typeof inputs.flowRate === 'string') setFlowRate(inputs.flowRate);
+          if (typeof inputs.nozzleVelocityTarget === 'string')
+            setNozzleVelocityTarget(inputs.nozzleVelocityTarget);
+          if (typeof inputs.suctionVelocityTarget === 'string')
+            setSuctionVelocityTarget(inputs.suctionVelocityTarget);
+          if (typeof inputs.elbowCount === 'string') setElbowCount(inputs.elbowCount);
+          if (typeof inputs.verticalPipeRun === 'string')
+            setVerticalPipeRun(inputs.verticalPipeRun);
+          if (typeof inputs.horizontalPipeRun === 'string')
+            setHorizontalPipeRun(inputs.horizontalPipeRun);
+          if (typeof inputs.holdupPipeDiameter === 'string')
+            setHoldupPipeDiameter(inputs.holdupPipeDiameter);
+          if (typeof inputs.minColumnHeight === 'string')
+            setMinColumnHeight(inputs.minColumnHeight);
+          if (typeof inputs.residenceTime === 'string') setResidenceTime(inputs.residenceTime);
+          if (typeof inputs.pumpNPSHr === 'string') setPumpNPSHr(inputs.pumpNPSHr);
+          if (typeof inputs.safetyMargin === 'string') setSafetyMargin(inputs.safetyMargin);
+          if (typeof inputs.mode === 'string') setMode(inputs.mode as CalculationMode);
+          if (typeof inputs.userElevation === 'string') setUserElevation(inputs.userElevation);
+        }}
+      />
 
       {/* Info Section */}
       <Box sx={{ mt: 4, p: 3, bgcolor: 'action.hover', borderRadius: 2 }}>

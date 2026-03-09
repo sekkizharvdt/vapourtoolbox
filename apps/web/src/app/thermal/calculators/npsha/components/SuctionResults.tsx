@@ -22,10 +22,11 @@ import {
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
-import { Download as DownloadIcon } from '@mui/icons-material';
+import { Download as DownloadIcon, Save as SaveIcon } from '@mui/icons-material';
 import type { SuctionSystemResult } from '@/lib/thermal/suctionSystemCalculator';
 import { VALVE_TYPE_LABELS, STRAINER_TYPE_LABELS } from './types';
 import { GenerateReportDialog } from './GenerateReportDialog';
+import { SaveCalculationDialog } from './SaveCalculationDialog';
 
 export interface SuctionReportInputs {
   effectPressure: string;
@@ -70,13 +71,17 @@ function getNPSHaColor(isAdequate: boolean, margin: number): 'success' | 'warnin
 
 export function SuctionResults({ result, inputs }: SuctionResultsProps) {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
 
   const dirtyColor = getNPSHaColor(result.npshaDirty.isAdequate, result.npshaDirty.margin);
 
   return (
     <Stack spacing={3}>
-      {/* === Download Report Button === */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+      {/* === Action Buttons === */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+        <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveDialogOpen(true)}>
+          Save
+        </Button>
         <Button
           variant="outlined"
           startIcon={<DownloadIcon />}
@@ -613,6 +618,14 @@ export function SuctionResults({ result, inputs }: SuctionResultsProps) {
         onClose={() => setReportDialogOpen(false)}
         result={result}
         inputs={inputs}
+      />
+
+      {/* === Save Dialog === */}
+      <SaveCalculationDialog
+        open={saveDialogOpen}
+        onClose={() => setSaveDialogOpen(false)}
+        calculatorType="NPSHA"
+        inputs={inputs as unknown as Record<string, unknown>}
       />
     </Stack>
   );

@@ -44,6 +44,8 @@ import {
   CleaningServices as CleanIcon,
   ExpandMore as ExpandMoreIcon,
   PictureAsPdf as PdfIcon,
+  FolderOpen as LoadIcon,
+  Save as SaveIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
@@ -62,6 +64,9 @@ const GenerateReportDialog = lazy(() =>
     default: m.GenerateReportDialog,
   }))
 );
+
+import { SaveCalculationDialog } from './components/SaveCalculationDialog';
+import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 
 type TabValue = 'dosing' | 'cip';
 
@@ -1028,6 +1033,8 @@ export default function ChemicalDosingClient() {
 
   // Report dialog
   const [reportOpen, setReportOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [loadOpen, setLoadOpen] = useState(false);
   const [cipResult, setCipResult] = useState<CIPResult | null>(null);
 
   // ── Compute dosing results reactively ──────────────────────────────────
@@ -1129,15 +1136,28 @@ export default function ChemicalDosingClient() {
       </Typography>
 
       <Stack direction="row" spacing={1} mb={3}>
+        <Button size="small" startIcon={<LoadIcon />} onClick={() => setLoadOpen(true)}>
+          Load Saved
+        </Button>
         {hasAnyResult && (
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<PdfIcon />}
-            onClick={() => setReportOpen(true)}
-          >
-            Generate Report
-          </Button>
+          <>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<SaveIcon />}
+              onClick={() => setSaveOpen(true)}
+            >
+              Save
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<PdfIcon />}
+              onClick={() => setReportOpen(true)}
+            >
+              Generate Report
+            </Button>
+          </>
         )}
       </Stack>
 
@@ -1427,6 +1447,89 @@ export default function ChemicalDosingClient() {
           />
         </Suspense>
       )}
+
+      {/* Save/Load Dialogs */}
+      <SaveCalculationDialog
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        calculatorType="CHEMICAL_DOSING"
+        inputs={{
+          tab,
+          feedFlow,
+          enableAntiscalant,
+          enableAntifoam,
+          tankType,
+          asDose,
+          asDensity,
+          asStorage,
+          asLinePressure,
+          asNeatConc,
+          asWorkingConc,
+          asDilutionDays,
+          afDose,
+          afDensity,
+          afStorage,
+          afLinePressure,
+          afNeatConc,
+          afWorkingConc,
+          afDilutionDays,
+          cipAcidType,
+          cipHxArea,
+          cipSpecVol,
+          cipPipingHoldup,
+          cipCleaningConc,
+          cipRecircFlow,
+          cipDuration,
+          cipRinses,
+          cipCleansPerYear,
+          cipStorageDays,
+          cipTankType,
+        }}
+      />
+      <LoadCalculationDialog
+        open={loadOpen}
+        onClose={() => setLoadOpen(false)}
+        calculatorType="CHEMICAL_DOSING"
+        onLoad={(inputs) => {
+          if (inputs.tab === 'dosing' || inputs.tab === 'cip') setTab(inputs.tab);
+          if (typeof inputs.feedFlow === 'string') setFeedFlow(inputs.feedFlow);
+          if (typeof inputs.enableAntiscalant === 'boolean')
+            setEnableAntiscalant(inputs.enableAntiscalant);
+          if (typeof inputs.enableAntifoam === 'boolean') setEnableAntifoam(inputs.enableAntifoam);
+          if (inputs.tankType === 'cylindrical' || inputs.tankType === 'rectangular')
+            setTankType(inputs.tankType);
+          if (typeof inputs.asDose === 'string') setAsDose(inputs.asDose);
+          if (typeof inputs.asDensity === 'string') setAsDensity(inputs.asDensity);
+          if (typeof inputs.asStorage === 'string') setAsStorage(inputs.asStorage);
+          if (typeof inputs.asLinePressure === 'string') setAsLinePressure(inputs.asLinePressure);
+          if (typeof inputs.asNeatConc === 'string') setAsNeatConc(inputs.asNeatConc);
+          if (typeof inputs.asWorkingConc === 'string') setAsWorkingConc(inputs.asWorkingConc);
+          if (typeof inputs.asDilutionDays === 'string') setAsDilutionDays(inputs.asDilutionDays);
+          if (typeof inputs.afDose === 'string') setAfDose(inputs.afDose);
+          if (typeof inputs.afDensity === 'string') setAfDensity(inputs.afDensity);
+          if (typeof inputs.afStorage === 'string') setAfStorage(inputs.afStorage);
+          if (typeof inputs.afLinePressure === 'string') setAfLinePressure(inputs.afLinePressure);
+          if (typeof inputs.afNeatConc === 'string') setAfNeatConc(inputs.afNeatConc);
+          if (typeof inputs.afWorkingConc === 'string') setAfWorkingConc(inputs.afWorkingConc);
+          if (typeof inputs.afDilutionDays === 'string') setAfDilutionDays(inputs.afDilutionDays);
+          if (typeof inputs.cipAcidType === 'string')
+            setCipAcidType(inputs.cipAcidType as AcidType);
+          if (typeof inputs.cipHxArea === 'string') setCipHxArea(inputs.cipHxArea);
+          if (typeof inputs.cipSpecVol === 'string') setCipSpecVol(inputs.cipSpecVol);
+          if (typeof inputs.cipPipingHoldup === 'string')
+            setCipPipingHoldup(inputs.cipPipingHoldup);
+          if (typeof inputs.cipCleaningConc === 'string')
+            setCipCleaningConc(inputs.cipCleaningConc);
+          if (typeof inputs.cipRecircFlow === 'string') setCipRecircFlow(inputs.cipRecircFlow);
+          if (typeof inputs.cipDuration === 'string') setCipDuration(inputs.cipDuration);
+          if (typeof inputs.cipRinses === 'string') setCipRinses(inputs.cipRinses);
+          if (typeof inputs.cipCleansPerYear === 'string')
+            setCipCleansPerYear(inputs.cipCleansPerYear);
+          if (typeof inputs.cipStorageDays === 'string') setCipStorageDays(inputs.cipStorageDays);
+          if (inputs.cipTankType === 'cylindrical' || inputs.cipTankType === 'rectangular')
+            setCipTankType(inputs.cipTankType);
+        }}
+      />
     </Container>
   );
 }
