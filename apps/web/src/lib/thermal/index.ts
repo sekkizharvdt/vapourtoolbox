@@ -152,14 +152,31 @@ export {
   type CarryoverComparisonRow,
 } from './demisterCalculator';
 
-// Chemical Dosing Calculator (Antiscalant + Anti-foam)
+// Chemical Dosing Calculator (Antiscalant + Anti-foam + CIP)
 export {
   calculateDosing,
+  calculateCIP,
+  calculateTankDimensions,
+  calculatePumpPressure,
+  selectDosingLine,
   CHEMICAL_PRODUCTS,
+  ACID_PRODUCTS,
+  DOSING_TUBING_SIZES,
+  DEFAULT_SPECIFIC_VOLUME_LPM2,
+  CIP_TANK_MARGIN,
+  BUND_FACTOR,
   type ChemicalType,
   type ChemicalProduct,
+  type AcidType,
+  type AcidProduct,
+  type TankDimensions,
   type DosingInput,
   type DosingResult,
+  type DilutionResult,
+  type PumpPressureResult,
+  type DosingLineResult,
+  type CIPInput,
+  type CIPResult,
 } from './chemicalDosingCalculator';
 
 // MED Suction System Designer
@@ -210,3 +227,25 @@ export {
   type NozzleLayoutMatch,
   type NozzleLayoutResult,
 } from './sprayNozzleCalculator';
+
+// Heat Exchanger Sizing
+export {
+  sizeHeatExchanger,
+  calculateTubeSideVelocity,
+  calculateShellSideVelocity,
+  estimateTubeSidePressureDrop,
+  findTubeIndex,
+  getDistinctODs,
+  getBWGsForOD,
+  STANDARD_TUBES,
+  TUBE_MATERIALS,
+  TUBE_LAYOUT_LABELS,
+  STANDARD_SHELL_IDS_MM,
+  TUBE_COUNT_CONSTANT,
+  LAYOUT_CONSTANT,
+  MIN_PITCH_RATIO,
+  type TubeSpec,
+  type TubeLayout,
+  type HeatExchangerInput,
+  type HeatExchangerResult,
+} from './heatExchangerSizing';

@@ -133,8 +133,18 @@ const CATEGORIES: CalculatorCategory[] = [
   },
   {
     title: 'Heat Transfer',
-    description: 'Coefficients and thermal resistance calculations for heat exchanger design.',
+    description:
+      'Coefficients, sizing, and thermal resistance calculations for heat exchanger design.',
     calculators: [
+      {
+        title: 'Heat Exchanger Sizing',
+        description:
+          'Size shell-and-tube heat exchangers from heat duty, LMTD, and HTC. Calculates tube count, bundle diameter, and shell selection per TEMA standards.',
+        icon: <HeatIcon sx={{ fontSize: 40 }} />,
+        href: '/thermal/calculators/heat-exchanger',
+        status: 'available',
+        reference: 'TEMA / Kern',
+      },
       {
         title: 'Heat Transfer Coefficients',
         description:
