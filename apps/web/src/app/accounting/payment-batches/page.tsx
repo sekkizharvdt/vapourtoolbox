@@ -72,9 +72,6 @@ export default function PaymentBatchesPage() {
         const statusOptions: PaymentBatchStatus[] | undefined =
           statusFilter === 'ALL' ? undefined : [statusFilter as PaymentBatchStatus];
 
-        const entityId = claims?.entityId;
-        if (!entityId) return;
-
         const [batchList, batchStats] = await Promise.all([
           listPaymentBatches(db, {
             status: statusOptions ? statusOptions[0] : undefined,
@@ -94,7 +91,7 @@ export default function PaymentBatchesPage() {
     };
 
     loadData();
-  }, [hasViewAccess, statusFilter, claims?.entityId]);
+  }, [hasViewAccess, statusFilter]);
 
   const handleCreate = () => {
     router.push('/accounting/payment-batches/new');
