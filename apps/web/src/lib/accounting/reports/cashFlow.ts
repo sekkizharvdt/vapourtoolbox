@@ -59,7 +59,6 @@ export async function generateCashFlowStatement(
   const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
   const q = query(
     transactionsRef,
-    where('entityId', '==', entityId),
     where('status', '==', 'POSTED'),
     where('date', '>=', start),
     where('date', '<=', end)

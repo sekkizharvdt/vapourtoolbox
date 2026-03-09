@@ -235,11 +235,6 @@ export async function listPaymentBatches(
     orderBy(options.orderBy || 'createdAt', options.orderDirection || 'desc')
   );
 
-  // Apply entity filter (multi-tenancy)
-  if (options.entityId) {
-    q = query(q, where('entityId', '==', options.entityId));
-  }
-
   // Apply status filter
   if (options.status) {
     const statuses = Array.isArray(options.status) ? options.status : [options.status];
@@ -726,18 +721,13 @@ export async function getOutstandingBillsForProject(
   db: Firestore,
   projectId?: string,
   includeAllProjects: boolean = false,
-  entityId?: string
+  _entityId?: string
 ): Promise<VendorBill[]> {
   const constraints = [
     where('type', '==', 'VENDOR_BILL'),
     where('paymentStatus', 'in', ['UNPAID', 'PARTIALLY_PAID']),
     orderBy('dueDate', 'asc'),
   ];
-
-  // Apply entity filter (multi-tenancy)
-  if (entityId) {
-    constraints.push(where('entityId', '==', entityId));
-  }
 
   const q = query(collection(db, COLLECTIONS.TRANSACTIONS), ...constraints);
 
@@ -838,9 +828,9 @@ export function detectCrossProjectPayments(batch: PaymentBatch): Array<{
  */
 export async function getPaymentBatchStats(
   db: Firestore,
-  entityId: string
+  _entityId: string
 ): Promise<PaymentBatchStats> {
-  const q = query(collection(db, COLLECTIONS.PAYMENT_BATCHES), where('entityId', '==', entityId));
+  const q = query(collection(db, COLLECTIONS.PAYMENT_BATCHES));
   const snapshot = await getDocs(q);
 
   const stats: PaymentBatchStats = {

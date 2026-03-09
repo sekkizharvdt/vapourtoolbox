@@ -90,13 +90,12 @@ export async function createProjectCostCentre(
  */
 export async function getProjectCostCentre(
   db: Firestore,
-  entityId: string,
+  _entityId: string,
   projectId: string
 ): Promise<CostCentre | null> {
   try {
     const costCentreQuery = query(
       collection(db, COLLECTIONS.COST_CENTRES),
-      where('entityId', '==', entityId),
       where('projectId', '==', projectId)
     );
     const snapshot = await getDocs(costCentreQuery);

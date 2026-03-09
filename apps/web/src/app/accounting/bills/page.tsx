@@ -156,15 +156,12 @@ export default function BillsPage() {
   const { db } = getFirebase();
   const billsQuery = useMemo(
     () =>
-      claims?.entityId
-        ? query(
-            collection(db, COLLECTIONS.TRANSACTIONS),
-            where('type', '==', 'VENDOR_BILL'),
-            where('entityId', '==', claims.entityId),
-            orderBy('date', 'desc')
-          )
-        : null,
-    [db, claims?.entityId]
+      query(
+        collection(db, COLLECTIONS.TRANSACTIONS),
+        where('type', '==', 'VENDOR_BILL'),
+        orderBy('date', 'desc')
+      ),
+    [db]
   );
 
   const { data: rawBills, loading } = useFirestoreQuery<VendorBill>(billsQuery);

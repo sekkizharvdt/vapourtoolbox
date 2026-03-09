@@ -465,14 +465,10 @@ export async function getInterprojectLoan(
  */
 export async function getInterprojectLoans(
   db: Firestore,
-  entityId: string,
+  _entityId: string,
   filters?: LoanListFilters
 ): Promise<InterprojectLoan[]> {
-  let q = query(
-    collection(db, COLLECTIONS.INTERPROJECT_LOANS),
-    where('entityId', '==', entityId),
-    orderBy('createdAt', 'desc')
-  );
+  let q = query(collection(db, COLLECTIONS.INTERPROJECT_LOANS), orderBy('createdAt', 'desc'));
 
   if (filters?.status) {
     q = query(q, where('status', '==', filters.status));

@@ -133,8 +133,6 @@ export default function DataHealthPage() {
   };
 
   const fetchStats = async () => {
-    if (!claims?.entityId) return;
-
     setLoading(true);
     setError(null);
 
@@ -145,33 +143,11 @@ export default function DataHealthPage() {
       // Fetch all relevant transactions
       const [paymentsSnap, billsSnap, invoicesSnap, journalEntriesSnap] = await Promise.all([
         getDocs(
-          query(
-            transactionsRef,
-            where('entityId', '==', claims.entityId),
-            where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT'])
-          )
+          query(transactionsRef, where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT']))
         ),
-        getDocs(
-          query(
-            transactionsRef,
-            where('entityId', '==', claims.entityId),
-            where('type', '==', 'VENDOR_BILL')
-          )
-        ),
-        getDocs(
-          query(
-            transactionsRef,
-            where('entityId', '==', claims.entityId),
-            where('type', '==', 'CUSTOMER_INVOICE')
-          )
-        ),
-        getDocs(
-          query(
-            transactionsRef,
-            where('entityId', '==', claims.entityId),
-            where('type', '==', 'JOURNAL_ENTRY')
-          )
-        ),
+        getDocs(query(transactionsRef, where('type', '==', 'VENDOR_BILL'))),
+        getDocs(query(transactionsRef, where('type', '==', 'CUSTOMER_INVOICE'))),
+        getDocs(query(transactionsRef, where('type', '==', 'JOURNAL_ENTRY'))),
       ]);
 
       // Filter out soft-deleted transactions from all snapshots
@@ -442,7 +418,7 @@ export default function DataHealthPage() {
   useEffect(() => {
     fetchStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claims?.entityId]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {

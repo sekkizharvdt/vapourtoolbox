@@ -351,7 +351,6 @@ export async function generateReceiptsPaymentsReport(
   const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
   const q = query(
     transactionsRef,
-    where('entityId', '==', entityId),
     where('status', '==', 'POSTED'),
     where('date', '>=', start),
     where('date', '<=', end)
@@ -361,7 +360,6 @@ export async function generateReceiptsPaymentsReport(
   // Also fetch historical transactions for opening balance
   const historicalQ = query(
     transactionsRef,
-    where('entityId', '==', entityId),
     where('status', '==', 'POSTED'),
     where('date', '<', start)
   );

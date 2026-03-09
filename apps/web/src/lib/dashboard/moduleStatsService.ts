@@ -7,6 +7,7 @@
 
 import { collection, query, where, getCountFromServer, Timestamp } from 'firebase/firestore';
 import { getFirebase } from '@/lib/firebase';
+import { COLLECTIONS } from '@vapour/firebase';
 import { createLogger } from '@vapour/utils';
 
 const logger = createLogger('ModuleStats');
@@ -137,38 +138,28 @@ async function getProcurementStats(entityId: string): Promise<ModuleStats> {
 /**
  * Get stats for Accounting module
  */
-async function getAccountingStats(entityId: string): Promise<ModuleStats> {
+async function getAccountingStats(_entityId: string): Promise<ModuleStats> {
   const { db } = getFirebase();
 
   try {
     // Count pending customer invoices
     const pendingInvoicesQuery = query(
-      collection(db, 'customerInvoices'),
-      where('entityId', '==', entityId),
+      collection(db, COLLECTIONS.TRANSACTIONS),
+      where('type', '==', 'CUSTOMER_INVOICE'),
       where('status', 'in', ['DRAFT', 'PENDING_APPROVAL'])
     );
     const pendingInvoicesSnapshot = await getCountFromServer(pendingInvoicesQuery);
 
     // Count pending vendor bills
     const pendingBillsQuery = query(
-      collection(db, 'vendorBills'),
-      where('entityId', '==', entityId),
+      collection(db, COLLECTIONS.TRANSACTIONS),
+      where('type', '==', 'VENDOR_BILL'),
       where('status', 'in', ['DRAFT', 'PENDING_APPROVAL'])
     );
     const pendingBillsSnapshot = await getCountFromServer(pendingBillsQuery);
 
-    // Count unreconciled bank transactions
-    const unreconciledQuery = query(
-      collection(db, 'bankReconciliation'),
-      where('entityId', '==', entityId),
-      where('status', '==', 'UNRECONCILED')
-    );
-    const unreconciledSnapshot = await getCountFromServer(unreconciledQuery);
-
     const totalPending =
-      (pendingInvoicesSnapshot.data().count || 0) +
-      (pendingBillsSnapshot.data().count || 0) +
-      (unreconciledSnapshot.data().count || 0);
+      (pendingInvoicesSnapshot.data().count || 0) + (pendingBillsSnapshot.data().count || 0);
 
     return {
       moduleId: 'accounting',

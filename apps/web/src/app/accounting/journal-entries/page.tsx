@@ -66,13 +66,7 @@ export default function JournalEntriesPage() {
   useEffect(() => {
     const { db } = getFirebase();
     const entriesRef = collection(db, COLLECTIONS.TRANSACTIONS);
-    if (!claims?.entityId) return;
-    const q = query(
-      entriesRef,
-      where('type', '==', 'JOURNAL_ENTRY'),
-      where('entityId', '==', claims.entityId),
-      orderBy('date', 'desc')
-    );
+    const q = query(entriesRef, where('type', '==', 'JOURNAL_ENTRY'), orderBy('date', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const entriesData: JournalEntry[] = [];
@@ -87,7 +81,7 @@ export default function JournalEntriesPage() {
     });
 
     return () => unsubscribe();
-  }, [claims?.entityId]);
+  }, []);
 
   const handleCreate = () => {
     setEditingEntry(null);

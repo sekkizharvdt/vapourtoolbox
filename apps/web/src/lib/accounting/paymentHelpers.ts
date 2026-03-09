@@ -674,7 +674,7 @@ export async function updatePaymentWithAllocationsAtomic(
  */
 export async function reconcilePaymentStatuses(
   db: Firestore,
-  entityId: string,
+  _entityId: string,
   options?: { dryRun?: boolean }
 ): Promise<{
   checked: number;
@@ -686,11 +686,7 @@ export async function reconcilePaymentStatuses(
 
   // 1. Get all payments and build allocation map: invoiceId -> total allocated
   const paymentSnap = await getDocs(
-    query(
-      transactionsRef,
-      where('entityId', '==', entityId),
-      where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT'])
-    )
+    query(transactionsRef, where('type', 'in', ['CUSTOMER_PAYMENT', 'VENDOR_PAYMENT']))
   );
 
   const allocationMap = new Map<string, number>();
@@ -711,16 +707,8 @@ export async function reconcilePaymentStatuses(
 
   // 2. Get all bills and invoices
   const [billSnap, invoiceSnap] = await Promise.all([
-    getDocs(
-      query(transactionsRef, where('entityId', '==', entityId), where('type', '==', 'VENDOR_BILL'))
-    ),
-    getDocs(
-      query(
-        transactionsRef,
-        where('entityId', '==', entityId),
-        where('type', '==', 'CUSTOMER_INVOICE')
-      )
-    ),
+    getDocs(query(transactionsRef, where('type', '==', 'VENDOR_BILL'))),
+    getDocs(query(transactionsRef, where('type', '==', 'CUSTOMER_INVOICE'))),
   ]);
 
   const allDocs = [...billSnap.docs, ...invoiceSnap.docs];

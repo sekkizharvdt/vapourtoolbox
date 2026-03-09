@@ -126,7 +126,6 @@ export async function generateProfitLossReport(
     const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
     const periodQuery = query(
       transactionsRef,
-      where('entityId', '==', entityId),
       where('date', '>=', startTimestamp),
       where('date', '<=', endTimestamp)
     );

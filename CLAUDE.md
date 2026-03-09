@@ -4,18 +4,21 @@ These rules are derived from a 190-finding codebase audit. They apply to all new
 
 ## Firestore Queries
 
-1. **Every query MUST include `entityId` filtering** — multi-tenancy is enforced at the query level:
+1. **`entityId` on transactions is the COUNTERPARTY (vendor/customer), NOT a tenant ID** — the `entities` collection stores vendors and customers. `transaction.entityId` references which vendor/customer the transaction is with. Do NOT use `claims?.entityId` to filter transactions.
 
-   ```typescript
-   where('entityId', '==', entityId);
-   ```
+   **Multi-tenancy is NOT yet implemented.** When it is, a dedicated `tenantId` field will be added. Until then:
+   - The `accounts` collection uses `entityId: 'default-entity'` as a tenant marker — keep this pattern for account queries
+   - Transaction queries should NOT filter by tenant (single-tenant system)
+   - The `entities` collection stores counterparties (vendors/customers), not business tenants
 
-   On the client side, `entityId` comes from `claims?.entityId` via `useAuth()`. Pages extract it and pass it down to service functions.
+   **Collections that use `entityId` for counterparty (vendor/customer) reference:**
+   - `transactions` — `entityId` = which vendor/customer the transaction is with
+   - Entity-ledger, payment dialogs, and allocation validation correctly filter by counterparty `entityId`
 
-   **Global (non-entity-scoped) collections that are exceptions:**
+   **Global (non-entity-scoped) collections:**
    - `users`, `taskNotifications` — scoped by `userId` instead
    - `entities` — the entity registry itself (queried by admins)
-   - `materials`, `shapes`, `boughtOutItems` — shared reference data across all entities
+   - `materials`, `shapes`, `boughtOutItems` — shared reference data
 
 2. **Every `where()` + `orderBy()` combo MUST have a composite index** in `firestore.indexes.json`. Queries will silently fail in production without them.
 

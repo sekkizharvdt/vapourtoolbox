@@ -63,8 +63,6 @@ export default function ProjectFinancialReportPage() {
   const [error, setError] = useState<string | null>(null);
 
   const hasViewAccess = claims?.permissions ? canViewAccounting(claims.permissions) : false;
-  const entityId = claims?.entityId;
-
   // Set default date range (current month)
   useEffect(() => {
     const now = new Date();
@@ -87,7 +85,7 @@ export default function ProjectFinancialReportPage() {
 
     loadFinancials();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProject, startDate, endDate, entityId]);
+  }, [selectedProject, startDate, endDate]);
 
   const loadFinancials = async () => {
     if (!selectedProject) return;
@@ -104,7 +102,6 @@ export default function ProjectFinancialReportPage() {
 
       // Query transactions for this project in the date range
       const transactionConstraints = [
-        ...(entityId ? [where('entityId', '==', entityId)] : []),
         where('projectId', '==', selectedProject),
         where('date', '>=', startTimestamp),
         where('date', '<=', endTimestamp),
@@ -137,10 +134,7 @@ export default function ProjectFinancialReportPage() {
       });
 
       // Query cost centres for this project
-      const costCentreConstraints = [
-        ...(entityId ? [where('entityId', '==', entityId)] : []),
-        where('projectId', '==', selectedProject),
-      ];
+      const costCentreConstraints = [where('projectId', '==', selectedProject)];
       const costCentresQuery = query(
         collection(db, COLLECTIONS.COST_CENTRES),
         ...costCentreConstraints

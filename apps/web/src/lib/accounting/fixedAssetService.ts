@@ -242,7 +242,6 @@ export async function listFixedAssets(filters: ListFixedAssetsFilters): Promise<
   const { db } = getFirebase();
 
   const constraints = [
-    where('entityId', '==', filters.entityId),
     ...(filters.status ? [where('status', '==', filters.status)] : []),
     ...(filters.category ? [where('category', '==', filters.category)] : []),
     orderBy('createdAt', 'desc'),

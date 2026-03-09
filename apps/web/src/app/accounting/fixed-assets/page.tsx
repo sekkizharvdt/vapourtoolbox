@@ -88,19 +88,16 @@ export default function FixedAssetsPage() {
     ? hasPermission(claims.permissions, PERMISSION_FLAGS.MANAGE_ACCOUNTING)
     : false;
 
-  const entityId = claims?.entityId;
-
   // Build Firestore query
   const firestoreQuery = useMemo(() => {
-    if (!db || !entityId) return null;
+    if (!db) return null;
     const constraints = [
-      where('entityId', '==', entityId),
       ...(statusFilter ? [where('status', '==', statusFilter)] : []),
       ...(categoryFilter ? [where('category', '==', categoryFilter)] : []),
       orderBy('createdAt', 'desc'),
     ];
     return query(collection(db, COLLECTIONS.FIXED_ASSETS), ...constraints);
-  }, [db, entityId, statusFilter, categoryFilter]);
+  }, [db, statusFilter, categoryFilter]);
 
   const { data: assets, loading } = useFirestoreQuery<FixedAsset>(firestoreQuery);
 

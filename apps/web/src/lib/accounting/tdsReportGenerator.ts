@@ -236,7 +236,7 @@ export function getQuarterDateRange(
  */
 async function extractTDSTransactions(
   db: Firestore,
-  entityId: string,
+  _entityId: string,
   startDate: Timestamp,
   endDate: Timestamp
 ): Promise<TDSTransaction[]> {
@@ -246,7 +246,6 @@ async function extractTDSTransactions(
     // Query vendor bills (transactions with type='BILL') with TDS within date range
     const billsQuery = query(
       collection(db, COLLECTIONS.TRANSACTIONS),
-      where('entityId', '==', entityId),
       where('type', '==', 'BILL'),
       where('date', '>=', startDate),
       where('date', '<=', endDate),

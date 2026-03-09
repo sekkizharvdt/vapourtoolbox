@@ -119,10 +119,10 @@ export function calculateNextOccurrence(
  */
 export async function getRecurringTransactions(
   db: Firestore,
-  entityId: string,
+  _entityId: string,
   filters?: RecurringTransactionFilters
 ): Promise<RecurringTransaction[]> {
-  const constraints: QueryConstraint[] = [where('entityId', '==', entityId)];
+  const constraints: QueryConstraint[] = [];
 
   if (filters?.type) {
     constraints.push(where('type', '==', filters.type));
@@ -364,13 +364,12 @@ export async function deleteRecurringTransaction(
  */
 export async function getUpcomingOccurrences(
   db: Firestore,
-  entityId: string,
+  _entityId: string,
   startDate: Date,
   endDate: Date,
   type?: RecurringTransactionType
 ): Promise<RecurringOccurrence[]> {
   const constraints: QueryConstraint[] = [
-    where('entityId', '==', entityId),
     where('scheduledDate', '>=', Timestamp.fromDate(startDate)),
     where('scheduledDate', '<=', Timestamp.fromDate(endDate)),
     orderBy('scheduledDate', 'asc'),
@@ -394,13 +393,12 @@ export async function getUpcomingOccurrences(
  */
 export async function getOccurrencesForTransaction(
   db: Firestore,
-  entityId: string,
+  _entityId: string,
   recurringTransactionId: string,
   limitCount = 50
 ): Promise<RecurringOccurrence[]> {
   const q = query(
     collection(db, COLLECTIONS.RECURRING_OCCURRENCES),
-    where('entityId', '==', entityId),
     where('recurringTransactionId', '==', recurringTransactionId),
     orderBy('scheduledDate', 'desc'),
     limit(limitCount)
