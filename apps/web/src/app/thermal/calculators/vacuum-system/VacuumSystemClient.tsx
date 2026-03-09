@@ -28,8 +28,10 @@ import {
   Button,
   ToggleButtonGroup,
   ToggleButton,
-  MenuItem,
   Tooltip,
+  Checkbox,
+  FormControlLabel,
+  Collapse,
 } from '@mui/material';
 import {
   PictureAsPdf as PdfIcon,
@@ -43,7 +45,6 @@ import {
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   calculateVacuumSystem,
-  type NCGLoadMode,
   type TrainConfig,
   type VacuumSystemResult,
   type StageResult,
@@ -62,14 +63,19 @@ export default function VacuumSystemClient() {
   const [suctionTemperature, setSuctionTemperature] = useState<string>('39');
   const [dischargePressure, setDischargePressure] = useState<string>('1013');
 
-  // NCG load
-  const [ncgMode, setNcgMode] = useState<NCGLoadMode>('manual');
+  // NCG load — additive sources
+  const [includeManualNcg, setIncludeManualNcg] = useState<boolean>(true);
+  const [includeHeiLeakage, setIncludeHeiLeakage] = useState<boolean>(false);
+  const [includeSeawaterGas, setIncludeSeawaterGas] = useState<boolean>(false);
   const [dryNcgFlow, setDryNcgFlow] = useState<string>('5');
   const [systemVolume, setSystemVolume] = useState<string>('20');
   const [connectionCount, setConnectionCount] = useState<string>('50');
   const [seawaterFlow, setSeawaterFlow] = useState<string>('500');
   const [seawaterTemp, setSeawaterTemp] = useState<string>('25');
   const [salinity, setSalinity] = useState<string>('35');
+
+  // Evacuation
+  const [evacuationVolume, setEvacuationVolume] = useState<string>('');
 
   // Ejector parameters
   const [motivePressure, setMotivePressure] = useState<string>('8');
@@ -126,7 +132,10 @@ export default function VacuumSystemClient() {
         suctionPressureMbar: pSuction,
         suctionTemperatureC: tSuction,
         dischargePressureMbar: pDischarge,
-        ncgMode,
+        ncgMode: 'combined',
+        includeManualNcg,
+        includeHeiLeakage,
+        includeSeawaterGas,
         dryNcgFlowKgH: parseFloat(dryNcgFlow) || undefined,
         systemVolumeM3: parseFloat(systemVolume) || undefined,
         connectionCount: parseInt(connectionCount, 10) || undefined,
@@ -139,6 +148,7 @@ export default function VacuumSystemClient() {
         sealWaterTempC: parseFloat(sealWaterTemp) || 32,
         trainConfig,
         designMargin: isNaN(margin) ? 0.1 : margin,
+        evacuationVolumeM3: parseFloat(evacuationVolume) || undefined,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Calculation error');
@@ -148,7 +158,9 @@ export default function VacuumSystemClient() {
     suctionPressure,
     suctionTemperature,
     dischargePressure,
-    ncgMode,
+    includeManualNcg,
+    includeHeiLeakage,
+    includeSeawaterGas,
     dryNcgFlow,
     systemVolume,
     connectionCount,
@@ -161,13 +173,16 @@ export default function VacuumSystemClient() {
     sealWaterTemp,
     trainConfig,
     designMargin,
+    evacuationVolume,
   ]);
 
   const allInputs = {
     suctionPressure,
     suctionTemperature,
     dischargePressure,
-    ncgMode,
+    includeManualNcg,
+    includeHeiLeakage,
+    includeSeawaterGas,
     dryNcgFlow,
     systemVolume,
     connectionCount,
@@ -180,6 +195,7 @@ export default function VacuumSystemClient() {
     sealWaterTemp,
     trainConfig,
     designMargin,
+    evacuationVolume,
   };
 
   // ── Render ─────────────────────────────────────────────────────────────
@@ -310,141 +326,37 @@ export default function VacuumSystemClient() {
               </Stack>
             </Paper>
 
-            {/* NCG Load */}
+            {/* NCG Load — additive sources */}
             <Paper sx={{ p: 3 }}>
               <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                NCG Load
+                NCG Load Sources
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+                Enable one or more NCG sources. All contributions are summed.
               </Typography>
               <Divider sx={{ mb: 2 }} />
-              <Stack spacing={2}>
-                <TextField
-                  select
-                  label="NCG Estimation Method"
-                  value={ncgMode}
-                  onChange={(e) => setNcgMode(e.target.value as NCGLoadMode)}
-                  fullWidth
-                  size="small"
-                >
-                  <MenuItem value="manual">Manual — Known NCG Flow</MenuItem>
-                  <MenuItem value="hei_leakage">HEI — Air Leakage from System Volume</MenuItem>
-                  <MenuItem value="seawater">Seawater — Dissolved Gas Release</MenuItem>
-                </TextField>
-
-                {ncgMode === 'manual' && (
-                  <TextField
-                    label="Dry NCG Flow"
-                    value={dryNcgFlow}
-                    onChange={(e) => setDryNcgFlow(e.target.value)}
-                    fullWidth
-                    size="small"
-                    type="number"
-                    helperText="Total dry air + NCG mass flow"
-                    slotProps={{
-                      input: {
-                        endAdornment: (
-                          <Typography variant="caption" sx={{ ml: 1 }}>
-                            kg/h
-                          </Typography>
-                        ),
-                      },
-                    }}
-                  />
-                )}
-
-                {ncgMode === 'hei_leakage' && (
-                  <>
-                    <TextField
-                      label="System Volume"
-                      value={systemVolume}
-                      onChange={(e) => setSystemVolume(e.target.value)}
-                      fullWidth
+              <Stack spacing={1}>
+                {/* Manual NCG */}
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={includeManualNcg}
+                      onChange={(e) => setIncludeManualNcg(e.target.checked)}
                       size="small"
-                      type="number"
-                      helperText="Vapour-side volume of condenser + piping"
-                      slotProps={{
-                        input: {
-                          endAdornment: (
-                            <Typography variant="caption" sx={{ ml: 1 }}>
-                              m&sup3;
-                            </Typography>
-                          ),
-                        },
-                      }}
                     />
+                  }
+                  label="Manual NCG / Air Leakage"
+                />
+                <Collapse in={includeManualNcg}>
+                  <Box sx={{ pl: 4, pb: 1 }}>
                     <TextField
-                      label="Flanged Connections"
-                      value={connectionCount}
-                      onChange={(e) => setConnectionCount(e.target.value)}
-                      fullWidth
-                      size="small"
-                      type="number"
-                      helperText="Number of flanges, joints, and penetrations"
-                    />
-                  </>
-                )}
-
-                {ncgMode === 'seawater' && (
-                  <>
-                    <TextField
-                      label="Seawater Feed Flow"
-                      value={seawaterFlow}
-                      onChange={(e) => setSeawaterFlow(e.target.value)}
-                      fullWidth
-                      size="small"
-                      type="number"
-                      helperText="Total seawater feed to plant"
-                      slotProps={{
-                        input: {
-                          endAdornment: (
-                            <Typography variant="caption" sx={{ ml: 1 }}>
-                              m&sup3;/h
-                            </Typography>
-                          ),
-                        },
-                      }}
-                    />
-                    <TextField
-                      label="Seawater Temperature"
-                      value={seawaterTemp}
-                      onChange={(e) => setSeawaterTemp(e.target.value)}
-                      fullWidth
-                      size="small"
-                      type="number"
-                      slotProps={{
-                        input: {
-                          endAdornment: (
-                            <Typography variant="caption" sx={{ ml: 1 }}>
-                              &deg;C
-                            </Typography>
-                          ),
-                        },
-                      }}
-                    />
-                    <TextField
-                      label="Salinity"
-                      value={salinity}
-                      onChange={(e) => setSalinity(e.target.value)}
-                      fullWidth
-                      size="small"
-                      type="number"
-                      slotProps={{
-                        input: {
-                          endAdornment: (
-                            <Typography variant="caption" sx={{ ml: 1 }}>
-                              g/kg
-                            </Typography>
-                          ),
-                        },
-                      }}
-                    />
-                    <TextField
-                      label="Additional Air Leakage"
+                      label="Dry NCG Flow"
                       value={dryNcgFlow}
                       onChange={(e) => setDryNcgFlow(e.target.value)}
                       fullWidth
                       size="small"
                       type="number"
-                      helperText="Air leakage in addition to dissolved gas"
+                      helperText="Known or estimated dry air + NCG mass flow"
                       slotProps={{
                         input: {
                           endAdornment: (
@@ -455,8 +367,123 @@ export default function VacuumSystemClient() {
                         },
                       }}
                     />
-                  </>
-                )}
+                  </Box>
+                </Collapse>
+
+                {/* HEI Leakage */}
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={includeHeiLeakage}
+                      onChange={(e) => setIncludeHeiLeakage(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label="HEI Air Leakage (from system volume)"
+                />
+                <Collapse in={includeHeiLeakage}>
+                  <Box sx={{ pl: 4, pb: 1 }}>
+                    <Stack spacing={2}>
+                      <TextField
+                        label="System Volume"
+                        value={systemVolume}
+                        onChange={(e) => setSystemVolume(e.target.value)}
+                        fullWidth
+                        size="small"
+                        type="number"
+                        helperText="Vapour-side volume of condenser + piping"
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <Typography variant="caption" sx={{ ml: 1 }}>
+                                m&sup3;
+                              </Typography>
+                            ),
+                          },
+                        }}
+                      />
+                      <TextField
+                        label="Flanged Connections"
+                        value={connectionCount}
+                        onChange={(e) => setConnectionCount(e.target.value)}
+                        fullWidth
+                        size="small"
+                        type="number"
+                        helperText="Number of flanges, joints, and penetrations"
+                      />
+                    </Stack>
+                  </Box>
+                </Collapse>
+
+                {/* Seawater Dissolved Gas */}
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={includeSeawaterGas}
+                      onChange={(e) => setIncludeSeawaterGas(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label="Seawater Dissolved Gas Release"
+                />
+                <Collapse in={includeSeawaterGas}>
+                  <Box sx={{ pl: 4, pb: 1 }}>
+                    <Stack spacing={2}>
+                      <TextField
+                        label="Seawater Feed Flow"
+                        value={seawaterFlow}
+                        onChange={(e) => setSeawaterFlow(e.target.value)}
+                        fullWidth
+                        size="small"
+                        type="number"
+                        helperText="Total seawater feed to plant"
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <Typography variant="caption" sx={{ ml: 1 }}>
+                                m&sup3;/h
+                              </Typography>
+                            ),
+                          },
+                        }}
+                      />
+                      <TextField
+                        label="Seawater Temperature"
+                        value={seawaterTemp}
+                        onChange={(e) => setSeawaterTemp(e.target.value)}
+                        fullWidth
+                        size="small"
+                        type="number"
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <Typography variant="caption" sx={{ ml: 1 }}>
+                                &deg;C
+                              </Typography>
+                            ),
+                          },
+                        }}
+                      />
+                      <TextField
+                        label="Salinity"
+                        value={salinity}
+                        onChange={(e) => setSalinity(e.target.value)}
+                        fullWidth
+                        size="small"
+                        type="number"
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <Typography variant="caption" sx={{ ml: 1 }}>
+                                g/kg
+                              </Typography>
+                            ),
+                          },
+                        }}
+                      />
+                    </Stack>
+                  </Box>
+                </Collapse>
               </Stack>
             </Paper>
 
@@ -568,6 +595,34 @@ export default function VacuumSystemClient() {
               </Stack>
             </Paper>
 
+            {/* Evacuation Time */}
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                Evacuation Time
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <Stack spacing={2}>
+                <TextField
+                  label="Vessel Volume"
+                  value={evacuationVolume}
+                  onChange={(e) => setEvacuationVolume(e.target.value)}
+                  fullWidth
+                  size="small"
+                  type="number"
+                  helperText="Total volume to evacuate from atmospheric to operating pressure"
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <Typography variant="caption" sx={{ ml: 1 }}>
+                          m&sup3;
+                        </Typography>
+                      ),
+                    },
+                  }}
+                />
+              </Stack>
+            </Paper>
+
             {error && (
               <Alert severity="error" onClose={() => setError(null)}>
                 {error}
@@ -630,7 +685,12 @@ export default function VacuumSystemClient() {
             setSuctionTemperature(inputs.suctionTemperature);
           if (typeof inputs.dischargePressure === 'string')
             setDischargePressure(inputs.dischargePressure);
-          if (typeof inputs.ncgMode === 'string') setNcgMode(inputs.ncgMode as NCGLoadMode);
+          if (typeof inputs.includeManualNcg === 'boolean')
+            setIncludeManualNcg(inputs.includeManualNcg);
+          if (typeof inputs.includeHeiLeakage === 'boolean')
+            setIncludeHeiLeakage(inputs.includeHeiLeakage);
+          if (typeof inputs.includeSeawaterGas === 'boolean')
+            setIncludeSeawaterGas(inputs.includeSeawaterGas);
           if (typeof inputs.dryNcgFlow === 'string') setDryNcgFlow(inputs.dryNcgFlow);
           if (typeof inputs.systemVolume === 'string') setSystemVolume(inputs.systemVolume);
           if (typeof inputs.connectionCount === 'string')
@@ -647,6 +707,8 @@ export default function VacuumSystemClient() {
           if (typeof inputs.trainConfig === 'string')
             setTrainConfig(inputs.trainConfig as TrainConfig);
           if (typeof inputs.designMargin === 'string') setDesignMargin(inputs.designMargin);
+          if (typeof inputs.evacuationVolume === 'string')
+            setEvacuationVolume(inputs.evacuationVolume);
         }}
       />
     </Container>
@@ -729,9 +791,14 @@ function VacuumResults({
           Gas Load Breakdown
         </Typography>
         <Grid container spacing={2}>
-          {result.airLeakageKgH > 0 && (
+          {result.manualNcgKgH > 0 && (
             <Grid size={{ xs: 6, sm: 3 }}>
-              <SummaryItem label="Air Leakage" value={`${result.airLeakageKgH} kg/h`} />
+              <SummaryItem label="Manual NCG" value={`${result.manualNcgKgH} kg/h`} />
+            </Grid>
+          )}
+          {result.heiLeakageKgH > 0 && (
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <SummaryItem label="HEI Leakage" value={`${result.heiLeakageKgH} kg/h`} />
             </Grid>
           )}
           {result.dissolvedGasKgH > 0 && (
@@ -829,6 +896,75 @@ function VacuumResults({
         </Grid>
       </Paper>
 
+      {/* Evacuation Time */}
+      {result.evacuationTimeMinutes != null && result.evacuationVolumeM3 != null && (
+        <Paper
+          sx={{ p: 2, bgcolor: 'warning.50', border: '1px solid', borderColor: 'warning.main' }}
+        >
+          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+            Evacuation Time
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <SummaryItem label="Vessel Volume" value={`${result.evacuationVolumeM3} m\u00B3`} />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <SummaryItem
+                label="From / To"
+                value={`${result.dischargePressureMbar} \u2192 ${result.suctionPressureMbar} mbar`}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <SummaryItem
+                label="Evacuation Time"
+                value={
+                  result.evacuationTimeMinutes < 60
+                    ? `${result.evacuationTimeMinutes} min`
+                    : `${(result.evacuationTimeMinutes / 60).toFixed(1)} hr`
+                }
+              />
+            </Grid>
+          </Grid>
+          {result.evacuationSteps && result.evacuationSteps.length > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+                Pump-down curve (log-spaced pressure steps)
+              </Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold', py: 0.5 }}>Pressure (mbar)</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 'bold', py: 0.5 }}>
+                        Effective Capacity (m&sup3;/h)
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 'bold', py: 0.5 }}>
+                        Time (min)
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {result.evacuationSteps
+                      .filter((_, i) => i % 4 === 3 || i === result.evacuationSteps!.length - 1)
+                      .map((step, i) => (
+                        <TableRow key={i}>
+                          <TableCell sx={{ py: 0.5 }}>{step.pressureMbar}</TableCell>
+                          <TableCell align="right" sx={{ py: 0.5 }}>
+                            {step.capacityM3h}
+                          </TableCell>
+                          <TableCell align="right" sx={{ py: 0.5 }}>
+                            {step.cumulativeMinutes}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+        </Paper>
+      )}
+
       {/* Reference */}
       <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
         <Typography variant="caption" color="text.secondary" component="div">
@@ -854,7 +990,9 @@ function StageRow({ stage }: { stage: StageResult }) {
   if (stage.type === 'ejector') {
     keyResult = `Ra = ${stage.entrainmentRatio}, Steam = ${stage.motiveSteamKgH} kg/h`;
   } else if (stage.type === 'lrvp') {
-    keyResult = `${stage.lrvpModel}, ${stage.lrvpPowerKW} kW`;
+    const countPrefix = stage.lrvpCount && stage.lrvpCount > 1 ? `${stage.lrvpCount}\u00D7 ` : '';
+    const totalPower = stage.lrvpTotalPowerKW ?? stage.lrvpPowerKW;
+    keyResult = `${countPrefix}${stage.lrvpModel}, ${totalPower} kW`;
   } else if (stage.type === 'inter_condenser') {
     keyResult = `Q = ${stage.condenserDutyKW} kW, CW = ${stage.coolingWaterM3h} m\u00B3/h`;
   }

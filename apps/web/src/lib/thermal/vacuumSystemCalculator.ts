@@ -81,7 +81,7 @@ const LRVP_FRAME_SIZES: { model: string; capacityM3h: number; powerKW: number }[
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type NCGLoadMode = 'manual' | 'hei_leakage' | 'seawater';
+export type NCGLoadMode = 'manual' | 'hei_leakage' | 'seawater' | 'combined';
 export type TrainConfig = 'single_ejector' | 'two_stage_ejector' | 'lrvp_only' | 'hybrid';
 
 export interface VacuumSystemInput {
@@ -94,21 +94,36 @@ export interface VacuumSystemInput {
   dischargePressureMbar: number;
 
   // ── NCG load ──────────────────────────────────────────────────────
+  /**
+   * NCG estimation mode:
+   * - 'manual': user provides dry NCG flow directly
+   * - 'hei_leakage': estimate from system volume per HEI Standards
+   * - 'seawater': estimate from dissolved gas release + air leakage
+   * - 'combined': additive — sum of manual + HEI leakage + seawater dissolved gas
+   */
   ncgMode: NCGLoadMode;
-  /** Dry NCG mass flow (kg/h) — manual mode */
+  /** Dry NCG mass flow (kg/h) — manual / combined mode */
   dryNcgFlowKgH?: number;
-  /** System vapour-side volume (m³) — HEI leakage mode */
+  /** System vapour-side volume (m³) — HEI leakage / combined mode */
   systemVolumeM3?: number;
   /** Additional leakage allowance per flanged connection (kg/h per joint) */
   leakagePerConnectionKgH?: number;
   /** Number of flanged connections / joints */
   connectionCount?: number;
-  /** Seawater feed flow (m³/h) — seawater mode */
+  /** Seawater feed flow (m³/h) — seawater / combined mode */
   seawaterFlowM3h?: number;
   /** Seawater temperature at deaeration point (°C) */
   seawaterTemperatureC?: number;
   /** Seawater salinity (g/kg), default 35 */
   salinityGkg?: number;
+
+  // ── Combined NCG source toggles ───────────────────────────────────
+  /** Include manual NCG flow (combined mode) */
+  includeManualNcg?: boolean;
+  /** Include HEI air leakage estimate (combined mode) */
+  includeHeiLeakage?: boolean;
+  /** Include seawater dissolved gas (combined mode) */
+  includeSeawaterGas?: boolean;
 
   // ── Ejector parameters ────────────────────────────────────────────
   /** Motive steam pressure (bar abs) */
@@ -126,6 +141,10 @@ export interface VacuumSystemInput {
   trainConfig: TrainConfig;
   /** Design margin on suction volume (fraction, e.g. 0.1 = 10%), default 0.1 */
   designMargin?: number;
+
+  // ── Evacuation ────────────────────────────────────────────────────
+  /** Vessel volume for evacuation time calculation (m³) */
+  evacuationVolumeM3?: number;
 }
 
 /** Result for a single compression stage (ejector or LRVP) */
@@ -163,8 +182,12 @@ export interface StageResult {
   lrvpCorrectionFactor?: number;
   /** Required actual capacity after correction (m³/h) */
   lrvpRequiredCapacityM3h?: number;
-  /** Motor power (kW) */
+  /** Motor power per pump (kW) */
   lrvpPowerKW?: number;
+  /** Number of parallel LRVP pumps */
+  lrvpCount?: number;
+  /** Total LRVP power (kW) — lrvpPowerKW × lrvpCount */
+  lrvpTotalPowerKW?: number;
 
   // ── Inter-condenser ───────────────────────────────────────────────
   /** Condensation duty (kW) — inter-condenser only */
@@ -179,6 +202,10 @@ export interface VacuumSystemResult {
   // ── NCG load breakdown ────────────────────────────────────────────
   /** Air leakage into the system (kg/h dry air) */
   airLeakageKgH: number;
+  /** HEI leakage estimate (kg/h) — from system volume */
+  heiLeakageKgH: number;
+  /** Manual NCG input (kg/h) */
+  manualNcgKgH: number;
   /** NCG from dissolved gas release (kg/h) — seawater mode only */
   dissolvedGasKgH: number;
   /** Total dry NCG load (kg/h) */
@@ -207,6 +234,14 @@ export interface VacuumSystemResult {
   totalPowerKW: number;
   trainConfig: TrainConfig;
   designMargin: number;
+
+  // ── Evacuation time ──────────────────────────────────────────────
+  /** Evacuation volume (m³) — if specified */
+  evacuationVolumeM3?: number;
+  /** Estimated evacuation time from atmospheric to operating pressure (minutes) */
+  evacuationTimeMinutes?: number;
+  /** Evacuation time breakdown by pressure step */
+  evacuationSteps?: { pressureMbar: number; capacityM3h: number; cumulativeMinutes: number }[];
 
   // ── Warnings ──────────────────────────────────────────────────────
   warnings: string[];
@@ -396,6 +431,8 @@ function sizeLRVP(
   correctionFactor: number;
   requiredCorrectedCapacity: number;
   powerKW: number;
+  count: number;
+  totalPowerKW: number;
 } {
   // Seal water temperature correction
   const tRefHigh = 33; // °C
@@ -424,17 +461,41 @@ function sizeLRVP(
   // Required rated capacity (at reference conditions)
   const requiredCorrectedCapacity = requiredCapacityM3h / effectiveFactor;
 
-  // Select smallest frame that exceeds requirement
-  const largest = LRVP_FRAME_SIZES[LRVP_FRAME_SIZES.length - 1]!;
-  const selected =
-    LRVP_FRAME_SIZES.find((f) => f.capacityM3h >= requiredCorrectedCapacity) ?? largest;
+  // Select the best frame size — minimize total power for the required capacity.
+  // For each frame, calculate how many pumps in parallel are needed.
+  let bestModel = LRVP_FRAME_SIZES[LRVP_FRAME_SIZES.length - 1]!;
+  let bestCount = Math.ceil(requiredCorrectedCapacity / bestModel.capacityM3h);
+  let bestTotalPower = bestCount * bestModel.powerKW;
+
+  for (const frame of LRVP_FRAME_SIZES) {
+    if (frame.capacityM3h < requiredCorrectedCapacity) {
+      // Multiple pumps needed
+      const count = Math.ceil(requiredCorrectedCapacity / frame.capacityM3h);
+      const totalPower = count * frame.powerKW;
+      if (totalPower < bestTotalPower || (totalPower === bestTotalPower && count < bestCount)) {
+        bestModel = frame;
+        bestCount = count;
+        bestTotalPower = totalPower;
+      }
+    } else {
+      // Single pump sufficient
+      if (frame.powerKW < bestTotalPower) {
+        bestModel = frame;
+        bestCount = 1;
+        bestTotalPower = frame.powerKW;
+      }
+      break; // Frames are sorted by size — no need to check larger ones
+    }
+  }
 
   return {
-    model: selected.model,
-    ratedCapacityM3h: selected.capacityM3h,
+    model: bestModel.model,
+    ratedCapacityM3h: bestModel.capacityM3h,
     correctionFactor: Math.round(effectiveFactor * 1000) / 1000,
     requiredCorrectedCapacity: Math.round(requiredCorrectedCapacity * 10) / 10,
-    powerKW: selected.powerKW,
+    powerKW: bestModel.powerKW,
+    count: bestCount,
+    totalPowerKW: Math.round(bestTotalPower * 10) / 10,
   };
 }
 
@@ -491,6 +552,77 @@ function calculateInterCondenser(
   };
 }
 
+/**
+ * Calculate evacuation time from atmospheric pressure to operating vacuum.
+ *
+ * Uses numerical integration: at each pressure step, the LRVP effective
+ * capacity is calculated (with temperature and deep-vacuum corrections),
+ * and the time to pump down through that pressure increment is computed.
+ *
+ * For an ideal gas in a constant-volume vessel:
+ *   dt = V × dP / (S(P) × P_step)
+ * where S(P) is the pump's volumetric capacity at pressure P.
+ *
+ * Since LRVP capacity degrades at deep vacuum, we integrate numerically
+ * in 20 equal log-spaced pressure steps.
+ */
+function calculateEvacuationTime(
+  vesselVolumeM3: number,
+  startPressureMbar: number,
+  endPressureMbar: number,
+  _sealWaterTempC: number,
+  pumpCapacityM3h: number,
+  pumpCount: number,
+  correctionFactor: number
+): {
+  totalMinutes: number;
+  steps: { pressureMbar: number; capacityM3h: number; cumulativeMinutes: number }[];
+} {
+  const nSteps = 20;
+  const logStart = Math.log(startPressureMbar);
+  const logEnd = Math.log(endPressureMbar);
+  const dLog = (logStart - logEnd) / nSteps;
+
+  const totalRatedCapacity = pumpCapacityM3h * pumpCount;
+  let cumulativeMinutes = 0;
+  const steps: { pressureMbar: number; capacityM3h: number; cumulativeMinutes: number }[] = [];
+
+  for (let i = 0; i < nSteps; i++) {
+    const pHigh = Math.exp(logStart - i * dLog);
+    const pLow = Math.exp(logStart - (i + 1) * dLog);
+    const pMid = (pHigh + pLow) / 2;
+
+    // Deep vacuum correction at mid-point pressure
+    const suctionBar = pMid / 1000;
+    const deepVacuumFactor = suctionBar < 0.1 ? 0.5 + 5 * suctionBar : 1.0;
+
+    // Effective capacity at this pressure
+    const effectiveCapacity = totalRatedCapacity * correctionFactor * deepVacuumFactor;
+
+    if (effectiveCapacity <= 0) {
+      cumulativeMinutes = Infinity;
+      break;
+    }
+
+    // Time for this pressure step: dt = V × ln(pHigh/pLow) / S_effective
+    // Derived from: V × dP/dt = -S × P  =>  dt = V × dP / (S × P)
+    // Integrating: t = V × ln(P1/P2) / S
+    const dt = (vesselVolumeM3 * Math.log(pHigh / pLow)) / effectiveCapacity; // hours
+    cumulativeMinutes += dt * 60;
+
+    steps.push({
+      pressureMbar: Math.round(pLow * 10) / 10,
+      capacityM3h: Math.round(effectiveCapacity * 10) / 10,
+      cumulativeMinutes: Math.round(cumulativeMinutes * 10) / 10,
+    });
+  }
+
+  return {
+    totalMinutes: Math.round(cumulativeMinutes * 10) / 10,
+    steps,
+  };
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -537,24 +669,25 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
 
   // ── NCG load estimation ───────────────────────────────────────────────────
 
-  let airLeakageKgH = 0;
+  let manualNcgKgH = 0;
+  let heiLeakageKgH = 0;
   let dissolvedGasKgH = 0;
 
   switch (ncgMode) {
     case 'manual': {
       const ncg = input.dryNcgFlowKgH ?? 0;
       if (ncg <= 0) throw new Error('Dry NCG flow must be positive in manual mode.');
-      airLeakageKgH = ncg;
+      manualNcgKgH = ncg;
       break;
     }
     case 'hei_leakage': {
       const vol = input.systemVolumeM3 ?? 0;
       if (vol <= 0) throw new Error('System volume must be positive in HEI leakage mode.');
-      airLeakageKgH = heiAirLeakage(vol);
+      heiLeakageKgH = heiAirLeakage(vol);
       // Additional per-connection leakage
       const perConn = input.leakagePerConnectionKgH ?? 0.05; // default 0.05 kg/h per joint
       const nConns = input.connectionCount ?? 0;
-      airLeakageKgH += perConn * nConns;
+      heiLeakageKgH += perConn * nConns;
       break;
     }
     case 'seawater': {
@@ -563,10 +696,9 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
       const swTemp = input.seawaterTemperatureC ?? 25;
       const salinity = input.salinityGkg ?? 35;
       const gasInfo = dissolvedGasContent(swTemp, salinity);
-      // NCG from dissolved gas release: totalGasMgL × Q [m³/h] × 1000 [L/m³] × 1e-6 [kg/mg]
       dissolvedGasKgH = gasInfo.totalGasMgL * flow * 1e-3;
       // Air leakage is additional — assume HEI minimum or user-provided
-      airLeakageKgH = input.dryNcgFlowKgH ?? 1.0; // default 1 kg/h leakage
+      manualNcgKgH = input.dryNcgFlowKgH ?? 1.0; // default 1 kg/h leakage
       if (gasInfo.extrapolated) {
         warnings.push(
           `Seawater temperature (${swTemp} °C) is outside the Weiss (1970) valid range (0–36 °C). Dissolved gas values are extrapolated.`
@@ -574,8 +706,43 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
       }
       break;
     }
+    case 'combined': {
+      // Additive NCG sources — sum all enabled contributions
+      if (input.includeManualNcg !== false && (input.dryNcgFlowKgH ?? 0) > 0) {
+        manualNcgKgH = input.dryNcgFlowKgH ?? 0;
+      }
+      if (input.includeHeiLeakage) {
+        const vol = input.systemVolumeM3 ?? 0;
+        if (vol > 0) {
+          heiLeakageKgH = heiAirLeakage(vol);
+          const perConn = input.leakagePerConnectionKgH ?? 0.05;
+          const nConns = input.connectionCount ?? 0;
+          heiLeakageKgH += perConn * nConns;
+        }
+      }
+      if (input.includeSeawaterGas) {
+        const flow = input.seawaterFlowM3h ?? 0;
+        if (flow > 0) {
+          const swTemp = input.seawaterTemperatureC ?? 25;
+          const salinity = input.salinityGkg ?? 35;
+          const gasInfo = dissolvedGasContent(swTemp, salinity);
+          dissolvedGasKgH = gasInfo.totalGasMgL * flow * 1e-3;
+          if (gasInfo.extrapolated) {
+            warnings.push(
+              `Seawater temperature (${swTemp} °C) is outside the Weiss (1970) valid range (0–36 °C). Dissolved gas values are extrapolated.`
+            );
+          }
+        }
+      }
+      // Combined mode must have at least some NCG
+      if (manualNcgKgH + heiLeakageKgH + dissolvedGasKgH <= 0) {
+        throw new Error('At least one NCG source must provide a positive flow in combined mode.');
+      }
+      break;
+    }
   }
 
+  const airLeakageKgH = manualNcgKgH + heiLeakageKgH;
   const totalDryNcgKgH = Math.round((airLeakageKgH + dissolvedGasKgH) * 100) / 100;
 
   // ── Vapour load at suction conditions ──────────────────────────────────────
@@ -740,7 +907,7 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
         );
       }
       const pump = sizeLRVP(designSuctionVolumeM3h, sealWaterTempC, suctionPressureMbar);
-      totalPowerKW = pump.powerKW;
+      totalPowerKW = pump.totalPowerKW;
 
       stages.push({
         stageNumber: 1,
@@ -757,6 +924,8 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
         lrvpCorrectionFactor: pump.correctionFactor,
         lrvpRequiredCapacityM3h: pump.requiredCorrectedCapacity,
         lrvpPowerKW: pump.powerKW,
+        lrvpCount: pump.count,
+        lrvpTotalPowerKW: pump.totalPowerKW,
       });
       break;
     }
@@ -837,7 +1006,7 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
         ) / 10;
 
       const pump = sizeLRVP(stage2VolumeM3h, sealWaterTempC, pIntMbar);
-      totalPowerKW = pump.powerKW;
+      totalPowerKW = pump.totalPowerKW;
 
       stages.push({
         stageNumber: 3,
@@ -854,6 +1023,8 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
         lrvpCorrectionFactor: pump.correctionFactor,
         lrvpRequiredCapacityM3h: pump.requiredCorrectedCapacity,
         lrvpPowerKW: pump.powerKW,
+        lrvpCount: pump.count,
+        lrvpTotalPowerKW: pump.totalPowerKW,
       });
       break;
     }
@@ -863,6 +1034,50 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
   totalMotiveSteamKgH = Math.round(totalMotiveSteamKgH * 10) / 10;
   totalCoolingWaterM3h = Math.round(totalCoolingWaterM3h * 100) / 100;
   totalPowerKW = Math.round(totalPowerKW * 10) / 10;
+
+  // ── Evacuation time ─────────────────────────────────────────────────────────
+
+  let evacuationVolumeM3: number | undefined;
+  let evacuationTimeMinutes: number | undefined;
+  let evacuationSteps:
+    | { pressureMbar: number; capacityM3h: number; cumulativeMinutes: number }[]
+    | undefined;
+
+  if (input.evacuationVolumeM3 && input.evacuationVolumeM3 > 0) {
+    evacuationVolumeM3 = input.evacuationVolumeM3;
+    // Find LRVP stage for pump parameters, or size a dedicated evacuation pump
+    const lrvpStage = stages.find((s) => s.type === 'lrvp');
+    if (lrvpStage && lrvpStage.lrvpRatedCapacityM3h && lrvpStage.lrvpCorrectionFactor) {
+      const evac = calculateEvacuationTime(
+        evacuationVolumeM3,
+        dischargePressureMbar, // start from atmospheric
+        suctionPressureMbar, // pump down to operating vacuum
+        sealWaterTempC,
+        lrvpStage.lrvpRatedCapacityM3h,
+        lrvpStage.lrvpCount ?? 1,
+        lrvpStage.lrvpCorrectionFactor
+      );
+      evacuationTimeMinutes = evac.totalMinutes;
+      evacuationSteps = evac.steps;
+    } else if (trainConfig === 'single_ejector' || trainConfig === 'two_stage_ejector') {
+      // For ejector-only configs, size a temporary LRVP for evacuation
+      const evacPump = sizeLRVP(designSuctionVolumeM3h, sealWaterTempC, suctionPressureMbar);
+      const evac = calculateEvacuationTime(
+        evacuationVolumeM3,
+        dischargePressureMbar,
+        suctionPressureMbar,
+        sealWaterTempC,
+        evacPump.ratedCapacityM3h,
+        evacPump.count,
+        evacPump.correctionFactor
+      );
+      evacuationTimeMinutes = evac.totalMinutes;
+      evacuationSteps = evac.steps;
+      warnings.push(
+        `Evacuation time estimated using ${evacPump.count > 1 ? `${evacPump.count}× ` : ''}${evacPump.model} (${evacPump.totalPowerKW} kW). Ejector trains require a separate pump or hogging ejector for initial evacuation.`
+      );
+    }
+  }
 
   // ── Validation warnings ─────────────────────────────────────────────────────
 
@@ -889,8 +1104,20 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
     }
   }
 
+  // Warn about multiple parallel LRVP pumps
+  const lrvpStages = stages.filter((s) => s.type === 'lrvp');
+  for (const s of lrvpStages) {
+    if (s.lrvpCount && s.lrvpCount > 1) {
+      warnings.push(
+        `Required capacity exceeds single pump. Sized as ${s.lrvpCount}× ${s.lrvpModel} in parallel (${s.lrvpTotalPowerKW} kW total).`
+      );
+    }
+  }
+
   return {
     airLeakageKgH: Math.round(airLeakageKgH * 100) / 100,
+    heiLeakageKgH: Math.round(heiLeakageKgH * 100) / 100,
+    manualNcgKgH: Math.round(manualNcgKgH * 100) / 100,
     dissolvedGasKgH: Math.round(dissolvedGasKgH * 100) / 100,
     totalDryNcgKgH,
     vapourWithNcgKgH,
@@ -907,6 +1134,9 @@ export function calculateVacuumSystem(input: VacuumSystemInput): VacuumSystemRes
     totalPowerKW,
     trainConfig,
     designMargin,
+    evacuationVolumeM3,
+    evacuationTimeMinutes,
+    evacuationSteps,
     warnings,
   };
 }

@@ -23,7 +23,9 @@ export interface VacuumSystemReportInputs {
   suctionPressure: string;
   suctionTemperature: string;
   dischargePressure: string;
-  ncgMode: string;
+  includeManualNcg: boolean;
+  includeHeiLeakage: boolean;
+  includeSeawaterGas: boolean;
   dryNcgFlow: string;
   systemVolume: string;
   connectionCount: string;
@@ -36,6 +38,7 @@ export interface VacuumSystemReportInputs {
   sealWaterTemp: string;
   trainConfig: string;
   designMargin: string;
+  evacuationVolume: string;
 }
 
 interface VacuumSystemReportPDFProps {
@@ -55,11 +58,13 @@ const TRAIN_LABELS: Record<TrainConfig, string> = {
   hybrid: 'Hybrid (Ejector + LRVP)',
 };
 
-const NCG_MODE_LABELS: Record<string, string> = {
-  manual: 'Manual \u2014 Known NCG Flow',
-  hei_leakage: 'HEI \u2014 Air Leakage',
-  seawater: 'Seawater \u2014 Dissolved Gas',
-};
+function ncgSourcesLabel(inputs: VacuumSystemReportInputs): string {
+  const sources: string[] = [];
+  if (inputs.includeManualNcg) sources.push('Manual');
+  if (inputs.includeHeiLeakage) sources.push('HEI Leakage');
+  if (inputs.includeSeawaterGas) sources.push('Seawater');
+  return sources.length > 0 ? sources.join(' + ') : 'None';
+}
 
 export const VacuumSystemReportPDF = ({
   result,
@@ -74,7 +79,7 @@ export const VacuumSystemReportPDF = ({
     { label: 'Suction Pressure', value: `${inputs.suctionPressure} mbar abs` },
     { label: 'Suction Temperature', value: `${inputs.suctionTemperature} \u00B0C` },
     { label: 'Discharge Pressure', value: `${inputs.dischargePressure} mbar abs` },
-    { label: 'NCG Method', value: NCG_MODE_LABELS[inputs.ncgMode] || inputs.ncgMode },
+    { label: 'NCG Sources', value: ncgSourcesLabel(inputs) },
   ];
 
   const rightParams = [
@@ -107,7 +112,9 @@ export const VacuumSystemReportPDF = ({
     if (s.type === 'ejector') {
       keyResult = `Ra=${s.entrainmentRatio}, Steam=${s.motiveSteamKgH} kg/h`;
     } else if (s.type === 'lrvp') {
-      keyResult = `${s.lrvpModel}, ${s.lrvpPowerKW} kW`;
+      const countPrefix = s.lrvpCount && s.lrvpCount > 1 ? `${s.lrvpCount}\u00D7 ` : '';
+      const totalPower = s.lrvpTotalPowerKW ?? s.lrvpPowerKW;
+      keyResult = `${countPrefix}${s.lrvpModel}, ${totalPower} kW`;
     } else {
       keyResult = `Q=${s.condenserDutyKW} kW, CW=${s.coolingWaterM3h} m\u00B3/h`;
     }
@@ -162,7 +169,12 @@ export const VacuumSystemReportPDF = ({
         <ReportSection title="2. GAS LOAD ANALYSIS">
           <KeyValueTable
             rows={[
-              { label: 'Air Leakage', value: `${result.airLeakageKgH} kg/h` },
+              ...(result.manualNcgKgH > 0
+                ? [{ label: 'Manual NCG', value: `${result.manualNcgKgH} kg/h` }]
+                : []),
+              ...(result.heiLeakageKgH > 0
+                ? [{ label: 'HEI Air Leakage', value: `${result.heiLeakageKgH} kg/h` }]
+                : []),
               ...(result.dissolvedGasKgH > 0
                 ? [{ label: 'Dissolved Gas Release', value: `${result.dissolvedGasKgH} kg/h` }]
                 : []),
