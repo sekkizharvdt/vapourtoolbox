@@ -34,8 +34,7 @@ const logger = createLogger({ context: 'bankReconciliation/reporting' });
  */
 export async function getReconciliationStats(
   db: Firestore,
-  statementId: string,
-  entityId: string
+  statementId: string
 ): Promise<ReconciliationStats> {
   try {
     // Get all bank transactions
@@ -71,8 +70,7 @@ export async function getReconciliationStats(
       db,
       statement.accountId,
       statement.startDate,
-      statement.endDate,
-      entityId
+      statement.endDate
     );
 
     const stats: ReconciliationStats = {
@@ -103,11 +101,10 @@ export async function getReconciliationStats(
 export async function generateReconciliationReport(
   db: Firestore,
   statementId: string,
-  entityId: string,
   userId: string
 ): Promise<ReconciliationReport> {
   try {
-    const stats = await getReconciliationStats(db, statementId, entityId);
+    const stats = await getReconciliationStats(db, statementId);
     const statementDoc = await getDoc(doc(db, COLLECTIONS.BANK_STATEMENTS, statementId));
 
     if (!statementDoc.exists()) {
@@ -158,11 +155,10 @@ export async function generateReconciliationReport(
 export async function markStatementAsReconciled(
   db: Firestore,
   statementId: string,
-  entityId: string,
   userId: string
 ): Promise<void> {
   try {
-    const stats = await getReconciliationStats(db, statementId, entityId);
+    const stats = await getReconciliationStats(db, statementId);
 
     // Check if fully reconciled
     if (stats.unreconciledBankTransactions > 0) {

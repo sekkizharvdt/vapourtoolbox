@@ -97,7 +97,7 @@ export default function RecurringDetailClient() {
         const { db } = getFirebase();
         const [tx, occ] = await Promise.all([
           getRecurringTransaction(db, id),
-          getOccurrencesForTransaction(db, claims?.entityId || '', id),
+          getOccurrencesForTransaction(db, id),
         ]);
         setTransaction(tx);
         setOccurrences(occ);
@@ -162,7 +162,7 @@ export default function RecurringDetailClient() {
       await skipOccurrence(db, skipOccurrenceId, skipReason, user.uid);
 
       // Refresh occurrences
-      const occ = await getOccurrencesForTransaction(db, claims?.entityId || '', id);
+      const occ = await getOccurrencesForTransaction(db, id);
       setOccurrences(occ);
     } catch (error) {
       console.error('[RecurringDetail] Error skipping occurrence:', error);

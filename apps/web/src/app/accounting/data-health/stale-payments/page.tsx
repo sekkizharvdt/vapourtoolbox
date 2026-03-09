@@ -64,7 +64,7 @@ interface StaleItem {
 
 export default function StalePaymentsPage() {
   const router = useRouter();
-  const { claims } = useAuth();
+  useAuth();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<StaleItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<StaleItem[]>([]);
@@ -314,7 +314,7 @@ export default function StalePaymentsPage() {
     setReconcileResult(null);
     try {
       const { db } = getFirebase();
-      const result = await reconcilePaymentStatuses(db, claims?.entityId || '');
+      const result = await reconcilePaymentStatuses(db);
       setReconcileResult({ fixed: result.fixed, checked: result.checked });
       if (result.fixed > 0) {
         fetchStaleItems();

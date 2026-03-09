@@ -102,8 +102,8 @@ export default function GSTSummaryPage() {
       const results = await Promise.all(
         gstTypes.map(async ({ type, inputId, outputId }) => {
           const [inputEntries, outputEntries] = await Promise.all([
-            inputId ? fetchAccountGLEntries(db, inputId, entityId) : Promise.resolve([]),
-            outputId ? fetchAccountGLEntries(db, outputId, entityId) : Promise.resolve([]),
+            inputId ? fetchAccountGLEntries(db, inputId) : Promise.resolve([]),
+            outputId ? fetchAccountGLEntries(db, outputId) : Promise.resolve([]),
           ]);
 
           // Filter by date range

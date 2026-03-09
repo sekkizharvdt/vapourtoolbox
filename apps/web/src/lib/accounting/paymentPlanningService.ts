@@ -295,11 +295,10 @@ async function getOutstandingBills(
  */
 async function getRecurringForecastItems(
   db: Firestore,
-  entityId: string,
   startDate: Date,
   endDate: Date
 ): Promise<ForecastItem[]> {
-  const occurrences = await getUpcomingOccurrences(db, entityId, startDate, endDate);
+  const occurrences = await getUpcomingOccurrences(db, startDate, endDate);
   const items: ForecastItem[] = [];
   const today = new Date();
 
@@ -407,7 +406,6 @@ function calculateRiskStatus(daysUntilDue: number): PaymentRiskStatus {
  */
 export async function generateCashFlowForecast(
   db: Firestore,
-  entityId: string,
   options: ForecastOptions
 ): Promise<CashFlowForecast> {
   const { startDate, endDate } = options;
@@ -427,7 +425,7 @@ export async function generateCashFlowForecast(
   }
 
   if (options.includeRecurring !== false) {
-    const recurring = await getRecurringForecastItems(db, entityId, startDate, endDate);
+    const recurring = await getRecurringForecastItems(db, startDate, endDate);
     allItems.push(...recurring);
   }
 
@@ -679,7 +677,6 @@ function summarizeWeek(days: DailyForecast[], weekNumber: number, weekStart: Dat
  */
 export async function getCashFlowSummary(
   db: Firestore,
-  entityId: string,
   currentBalance?: number
 ): Promise<CashFlowSummary> {
   const today = new Date();
@@ -689,7 +686,7 @@ export async function getCashFlowSummary(
   next30Days.setDate(next30Days.getDate() + 30);
 
   // Get 30-day forecast
-  const forecast = await generateCashFlowForecast(db, entityId, {
+  const forecast = await generateCashFlowForecast(db, {
     startDate: today,
     endDate: next30Days,
     includeOverdue: true,

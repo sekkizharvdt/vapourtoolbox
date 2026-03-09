@@ -25,7 +25,7 @@ interface ReconciliationWorkspaceProps {
 }
 
 export function ReconciliationWorkspace({ statementId, onBack }: ReconciliationWorkspaceProps) {
-  const { user, claims } = useAuth();
+  const { user } = useAuth();
   const {
     statement,
     bankTransactions,
@@ -34,7 +34,7 @@ export function ReconciliationWorkspace({ statementId, onBack }: ReconciliationW
     stats,
     loading,
     error,
-  } = useReconciliationData(statementId, claims?.entityId || '');
+  } = useReconciliationData(statementId);
 
   const [selectedBankTxn, setSelectedBankTxn] = useState<string | null>(null);
   const [selectedAccTxn, setSelectedAccTxn] = useState<string | null>(null);
@@ -130,12 +130,7 @@ export function ReconciliationWorkspace({ statementId, onBack }: ReconciliationW
 
     try {
       const { db } = getFirebase();
-      await markStatementAsReconciled(
-        db,
-        statementId,
-        claims?.entityId || '',
-        user?.uid || 'system'
-      );
+      await markStatementAsReconciled(db, statementId, user?.uid || 'system');
       alert('Statement marked as reconciled');
       onBack();
     } catch (err) {
@@ -234,7 +229,6 @@ export function ReconciliationWorkspace({ statementId, onBack }: ReconciliationW
         open={reportDialogOpen}
         onClose={() => setReportDialogOpen(false)}
         statementId={statementId}
-        entityId={claims?.entityId || ''}
       />
     </Box>
   );

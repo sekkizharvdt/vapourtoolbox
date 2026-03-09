@@ -66,7 +66,7 @@ function getHealthLabel(score: number): string {
 
 export default function DataHealthPage() {
   const router = useRouter();
-  const { claims } = useAuth();
+  useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DataHealthStats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +87,7 @@ export default function DataHealthPage() {
     setReconcileResult(null);
     try {
       const { db } = getFirebase();
-      const result = await reconcilePaymentStatuses(db, claims?.entityId || '');
+      const result = await reconcilePaymentStatuses(db);
       setReconcileResult({ fixed: result.fixed, checked: result.checked });
       // Refresh stats after reconciliation
       if (result.fixed > 0) {

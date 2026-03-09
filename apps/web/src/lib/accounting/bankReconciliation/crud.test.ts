@@ -283,8 +283,7 @@ describe('bankReconciliation/crud', () => {
         mockDb,
         'account-123',
         startDate,
-        endDate,
-        'test-entity'
+        endDate
       );
 
       expect(result).toHaveLength(2);
@@ -326,8 +325,7 @@ describe('bankReconciliation/crud', () => {
         mockDb,
         'account-123',
         startDate,
-        endDate,
-        'test-entity'
+        endDate
       );
 
       expect(result).toHaveLength(1);
@@ -343,8 +341,7 @@ describe('bankReconciliation/crud', () => {
         mockDb,
         'account-123',
         startDate,
-        endDate,
-        'test-entity'
+        endDate
       );
 
       expect(result).toHaveLength(0);
@@ -375,8 +372,7 @@ describe('bankReconciliation/crud', () => {
         mockDb,
         'account-123',
         startDate,
-        endDate,
-        'test-entity'
+        endDate
       );
 
       expect(result[0]).toEqual({
@@ -414,8 +410,7 @@ describe('bankReconciliation/crud', () => {
         mockDb,
         'account-123',
         startDate,
-        endDate,
-        'test-entity'
+        endDate
       );
 
       expect(result).toHaveLength(1);

@@ -385,7 +385,7 @@ export function CreateJournalEntryDialog({
           entries: resolvedEntries,
           amount: balance.totalDebits,
           totalAmount: balance.totalDebits,
-          transactionNumber: await generateTransactionNumber('JOURNAL_ENTRY', entityId),
+          transactionNumber: await generateTransactionNumber('JOURNAL_ENTRY'),
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
           currency: 'INR',

@@ -90,7 +90,6 @@ export async function createProjectCostCentre(
  */
 export async function getProjectCostCentre(
   db: Firestore,
-  _entityId: string,
   projectId: string
 ): Promise<CostCentre | null> {
   try {

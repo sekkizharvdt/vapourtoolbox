@@ -674,7 +674,6 @@ export async function updatePaymentWithAllocationsAtomic(
  */
 export async function reconcilePaymentStatuses(
   db: Firestore,
-  _entityId: string,
   options?: { dryRun?: boolean }
 ): Promise<{
   checked: number;

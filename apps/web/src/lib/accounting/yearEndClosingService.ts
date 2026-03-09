@@ -440,7 +440,7 @@ export async function executeYearEndClosing(
   db: Firestore,
   input: CreateYearEndClosingInput
 ): Promise<YearEndClosingResult> {
-  const { fiscalYearId, userId, userName, notes, entityId } = input;
+  const { fiscalYearId, userId, userName, notes } = input;
 
   try {
     // Validate readiness
@@ -484,7 +484,7 @@ export async function executeYearEndClosing(
     }
 
     // Generate transaction number for closing journal
-    const journalEntryNumber = await generateTransactionNumber('JOURNAL_ENTRY', entityId);
+    const journalEntryNumber = await generateTransactionNumber('JOURNAL_ENTRY');
 
     // Execute in a transaction
     const result = await runTransaction(db, async (transaction) => {
@@ -656,7 +656,7 @@ export async function reverseYearEndClosing(
   userId: string,
   userName: string,
   reason: string,
-  entityId: string
+  _entityId: string
 ): Promise<{ success: boolean; reversalJournalId?: string; error?: string }> {
   try {
     // Get the year-end closing entry
@@ -698,7 +698,7 @@ export async function reverseYearEndClosing(
     }));
 
     // Generate reversal journal number
-    const reversalJournalNumber = await generateTransactionNumber('JOURNAL_ENTRY', entityId);
+    const reversalJournalNumber = await generateTransactionNumber('JOURNAL_ENTRY');
 
     // Execute reversal in a transaction
     const result = await runTransaction(db, async (transaction) => {
@@ -884,7 +884,7 @@ export async function createClosingJournalEntry(
     retainedEarningsAccount
   );
 
-  const journalEntryNumber = await generateTransactionNumber('JOURNAL_ENTRY', params.entityId);
+  const journalEntryNumber = await generateTransactionNumber('JOURNAL_ENTRY');
   const prefix = params.isProvisional ? 'Provisional year-end' : 'Final year-end';
 
   const journalEntryRef = doc(collection(db, COLLECTIONS.TRANSACTIONS));

@@ -228,7 +228,6 @@ export async function getFixedAssetById(id: string): Promise<FixedAsset | null> 
  * Filter options for listing fixed assets
  */
 export interface ListFixedAssetsFilters {
-  entityId: string;
   status?: AssetStatus;
   category?: AssetCategory;
   search?: string;
@@ -400,8 +399,8 @@ export interface AssetSummary {
 /**
  * Get summary statistics for all active assets
  */
-export async function getAssetSummary(entityId: string): Promise<AssetSummary> {
-  const assets = await listFixedAssets({ entityId, status: 'ACTIVE' });
+export async function getAssetSummary(_entityId: string): Promise<AssetSummary> {
+  const assets = await listFixedAssets({ status: 'ACTIVE' });
 
   const summary: AssetSummary = {
     totalAssets: 0,
@@ -541,9 +540,9 @@ export interface DepreciationPreviewItem {
  * Returns per-asset amounts without posting anything.
  */
 export async function previewDepreciation(
-  entityId: string
+  _entityId: string
 ): Promise<{ items: DepreciationPreviewItem[]; totalDepreciation: number }> {
-  const assets = await listFixedAssets({ entityId, status: 'ACTIVE' });
+  const assets = await listFixedAssets({ status: 'ACTIVE' });
   const items: DepreciationPreviewItem[] = [];
   let totalDepreciation = 0;
 
@@ -590,7 +589,7 @@ export async function runDepreciation(
   );
 
   // Fetch all active assets fresh
-  const assets = await listFixedAssets({ entityId, status: 'ACTIVE' });
+  const assets = await listFixedAssets({ status: 'ACTIVE' });
   const depItems: Array<{ asset: FixedAsset; amount: number }> = [];
   let totalDepreciation = 0;
 

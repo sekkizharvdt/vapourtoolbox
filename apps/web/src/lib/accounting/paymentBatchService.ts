@@ -720,8 +720,7 @@ export async function cancelBatch(db: Firestore, batchId: string): Promise<void>
 export async function getOutstandingBillsForProject(
   db: Firestore,
   projectId?: string,
-  includeAllProjects: boolean = false,
-  _entityId?: string
+  includeAllProjects: boolean = false
 ): Promise<VendorBill[]> {
   const constraints = [
     where('type', '==', 'VENDOR_BILL'),
@@ -758,10 +757,9 @@ export async function getOutstandingBillsForProject(
  * Get outstanding bills for all projects (grouped by project)
  */
 export async function getOutstandingBillsByProject(
-  db: Firestore,
-  entityId?: string
+  db: Firestore
 ): Promise<Map<string, VendorBill[]>> {
-  const bills = await getOutstandingBillsForProject(db, undefined, true, entityId);
+  const bills = await getOutstandingBillsForProject(db, undefined, true);
   const grouped = new Map<string, VendorBill[]>();
 
   for (const bill of bills) {
@@ -826,10 +824,7 @@ export function detectCrossProjectPayments(batch: PaymentBatch): Array<{
 /**
  * Get payment batch statistics
  */
-export async function getPaymentBatchStats(
-  db: Firestore,
-  _entityId: string
-): Promise<PaymentBatchStats> {
+export async function getPaymentBatchStats(db: Firestore): Promise<PaymentBatchStats> {
   const q = query(collection(db, COLLECTIONS.PAYMENT_BATCHES));
   const snapshot = await getDocs(q);
 

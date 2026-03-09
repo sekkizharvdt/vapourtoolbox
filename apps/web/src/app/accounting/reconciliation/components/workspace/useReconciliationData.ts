@@ -31,7 +31,7 @@ export interface ReconciliationData {
   refreshData: () => void;
 }
 
-export function useReconciliationData(statementId: string, entityId: string): ReconciliationData {
+export function useReconciliationData(statementId: string): ReconciliationData {
   const [statement, setStatement] = useState<BankStatement | null>(null);
   const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([]);
   const [accountingTransactions, setAccountingTransactions] = useState<unknown[]>([]);
@@ -81,17 +81,16 @@ export function useReconciliationData(statementId: string, entityId: string): Re
           db,
           statementData.accountId,
           statementData.startDate,
-          statementData.endDate,
-          entityId
+          statementData.endDate
         );
         setAccountingTransactions(accTxns);
 
         // Load suggested matches
-        const matchSuggestions = await getSuggestedMatches(db, statementId, entityId);
+        const matchSuggestions = await getSuggestedMatches(db, statementId);
         setSuggestions(matchSuggestions);
 
         // Load stats
-        const reconciliationStats = await getReconciliationStats(db, statementId, entityId);
+        const reconciliationStats = await getReconciliationStats(db, statementId);
         setStats({
           reconciledCount: reconciliationStats.reconciledBankTransactions,
           totalCount: reconciliationStats.totalBankTransactions,
@@ -113,7 +112,7 @@ export function useReconciliationData(statementId: string, entityId: string): Re
         unsubscribe();
       }
     };
-  }, [statementId, entityId]);
+  }, [statementId]);
 
   // Refresh stats when transactions change
   useEffect(() => {
@@ -121,7 +120,7 @@ export function useReconciliationData(statementId: string, entityId: string): Re
       if (!statement) return;
       try {
         const { db } = getFirebase();
-        const reconciliationStats = await getReconciliationStats(db, statementId, entityId);
+        const reconciliationStats = await getReconciliationStats(db, statementId);
         setStats({
           reconciledCount: reconciliationStats.reconciledBankTransactions,
           totalCount: reconciliationStats.totalBankTransactions,
@@ -132,7 +131,7 @@ export function useReconciliationData(statementId: string, entityId: string): Re
       }
     }
     refreshStats();
-  }, [bankTransactions, statementId, statement, entityId]);
+  }, [bankTransactions, statementId, statement]);
 
   const refreshData = () => {
     setLoading(true);

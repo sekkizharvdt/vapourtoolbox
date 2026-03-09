@@ -236,7 +236,6 @@ export function getQuarterDateRange(
  */
 async function extractTDSTransactions(
   db: Firestore,
-  _entityId: string,
   startDate: Timestamp,
   endDate: Timestamp
 ): Promise<TDSTransaction[]> {
@@ -323,7 +322,7 @@ async function extractTDSTransactions(
  */
 export async function generateForm16A(
   db: Firestore,
-  entityId: string,
+  _entityId: string,
   deducteeId: string,
   quarter: 1 | 2 | 3 | 4,
   financialYear: string,
@@ -335,12 +334,7 @@ export async function generateForm16A(
     const endTimestamp = Timestamp.fromDate(end);
 
     // Get all TDS transactions
-    const allTransactions = await extractTDSTransactions(
-      db,
-      entityId,
-      startTimestamp,
-      endTimestamp
-    );
+    const allTransactions = await extractTDSTransactions(db, startTimestamp, endTimestamp);
 
     // Filter transactions for this deductee
     const deducteeTransactions = allTransactions.filter((t) => t.deducteeId === deducteeId);
@@ -406,7 +400,7 @@ export async function generateForm16A(
  */
 export async function generateForm26Q(
   db: Firestore,
-  entityId: string,
+  _entityId: string,
   quarter: 1 | 2 | 3 | 4,
   financialYear: string,
   deductorDetails: {
@@ -422,7 +416,7 @@ export async function generateForm26Q(
     const endTimestamp = Timestamp.fromDate(end);
 
     // Get all TDS transactions for the quarter
-    const transactions = await extractTDSTransactions(db, entityId, startTimestamp, endTimestamp);
+    const transactions = await extractTDSTransactions(db, startTimestamp, endTimestamp);
 
     // Calculate summary by section
     const sectionSummaryMap = new Map<
@@ -514,7 +508,7 @@ export function exportForm26QToJSON(data: Form26QData): string {
  */
 export async function getDeducteesWithTDS(
   db: Firestore,
-  entityId: string,
+  _entityId: string,
   quarter: 1 | 2 | 3 | 4,
   financialYear: string
 ): Promise<Array<{ id: string; name: string; pan: string; totalTDS: number }>> {
@@ -523,7 +517,7 @@ export async function getDeducteesWithTDS(
     const startTimestamp = Timestamp.fromDate(start);
     const endTimestamp = Timestamp.fromDate(end);
 
-    const transactions = await extractTDSTransactions(db, entityId, startTimestamp, endTimestamp);
+    const transactions = await extractTDSTransactions(db, startTimestamp, endTimestamp);
 
     // Group by deductee
     const deducteeMap = new Map<

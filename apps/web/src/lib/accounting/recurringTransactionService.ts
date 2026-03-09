@@ -119,7 +119,6 @@ export function calculateNextOccurrence(
  */
 export async function getRecurringTransactions(
   db: Firestore,
-  _entityId: string,
   filters?: RecurringTransactionFilters
 ): Promise<RecurringTransaction[]> {
   const constraints: QueryConstraint[] = [];
@@ -364,7 +363,6 @@ export async function deleteRecurringTransaction(
  */
 export async function getUpcomingOccurrences(
   db: Firestore,
-  _entityId: string,
   startDate: Date,
   endDate: Date,
   type?: RecurringTransactionType
@@ -393,7 +391,6 @@ export async function getUpcomingOccurrences(
  */
 export async function getOccurrencesForTransaction(
   db: Firestore,
-  _entityId: string,
   recurringTransactionId: string,
   limitCount = 50
 ): Promise<RecurringOccurrence[]> {
@@ -418,10 +415,9 @@ export async function getOccurrencesForTransaction(
  */
 export async function generatePendingOccurrences(
   db: Firestore,
-  entityId: string,
   asOfDate: Date = new Date()
 ): Promise<{ created: number; errors: string[] }> {
-  const activeTransactions = await getRecurringTransactions(db, entityId, { status: 'ACTIVE' });
+  const activeTransactions = await getRecurringTransactions(db, { status: 'ACTIVE' });
   let created = 0;
   const errors: string[] = [];
 
@@ -600,10 +596,9 @@ export async function markOccurrenceGenerated(
  * Get summary of recurring transactions for dashboard
  */
 export async function getRecurringTransactionSummary(
-  db: Firestore,
-  entityId: string
+  db: Firestore
 ): Promise<RecurringTransactionSummary> {
-  const transactions = await getRecurringTransactions(db, entityId);
+  const transactions = await getRecurringTransactions(db);
 
   const summary: RecurringTransactionSummary = {
     totalActive: 0,

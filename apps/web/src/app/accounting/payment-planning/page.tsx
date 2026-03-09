@@ -72,7 +72,7 @@ export default function PaymentPlanningPage() {
       const { db } = getFirebase();
 
       // Get summary
-      const summaryData = await getCashFlowSummary(db, claims?.entityId || '', 0); // Would get from bank accounts
+      const summaryData = await getCashFlowSummary(db, 0); // Would get from bank accounts
       setSummary(summaryData);
 
       // Get 30-day forecast
@@ -80,7 +80,7 @@ export default function PaymentPlanningPage() {
       const thirtyDays = new Date(today);
       thirtyDays.setDate(thirtyDays.getDate() + 30);
 
-      const forecastData = await generateCashFlowForecast(db, claims?.entityId || '', {
+      const forecastData = await generateCashFlowForecast(db, {
         startDate: today,
         endDate: thirtyDays,
         includeOverdue: true,
@@ -100,7 +100,7 @@ export default function PaymentPlanningPage() {
     } finally {
       setLoading(false);
     }
-  }, [claims?.entityId]);
+  }, []);
 
   useEffect(() => {
     if (hasViewAccess) {

@@ -77,12 +77,11 @@ export default function PaymentBatchesPage() {
 
         const [batchList, batchStats] = await Promise.all([
           listPaymentBatches(db, {
-            entityId,
             status: statusOptions ? statusOptions[0] : undefined,
             orderBy: 'createdAt',
             orderDirection: 'desc',
           }),
-          getPaymentBatchStats(db, entityId),
+          getPaymentBatchStats(db),
         ]);
 
         setBatches(batchList);

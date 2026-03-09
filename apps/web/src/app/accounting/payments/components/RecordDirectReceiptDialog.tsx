@@ -51,7 +51,7 @@ export function RecordDirectReceiptDialog({
   onClose,
   editingReceipt,
 }: RecordDirectReceiptDialogProps) {
-  const { user, claims } = useAuth();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -158,10 +158,7 @@ export function RecordDirectReceiptDialog({
       // Generate transaction number for new receipts
       let transactionNumber = editingReceipt?.transactionNumber;
       if (!editingReceipt) {
-        transactionNumber = await generateTransactionNumber(
-          'DIRECT_RECEIPT',
-          claims?.entityId || ''
-        );
+        transactionNumber = await generateTransactionNumber('DIRECT_RECEIPT');
       }
 
       // Generate GL entries (reverse of Direct Payment)

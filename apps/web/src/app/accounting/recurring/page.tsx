@@ -110,14 +110,9 @@ export default function RecurringTransactionsPage() {
     const loadData = async () => {
       try {
         const { db } = getFirebase();
-        const entityId = claims?.entityId || '';
         const [txList, txSummary] = await Promise.all([
-          getRecurringTransactions(
-            db,
-            entityId,
-            typeFilter === 'ALL' ? undefined : { type: typeFilter }
-          ),
-          getRecurringTransactionSummary(db, entityId),
+          getRecurringTransactions(db, typeFilter === 'ALL' ? undefined : { type: typeFilter }),
+          getRecurringTransactionSummary(db),
         ]);
         setTransactions(txList);
         setSummary(txSummary);
@@ -129,7 +124,7 @@ export default function RecurringTransactionsPage() {
     };
 
     loadData();
-  }, [hasViewAccess, typeFilter, claims?.entityId]);
+  }, [hasViewAccess, typeFilter]);
 
   const handleCreate = () => {
     router.push('/accounting/recurring/new');
@@ -160,7 +155,6 @@ export default function RecurringTransactionsPage() {
       // Refresh list
       const txList = await getRecurringTransactions(
         db,
-        claims?.entityId || '',
         typeFilter === 'ALL' ? undefined : { type: typeFilter }
       );
       setTransactions(txList);
@@ -191,7 +185,6 @@ export default function RecurringTransactionsPage() {
       // Refresh list
       const txList = await getRecurringTransactions(
         db,
-        claims?.entityId || '',
         typeFilter === 'ALL' ? undefined : { type: typeFilter }
       );
       setTransactions(txList);

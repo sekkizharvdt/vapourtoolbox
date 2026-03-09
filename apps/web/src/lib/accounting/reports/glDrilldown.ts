@@ -43,8 +43,7 @@ export function getTransactionTypeLabel(type: string): string {
  */
 export async function fetchAccountGLEntries(
   db: Firestore,
-  accountId: string,
-  _entityId: string
+  accountId: string
 ): Promise<GLDrilldownEntry[]> {
   const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
   const q = query(transactionsRef);

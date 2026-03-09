@@ -32,28 +32,24 @@ const TRANSACTION_PREFIXES: Record<TransactionType, string> = {
  * Generate next transaction number for a given type
  * Uses atomic transaction with counter document to prevent duplicates
  *
+ * Counter key: transaction-{type}-{year}-{month}
+ * This is a single-tenant system. entityId on transactions is the counterparty
+ * (vendor/customer), NOT a tenant ID, so numbers are NOT scoped by entity.
+ *
  * @param type - Transaction type
- * @param entityId - Entity ID to scope the counter (prevents cross-entity duplicates)
  * @returns Promise with generated transaction number
  */
-export async function generateTransactionNumber(
-  type: TransactionType,
-  entityId: string
-): Promise<string> {
+export async function generateTransactionNumber(type: TransactionType): Promise<string> {
   const prefix = TRANSACTION_PREFIXES[type];
-
-  if (!entityId) {
-    throw new Error('entityId is required for transaction number generation');
-  }
 
   try {
     const { db } = getFirebase();
 
-    // Use a counter document per entity + transaction type per year/month to ensure uniqueness
+    // Use a counter document per transaction type per year/month to ensure uniqueness
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
-    const counterKey = `transaction-${entityId}-${type.toLowerCase()}-${year}-${month}`;
+    const counterKey = `transaction-${type.toLowerCase()}-${year}-${month}`;
     const counterRef = doc(db, COLLECTIONS.COUNTERS, counterKey);
 
     // Use Firestore transaction for atomic read-modify-write
@@ -69,10 +65,9 @@ export async function generateTransactionNumber(
           updatedAt: Timestamp.now(),
         });
       } else {
-        // Initialize counter for this entity/type/month
+        // Initialize counter for this type/month
         transaction.set(counterRef, {
           type: `accounting_${type.toLowerCase()}`,
-          entityId,
           year,
           month: parseInt(month, 10),
           value: sequence,
@@ -88,7 +83,7 @@ export async function generateTransactionNumber(
 
     return transactionNumber;
   } catch (error) {
-    logger.error('generateTransactionNumber failed', { type, entityId, error });
+    logger.error('generateTransactionNumber failed', { type, error });
     // Fallback to timestamp-based number with random suffix for uniqueness
     const timestamp = Date.now().toString().slice(-4);
     const randomSuffix = Math.random().toString(36).slice(-2).toUpperCase();

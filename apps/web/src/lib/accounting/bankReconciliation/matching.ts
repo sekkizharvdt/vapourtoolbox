@@ -111,8 +111,7 @@ export function calculateMatchScore(
  */
 export async function getSuggestedMatches(
   db: Firestore,
-  statementId: string,
-  entityId: string
+  statementId: string
 ): Promise<MatchSuggestion[]> {
   try {
     // Get unmatched bank transactions
@@ -129,8 +128,7 @@ export async function getSuggestedMatches(
       db,
       statement.accountId,
       statement.startDate,
-      statement.endDate,
-      entityId
+      statement.endDate
     );
 
     const suggestions: MatchSuggestion[] = [];

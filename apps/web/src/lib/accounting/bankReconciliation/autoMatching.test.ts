@@ -182,7 +182,7 @@ describe('bankReconciliation/autoMatching', () => {
         unmatched: [],
       });
 
-      const result = await getEnhancedSuggestedMatches(mockDb, 'statement-1', 'test-entity');
+      const result = await getEnhancedSuggestedMatches(mockDb, 'statement-1');
 
       expect(result).toHaveLength(1);
       expect(result[0]!.bankTransactionId).toBe('bank-txn-1');
@@ -208,7 +208,7 @@ describe('bankReconciliation/autoMatching', () => {
         unmatched: [],
       });
 
-      const result = await getEnhancedSuggestedMatches(mockDb, 'statement-1', 'test-entity');
+      const result = await getEnhancedSuggestedMatches(mockDb, 'statement-1');
 
       expect(result).toHaveLength(3);
       expect(result.map((s) => s.confidence)).toEqual(['HIGH', 'MEDIUM', 'LOW']);
@@ -219,17 +219,17 @@ describe('bankReconciliation/autoMatching', () => {
         exists: () => false,
       });
 
-      await expect(
-        getEnhancedSuggestedMatches(mockDb, 'missing-statement', 'test-entity')
-      ).rejects.toThrow('Bank statement not found');
+      await expect(getEnhancedSuggestedMatches(mockDb, 'missing-statement')).rejects.toThrow(
+        'Bank statement not found'
+      );
     });
 
     it('propagates errors from getUnmatchedBankTransactions', async () => {
       mockGetUnmatchedBankTransactions.mockRejectedValue(new Error('Database error'));
 
-      await expect(
-        getEnhancedSuggestedMatches(mockDb, 'statement-1', 'test-entity')
-      ).rejects.toThrow('Database error');
+      await expect(getEnhancedSuggestedMatches(mockDb, 'statement-1')).rejects.toThrow(
+        'Database error'
+      );
     });
   });
 
@@ -258,7 +258,7 @@ describe('bankReconciliation/autoMatching', () => {
 
       mockGetMatchStatistics.mockReturnValue(mockStats);
 
-      const result = await getEnhancedMatchStatistics(mockDb, 'statement-1', 'test-entity');
+      const result = await getEnhancedMatchStatistics(mockDb, 'statement-1');
 
       expect(result).toEqual(mockStats);
       expect(mockGetMatchStatistics).toHaveBeenCalled();
@@ -269,9 +269,9 @@ describe('bankReconciliation/autoMatching', () => {
         exists: () => false,
       });
 
-      await expect(
-        getEnhancedMatchStatistics(mockDb, 'missing-statement', 'test-entity')
-      ).rejects.toThrow('Bank statement not found');
+      await expect(getEnhancedMatchStatistics(mockDb, 'missing-statement')).rejects.toThrow(
+        'Bank statement not found'
+      );
     });
   });
 
@@ -316,7 +316,7 @@ describe('bankReconciliation/autoMatching', () => {
         unmatched: [],
       });
 
-      const result = await autoMatchTransactions(mockDb, 'statement-1', 'user-1', 'test-entity');
+      const result = await autoMatchTransactions(mockDb, 'statement-1', 'user-1');
 
       expect(result.matched).toBe(2);
       expect(result.skipped).toBe(0);
@@ -347,7 +347,7 @@ describe('bankReconciliation/autoMatching', () => {
         unmatched: [],
       });
 
-      const result = await autoMatchTransactions(mockDb, 'statement-1', 'user-1', 'test-entity', {
+      const result = await autoMatchTransactions(mockDb, 'statement-1', 'user-1', {
         matchMediumConfidence: true,
       });
 
@@ -378,7 +378,7 @@ describe('bankReconciliation/autoMatching', () => {
         unmatched: [],
       });
 
-      const result = await autoMatchTransactions(mockDb, 'statement-1', 'user-1', 'test-entity', {
+      const result = await autoMatchTransactions(mockDb, 'statement-1', 'user-1', {
         matchHighConfidence: false,
         matchMediumConfidence: true,
       });
@@ -403,7 +403,7 @@ describe('bankReconciliation/autoMatching', () => {
         unmatched: [],
       });
 
-      await autoMatchTransactions(mockDb, 'statement-1', 'user-1', 'test-entity');
+      await autoMatchTransactions(mockDb, 'statement-1', 'user-1');
 
       expect(mockUpdateDoc).toHaveBeenCalledWith(
         expect.anything(),
@@ -420,7 +420,7 @@ describe('bankReconciliation/autoMatching', () => {
         unmatched: [],
       });
 
-      await autoMatchTransactions(mockDb, 'statement-1', 'user-1', 'test-entity');
+      await autoMatchTransactions(mockDb, 'statement-1', 'user-1');
 
       expect(mockUpdateDoc).not.toHaveBeenCalled();
     });
@@ -451,7 +451,7 @@ describe('bankReconciliation/autoMatching', () => {
         .mockResolvedValueOnce(undefined)
         .mockRejectedValueOnce(new Error('Match failed'));
 
-      const result = await autoMatchTransactions(mockDb, 'statement-1', 'user-1', 'test-entity');
+      const result = await autoMatchTransactions(mockDb, 'statement-1', 'user-1');
 
       expect(result.matched).toBe(1);
       expect(result.skipped).toBe(1);
@@ -465,9 +465,9 @@ describe('bankReconciliation/autoMatching', () => {
         exists: () => false,
       });
 
-      await expect(
-        autoMatchTransactions(mockDb, 'missing-statement', 'user-1', 'test-entity')
-      ).rejects.toThrow('Bank statement not found');
+      await expect(autoMatchTransactions(mockDb, 'missing-statement', 'user-1')).rejects.toThrow(
+        'Bank statement not found'
+      );
     });
   });
 
@@ -500,7 +500,7 @@ describe('bankReconciliation/autoMatching', () => {
         unmatched: [],
       });
 
-      const result = await getMultiTransactionMatches(mockDb, 'statement-1', 'test-entity');
+      const result = await getMultiTransactionMatches(mockDb, 'statement-1');
 
       expect(result).toHaveLength(1);
       expect(result[0]!.accountingTransactionIds).toEqual(['acc-1', 'acc-2']);
@@ -511,9 +511,9 @@ describe('bankReconciliation/autoMatching', () => {
         exists: () => false,
       });
 
-      await expect(
-        getMultiTransactionMatches(mockDb, 'missing-statement', 'test-entity')
-      ).rejects.toThrow('Bank statement not found');
+      await expect(getMultiTransactionMatches(mockDb, 'missing-statement')).rejects.toThrow(
+        'Bank statement not found'
+      );
     });
   });
 });

@@ -295,7 +295,7 @@ export async function createInterprojectLoan(
     );
 
     // Generate journal entry number
-    const journalEntryNumber = await generateTransactionNumber('JOURNAL_ENTRY', entityId);
+    const journalEntryNumber = await generateTransactionNumber('JOURNAL_ENTRY');
 
     // Resolve intercompany accounts from Chart of Accounts
     const systemAccounts = await getSystemAccountIds(db, entityId);
@@ -465,7 +465,6 @@ export async function getInterprojectLoan(
  */
 export async function getInterprojectLoans(
   db: Firestore,
-  _entityId: string,
   filters?: LoanListFilters
 ): Promise<InterprojectLoan[]> {
   let q = query(collection(db, COLLECTIONS.INTERPROJECT_LOANS), orderBy('createdAt', 'desc'));
@@ -491,12 +490,11 @@ export async function getInterprojectLoans(
  */
 export async function getLoansByProject(
   db: Firestore,
-  entityId: string,
   projectId: string
 ): Promise<{ asLender: InterprojectLoan[]; asBorrower: InterprojectLoan[] }> {
   const [lenderLoans, borrowerLoans] = await Promise.all([
-    getInterprojectLoans(db, entityId, { lendingProjectId: projectId }),
-    getInterprojectLoans(db, entityId, { borrowingProjectId: projectId }),
+    getInterprojectLoans(db, { lendingProjectId: projectId }),
+    getInterprojectLoans(db, { borrowingProjectId: projectId }),
   ]);
 
   return {
@@ -535,7 +533,7 @@ export async function recordRepayment(
 
     const totalPayment = principalAmount + interestAmount;
 
-    const journalEntryNumber = await generateTransactionNumber('JOURNAL_ENTRY', entityId);
+    const journalEntryNumber = await generateTransactionNumber('JOURNAL_ENTRY');
 
     // Resolve intercompany accounts from Chart of Accounts
     const systemAccounts = await getSystemAccountIds(db, entityId);
@@ -740,7 +738,7 @@ export async function updateLoanStatus(
  */
 export async function getProjectLoanSummary(
   db: Firestore,
-  entityId: string,
+  _entityId: string,
   projectId: string
 ): Promise<{
   totalLent: number;
@@ -750,7 +748,7 @@ export async function getProjectLoanSummary(
   activeLoansAsLender: number;
   activeLoansAsBorrower: number;
 }> {
-  const { asLender, asBorrower } = await getLoansByProject(db, entityId, projectId);
+  const { asLender, asBorrower } = await getLoansByProject(db, projectId);
 
   const activeStatuses = ['ACTIVE', 'PARTIALLY_REPAID'];
 

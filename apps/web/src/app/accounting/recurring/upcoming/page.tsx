@@ -75,7 +75,7 @@ export default function UpcomingOccurrencesPage() {
         const endDate = new Date();
         endDate.setDate(endDate.getDate() + parseInt(dateRange));
 
-        const occ = await getUpcomingOccurrences(db, claims?.entityId || '', startDate, endDate);
+        const occ = await getUpcomingOccurrences(db, startDate, endDate);
         setOccurrences(occ);
       } catch (error) {
         console.error('[UpcomingOccurrences] Error loading data:', error);

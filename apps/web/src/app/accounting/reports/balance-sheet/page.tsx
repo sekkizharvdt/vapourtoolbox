@@ -245,9 +245,7 @@ export default function BalanceSheetPage() {
         setDrilldownLoading((prev) => new Set(prev).add(account.id));
         try {
           const { db } = getFirebase();
-          const entityId = claims?.entityId;
-          if (!entityId) return;
-          const entries = await fetchAccountGLEntries(db, account.id, entityId);
+          const entries = await fetchAccountGLEntries(db, account.id);
           setDrilldownData((prev) => new Map(prev).set(account.id, entries));
         } catch (err) {
           console.error('Error loading GL entries:', err);
@@ -261,7 +259,7 @@ export default function BalanceSheetPage() {
         }
       }
     },
-    [expandedAccountId, drilldownData, claims?.entityId]
+    [expandedAccountId, drilldownData]
   );
 
   const validation = report ? validateAccountingEquation(report) : null;

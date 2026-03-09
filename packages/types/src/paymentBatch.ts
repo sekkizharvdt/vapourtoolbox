@@ -346,8 +346,6 @@ export interface AddBatchPaymentInput {
  * Options for listing payment batches
  */
 export interface ListPaymentBatchesOptions {
-  /** Filter by entity (for multi-tenancy) */
-  entityId?: string;
   /** Filter by status */
   status?: PaymentBatchStatus | PaymentBatchStatus[];
   /** Filter by creator */

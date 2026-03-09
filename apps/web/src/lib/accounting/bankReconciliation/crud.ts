@@ -96,8 +96,7 @@ export async function getUnmatchedAccountingTransactions(
   db: Firestore,
   accountId: string,
   startDate: Timestamp,
-  endDate: Timestamp,
-  _entityId: string
+  endDate: Timestamp
 ): Promise<AccountingTransaction[]> {
   const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS);
   const q = query(
