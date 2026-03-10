@@ -355,7 +355,7 @@ export default function JournalEntriesPage() {
         open={createDialogOpen}
         onClose={handleDialogClose}
         editingEntry={editingEntry}
-        entityId={claims?.entityId || ''}
+        entityId={'default-entity'}
       />
     </Box>
   );

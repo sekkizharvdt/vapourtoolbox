@@ -253,6 +253,7 @@ export function CreateAccountDialog({
           accountCategory,
           accountGroup: null,
           parentAccountId: null,
+          entityId: 'default-entity',
           level: 4, // Default to leaf level
           isGroup,
           isActive: true,

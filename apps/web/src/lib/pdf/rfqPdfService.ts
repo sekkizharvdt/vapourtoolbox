@@ -547,10 +547,12 @@ export async function generateRFQPDFs(
     }
 
     // Update RFQ with latest PDF info
+    const latestPdfUrl = result.combinedPdfUrl || result.vendorPdfs?.[0]?.pdfUrl;
+    const latestPdfDocumentId = result.combinedDocumentId || result.vendorPdfs?.[0]?.documentId;
     await updateDoc(doc(db, 'rfqs', options.rfqId), {
       pdfVersion: newPdfVersion,
-      latestPdfUrl: result.combinedPdfUrl || result.vendorPdfs?.[0]?.pdfUrl,
-      latestPdfDocumentId: result.combinedDocumentId || result.vendorPdfs?.[0]?.documentId,
+      ...(latestPdfUrl !== undefined && { latestPdfUrl }),
+      ...(latestPdfDocumentId !== undefined && { latestPdfDocumentId }),
       updatedAt: serverTimestamp(),
       updatedBy: userId,
     });

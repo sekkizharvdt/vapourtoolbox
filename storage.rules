@@ -119,6 +119,17 @@ service firebase.storage {
       allow delete: if isAuthenticated();
     }
 
+    // RFQ PDFs - generated RFQ documents
+    // Path: rfq-pdfs/{rfqId}/{filename}
+    match /rfq-pdfs/{rfqId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+
+      allow write: if isAuthenticated() &&
+                     request.resource.size < 25 * 1024 * 1024;
+
+      allow delete: if isAuthenticated();
+    }
+
     // Default deny for all other paths
     match /{allPaths=**} {
       allow read, write: if false;
