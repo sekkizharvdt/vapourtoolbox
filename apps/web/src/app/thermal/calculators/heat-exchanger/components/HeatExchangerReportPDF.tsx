@@ -1,13 +1,15 @@
 /**
- * Heat Exchanger Sizing Report — PDF Document
+ * Heat Exchanger Sizing Report -- PDF Document
  *
- * Multi-section report covering heat duty, HTC, tube geometry, and sizing results.
+ * Multi-section report covering heat duty, HTC, tube geometry, sizing results,
+ * HTC resistance breakdown, and iteration history.
  * Uses standardised report components from @/lib/pdf/reportComponents.
  */
 
 import { Document } from '@react-pdf/renderer';
 import type { HeatExchangerResult, TubeLayout } from '@/lib/thermal/heatExchangerSizing';
 import { TUBE_MATERIALS, TUBE_LAYOUT_LABELS } from '@/lib/thermal/heatExchangerSizing';
+import type { IterativeHXResult } from '@/lib/thermal/iterativeHXDesign.types';
 import {
   ReportPage,
   ReportHeader,
@@ -37,6 +39,7 @@ interface HeatExchangerReportPDFProps {
   result: HeatExchangerResult;
   inputs: HeatExchangerReportInputs;
   velocityCheck?: VelocityCheckData | null;
+  iterativeResult?: IterativeHXResult | null;
   documentNumber?: string;
   revision?: string;
   projectName?: string;
@@ -44,7 +47,8 @@ interface HeatExchangerReportPDFProps {
   logoDataUri?: string;
 }
 
-const fmt = (v: number | undefined, d = 2) => (v === undefined || isNaN(v) ? '—' : v.toFixed(d));
+const fmt = (v: number | undefined, d = 2) =>
+  v === undefined || isNaN(v) ? '\u2014' : v.toFixed(d);
 
 const layoutLabel = (layout: TubeLayout) => TUBE_LAYOUT_LABELS[layout] ?? layout;
 
@@ -52,6 +56,7 @@ export const HeatExchangerReportPDF = ({
   result,
   inputs,
   velocityCheck,
+  iterativeResult,
   documentNumber = 'HX-001',
   revision = '0',
   projectName,
@@ -59,6 +64,7 @@ export const HeatExchangerReportPDF = ({
   logoDataUri,
 }: HeatExchangerReportPDFProps) => {
   const materialLabel = TUBE_MATERIALS[result.tubeMaterial]?.label ?? result.tubeMaterial;
+  const resistances = iterativeResult?.htcResult.resistances;
 
   return (
     <Document>
@@ -76,10 +82,20 @@ export const HeatExchangerReportPDF = ({
             { label: 'Design Area', value: `${fmt(result.designArea, 1)} m\u00B2` },
             { label: 'Tubes', value: `${result.actualTubeCount}` },
             { label: 'Shell ID', value: `${result.shellID} mm` },
+            ...(iterativeResult
+              ? [
+                  {
+                    label: 'Converged',
+                    value: iterativeResult.converged
+                      ? `Yes (${iterativeResult.iterationCount} iter.)`
+                      : 'No',
+                  },
+                ]
+              : []),
           ]}
         />
 
-        {/* ── Design Basis ── */}
+        {/* -- Design Basis -- */}
         <TwoColumnLayout
           left={
             <ReportSection title="Design Basis">
@@ -110,7 +126,68 @@ export const HeatExchangerReportPDF = ({
           }
         />
 
-        {/* ── Tube Geometry ── */}
+        {/* -- HTC Resistance Breakdown (from iterative result) -- */}
+        {resistances && iterativeResult && (
+          <ReportSection title="HTC Resistance Breakdown">
+            <ReportTable
+              columns={[
+                { key: 'component', header: 'Resistance Component', width: '45%' },
+                {
+                  key: 'value',
+                  header: 'Value (\u00D710\u207B\u2074 m\u00B2\u00B7K/W)',
+                  width: '30%',
+                  align: 'right',
+                },
+                { key: 'pct', header: '%', width: '25%', align: 'right' },
+              ]}
+              rows={[
+                {
+                  component: 'Tube-side convection',
+                  value: (resistances.tubeSide * 1e4).toFixed(4),
+                  pct: ((resistances.tubeSide / resistances.total) * 100).toFixed(1),
+                },
+                {
+                  component: 'Tube-side fouling',
+                  value: (resistances.tubeSideFouling * 1e4).toFixed(4),
+                  pct: ((resistances.tubeSideFouling / resistances.total) * 100).toFixed(1),
+                },
+                {
+                  component: 'Tube wall',
+                  value: (resistances.tubeWall * 1e4).toFixed(4),
+                  pct: ((resistances.tubeWall / resistances.total) * 100).toFixed(1),
+                },
+                {
+                  component: 'Shell-side fouling',
+                  value: (resistances.shellSideFouling * 1e4).toFixed(4),
+                  pct: ((resistances.shellSideFouling / resistances.total) * 100).toFixed(1),
+                },
+                {
+                  component: 'Shell-side convection',
+                  value: (resistances.shellSide * 1e4).toFixed(4),
+                  pct: ((resistances.shellSide / resistances.total) * 100).toFixed(1),
+                },
+              ]}
+            />
+            <KeyValueTable
+              rows={[
+                {
+                  label: 'Tube-side HTC (h_i)',
+                  value: `${fmt(iterativeResult.tubeSideHTC, 0)} W/m\u00B2\u00B7K`,
+                },
+                {
+                  label: 'Shell-side HTC (h_o)',
+                  value: `${fmt(iterativeResult.shellSideHTC, 0)} W/m\u00B2\u00B7K`,
+                },
+                {
+                  label: 'Overall HTC (U_o)',
+                  value: `${fmt(iterativeResult.htcResult.overallHTC, 0)} W/m\u00B2\u00B7K`,
+                },
+              ]}
+            />
+          </ReportSection>
+        )}
+
+        {/* -- Tube Geometry -- */}
         <ReportSection title="Tube Geometry">
           <ReportTable
             columns={[
@@ -137,7 +214,7 @@ export const HeatExchangerReportPDF = ({
           />
         </ReportSection>
 
-        {/* ── Sizing Results ── */}
+        {/* -- Sizing Results -- */}
         <TwoColumnLayout
           left={
             <ReportSection title="Tube Bundle">
@@ -167,7 +244,7 @@ export const HeatExchangerReportPDF = ({
           }
         />
 
-        {/* ── Flow Areas & Velocity ── */}
+        {/* -- Flow Areas & Velocity -- */}
         <ReportSection title="Flow Areas">
           <ReportTable
             columns={[
@@ -208,6 +285,32 @@ export const HeatExchangerReportPDF = ({
             ]}
           />
         </ReportSection>
+
+        {/* -- Iteration History (from iterative result) -- */}
+        {iterativeResult && iterativeResult.iterations.length > 0 && (
+          <ReportSection title={`Iteration History (${iterativeResult.iterations.length} steps)`}>
+            <ReportTable
+              columns={[
+                { key: 'iter', header: '#', width: '8%' },
+                { key: 'uAssumed', header: 'U assumed', width: '15%', align: 'right' },
+                { key: 'uCalc', header: 'U calc', width: '15%', align: 'right' },
+                { key: 'area', header: 'Area (m\u00B2)', width: '15%', align: 'right' },
+                { key: 'tubes', header: 'Tubes', width: '12%', align: 'right' },
+                { key: 'vel', header: 'v (m/s)', width: '15%', align: 'right' },
+                { key: 'err', header: 'Error', width: '20%', align: 'right' },
+              ]}
+              rows={iterativeResult.iterations.map((it) => ({
+                iter: `${it.iteration}`,
+                uAssumed: fmt(it.assumedU, 0),
+                uCalc: fmt(it.calculatedU, 0),
+                area: fmt(it.requiredArea, 1),
+                tubes: `${it.tubeCount}`,
+                vel: fmt(it.tubeSideVelocity, 2),
+                err: `${(it.relativeError * 100).toFixed(1)}%`,
+              }))}
+            />
+          </ReportSection>
+        )}
 
         <WarningsBox warnings={result.warnings} />
 

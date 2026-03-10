@@ -1,35 +1,64 @@
 'use client';
 
 /**
- * Step 2 — Process Conditions
+ * Step 2 -- Process Conditions
  *
  * Two side-by-side panels for tube-side and shell-side fluid specification.
+ * Shell-side panel varies by exchanger type:
+ *   - CONDENSER: condensing steam (mass flow + saturation temp)
+ *   - EVAPORATOR: boiling liquid (mass flow + saturation temp)
+ *   - LIQUID_LIQUID: sensible fluid (type + flow + inlet/outlet temps)
+ *
  * Auto-displays fluid properties and computed Q + LMTD summary.
  */
 
 import { useMemo } from 'react';
 import { Alert, Box, Divider, Grid, Stack, Typography } from '@mui/material';
-import { TubeSidePanel, ShellSidePanel } from './FluidPanel';
-import type { TubeSideValues, ShellSideValues } from './FluidPanel';
+import {
+  TubeSidePanel,
+  ShellSidePanel,
+  ShellSideBoilingPanel,
+  ShellSideSensiblePanel,
+} from './FluidPanel';
+import type {
+  TubeSideValues,
+  ShellSideCondensingValues,
+  ShellSideBoilingValues,
+  ShellSideSensibleValues,
+} from './FluidPanel';
 import { FluidPropertiesDisplay } from './FluidPropertiesDisplay';
 import { getFluidProperties, getSaturationProperties } from '@/lib/thermal/fluidProperties';
 import type { FluidProperties, SaturationFluidProperties } from '@/lib/thermal/fluidProperties';
+import type { ExchangerTypeId } from './ExchangerTypeSelector';
 
 interface ProcessConditionsStepProps {
+  exchangerType: ExchangerTypeId;
   tubeSide: TubeSideValues;
   onTubeSideChange: (v: TubeSideValues) => void;
-  shellSide: ShellSideValues;
-  onShellSideChange: (v: ShellSideValues) => void;
+  /** Shell-side for CONDENSER */
+  shellSideCondensing: ShellSideCondensingValues;
+  onShellSideCondensingChange: (v: ShellSideCondensingValues) => void;
+  /** Shell-side for EVAPORATOR */
+  shellSideBoiling: ShellSideBoilingValues;
+  onShellSideBoilingChange: (v: ShellSideBoilingValues) => void;
+  /** Shell-side for LIQUID_LIQUID */
+  shellSideSensible: ShellSideSensibleValues;
+  onShellSideSensibleChange: (v: ShellSideSensibleValues) => void;
   /** Computed values passed down from parent for display */
   heatDutyKW: number | null;
   lmtd: number | null;
 }
 
 export function ProcessConditionsStep({
+  exchangerType,
   tubeSide,
   onTubeSideChange,
-  shellSide,
-  onShellSideChange,
+  shellSideCondensing,
+  onShellSideCondensingChange,
+  shellSideBoiling,
+  onShellSideBoilingChange,
+  shellSideSensible,
+  onShellSideSensibleChange,
   heatDutyKW,
   lmtd,
 }: ProcessConditionsStepProps) {
@@ -47,16 +76,42 @@ export function ProcessConditionsStep({
     }
   }, [tubeSide.fluid, tubeSide.salinity, tubeSide.inletTemp, tubeSide.outletTemp]);
 
-  // Auto-populate shell-side properties at saturation temperature
-  const shellProps: SaturationFluidProperties | null = useMemo(() => {
-    const tSat = parseFloat(shellSide.saturationTemp);
+  // Auto-populate shell-side saturation properties (for CONDENSER/EVAPORATOR)
+  const shellSatProps: SaturationFluidProperties | null = useMemo(() => {
+    if (exchangerType === 'LIQUID_LIQUID') return null;
+    const satTemp =
+      exchangerType === 'CONDENSER'
+        ? shellSideCondensing.saturationTemp
+        : shellSideBoiling.saturationTemp;
+    const tSat = parseFloat(satTemp);
     if (isNaN(tSat)) return null;
     try {
       return getSaturationProperties(tSat);
     } catch {
       return null;
     }
-  }, [shellSide.saturationTemp]);
+  }, [exchangerType, shellSideCondensing.saturationTemp, shellSideBoiling.saturationTemp]);
+
+  // Auto-populate shell-side liquid properties (for LIQUID_LIQUID)
+  const shellLiquidProps: FluidProperties | null = useMemo(() => {
+    if (exchangerType !== 'LIQUID_LIQUID') return null;
+    const tIn = parseFloat(shellSideSensible.inletTemp);
+    const tOut = parseFloat(shellSideSensible.outletTemp);
+    const sal = parseFloat(shellSideSensible.salinity) || 0;
+    if (isNaN(tIn) || isNaN(tOut)) return null;
+    try {
+      const meanT = (tIn + tOut) / 2;
+      return getFluidProperties(shellSideSensible.fluid, meanT, sal);
+    } catch {
+      return null;
+    }
+  }, [
+    exchangerType,
+    shellSideSensible.fluid,
+    shellSideSensible.salinity,
+    shellSideSensible.inletTemp,
+    shellSideSensible.outletTemp,
+  ]);
 
   const tubeMeanTemp = useMemo(() => {
     const tIn = parseFloat(tubeSide.inletTemp);
@@ -64,6 +119,18 @@ export function ProcessConditionsStep({
     if (isNaN(tIn) || isNaN(tOut)) return null;
     return (tIn + tOut) / 2;
   }, [tubeSide.inletTemp, tubeSide.outletTemp]);
+
+  const shellMeanTemp = useMemo(() => {
+    if (exchangerType !== 'LIQUID_LIQUID') return null;
+    const tIn = parseFloat(shellSideSensible.inletTemp);
+    const tOut = parseFloat(shellSideSensible.outletTemp);
+    if (isNaN(tIn) || isNaN(tOut)) return null;
+    return (tIn + tOut) / 2;
+  }, [exchangerType, shellSideSensible.inletTemp, shellSideSensible.outletTemp]);
+
+  // Tube-side label depends on exchanger type
+  const tubeSideLabel =
+    exchangerType === 'EVAPORATOR' ? 'Tube Side (Heating Fluid)' : 'Tube Side (Cooling Fluid)';
 
   return (
     <Box>
@@ -77,7 +144,7 @@ export function ProcessConditionsStep({
       <Grid container spacing={3}>
         {/* Tube Side */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <TubeSidePanel values={tubeSide} onChange={onTubeSideChange} />
+          <TubeSidePanel values={tubeSide} onChange={onTubeSideChange} label={tubeSideLabel} />
           <FluidPropertiesDisplay
             label="Tube-side"
             properties={tubeProps}
@@ -89,30 +156,49 @@ export function ProcessConditionsStep({
 
         {/* Shell Side */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <ShellSidePanel values={shellSide} onChange={onShellSideChange} />
-          {shellProps && (
-            <Box sx={{ bgcolor: 'action.hover', borderRadius: 1, p: 1.5, mt: 1 }}>
-              <Typography variant="caption" color="text.secondary" fontWeight="bold">
-                Condensate properties at {shellSide.saturationTemp}
-                {'\u00B0C'} (sat.)
-              </Typography>
-              <Stack direction="row" spacing={2} sx={{ mt: 0.5, flexWrap: 'wrap' }}>
-                <Typography variant="caption">
-                  <strong>h_fg</strong> = {shellProps.latentHeat.toFixed(1)} kJ/kg
-                </Typography>
-                <Typography variant="caption">
-                  <strong>{'\u03C1'}_l</strong> = {shellProps.density.toFixed(1)} kg/m{'\u00B3'}
-                </Typography>
-                <Typography variant="caption">
-                  <strong>{'\u03C1'}_v</strong> = {shellProps.vaporDensity.toFixed(3)} kg/m
-                  {'\u00B3'}
-                </Typography>
-                <Typography variant="caption">
-                  <strong>k_l</strong> = {shellProps.thermalConductivity.toFixed(3)} W/(m{'\u00B7'}
-                  K)
-                </Typography>
-              </Stack>
-            </Box>
+          {exchangerType === 'CONDENSER' && (
+            <>
+              <ShellSidePanel values={shellSideCondensing} onChange={onShellSideCondensingChange} />
+              {shellSatProps && (
+                <SaturationPropsDisplay
+                  label="Condensate"
+                  satTemp={shellSideCondensing.saturationTemp}
+                  props={shellSatProps}
+                />
+              )}
+            </>
+          )}
+
+          {exchangerType === 'EVAPORATOR' && (
+            <>
+              <ShellSideBoilingPanel
+                values={shellSideBoiling}
+                onChange={onShellSideBoilingChange}
+              />
+              {shellSatProps && (
+                <SaturationPropsDisplay
+                  label="Boiling liquid"
+                  satTemp={shellSideBoiling.saturationTemp}
+                  props={shellSatProps}
+                />
+              )}
+            </>
+          )}
+
+          {exchangerType === 'LIQUID_LIQUID' && (
+            <>
+              <ShellSideSensiblePanel
+                values={shellSideSensible}
+                onChange={onShellSideSensibleChange}
+              />
+              <FluidPropertiesDisplay
+                label="Shell-side"
+                properties={shellLiquidProps}
+                temperatureLabel={
+                  shellMeanTemp !== null ? `${shellMeanTemp.toFixed(1)}\u00B0C (mean)` : '\u2014'
+                }
+              />
+            </>
           )}
         </Grid>
       </Grid>
@@ -131,6 +217,43 @@ export function ProcessConditionsStep({
           Fill in all temperatures and flow rates to calculate Q and LMTD.
         </Alert>
       )}
+    </Box>
+  );
+}
+
+// -- Shared saturation properties display --
+
+function SaturationPropsDisplay({
+  label,
+  satTemp,
+  props,
+}: {
+  label: string;
+  satTemp: string;
+  props: SaturationFluidProperties;
+}) {
+  return (
+    <Box sx={{ bgcolor: 'action.hover', borderRadius: 1, p: 1.5, mt: 1 }}>
+      <Typography variant="caption" color="text.secondary" fontWeight="bold">
+        {label} properties at {satTemp}
+        {'\u00B0C'} (sat.)
+      </Typography>
+      <Stack direction="row" spacing={2} sx={{ mt: 0.5, flexWrap: 'wrap' }}>
+        <Typography variant="caption">
+          <strong>h_fg</strong> = {props.latentHeat.toFixed(1)} kJ/kg
+        </Typography>
+        <Typography variant="caption">
+          <strong>{'\u03C1'}_l</strong> = {props.density.toFixed(1)} kg/m{'\u00B3'}
+        </Typography>
+        <Typography variant="caption">
+          <strong>{'\u03C1'}_v</strong> = {props.vaporDensity.toFixed(3)} kg/m
+          {'\u00B3'}
+        </Typography>
+        <Typography variant="caption">
+          <strong>k_l</strong> = {props.thermalConductivity.toFixed(3)} W/(m{'\u00B7'}
+          K)
+        </Typography>
+      </Stack>
     </Box>
   );
 }

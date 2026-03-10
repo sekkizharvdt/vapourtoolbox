@@ -1,14 +1,18 @@
 'use client';
 
 /**
- * Heat Exchanger Sizing Calculator — Redesigned
+ * Heat Exchanger Sizing Calculator -- Unified Iterative Design
  *
- * Unified, iterative design tool following TEMA/Kern procedure:
- *   Step 1: Select exchanger type (condenser, evaporator, liquid-liquid)
+ * Supports three exchanger types:
+ *   - CONDENSER: Shell-side condensation (Nusselt) + tube-side forced convection
+ *   - EVAPORATOR: Shell-side pool boiling (Mostinski) + tube-side forced convection
+ *   - LIQUID_LIQUID: Shell-side cross-flow (Kern) + tube-side forced convection
+ *
+ *   Step 1: Select exchanger type
  *   Step 2: Define process conditions (fluids, flow rates, temperatures)
  *   Step 3: Select tube geometry & fouling
- *   → Click "Run Design" to execute iterative convergence
- *   → Results panel: HTC breakdown, geometry, velocity, iteration history
+ *   -> Click "Run Design" to execute iterative convergence
+ *   -> Results panel: HTC breakdown, geometry, velocity, iteration history
  */
 
 import { useState, useMemo, useCallback, lazy, Suspense } from 'react';
@@ -48,7 +52,12 @@ import type { FluidType } from '@/lib/thermal/fluidProperties';
 import { ExchangerTypeSelector } from './components/ExchangerTypeSelector';
 import type { ExchangerTypeId } from './components/ExchangerTypeSelector';
 import { ProcessConditionsStep } from './components/ProcessConditionsStep';
-import type { TubeSideValues, ShellSideValues } from './components/FluidPanel';
+import type {
+  TubeSideValues,
+  ShellSideCondensingValues,
+  ShellSideBoilingValues,
+  ShellSideSensibleValues,
+} from './components/FluidPanel';
 import { TubeGeometryStep } from './components/TubeGeometryStep';
 import type { TubeGeometryValues } from './components/TubeGeometryStep';
 import { DesignResultsPanel } from './components/DesignResultsPanel';
@@ -62,11 +71,11 @@ const GenerateReportDialog = lazy(() =>
 import { SaveCalculationDialog } from './components/SaveCalculationDialog';
 import { LoadCalculationDialog } from './components/LoadCalculationDialog';
 
-// ── Steps ────────────────────────────────────────────────────────────────────
+// -- Steps --
 
 const STEPS = ['Exchanger Type', 'Process Conditions', 'Tube Geometry & Fouling'];
 
-// ── Main component ───────────────────────────────────────────────────────────
+// -- Main component --
 
 export default function HeatExchangerClient() {
   const [activeStep, setActiveStep] = useState(0);
@@ -74,10 +83,10 @@ export default function HeatExchangerClient() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
 
-  // ── Step 1: Exchanger Type ─────────────────────────────────────────────
+  // -- Step 1: Exchanger Type --
   const [exchangerType, setExchangerType] = useState<ExchangerTypeId | null>(null);
 
-  // ── Step 2: Process Conditions ─────────────────────────────────────────
+  // -- Step 2: Process Conditions --
   const [tubeSide, setTubeSide] = useState<TubeSideValues>({
     fluid: 'SEAWATER',
     salinity: '35000',
@@ -86,12 +95,26 @@ export default function HeatExchangerClient() {
     outletTemp: '',
   });
 
-  const [shellSide, setShellSide] = useState<ShellSideValues>({
+  // Shell-side state for each exchanger type (only the active one is used)
+  const [shellSideCondensing, setShellSideCondensing] = useState<ShellSideCondensingValues>({
     massFlowRate: '',
     saturationTemp: '',
   });
 
-  // ── Step 3: Tube Geometry ──────────────────────────────────────────────
+  const [shellSideBoiling, setShellSideBoiling] = useState<ShellSideBoilingValues>({
+    massFlowRate: '',
+    saturationTemp: '',
+  });
+
+  const [shellSideSensible, setShellSideSensible] = useState<ShellSideSensibleValues>({
+    fluid: 'PURE_WATER',
+    salinity: '0',
+    massFlowRate: '',
+    inletTemp: '',
+    outletTemp: '',
+  });
+
+  // -- Step 3: Tube Geometry --
   const [tubeGeometry, setTubeGeometry] = useState<TubeGeometryValues>({
     tubeOD: 19.05,
     tubeBWG: 16,
@@ -104,11 +127,11 @@ export default function HeatExchangerClient() {
     foulingShellSide: '0.0000088',
   });
 
-  // ── Design result ──────────────────────────────────────────────────────
+  // -- Design result --
   const [designResult, setDesignResult] = useState<IterativeHXResult | null>(null);
   const [designError, setDesignError] = useState<string | null>(null);
 
-  // ── Computed values ────────────────────────────────────────────────────
+  // -- Computed values --
 
   const heatDutyKW = useMemo(() => {
     const m = parseFloat(tubeSide.massFlowRate);
@@ -126,32 +149,78 @@ export default function HeatExchangerClient() {
         inletTemperature: tIn,
         outletTemperature: tOut,
       });
-      return result.heatDuty;
+      return Math.abs(result.heatDuty);
     } catch {
       return null;
     }
   }, [tubeSide]);
 
   const lmtdValue = useMemo(() => {
-    const tSat = parseFloat(shellSide.saturationTemp);
+    if (!exchangerType) return null;
     const tIn = parseFloat(tubeSide.inletTemp);
     const tOut = parseFloat(tubeSide.outletTemp);
-    if (isNaN(tSat) || isNaN(tIn) || isNaN(tOut)) return null;
+    if (isNaN(tIn) || isNaN(tOut)) return null;
+
     try {
+      let hotIn: number, hotOut: number, coldIn: number, coldOut: number;
+
+      if (exchangerType === 'CONDENSER') {
+        const tSat = parseFloat(shellSideCondensing.saturationTemp);
+        if (isNaN(tSat)) return null;
+        hotIn = tSat;
+        hotOut = tSat;
+        coldIn = tIn;
+        coldOut = tOut;
+      } else if (exchangerType === 'EVAPORATOR') {
+        const tSat = parseFloat(shellSideBoiling.saturationTemp);
+        if (isNaN(tSat)) return null;
+        // Tube is hot side, shell (boiling) is cold side
+        hotIn = tIn;
+        hotOut = tOut;
+        coldIn = tSat;
+        coldOut = tSat;
+      } else {
+        // LIQUID_LIQUID
+        const sIn = parseFloat(shellSideSensible.inletTemp);
+        const sOut = parseFloat(shellSideSensible.outletTemp);
+        if (isNaN(sIn) || isNaN(sOut)) return null;
+        const shellMean = (sIn + sOut) / 2;
+        const tubeMean = (tIn + tOut) / 2;
+        if (shellMean >= tubeMean) {
+          hotIn = sIn;
+          hotOut = sOut;
+          coldIn = tIn;
+          coldOut = tOut;
+        } else {
+          hotIn = tIn;
+          hotOut = tOut;
+          coldIn = sIn;
+          coldOut = sOut;
+        }
+      }
+
       const result = calculateLMTD({
-        hotInlet: tSat,
-        hotOutlet: tSat,
-        coldInlet: tIn,
-        coldOutlet: tOut,
+        hotInlet: hotIn,
+        hotOutlet: hotOut,
+        coldInlet: coldIn,
+        coldOutlet: coldOut,
         flowArrangement: 'COUNTER' as FlowArrangement,
       });
       return result.correctedLMTD > 0 ? result.correctedLMTD : null;
     } catch {
       return null;
     }
-  }, [shellSide.saturationTemp, tubeSide.inletTemp, tubeSide.outletTemp]);
+  }, [
+    exchangerType,
+    tubeSide.inletTemp,
+    tubeSide.outletTemp,
+    shellSideCondensing.saturationTemp,
+    shellSideBoiling.saturationTemp,
+    shellSideSensible.inletTemp,
+    shellSideSensible.outletTemp,
+  ]);
 
-  // ── Step validation ────────────────────────────────────────────────────
+  // -- Step validation --
 
   const step1Valid = exchangerType !== null;
 
@@ -176,7 +245,27 @@ export default function HeatExchangerClient() {
 
   const canRunDesign = step1Valid && step2Valid && step3Valid;
 
-  // ── Run Design ─────────────────────────────────────────────────────────
+  // -- Build shell-side input for the engine --
+
+  const buildShellSideInput = useCallback(() => {
+    if (exchangerType === 'LIQUID_LIQUID') {
+      return {
+        fluid: shellSideSensible.fluid as FluidType,
+        salinity: parseFloat(shellSideSensible.salinity) || 0,
+        massFlowRate: parseFloat(shellSideSensible.massFlowRate),
+        inletTemp: parseFloat(shellSideSensible.inletTemp),
+        outletTemp: parseFloat(shellSideSensible.outletTemp),
+      };
+    }
+    // CONDENSER or EVAPORATOR — same structure
+    const vals = exchangerType === 'EVAPORATOR' ? shellSideBoiling : shellSideCondensing;
+    return {
+      massFlowRate: parseFloat(vals.massFlowRate),
+      saturationTemp: parseFloat(vals.saturationTemp),
+    };
+  }, [exchangerType, shellSideCondensing, shellSideBoiling, shellSideSensible]);
+
+  // -- Run Design --
 
   const runDesign = useCallback(() => {
     if (!canRunDesign || !exchangerType) return;
@@ -192,10 +281,7 @@ export default function HeatExchangerClient() {
           inletTemp: parseFloat(tubeSide.inletTemp),
           outletTemp: parseFloat(tubeSide.outletTemp),
         },
-        shellSide: {
-          massFlowRate: parseFloat(shellSide.massFlowRate),
-          saturationTemp: parseFloat(shellSide.saturationTemp),
-        },
+        shellSide: buildShellSideInput(),
         flowArrangement: 'COUNTER',
         tubeOrientation: 'horizontal',
         tubeGeometry: {
@@ -216,15 +302,17 @@ export default function HeatExchangerClient() {
       setDesignError(e instanceof Error ? e.message : 'Design calculation failed');
       setDesignResult(null);
     }
-  }, [canRunDesign, exchangerType, tubeSide, shellSide, tubeGeometry]);
+  }, [canRunDesign, exchangerType, tubeSide, buildShellSideInput, tubeGeometry]);
 
-  // ── Save/Load input mapping ────────────────────────────────────────────
+  // -- Save/Load input mapping --
 
   const saveInputs = {
     version: 2,
     exchangerType,
     tubeSide,
-    shellSide,
+    shellSideCondensing,
+    shellSideBoiling,
+    shellSideSensible,
     tubeGeometry,
   };
 
@@ -233,13 +321,25 @@ export default function HeatExchangerClient() {
     if (inputs.version === 2) {
       if (inputs.exchangerType) setExchangerType(inputs.exchangerType as ExchangerTypeId);
       if (inputs.tubeSide) setTubeSide(inputs.tubeSide as TubeSideValues);
-      if (inputs.shellSide) setShellSide(inputs.shellSide as ShellSideValues);
+      // Support both old (shellSide) and new separate shell-side fields
+      if (inputs.shellSideCondensing) {
+        setShellSideCondensing(inputs.shellSideCondensing as ShellSideCondensingValues);
+      } else if (inputs.shellSide) {
+        // Backward compat with v2 saves that used single shellSide field
+        setShellSideCondensing(inputs.shellSide as ShellSideCondensingValues);
+      }
+      if (inputs.shellSideBoiling) {
+        setShellSideBoiling(inputs.shellSideBoiling as ShellSideBoilingValues);
+      }
+      if (inputs.shellSideSensible) {
+        setShellSideSensible(inputs.shellSideSensible as ShellSideSensibleValues);
+      }
       if (inputs.tubeGeometry) setTubeGeometry(inputs.tubeGeometry as TubeGeometryValues);
       setDesignResult(null);
       setDesignError(null);
       return;
     }
-    // Handle v1 (old manual-entry) saved calculations — best-effort migration
+    // Handle v1 (old manual-entry) saved calculations -- best-effort migration
     if (typeof inputs.massFlowRate === 'string' && inputs.massFlowRate) {
       setTubeSide((prev) => ({
         ...prev,
@@ -249,7 +349,7 @@ export default function HeatExchangerClient() {
       }));
     }
     if (typeof inputs.satTemp === 'string' && inputs.satTemp) {
-      setShellSide((prev) => ({
+      setShellSideCondensing((prev) => ({
         ...prev,
         saturationTemp: inputs.satTemp as string,
       }));
@@ -273,7 +373,7 @@ export default function HeatExchangerClient() {
     setDesignError(null);
   }, []);
 
-  // ── Render ─────────────────────────────────────────────────────────────
+  // -- Render --
 
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
@@ -355,14 +455,21 @@ export default function HeatExchangerClient() {
                 {STEPS[1]}
               </StepLabel>
               <StepContent>
-                <ProcessConditionsStep
-                  tubeSide={tubeSide}
-                  onTubeSideChange={setTubeSide}
-                  shellSide={shellSide}
-                  onShellSideChange={setShellSide}
-                  heatDutyKW={heatDutyKW}
-                  lmtd={lmtdValue}
-                />
+                {exchangerType && (
+                  <ProcessConditionsStep
+                    exchangerType={exchangerType}
+                    tubeSide={tubeSide}
+                    onTubeSideChange={setTubeSide}
+                    shellSideCondensing={shellSideCondensing}
+                    onShellSideCondensingChange={setShellSideCondensing}
+                    shellSideBoiling={shellSideBoiling}
+                    onShellSideBoilingChange={setShellSideBoiling}
+                    shellSideSensible={shellSideSensible}
+                    onShellSideSensibleChange={setShellSideSensible}
+                    heatDutyKW={heatDutyKW}
+                    lmtd={lmtdValue}
+                  />
+                )}
                 <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
                   <Button size="small" startIcon={<BackIcon />} onClick={() => setActiveStep(0)}>
                     Back
@@ -433,7 +540,7 @@ export default function HeatExchangerClient() {
         </Grid>
       </Grid>
 
-      {/* Report dialog — bridges to existing PDF template via geometry adapter */}
+      {/* Report dialog -- bridges to existing PDF template via geometry adapter */}
       {reportOpen && designResult && (
         <Suspense fallback={<CircularProgress />}>
           <GenerateReportDialog
@@ -458,6 +565,7 @@ export default function HeatExchangerClient() {
               reynoldsNumber: designResult.velocity.tubeSideReynolds,
               pressureDrop: designResult.velocity.tubeSidePressureDrop,
             }}
+            iterativeResult={designResult}
           />
         </Suspense>
       )}

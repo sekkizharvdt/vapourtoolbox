@@ -1,20 +1,21 @@
 /**
- * Iterative Heat Exchanger Design — Unit Tests
+ * Iterative Heat Exchanger Design -- Unit Tests
  *
- * Tests convergence, validation, parameter effects, and real-world scenarios.
+ * Tests convergence, validation, parameter effects, and real-world scenarios
+ * for all three exchanger types: CONDENSER, EVAPORATOR, LIQUID_LIQUID.
  */
 
 import { designHeatExchanger } from './iterativeHXDesign';
 import type { IterativeHXInput } from './iterativeHXDesign.types';
 import { findTubeIndex } from './heatExchangerSizing';
 
-// ── Factory ──────────────────────────────────────────────────────────────────
+// == Factory: Condenser ======================================================
 
 /**
  * Create a baseline MED condenser input:
  *   - 5 MW duty (approx)
- *   - Steam condensing at 65°C on shell side
- *   - Seawater cooling from 25°C to 35°C on tube side
+ *   - Steam condensing at 65C on shell side
+ *   - Seawater cooling from 25C to 35C on tube side
  *   - 19.05mm OD, BWG 16, Cu-Ni 90/10 tubes
  *   - 2 passes, 6m effective length
  */
@@ -24,12 +25,12 @@ function createCondenserInput(overrides: Partial<IterativeHXInput> = {}): Iterat
     tubeSide: {
       fluid: 'SEAWATER',
       salinity: 35000,
-      massFlowRate: 430, // ton/hr → ~119 kg/s → Q ≈ 5 MW at ΔT=10°C
+      massFlowRate: 430, // ton/hr
       inletTemp: 25,
       outletTemp: 35,
     },
     shellSide: {
-      massFlowRate: 7.6, // ton/hr → ~2.1 kg/s condensate → Q ≈ 5 MW
+      massFlowRate: 7.6, // ton/hr
       saturationTemp: 65,
     },
     flowArrangement: 'COUNTER',
@@ -42,16 +43,97 @@ function createCondenserInput(overrides: Partial<IterativeHXInput> = {}): Iterat
       tubeLength: 6,
     },
     fouling: {
-      tubeSide: 0.000088, // Seawater < 50°C (TEMA)
-      shellSide: 0.0000088, // Clean steam condensate
+      tubeSide: 0.000088,
+      shellSide: 0.0000088,
     },
     ...overrides,
   };
 }
 
-// ── Convergence ──────────────────────────────────────────────────────────────
+// == Factory: Evaporator =====================================================
 
-describe('designHeatExchanger — convergence', () => {
+/**
+ * Create a baseline evaporator input:
+ *   - Hot water (80C -> 60C) on tube side
+ *   - Boiling at 50C on shell side
+ *   - ~2.5 MW duty
+ */
+function createEvaporatorInput(overrides: Partial<IterativeHXInput> = {}): IterativeHXInput {
+  return {
+    exchangerType: 'EVAPORATOR',
+    tubeSide: {
+      fluid: 'PURE_WATER',
+      massFlowRate: 110, // ton/hr
+      inletTemp: 80,
+      outletTemp: 60,
+    },
+    shellSide: {
+      massFlowRate: 3.8, // ton/hr vapor produced
+      saturationTemp: 50,
+    },
+    flowArrangement: 'COUNTER',
+    tubeOrientation: 'horizontal',
+    tubeGeometry: {
+      tubeSpecIndex: findTubeIndex(19.05, 16),
+      tubeMaterial: 'cuNi_90_10',
+      tubeLayout: 'triangular',
+      tubePasses: 2,
+      tubeLength: 6,
+    },
+    fouling: {
+      tubeSide: 0.000088,
+      shellSide: 0.000176, // Higher fouling for boiling service
+    },
+    ...overrides,
+  };
+}
+
+// == Factory: Liquid-Liquid ==================================================
+
+/**
+ * Create a baseline liquid-liquid heat exchanger input:
+ *   - Hot pure water (80C -> 50C) on shell side
+ *   - Cold seawater (25C -> 45C) on tube side
+ *   - ~3.5 MW duty
+ */
+function createLiquidLiquidInput(overrides: Partial<IterativeHXInput> = {}): IterativeHXInput {
+  return {
+    exchangerType: 'LIQUID_LIQUID',
+    tubeSide: {
+      fluid: 'SEAWATER',
+      salinity: 35000,
+      massFlowRate: 150, // ton/hr
+      inletTemp: 25,
+      outletTemp: 45,
+    },
+    shellSide: {
+      fluid: 'PURE_WATER',
+      massFlowRate: 100, // ton/hr
+      inletTemp: 80,
+      outletTemp: 50,
+    },
+    flowArrangement: 'COUNTER',
+    tubeOrientation: 'horizontal',
+    tubeGeometry: {
+      tubeSpecIndex: findTubeIndex(19.05, 16),
+      tubeMaterial: 'cuNi_90_10',
+      tubeLayout: 'triangular',
+      tubePasses: 2,
+      tubeLength: 6,
+    },
+    fouling: {
+      tubeSide: 0.000088,
+      shellSide: 0.000088,
+    },
+    ...overrides,
+  };
+}
+
+// ============================================================================
+// CONDENSER TESTS
+// ============================================================================
+
+describe('CONDENSER -- convergence', () => {
   it('converges for a typical MED condenser case', () => {
     const result = designHeatExchanger(createCondenserInput());
 
@@ -74,7 +156,6 @@ describe('designHeatExchanger — convergence', () => {
 
   it('iteration history shows decreasing error', () => {
     const result = designHeatExchanger(createCondenserInput());
-    // First iteration error should be larger than last
     if (result.iterations.length > 2) {
       expect(result.iterations[0]!.relativeError).toBeGreaterThan(
         result.iterations[result.iterations.length - 1]!.relativeError
@@ -83,50 +164,38 @@ describe('designHeatExchanger — convergence', () => {
   });
 });
 
-// ── Heat Duty & LMTD ────────────────────────────────────────────────────────
-
-describe('designHeatExchanger — heat duty & LMTD', () => {
+describe('CONDENSER -- heat duty & LMTD', () => {
   it('calculates reasonable heat duty for the baseline case', () => {
     const result = designHeatExchanger(createCondenserInput());
-    // Q = m × Cp × ΔT ≈ 119 kg/s × 3.99 kJ/(kg·K) × 10 K ≈ 4750 kW
     expect(result.heatDuty.heatDutyKW).toBeGreaterThan(4000);
     expect(result.heatDuty.heatDutyKW).toBeLessThan(6000);
   });
 
   it('calculates LMTD correctly for isothermal condensation', () => {
     const result = designHeatExchanger(createCondenserInput());
-    // Counter-current with T_hot=65°C (both), T_cold_in=25°C, T_cold_out=35°C
-    // ΔT1 = 65-35 = 30, ΔT2 = 65-25 = 40
-    // LMTD = (30-40)/ln(30/40) = -10/ln(0.75) ≈ 34.8°C
     expect(result.lmtdResult.correctedLMTD).toBeCloseTo(34.8, 0);
-    expect(result.lmtdResult.correctionFactor).toBe(1.0); // Counter-current
+    expect(result.lmtdResult.correctionFactor).toBe(1.0);
   });
 
   it('warns on heat duty mismatch between tube and shell sides', () => {
-    // Deliberately set shell flow too high for tube-side duty
     const result = designHeatExchanger(
       createCondenserInput({
-        shellSide: { massFlowRate: 20, saturationTemp: 65 }, // way more steam than needed
+        shellSide: { massFlowRate: 20, saturationTemp: 65 },
       })
     );
     expect(result.warnings.some((w) => w.includes('Heat duty mismatch'))).toBe(true);
   });
 });
 
-// ── HTC Results ──────────────────────────────────────────────────────────────
-
-describe('designHeatExchanger — HTC', () => {
+describe('CONDENSER -- HTC', () => {
   it('tube-side HTC is in expected range for seawater', () => {
     const result = designHeatExchanger(createCondenserInput());
-    // Dittus-Boelter for turbulent water: range depends on velocity
-    // High velocity (>5 m/s) can push HTC above 20000 W/m²·K
     expect(result.tubeSideHTC).toBeGreaterThan(2000);
     expect(result.tubeSideHTC).toBeLessThan(50000);
   });
 
   it('shell-side HTC is in expected range for condensation', () => {
     const result = designHeatExchanger(createCondenserInput());
-    // Nusselt film condensation: typically 5000-20000 W/m²·K
     expect(result.shellSideHTC).toBeGreaterThan(3000);
     expect(result.shellSideHTC).toBeLessThan(25000);
   });
@@ -145,13 +214,9 @@ describe('designHeatExchanger — HTC', () => {
   });
 });
 
-// ── Geometry ─────────────────────────────────────────────────────────────────
-
-describe('designHeatExchanger — geometry', () => {
+describe('CONDENSER -- geometry', () => {
   it('produces reasonable tube count for 5 MW condenser', () => {
     const result = designHeatExchanger(createCondenserInput());
-    // For a 5MW condenser with U~2500, LMTD~35, A~57m²
-    // 19.05mm × 6m → ~0.359 m²/tube → ~160 tubes
     expect(result.geometry.actualTubeCount).toBeGreaterThan(50);
     expect(result.geometry.actualTubeCount).toBeLessThan(500);
   });
@@ -161,7 +226,7 @@ describe('designHeatExchanger — geometry', () => {
     expect(result.geometry.actualTubeCount % result.geometry.tubePasses).toBe(0);
   });
 
-  it('actual area ≥ required area', () => {
+  it('actual area >= required area', () => {
     const result = designHeatExchanger(createCondenserInput());
     expect(result.geometry.actualArea).toBeGreaterThanOrEqual(result.geometry.requiredArea);
   });
@@ -173,13 +238,9 @@ describe('designHeatExchanger — geometry', () => {
   });
 });
 
-// ── Velocity & Pressure Drop ─────────────────────────────────────────────────
-
-describe('designHeatExchanger — velocity', () => {
+describe('CONDENSER -- velocity', () => {
   it('tube-side velocity is reasonable', () => {
     const result = designHeatExchanger(createCondenserInput());
-    // Velocity can be high when LMTD is large (small area, few tubes)
-    // The engineer would adjust passes/geometry to bring it into 1-2.5 m/s range
     expect(result.velocity.tubeSideVelocity).toBeGreaterThan(0.3);
     expect(result.velocity.tubeSideVelocity).toBeLessThan(15);
   });
@@ -191,15 +252,12 @@ describe('designHeatExchanger — velocity', () => {
 
   it('Reynolds number indicates turbulent flow', () => {
     const result = designHeatExchanger(createCondenserInput());
-    // For meaningful HTC from Dittus-Boelter, Re should be > 10000
     expect(result.velocity.tubeSideReynolds).toBeGreaterThan(5000);
   });
 });
 
-// ── Parameter Effects ────────────────────────────────────────────────────────
-
-describe('designHeatExchanger — parameter effects', () => {
-  it('higher flow rate → more tubes (higher duty)', () => {
+describe('CONDENSER -- parameter effects', () => {
+  it('higher flow rate -> more tubes (higher duty)', () => {
     const r1 = designHeatExchanger(
       createCondenserInput({
         tubeSide: {
@@ -227,7 +285,7 @@ describe('designHeatExchanger — parameter effects', () => {
     expect(r2.geometry.actualTubeCount).toBeGreaterThan(r1.geometry.actualTubeCount);
   });
 
-  it('more tube passes → higher velocity', () => {
+  it('more tube passes -> higher velocity', () => {
     const r1 = designHeatExchanger(
       createCondenserInput({
         tubeGeometry: {
@@ -253,7 +311,7 @@ describe('designHeatExchanger — parameter effects', () => {
     expect(r2.velocity.tubeSideVelocity).toBeGreaterThan(r1.velocity.tubeSideVelocity);
   });
 
-  it('higher saturation temperature → higher LMTD → smaller area', () => {
+  it('higher saturation temperature -> higher LMTD -> smaller area', () => {
     const r1 = designHeatExchanger(
       createCondenserInput({ shellSide: { massFlowRate: 7.6, saturationTemp: 50 } })
     );
@@ -264,7 +322,7 @@ describe('designHeatExchanger — parameter effects', () => {
     expect(r2.geometry.requiredArea).toBeLessThan(r1.geometry.requiredArea);
   });
 
-  it('higher fouling → lower overall U → more area', () => {
+  it('higher fouling -> lower overall U -> more area', () => {
     const r1 = designHeatExchanger(
       createCondenserInput({ fouling: { tubeSide: 0.00005, shellSide: 0.00001 } })
     );
@@ -275,16 +333,239 @@ describe('designHeatExchanger — parameter effects', () => {
   });
 });
 
-// ── Validation ───────────────────────────────────────────────────────────────
+// ============================================================================
+// EVAPORATOR TESTS
+// ============================================================================
 
-describe('designHeatExchanger — validation', () => {
-  it('throws for unsupported exchanger type', () => {
-    expect(() =>
-      designHeatExchanger(createCondenserInput({ exchangerType: 'EVAPORATOR' }))
-    ).toThrow('not yet supported');
+describe('EVAPORATOR -- convergence', () => {
+  it('converges for a typical evaporator case', () => {
+    const result = designHeatExchanger(createEvaporatorInput());
+
+    expect(result.converged).toBe(true);
+    expect(result.iterationCount).toBeGreaterThan(1);
+    expect(result.iterationCount).toBeLessThanOrEqual(20);
   });
 
-  it('throws when tube-side inlet ≥ saturation temp', () => {
+  it('converges within 15 iterations', () => {
+    const result = designHeatExchanger(createEvaporatorInput());
+    expect(result.iterationCount).toBeLessThanOrEqual(15);
+  });
+});
+
+describe('EVAPORATOR -- heat duty & LMTD', () => {
+  it('calculates reasonable heat duty', () => {
+    const result = designHeatExchanger(createEvaporatorInput());
+    // Q = 110 ton/hr * (1/3.6) * 4.18 * 20 = ~2560 kW
+    expect(result.heatDuty.heatDutyKW).toBeGreaterThan(2000);
+    expect(result.heatDuty.heatDutyKW).toBeLessThan(3500);
+  });
+
+  it('calculates LMTD for evaporator (isothermal cold side)', () => {
+    const result = designHeatExchanger(createEvaporatorInput());
+    // Hot: 80->60, Cold: 50->50 (isothermal boiling)
+    // DT1 = 80-50 = 30, DT2 = 60-50 = 10
+    // LMTD = (30-10)/ln(30/10) = 20/ln(3) = ~18.2
+    expect(result.lmtdResult.correctedLMTD).toBeGreaterThan(15);
+    expect(result.lmtdResult.correctedLMTD).toBeLessThan(25);
+  });
+});
+
+describe('EVAPORATOR -- HTC', () => {
+  it('shell-side HTC (Mostinski boiling) is in expected range', () => {
+    const result = designHeatExchanger(createEvaporatorInput());
+    // Mostinski for water boiling: typically 2000-15000 W/m2K
+    expect(result.shellSideHTC).toBeGreaterThan(1000);
+    expect(result.shellSideHTC).toBeLessThan(20000);
+  });
+
+  it('tube-side HTC (Dittus-Boelter) is in expected range', () => {
+    const result = designHeatExchanger(createEvaporatorInput());
+    expect(result.tubeSideHTC).toBeGreaterThan(1000);
+    expect(result.tubeSideHTC).toBeLessThan(50000);
+  });
+
+  it('overall HTC is less than both individual HTCs', () => {
+    const result = designHeatExchanger(createEvaporatorInput());
+    expect(result.htcResult.overallHTC).toBeLessThan(result.tubeSideHTC);
+    expect(result.htcResult.overallHTC).toBeLessThan(result.shellSideHTC);
+  });
+});
+
+describe('EVAPORATOR -- geometry & velocity', () => {
+  it('produces reasonable tube count', () => {
+    const result = designHeatExchanger(createEvaporatorInput());
+    expect(result.geometry.actualTubeCount).toBeGreaterThan(20);
+    expect(result.geometry.actualTubeCount).toBeLessThan(1000);
+  });
+
+  it('tube count is divisible by passes', () => {
+    const result = designHeatExchanger(createEvaporatorInput());
+    expect(result.geometry.actualTubeCount % result.geometry.tubePasses).toBe(0);
+  });
+
+  it('tube-side velocity is positive', () => {
+    const result = designHeatExchanger(createEvaporatorInput());
+    expect(result.velocity.tubeSideVelocity).toBeGreaterThan(0.1);
+  });
+});
+
+describe('EVAPORATOR -- parameter effects', () => {
+  it('higher boiling temperature -> smaller LMTD -> larger area', () => {
+    const r1 = designHeatExchanger(
+      createEvaporatorInput({ shellSide: { massFlowRate: 3.8, saturationTemp: 40 } })
+    );
+    const r2 = designHeatExchanger(
+      createEvaporatorInput({ shellSide: { massFlowRate: 3.8, saturationTemp: 55 } })
+    );
+    // Higher boiling temp means closer to tube-side temps -> smaller LMTD
+    expect(r2.lmtdResult.correctedLMTD).toBeLessThan(r1.lmtdResult.correctedLMTD);
+    expect(r2.geometry.requiredArea).toBeGreaterThan(r1.geometry.requiredArea);
+  });
+});
+
+describe('EVAPORATOR -- validation', () => {
+  it('throws when tube inlet <= saturation temp', () => {
+    expect(() =>
+      designHeatExchanger(
+        createEvaporatorInput({
+          tubeSide: {
+            fluid: 'PURE_WATER',
+            massFlowRate: 110,
+            inletTemp: 45, // Below boiling point of 50C
+            outletTemp: 30,
+          },
+        })
+      )
+    ).toThrow('inlet temperature must be above');
+  });
+
+  it('throws when tube outlet >= inlet (not cooling)', () => {
+    expect(() =>
+      designHeatExchanger(
+        createEvaporatorInput({
+          tubeSide: {
+            fluid: 'PURE_WATER',
+            massFlowRate: 110,
+            inletTemp: 80,
+            outletTemp: 90, // Outlet > inlet means heating, not valid for evaporator
+          },
+        })
+      )
+    ).toThrow('outlet temperature must be less than inlet');
+  });
+});
+
+// ============================================================================
+// LIQUID-LIQUID TESTS
+// ============================================================================
+
+describe('LIQUID_LIQUID -- convergence', () => {
+  it('converges for a typical water-to-water heat exchanger', () => {
+    const result = designHeatExchanger(createLiquidLiquidInput());
+
+    expect(result.converged).toBe(true);
+    expect(result.iterationCount).toBeGreaterThan(1);
+    expect(result.iterationCount).toBeLessThanOrEqual(20);
+  });
+
+  it('converges within 15 iterations', () => {
+    const result = designHeatExchanger(createLiquidLiquidInput());
+    expect(result.iterationCount).toBeLessThanOrEqual(15);
+  });
+});
+
+describe('LIQUID_LIQUID -- heat duty & LMTD', () => {
+  it('calculates reasonable heat duty', () => {
+    const result = designHeatExchanger(createLiquidLiquidInput());
+    // Q = 150 ton/hr * (1/3.6) * ~3.99 * 20 = ~3325 kW (seawater Cp ~3.99)
+    expect(result.heatDuty.heatDutyKW).toBeGreaterThan(2500);
+    expect(result.heatDuty.heatDutyKW).toBeLessThan(4500);
+  });
+
+  it('calculates LMTD for two-stream counter-current', () => {
+    const result = designHeatExchanger(createLiquidLiquidInput());
+    // Hot: 80->50, Cold: 25->45 (counter-current)
+    // DT1 = 80-45 = 35, DT2 = 50-25 = 25
+    // LMTD = (35-25)/ln(35/25) = 10/ln(1.4) = ~29.7
+    expect(result.lmtdResult.correctedLMTD).toBeGreaterThan(25);
+    expect(result.lmtdResult.correctedLMTD).toBeLessThan(35);
+  });
+});
+
+describe('LIQUID_LIQUID -- HTC', () => {
+  it('shell-side HTC (Kern) is in expected range', () => {
+    const result = designHeatExchanger(createLiquidLiquidInput());
+    // Kern for water cross-flow: typically 500-8000 W/m2K
+    expect(result.shellSideHTC).toBeGreaterThan(300);
+    expect(result.shellSideHTC).toBeLessThan(15000);
+  });
+
+  it('overall HTC is less than both individual HTCs', () => {
+    const result = designHeatExchanger(createLiquidLiquidInput());
+    expect(result.htcResult.overallHTC).toBeLessThan(result.tubeSideHTC);
+    expect(result.htcResult.overallHTC).toBeLessThan(result.shellSideHTC);
+  });
+
+  it('resistance breakdown sums to total', () => {
+    const result = designHeatExchanger(createLiquidLiquidInput());
+    const r = result.htcResult.resistances;
+    const sum = r.tubeSide + r.tubeSideFouling + r.tubeWall + r.shellSideFouling + r.shellSide;
+    expect(sum).toBeCloseTo(r.total, 10);
+  });
+});
+
+describe('LIQUID_LIQUID -- geometry & velocity', () => {
+  it('produces reasonable tube count', () => {
+    const result = designHeatExchanger(createLiquidLiquidInput());
+    expect(result.geometry.actualTubeCount).toBeGreaterThan(20);
+    expect(result.geometry.actualTubeCount).toBeLessThan(1000);
+  });
+
+  it('tube count is divisible by passes', () => {
+    const result = designHeatExchanger(createLiquidLiquidInput());
+    expect(result.geometry.actualTubeCount % result.geometry.tubePasses).toBe(0);
+  });
+
+  it('tube-side velocity is reasonable', () => {
+    const result = designHeatExchanger(createLiquidLiquidInput());
+    expect(result.velocity.tubeSideVelocity).toBeGreaterThan(0.1);
+    expect(result.velocity.tubeSideVelocity).toBeLessThan(15);
+  });
+});
+
+describe('LIQUID_LIQUID -- parameter effects', () => {
+  it('higher shell flow rate -> higher shell-side HTC', () => {
+    const r1 = designHeatExchanger(
+      createLiquidLiquidInput({
+        shellSide: {
+          fluid: 'PURE_WATER',
+          massFlowRate: 50,
+          inletTemp: 80,
+          outletTemp: 50,
+        },
+      })
+    );
+    const r2 = designHeatExchanger(
+      createLiquidLiquidInput({
+        shellSide: {
+          fluid: 'PURE_WATER',
+          massFlowRate: 200,
+          inletTemp: 80,
+          outletTemp: 50,
+        },
+      })
+    );
+    // Higher velocity -> higher HTC (Kern Nu ~ Re^0.55)
+    expect(r2.shellSideHTC).toBeGreaterThan(r1.shellSideHTC);
+  });
+});
+
+// ============================================================================
+// VALIDATION (cross-type)
+// ============================================================================
+
+describe('validation -- cross-type', () => {
+  it('throws when tube-side inlet >= saturation temp (condenser)', () => {
     expect(() =>
       designHeatExchanger(
         createCondenserInput({
@@ -301,7 +582,7 @@ describe('designHeatExchanger — validation', () => {
     ).toThrow('inlet temperature must be below');
   });
 
-  it('throws when tube-side outlet ≤ inlet (not heated)', () => {
+  it('throws when tube-side outlet <= inlet (condenser)', () => {
     expect(() =>
       designHeatExchanger(
         createCondenserInput({
@@ -350,40 +631,28 @@ describe('designHeatExchanger — validation', () => {
   });
 });
 
-// ── Real-World Scenario ──────────────────────────────────────────────────────
+// ============================================================================
+// REAL-WORLD SCENARIOS
+// ============================================================================
 
 describe('Real-world: 5 MW MED condenser', () => {
   it('produces a complete, physically consistent design', () => {
     const result = designHeatExchanger(createCondenserInput());
 
-    // Converged
     expect(result.converged).toBe(true);
-
-    // Heat duty: ~4750 kW
     expect(result.heatDuty.heatDutyKW).toBeGreaterThan(4000);
     expect(result.heatDuty.heatDutyKW).toBeLessThan(6000);
-
-    // LMTD: ~35°C for 65°C sat, 25→35°C cooling water
     expect(result.lmtdResult.correctedLMTD).toBeGreaterThan(25);
     expect(result.lmtdResult.correctedLMTD).toBeLessThan(45);
-
-    // Overall U: typical condenser range 1500-4000
     expect(result.htcResult.overallHTC).toBeGreaterThan(1000);
     expect(result.htcResult.overallHTC).toBeLessThan(5000);
-
-    // Area: Q/(U×LMTD) should be reasonable
     expect(result.geometry.requiredArea).toBeGreaterThan(20);
     expect(result.geometry.requiredArea).toBeLessThan(200);
-
-    // Shell ID: should be moderate for ~100-200 tubes
     expect(result.geometry.shellID).toBeGreaterThan(200);
     expect(result.geometry.shellID).toBeLessThan(1200);
-
-    // Velocity may be high for this LMTD; engineer adjusts geometry to bring into range
     expect(result.velocity.tubeSideVelocity).toBeGreaterThan(0.5);
     expect(result.velocity.tubeSideVelocity).toBeLessThan(15);
 
-    // No critical warnings (heat duty mismatch is expected due to approximate shell flow)
     const criticalWarnings = result.warnings.filter(
       (w) => w.includes('did not converge') || w.includes('Temperature cross')
     );
@@ -406,12 +675,11 @@ describe('Real-world: pure water condenser', () => {
 
     expect(result.converged).toBe(true);
     expect(result.heatDuty.heatDutyKW).toBeGreaterThan(4000);
-    // Pure water has higher Cp → slightly higher Q than seawater at same flow
   });
 });
 
 describe('Real-world: high saturation temperature condenser', () => {
-  it('converges for T_sat = 100°C (atmospheric)', () => {
+  it('converges for T_sat = 100C (atmospheric)', () => {
     const result = designHeatExchanger(
       createCondenserInput({
         shellSide: { massFlowRate: 7.6, saturationTemp: 100 },
@@ -426,7 +694,34 @@ describe('Real-world: high saturation temperature condenser', () => {
     );
 
     expect(result.converged).toBe(true);
-    // Higher LMTD → smaller area
     expect(result.geometry.requiredArea).toBeLessThan(100);
+  });
+});
+
+describe('Real-world: MED evaporator', () => {
+  it('produces a consistent evaporator design', () => {
+    const result = designHeatExchanger(createEvaporatorInput());
+
+    expect(result.converged).toBe(true);
+    expect(result.heatDuty.heatDutyKW).toBeGreaterThan(2000);
+    expect(result.geometry.actualTubeCount).toBeGreaterThan(20);
+    expect(result.geometry.shellID).toBeGreaterThan(100);
+
+    const criticalWarnings = result.warnings.filter((w) => w.includes('did not converge'));
+    expect(criticalWarnings).toHaveLength(0);
+  });
+});
+
+describe('Real-world: seawater preheater (liquid-liquid)', () => {
+  it('produces a consistent liquid-liquid design', () => {
+    const result = designHeatExchanger(createLiquidLiquidInput());
+
+    expect(result.converged).toBe(true);
+    expect(result.heatDuty.heatDutyKW).toBeGreaterThan(2500);
+    expect(result.geometry.actualTubeCount).toBeGreaterThan(20);
+    expect(result.geometry.shellID).toBeGreaterThan(100);
+
+    const criticalWarnings = result.warnings.filter((w) => w.includes('did not converge'));
+    expect(criticalWarnings).toHaveLength(0);
   });
 });

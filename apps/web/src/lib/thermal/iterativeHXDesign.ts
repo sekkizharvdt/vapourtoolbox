@@ -1,31 +1,38 @@
 /**
  * Iterative Heat Exchanger Design Engine
  *
- * Integrates heat duty, LMTD, HTC correlations (Dittus-Boelter + Nusselt),
- * and geometric sizing into a single convergent design loop.
+ * Integrates heat duty, LMTD, HTC correlations, and geometric sizing
+ * into a single convergent design loop.
+ *
+ * Supports three exchanger types:
+ *   CONDENSER:    Shell-side condensation (Nusselt) + tube-side forced convection (Dittus-Boelter)
+ *   EVAPORATOR:   Shell-side pool boiling (Mostinski) + tube-side forced convection (Dittus-Boelter)
+ *   LIQUID_LIQUID: Shell-side cross-flow (Kern) + tube-side forced convection (Dittus-Boelter)
  *
  * Algorithm:
  *   1. Calculate Q from process conditions
  *   2. Calculate LMTD from temperature profile
  *   3. Assume initial U from typical values
  *   4. Loop:
- *      a. A_required = Q / (U × LMTD)
+ *      a. A_required = Q / (U x LMTD)
  *      b. Size geometry (tube count, bundle, shell)
  *      c. Calculate tube-side velocity and HTC (Dittus-Boelter)
- *      d. Estimate wall temperature, calculate shell-side HTC (Nusselt)
+ *      d. Calculate shell-side HTC (Nusselt / Mostinski / Kern)
  *      e. Calculate U from composite resistance
  *      f. Check convergence; if not converged, relax U and repeat
  *   5. Return complete design with iteration history
  *
  * References:
- *   - Kern's Process Heat Transfer (bundle diameter, overall HTC)
+ *   - Kern's Process Heat Transfer (bundle diameter, overall HTC, shell-side HTC)
  *   - TEMA Standards (tube geometry, shell sizing)
  *   - Dittus-Boelter (tube-side forced convection)
- *   - Nusselt film condensation (shell-side)
+ *   - Nusselt film condensation (shell-side condensation)
+ *   - Mostinski (1963) (pool boiling)
  */
 
+import { getSaturationPressure } from '@vapour/constants';
 import { getFluidProperties, getSaturationProperties } from './fluidProperties';
-import type { SaturationFluidProperties } from './fluidProperties';
+import type { FluidProperties, SaturationFluidProperties } from './fluidProperties';
 import {
   calculateSensibleHeat,
   calculateLatentHeat,
@@ -35,12 +42,15 @@ import {
 import {
   calculateTubeSideHTC,
   calculateNusseltCondensation,
+  calculateKernShellSideHTC,
+  calculateMostinskiBoiling,
   calculateOverallHTC,
 } from './heatTransfer';
 import type { OverallHTCResult } from './heatTransfer';
 import {
   sizeHeatExchanger,
   calculateTubeSideVelocity,
+  calculateShellSideVelocity,
   estimateTubeSidePressureDrop,
   STANDARD_TUBES,
   TUBE_MATERIALS,
@@ -54,6 +64,8 @@ import type {
   LMTDResultSummary,
   VelocityResult,
   GeometryResult,
+  ShellSideCondensing,
+  ShellSideSensible,
 } from './iterativeHXDesign.types';
 
 // ============================================================================
@@ -72,8 +84,20 @@ const DEFAULT_RELAXATION = 0.7;
 /** Minimum velocity for meaningful HTC calculation (m/s) */
 const MIN_VELOCITY = 0.1;
 
-/** Typical initial U for condenser design (W/m²·K) */
+/** Typical initial U for condenser design (W/m2K) */
 const INITIAL_U_CONDENSER = TYPICAL_HTC.steam_to_water?.typical ?? 2500;
+
+// ============================================================================
+// Type Guards
+// ============================================================================
+
+function isShellSideSensible(s: IterativeHXInput['shellSide']): s is ShellSideSensible {
+  return 'inletTemp' in s;
+}
+
+function asCondensing(s: IterativeHXInput['shellSide']): ShellSideCondensing {
+  return s as ShellSideCondensing;
+}
 
 // ============================================================================
 // Main Design Function
@@ -82,15 +106,15 @@ const INITIAL_U_CONDENSER = TYPICAL_HTC.steam_to_water?.typical ?? 2500;
 /**
  * Run the iterative heat exchanger design.
  *
- * Currently supports CONDENSER type only (shell-side condensation + tube-side
- * forced convection). Returns a complete design with iteration history.
+ * Supports CONDENSER, EVAPORATOR, and LIQUID_LIQUID types.
+ * Returns a complete design with iteration history.
  *
  * @param input - Complete design input
  * @returns Design result with convergence status and all intermediate data
  * @throws Error if input validation fails
  */
 export function designHeatExchanger(input: IterativeHXInput): IterativeHXResult {
-  // ── Validation ─────────────────────────────────────────────────────────
+  // -- Validation --
   validateInput(input);
 
   const {
@@ -108,25 +132,44 @@ export function designHeatExchanger(input: IterativeHXInput): IterativeHXResult 
 
   const warnings: string[] = [];
 
-  // ── Step 1: Calculate heat duty ────────────────────────────────────────
-  const heatDuty = calculateHeatDutyForCondenser(tubeSide, shellSide, warnings);
+  // -- Step 1: Calculate heat duty --
+  const heatDuty = calculateHeatDutyDispatch(exchangerType, tubeSide, shellSide, warnings);
 
-  // ── Step 2: Calculate LMTD ─────────────────────────────────────────────
-  const lmtdResult = calculateLMTDForCondenser(tubeSide, shellSide, flowArrangement, warnings);
+  // -- Step 2: Calculate LMTD --
+  const lmtdResult = calculateLMTDDispatch(
+    exchangerType,
+    tubeSide,
+    shellSide,
+    flowArrangement,
+    warnings
+  );
 
   if (lmtdResult.correctedLMTD <= 0) {
-    throw new Error('Invalid temperature profile — LMTD is zero or negative');
+    throw new Error('Invalid temperature profile \u2014 LMTD is zero or negative');
   }
 
-  // ── Step 3: Get fluid properties at operating conditions ───────────────
+  // -- Step 3: Get fluid properties at operating conditions --
   const tubeMeanTemp = (tubeSide.inletTemp + tubeSide.outletTemp) / 2;
   const tubeProps = getFluidProperties(tubeSide.fluid, tubeMeanTemp, tubeSide.salinity);
-  const satProps = getSaturationProperties(shellSide.saturationTemp);
 
-  // ── Step 4: Initial U assumption ───────────────────────────────────────
+  // Shell-side fluid properties (type-dependent)
+  const satProps =
+    exchangerType === 'CONDENSER' || exchangerType === 'EVAPORATOR'
+      ? getSaturationProperties(asCondensing(shellSide).saturationTemp)
+      : null;
+
+  const shellProps = isShellSideSensible(shellSide)
+    ? getFluidProperties(
+        shellSide.fluid,
+        (shellSide.inletTemp + shellSide.outletTemp) / 2,
+        shellSide.salinity
+      )
+    : null;
+
+  // -- Step 4: Initial U assumption --
   let assumedU = getInitialU(exchangerType);
 
-  // ── Step 5: Iterative design loop ──────────────────────────────────────
+  // -- Step 5: Iterative design loop --
   const iterations: IterationStep[] = [];
   let converged = false;
   let finalHtcResult: OverallHTCResult | null = null;
@@ -173,7 +216,6 @@ export function designHeatExchanger(input: IterativeHXInput): IterativeHXResult 
 
     let tubeSideHTC: number;
     if (velocity < MIN_VELOCITY) {
-      // Very low velocity — use a conservative minimum HTC
       tubeSideHTC = 500;
       if (i === 0) {
         warnings.push(
@@ -194,15 +236,24 @@ export function designHeatExchanger(input: IterativeHXInput): IterativeHXResult 
       tubeSideHTC = htcResult.htc;
     }
 
-    // d. Estimate wall temperature and calculate shell-side HTC (Nusselt)
-    const shellSideHTC = calculateShellSideHTCForCondenser(
-      satProps,
-      tubeSpec.od_mm / 1000,
-      tubeOrientation,
-      tubeMeanTemp,
-      shellSide.saturationTemp,
-      assumedU,
-      tubeSideHTC
+    // d. Calculate shell-side HTC (type-dependent)
+    const shellSideHTC = calculateShellSideHTCDispatch(
+      exchangerType,
+      {
+        satProps,
+        shellProps,
+        tubeODm: tubeSpec.od_mm / 1000,
+        orientation: tubeOrientation,
+        tubeMeanTemp,
+        shellSide,
+        currentU: assumedU,
+        tubeSideHTC,
+        sizing,
+        heatDutyKW: heatDuty.heatDutyKW,
+        tubeGeometry,
+      },
+      warnings,
+      i
     );
 
     // e. Calculate overall U from composite resistance
@@ -245,7 +296,7 @@ export function designHeatExchanger(input: IterativeHXInput): IterativeHXResult 
       break;
     }
 
-    // g. Under-relaxation: U_new = α × U_calc + (1-α) × U_assumed
+    // g. Under-relaxation: U_new = alpha x U_calc + (1-alpha) x U_assumed
     assumedU = relaxationFactor * calculatedU + (1 - relaxationFactor) * assumedU;
   }
 
@@ -257,11 +308,10 @@ export function designHeatExchanger(input: IterativeHXInput): IterativeHXResult 
     );
   }
 
-  // ── Step 6: Assemble final result ──────────────────────────────────────
+  // -- Step 6: Assemble final result --
   const sizing = finalSizingResult!;
   const tubeIDm = tubeSpec.id_mm / 1000;
 
-  // Calculate pressure drop at final velocity
   const pressureDrop = estimateTubeSidePressureDrop(
     finalVelocity,
     tubeIDm,
@@ -271,10 +321,8 @@ export function designHeatExchanger(input: IterativeHXInput): IterativeHXResult 
     tubeProps.viscosity
   );
 
-  // Velocity warnings
   addVelocityWarnings(finalVelocity, warnings);
 
-  // Add sizing warnings from the final iteration
   for (const w of sizing.warnings) {
     if (!warnings.includes(w)) {
       warnings.push(w);
@@ -324,21 +372,33 @@ export function designHeatExchanger(input: IterativeHXInput): IterativeHXResult 
 }
 
 // ============================================================================
-// Internal: Heat Duty Calculation
+// Internal: Heat Duty Dispatch
 // ============================================================================
 
-/**
- * Calculate heat duty for a condenser configuration.
- *
- * Uses the tube-side sensible heat (Q = m·Cp·ΔT) as the primary calculation.
- * Cross-checks with shell-side latent heat if both are available.
- */
-function calculateHeatDutyForCondenser(
+function calculateHeatDutyDispatch(
+  exchangerType: IterativeHXInput['exchangerType'],
   tubeSide: IterativeHXInput['tubeSide'],
   shellSide: IterativeHXInput['shellSide'],
   warnings: string[]
 ): HeatDutyResult {
-  // Primary: tube-side sensible heat
+  switch (exchangerType) {
+    case 'CONDENSER':
+      return calculateHeatDutyForCondenser(tubeSide, asCondensing(shellSide), warnings);
+    case 'EVAPORATOR':
+      return calculateHeatDutyForEvaporator(tubeSide, asCondensing(shellSide), warnings);
+    case 'LIQUID_LIQUID':
+      return calculateHeatDutyForLiquidLiquid(tubeSide, shellSide as ShellSideSensible, warnings);
+  }
+}
+
+/**
+ * Heat duty for condenser: primary = tube-side sensible, cross-check with shell latent.
+ */
+function calculateHeatDutyForCondenser(
+  tubeSide: IterativeHXInput['tubeSide'],
+  shellSide: ShellSideCondensing,
+  warnings: string[]
+): HeatDutyResult {
   const sensible = calculateSensibleHeat({
     fluidType: tubeSide.fluid === 'CONDENSATE' ? 'PURE_WATER' : tubeSide.fluid,
     salinity: tubeSide.salinity,
@@ -347,14 +407,12 @@ function calculateHeatDutyForCondenser(
     outletTemperature: tubeSide.outletTemp,
   });
 
-  // Cross-check: shell-side latent heat
   const latent = calculateLatentHeat({
     massFlowRate: shellSide.massFlowRate,
     temperature: shellSide.saturationTemp,
     process: 'CONDENSATION',
   });
 
-  // Warn if tube-side and shell-side duties differ by more than 10%
   const discrepancy = Math.abs(sensible.heatDuty - latent.heatDuty) / sensible.heatDuty;
   if (discrepancy > 0.1) {
     warnings.push(
@@ -373,27 +431,176 @@ function calculateHeatDutyForCondenser(
   };
 }
 
-// ============================================================================
-// Internal: LMTD Calculation
-// ============================================================================
+/**
+ * Heat duty for evaporator: primary = tube-side sensible (hot fluid cooled),
+ * cross-check with shell-side latent (boiling).
+ */
+function calculateHeatDutyForEvaporator(
+  tubeSide: IterativeHXInput['tubeSide'],
+  shellSide: ShellSideCondensing,
+  warnings: string[]
+): HeatDutyResult {
+  const sensible = calculateSensibleHeat({
+    fluidType: tubeSide.fluid === 'CONDENSATE' ? 'PURE_WATER' : tubeSide.fluid,
+    salinity: tubeSide.salinity,
+    massFlowRate: tubeSide.massFlowRate,
+    inletTemperature: tubeSide.inletTemp,
+    outletTemperature: tubeSide.outletTemp,
+  });
+
+  // For evaporator, tube-side fluid is being cooled, so Q is negative from calculateSensibleHeat
+  // We use absolute value
+  const qTube = Math.abs(sensible.heatDuty);
+
+  const latent = calculateLatentHeat({
+    massFlowRate: shellSide.massFlowRate,
+    temperature: shellSide.saturationTemp,
+    process: 'EVAPORATION',
+  });
+
+  const discrepancy = Math.abs(qTube - latent.heatDuty) / qTube;
+  if (discrepancy > 0.1) {
+    warnings.push(
+      `Heat duty mismatch: tube-side Q = ${qTube.toFixed(0)} kW, ` +
+        `shell-side Q = ${latent.heatDuty.toFixed(0)} kW ` +
+        `(${(discrepancy * 100).toFixed(1)}% difference). ` +
+        'Check flow rates and temperatures for consistency.'
+    );
+  }
+
+  return {
+    heatDutyKW: qTube,
+    method: 'SENSIBLE',
+    specificHeat: sensible.specificHeat,
+    massFlowKgS: sensible.massFlowKgS,
+  };
+}
 
 /**
- * Calculate LMTD for a condenser.
- *
- * For a condenser, the hot side is isothermal (saturation temperature)
- * at both inlet and outlet.
+ * Heat duty for liquid-liquid: primary = tube-side sensible, cross-check with shell sensible.
  */
-function calculateLMTDForCondenser(
+function calculateHeatDutyForLiquidLiquid(
+  tubeSide: IterativeHXInput['tubeSide'],
+  shellSide: ShellSideSensible,
+  warnings: string[]
+): HeatDutyResult {
+  const tubeSensible = calculateSensibleHeat({
+    fluidType: tubeSide.fluid === 'CONDENSATE' ? 'PURE_WATER' : tubeSide.fluid,
+    salinity: tubeSide.salinity,
+    massFlowRate: tubeSide.massFlowRate,
+    inletTemperature: tubeSide.inletTemp,
+    outletTemperature: tubeSide.outletTemp,
+  });
+
+  const shellSensible = calculateSensibleHeat({
+    fluidType: shellSide.fluid === 'CONDENSATE' ? 'PURE_WATER' : shellSide.fluid,
+    salinity: shellSide.salinity,
+    massFlowRate: shellSide.massFlowRate,
+    inletTemperature: shellSide.inletTemp,
+    outletTemperature: shellSide.outletTemp,
+  });
+
+  const qTube = Math.abs(tubeSensible.heatDuty);
+  const qShell = Math.abs(shellSensible.heatDuty);
+  const discrepancy = Math.abs(qTube - qShell) / Math.max(qTube, qShell);
+  if (discrepancy > 0.1) {
+    warnings.push(
+      `Heat duty mismatch: tube-side Q = ${qTube.toFixed(0)} kW, ` +
+        `shell-side Q = ${qShell.toFixed(0)} kW ` +
+        `(${(discrepancy * 100).toFixed(1)}% difference). ` +
+        'Check flow rates and temperatures for energy balance.'
+    );
+  }
+
+  return {
+    heatDutyKW: qTube,
+    method: 'SENSIBLE',
+    specificHeat: tubeSensible.specificHeat,
+    massFlowKgS: tubeSensible.massFlowKgS,
+  };
+}
+
+// ============================================================================
+// Internal: LMTD Dispatch
+// ============================================================================
+
+function calculateLMTDDispatch(
+  exchangerType: IterativeHXInput['exchangerType'],
   tubeSide: IterativeHXInput['tubeSide'],
   shellSide: IterativeHXInput['shellSide'],
   flowArrangement: IterativeHXInput['flowArrangement'],
   warnings: string[]
 ): LMTDResultSummary {
+  switch (exchangerType) {
+    case 'CONDENSER': {
+      // Hot side isothermal (condensation at saturation temperature)
+      const ss = asCondensing(shellSide);
+      return calculateLMTDGeneric(
+        ss.saturationTemp,
+        ss.saturationTemp,
+        tubeSide.inletTemp,
+        tubeSide.outletTemp,
+        flowArrangement,
+        warnings
+      );
+    }
+    case 'EVAPORATOR': {
+      // Cold side (shell) isothermal (boiling at saturation temperature)
+      // Hot side = tube (being cooled): inlet is hot, outlet is cooler
+      const ss = asCondensing(shellSide);
+      return calculateLMTDGeneric(
+        tubeSide.inletTemp, // hot inlet (tube in)
+        tubeSide.outletTemp, // hot outlet (tube out)
+        ss.saturationTemp, // cold inlet (shell boiling)
+        ss.saturationTemp, // cold outlet (shell boiling)
+        flowArrangement,
+        warnings
+      );
+    }
+    case 'LIQUID_LIQUID': {
+      // Both sides sensible heat — standard two-stream LMTD
+      const ss = shellSide as ShellSideSensible;
+      // Determine which is the hot side and which is cold
+      const shellMean = (ss.inletTemp + ss.outletTemp) / 2;
+      const tubeMean = (tubeSide.inletTemp + tubeSide.outletTemp) / 2;
+      if (shellMean >= tubeMean) {
+        // Shell is hot side
+        return calculateLMTDGeneric(
+          ss.inletTemp,
+          ss.outletTemp,
+          tubeSide.inletTemp,
+          tubeSide.outletTemp,
+          flowArrangement,
+          warnings
+        );
+      } else {
+        // Tube is hot side
+        return calculateLMTDGeneric(
+          tubeSide.inletTemp,
+          tubeSide.outletTemp,
+          ss.inletTemp,
+          ss.outletTemp,
+          flowArrangement,
+          warnings
+        );
+      }
+    }
+  }
+}
+
+function calculateLMTDGeneric(
+  hotInlet: number,
+  hotOutlet: number,
+  coldInlet: number,
+  coldOutlet: number,
+  flowArrangement: IterativeHXInput['flowArrangement'],
+  warnings: string[]
+): LMTDResultSummary {
   const lmtd = calculateLMTD({
-    hotInlet: shellSide.saturationTemp,
-    hotOutlet: shellSide.saturationTemp, // isothermal condensation
-    coldInlet: tubeSide.inletTemp,
-    coldOutlet: tubeSide.outletTemp,
+    hotInlet,
+    hotOutlet,
+    coldInlet,
+    coldOutlet,
     flowArrangement,
   });
 
@@ -411,45 +618,60 @@ function calculateLMTDForCondenser(
 }
 
 // ============================================================================
-// Internal: Shell-Side HTC for Condenser
+// Internal: Shell-Side HTC Dispatch
 // ============================================================================
 
-/**
- * Calculate shell-side condensation HTC with wall temperature estimation.
- *
- * The Nusselt film condensation correlation requires the ΔT between
- * saturation temperature and tube wall temperature. The wall temperature
- * depends on the overall HTC, creating a circular dependency that is
- * resolved within the main iteration loop.
- *
- * Wall temperature estimate:
- *   T_wall ≈ T_sat - (h_o / U) × (T_sat - T_cold_bulk)
- *
- * On the first iteration we don't have h_o yet, so we use a simple estimate:
- *   T_wall ≈ (T_sat + T_cold_bulk) / 2
- */
-function calculateShellSideHTCForCondenser(
-  satProps: SaturationFluidProperties,
-  tubeODm: number,
-  orientation: IterativeHXInput['tubeOrientation'],
-  tubeBulkTemp: number,
-  satTemp: number,
-  currentU: number,
-  tubeSideHTC: number
+interface ShellSideHTCContext {
+  satProps: SaturationFluidProperties | null;
+  shellProps: FluidProperties | null;
+  tubeODm: number;
+  orientation: IterativeHXInput['tubeOrientation'];
+  tubeMeanTemp: number;
+  shellSide: IterativeHXInput['shellSide'];
+  currentU: number;
+  tubeSideHTC: number;
+  sizing: ReturnType<typeof sizeHeatExchanger>;
+  heatDutyKW: number;
+  tubeGeometry: IterativeHXInput['tubeGeometry'];
+}
+
+function calculateShellSideHTCDispatch(
+  exchangerType: IterativeHXInput['exchangerType'],
+  ctx: ShellSideHTCContext,
+  warnings: string[],
+  iteration: number
 ): number {
-  // Estimate wall temperature
-  // For a first-order estimate: T_wall = T_sat - (U/h_i) × (T_sat - T_bulk)
-  // This accounts for the tube-side resistance reducing the wall temp
-  let wallTemp: number;
-  if (tubeSideHTC > 0 && currentU > 0) {
-    // Fraction of total ΔT on the shell side
-    const fraction = Math.min(0.9, currentU / tubeSideHTC);
-    wallTemp = satTemp - fraction * (satTemp - tubeBulkTemp);
-  } else {
-    wallTemp = (satTemp + tubeBulkTemp) / 2;
+  switch (exchangerType) {
+    case 'CONDENSER':
+      return calculateShellSideHTCForCondenser(ctx);
+    case 'EVAPORATOR':
+      return calculateShellSideHTCForEvaporator(ctx, warnings, iteration);
+    case 'LIQUID_LIQUID':
+      return calculateShellSideHTCForLiquidLiquid(ctx, warnings, iteration);
+  }
+}
+
+/**
+ * Shell-side HTC for condenser: Nusselt film condensation with wall temperature estimation.
+ */
+function calculateShellSideHTCForCondenser(ctx: ShellSideHTCContext): number {
+  const { satProps, tubeODm, orientation, tubeMeanTemp, shellSide, currentU, tubeSideHTC } = ctx;
+  const ss = asCondensing(shellSide);
+
+  if (!satProps) {
+    throw new Error('Saturation properties required for condenser');
   }
 
-  const deltaT = Math.max(satTemp - wallTemp, 0.1);
+  // Estimate wall temperature
+  let wallTemp: number;
+  if (tubeSideHTC > 0 && currentU > 0) {
+    const fraction = Math.min(0.9, currentU / tubeSideHTC);
+    wallTemp = ss.saturationTemp - fraction * (ss.saturationTemp - tubeMeanTemp);
+  } else {
+    wallTemp = (ss.saturationTemp + tubeMeanTemp) / 2;
+  }
+
+  const deltaT = Math.max(ss.saturationTemp - wallTemp, 0.1);
 
   const { htc } = calculateNusseltCondensation({
     liquidDensity: satProps.density,
@@ -460,6 +682,90 @@ function calculateShellSideHTCForCondenser(
     dimension: tubeODm,
     deltaT,
     orientation,
+  });
+
+  return htc;
+}
+
+/**
+ * Shell-side HTC for evaporator: Mostinski pool boiling correlation.
+ *
+ * The Mostinski correlation depends on heat flux q = Q/A, which changes
+ * with each iteration as the area is resized.
+ */
+function calculateShellSideHTCForEvaporator(
+  ctx: ShellSideHTCContext,
+  warnings: string[],
+  iteration: number
+): number {
+  const { shellSide, sizing, heatDutyKW } = ctx;
+  const ss = asCondensing(shellSide);
+
+  // Get saturation pressure from temperature
+  const satPressureBar = getSaturationPressure(ss.saturationTemp);
+
+  // Heat flux based on current actual area
+  const actualArea = sizing.actualArea;
+  const heatFluxW = (heatDutyKW * 1000) / actualArea; // W/m2
+
+  if (heatFluxW <= 0) {
+    if (iteration === 0) {
+      warnings.push('Heat flux is zero or negative — cannot calculate boiling HTC.');
+    }
+    return 500; // fallback
+  }
+
+  const { htc } = calculateMostinskiBoiling({
+    heatFlux: heatFluxW,
+    saturationPressure: satPressureBar,
+  });
+
+  return htc;
+}
+
+/**
+ * Shell-side HTC for liquid-liquid: Kern method (cross-flow over tube bank).
+ */
+function calculateShellSideHTCForLiquidLiquid(
+  ctx: ShellSideHTCContext,
+  warnings: string[],
+  iteration: number
+): number {
+  const { shellProps, tubeODm, shellSide, sizing, tubeGeometry } = ctx;
+
+  if (!shellProps || !isShellSideSensible(shellSide)) {
+    throw new Error('Shell-side fluid properties required for liquid-liquid');
+  }
+
+  const shellMassFlowKgS = tonHrToKgS(shellSide.massFlowRate);
+  const shellVelocity = calculateShellSideVelocity(
+    shellMassFlowKgS,
+    shellProps.density,
+    sizing.shellSideFlowArea
+  );
+
+  if (shellVelocity < MIN_VELOCITY) {
+    if (iteration === 0) {
+      warnings.push(
+        `Shell-side velocity is very low (${shellVelocity.toFixed(3)} m/s). ` +
+          'Consider adjusting baffle spacing or shell geometry.'
+      );
+    }
+    return 300; // fallback
+  }
+
+  const pitchRatio = tubeGeometry.pitchRatio ?? 1.25;
+  const tubePitchM = tubeODm * pitchRatio;
+
+  const { htc } = calculateKernShellSideHTC({
+    density: shellProps.density,
+    velocity: shellVelocity,
+    tubeOD: tubeODm,
+    tubePitch: tubePitchM,
+    tubeLayout: tubeGeometry.tubeLayout === 'square' ? 'square' : 'triangular',
+    viscosity: shellProps.viscosity,
+    specificHeat: shellProps.specificHeat,
+    conductivity: shellProps.thermalConductivity,
   });
 
   return htc;
@@ -488,12 +794,12 @@ function addVelocityWarnings(velocity: number, warnings: string[]): void {
   if (velocity < 0.5) {
     warnings.push(
       `Tube-side velocity is low (${velocity.toFixed(2)} m/s). ` +
-        'Risk of fouling. Consider more tube passes or smaller tubes. Target: 1.0–2.5 m/s.'
+        'Risk of fouling. Consider more tube passes or smaller tubes. Target: 1.0\u20132.5 m/s.'
     );
   } else if (velocity > 3.0) {
     warnings.push(
       `Tube-side velocity is high (${velocity.toFixed(2)} m/s). ` +
-        'Risk of erosion and high pressure drop. Consider fewer tube passes or larger tubes. Target: 1.0–2.5 m/s.'
+        'Risk of erosion and high pressure drop. Consider fewer tube passes or larger tubes. Target: 1.0\u20132.5 m/s.'
     );
   }
 }
@@ -505,29 +811,61 @@ function addVelocityWarnings(velocity: number, warnings: string[]): void {
 function validateInput(input: IterativeHXInput): void {
   const { exchangerType, tubeSide, shellSide, tubeGeometry } = input;
 
-  if (exchangerType !== 'CONDENSER') {
-    throw new Error(
-      `Exchanger type '${exchangerType}' is not yet supported. Only 'CONDENSER' is available.`
-    );
-  }
-
   if (tubeSide.massFlowRate <= 0) {
     throw new Error('Tube-side mass flow rate must be positive');
   }
-  if (shellSide.massFlowRate <= 0) {
-    throw new Error('Shell-side mass flow rate must be positive');
+
+  if (isShellSideSensible(shellSide)) {
+    // Liquid-liquid validation
+    if (exchangerType !== 'LIQUID_LIQUID') {
+      throw new Error('ShellSideSensible input is only valid for LIQUID_LIQUID exchanger type');
+    }
+    if (shellSide.massFlowRate <= 0) {
+      throw new Error('Shell-side mass flow rate must be positive');
+    }
+  } else {
+    // Condensing/boiling validation
+    const ss = shellSide as ShellSideCondensing;
+    if (ss.massFlowRate <= 0) {
+      throw new Error('Shell-side mass flow rate must be positive');
+    }
+
+    if (exchangerType === 'CONDENSER') {
+      // Condenser: tube-side cold fluid is heated
+      if (tubeSide.inletTemp >= ss.saturationTemp) {
+        throw new Error(
+          'Tube-side inlet temperature must be below shell-side saturation temperature'
+        );
+      }
+      if (tubeSide.outletTemp >= ss.saturationTemp) {
+        throw new Error(
+          'Tube-side outlet temperature must be below shell-side saturation temperature'
+        );
+      }
+      if (tubeSide.outletTemp <= tubeSide.inletTemp) {
+        throw new Error(
+          'Tube-side outlet temperature must be greater than inlet temperature (cooling water is heated)'
+        );
+      }
+    } else if (exchangerType === 'EVAPORATOR') {
+      // Evaporator: tube-side hot fluid is cooled, shell-side boils
+      if (tubeSide.outletTemp <= ss.saturationTemp) {
+        // Tube outlet must be above shell boiling temp for heat transfer
+        // (with some approach temperature allowed)
+      }
+      if (tubeSide.inletTemp <= ss.saturationTemp) {
+        throw new Error(
+          'Tube-side inlet temperature must be above shell-side saturation temperature for evaporator'
+        );
+      }
+      if (tubeSide.outletTemp >= tubeSide.inletTemp) {
+        throw new Error(
+          'Tube-side outlet temperature must be less than inlet temperature (hot fluid is cooled in evaporator)'
+        );
+      }
+    }
   }
-  if (tubeSide.inletTemp >= shellSide.saturationTemp) {
-    throw new Error('Tube-side inlet temperature must be below shell-side saturation temperature');
-  }
-  if (tubeSide.outletTemp >= shellSide.saturationTemp) {
-    throw new Error('Tube-side outlet temperature must be below shell-side saturation temperature');
-  }
-  if (tubeSide.outletTemp <= tubeSide.inletTemp) {
-    throw new Error(
-      'Tube-side outlet temperature must be greater than inlet temperature (cooling water is heated)'
-    );
-  }
+
   if (tubeGeometry.tubeLength <= 0) {
     throw new Error('Tube length must be positive');
   }
@@ -539,8 +877,8 @@ function validateInput(input: IterativeHXInput): void {
   if (!tubeSpec) {
     throw new Error(`Invalid tube spec index: ${tubeGeometry.tubeSpecIndex}`);
   }
-  const material = TUBE_MATERIALS[tubeGeometry.tubeMaterial];
-  if (!material) {
+  const materialEntry = TUBE_MATERIALS[tubeGeometry.tubeMaterial];
+  if (!materialEntry) {
     throw new Error(`Invalid tube material: ${tubeGeometry.tubeMaterial}`);
   }
 }

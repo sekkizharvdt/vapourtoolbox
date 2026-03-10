@@ -19,8 +19,8 @@ import type { OverallHTCResult } from './heatTransfer';
  * Exchanger type determines which HTC correlations are used.
  *
  * CONDENSER: Shell-side condensation (Nusselt) + tube-side forced convection (Dittus-Boelter)
- * EVAPORATOR: Reserved for Phase 2 (Chen/Mostinski + Dittus-Boelter)
- * LIQUID_LIQUID: Reserved for Phase 2 (Bell-Delaware + Dittus-Boelter)
+ * EVAPORATOR: Shell-side pool boiling (Mostinski) + tube-side forced convection (Dittus-Boelter)
+ * LIQUID_LIQUID: Shell-side cross-flow (Kern) + tube-side forced convection (Dittus-Boelter)
  */
 export type ExchangerType = 'CONDENSER' | 'EVAPORATOR' | 'LIQUID_LIQUID';
 
@@ -55,6 +55,23 @@ export interface ShellSideCondensing {
   /** Saturation temperature in °C */
   saturationTemp: number;
 }
+
+/** Specification for a sensible-heat liquid stream on the shell side (liquid-liquid) */
+export interface ShellSideSensible {
+  /** Fluid type */
+  fluid: FluidType;
+  /** Salinity in ppm (for SEAWATER) */
+  salinity?: number;
+  /** Mass flow rate in ton/hr */
+  massFlowRate: number;
+  /** Inlet temperature in °C */
+  inletTemp: number;
+  /** Outlet temperature in °C */
+  outletTemp: number;
+}
+
+/** Union of all shell-side specification types */
+export type ShellSideSpec = ShellSideCondensing | ShellSideSensible;
 
 // ============================================================================
 // Tube Geometry Specification
@@ -96,8 +113,12 @@ export interface IterativeHXInput {
   /** Tube-side fluid specification */
   tubeSide: FluidSpec;
 
-  /** Shell-side specification — condensing vapor for CONDENSER type */
-  shellSide: ShellSideCondensing;
+  /**
+   * Shell-side specification.
+   * - CONDENSER / EVAPORATOR: ShellSideCondensing (massFlowRate + saturationTemp)
+   * - LIQUID_LIQUID: ShellSideSensible (fluid + flow + inlet/outlet temps)
+   */
+  shellSide: ShellSideSpec;
 
   /** Flow arrangement for LMTD calculation */
   flowArrangement: FlowArrangement;

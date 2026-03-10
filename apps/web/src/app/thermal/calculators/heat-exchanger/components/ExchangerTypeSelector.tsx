@@ -29,15 +29,15 @@ const CONFIGS: ConfigOption[] = [
     id: 'EVAPORATOR',
     label: 'Evaporator (Shell & Tube)',
     subtitle: 'Boiling on shell side, heating fluid in tubes',
-    correlations: 'Chen / Mostinski (shell) · Dittus-Boelter (tube)',
-    available: false,
+    correlations: 'Mostinski (shell) \u00B7 Dittus-Boelter (tube)',
+    available: true,
   },
   {
     id: 'LIQUID_LIQUID',
     label: 'Liquid\u2013Liquid (Shell & Tube)',
-    subtitle: 'Both sides liquid phase — general-purpose exchanger',
-    correlations: 'Dittus-Boelter (tube) · Bell-Delaware (shell)',
-    available: false,
+    subtitle: 'Both sides liquid phase \u2014 general-purpose exchanger',
+    correlations: 'Dittus-Boelter (tube) \u00B7 Kern (shell)',
+    available: true,
   },
 ];
 
@@ -53,7 +53,7 @@ export function ExchangerTypeSelector({ value, onChange }: ExchangerTypeSelector
         Select Heat Exchanger Configuration
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Choose the type of heat transfer to design. Additional configurations are coming soon.
+        Choose the type of heat transfer to design.
       </Typography>
       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         {CONFIGS.map((cfg) => (

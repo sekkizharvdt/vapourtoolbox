@@ -2,14 +2,17 @@
  * Heat Transfer Coefficient Correlations
  *
  * Provides calculation functions for heat transfer coefficients used in
- * condenser, heat exchanger, and MED design.
+ * condenser, evaporator, heat exchanger, and MED design.
  *
  * References:
  * - Dittus-Boelter correlation (tube-side forced convection)
  * - Nusselt film condensation (shell-side condensation)
+ * - Kern method (shell-side forced convection for liquid-liquid)
+ * - Mostinski correlation (pool/nucleate boiling)
  * - Overall HTC from composite thermal resistance
  *
- * Sources: Perry's Chemical Engineers' Handbook, Kern's Process Heat Transfer
+ * Sources: Perry's Chemical Engineers' Handbook, Kern's Process Heat Transfer,
+ *          Mostinski (1963), Stephan & Abdelsalam (1980)
  */
 
 // ============================================================================
@@ -82,6 +85,56 @@ export interface NusseltCondensationInput {
 export interface CondensationHTCResult {
   /** Heat transfer coefficient in W/(m²·K) */
   htc: number;
+}
+
+/** Input for Kern shell-side HTC calculation (liquid-liquid cross-flow) */
+export interface KernShellSideInput {
+  /** Shell-side fluid density in kg/m³ */
+  density: number;
+  /** Shell-side cross-flow velocity in m/s */
+  velocity: number;
+  /** Tube outer diameter in m */
+  tubeOD: number;
+  /** Tube pitch in m */
+  tubePitch: number;
+  /** Tube layout: 'triangular' or 'square' */
+  tubeLayout: 'triangular' | 'square';
+  /** Dynamic viscosity in Pa·s */
+  viscosity: number;
+  /** Specific heat in kJ/(kg·K) */
+  specificHeat: number;
+  /** Thermal conductivity in W/(m·K) */
+  conductivity: number;
+}
+
+/** Result of Kern shell-side HTC calculation */
+export interface KernShellSideResult {
+  /** Heat transfer coefficient in W/(m²·K) */
+  htc: number;
+  /** Shell-side equivalent diameter in m */
+  equivalentDiameter: number;
+  /** Shell-side Reynolds number */
+  reynoldsNumber: number;
+  /** Shell-side Prandtl number */
+  prandtlNumber: number;
+}
+
+/** Input for Mostinski pool boiling HTC calculation */
+export interface MostinskiBoilingInput {
+  /** Heat flux in W/m² */
+  heatFlux: number;
+  /** Saturation pressure in bar (absolute) */
+  saturationPressure: number;
+}
+
+/** Result of Mostinski boiling HTC calculation */
+export interface MostinskiBoilingResult {
+  /** Heat transfer coefficient in W/(m²·K) */
+  htc: number;
+  /** Reduced pressure P/P_c */
+  reducedPressure: number;
+  /** Pressure correction factor F_p */
+  pressureFactor: number;
 }
 
 /** Input for overall HTC calculation */
@@ -283,6 +336,128 @@ export function calculateNusseltCondensation(
   const htc = C * Math.pow(numerator / denominator, 0.25);
 
   return { htc };
+}
+
+/**
+ * Calculate shell-side equivalent diameter for Kern method
+ *
+ * Triangular pitch:
+ *   De = 4 × (P_t² × √3/4 − π×D_o²/8) / (π×D_o/2)
+ *
+ * Square pitch:
+ *   De = 4 × (P_t² − π×D_o²/4) / (π×D_o)
+ *
+ * @param tubeOD - Tube outer diameter in m
+ * @param tubePitch - Tube pitch in m
+ * @param layout - Tube layout pattern
+ * @returns Equivalent diameter in m
+ */
+export function calculateShellEquivalentDiameter(
+  tubeOD: number,
+  tubePitch: number,
+  layout: 'triangular' | 'square'
+): number {
+  if (layout === 'triangular') {
+    // Triangular pitch: flow area between 3 tubes
+    const flowArea = (tubePitch * tubePitch * Math.sqrt(3)) / 4 - (Math.PI * tubeOD * tubeOD) / 8;
+    const wettedPerimeter = (Math.PI * tubeOD) / 2;
+    return (4 * flowArea) / wettedPerimeter;
+  } else {
+    // Square pitch: flow area in unit cell
+    const flowArea = tubePitch * tubePitch - (Math.PI * tubeOD * tubeOD) / 4;
+    const wettedPerimeter = Math.PI * tubeOD;
+    return (4 * flowArea) / wettedPerimeter;
+  }
+}
+
+/**
+ * Calculate shell-side HTC using Kern method
+ *
+ * Nu = 0.36 × Re^0.55 × Pr^(1/3)
+ * h = Nu × k / De
+ *
+ * Valid for Re > 2000 (turbulent cross-flow over tube banks).
+ * Reference: Kern's Process Heat Transfer, Chapter 7
+ *
+ * @param input - Shell-side HTC input parameters
+ * @returns Shell-side HTC result with intermediate values
+ */
+export function calculateKernShellSideHTC(input: KernShellSideInput): KernShellSideResult {
+  const {
+    density,
+    velocity,
+    tubeOD,
+    tubePitch,
+    tubeLayout,
+    viscosity,
+    specificHeat,
+    conductivity,
+  } = input;
+
+  // Equivalent diameter
+  const De = calculateShellEquivalentDiameter(tubeOD, tubePitch, tubeLayout);
+
+  // Reynolds number based on equivalent diameter
+  const reynoldsNumber = (density * velocity * De) / viscosity;
+
+  // Prandtl number
+  const { prandtlNumber } = calculatePrandtlNumber(specificHeat, viscosity, conductivity);
+
+  // Kern correlation: Nu = 0.36 × Re^0.55 × Pr^(1/3)
+  const nusseltNumber = 0.36 * Math.pow(reynoldsNumber, 0.55) * Math.pow(prandtlNumber, 1 / 3);
+
+  const htc = (nusseltNumber * conductivity) / De;
+
+  return {
+    htc,
+    equivalentDiameter: De,
+    reynoldsNumber,
+    prandtlNumber,
+  };
+}
+
+/**
+ * Calculate pool boiling HTC using Mostinski correlation
+ *
+ * h = 0.00417 × P_c^0.69 × q^0.7 × F_p
+ *
+ * where:
+ *   P_c = critical pressure (bar)
+ *   q = heat flux (W/m²)
+ *   F_p = 1.8 × P_r^0.17 + 4 × P_r^1.2 + 10 × P_r^10
+ *   P_r = P / P_c (reduced pressure)
+ *
+ * For water: P_c = 220.64 bar
+ *
+ * Valid for pool/nucleate boiling. Simple empirical correlation that
+ * requires only pressure and heat flux — no surface tension or contact angle.
+ *
+ * Reference: Mostinski (1963), cited in Perry's 9th Ed. §5-8
+ *
+ * @param input - Boiling HTC input parameters
+ * @returns Boiling HTC result
+ */
+export function calculateMostinskiBoiling(input: MostinskiBoilingInput): MostinskiBoilingResult {
+  const { heatFlux, saturationPressure } = input;
+
+  // Critical pressure of water in kPa (Mostinski correlation uses kPa for P_c)
+  const P_CRITICAL_WATER_KPA = 22064; // kPa
+  const P_CRITICAL_WATER_BAR = 220.64; // bar
+
+  const Pr = saturationPressure / P_CRITICAL_WATER_BAR;
+
+  // Pressure correction factor (dimensionless — uses reduced pressure)
+  const Fp = 1.8 * Math.pow(Pr, 0.17) + 4 * Math.pow(Pr, 1.2) + 10 * Math.pow(Pr, 10);
+
+  // Mostinski correlation: h = 0.00417 × P_c^0.69 × q^0.7 × F_p
+  // P_c in kPa, q in W/m², h in W/(m²·K)
+  const htc = 0.00417 * Math.pow(P_CRITICAL_WATER_KPA, 0.69) * Math.pow(heatFlux, 0.7) * Fp;
+
+  return {
+    htc,
+    reducedPressure: Pr,
+    pressureFactor: Fp,
+  };
 }
 
 /**

@@ -4,6 +4,7 @@ import { Box, Stack } from '@mui/material';
 import { PDFReportDialog } from '../../components/PDFReportDialog';
 import type { HeatExchangerResult } from '@/lib/thermal/heatExchangerSizing';
 import { HeatExchangerReportPDF, type VelocityCheckData } from './HeatExchangerReportPDF';
+import type { IterativeHXResult } from '@/lib/thermal/iterativeHXDesign.types';
 
 interface GenerateReportDialogProps {
   open: boolean;
@@ -13,6 +14,8 @@ interface GenerateReportDialogProps {
   lmtd: number;
   overallHTC: number;
   velocityCheck?: VelocityCheckData | null;
+  /** Full iterative result for enhanced report sections */
+  iterativeResult?: IterativeHXResult | null;
 }
 
 export function GenerateReportDialog({
@@ -23,6 +26,7 @@ export function GenerateReportDialog({
   lmtd,
   overallHTC,
   velocityCheck,
+  iterativeResult,
 }: GenerateReportDialogProps) {
   const Row = ({ label, value }: { label: string; value: string }) => (
     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -42,6 +46,7 @@ export function GenerateReportDialog({
           result={result}
           inputs={{ heatDutyKW, lmtd, overallHTC }}
           velocityCheck={velocityCheck}
+          iterativeResult={iterativeResult}
           {...meta}
         />
       )}
