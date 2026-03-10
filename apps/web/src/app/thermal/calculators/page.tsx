@@ -26,7 +26,6 @@ import {
   Speed as NPSHIcon,
   Whatshot as HeatIcon,
   Compress as CompressIcon,
-  Thermostat as ThermostatIcon,
   Air as AirIcon,
   PrecisionManufacturing as MfgIcon,
   WaterDrop as WaterDropIcon,
@@ -115,13 +114,13 @@ const CATEGORIES: CalculatorCategory[] = [
         reference: 'Energy Balance',
       },
       {
-        title: 'Heat Duty',
+        title: 'Heat Exchanger Calculator',
         description:
-          'Calculate sensible and latent heat duty for heating, cooling, evaporation, and condensation processes.',
+          'Unified tool — quick heat duty calc (sensible/latent/LMTD), detailed HTC analysis, and full iterative exchanger sizing in one place.',
         icon: <HeatIcon sx={{ fontSize: 40 }} />,
-        href: '/thermal/calculators/heat-duty',
+        href: '/thermal/calculators/heat-exchanger',
         status: 'available',
-        reference: 'First Law',
+        reference: 'TEMA / Kern / Nusselt',
       },
       {
         title: 'Mechanical Vapour Compressor',
@@ -131,31 +130,6 @@ const CATEGORIES: CalculatorCategory[] = [
         href: '/thermal/calculators/mvc',
         status: 'available',
         reference: 'Isentropic',
-      },
-    ],
-  },
-  {
-    title: 'Heat Transfer',
-    description:
-      'Coefficients, sizing, and thermal resistance calculations for heat exchanger design.',
-    calculators: [
-      {
-        title: 'Heat Exchanger Sizing',
-        description:
-          'Iterative shell-and-tube design: auto-calculates heat duty, LMTD, and HTC (Dittus-Boelter + Nusselt) from process conditions, then iterates to converge on tube count, area, and shell size.',
-        icon: <HeatIcon sx={{ fontSize: 40 }} />,
-        href: '/thermal/calculators/heat-exchanger',
-        status: 'available',
-        reference: 'TEMA / Kern',
-      },
-      {
-        title: 'Heat Transfer Coefficients',
-        description:
-          'Calculate tube-side, condensation, and overall heat transfer coefficients for shell-and-tube heat exchanger design.',
-        icon: <ThermostatIcon sx={{ fontSize: 40 }} />,
-        href: '/thermal/calculators/heat-transfer',
-        status: 'available',
-        reference: 'Dittus-Boelter / Nusselt',
       },
     ],
   },

@@ -1,11 +1,11 @@
-import HeatExchangerClient from './HeatExchangerClient';
+import UnifiedHeatExchangerClient from './UnifiedHeatExchangerClient';
 
 export const metadata = {
-  title: 'Heat Exchanger Sizing | Thermal Calculators',
+  title: 'Heat Exchanger Calculator | Thermal Calculators',
   description:
-    'Size shell-and-tube heat exchangers — heat duty, LMTD, HTC, tube count, shell diameter',
+    'Unified heat exchanger calculator — quick heat duty, HTC analysis, and iterative sizing',
 };
 
 export default function HeatExchangerPage() {
-  return <HeatExchangerClient />;
+  return <UnifiedHeatExchangerClient />;
 }

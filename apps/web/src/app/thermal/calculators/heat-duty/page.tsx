@@ -1,10 +1,5 @@
-import HeatDutyClient from './HeatDutyClient';
-
-export const metadata = {
-  title: 'Heat Duty Calculator | Thermal Calculators',
-  description: 'Calculate sensible and latent heat duty with LMTD for heat exchangers',
-};
+import { redirect } from 'next/navigation';
 
 export default function HeatDutyPage() {
-  return <HeatDutyClient />;
+  redirect('/thermal/calculators/heat-exchanger');
 }
