@@ -266,6 +266,34 @@ export {
   type GORResult,
 } from './gorCalculator';
 
+// Fluid Properties (unified resolver)
+export {
+  getFluidProperties,
+  getSaturationProperties,
+  getSteamTableLiquidDensity,
+  type FluidType,
+  type FluidProperties,
+  type SaturationFluidProperties,
+} from './fluidProperties';
+
+// Iterative Heat Exchanger Design
+export { designHeatExchanger } from './iterativeHXDesign';
+export type {
+  ExchangerType,
+  TubeOrientation,
+  FluidSpec,
+  ShellSideCondensing,
+  TubeGeometrySpec,
+  FoulingSpec,
+  IterativeHXInput,
+  IterationStep,
+  HeatDutyResult,
+  LMTDResultSummary,
+  VelocityResult,
+  GeometryResult,
+  IterativeHXResult,
+} from './iterativeHXDesign.types';
+
 // Heat Exchanger Sizing
 export {
   sizeHeatExchanger,

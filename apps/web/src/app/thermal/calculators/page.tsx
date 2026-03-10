@@ -142,7 +142,7 @@ const CATEGORIES: CalculatorCategory[] = [
       {
         title: 'Heat Exchanger Sizing',
         description:
-          'Size shell-and-tube heat exchangers from heat duty, LMTD, and HTC. Calculates tube count, bundle diameter, and shell selection per TEMA standards.',
+          'Iterative shell-and-tube design: auto-calculates heat duty, LMTD, and HTC (Dittus-Boelter + Nusselt) from process conditions, then iterates to converge on tube count, area, and shell size.',
         icon: <HeatIcon sx={{ fontSize: 40 }} />,
         href: '/thermal/calculators/heat-exchanger',
         status: 'available',
