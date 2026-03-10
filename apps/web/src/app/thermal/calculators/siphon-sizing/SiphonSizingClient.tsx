@@ -6,6 +6,7 @@ import {
   ViewList as BatchIcon,
   FolderOpen as LoadIcon,
   HelpOutline as GuideIcon,
+  RestartAlt as ResetIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { LoadCalculationDialog } from './components/LoadCalculationDialog';
@@ -58,8 +59,23 @@ export default function SiphonSizingClient() {
   // Load dialog state
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
 
-  // Error state
-  const [error, setError] = useState<string | null>(null);
+  const handleReset = () => {
+    setUpstreamPressure('300');
+    setDownstreamPressure('250');
+    setPressureUnit('mbar_abs');
+    setFluidType('seawater');
+    setSalinity('35000');
+    setFlowRate('100');
+    setTargetVelocity('1.0');
+    setElbowConfig('2_elbows');
+    setHorizontalDistance('3');
+    setOffsetDistance('1.5');
+    setPipeSchedule('40');
+    setPipeMaterial('carbon_steel');
+    setCustomPipeId('');
+    setCustomPipeThickness('');
+    setSafetyFactor('20');
+  };
 
   // Computed pressure difference display
   const pressureDiffDisplay = useMemo(() => {
@@ -88,8 +104,7 @@ export default function SiphonSizingClient() {
   }, [upstreamPressure, downstreamPressure, pressureUnit]);
 
   // Main calculation
-  const result: SiphonSizingResult | null = useMemo(() => {
-    setError(null);
+  const computed = useMemo(() => {
     try {
       const up = parseFloat(upstreamPressure);
       const down = parseFloat(downstreamPressure);
@@ -137,10 +152,9 @@ export default function SiphonSizingClient() {
         ...(customPipe ? { customPipe } : {}),
       };
 
-      return calculateSiphonSizing(input);
+      return { result: calculateSiphonSizing(input), error: null };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [
     upstreamPressure,
@@ -159,6 +173,9 @@ export default function SiphonSizingClient() {
     customPipeId,
     customPipeThickness,
   ]);
+
+  const result: SiphonSizingResult | null = computed?.result ?? null;
+  const error = computed?.error ?? null;
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -179,6 +196,9 @@ export default function SiphonSizingClient() {
         <Stack direction="row" spacing={1}>
           <Button startIcon={<LoadIcon />} size="small" onClick={() => setLoadDialogOpen(true)}>
             Load Saved
+          </Button>
+          <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+            Reset
           </Button>
           <Button
             component={Link}

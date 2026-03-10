@@ -35,6 +35,7 @@ import {
   Download as DownloadIcon,
   FolderOpen as LoadIcon,
   Save as SaveIcon,
+  RestartAlt as ResetIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
@@ -293,6 +294,24 @@ export default function FallingFilmClient() {
   // Error state
   const [error, setError] = useState<string | null>(null);
 
+  const handleReset = () => {
+    setFeedFlowRate('');
+    setFeedSalinity('35000');
+    setFeedTemperature('');
+    setSteamTemperature('');
+    setSelectedTubeSize('1');
+    setTubeOD('25.4');
+    setTubeID('22.1');
+    setTubeLength('');
+    setNumberOfTubes('');
+    setTubeMaterial('cu_ni_90_10');
+    setTubeLayout('triangular');
+    setPitchRatio('1.25');
+    setTubeRows('');
+    setFoulingResistance('0.00009');
+    setDesignMargin('15');
+  };
+
   // Auto-set tube OD/ID when selecting a standard size
   useEffect(() => {
     if (selectedTubeSize !== 'custom') {
@@ -448,14 +467,18 @@ export default function FallingFilmClient() {
         Wetting rate analysis, heat transfer, and tube bundle design for horizontal-tube falling
         film evaporators
       </Typography>
-      <Button
-        startIcon={<LoadIcon />}
-        size="small"
-        onClick={() => setLoadOpen(true)}
-        sx={{ mt: 1, mb: 2 }}
-      >
-        Load Saved
-      </Button>
+      <Stack direction="row" spacing={1} sx={{ mt: 1, mb: 2 }}>
+        <Button
+          startIcon={<LoadIcon />}
+          size="small"
+          onClick={() => setLoadOpen(true)}
+        >
+          Load Saved
+        </Button>
+        <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+          Reset
+        </Button>
+      </Stack>
 
       <Grid container spacing={3}>
         {/* ── Left: Inputs ── */}

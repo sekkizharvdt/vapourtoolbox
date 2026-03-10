@@ -198,7 +198,7 @@ export default function CreateDocumentDialog({
         assignedBy: user.uid,
         assignedByName: user.displayName || user.email || 'Unknown',
         assignedDate: now,
-        dueDate: dueDate ? Timestamp.fromDate(dueDate) : undefined,
+        ...(dueDate && { dueDate: Timestamp.fromDate(dueDate) }),
         inputFiles: [],
         hasSupplyList: false,
         supplyItemCount: 0,

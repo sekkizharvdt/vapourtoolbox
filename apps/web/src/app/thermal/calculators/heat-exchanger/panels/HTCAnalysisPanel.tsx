@@ -128,11 +128,8 @@ export function HTCAnalysisPanel({ active }: HTCAnalysisPanelProps) {
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
 
-  const [error, setError] = useState<string | null>(null);
-
   // Calculations
-  const tubeSideResult = useMemo((): TubeSideHTCResult | null => {
-    setError(null);
+  const tubeSideComputed = useMemo((): { result: TubeSideHTCResult | null; error: string | null } => {
     try {
       const density = parseFloat(tsDensity);
       const velocity = parseFloat(tsVelocity);
@@ -155,25 +152,28 @@ export function HTCAnalysisPanel({ active }: HTCAnalysisPanelProps) {
         isNaN(conductivity) ||
         conductivity <= 0
       )
-        return null;
+        return { result: null, error: null };
 
-      return calculateTubeSideHTC({
-        density,
-        velocity,
-        diameter: tubeIDmm / 1000,
-        viscosity,
-        specificHeat,
-        conductivity,
-        isHeating: tsIsHeating,
-      });
+      return {
+        result: calculateTubeSideHTC({
+          density,
+          velocity,
+          diameter: tubeIDmm / 1000,
+          viscosity,
+          specificHeat,
+          conductivity,
+          isHeating: tsIsHeating,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Tube-side calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Tube-side calculation error' };
     }
   }, [tsDensity, tsVelocity, tsTubeID, tsViscosity, tsSpecificHeat, tsConductivity, tsIsHeating]);
 
-  const condensationResult = useMemo((): CondensationHTCResult | null => {
-    setError(null);
+  const tubeSideResult = tubeSideComputed.result;
+
+  const condensationComputed = useMemo((): { result: CondensationHTCResult | null; error: string | null } => {
     try {
       const liquidDensity = parseFloat(condLiquidDensity);
       const vaporDensity = parseFloat(condVaporDensity);
@@ -199,21 +199,23 @@ export function HTCAnalysisPanel({ active }: HTCAnalysisPanelProps) {
         isNaN(deltaT) ||
         deltaT <= 0
       )
-        return null;
+        return { result: null, error: null };
 
-      return calculateNusseltCondensation({
-        liquidDensity,
-        vaporDensity,
-        latentHeat,
-        liquidConductivity,
-        liquidViscosity,
-        dimension,
-        deltaT,
-        orientation: condOrientation,
-      });
+      return {
+        result: calculateNusseltCondensation({
+          liquidDensity,
+          vaporDensity,
+          latentHeat,
+          liquidConductivity,
+          liquidViscosity,
+          dimension,
+          deltaT,
+          orientation: condOrientation,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Shell-side calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Shell-side calculation error' };
     }
   }, [
     condLiquidDensity,
@@ -226,9 +228,10 @@ export function HTCAnalysisPanel({ active }: HTCAnalysisPanelProps) {
     condOrientation,
   ]);
 
-  const overallResult = useMemo((): OverallHTCResult | null => {
-    if (!tubeSideResult || !condensationResult) return null;
-    setError(null);
+  const condensationResult = condensationComputed.result;
+
+  const overallComputed = useMemo((): { result: OverallHTCResult | null; error: string | null } => {
+    if (!tubeSideResult || !condensationResult) return { result: null, error: null };
     try {
       const tubeODmm = parseFloat(overallTubeOD);
       const tubeIDmm = parseFloat(tsTubeID);
@@ -246,21 +249,23 @@ export function HTCAnalysisPanel({ active }: HTCAnalysisPanelProps) {
         isNaN(tubeSideFouling) ||
         isNaN(shellSideFouling)
       )
-        return null;
-      if (tubeIDmm >= tubeODmm) return null;
+        return { result: null, error: null };
+      if (tubeIDmm >= tubeODmm) return { result: null, error: null };
 
-      return calculateOverallHTC({
-        tubeSideHTC: tubeSideResult.htc,
-        shellSideHTC: condensationResult.htc,
-        tubeOD: tubeODmm / 1000,
-        tubeID: tubeIDmm / 1000,
-        tubeWallConductivity: wallConductivity,
-        tubeSideFouling,
-        shellSideFouling,
-      });
+      return {
+        result: calculateOverallHTC({
+          tubeSideHTC: tubeSideResult.htc,
+          shellSideHTC: condensationResult.htc,
+          tubeOD: tubeODmm / 1000,
+          tubeID: tubeIDmm / 1000,
+          tubeWallConductivity: wallConductivity,
+          tubeSideFouling,
+          shellSideFouling,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Overall HTC calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Overall HTC calculation error' };
     }
   }, [
     tubeSideResult,
@@ -271,6 +276,9 @@ export function HTCAnalysisPanel({ active }: HTCAnalysisPanelProps) {
     overallTubeSideFouling,
     overallShellSideFouling,
   ]);
+
+  const overallResult = overallComputed.result;
+  const error = tubeSideComputed.error || condensationComputed.error || overallComputed.error;
 
   const hasFullResult = !!(tubeSideResult && condensationResult && overallResult);
 
@@ -511,7 +519,7 @@ export function HTCAnalysisPanel({ active }: HTCAnalysisPanelProps) {
               </Paper>
 
               {error && (
-                <Alert severity="error" onClose={() => setError(null)}>
+                <Alert severity="error">
                   {error}
                 </Alert>
               )}

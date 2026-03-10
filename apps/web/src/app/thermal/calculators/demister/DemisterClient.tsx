@@ -46,6 +46,7 @@ import {
   Water as WaterIcon,
   FolderOpen as LoadIcon,
   Save as SaveIcon,
+  RestartAlt as ResetIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
@@ -166,6 +167,26 @@ export default function DemisterClient() {
 
   // Error state — synced via useEffect instead of inside useMemo
   const [error, setError] = useState<string | null>(null);
+
+  const handleReset = () => {
+    setFluidMode('saturation');
+    setSatInput('pressure');
+    setSatPressure('0.08');
+    setSatTemperature('');
+    setManualVaporDensity('');
+    setManualLiquidDensity('');
+    setVaporMassFlow('');
+    setDemisterType('wire_mesh');
+    setOrientation('horizontal');
+    setDesignMargin('80');
+    setGeometry('circular');
+    setRectWidth('');
+    setPadThickness('');
+    setEnableCarryover(false);
+    setBrineSalinity('70000');
+    setEntrainmentMode('estimate');
+    setManualEntrainment('0.5');
+  };
 
   // Reset pad thickness when demister type changes
   useEffect(() => {
@@ -349,14 +370,18 @@ export default function DemisterClient() {
         Size demister pads for flash chambers, evaporator effects, and separators. Includes brine
         carryover estimation for desalination applications.
       </Typography>
-      <Button
-        startIcon={<LoadIcon />}
-        size="small"
-        onClick={() => setLoadOpen(true)}
-        sx={{ mt: 1, mb: 2 }}
-      >
-        Load Saved
-      </Button>
+      <Stack direction="row" spacing={1} sx={{ mt: 1, mb: 2 }}>
+        <Button
+          startIcon={<LoadIcon />}
+          size="small"
+          onClick={() => setLoadOpen(true)}
+        >
+          Load Saved
+        </Button>
+        <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+          Reset
+        </Button>
+      </Stack>
 
       <Grid container spacing={3}>
         {/* ── Left: Inputs ── */}

@@ -23,6 +23,7 @@ import {
   PictureAsPdf as PdfIcon,
   FolderOpen as LoadIcon,
   Save as SaveIcon,
+  RestartAlt as ResetIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
@@ -75,10 +76,23 @@ export default function PipeSizingClient() {
   // Check velocity mode - selected pipe
   const [selectedNPS, setSelectedNPS] = useState<string>('4');
 
-  const [error, setError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
+
+  const handleReset = () => {
+    setMode('size_by_flow');
+    setFlowRate('100');
+    setFlowUnit('tonhr');
+    setFluidType('water');
+    setTemperature('40');
+    setSalinity('35000');
+    setCustomDensity('1000');
+    setTargetVelocity('1.5');
+    setMinVelocity('0.5');
+    setMaxVelocity('3.0');
+    setSelectedNPS('4');
+  };
 
   // Calculate fluid density
   const density = useMemo(() => {
@@ -121,11 +135,9 @@ export default function PipeSizingClient() {
   }, [flowRate, flowUnit, density]);
 
   // Main calculation result
-  const result: PipeSizingResult | null = useMemo(() => {
-    setError(null);
-
+  const resultComputed = useMemo((): { result: PipeSizingResult | null; error: string | null } => {
     try {
-      if (massFlowTonHr <= 0 || density <= 0) return null;
+      if (massFlowTonHr <= 0 || density <= 0) return { result: null, error: null };
 
       const target = parseFloat(targetVelocity) || 1.5;
       const min = parseFloat(minVelocity) || 0.5;
@@ -173,19 +185,21 @@ export default function PipeSizingClient() {
         }
 
         return {
-          mode: 'size_by_flow' as const,
-          pipe: selectedPipe,
-          velocity: selectedPipe.actualVelocity,
-          velocityStatus: selectedPipe.velocityStatus,
-          requiredArea: calculateRequiredPipeArea(massFlowTonHr, density, target),
-          alternatives,
+          result: {
+            mode: 'size_by_flow' as const,
+            pipe: selectedPipe,
+            velocity: selectedPipe.actualVelocity,
+            velocityStatus: selectedPipe.velocityStatus,
+            requiredArea: calculateRequiredPipeArea(massFlowTonHr, density, target),
+            alternatives,
+          },
+          error: null,
         };
       } else {
         // Check velocity mode
         const pipe = getPipeByNPS(selectedNPS);
         if (!pipe) {
-          setError(`Pipe size NPS ${selectedNPS} not found`);
-          return null;
+          return { result: null, error: `Pipe size NPS ${selectedNPS} not found` };
         }
 
         const velocity = calculateVelocity(massFlowTonHr, density, pipe);
@@ -193,17 +207,22 @@ export default function PipeSizingClient() {
           velocity > max ? 'HIGH' : velocity < min ? 'LOW' : 'OK';
 
         return {
-          mode: 'check_velocity' as const,
-          pipe,
-          velocity,
-          velocityStatus: status,
+          result: {
+            mode: 'check_velocity' as const,
+            pipe,
+            velocity,
+            velocityStatus: status,
+          },
+          error: null,
         };
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [mode, massFlowTonHr, density, targetVelocity, minVelocity, maxVelocity, selectedNPS]);
+
+  const result = resultComputed.result;
+  const error = resultComputed.error;
 
   // Apply velocity presets based on fluid type
   const handleFluidTypeChange = (newType: FluidType) => {
@@ -249,14 +268,18 @@ export default function PipeSizingClient() {
           Size pipes based on flow rate and velocity constraints, or check velocity for a given pipe
           size. Uses Schedule 40 pipe data.
         </Typography>
-        <Button
-          startIcon={<LoadIcon />}
-          size="small"
-          onClick={() => setLoadOpen(true)}
-          sx={{ mt: 1 }}
-        >
-          Load Saved
-        </Button>
+        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+          <Button
+            startIcon={<LoadIcon />}
+            size="small"
+            onClick={() => setLoadOpen(true)}
+          >
+            Load Saved
+          </Button>
+          <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+            Reset
+          </Button>
+        </Stack>
       </Box>
 
       <Grid container spacing={3}>

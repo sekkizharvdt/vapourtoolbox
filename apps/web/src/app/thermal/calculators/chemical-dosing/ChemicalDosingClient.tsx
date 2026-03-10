@@ -46,6 +46,7 @@ import {
   PictureAsPdf as PdfIcon,
   FolderOpen as LoadIcon,
   Save as SaveIcon,
+  RestartAlt as ResetIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
@@ -1037,6 +1038,40 @@ export default function ChemicalDosingClient() {
   const [loadOpen, setLoadOpen] = useState(false);
   const [cipResult, setCipResult] = useState<CIPResult | null>(null);
 
+  const handleReset = () => {
+    setTab('dosing');
+    setFeedFlow('');
+    setEnableAntiscalant(true);
+    setEnableAntifoam(false);
+    setTankType('cylindrical');
+    setAsDose('2');
+    setAsDensity('1.10');
+    setAsStorage('30');
+    setAsLinePressure('');
+    setAsNeatConc('100');
+    setAsWorkingConc('');
+    setAsDilutionDays('');
+    setAfDose('0.1');
+    setAfDensity('1.0');
+    setAfStorage('30');
+    setAfLinePressure('');
+    setAfNeatConc('100');
+    setAfWorkingConc('');
+    setAfDilutionDays('');
+    setCipAcidType('formic');
+    setCipHxArea('');
+    setCipSpecVol('3');
+    setCipPipingHoldup('');
+    setCipCleaningConc('3');
+    setCipRecircFlow('');
+    setCipDuration('6');
+    setCipRinses('3');
+    setCipCleansPerYear('4');
+    setCipStorageDays('90');
+    setCipTankType('cylindrical');
+    setCipResult(null);
+  };
+
   // ── Compute dosing results reactively ──────────────────────────────────
   const asComputed = useMemo(() => {
     if (!enableAntiscalant) return null;
@@ -1138,6 +1173,9 @@ export default function ChemicalDosingClient() {
       <Stack direction="row" spacing={1} mb={3}>
         <Button size="small" startIcon={<LoadIcon />} onClick={() => setLoadOpen(true)}>
           Load Saved
+        </Button>
+        <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+          Reset
         </Button>
         {hasAnyResult && (
           <>

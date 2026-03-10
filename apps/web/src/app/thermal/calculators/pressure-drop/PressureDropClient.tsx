@@ -23,6 +23,7 @@ import {
   PictureAsPdf as PdfIcon,
   FolderOpen as LoadIcon,
   Save as SaveIcon,
+  RestartAlt as ResetIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculatePressureDrop, type FittingType, type FittingCount } from '@/lib/thermal';
@@ -75,10 +76,27 @@ export default function PressureDropClient() {
   // Elevation
   const [elevationChange, setElevationChange] = useState<string>('0');
 
-  const [error, setError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
+
+  const handleReset = () => {
+    setSelectedNPS('4');
+    setPipeLength('100');
+    setRoughness('0.045');
+    setFlowRate('50');
+    setFluidType('water');
+    setTemperature('40');
+    setSalinity('35000');
+    setCustomDensity('1000');
+    setCustomViscosity('0.001');
+    setFittings([
+      { type: '90_elbow_standard', count: 4 },
+      { type: 'gate_valve', count: 2 },
+    ]);
+    setNewFittingType('90_elbow_standard');
+    setElevationChange('0');
+  };
 
   // Calculate fluid properties
   const fluidDensity = useMemo(() => {
@@ -126,9 +144,7 @@ export default function PressureDropClient() {
   }, [fluidType, temperature, salinity, customViscosity]);
 
   // Calculate pressure drop
-  const result = useMemo(() => {
-    setError(null);
-
+  const computed = useMemo(() => {
     try {
       const flow = parseFloat(flowRate);
       const length = parseFloat(pipeLength);
@@ -138,19 +154,21 @@ export default function PressureDropClient() {
       if (isNaN(flow) || flow <= 0) return null;
       if (isNaN(length) || length <= 0) return null;
 
-      return calculatePressureDrop({
-        pipeNPS: selectedNPS,
-        pipeLength: length,
-        flowRate: flow,
-        fluidDensity,
-        fluidViscosity,
-        roughness: rough,
-        fittings: fittings.filter((f) => f.count > 0),
-        elevationChange: elevation,
-      });
+      return {
+        result: calculatePressureDrop({
+          pipeNPS: selectedNPS,
+          pipeLength: length,
+          flowRate: flow,
+          fluidDensity,
+          fluidViscosity,
+          roughness: rough,
+          fittings: fittings.filter((f) => f.count > 0),
+          elevationChange: elevation,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [
     selectedNPS,
@@ -162,6 +180,9 @@ export default function PressureDropClient() {
     fittings,
     elevationChange,
   ]);
+
+  const result = computed?.result ?? null;
+  const error = computed?.error ?? null;
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -179,14 +200,18 @@ export default function PressureDropClient() {
           Calculate pressure drop in piping systems including straight pipe and fittings. Uses
           Darcy-Weisbach equation with Colebrook-White friction factor.
         </Typography>
-        <Button
-          startIcon={<LoadIcon />}
-          size="small"
-          onClick={() => setLoadOpen(true)}
-          sx={{ mt: 1 }}
-        >
-          Load Saved
-        </Button>
+        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+          <Button
+            startIcon={<LoadIcon />}
+            size="small"
+            onClick={() => setLoadOpen(true)}
+          >
+            Load Saved
+          </Button>
+          <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+            Reset
+          </Button>
+        </Stack>
       </Box>
 
       <Grid container spacing={3}>

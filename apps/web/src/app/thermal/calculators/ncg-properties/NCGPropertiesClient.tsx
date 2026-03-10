@@ -43,6 +43,7 @@ import {
   FolderOpen as LoadIcon,
   Download as DownloadIcon,
   TableChart as ExcelIcon,
+  RestartAlt as ResetIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculateNCGProperties, type NCGInputMode, type NCGResult } from '@/lib/thermal';
@@ -160,35 +161,50 @@ export default function NCGPropertiesClient() {
   const [splitNcgFlow, setSplitNcgFlow] = useState('10');
   const [splitVapourFlow, setSplitVapourFlow] = useState('80');
 
-  const [error, setError] = useState<string | null>(null);
-
   // ── Dialog state ─────────────────────────────────────────────────────────────
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
+  // ── Reset ───────────────────────────────────────────────────────────────────
+  const handleReset = () => {
+    setMode('seawater');
+    setTemperatureC('40');
+    setPressureBar('0.075');
+    setUseSatPressure(true);
+    setSeawaterFlow('1000');
+    setSeawaterTemp('28');
+    setSalinity('35');
+    setDryNcgFlow('10');
+    setWetNcgFlow('50');
+    setSplitNcgFlow('10');
+    setSplitVapourFlow('80');
+  };
+
   // ── Calculation ──────────────────────────────────────────────────────────────
-  const result = useMemo((): NCGResult | null => {
-    setError(null);
+  const computed = useMemo((): { result: NCGResult | null; error: string | null } => {
     try {
       const T = parseFloat(temperatureC);
-      if (isNaN(T)) return null;
+      if (isNaN(T)) return { result: null, error: null };
 
       // split_flows derives its own pressure — no pressureBar needed
       if (mode === 'split_flows') {
         const mNCG = parseFloat(splitNcgFlow);
         const mVapour = parseFloat(splitVapourFlow);
-        if (isNaN(mNCG) || isNaN(mVapour)) return null;
-        return calculateNCGProperties({
-          mode,
-          temperatureC: T,
-          dryNcgFlowKgH: mNCG,
-          vapourFlowKgH: mVapour,
-        });
+        if (isNaN(mNCG) || isNaN(mVapour)) return { result: null, error: null };
+        return {
+          result: calculateNCGProperties({
+            mode,
+            temperatureC: T,
+            dryNcgFlowKgH: mNCG,
+            vapourFlowKgH: mVapour,
+          }),
+          error: null,
+        };
       }
 
       const P = parseFloat(pressureBar);
-      if (isNaN(P)) return null;
+      if (isNaN(P)) return { result: null, error: null };
 
       const baseInput = { mode, temperatureC: T, pressureBar: P, useSatPressure };
 
@@ -196,31 +212,33 @@ export default function NCGPropertiesClient() {
         const Q = parseFloat(seawaterFlow);
         const Tsw = parseFloat(seawaterTemp);
         const S = parseFloat(salinity);
-        if (isNaN(Q) || isNaN(Tsw) || isNaN(S)) return null;
-        return calculateNCGProperties({
-          ...baseInput,
-          seawaterFlowM3h: Q,
-          seawaterTempC: Tsw,
-          salinityGkg: S,
-        });
+        if (isNaN(Q) || isNaN(Tsw) || isNaN(S)) return { result: null, error: null };
+        return {
+          result: calculateNCGProperties({
+            ...baseInput,
+            seawaterFlowM3h: Q,
+            seawaterTempC: Tsw,
+            salinityGkg: S,
+          }),
+          error: null,
+        };
       }
 
       if (mode === 'dry_ncg') {
         const Q = parseFloat(dryNcgFlow);
-        if (isNaN(Q)) return null;
-        return calculateNCGProperties({ ...baseInput, dryNcgFlowKgH: Q });
+        if (isNaN(Q)) return { result: null, error: null };
+        return { result: calculateNCGProperties({ ...baseInput, dryNcgFlowKgH: Q }), error: null };
       }
 
       if (mode === 'wet_ncg') {
         const Q = parseFloat(wetNcgFlow);
-        if (isNaN(Q)) return null;
-        return calculateNCGProperties({ ...baseInput, wetNcgFlowKgH: Q });
+        if (isNaN(Q)) return { result: null, error: null };
+        return { result: calculateNCGProperties({ ...baseInput, wetNcgFlowKgH: Q }), error: null };
       }
 
-      return null;
+      return { result: null, error: null };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [
     mode,
@@ -235,6 +253,9 @@ export default function NCGPropertiesClient() {
     splitNcgFlow,
     splitVapourFlow,
   ]);
+
+  const result = computed.result;
+  const error = computed.error;
 
   // ── Derived: inputs bundle for save/report ───────────────────────────────────
   const reportInputs: NCGReportInputs = {
@@ -317,6 +338,9 @@ export default function NCGPropertiesClient() {
         <Stack direction="row" spacing={1}>
           <Button size="small" startIcon={<LoadIcon />} onClick={() => setLoadDialogOpen(true)}>
             Load Saved
+          </Button>
+          <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+            Reset
           </Button>
           <Button
             size="small"

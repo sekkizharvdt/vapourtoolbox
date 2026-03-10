@@ -17,6 +17,7 @@ import {
   PictureAsPdf as PdfIcon,
   FolderOpen as LoadIcon,
   Save as SaveIcon,
+  RestartAlt as ResetIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculateMVC } from '@/lib/thermal';
@@ -37,14 +38,20 @@ export default function MVCClient() {
   const [isentropicEfficiency, setIsentropicEfficiency] = useState<string>('75');
   const [mechanicalEfficiency, setMechanicalEfficiency] = useState<string>('95');
 
-  const [error, setError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
 
-  const result = useMemo(() => {
-    setError(null);
+  const handleReset = () => {
+    setSuctionPressure('');
+    setSuctionTemperature('');
+    setDischargePressure('');
+    setFlowRate('');
+    setIsentropicEfficiency('75');
+    setMechanicalEfficiency('95');
+  };
 
+  const computed = useMemo(() => {
     try {
       const ps = parseFloat(suctionPressure);
       const pd = parseFloat(dischargePressure);
@@ -57,17 +64,19 @@ export default function MVCClient() {
       const etaIs = parseFloat(isentropicEfficiency);
       const etaMech = parseFloat(mechanicalEfficiency);
 
-      return calculateMVC({
-        suctionPressure: ps,
-        suctionTemperature: isNaN(suctionTemp) ? undefined : suctionTemp,
-        dischargePressure: pd,
-        flowRate: flow,
-        isentropicEfficiency: isNaN(etaIs) ? undefined : etaIs / 100,
-        mechanicalEfficiency: isNaN(etaMech) ? undefined : etaMech / 100,
-      });
+      return {
+        result: calculateMVC({
+          suctionPressure: ps,
+          suctionTemperature: isNaN(suctionTemp) ? undefined : suctionTemp,
+          dischargePressure: pd,
+          flowRate: flow,
+          isentropicEfficiency: isNaN(etaIs) ? undefined : etaIs / 100,
+          mechanicalEfficiency: isNaN(etaMech) ? undefined : etaMech / 100,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [
     suctionPressure,
@@ -77,6 +86,9 @@ export default function MVCClient() {
     isentropicEfficiency,
     mechanicalEfficiency,
   ]);
+
+  const result = computed?.result ?? null;
+  const error = computed?.error ?? null;
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -93,14 +105,18 @@ export default function MVCClient() {
           Calculate shaft power, discharge conditions, and specific energy for isentropic vapor
           compression.
         </Typography>
-        <Button
-          startIcon={<LoadIcon />}
-          size="small"
-          onClick={() => setLoadOpen(true)}
-          sx={{ mt: 1 }}
-        >
-          Load Saved
-        </Button>
+        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+          <Button
+            startIcon={<LoadIcon />}
+            size="small"
+            onClick={() => setLoadOpen(true)}
+          >
+            Load Saved
+          </Button>
+          <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+            Reset
+          </Button>
+        </Stack>
       </Box>
 
       <Grid container spacing={3}>

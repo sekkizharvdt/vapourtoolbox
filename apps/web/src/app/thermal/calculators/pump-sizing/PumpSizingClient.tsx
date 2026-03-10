@@ -24,6 +24,7 @@ import {
   PictureAsPdf as PdfIcon,
   FolderOpen as LoadIcon,
   Save as SaveIcon,
+  RestartAlt as ResetIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculateTDH } from '@/lib/thermal';
@@ -48,15 +49,24 @@ export default function PumpSizingClient() {
   const [pumpEfficiency, setPumpEfficiency] = useState<string>('70');
   const [motorEfficiency, setMotorEfficiency] = useState<string>('95');
 
-  const [error, setError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
 
-  // Calculate pump sizing
-  const result = useMemo(() => {
-    setError(null);
+  const handleReset = () => {
+    setFlowRate('');
+    setFluidDensity('1000');
+    setSuctionVesselPressure('1.01325');
+    setDischargeVesselPressure('1.01325');
+    setStaticHead('0');
+    setSuctionPressureDrop('0');
+    setDischargePressureDrop('0');
+    setPumpEfficiency('70');
+    setMotorEfficiency('95');
+  };
 
+  // Calculate pump sizing
+  const computed = useMemo(() => {
     try {
       const flow = parseFloat(flowRate);
       const density = parseFloat(fluidDensity);
@@ -75,20 +85,22 @@ export default function PumpSizingClient() {
       if (isNaN(suctionDp) || isNaN(dischargeDp)) return null;
       if (isNaN(pumpEff) || isNaN(motorEff)) return null;
 
-      return calculateTDH({
-        flowRate: flow,
-        fluidDensity: density,
-        suctionVesselPressure: suctionP,
-        dischargeVesselPressure: dischargeP,
-        staticHead: head,
-        suctionPressureDrop: suctionDp,
-        dischargePressureDrop: dischargeDp,
-        pumpEfficiency: pumpEff / 100,
-        motorEfficiency: motorEff / 100,
-      });
+      return {
+        result: calculateTDH({
+          flowRate: flow,
+          fluidDensity: density,
+          suctionVesselPressure: suctionP,
+          dischargeVesselPressure: dischargeP,
+          staticHead: head,
+          suctionPressureDrop: suctionDp,
+          dischargePressureDrop: dischargeDp,
+          pumpEfficiency: pumpEff / 100,
+          motorEfficiency: motorEff / 100,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [
     flowRate,
@@ -101,6 +113,9 @@ export default function PumpSizingClient() {
     pumpEfficiency,
     motorEfficiency,
   ]);
+
+  const result = computed?.result ?? null;
+  const error = computed?.error ?? null;
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -118,14 +133,18 @@ export default function PumpSizingClient() {
           Calculate total differential head, hydraulic power, brake power, and recommended motor
           size for centrifugal pump sizing.
         </Typography>
-        <Button
-          startIcon={<LoadIcon />}
-          size="small"
-          onClick={() => setLoadOpen(true)}
-          sx={{ mt: 1 }}
-        >
-          Load Saved
-        </Button>
+        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+          <Button
+            startIcon={<LoadIcon />}
+            size="small"
+            onClick={() => setLoadOpen(true)}
+          >
+            Load Saved
+          </Button>
+          <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+            Reset
+          </Button>
+        </Stack>
       </Box>
 
       <Grid container spacing={3}>

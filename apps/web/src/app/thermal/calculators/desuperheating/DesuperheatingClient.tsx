@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Container, Typography, Box, Paper, Grid, Alert, Chip, Stack, Button } from '@mui/material';
-import { FolderOpen as LoadIcon } from '@mui/icons-material';
+import { FolderOpen as LoadIcon, RestartAlt as ResetIcon } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { getSaturationTemperature } from '@vapour/constants';
 import { calculateDesuperheating } from '@/lib/thermal';
@@ -18,7 +18,14 @@ export default function DesuperheatingClient() {
   const [steamFlow, setSteamFlow] = useState<string>('');
 
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  const handleReset = () => {
+    setSteamPressure('');
+    setSteamTemperature('');
+    setTargetTemperature('');
+    setSprayWaterTemperature('30');
+    setSteamFlow('');
+  };
 
   // Compute Tsat for helperText display
   const saturationTemp = useMemo(() => {
@@ -32,9 +39,7 @@ export default function DesuperheatingClient() {
   }, [steamPressure]);
 
   // Calculate desuperheating
-  const result = useMemo(() => {
-    setError(null);
-
+  const computed = useMemo(() => {
     try {
       const pressure = parseFloat(steamPressure);
       const tempIn = parseFloat(steamTemperature);
@@ -53,18 +58,23 @@ export default function DesuperheatingClient() {
       )
         return null;
 
-      return calculateDesuperheating({
-        steamPressure: pressure,
-        steamTemperature: tempIn,
-        targetTemperature: tempTarget,
-        sprayWaterTemperature: tempWater,
-        steamFlow: flow,
-      });
+      return {
+        result: calculateDesuperheating({
+          steamPressure: pressure,
+          steamTemperature: tempIn,
+          targetTemperature: tempTarget,
+          sprayWaterTemperature: tempWater,
+          steamFlow: flow,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [steamPressure, steamTemperature, targetTemperature, sprayWaterTemperature, steamFlow]);
+
+  const result = computed?.result ?? null;
+  const error = computed?.error ?? null;
 
   // Build inputs object for Save / PDF dialogs
   const reportInputs = {
@@ -95,6 +105,9 @@ export default function DesuperheatingClient() {
         <Stack direction="row" spacing={1}>
           <Button startIcon={<LoadIcon />} size="small" onClick={() => setLoadDialogOpen(true)}>
             Load Saved
+          </Button>
+          <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+            Reset
           </Button>
         </Stack>
       </Box>

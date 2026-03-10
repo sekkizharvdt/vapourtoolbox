@@ -8,9 +8,14 @@
  * friction calculation, holdup volume design, and NPSHa verification.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
 import { Container, Typography, Box, Grid, Stack, Chip, Paper, Alert, Button } from '@mui/material';
-import { FolderOpen as LoadIcon } from '@mui/icons-material';
+import {
+  FolderOpen as LoadIcon,
+  Save as SaveIcon,
+  PictureAsPdf as PdfIcon,
+  RestartAlt as ResetIcon,
+} from '@mui/icons-material';
 import {
   calculateSuctionSystem,
   type SuctionSystemInput,
@@ -23,6 +28,11 @@ import { SuctionDiagram } from './components/SuctionDiagram';
 import { SuctionInputs } from './components/SuctionInputs';
 import { SuctionResults } from './components/SuctionResults';
 import { LoadCalculationDialog } from './components/LoadCalculationDialog';
+import { SaveCalculationDialog } from './components/SaveCalculationDialog';
+
+const GenerateReportDialog = lazy(() =>
+  import('./components/GenerateReportDialog').then((m) => ({ default: m.GenerateReportDialog }))
+);
 
 export default function NPSHaClient() {
   // Operating conditions
@@ -56,13 +66,35 @@ export default function NPSHaClient() {
   const [mode, setMode] = useState<CalculationMode>('find_elevation');
   const [userElevation, setUserElevation] = useState<string>('5.0');
 
-  // Error state
-  const [error, setError] = useState<string | null>(null);
+  // UI state
   const [loadOpen, setLoadOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+
+  const handleReset = () => {
+    setEffectPressure('300');
+    setFluidType('brine');
+    setSalinity('45000');
+    setFlowRate('100');
+    setNozzleVelocityTarget('0.08');
+    setSuctionVelocityTarget('1.2');
+    setCustomNozzleId('');
+    setCustomNozzleThickness('');
+    setElbowCount('1');
+    setVerticalPipeRun('3');
+    setHorizontalPipeRun('2');
+    setHoldupPipeDiameter('');
+    setCustomHoldupId('');
+    setMinColumnHeight('1.0');
+    setResidenceTime('30');
+    setPumpNPSHr('3.0');
+    setSafetyMargin('0.5');
+    setMode('find_elevation');
+    setUserElevation('5.0');
+  };
 
   // Main calculation
-  const result: SuctionSystemResult | null = useMemo(() => {
-    setError(null);
+  const computed = useMemo(() => {
     try {
       const ep = parseFloat(effectPressure);
       const sal = parseFloat(salinity);
@@ -115,10 +147,9 @@ export default function NPSHaClient() {
           : {}),
       };
 
-      return calculateSuctionSystem(input);
+      return { result: calculateSuctionSystem(input), error: null };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [
     effectPressure,
@@ -142,6 +173,9 @@ export default function NPSHaClient() {
     userElevation,
   ]);
 
+  const result: SuctionSystemResult | null = computed?.result ?? null;
+  const error = computed?.error ?? null;
+
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <CalculatorBreadcrumb calculatorName="Suction System Designer" />
@@ -160,14 +194,34 @@ export default function NPSHaClient() {
           Sizes nozzle and suction piping, selects fittings, calculates friction losses, designs
           holdup volume, and determines required elevation for adequate NPSHa.
         </Typography>
-        <Button
-          startIcon={<LoadIcon />}
-          size="small"
-          onClick={() => setLoadOpen(true)}
-          sx={{ mt: 1 }}
-        >
-          Load Saved
-        </Button>
+        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+          <Button
+            startIcon={<LoadIcon />}
+            size="small"
+            onClick={() => setLoadOpen(true)}
+          >
+            Load Saved
+          </Button>
+          <Button
+            startIcon={<SaveIcon />}
+            size="small"
+            onClick={() => setSaveOpen(true)}
+            disabled={!result}
+          >
+            Save
+          </Button>
+          <Button
+            startIcon={<PdfIcon />}
+            size="small"
+            onClick={() => setReportDialogOpen(true)}
+            disabled={!result}
+          >
+            PDF Report
+          </Button>
+          <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+            Reset
+          </Button>
+        </Stack>
       </Box>
 
       {/* Main Content */}
@@ -295,8 +349,14 @@ export default function NPSHaClient() {
             setVerticalPipeRun(inputs.verticalPipeRun);
           if (typeof inputs.horizontalPipeRun === 'string')
             setHorizontalPipeRun(inputs.horizontalPipeRun);
+          if (typeof inputs.customNozzleId === 'string')
+            setCustomNozzleId(inputs.customNozzleId);
+          if (typeof inputs.customNozzleThickness === 'string')
+            setCustomNozzleThickness(inputs.customNozzleThickness);
           if (typeof inputs.holdupPipeDiameter === 'string')
             setHoldupPipeDiameter(inputs.holdupPipeDiameter);
+          if (typeof inputs.customHoldupId === 'string')
+            setCustomHoldupId(inputs.customHoldupId);
           if (typeof inputs.minColumnHeight === 'string')
             setMinColumnHeight(inputs.minColumnHeight);
           if (typeof inputs.residenceTime === 'string') setResidenceTime(inputs.residenceTime);
@@ -306,6 +366,63 @@ export default function NPSHaClient() {
           if (typeof inputs.userElevation === 'string') setUserElevation(inputs.userElevation);
         }}
       />
+
+      {/* Save Dialog */}
+      <SaveCalculationDialog
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        calculatorType="NPSHA"
+        inputs={{
+          effectPressure,
+          fluidType,
+          salinity,
+          flowRate,
+          nozzleVelocityTarget,
+          suctionVelocityTarget,
+          customNozzleId,
+          customNozzleThickness,
+          elbowCount,
+          verticalPipeRun,
+          horizontalPipeRun,
+          holdupPipeDiameter,
+          customHoldupId,
+          minColumnHeight,
+          residenceTime,
+          pumpNPSHr,
+          safetyMargin,
+          mode,
+          userElevation,
+        }}
+      />
+
+      {/* PDF Report Dialog */}
+      {result && (
+        <Suspense fallback={null}>
+          <GenerateReportDialog
+            open={reportDialogOpen}
+            onClose={() => setReportDialogOpen(false)}
+            result={result}
+            inputs={{
+              effectPressure,
+              fluidType,
+              salinity,
+              flowRate,
+              nozzleVelocityTarget,
+              suctionVelocityTarget,
+              elbowCount,
+              verticalPipeRun,
+              horizontalPipeRun,
+              holdupPipeDiameter,
+              minColumnHeight,
+              residenceTime,
+              pumpNPSHr,
+              safetyMargin,
+              mode,
+              userElevation,
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Info Section */}
       <Box sx={{ mt: 4, p: 3, bgcolor: 'action.hover', borderRadius: 2 }}>

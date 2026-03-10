@@ -27,6 +27,7 @@ import {
   PictureAsPdf as PdfIcon,
   FolderOpen as LoadIcon,
   Save as SaveIcon,
+  RestartAlt as ResetIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
@@ -82,62 +83,81 @@ export default function HeatDutyClient() {
   const [overallHTC, setOverallHTC] = useState<string>('1500');
   const [heatDutyForArea, setHeatDutyForArea] = useState<string>('');
 
-  const [error, setError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
 
+  const handleReset = () => {
+    setMode('sensible');
+    setFluidType('SEAWATER');
+    setSalinity('35000');
+    setMassFlowRate('100');
+    setInletTemp('25');
+    setOutletTemp('40');
+    setLatentFlowRate('10');
+    setSaturationTemp('60');
+    setProcess('EVAPORATION');
+    setHotInlet('90');
+    setHotOutlet('50');
+    setColdInlet('25');
+    setColdOutlet('40');
+    setFlowArrangement('COUNTER');
+    setOverallHTC('1500');
+    setHeatDutyForArea('');
+  };
+
   // Calculate sensible heat
-  const sensibleResult = useMemo(() => {
+  const sensibleComputed = useMemo(() => {
     if (mode !== 'sensible') return null;
-    setError(null);
 
     try {
       const flow = parseFloat(massFlowRate);
       const tIn = parseFloat(inletTemp);
       const tOut = parseFloat(outletTemp);
 
-      if (isNaN(flow) || flow <= 0 || isNaN(tIn) || isNaN(tOut)) return null;
+      if (isNaN(flow) || flow <= 0 || isNaN(tIn) || isNaN(tOut)) return { result: null, error: null };
 
-      return calculateSensibleHeat({
-        fluidType,
-        salinity: fluidType === 'SEAWATER' ? parseFloat(salinity) || 35000 : undefined,
-        massFlowRate: flow,
-        inletTemperature: tIn,
-        outletTemperature: tOut,
-      });
+      return {
+        result: calculateSensibleHeat({
+          fluidType,
+          salinity: fluidType === 'SEAWATER' ? parseFloat(salinity) || 35000 : undefined,
+          massFlowRate: flow,
+          inletTemperature: tIn,
+          outletTemperature: tOut,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [mode, fluidType, salinity, massFlowRate, inletTemp, outletTemp]);
 
   // Calculate latent heat
-  const latentResult = useMemo(() => {
+  const latentComputed = useMemo(() => {
     if (mode !== 'latent') return null;
-    setError(null);
 
     try {
       const flow = parseFloat(latentFlowRate);
       const temp = parseFloat(saturationTemp);
 
-      if (isNaN(flow) || flow <= 0 || isNaN(temp)) return null;
+      if (isNaN(flow) || flow <= 0 || isNaN(temp)) return { result: null, error: null };
 
-      return calculateLatentHeat({
-        massFlowRate: flow,
-        temperature: temp,
-        process,
-      });
+      return {
+        result: calculateLatentHeat({
+          massFlowRate: flow,
+          temperature: temp,
+          process,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [mode, latentFlowRate, saturationTemp, process]);
 
   // Calculate LMTD
-  const lmtdResult = useMemo(() => {
+  const lmtdComputed = useMemo(() => {
     if (mode !== 'lmtd') return null;
-    setError(null);
 
     try {
       const hIn = parseFloat(hotInlet);
@@ -145,20 +165,27 @@ export default function HeatDutyClient() {
       const cIn = parseFloat(coldInlet);
       const cOut = parseFloat(coldOutlet);
 
-      if (isNaN(hIn) || isNaN(hOut) || isNaN(cIn) || isNaN(cOut)) return null;
+      if (isNaN(hIn) || isNaN(hOut) || isNaN(cIn) || isNaN(cOut)) return { result: null, error: null };
 
-      return calculateLMTD({
-        hotInlet: hIn,
-        hotOutlet: hOut,
-        coldInlet: cIn,
-        coldOutlet: cOut,
-        flowArrangement,
-      });
+      return {
+        result: calculateLMTD({
+          hotInlet: hIn,
+          hotOutlet: hOut,
+          coldInlet: cIn,
+          coldOutlet: cOut,
+          flowArrangement,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [mode, hotInlet, hotOutlet, coldInlet, coldOutlet, flowArrangement]);
+
+  const sensibleResult = sensibleComputed?.result ?? null;
+  const latentResult = latentComputed?.result ?? null;
+  const lmtdResult = lmtdComputed?.result ?? null;
+  const error = sensibleComputed?.error || latentComputed?.error || lmtdComputed?.error || null;
 
   // Calculate required area
   const requiredArea = useMemo(() => {
@@ -193,14 +220,18 @@ export default function HeatDutyClient() {
           Calculate sensible and latent heat duty for thermal processes. Includes LMTD calculation
           for heat exchanger sizing.
         </Typography>
-        <Button
-          startIcon={<LoadIcon />}
-          size="small"
-          onClick={() => setLoadOpen(true)}
-          sx={{ mt: 1 }}
-        >
-          Load Saved
-        </Button>
+        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+          <Button
+            startIcon={<LoadIcon />}
+            size="small"
+            onClick={() => setLoadOpen(true)}
+          >
+            Load Saved
+          </Button>
+          <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+            Reset
+          </Button>
+        </Stack>
       </Box>
 
       <Grid container spacing={3}>

@@ -31,7 +31,7 @@ import {
   Button,
   CircularProgress,
 } from '@mui/material';
-import { Save as SaveIcon, FolderOpen as LoadIcon } from '@mui/icons-material';
+import { Save as SaveIcon, FolderOpen as LoadIcon, RestartAlt as ResetIcon } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   calculateGOR,
@@ -316,6 +316,22 @@ export default function GORClient() {
   const [loadOpen, setLoadOpen] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
+  const handleReset = () => {
+    setNumberOfEffects('6');
+    setConfiguration('MED_PARALLEL');
+    setTopBrineTemperature('65');
+    setLastEffectTemperature('40');
+    setSeawaterTemperature('28');
+    setSteamPressure('2.5');
+    setFeedSalinity('35000');
+    setMaxBrineSalinity('65000');
+    setCondenserApproach('4');
+    setCondenserTTD('3');
+    setTvcEntrainmentRatio('1.0');
+    setTvcCompressionRatio('');
+    setDistillateCapacity('');
+  };
+
   // ── Derived values ─────────────────────────────────────────────────────────
 
   const steamSatTemp = useMemo(() => {
@@ -453,6 +469,9 @@ export default function GORClient() {
         <Stack direction="row" spacing={1}>
           <Button variant="outlined" startIcon={<LoadIcon />} onClick={() => setLoadOpen(true)}>
             Load Saved
+          </Button>
+          <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+            Reset
           </Button>
         </Stack>
       </Box>

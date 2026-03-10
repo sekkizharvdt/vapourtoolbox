@@ -80,70 +80,79 @@ export function QuickCalcPanel({ active }: QuickCalcPanelProps) {
   const [overallHTC, setOverallHTC] = useState<string>('1500');
   const [heatDutyForArea, setHeatDutyForArea] = useState<string>('');
 
-  const [error, setError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
 
   // Calculate sensible heat
-  const sensibleResult = useMemo(() => {
-    if (mode !== 'sensible') return null;
-    setError(null);
+  const sensibleComputed = useMemo(() => {
+    if (mode !== 'sensible') return { result: null, error: null };
     try {
       const flow = parseFloat(massFlowRate);
       const tIn = parseFloat(inletTemp);
       const tOut = parseFloat(outletTemp);
-      if (isNaN(flow) || flow <= 0 || isNaN(tIn) || isNaN(tOut)) return null;
-      return calculateSensibleHeat({
-        fluidType,
-        salinity: fluidType === 'SEAWATER' ? parseFloat(salinity) || 35000 : undefined,
-        massFlowRate: flow,
-        inletTemperature: tIn,
-        outletTemperature: tOut,
-      });
+      if (isNaN(flow) || flow <= 0 || isNaN(tIn) || isNaN(tOut))
+        return { result: null, error: null };
+      return {
+        result: calculateSensibleHeat({
+          fluidType,
+          salinity: fluidType === 'SEAWATER' ? parseFloat(salinity) || 35000 : undefined,
+          massFlowRate: flow,
+          inletTemperature: tIn,
+          outletTemperature: tOut,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [mode, fluidType, salinity, massFlowRate, inletTemp, outletTemp]);
 
   // Calculate latent heat
-  const latentResult = useMemo(() => {
-    if (mode !== 'latent') return null;
-    setError(null);
+  const latentComputed = useMemo(() => {
+    if (mode !== 'latent') return { result: null, error: null };
     try {
       const flow = parseFloat(latentFlowRate);
       const temp = parseFloat(saturationTemp);
-      if (isNaN(flow) || flow <= 0 || isNaN(temp)) return null;
-      return calculateLatentHeat({ massFlowRate: flow, temperature: temp, process });
+      if (isNaN(flow) || flow <= 0 || isNaN(temp)) return { result: null, error: null };
+      return {
+        result: calculateLatentHeat({ massFlowRate: flow, temperature: temp, process }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [mode, latentFlowRate, saturationTemp, process]);
 
   // Calculate LMTD
-  const lmtdResult = useMemo(() => {
-    if (mode !== 'lmtd') return null;
-    setError(null);
+  const lmtdComputed = useMemo(() => {
+    if (mode !== 'lmtd') return { result: null, error: null };
     try {
       const hIn = parseFloat(hotInlet);
       const hOut = parseFloat(hotOutlet);
       const cIn = parseFloat(coldInlet);
       const cOut = parseFloat(coldOutlet);
-      if (isNaN(hIn) || isNaN(hOut) || isNaN(cIn) || isNaN(cOut)) return null;
-      return calculateLMTD({
-        hotInlet: hIn,
-        hotOutlet: hOut,
-        coldInlet: cIn,
-        coldOutlet: cOut,
-        flowArrangement,
-      });
+      if (isNaN(hIn) || isNaN(hOut) || isNaN(cIn) || isNaN(cOut))
+        return { result: null, error: null };
+      return {
+        result: calculateLMTD({
+          hotInlet: hIn,
+          hotOutlet: hOut,
+          coldInlet: cIn,
+          coldOutlet: cOut,
+          flowArrangement,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [mode, hotInlet, hotOutlet, coldInlet, coldOutlet, flowArrangement]);
+
+  const sensibleResult = sensibleComputed.result;
+  const latentResult = latentComputed.result;
+  const lmtdResult = lmtdComputed.result;
+  const error = sensibleComputed.error || latentComputed.error || lmtdComputed.error;
 
   // Calculate required area
   const requiredArea = useMemo(() => {

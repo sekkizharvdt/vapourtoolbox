@@ -18,7 +18,8 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Typography, Box, Grid, Paper, Chip, Stack } from '@mui/material';
+import { Typography, Box, Grid, Paper, Chip, Stack, Button } from '@mui/material';
+import { RestartAlt as ResetIcon } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   getSaturationPressure,
@@ -58,12 +59,18 @@ export default function SteamTablesClient() {
   const [temperatureInput, setTemperatureInput] = useState<string>('100');
   const [pressureInput, setPressureInput] = useState<string>('1.0');
   const [pressureUnit, setPressureUnit] = useState<PressureUnit>('bar');
-  const [error, setError] = useState<string | null>(null);
+
+  const handleReset = () => {
+    setSteamMode('saturation');
+    setLookupMode('temperature');
+    setTemperatureInput('100');
+    setPressureInput('1.0');
+    setPressureUnit('bar');
+  };
 
   // Calculate saturation properties
-  const saturationResult = useMemo<SaturationResult | null>(() => {
-    if (steamMode !== 'saturation') return null;
-    setError(null);
+  const saturationComputed = useMemo<{ result: SaturationResult | null; error: string | null }>(() => {
+    if (steamMode !== 'saturation') return { result: null, error: null };
 
     try {
       let tempC: number;
@@ -71,141 +78,142 @@ export default function SteamTablesClient() {
 
       if (lookupMode === 'temperature') {
         tempC = parseFloat(temperatureInput);
-        if (isNaN(tempC)) return null;
+        if (isNaN(tempC)) return { result: null, error: null };
         if (tempC < 0.01 || tempC > CRITICAL_TEMPERATURE_C) {
-          setError(`Temperature must be between 0.01°C and ${CRITICAL_TEMPERATURE_C.toFixed(1)}°C`);
-          return null;
+          return { result: null, error: `Temperature must be between 0.01°C and ${CRITICAL_TEMPERATURE_C.toFixed(1)}°C` };
         }
         pressureBar = getSaturationPressure(tempC);
       } else {
         const pressureValue = parseFloat(pressureInput);
-        if (isNaN(pressureValue)) return null;
+        if (isNaN(pressureValue)) return { result: null, error: null };
         pressureBar = convertPressureToBar(pressureValue, pressureUnit);
         if (pressureBar < 0.00611 || pressureBar > CRITICAL_PRESSURE_BAR) {
-          setError(
-            `Pressure must be between 0.00611 bar and ${CRITICAL_PRESSURE_BAR.toFixed(1)} bar`
-          );
-          return null;
+          return { result: null, error: `Pressure must be between 0.00611 bar and ${CRITICAL_PRESSURE_BAR.toFixed(1)} bar` };
         }
         tempC = getSaturationTemperature(pressureBar);
       }
 
       return {
-        temperature: tempC,
-        pressure: pressureBar,
-        enthalpyLiquid: getEnthalpyLiquid(tempC),
-        enthalpyVapor: getEnthalpyVapor(tempC),
-        latentHeat: getLatentHeat(tempC),
-        densityLiquid: getDensityLiquid(tempC),
-        densityVapor: getDensityVapor(tempC),
-        specificVolumeLiquid: getSpecificVolumeLiquid(tempC),
-        specificVolumeVapor: getSpecificVolumeVapor(tempC),
+        result: {
+          temperature: tempC,
+          pressure: pressureBar,
+          enthalpyLiquid: getEnthalpyLiquid(tempC),
+          enthalpyVapor: getEnthalpyVapor(tempC),
+          latentHeat: getLatentHeat(tempC),
+          densityLiquid: getDensityLiquid(tempC),
+          densityVapor: getDensityVapor(tempC),
+          specificVolumeLiquid: getSpecificVolumeLiquid(tempC),
+          specificVolumeVapor: getSpecificVolumeVapor(tempC),
+        },
+        error: null,
       };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [steamMode, lookupMode, temperatureInput, pressureInput, pressureUnit]);
 
   // Calculate subcooled properties (Region 1)
-  const subcooledResult = useMemo<SubcooledResult | null>(() => {
-    if (steamMode !== 'subcooled') return null;
-    setError(null);
+  const subcooledComputed = useMemo<{ result: SubcooledResult | null; error: string | null }>(() => {
+    if (steamMode !== 'subcooled') return { result: null, error: null };
 
     try {
       const tempC = parseFloat(temperatureInput);
       const pressureValue = parseFloat(pressureInput);
-      if (isNaN(tempC) || isNaN(pressureValue)) return null;
+      if (isNaN(tempC) || isNaN(pressureValue)) return { result: null, error: null };
 
       const pressureBar = convertPressureToBar(pressureValue, pressureUnit);
 
       if (tempC < 0 || tempC > 350) {
-        setError('Temperature must be between 0°C and 350°C for subcooled liquid');
-        return null;
+        return { result: null, error: 'Temperature must be between 0°C and 350°C for subcooled liquid' };
       }
       if (pressureBar < 0.00611 || pressureBar > 1000) {
-        setError('Pressure must be between 0.00611 bar and 1000 bar');
-        return null;
+        return { result: null, error: 'Pressure must be between 0.00611 bar and 1000 bar' };
       }
 
       const region = getRegion(pressureBar, tempC);
       if (region !== 1) {
         const tSat = getSaturationTemperature(pressureBar);
-        setError(
-          `Not subcooled: T=${tempC}°C is above T_sat=${tSat.toFixed(1)}°C at P=${pressureBar.toFixed(2)} bar. Use Saturation or Superheated mode.`
-        );
-        return null;
+        return {
+          result: null,
+          error: `Not subcooled: T=${tempC}°C is above T_sat=${tSat.toFixed(1)}°C at P=${pressureBar.toFixed(2)} bar. Use Saturation or Superheated mode.`,
+        };
       }
 
       const props = getSubcooledProperties(pressureBar, tempC);
 
       return {
-        temperature: tempC,
-        pressure: pressureBar,
-        subcooling: props.subcooling,
-        enthalpy: props.enthalpy,
-        density: props.density,
-        specificVolume: props.specificVolume,
-        specificHeat: props.specificHeat,
-        speedOfSound: props.speedOfSound,
-        internalEnergy: props.internalEnergy,
-        entropy: props.entropy,
+        result: {
+          temperature: tempC,
+          pressure: pressureBar,
+          subcooling: props.subcooling,
+          enthalpy: props.enthalpy,
+          density: props.density,
+          specificVolume: props.specificVolume,
+          specificHeat: props.specificHeat,
+          speedOfSound: props.speedOfSound,
+          internalEnergy: props.internalEnergy,
+          entropy: props.entropy,
+        },
+        error: null,
       };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [steamMode, temperatureInput, pressureInput, pressureUnit]);
 
   // Calculate superheated properties (Region 2)
-  const superheatedResult = useMemo<SuperheatedResult | null>(() => {
-    if (steamMode !== 'superheated') return null;
-    setError(null);
+  const superheatedComputed = useMemo<{ result: SuperheatedResult | null; error: string | null }>(() => {
+    if (steamMode !== 'superheated') return { result: null, error: null };
 
     try {
       const tempC = parseFloat(temperatureInput);
       const pressureValue = parseFloat(pressureInput);
-      if (isNaN(tempC) || isNaN(pressureValue)) return null;
+      if (isNaN(tempC) || isNaN(pressureValue)) return { result: null, error: null };
 
       const pressureBar = convertPressureToBar(pressureValue, pressureUnit);
 
       if (tempC < 0 || tempC > 800) {
-        setError('Temperature must be between 0°C and 800°C for superheated steam');
-        return null;
+        return { result: null, error: 'Temperature must be between 0°C and 800°C for superheated steam' };
       }
       if (pressureBar <= 0 || pressureBar > 1000) {
-        setError('Pressure must be between 0 and 1000 bar');
-        return null;
+        return { result: null, error: 'Pressure must be between 0 and 1000 bar' };
       }
 
       const region = getRegion(pressureBar, tempC);
       if (region !== 2) {
         const tSat = getSaturationTemperature(pressureBar);
-        setError(
-          `Not superheated: T=${tempC}°C is at or below T_sat=${tSat.toFixed(1)}°C at P=${pressureBar.toFixed(2)} bar. Use Saturation or Subcooled mode.`
-        );
-        return null;
+        return {
+          result: null,
+          error: `Not superheated: T=${tempC}°C is at or below T_sat=${tSat.toFixed(1)}°C at P=${pressureBar.toFixed(2)} bar. Use Saturation or Subcooled mode.`,
+        };
       }
 
       const props = getSuperheatedProperties(pressureBar, tempC);
 
       return {
-        temperature: tempC,
-        pressure: pressureBar,
-        superheat: props.superheat,
-        enthalpy: props.enthalpy,
-        density: props.density,
-        specificVolume: props.specificVolume,
-        specificHeat: props.specificHeat,
-        speedOfSound: props.speedOfSound,
-        internalEnergy: props.internalEnergy,
-        entropy: props.entropy,
+        result: {
+          temperature: tempC,
+          pressure: pressureBar,
+          superheat: props.superheat,
+          enthalpy: props.enthalpy,
+          density: props.density,
+          specificVolume: props.specificVolume,
+          specificHeat: props.specificHeat,
+          speedOfSound: props.speedOfSound,
+          internalEnergy: props.internalEnergy,
+          entropy: props.entropy,
+        },
+        error: null,
       };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [steamMode, temperatureInput, pressureInput, pressureUnit]);
+
+  const saturationResult = saturationComputed.result;
+  const subcooledResult = subcooledComputed.result;
+  const superheatedResult = superheatedComputed.result;
+  const error = saturationComputed.error || subcooledComputed.error || superheatedComputed.error || null;
 
   const handleReferenceRowClick = (mode: SteamMode, lookup: LookupMode, temperature: string) => {
     setSteamMode(mode);
@@ -229,6 +237,11 @@ export default function SteamTablesClient() {
           Lookup steam properties for saturation, subcooled liquid, and superheated steam. Uses
           IAPWS-IF97 Regions 1, 2, and 4.
         </Typography>
+        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+          <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+            Reset
+          </Button>
+        </Stack>
       </Box>
 
       <Grid container spacing={3}>

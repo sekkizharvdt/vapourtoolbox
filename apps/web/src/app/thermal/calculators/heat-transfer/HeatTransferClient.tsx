@@ -35,6 +35,7 @@ import {
   Save as SaveIcon,
   PictureAsPdf as PdfIcon,
   ArrowBack as BackIcon,
+  RestartAlt as ResetIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
@@ -128,12 +129,33 @@ export default function HeatTransferClient() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
 
-  const [error, setError] = useState<string | null>(null);
+
+  const handleReset = () => {
+    setConfigType(null);
+    setTsDensity('');
+    setTsVelocity('');
+    setTsTubeID('');
+    setTsViscosity('');
+    setTsSpecificHeat('');
+    setTsConductivity('');
+    setTsIsHeating(false);
+    setCondLiquidDensity('');
+    setCondVaporDensity('');
+    setCondLatentHeat('');
+    setCondLiquidConductivity('');
+    setCondLiquidViscosity('');
+    setCondDimension('');
+    setCondDeltaT('');
+    setCondOrientation('horizontal');
+    setOverallTubeOD('');
+    setOverallWallConductivity('');
+    setOverallTubeSideFouling('0.0001');
+    setOverallShellSideFouling('0.0002');
+  };
 
   // ── Calculations ────────────────────────────────────────────────────────────
 
-  const tubeSideResult = useMemo((): TubeSideHTCResult | null => {
-    setError(null);
+  const tubeSideComputed = useMemo((): { result: TubeSideHTCResult | null; error: string | null } => {
     try {
       const density = parseFloat(tsDensity);
       const velocity = parseFloat(tsVelocity);
@@ -156,25 +178,28 @@ export default function HeatTransferClient() {
         isNaN(conductivity) ||
         conductivity <= 0
       )
-        return null;
+        return { result: null, error: null };
 
-      return calculateTubeSideHTC({
-        density,
-        velocity,
-        diameter: tubeIDmm / 1000,
-        viscosity,
-        specificHeat,
-        conductivity,
-        isHeating: tsIsHeating,
-      });
+      return {
+        result: calculateTubeSideHTC({
+          density,
+          velocity,
+          diameter: tubeIDmm / 1000,
+          viscosity,
+          specificHeat,
+          conductivity,
+          isHeating: tsIsHeating,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Tube-side calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Tube-side calculation error' };
     }
   }, [tsDensity, tsVelocity, tsTubeID, tsViscosity, tsSpecificHeat, tsConductivity, tsIsHeating]);
 
-  const condensationResult = useMemo((): CondensationHTCResult | null => {
-    setError(null);
+  const tubeSideResult = tubeSideComputed.result;
+
+  const condensationComputed = useMemo((): { result: CondensationHTCResult | null; error: string | null } => {
     try {
       const liquidDensity = parseFloat(condLiquidDensity);
       const vaporDensity = parseFloat(condVaporDensity);
@@ -200,21 +225,23 @@ export default function HeatTransferClient() {
         isNaN(deltaT) ||
         deltaT <= 0
       )
-        return null;
+        return { result: null, error: null };
 
-      return calculateNusseltCondensation({
-        liquidDensity,
-        vaporDensity,
-        latentHeat,
-        liquidConductivity,
-        liquidViscosity,
-        dimension,
-        deltaT,
-        orientation: condOrientation,
-      });
+      return {
+        result: calculateNusseltCondensation({
+          liquidDensity,
+          vaporDensity,
+          latentHeat,
+          liquidConductivity,
+          liquidViscosity,
+          dimension,
+          deltaT,
+          orientation: condOrientation,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Shell-side calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Shell-side calculation error' };
     }
   }, [
     condLiquidDensity,
@@ -227,9 +254,10 @@ export default function HeatTransferClient() {
     condOrientation,
   ]);
 
-  const overallResult = useMemo((): OverallHTCResult | null => {
-    if (!tubeSideResult || !condensationResult) return null;
-    setError(null);
+  const condensationResult = condensationComputed.result;
+
+  const overallComputed = useMemo((): { result: OverallHTCResult | null; error: string | null } => {
+    if (!tubeSideResult || !condensationResult) return { result: null, error: null };
     try {
       const tubeODmm = parseFloat(overallTubeOD);
       const tubeIDmm = parseFloat(tsTubeID);
@@ -247,22 +275,24 @@ export default function HeatTransferClient() {
         isNaN(tubeSideFouling) ||
         isNaN(shellSideFouling)
       )
-        return null;
+        return { result: null, error: null };
 
-      if (tubeIDmm >= tubeODmm) return null;
+      if (tubeIDmm >= tubeODmm) return { result: null, error: null };
 
-      return calculateOverallHTC({
-        tubeSideHTC: tubeSideResult.htc,
-        shellSideHTC: condensationResult.htc,
-        tubeOD: tubeODmm / 1000,
-        tubeID: tubeIDmm / 1000,
-        tubeWallConductivity: wallConductivity,
-        tubeSideFouling,
-        shellSideFouling,
-      });
+      return {
+        result: calculateOverallHTC({
+          tubeSideHTC: tubeSideResult.htc,
+          shellSideHTC: condensationResult.htc,
+          tubeOD: tubeODmm / 1000,
+          tubeID: tubeIDmm / 1000,
+          tubeWallConductivity: wallConductivity,
+          tubeSideFouling,
+          shellSideFouling,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Overall HTC calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Overall HTC calculation error' };
     }
   }, [
     tubeSideResult,
@@ -273,6 +303,9 @@ export default function HeatTransferClient() {
     overallTubeSideFouling,
     overallShellSideFouling,
   ]);
+
+  const overallResult = overallComputed.result;
+  const error = tubeSideComputed.error || condensationComputed.error || overallComputed.error || null;
 
   const hasFullResult = !!(tubeSideResult && condensationResult && overallResult);
 
@@ -379,14 +412,18 @@ export default function HeatTransferClient() {
             Shell &amp; tube heat exchanger — tube-side forced convection + shell-side condensation
           </Typography>
         </Box>
-        <Button
-          variant="outlined"
-          startIcon={<LoadIcon />}
-          onClick={() => setLoadOpen(true)}
-          sx={{ mt: 0.5, flexShrink: 0 }}
-        >
-          Load Saved
-        </Button>
+        <Stack direction="row" spacing={1} sx={{ mt: 0.5, flexShrink: 0 }}>
+          <Button
+            variant="outlined"
+            startIcon={<LoadIcon />}
+            onClick={() => setLoadOpen(true)}
+          >
+            Load Saved
+          </Button>
+          <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+            Reset
+          </Button>
+        </Stack>
       </Stack>
 
       {/* ── Step 0: Configuration type selector ── */}
@@ -548,7 +585,7 @@ export default function HeatTransferClient() {
               </Paper>
 
               {error && (
-                <Alert severity="error" onClose={() => setError(null)}>
+                <Alert severity="error">
                   {error}
                 </Alert>
               )}

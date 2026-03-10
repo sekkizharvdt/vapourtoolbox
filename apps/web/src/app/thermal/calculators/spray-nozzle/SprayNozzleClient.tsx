@@ -50,6 +50,7 @@ import {
   GridView as LayoutIcon,
   FolderOpen as LoadIcon,
   Save as SaveIcon,
+  RestartAlt as ResetIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
@@ -121,7 +122,6 @@ export default function SprayNozzleClient() {
   const [flowUnit, setFlowUnit] = useState<FlowUnit>('lpm');
   const [operatingPressure, setOperatingPressure] = useState<string>('3');
   const [tolerance, setTolerance] = useState<string>('25');
-  const [error, setError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [layoutReportOpen, setLayoutReportOpen] = useState(false);
   const [layoutSelectedIdx, setLayoutSelectedIdx] = useState(0);
@@ -139,13 +139,29 @@ export default function SprayNozzleClient() {
   const [overshootMargin, setOvershootMargin] = useState<string>('50');
   const [minOverlap, setMinOverlap] = useState<string>('15');
 
+  const handleReset = () => {
+    setMode('selection');
+    setCategory('full_cone_circular');
+    setRequiredFlow('');
+    setFlowUnit('lpm');
+    setOperatingPressure('3');
+    setTolerance('25');
+    setLayoutSelectedIdx(0);
+    setNumberOfNozzles('1');
+    setSprayDistance('');
+    setBundleLength('');
+    setBundleWidth('');
+    setTargetHeight('500');
+    setOvershootMargin('50');
+    setMinOverlap('15');
+  };
+
   const config = NOZZLE_CATEGORIES[category];
 
   // ── Selection result ────────────────────────────────────────────────────
 
-  const selectionResult = useMemo(() => {
+  const selectionComputed = useMemo(() => {
     if (mode !== 'selection') return null;
-    setError(null);
     try {
       const flow = parseFloat(requiredFlow);
       if (isNaN(flow) || flow <= 0) return null;
@@ -158,17 +174,19 @@ export default function SprayNozzleClient() {
       if (isNaN(tol) || tol <= 0) return null;
       const dist = parseFloat(sprayDistance);
       const distMm = !isNaN(dist) && dist > 0 ? dist : undefined;
-      return selectSprayNozzles({
-        category,
-        requiredFlow: flowLpm,
-        operatingPressure: pressure,
-        numberOfNozzles: nozzles,
-        sprayDistance: distMm,
-        tolerance: tol,
-      });
+      return {
+        result: selectSprayNozzles({
+          category,
+          requiredFlow: flowLpm,
+          operatingPressure: pressure,
+          numberOfNozzles: nozzles,
+          sprayDistance: distMm,
+          tolerance: tol,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [
     mode,
@@ -181,11 +199,12 @@ export default function SprayNozzleClient() {
     tolerance,
   ]);
 
+  const selectionResult = selectionComputed?.result ?? null;
+
   // ── Layout result ───────────────────────────────────────────────────────
 
-  const layoutResult = useMemo(() => {
+  const layoutComputed = useMemo(() => {
     if (mode !== 'layout') return null;
-    setError(null);
     try {
       const flow = parseFloat(requiredFlow);
       if (isNaN(flow) || flow <= 0) return null;
@@ -202,20 +221,22 @@ export default function SprayNozzleClient() {
       if (isNaN(overlap) || overlap < 0 || overlap >= 1) return null;
       const tgtH = parseFloat(targetHeight);
       const margin = parseFloat(overshootMargin);
-      return calculateNozzleLayout({
-        category,
-        totalFlow: flowLpm,
-        operatingPressure: pressure,
-        bundleLength: bLen,
-        bundleWidth: bWid,
-        targetHeight: !isNaN(tgtH) && tgtH > 0 ? tgtH : 500,
-        overshootMargin: !isNaN(margin) && margin >= 0 ? margin : 50,
-        minOverlap: overlap,
-        tolerance: tol,
-      });
+      return {
+        result: calculateNozzleLayout({
+          category,
+          totalFlow: flowLpm,
+          operatingPressure: pressure,
+          bundleLength: bLen,
+          bundleWidth: bWid,
+          targetHeight: !isNaN(tgtH) && tgtH > 0 ? tgtH : 500,
+          overshootMargin: !isNaN(margin) && margin >= 0 ? margin : 50,
+          minOverlap: overlap,
+          tolerance: tol,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [
     mode,
@@ -230,6 +251,9 @@ export default function SprayNozzleClient() {
     tolerance,
     minOverlap,
   ]);
+
+  const layoutResult = layoutComputed?.result ?? null;
+  const error = selectionComputed?.error || layoutComputed?.error || null;
 
   // ── Render ──────────────────────────────────────────────────────────────
 
@@ -265,6 +289,9 @@ export default function SprayNozzleClient() {
         </ToggleButtonGroup>
         <Button startIcon={<LoadIcon />} size="small" onClick={() => setLoadDialogOpen(true)}>
           Load Saved
+        </Button>
+        <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+          Reset
         </Button>
       </Stack>
 
@@ -553,7 +580,7 @@ export default function SprayNozzleClient() {
             </Box>
 
             {error && (
-              <Alert severity="error" onClose={() => setError(null)}>
+              <Alert severity="error">
                 {error}
               </Alert>
             )}

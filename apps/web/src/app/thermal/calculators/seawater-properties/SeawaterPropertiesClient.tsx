@@ -23,6 +23,7 @@ import {
   MenuItem,
   Chip,
   Stack,
+  Button,
   Card,
   CardContent,
   Accordion,
@@ -35,7 +36,7 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material';
-import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
+import { ExpandMore as ExpandMoreIcon, RestartAlt as ResetIcon } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
   getSeawaterDensity,
@@ -98,7 +99,6 @@ export default function SeawaterPropertiesClient() {
   const [temperatureInput, setTemperatureInput] = useState<string>('40');
   const [salinityInput, setSalinityInput] = useState<string>('35000');
   const [salinityUnit, setSalinityUnit] = useState<SalinityUnit>('ppm');
-  const [error, setError] = useState<string | null>(null);
 
   const salinityPPM = useMemo(() => {
     const value = parseFloat(salinityInput);
@@ -111,35 +111,42 @@ export default function SeawaterPropertiesClient() {
   }, [temperatureInput]);
 
   // Calculate seawater properties
-  const result = useMemo<SeawaterResult | null>(() => {
-    setError(null);
-
+  const computed = useMemo<{ result: SeawaterResult | null; error: string | null }>(() => {
     try {
-      if (isNaN(temperature) || isNaN(salinityPPM)) return null;
+      if (isNaN(temperature) || isNaN(salinityPPM)) return { result: null, error: null };
 
       // Validate inputs
       if (temperature < 0 || temperature > 180) {
-        setError('Temperature must be between 0°C and 180°C');
-        return null;
+        return { result: null, error: 'Temperature must be between 0°C and 180°C' };
       }
       if (salinityPPM < 0 || salinityPPM > 120000) {
-        setError('Salinity must be between 0 and 120,000 ppm (12%)');
-        return null;
+        return { result: null, error: 'Salinity must be between 0 and 120,000 ppm (12%)' };
       }
 
       return {
-        density: getSeawaterDensity(salinityPPM, temperature),
-        specificHeat: getSeawaterSpecificHeat(salinityPPM, temperature),
-        enthalpy: getSeawaterEnthalpy(salinityPPM, temperature),
-        bpe: getBoilingPointElevation(salinityPPM, temperature),
-        thermalConductivity: getSeawaterThermalConductivity(salinityPPM, temperature),
-        viscosity: getSeawaterViscosity(salinityPPM, temperature),
+        result: {
+          density: getSeawaterDensity(salinityPPM, temperature),
+          specificHeat: getSeawaterSpecificHeat(salinityPPM, temperature),
+          enthalpy: getSeawaterEnthalpy(salinityPPM, temperature),
+          bpe: getBoilingPointElevation(salinityPPM, temperature),
+          thermalConductivity: getSeawaterThermalConductivity(salinityPPM, temperature),
+          viscosity: getSeawaterViscosity(salinityPPM, temperature),
+        },
+        error: null,
       };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [temperature, salinityPPM]);
+
+  const result = computed.result;
+  const error = computed.error;
+
+  const handleReset = () => {
+    setTemperatureInput('40');
+    setSalinityInput('35000');
+    setSalinityUnit('ppm');
+  };
 
   const handlePresetClick = (preset: SalinityPreset) => {
     setSalinityUnit('ppm');
@@ -162,6 +169,11 @@ export default function SeawaterPropertiesClient() {
           Calculate thermophysical properties of seawater and brine at given temperature and
           salinity. Uses the Sharqawy et al. (2010) correlations.
         </Typography>
+        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+          <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+            Reset
+          </Button>
+        </Stack>
       </Box>
 
       <Grid container spacing={3}>

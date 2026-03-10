@@ -37,6 +37,7 @@ import {
   PictureAsPdf as PdfIcon,
   FolderOpen as LoadIcon,
   Save as SaveIcon,
+  RestartAlt as ResetIcon,
   Air as EjectorIcon,
   Settings as LRVPIcon,
   MergeType as HybridIcon,
@@ -90,10 +91,31 @@ export default function VacuumSystemClient() {
   const [designMargin, setDesignMargin] = useState<string>('10');
 
   // UI state
-  const [error, setError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
+
+  const handleReset = () => {
+    setSuctionPressure('70');
+    setSuctionTemperature('39');
+    setDischargePressure('1013');
+    setIncludeManualNcg(true);
+    setIncludeHeiLeakage(false);
+    setIncludeSeawaterGas(false);
+    setDryNcgFlow('5');
+    setSystemVolume('20');
+    setConnectionCount('50');
+    setSeawaterFlow('500');
+    setSeawaterTemp('25');
+    setSalinity('35');
+    setEvacuationVolume('');
+    setMotivePressure('8');
+    setCoolingWaterTemp('32');
+    setInterCondenserApproach('5');
+    setSealWaterTemp('32');
+    setTrainConfig('two_stage_ejector');
+    setDesignMargin('10');
+  };
 
   // ── Saturation temperature at suction pressure ──────────────────────────
 
@@ -113,8 +135,7 @@ export default function VacuumSystemClient() {
 
   // ── Calculation ────────────────────────────────────────────────────────
 
-  const result = useMemo(() => {
-    setError(null);
+  const computed = useMemo(() => {
     try {
       const pSuction = parseFloat(suctionPressure);
       const tSuction = parseFloat(suctionTemperature);
@@ -128,31 +149,33 @@ export default function VacuumSystemClient() {
 
       const margin = parseFloat(designMargin) / 100;
 
-      return calculateVacuumSystem({
-        suctionPressureMbar: pSuction,
-        suctionTemperatureC: tSuction,
-        dischargePressureMbar: pDischarge,
-        ncgMode: 'combined',
-        includeManualNcg,
-        includeHeiLeakage,
-        includeSeawaterGas,
-        dryNcgFlowKgH: parseFloat(dryNcgFlow) || undefined,
-        systemVolumeM3: parseFloat(systemVolume) || undefined,
-        connectionCount: parseInt(connectionCount, 10) || undefined,
-        seawaterFlowM3h: parseFloat(seawaterFlow) || undefined,
-        seawaterTemperatureC: parseFloat(seawaterTemp) || undefined,
-        salinityGkg: parseFloat(salinity) || undefined,
-        motivePressureBar: pMotive,
-        coolingWaterTempC: parseFloat(coolingWaterTemp) || 32,
-        interCondenserApproachC: parseFloat(interCondenserApproach) || 5,
-        sealWaterTempC: parseFloat(sealWaterTemp) || 32,
-        trainConfig,
-        designMargin: isNaN(margin) ? 0.1 : margin,
-        evacuationVolumeM3: parseFloat(evacuationVolume) || undefined,
-      });
+      return {
+        result: calculateVacuumSystem({
+          suctionPressureMbar: pSuction,
+          suctionTemperatureC: tSuction,
+          dischargePressureMbar: pDischarge,
+          ncgMode: 'combined',
+          includeManualNcg,
+          includeHeiLeakage,
+          includeSeawaterGas,
+          dryNcgFlowKgH: parseFloat(dryNcgFlow) || undefined,
+          systemVolumeM3: parseFloat(systemVolume) || undefined,
+          connectionCount: parseInt(connectionCount, 10) || undefined,
+          seawaterFlowM3h: parseFloat(seawaterFlow) || undefined,
+          seawaterTemperatureC: parseFloat(seawaterTemp) || undefined,
+          salinityGkg: parseFloat(salinity) || undefined,
+          motivePressureBar: pMotive,
+          coolingWaterTempC: parseFloat(coolingWaterTemp) || 32,
+          interCondenserApproachC: parseFloat(interCondenserApproach) || 5,
+          sealWaterTempC: parseFloat(sealWaterTemp) || 32,
+          trainConfig,
+          designMargin: isNaN(margin) ? 0.1 : margin,
+          evacuationVolumeM3: parseFloat(evacuationVolume) || undefined,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [
     suctionPressure,
@@ -175,6 +198,9 @@ export default function VacuumSystemClient() {
     designMargin,
     evacuationVolume,
   ]);
+
+  const result = computed?.result ?? null;
+  const error = computed?.error ?? null;
 
   const allInputs = {
     suctionPressure,
@@ -244,6 +270,9 @@ export default function VacuumSystemClient() {
         </ToggleButtonGroup>
         <Button startIcon={<LoadIcon />} size="small" onClick={() => setLoadDialogOpen(true)}>
           Load Saved
+        </Button>
+        <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+          Reset
         </Button>
       </Stack>
 
@@ -624,7 +653,7 @@ export default function VacuumSystemClient() {
             </Paper>
 
             {error && (
-              <Alert severity="error" onClose={() => setError(null)}>
+              <Alert severity="error">
                 {error}
               </Alert>
             )}

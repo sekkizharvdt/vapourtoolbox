@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Container, Typography, Box, Paper, Grid, Alert, Chip, Stack, Button } from '@mui/material';
-import { FolderOpen as LoadIcon } from '@mui/icons-material';
+import { FolderOpen as LoadIcon, RestartAlt as ResetIcon } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import { calculateTVC, calculateDesuperheating } from '@/lib/thermal';
 import type { DesuperheatingResult } from '@/lib/thermal';
@@ -21,11 +21,19 @@ export default function TVCClient() {
   const [sprayWaterTemperature, setSprayWaterTemperature] = useState<string>('25');
 
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const result = useMemo(() => {
-    setError(null);
+  const handleReset = () => {
+    setMotivePressure('');
+    setMotiveTemperature('');
+    setSuctionPressure('');
+    setDischargePressure('');
+    setFlowMode('entrained');
+    setFlowValue('');
+    setDesuperheatEnabled(false);
+    setSprayWaterTemperature('25');
+  };
 
+  const computed = useMemo(() => {
     try {
       const pm = parseFloat(motivePressure);
       const ps = parseFloat(suctionPressure);
@@ -37,19 +45,24 @@ export default function TVCClient() {
 
       const motiveTemp = parseFloat(motiveTemperature);
 
-      return calculateTVC({
-        motivePressure: pm,
-        suctionPressure: ps,
-        dischargePressure: pc,
-        motiveTemperature: isNaN(motiveTemp) ? undefined : motiveTemp,
-        entrainedFlow: flowMode === 'entrained' ? flow : undefined,
-        motiveFlow: flowMode === 'motive' ? flow : undefined,
-      });
+      return {
+        result: calculateTVC({
+          motivePressure: pm,
+          suctionPressure: ps,
+          dischargePressure: pc,
+          motiveTemperature: isNaN(motiveTemp) ? undefined : motiveTemp,
+          entrainedFlow: flowMode === 'entrained' ? flow : undefined,
+          motiveFlow: flowMode === 'motive' ? flow : undefined,
+        }),
+        error: null,
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calculation error');
-      return null;
+      return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [motivePressure, motiveTemperature, suctionPressure, dischargePressure, flowMode, flowValue]);
+
+  const result = computed?.result ?? null;
+  const error = computed?.error ?? null;
 
   const desuperheatingResult = useMemo((): DesuperheatingResult | null => {
     if (!result || !desuperheatEnabled) return null;
@@ -103,6 +116,9 @@ export default function TVCClient() {
         <Stack direction="row" spacing={1}>
           <Button startIcon={<LoadIcon />} size="small" onClick={() => setLoadDialogOpen(true)}>
             Load Saved
+          </Button>
+          <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+            Reset
           </Button>
         </Stack>
       </Box>

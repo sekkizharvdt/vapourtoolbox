@@ -35,6 +35,7 @@ import {
   FolderOpen as LoadIcon,
   Save as SaveIcon,
   Science as ScienceIcon,
+  RestartAlt as ResetIcon,
 } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
 import {
@@ -403,6 +404,21 @@ export default function FoulingScalingClient() {
 
   const calcResult = computedResult.result;
 
+  const handleReset = () => {
+    setFeedSalinity('35000');
+    setCalciumConcentration('420');
+    setSulfateConcentration('2700');
+    setBicarbonateAlkalinity('140');
+    setMagnesiumConcentration('1290');
+    setPH('8.1');
+    setTemperatureMin('40');
+    setTemperatureMax('75');
+    setTemperatureSteps('8');
+    setConcentrationFactor('1.5');
+    setAntiscalantDosed(false);
+    setAntiscalantEfficiency('85');
+  };
+
   // ── Standard seawater reset ─────────────────────────────────────────────────
 
   const handleUseStandardSeawater = () => {
@@ -468,14 +484,18 @@ export default function FoulingScalingClient() {
         CaSO&#x2084;, CaCO&#x2083;, and Mg(OH)&#x2082; scaling tendency analysis for thermal
         desalination (MED/MSF) design.
       </Typography>
-      <Button
-        startIcon={<LoadIcon />}
-        size="small"
-        onClick={() => setLoadOpen(true)}
-        sx={{ mt: 1, mb: 2 }}
-      >
-        Load Saved
-      </Button>
+      <Stack direction="row" spacing={1} sx={{ mt: 1, mb: 2 }}>
+        <Button
+          startIcon={<LoadIcon />}
+          size="small"
+          onClick={() => setLoadOpen(true)}
+        >
+          Load Saved
+        </Button>
+        <Button startIcon={<ResetIcon />} size="small" onClick={handleReset}>
+          Reset
+        </Button>
+      </Stack>
 
       <Grid container spacing={3}>
         {/* ── Left: Inputs ── */}
