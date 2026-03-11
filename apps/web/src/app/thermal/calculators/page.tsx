@@ -52,6 +52,7 @@ import {
   BarChart as GORIcon,
   Waves as FallingFilmIcon,
   Warning as ScalingIcon,
+  AccountTree as MEDPlantIcon,
   ArrowForward as ArrowForwardIcon,
   Search as SearchIcon,
   Close as CloseIcon,
@@ -288,6 +289,26 @@ const ALL_CALCULATORS: Calculator[] = [
     ],
   },
   {
+    title: 'MED Plant Heat & Mass Balance',
+    description:
+      'Full effect-by-effect heat and mass balance for Multi-Effect Distillation plants with preheater integration, final condenser sizing, and iterative GOR convergence.',
+    icon: <MEDPlantIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/calculators/med-plant',
+    status: 'available',
+    reference: 'El-Dessouky 2002',
+    keywords: [
+      'MED',
+      'multi-effect distillation',
+      'heat balance',
+      'mass balance',
+      'GOR',
+      'preheater',
+      'condenser',
+      'desalination plant',
+      'parallel feed',
+    ],
+  },
+  {
     title: 'Vacuum System Design',
     description:
       'Size liquid ring vacuum pumps (LRVP) and steam ejector trains to maintain vacuum against NCG load and leakage.',
@@ -394,6 +415,7 @@ const CATEGORIES: CalculatorCategory[] = [
     calculators: ALL_CALCULATORS.filter((c) =>
       [
         '/thermal/calculators/gor',
+        '/thermal/calculators/med-plant',
         '/thermal/calculators/vacuum-system',
         '/thermal/calculators/vacuum-breaker',
         '/thermal/calculators/chemical-dosing',

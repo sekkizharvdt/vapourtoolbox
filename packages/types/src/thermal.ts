@@ -526,7 +526,8 @@ export interface SavedCalculation {
     | 'FOULING_SCALING'
     | 'FALLING_FILM'
     | 'GOR'
-    | 'VACUUM_BREAKER';
+    | 'VACUUM_BREAKER'
+    | 'MED_PLANT';
   name: string;
   inputs: Record<string, unknown>;
   createdAt: Date;
@@ -559,3 +560,300 @@ export const PRESSURE_CONVERSIONS = {
   /** bar to mbar */
   BAR_TO_MBAR: 1000,
 } as const;
+
+// ============================================================================
+// MED Plant Design Types
+// ============================================================================
+
+/** MED plant type — the high-level configuration */
+export type MEDPlantType = 'MED' | 'MED_TVC';
+
+/** Feed arrangement through the effects */
+export type MEDFeedArrangement = 'PARALLEL' | 'FORWARD';
+
+/** Where condensate is extracted from the plant */
+export type CondensateExtraction = 'FINAL_CONDENSER' | 'FIRST_EFFECT';
+
+/** Tube material key for looking up thermal conductivity */
+export type TubeMaterial =
+  | 'titanium'
+  | 'al_brass'
+  | 'cu_ni_90_10'
+  | 'cu_ni_70_30'
+  | 'al_alloy'
+  | 'ss_316l'
+  | 'duplex_2205';
+
+/**
+ * A single stream in the H&M balance (vapor, brine, distillate, etc.)
+ */
+export interface MEDStream {
+  /** Stream label */
+  label: string;
+  /** Fluid type */
+  fluid: 'STEAM' | 'VAPOR' | 'BRINE' | 'SEAWATER' | 'DISTILLATE' | 'CONDENSATE' | 'VENT';
+  /** Mass flow in kg/hr */
+  flow: number;
+  /** Temperature in °C */
+  temperature: number;
+  /** Specific enthalpy in kJ/kg */
+  enthalpy: number;
+  /** Energy flow in kW ( = flow × enthalpy / 3600 ) */
+  energy: number;
+  /** Salinity in ppm (0 for pure water streams) */
+  salinity: number;
+}
+
+/**
+ * Preheater configuration — which effect supplies vapor and how much
+ */
+export interface PreheaterConfig {
+  /** The effect number whose vapor feeds this preheater (1-based) */
+  effectNumber: number;
+  /** Vapor flow diverted to preheater in kg/hr */
+  vaporFlow: number;
+}
+
+/**
+ * Tube specification for a class of equipment
+ */
+export interface TubeSpec {
+  /** Outer diameter in mm */
+  od: number;
+  /** Wall thickness in mm */
+  thickness: number;
+  /** Effective tube length in m (excluding tube sheets) */
+  length: number;
+  /** Tube material key */
+  material: TubeMaterial;
+}
+
+/**
+ * Complete input set for MED plant design
+ */
+export interface MEDPlantInputs {
+  // --- Plant configuration ---
+  /** Plant type */
+  plantType: MEDPlantType;
+  /** Feed arrangement */
+  feedArrangement: MEDFeedArrangement;
+  /** Number of evaporator effects (2–16) */
+  numberOfEffects: number;
+  /** Preheater configurations (can be empty) */
+  preheaters: PreheaterConfig[];
+
+  // --- Capacity ---
+  /** Net distillate capacity in T/h */
+  capacity: number;
+  /** Target GOR (informational — solver iterates steam flow to match capacity) */
+  gorTarget: number;
+
+  // --- Steam conditions ---
+  /** Motive steam pressure in bar abs */
+  steamPressure: number;
+  /** Motive steam temperature in °C (if superheated, else leave equal to Tsat) */
+  steamTemperature: number;
+
+  // --- Seawater conditions ---
+  /** Seawater intake temperature in °C */
+  seawaterInletTemp: number;
+  /** Maximum allowable discharge temperature in °C */
+  seawaterDischargeTemp: number;
+  /** Feed seawater salinity in ppm */
+  seawaterSalinity: number;
+
+  // --- Design parameters ---
+  /** Top brine temperature in °C */
+  topBrineTemp: number;
+  /** Brine concentration factor (feedSalinity × K = maxBrineSalinity) */
+  brineConcentrationFactor: number;
+  /** Approach temperature to final condenser in °C (Tcw_out - Tvapor_last) */
+  condenserApproachTemp: number;
+  /** Distillate output temperature in °C (after final condenser) */
+  distillateTemp: number;
+  /** Condensate extraction point */
+  condensateExtraction: CondensateExtraction;
+  /** Fouling factor for evaporator in m²·°C/W */
+  foulingFactor: number;
+
+  // --- Tube specs ---
+  /** Evaporator tube specification */
+  evaporatorTubes: TubeSpec;
+  /** Final condenser tube specification */
+  condenserTubes: TubeSpec;
+
+  // --- TVC parameters (only when plantType = 'MED_TVC') ---
+  /** Motive steam pressure for TVC in bar abs */
+  tvcMotivePressure?: number;
+  /** Effect from which vapor is entrained (1-based) */
+  tvcEntrainedEffect?: number;
+}
+
+/**
+ * Result for a single evaporator effect
+ */
+export interface MEDEffectResult {
+  /** Effect number (1 = hottest) */
+  effectNumber: number;
+  /** Effect operating temperature in °C (brine boiling temperature) */
+  temperature: number;
+  /** Saturation pressure at this temperature in bar abs */
+  pressure: number;
+  /** Boiling point elevation in °C */
+  bpe: number;
+  /** Non-equilibrium allowance in °C */
+  nea: number;
+  /** Temperature loss from demister/duct pressure drop in °C */
+  deltaTPressureDrop: number;
+  /** Net working ΔT for heat transfer in °C */
+  effectiveDeltaT: number;
+
+  // --- Streams ---
+  /** Vapor entering tube side (from previous effect or steam) */
+  vaporIn: MEDStream;
+  /** Feed water sprayed on shell side */
+  sprayWater: MEDStream;
+  /** Brine entering (only in forward feed, from previous effect) */
+  brineIn: MEDStream | null;
+  /** Distillate cascading in from previous effects */
+  distillateIn: MEDStream | null;
+  /** Condensate cascading in from previous effects */
+  condensateIn: MEDStream | null;
+  /** Vapor produced → next effect */
+  vaporOut: MEDStream;
+  /** Vapor diverted to preheater (if preheater on this effect) */
+  vaporToPreheater: MEDStream | null;
+  /** Brine leaving */
+  brineOut: MEDStream;
+  /** Accumulated distillate leaving */
+  distillateOut: MEDStream;
+
+  // --- Performance ---
+  /** Heat transferred in this effect in kW */
+  heatTransferred: number;
+  /** Mass balance error in kg/hr (should be ≈ 0) */
+  massBalance: number;
+}
+
+/**
+ * Result for the final condenser
+ */
+export interface MEDFinalCondenserResult {
+  /** Seawater in */
+  seawaterIn: MEDStream;
+  /** Vapor from last effect */
+  vaporIn: MEDStream;
+  /** Distillate entering (cascade from effects) */
+  distillateIn: MEDStream | null;
+  /** Condensate entering */
+  condensateIn: MEDStream | null;
+  /** Seawater out (heated) */
+  seawaterOut: MEDStream;
+  /** Distillate out (total product) */
+  distillateOut: MEDStream;
+  /** Condensate out */
+  condensateOut: MEDStream | null;
+  /** Vent out (NCG) */
+  ventOut: MEDStream;
+  /** Heat transferred in kW */
+  heatTransferred: number;
+  /** Mass balance error in kg/hr */
+  massBalance: number;
+}
+
+/**
+ * Result for a single preheater
+ */
+export interface MEDPreheaterResult {
+  /** Associated effect number */
+  effectNumber: number;
+  /** Vapor flow condensed in preheater in kg/hr */
+  vaporFlow: number;
+  /** Vapor inlet temperature in °C */
+  vaporTemperature: number;
+  /** Seawater flow through preheater in kg/hr */
+  seawaterFlow: number;
+  /** Seawater inlet temperature in °C */
+  seawaterInletTemp: number;
+  /** Seawater outlet temperature in °C */
+  seawaterOutletTemp: number;
+  /** Heat exchanged in kW */
+  heatExchanged: number;
+  /** LMTD in °C */
+  lmtd: number;
+  /** Condensate produced in kg/hr */
+  condensateFlow: number;
+  /** Condensate temperature in °C */
+  condensateTemperature: number;
+}
+
+/**
+ * Overall H&M balance summary
+ */
+export interface MEDOverallBalance {
+  /** All inlet streams */
+  totalIn: { seawater: MEDStream; steam: MEDStream };
+  /** All outlet streams */
+  totalOut: {
+    seawater: MEDStream;
+    condensate: MEDStream | null;
+    distillate: MEDStream;
+    brine: MEDStream;
+    vent: MEDStream;
+  };
+  /** Total energy in (kW) */
+  totalEnergyIn: number;
+  /** Total energy out (kW) */
+  totalEnergyOut: number;
+  /** Energy balance error (%) */
+  energyBalanceError: number;
+}
+
+/**
+ * Complete MED plant calculation result
+ */
+export interface MEDPlantResult {
+  /** Input parameters used */
+  inputs: MEDPlantInputs;
+  /** Per-effect results */
+  effects: MEDEffectResult[];
+  /** Final condenser result */
+  finalCondenser: MEDFinalCondenserResult;
+  /** Preheater results (may be empty) */
+  preheaters: MEDPreheaterResult[];
+  /** Overall plant balance */
+  overallBalance: MEDOverallBalance;
+  /** Performance summary */
+  performance: {
+    /** Gain Output Ratio */
+    gor: number;
+    /** Specific thermal energy in kJ/kg */
+    specificThermalEnergy: number;
+    /** Specific thermal energy in kWh/m³ */
+    specificThermalEnergy_kWh: number;
+    /** Gross production from effects only in T/h */
+    grossProduction: number;
+    /** Net production (effects + condenser) in T/h */
+    netProduction: number;
+    /** Steam flow in kg/hr */
+    steamFlow: number;
+    /** Total seawater intake in T/h */
+    seawaterIntake: number;
+    /** Cooling water (seawater rejected after condenser) in T/h */
+    coolingWater: number;
+    /** Makeup water (seawater used as feed) in T/h */
+    makeupWater: number;
+    /** Total brine flow in T/h */
+    brineFlow: number;
+    /** Brine salinity in ppm */
+    brineSalinity: number;
+    /** Overdesign fraction (e.g. 0.18 = 18%) */
+    overdesign: number;
+  };
+  /** Warnings and notes */
+  warnings: string[];
+  /** Whether the solver converged */
+  converged: boolean;
+  /** Number of iterations used */
+  iterations: number;
+}
