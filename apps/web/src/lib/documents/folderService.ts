@@ -114,23 +114,21 @@ export async function buildFolderTree(options: FolderTreeOptions): Promise<Folde
   const { db } = getFirebase();
 
   // 1. Fetch documents for this module
+  // Filter status != 'DELETED' client-side (rule #3: != excludes docs missing the field)
   const documentsRef = collection(db, COLLECTIONS.DOCUMENTS);
-  const constraints = [
-    where('module', '==', module),
-    where('status', '!=', 'DELETED'),
-    orderBy('status'),
-    orderBy('uploadedAt', 'desc'),
-  ];
+  const constraints = [where('module', '==', module), orderBy('uploadedAt', 'desc')];
 
   if (projectId) {
     constraints.push(where('projectId', '==', projectId));
   }
 
   const documentsSnapshot = await getDocs(query(documentsRef, ...constraints));
-  const documents: DocumentRecord[] = documentsSnapshot.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  })) as DocumentRecord[];
+  const documents: DocumentRecord[] = (
+    documentsSnapshot.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    })) as DocumentRecord[]
+  ).filter((d) => d.status !== 'DELETED');
 
   // 2. Fetch user-created folders for this module
   const foldersRef = collection(db, COLLECTIONS.DOCUMENT_FOLDERS);
@@ -552,24 +550,24 @@ export async function getDocumentsByFolder(
 
   const documentsRef = collection(db, COLLECTIONS.DOCUMENTS);
 
+  // Filter status client-side (rule #3: != excludes docs missing the field)
   let constraints;
   if (options?.includeSubfolders) {
-    // Get all docs with folder starting with this path
     constraints = [
       where('folder', '>=', folderPath),
       where('folder', '<', folderPath + '\uf8ff'),
-      where('status', '!=', 'DELETED'),
+      orderBy('folder'),
+      orderBy('uploadedAt', 'desc'),
     ];
   } else {
-    // Get only docs directly in this folder
-    constraints = [where('folder', '==', folderPath), where('status', '!=', 'DELETED')];
+    constraints = [where('folder', '==', folderPath), orderBy('uploadedAt', 'desc')];
   }
 
-  const snapshot = await getDocs(
-    query(documentsRef, ...constraints, orderBy('uploadedAt', 'desc'))
-  );
+  const snapshot = await getDocs(query(documentsRef, ...constraints));
 
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as DocumentRecord[];
+  return (snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as DocumentRecord[]).filter(
+    (d) => d.status !== 'DELETED'
+  );
 }
 
 /**

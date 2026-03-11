@@ -38,7 +38,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  LinearProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -68,7 +67,6 @@ import {
   getActiveDisciplineCodes,
 } from '@/lib/documents/documentNumberingService';
 import { downloadMDLAsCSV } from '@/lib/documents/exportMDL';
-import { formatDate } from '@/lib/utils/formatters';
 import { DocumentMetrics, type MetricFilter } from '@/app/documents/components/DocumentMetrics';
 import { QuickFilters } from '@/app/documents/components/QuickFilters';
 import { GroupedDocumentsTable } from '@/app/documents/components/GroupedDocumentsTable';
@@ -102,13 +100,6 @@ const STATUS_COLORS: Record<
   CANCELLED: 'error',
 };
 
-const PRIORITY_COLORS: Record<string, 'default' | 'info' | 'warning' | 'error'> = {
-  LOW: 'default',
-  MEDIUM: 'info',
-  HIGH: 'warning',
-  URGENT: 'error',
-};
-
 const STATUS_OPTIONS: { value: MasterDocumentStatus | ''; label: string }[] = [
   { value: '', label: 'All Statuses' },
   { value: 'DRAFT', label: 'Draft' },
@@ -119,14 +110,6 @@ const STATUS_OPTIONS: { value: MasterDocumentStatus | ''; label: string }[] = [
   { value: 'ACCEPTED', label: 'Accepted' },
   { value: 'ON_HOLD', label: 'On Hold' },
   { value: 'CANCELLED', label: 'Cancelled' },
-];
-
-const PRIORITY_OPTIONS = [
-  { value: '', label: 'All Priorities' },
-  { value: 'LOW', label: 'Low' },
-  { value: 'MEDIUM', label: 'Medium' },
-  { value: 'HIGH', label: 'High' },
-  { value: 'URGENT', label: 'Urgent' },
 ];
 
 interface MasterDocumentListTabProps {
@@ -150,7 +133,6 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<MasterDocumentStatus | ''>('');
   const [disciplineFilter, setDisciplineFilter] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState('');
   const [quickFilter, setQuickFilter] = useState<string | null>(null);
   const [metricFilter, setMetricFilter] = useState<MetricFilter | null>(null);
 
@@ -229,11 +211,6 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
       );
     }
 
-    // Priority filter
-    if (priorityFilter) {
-      result = result.filter((doc) => doc.priority === priorityFilter);
-    }
-
     // Quick filters
     if (quickFilter === 'my-docs' && user) {
       result = result.filter((doc) => doc.assignedTo.includes(user.uid));
@@ -271,7 +248,7 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
     }
 
     return result;
-  }, [documents, searchQuery, priorityFilter, quickFilter, metricFilter, user]);
+  }, [documents, searchQuery, quickFilter, metricFilter, user]);
 
   // Paginated documents
   const paginatedDocuments = useMemo(
@@ -302,7 +279,6 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
     setSearchQuery('');
     setStatusFilter('');
     setDisciplineFilter('');
-    setPriorityFilter('');
     setQuickFilter(null);
     setMetricFilter(null);
     setPage(0);
@@ -408,11 +384,7 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
 
       {/* Filter Bar */}
       <FilterBar
-        onClear={
-          searchQuery || statusFilter || disciplineFilter || priorityFilter
-            ? handleClearFilters
-            : undefined
-        }
+        onClear={searchQuery || statusFilter || disciplineFilter ? handleClearFilters : undefined}
       >
         <TextField
           size="small"
@@ -460,24 +432,6 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
             {disciplines.map((disc) => (
               <MenuItem key={disc.code} value={disc.code}>
                 {disc.code} - {disc.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <FormControl size="small" sx={{ minWidth: 130 }}>
-          <InputLabel>Priority</InputLabel>
-          <Select
-            value={priorityFilter}
-            label="Priority"
-            onChange={(e) => {
-              setPriorityFilter(e.target.value);
-              setPage(0);
-            }}
-          >
-            {PRIORITY_OPTIONS.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
               </MenuItem>
             ))}
           </Select>
@@ -558,118 +512,74 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
                   <TableCell>Rev</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Assigned To</TableCell>
-                  <TableCell>Due Date</TableCell>
-                  <TableCell>Priority</TableCell>
-                  <TableCell align="center">Progress</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {paginatedDocuments.map((doc) => {
-                  const isOverdue = (() => {
-                    if (!doc.dueDate || doc.status === 'ACCEPTED' || doc.status === 'CANCELLED')
-                      return false;
-                    const dueDate =
-                      doc.dueDate && typeof doc.dueDate === 'object' && 'seconds' in doc.dueDate
-                        ? new Date((doc.dueDate as { seconds: number }).seconds * 1000)
-                        : null;
-                    return dueDate ? dueDate < new Date() : false;
-                  })();
-
-                  return (
-                    <TableRow
-                      key={doc.id}
-                      hover
-                      sx={{ cursor: 'pointer' }}
-                      onClick={() => handleRowClick(doc)}
-                    >
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium" noWrap>
-                          {doc.documentNumber}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" noWrap sx={{ maxWidth: 250 }}>
-                          {doc.documentTitle}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary">
-                          {doc.documentType || '-'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip label={doc.currentRevision} size="small" variant="outlined" />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={doc.status.replace(/_/g, ' ')}
-                          size="small"
-                          color={STATUS_COLORS[doc.status] || 'default'}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" noWrap sx={{ maxWidth: 150 }}>
-                          {doc.assignedToNames?.length > 0 ? doc.assignedToNames.join(', ') : '-'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography
-                          variant="body2"
-                          color={isOverdue ? 'error.main' : 'text.primary'}
-                          fontWeight={isOverdue ? 600 : 400}
-                        >
-                          {formatDate(doc.dueDate)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={doc.priority}
-                          size="small"
-                          color={PRIORITY_COLORS[doc.priority] || 'default'}
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Stack alignItems="center" spacing={0.5}>
-                          <LinearProgress
-                            variant="determinate"
-                            value={doc.progressPercentage ?? 0}
-                            sx={{ width: 60, height: 6, borderRadius: 3 }}
-                          />
-                          <Typography variant="caption" color="text.secondary">
-                            {doc.progressPercentage ?? 0}%
-                          </Typography>
-                        </Stack>
-                      </TableCell>
-                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                        <TableActionCell
-                          actions={[
-                            {
-                              icon: <ViewIcon fontSize="small" />,
-                              label: 'View Details',
-                              onClick: () => handleRowClick(doc),
-                            },
-                            {
-                              icon: <EditIcon fontSize="small" />,
-                              label: 'Edit',
-                              onClick: () => setEditDocument(doc),
-                              show: hasManageAccess,
-                            },
-                            {
-                              icon: <DeleteIcon fontSize="small" />,
-                              label: 'Delete',
-                              onClick: () => setDeleteDocument(doc),
-                              show: hasManageAccess,
-                              color: 'error',
-                              disabled: doc.status === 'ACCEPTED' || doc.status === 'CANCELLED',
-                            },
-                          ]}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {paginatedDocuments.map((doc) => (
+                  <TableRow
+                    key={doc.id}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => handleRowClick(doc)}
+                  >
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="medium" noWrap>
+                        {doc.documentNumber}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" noWrap sx={{ maxWidth: 250 }}>
+                        {doc.documentTitle}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {doc.documentType || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={doc.currentRevision} size="small" variant="outlined" />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={doc.status.replace(/_/g, ' ')}
+                        size="small"
+                        color={STATUS_COLORS[doc.status] || 'default'}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" noWrap sx={{ maxWidth: 150 }}>
+                        {doc.assignedToNames?.length > 0 ? doc.assignedToNames.join(', ') : '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      <TableActionCell
+                        actions={[
+                          {
+                            icon: <ViewIcon fontSize="small" />,
+                            label: 'View Details',
+                            onClick: () => handleRowClick(doc),
+                          },
+                          {
+                            icon: <EditIcon fontSize="small" />,
+                            label: 'Edit',
+                            onClick: () => setEditDocument(doc),
+                            show: hasManageAccess,
+                          },
+                          {
+                            icon: <DeleteIcon fontSize="small" />,
+                            label: 'Delete',
+                            onClick: () => setDeleteDocument(doc),
+                            show: hasManageAccess,
+                            color: 'error',
+                            disabled: doc.status === 'ACCEPTED' || doc.status === 'CANCELLED',
+                          },
+                        ]}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </TableContainer>
