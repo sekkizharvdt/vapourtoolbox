@@ -117,15 +117,16 @@ export default function DocumentOverview({ document }: DocumentOverviewProps) {
               <Typography variant="caption" color="text.secondary">
                 Assigned To
               </Typography>
-              <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
-                {document.assignedTo.length > 0 ? (
-                  document.assignedTo.map((userId, index) => (
-                    <Chip
-                      key={userId}
-                      label={document.assignedToNames[index] || userId}
-                      size="small"
-                    />
+              <Stack direction="row" spacing={1} sx={{ mt: 0.5, flexWrap: 'wrap' }}>
+                {document.assignedToNames?.length > 0 ? (
+                  document.assignedToNames.map((name, index) => (
+                    <Chip key={index} label={name} size="small" />
                   ))
+                ) : document.assignedTo?.length > 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    {document.assignedTo.length} user{document.assignedTo.length > 1 ? 's' : ''}{' '}
+                    assigned
+                  </Typography>
                 ) : (
                   <Typography variant="body2">Not assigned</Typography>
                 )}

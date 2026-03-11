@@ -7,7 +7,7 @@ import { getFirebase } from '@/lib/firebase';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { Project } from '@vapour/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewProjects } from '@vapour/constants';
+import { canViewProjects, canManageProjects } from '@vapour/constants';
 
 interface UseProjectPageResult {
   project: Project | null;
@@ -23,7 +23,7 @@ interface UseProjectPageResult {
  */
 export function useProjectPage(pathSegment: string): UseProjectPageResult {
   const pathname = usePathname();
-  const { claims } = useAuth();
+  const { user, claims } = useAuth();
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,6 +32,7 @@ export function useProjectPage(pathSegment: string): UseProjectPageResult {
 
   // Check permissions
   const hasViewAccess = claims?.permissions ? canViewProjects(claims.permissions) : false;
+  const hasManageAccess = claims?.permissions ? canManageProjects(claims.permissions) : false;
 
   // Handle static export - extract actual ID from pathname on client side
   useEffect(() => {
@@ -66,6 +67,20 @@ export function useProjectPage(pathSegment: string): UseProjectPageResult {
         }
 
         const projectData = projectSnap.data();
+
+        // Team membership check: only PM, active team members, or admins can access
+        const uid = user?.uid;
+        if (!hasManageAccess && uid) {
+          const isPM = projectData.projectManager?.userId === uid;
+          const isTeamMember = projectData.team?.some(
+            (m: { userId: string; isActive: boolean }) => m.userId === uid && m.isActive
+          );
+          if (!isPM && !isTeamMember) {
+            setError('You do not have access to this project');
+            return;
+          }
+        }
+
         setProject({
           id: projectSnap.id,
           ...projectData,
@@ -88,7 +103,7 @@ export function useProjectPage(pathSegment: string): UseProjectPageResult {
     };
 
     loadProject();
-  }, [projectId, hasViewAccess, pathSegment]);
+  }, [projectId, hasViewAccess, hasManageAccess, user?.uid, pathSegment]);
 
   return {
     project,

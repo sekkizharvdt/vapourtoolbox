@@ -694,6 +694,7 @@ export default function MasterDocumentListTab({ project }: MasterDocumentListTab
         onClose={() => setCreateDialogOpen(false)}
         projectId={project.id}
         projectCode={project.code}
+        teamMembers={project.team}
         onDocumentCreated={() => {
           setCreateDialogOpen(false);
           handleRefresh();

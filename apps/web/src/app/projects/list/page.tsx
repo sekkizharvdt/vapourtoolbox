@@ -79,7 +79,7 @@ const DeleteProjectDialog = dynamic(
 );
 
 export default function ProjectsListPage() {
-  const { claims } = useAuth();
+  const { user, claims } = useAuth();
   const router = useRouter();
 
   // Filters
@@ -99,6 +99,11 @@ export default function ProjectsListPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
+  // Check permissions (must be before useMemo that references hasManagePermission)
+  const permissions = claims?.permissions || 0;
+  const hasViewPermission = canViewProjects(permissions);
+  const hasManagePermission = canManageProjects(permissions);
+
   // Pagination state
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
@@ -115,7 +120,17 @@ export default function ProjectsListPage() {
     [db]
   );
 
-  const { data: projects, loading, error } = useFirestoreQuery<Project>(projectsQuery);
+  const { data: allProjects, loading, error } = useFirestoreQuery<Project>(projectsQuery);
+
+  // Access-scoped projects: admins see all, others see only their projects
+  const projects = useMemo(() => {
+    if (hasManagePermission) return allProjects;
+    const uid = user?.uid;
+    if (!uid) return [];
+    return allProjects.filter(
+      (p) => p.projectManager?.userId === uid || p.team?.some((m) => m.userId === uid && m.isActive)
+    );
+  }, [allProjects, hasManagePermission, user?.uid]);
 
   // Client-side filtering and sorting
   const filteredAndSortedProjects = projects
@@ -191,11 +206,6 @@ export default function ProjectsListPage() {
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
   );
-
-  // Check permissions
-  const permissions = claims?.permissions || 0;
-  const hasViewPermission = canViewProjects(permissions);
-  const hasManagePermission = canManageProjects(permissions);
 
   // User must at least be able to view projects
   if (!hasViewPermission) {

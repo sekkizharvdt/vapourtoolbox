@@ -44,6 +44,8 @@ interface EditDocumentDialogProps {
   onUpdate: () => void;
 }
 
+/* eslint-disable react-hooks/exhaustive-deps -- open is intentionally included to re-sync state */
+
 const STATUS_LABELS: Record<MasterDocumentStatus, { label: string; description: string }> = {
   DRAFT: { label: 'Draft', description: 'Initial state - not yet started' },
   IN_PROGRESS: { label: 'In Progress', description: 'User working on document' },
@@ -90,8 +92,9 @@ export default function EditDocumentDialog({
     ...masterDocumentStateMachine.getAvailableTransitions(document.status),
   ];
 
-  // Reset form when document changes
+  // Reset form when document changes or dialog reopens
   useEffect(() => {
+    if (!open) return;
     setDocumentTitle(document.documentTitle);
     setDisciplineCode(document.disciplineCode);
     setSubCode(document.subCode || '');
@@ -99,6 +102,7 @@ export default function EditDocumentDialog({
     setPriority(document.priority || 'MEDIUM');
     setClientVisible(document.visibility === 'CLIENT_VISIBLE');
     setStatus(document.status);
+    setError(null);
     // Handle dueDate
     const raw = document.dueDate as unknown;
     if (!raw) {
@@ -110,7 +114,7 @@ export default function EditDocumentDialog({
     } else {
       setDueDate(null);
     }
-  }, [document]);
+  }, [open, document]);
 
   const handleSave = async () => {
     if (!documentTitle.trim()) {

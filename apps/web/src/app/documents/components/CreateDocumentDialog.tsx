@@ -21,9 +21,11 @@ import {
   MenuItem,
   Typography,
   Alert,
+  Autocomplete,
+  Chip,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import type { DisciplineCode } from '@vapour/types';
+import type { DisciplineCode, ProjectMember } from '@vapour/types';
 import { createMasterDocument } from '@/lib/documents/masterDocumentService';
 import {
   getActiveDisciplineCodes,
@@ -39,6 +41,7 @@ interface CreateDocumentDialogProps {
   onClose: () => void;
   projectId: string;
   projectCode?: string;
+  teamMembers?: ProjectMember[];
   onDocumentCreated: () => void;
 }
 
@@ -47,6 +50,7 @@ export default function CreateDocumentDialog({
   onClose,
   projectId,
   projectCode: projectCodeProp,
+  teamMembers = [],
   onDocumentCreated,
 }: CreateDocumentDialogProps) {
   const { user } = useAuth();
@@ -61,11 +65,9 @@ export default function CreateDocumentDialog({
   const [subCode, setSubCode] = useState('');
   const [documentType, setDocumentType] = useState('');
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
-  const [visibility, setVisibility] = useState<'CLIENT_VISIBLE' | 'INTERNAL_ONLY'>(
-    'CLIENT_VISIBLE'
-  );
+  const [visibility, setVisibility] = useState<'CLIENT_VISIBLE' | 'INTERNAL_ONLY'>('INTERNAL_ONLY');
   const [dueDate, setDueDate] = useState<Date | null>(null);
-  const [assignedTo, setAssignedTo] = useState<string[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<ProjectMember[]>([]);
 
   // Discipline codes & numbering config
   const [disciplines, setDisciplines] = useState<DisciplineCode[]>([]);
@@ -177,6 +179,8 @@ export default function CreateDocumentDialog({
 
       // Create master document
       const now = Timestamp.now();
+      const assignedTo = selectedMembers.map((m) => m.userId);
+      const assignedToNames = selectedMembers.map((m) => m.userName);
       await createMasterDocument({
         projectId,
         projectCode,
@@ -194,7 +198,7 @@ export default function CreateDocumentDialog({
         successors: [],
         relatedDocuments: [],
         assignedTo,
-        assignedToNames: [],
+        assignedToNames,
         assignedBy: user.uid,
         assignedByName: user.displayName || user.email || 'Unknown',
         assignedDate: now,
@@ -236,9 +240,9 @@ export default function CreateDocumentDialog({
     setSubCode('');
     setDocumentType('');
     setPriority('MEDIUM');
-    setVisibility('CLIENT_VISIBLE');
+    setVisibility('INTERNAL_ONLY');
     setDueDate(null);
-    setAssignedTo([]);
+    setSelectedMembers([]);
     setPreviewNumber('');
     setError(null);
   };
@@ -382,9 +386,34 @@ export default function CreateDocumentDialog({
             </Select>
           </FormControl>
 
-          {/* Due Date */}
+          {/* Assigned To */}
+          {teamMembers.length > 0 && (
+            <Autocomplete
+              multiple
+              options={teamMembers.filter((m) => m.isActive)}
+              getOptionLabel={(option) => option.userName}
+              value={selectedMembers}
+              onChange={(_e, value) => setSelectedMembers(value)}
+              isOptionEqualToValue={(option, value) => option.userId === value.userId}
+              renderTags={(value, getTagProps) =>
+                value.map((member, index) => (
+                  <Chip
+                    label={member.userName}
+                    size="small"
+                    {...getTagProps({ index })}
+                    key={member.userId}
+                  />
+                ))
+              }
+              renderInput={(params) => (
+                <TextField {...params} label="Assign To" placeholder="Select team members" />
+              )}
+            />
+          )}
+
+          {/* Due Date (optional) */}
           <DatePicker
-            label="Due Date"
+            label="Due Date (Optional)"
             value={dueDate}
             onChange={(newValue) => setDueDate(newValue as Date | null)}
             format="dd/MM/yyyy"
