@@ -48,6 +48,7 @@ import {
   Opacity as SprayIcon,
   BubbleChart as NCGIcon,
   BlurOn as VacuumIcon,
+  AirlineSeatFlat as VacuumBreakerIcon,
   BarChart as GORIcon,
   Waves as FallingFilmIcon,
   Warning as ScalingIcon,
@@ -277,7 +278,14 @@ const ALL_CALCULATORS: Calculator[] = [
     href: '/thermal/calculators/gor',
     status: 'available',
     reference: 'El-Dessouky 2002',
-    keywords: ['GOR', 'gain output ratio', 'MED', 'effects', 'temperature profile', 'specific energy'],
+    keywords: [
+      'GOR',
+      'gain output ratio',
+      'MED',
+      'effects',
+      'temperature profile',
+      'specific energy',
+    ],
   },
   {
     title: 'Vacuum System Design',
@@ -298,6 +306,23 @@ const ALL_CALCULATORS: Calculator[] = [
     status: 'available',
     reference: 'Mass Balance',
     keywords: ['antiscalant', 'anti-foam', 'Belgard', 'Belite', 'dosing', 'storage tank'],
+  },
+  {
+    title: 'Vacuum Breaker Sizing',
+    description:
+      'Size vacuum breaker valves for MED thermal desalination plants using compressible flow theory based on HEI surface condenser methodology.',
+    icon: <VacuumBreakerIcon sx={{ fontSize: 40 }} />,
+    href: '/thermal/calculators/vacuum-breaker',
+    status: 'available',
+    reference: 'HEI / ISO 9300',
+    keywords: [
+      'vacuum breaker',
+      'air admission',
+      'pressure equalization',
+      'MED',
+      'orifice',
+      'valve sizing',
+    ],
   },
   {
     title: 'Spray Nozzle Selection',
@@ -323,14 +348,23 @@ const CATEGORIES: CalculatorCategory[] = [
     title: 'Properties & Lookups',
     description: 'Thermophysical property tables — no design decisions, just data.',
     calculators: ALL_CALCULATORS.filter((c) =>
-      ['/thermal/calculators/steam-tables', '/thermal/calculators/seawater-properties', '/thermal/calculators/ncg-properties'].includes(c.href)
+      [
+        '/thermal/calculators/steam-tables',
+        '/thermal/calculators/seawater-properties',
+        '/thermal/calculators/ncg-properties',
+      ].includes(c.href)
     ),
   },
   {
     title: 'Heat Exchange & Thermal',
     description: 'Heat transfer surfaces, thermal performance, and fouling.',
     calculators: ALL_CALCULATORS.filter((c) =>
-      ['/thermal/calculators/heat-exchanger', '/thermal/calculators/falling-film', '/thermal/calculators/desuperheating', '/thermal/calculators/fouling-scaling'].includes(c.href)
+      [
+        '/thermal/calculators/heat-exchanger',
+        '/thermal/calculators/falling-film',
+        '/thermal/calculators/desuperheating',
+        '/thermal/calculators/fouling-scaling',
+      ].includes(c.href)
     ),
   },
   {
@@ -344,14 +378,27 @@ const CATEGORIES: CalculatorCategory[] = [
     title: 'Fluid Systems & Equipment',
     description: 'Piping, pumps, and flow-related equipment sizing.',
     calculators: ALL_CALCULATORS.filter((c) =>
-      ['/thermal/calculators/pipe-sizing', '/thermal/calculators/pressure-drop', '/thermal/calculators/pump-sizing', '/thermal/calculators/npsha', '/thermal/calculators/siphon-sizing', '/thermal/calculators/demister'].includes(c.href)
+      [
+        '/thermal/calculators/pipe-sizing',
+        '/thermal/calculators/pressure-drop',
+        '/thermal/calculators/pump-sizing',
+        '/thermal/calculators/npsha',
+        '/thermal/calculators/siphon-sizing',
+        '/thermal/calculators/demister',
+      ].includes(c.href)
     ),
   },
   {
     title: 'Plant Design & Auxiliaries',
     description: 'Plant-level performance, vacuum systems, chemistry, and spray nozzles.',
     calculators: ALL_CALCULATORS.filter((c) =>
-      ['/thermal/calculators/gor', '/thermal/calculators/vacuum-system', '/thermal/calculators/chemical-dosing', '/thermal/calculators/spray-nozzle'].includes(c.href)
+      [
+        '/thermal/calculators/gor',
+        '/thermal/calculators/vacuum-system',
+        '/thermal/calculators/vacuum-breaker',
+        '/thermal/calculators/chemical-dosing',
+        '/thermal/calculators/spray-nozzle',
+      ].includes(c.href)
     ),
   },
 ];
@@ -374,7 +421,13 @@ function matchesSearch(calc: Calculator, query: string): boolean {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function CalculatorCard({ calc, onNavigate }: { calc: Calculator; onNavigate: (href: string) => void }) {
+function CalculatorCard({
+  calc,
+  onNavigate,
+}: {
+  calc: Calculator;
+  onNavigate: (href: string) => void;
+}) {
   return (
     <Card
       sx={{
@@ -424,7 +477,13 @@ function CalculatorCard({ calc, onNavigate }: { calc: Calculator; onNavigate: (h
   );
 }
 
-function CalculatorListItem({ calc, onNavigate }: { calc: Calculator; onNavigate: (href: string) => void }) {
+function CalculatorListItem({
+  calc,
+  onNavigate,
+}: {
+  calc: Calculator;
+  onNavigate: (href: string) => void;
+}) {
   const router = useRouter();
   return (
     <ListItemButton
@@ -434,15 +493,19 @@ function CalculatorListItem({ calc, onNavigate }: { calc: Calculator; onNavigate
       }}
       sx={{ borderRadius: 1, mb: 0.5 }}
     >
-      <ListItemIcon sx={{ color: 'primary.main', minWidth: 44 }}>
-        {calc.icon}
-      </ListItemIcon>
+      <ListItemIcon sx={{ color: 'primary.main', minWidth: 44 }}>{calc.icon}</ListItemIcon>
       <ListItemText
         primary={
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="subtitle2">{calc.title}</Typography>
             {calc.reference && (
-              <Chip label={calc.reference} size="small" variant="outlined" color="primary" sx={{ height: 20, fontSize: '0.7rem' }} />
+              <Chip
+                label={calc.reference}
+                size="small"
+                variant="outlined"
+                color="primary"
+                sx={{ height: 20, fontSize: '0.7rem' }}
+              />
             )}
           </Stack>
         }
@@ -476,7 +539,7 @@ export default function ThermalCalculatorsPage() {
   // Recently used calculators (resolved from hrefs)
   const recentCalcs = useMemo(
     () => recentHrefs.map((h) => CALC_BY_HREF.get(h)).filter(Boolean) as Calculator[],
-    [recentHrefs],
+    [recentHrefs]
   );
 
   // Filtered categories

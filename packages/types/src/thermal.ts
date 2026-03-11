@@ -525,7 +525,8 @@ export interface SavedCalculation {
     | 'PUMP_SIZING'
     | 'FOULING_SCALING'
     | 'FALLING_FILM'
-    | 'GOR';
+    | 'GOR'
+    | 'VACUUM_BREAKER';
   name: string;
   inputs: Record<string, unknown>;
   createdAt: Date;

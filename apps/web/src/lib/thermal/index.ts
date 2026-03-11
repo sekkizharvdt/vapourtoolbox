@@ -303,6 +303,19 @@ export type {
   IterativeHXResult,
 } from './iterativeHXDesign.types';
 
+// Vacuum Breaker Sizing
+export {
+  calculateVacuumBreaker,
+  STANDARD_DN_SIZES,
+  VALVE_TYPE_LABELS as VB_VALVE_TYPE_LABELS,
+  VALVE_CD as VB_VALVE_CD,
+  type ValveType as VBValveType,
+  type DNValveSize,
+  type VacuumBreakerInput,
+  type VacuumBreakerResult,
+  type TimeStep,
+} from './vacuumBreakerCalculator';
+
 // Heat Exchanger Sizing
 export {
   sizeHeatExchanger,
