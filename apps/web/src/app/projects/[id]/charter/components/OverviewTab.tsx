@@ -226,7 +226,7 @@ export function OverviewTab({ project }: OverviewTabProps) {
                         primary="Authorization Status"
                         secondary={
                           <Chip
-                            label={project.charter.authorization.approvalStatus}
+                            label={project.charter?.authorization?.approvalStatus ?? 'DRAFT'}
                             size="small"
                             color={charterApproved ? 'success' : 'warning'}
                           />
@@ -237,7 +237,7 @@ export function OverviewTab({ project }: OverviewTabProps) {
                     <ListItem>
                       <ListItemText
                         primary="Sponsor"
-                        secondary={project.charter.authorization.sponsorName}
+                        secondary={project.charter?.authorization?.sponsorName ?? 'Not set'}
                         primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
                         secondaryTypographyProps={{ variant: 'body1' }}
                       />

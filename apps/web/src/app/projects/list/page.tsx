@@ -416,7 +416,7 @@ export default function ProjectsListPage() {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">{project.client.entityName}</Typography>
+                      <Typography variant="body2">{project.client?.entityName}</Typography>
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -433,7 +433,7 @@ export default function ProjectsListPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">{project.projectManager.userName}</Typography>
+                      <Typography variant="body2">{project.projectManager?.userName}</Typography>
                     </TableCell>
                     <TableCell align="center">
                       <Typography variant="body2">{project.team?.length || 0}</Typography>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -50,6 +50,17 @@ export function ObjectiveFormDialog({
     objective?.successCriteria || []
   );
   const [newCriterion, setNewCriterion] = useState('');
+
+  // Sync state when dialog reopens for a different objective (rule 14b)
+  useEffect(() => {
+    if (open) {
+      setDescription(objective?.description || '');
+      setPriority(objective?.priority || 'MEDIUM');
+      setStatus(objective?.status || 'NOT_STARTED');
+      setSuccessCriteria(objective?.successCriteria || []);
+      setNewCriterion('');
+    }
+  }, [open, objective]);
 
   const handleAddCriterion = () => {
     if (newCriterion.trim()) {

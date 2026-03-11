@@ -444,5 +444,67 @@ describe('Budget Calculation Service', () => {
       expect(result.get('item-1')?.transactionCount).toBe(3);
       expect(result.get('item-2')?.transactionCount).toBe(2);
     });
+
+    it('should skip soft-deleted transactions (isDeleted: true)', async () => {
+      const mockDocs = [
+        {
+          id: 'txn-1',
+          data: () => ({
+            budgetLineItemId: 'budget-item-1',
+            totalAmount: 1000,
+          }),
+        },
+        {
+          id: 'txn-2',
+          data: () => ({
+            budgetLineItemId: 'budget-item-1',
+            totalAmount: 500,
+            isDeleted: true,
+          }),
+        },
+        {
+          id: 'txn-3',
+          data: () => ({
+            budgetLineItemId: 'budget-item-1',
+            totalAmount: 300,
+            isDeleted: false,
+          }),
+        },
+      ];
+
+      mockGetDocs.mockResolvedValue({
+        forEach: (cb: (doc: unknown) => void) => mockDocs.forEach(cb),
+        size: mockDocs.length,
+      });
+
+      const result = await calculateProjectBudgetActualCosts(mockDb, projectId);
+
+      // txn-2 (isDeleted: true) excluded → 1000 + 300 = 1300
+      expect(result.get('budget-item-1')?.actualCost).toBe(1300);
+      expect(result.get('budget-item-1')?.transactionCount).toBe(2);
+    });
+
+    it('should skip soft-deleted transactions in calculateBudgetLineItemActualCost', async () => {
+      const mockDocs = [
+        {
+          id: 'txn-1',
+          data: () => ({ totalAmount: 1000 }),
+        },
+        {
+          id: 'txn-2',
+          data: () => ({ totalAmount: 500, isDeleted: true }),
+        },
+      ];
+
+      mockGetDocs.mockResolvedValue({
+        forEach: (cb: (doc: unknown) => void) => mockDocs.forEach(cb),
+        size: mockDocs.length,
+      });
+
+      const result = await calculateBudgetLineItemActualCost(mockDb, projectId, 'budget-item-1');
+
+      // Only txn-1 counted
+      expect(result).toBe(1000);
+    });
   });
 });

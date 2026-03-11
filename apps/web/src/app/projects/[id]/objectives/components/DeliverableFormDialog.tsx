@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -49,6 +49,18 @@ export function DeliverableFormDialog({
     deliverable?.acceptanceCriteria || []
   );
   const [newCriterion, setNewCriterion] = useState('');
+
+  // Sync state when dialog reopens for a different deliverable (rule 14b)
+  useEffect(() => {
+    if (open) {
+      setName(deliverable?.name || '');
+      setDescription(deliverable?.description || '');
+      setType(deliverable?.type || 'DOCUMENT');
+      setStatus(deliverable?.status || 'PENDING');
+      setAcceptanceCriteria(deliverable?.acceptanceCriteria || []);
+      setNewCriterion('');
+    }
+  }, [open, deliverable]);
 
   const handleAddCriterion = () => {
     if (newCriterion.trim()) {

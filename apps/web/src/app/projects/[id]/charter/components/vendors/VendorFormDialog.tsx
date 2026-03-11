@@ -75,7 +75,7 @@ export function VendorFormDialog({
                   </MenuItem>
                   {vendorEntities.map((entity) => (
                     <MenuItem key={entity.id} value={entity.id}>
-                      {entity.name} - {entity.billingAddress.city}
+                      {entity.name} - {entity.billingAddress?.city ?? ''}
                     </MenuItem>
                   ))}
                 </Select>
