@@ -123,9 +123,9 @@ export const MODE_LABELS: Record<CalculationMode, string> = {
 
 export interface TimeStep {
   time: number; // seconds
-  pressure: number; // kPa abs
+  pressure: number; // mbar abs
   massFlowRate: number; // kg/s
-  pressureRiseRate: number; // kPa/s
+  pressureRiseRate: number; // mbar/s
   regime: 'choked' | 'subsonic';
 }
 
@@ -136,7 +136,7 @@ export interface TimeStep {
 interface BaseInput {
   totalVolume: number; // m³
   numberOfBreakers: number;
-  operatingPressureKPa: number; // lowest operating vacuum pressure (kPa abs)
+  operatingPressureMbar: number; // lowest operating vacuum pressure (mbar abs)
   ambientTemperature: number; // °C
 }
 
@@ -155,7 +155,7 @@ export interface DiaphragmAnalysisInput extends BaseInput {
 export interface DiaphragmDesignInput extends BaseInput {
   mode: 'DIAPHRAGM_DESIGN';
   burstPressureMbar: number;
-  maxPressureRiseRate: number; // kPa/s — limit to protect tubes
+  maxPressureRiseRate: number; // mbar/s — limit to protect tubes
 }
 
 export type VacuumBreakerInput = ManualValveInput | DiaphragmAnalysisInput | DiaphragmDesignInput;
@@ -171,12 +171,12 @@ interface BaseResult {
   numberOfBreakers: number;
   dischargeCoefficient: number;
   criticalPressureRatio: number;
-  transitionPressureKPa: number;
+  transitionPressureMbar: number;
   chokedFluxPerCd: number; // kg/(s·m²)
   selectedValve: DNValveSize;
   pressureProfile: TimeStep[];
   equalizationTimeSec: number; // actual time to reach ~99% atmospheric
-  peakPressureRiseRate: number; // kPa/s — max dP/dt in the profile
+  peakPressureRiseRate: number; // mbar/s — max dP/dt in the profile
   warnings: string[];
 }
 
@@ -196,7 +196,7 @@ export interface DiaphragmAnalysisResult extends BaseResult {
 export interface DiaphragmDesignResult extends BaseResult {
   mode: 'DIAPHRAGM_DESIGN';
   burstPressureMbar: number;
-  maxAllowedRiseRate: number; // kPa/s (the constraint)
+  maxAllowedRiseRate: number; // mbar/s (the constraint)
 }
 
 export type VacuumBreakerResult =
@@ -249,7 +249,7 @@ function simulate(
     }
 
     const mdot = Cd * areaM2 * massFlux;
-    const riseRate = (mdot * R_AIR * T1) / (volumePerBreaker * 1000); // kPa/s
+    const riseRate = (mdot * R_AIR * T1) / (volumePerBreaker * 100); // mbar/s
 
     if (riseRate > peakRiseRate) peakRiseRate = riseRate;
 
@@ -257,7 +257,7 @@ function simulate(
     if (i % 10 === 0 || i === NUM_STEPS) {
       profile.push({
         time: Math.round(t * 10) / 10,
-        pressure: Math.round((P2 / 1000) * 100) / 100,
+        pressure: Math.round((P2 / 100) * 100) / 100, // Pa → mbar
         massFlowRate: Math.round(mdot * 10000) / 10000,
         pressureRiseRate: Math.round(riseRate * 1000) / 1000,
         regime,
@@ -285,9 +285,9 @@ function simulate(
 function validateBase(input: BaseInput) {
   if (input.totalVolume <= 0) throw new Error('Total volume must be positive');
   if (input.numberOfBreakers < 1) throw new Error('Number of breakers must be at least 1');
-  if (input.operatingPressureKPa <= 0) throw new Error('Operating pressure must be positive');
-  if (input.operatingPressureKPa >= 101.325)
-    throw new Error('Operating pressure must be below atmospheric (101.325 kPa)');
+  if (input.operatingPressureMbar <= 0) throw new Error('Operating pressure must be positive');
+  if (input.operatingPressureMbar >= 1013.25)
+    throw new Error('Operating pressure must be below atmospheric (1013.25 mbar)');
   if (input.ambientTemperature < -20 || input.ambientTemperature > 60)
     throw new Error('Ambient temperature must be between -20°C and 60°C');
 }
@@ -296,9 +296,9 @@ function deriveBase(input: BaseInput) {
   const volumePerBreaker = input.totalVolume / input.numberOfBreakers;
   const T1 = input.ambientTemperature + 273.15;
   const P1 = P_ATM;
-  const P2_initial = input.operatingPressureKPa * 1000;
+  const P2_initial = input.operatingPressureMbar * 100; // mbar → Pa
   const airMassRequired = ((P1 - P2_initial) * volumePerBreaker) / (R_AIR * T1);
-  const transitionPressureKPa = Math.round((CRITICAL_RATIO * P1) / 10) / 100;
+  const transitionPressureMbar = Math.round(CRITICAL_RATIO * P1) / 100; // Pa → mbar
   const chokedFlux = chokedMassFlux(P1, T1);
   return {
     volumePerBreaker,
@@ -306,7 +306,7 @@ function deriveBase(input: BaseInput) {
     P1,
     P2_initial,
     airMassRequired,
-    transitionPressureKPa,
+    transitionPressureMbar,
     chokedFlux,
   };
 }
@@ -317,11 +317,11 @@ function selectDN(requiredAreaCm2: number): DNValveSize {
 }
 
 function tubeWarning(peakRate: number): string | null {
-  if (peakRate > 5) {
-    return `Peak pressure rise rate (${peakRate.toFixed(2)} kPa/s) is very high. Risk of mechanical disturbance to tubes with rubber grommets.`;
+  if (peakRate > 50) {
+    return `Peak pressure rise rate (${peakRate.toFixed(1)} mbar/s) is very high. Risk of mechanical disturbance to tubes with rubber grommets.`;
   }
-  if (peakRate > 1) {
-    return `Peak pressure rise rate (${peakRate.toFixed(2)} kPa/s) is elevated. Verify tube retention is adequate for this rate.`;
+  if (peakRate > 10) {
+    return `Peak pressure rise rate (${peakRate.toFixed(1)} mbar/s) is elevated. Verify tube retention is adequate for this rate.`;
   }
   return null;
 }
@@ -341,7 +341,7 @@ function calculateManualValve(input: ManualValveInput): ManualValveResult {
     P1,
     P2_initial,
     airMassRequired,
-    transitionPressureKPa,
+    transitionPressureMbar,
     chokedFlux,
   } = deriveBase(input);
   const equalizationTimeSec = input.equalizationTimeMin * 60;
@@ -391,8 +391,8 @@ function calculateManualValve(input: ManualValveInput): ManualValveResult {
     equalizationTimeSec
   );
 
-  if (input.operatingPressureKPa < 5) {
-    warnings.push('Very deep vacuum (< 5 kPa abs). Ensure vessel is rated for full vacuum.');
+  if (input.operatingPressureMbar < 50) {
+    warnings.push('Very deep vacuum (< 50 mbar abs). Ensure vessel is rated for full vacuum.');
   }
   if (input.equalizationTimeMin > 120) {
     warnings.push('Equalization time exceeds 2 hours. Verify this is acceptable.');
@@ -407,7 +407,7 @@ function calculateManualValve(input: ManualValveInput): ManualValveResult {
     numberOfBreakers: input.numberOfBreakers,
     dischargeCoefficient: Cd,
     criticalPressureRatio: Math.round(CRITICAL_RATIO * 1000) / 1000,
-    transitionPressureKPa,
+    transitionPressureMbar,
     chokedFluxPerCd: Math.round(chokedFlux * 100) / 100,
     selectedValve,
     pressureProfile: finalSim.profile,
@@ -432,7 +432,7 @@ function calculateDiaphragmAnalysis(input: DiaphragmAnalysisInput): DiaphragmAna
     throw new Error('Burst pressure must be below atmospheric (1013.25 mbar)');
 
   const Cd = DIAPHRAGM_CD;
-  const { volumePerBreaker, T1, P1, airMassRequired, transitionPressureKPa, chokedFlux } =
+  const { volumePerBreaker, T1, P1, airMassRequired, transitionPressureMbar, chokedFlux } =
     deriveBase(input);
   const P2_burst = input.burstPressureMbar * 100; // mbar → Pa
   const warnings: string[] = [];
@@ -452,12 +452,12 @@ function calculateDiaphragmAnalysis(input: DiaphragmAnalysisInput): DiaphragmAna
     sim = simulate(areaM2, Cd, P2_burst, P1, T1, volumePerBreaker, totalTimeSec);
   }
 
-  if (input.operatingPressureKPa < 5) {
-    warnings.push('Very deep vacuum (< 5 kPa abs). Ensure vessel is rated for full vacuum.');
+  if (input.operatingPressureMbar < 50) {
+    warnings.push('Very deep vacuum (< 50 mbar abs). Ensure vessel is rated for full vacuum.');
   }
-  if (input.burstPressureMbar < input.operatingPressureKPa * 10) {
+  if (input.burstPressureMbar >= input.operatingPressureMbar) {
     warnings.push(
-      `Burst pressure (${input.burstPressureMbar} mbar) is below operating vacuum (${(input.operatingPressureKPa * 10).toFixed(0)} mbar). Diaphragm will burst during normal operation.`
+      `Burst pressure (${input.burstPressureMbar} mbar) is at or above operating vacuum (${input.operatingPressureMbar} mbar). Diaphragm will burst during normal operation.`
     );
   }
   const tw = tubeWarning(sim.peakRiseRate);
@@ -470,7 +470,7 @@ function calculateDiaphragmAnalysis(input: DiaphragmAnalysisInput): DiaphragmAna
     numberOfBreakers: input.numberOfBreakers,
     dischargeCoefficient: Cd,
     criticalPressureRatio: Math.round(CRITICAL_RATIO * 1000) / 1000,
-    transitionPressureKPa,
+    transitionPressureMbar,
     chokedFluxPerCd: Math.round(chokedFlux * 100) / 100,
     selectedValve,
     pressureProfile: sim.profile,
@@ -493,18 +493,18 @@ function calculateDiaphragmDesign(input: DiaphragmDesignInput): DiaphragmDesignR
   if (input.maxPressureRiseRate <= 0) throw new Error('Max pressure rise rate must be positive');
 
   const Cd = DIAPHRAGM_CD;
-  const { volumePerBreaker, T1, P1, airMassRequired, transitionPressureKPa, chokedFlux } =
+  const { volumePerBreaker, T1, P1, airMassRequired, transitionPressureMbar, chokedFlux } =
     deriveBase(input);
   const P2_burst = input.burstPressureMbar * 100;
   const warnings: string[] = [];
 
   // The peak rise rate occurs at the start (choked flow, maximum ΔP).
-  // dP/dt = Cd × A × massFlux × R × T / V (in Pa/s), convert to kPa/s.
+  // dP/dt = Cd × A × massFlux × R × T / V (in Pa/s), convert to mbar/s.
   // For choked flow: massFlux = chokedMassFlux(P1, T1)
-  // So: peakRate_kPa = Cd × A × chokedFlux × R_AIR × T1 / (V × 1000)
-  // Solve for A: A = maxRate × V × 1000 / (Cd × chokedFlux × R_AIR × T1)
+  // So: peakRate_mbar = Cd × A × chokedFlux × R_AIR × T1 / (V × 100)
+  // Solve for A: A = maxRate × V × 100 / (Cd × chokedFlux × R_AIR × T1)
 
-  const maxRatePaPerS = input.maxPressureRiseRate * 1000;
+  const maxRatePaPerS = input.maxPressureRiseRate * 100; // mbar/s → Pa/s
   const requiredAreaM2 =
     (maxRatePaPerS * volumePerBreaker) / (Cd * chokedMassFlux(P1, T1) * R_AIR * T1);
   const requiredAreaCm2 = Math.round(requiredAreaM2 * 1e4 * 100) / 100;
@@ -533,12 +533,12 @@ function calculateDiaphragmDesign(input: DiaphragmDesignInput): DiaphragmDesignR
     sim = simulate(areaM2, Cd, P2_burst, P1, T1, volumePerBreaker, totalTimeSec);
   }
 
-  if (input.operatingPressureKPa < 5) {
-    warnings.push('Very deep vacuum (< 5 kPa abs). Ensure vessel is rated for full vacuum.');
+  if (input.operatingPressureMbar < 50) {
+    warnings.push('Very deep vacuum (< 50 mbar abs). Ensure vessel is rated for full vacuum.');
   }
-  if (input.burstPressureMbar < input.operatingPressureKPa * 10) {
+  if (input.burstPressureMbar >= input.operatingPressureMbar) {
     warnings.push(
-      `Burst pressure (${input.burstPressureMbar} mbar) is below operating vacuum (${(input.operatingPressureKPa * 10).toFixed(0)} mbar). Diaphragm will burst during normal operation.`
+      `Burst pressure (${input.burstPressureMbar} mbar) is at or above operating vacuum (${input.operatingPressureMbar} mbar). Diaphragm will burst during normal operation.`
     );
   }
   const tw = tubeWarning(sim.peakRiseRate);
@@ -551,7 +551,7 @@ function calculateDiaphragmDesign(input: DiaphragmDesignInput): DiaphragmDesignR
     numberOfBreakers: input.numberOfBreakers,
     dischargeCoefficient: Cd,
     criticalPressureRatio: Math.round(CRITICAL_RATIO * 1000) / 1000,
-    transitionPressureKPa,
+    transitionPressureMbar,
     chokedFluxPerCd: Math.round(chokedFlux * 100) / 100,
     selectedValve,
     pressureProfile: sim.profile,

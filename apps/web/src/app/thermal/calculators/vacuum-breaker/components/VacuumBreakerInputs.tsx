@@ -137,9 +137,9 @@ export function VacuumBreakerInputs({
         type="number"
         fullWidth
         InputProps={{
-          endAdornment: <InputAdornment position="end">kPa abs</InputAdornment>,
+          endAdornment: <InputAdornment position="end">mbar abs</InputAdornment>,
         }}
-        helperText="Absolute pressure inside MED effects (typical: 5-15 kPa abs)"
+        helperText="Absolute pressure inside MED effects (typical: 50-150 mbar abs)"
       />
 
       <TextField
@@ -255,7 +255,7 @@ export function VacuumBreakerInputs({
             type="number"
             fullWidth
             InputProps={{
-              endAdornment: <InputAdornment position="end">kPa/s</InputAdornment>,
+              endAdornment: <InputAdornment position="end">mbar/s</InputAdornment>,
             }}
             helperText="Limit to prevent mechanical disturbance to tubes with rubber grommets"
           />

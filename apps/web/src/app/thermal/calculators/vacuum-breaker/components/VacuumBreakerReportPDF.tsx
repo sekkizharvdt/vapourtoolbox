@@ -66,7 +66,7 @@ export const VacuumBreakerReportPDF = ({
     { label: 'Critical Pressure Ratio', value: fmt(result.criticalPressureRatio, 3) },
     {
       label: 'Choked → Subsonic Transition',
-      value: `${fmt(result.transitionPressureKPa)} kPa abs`,
+      value: `${fmt(result.transitionPressureMbar)} mbar abs`,
     },
     { label: 'Choked Mass Flux', value: `${fmt(result.chokedFluxPerCd)} kg/(s·m²)` },
   ];
@@ -82,7 +82,10 @@ export const VacuumBreakerReportPDF = ({
     rightRows.unshift({ label: 'Burst Pressure', value: `${result.burstPressureMbar} mbar abs` });
   }
   if (result.mode === 'DIAPHRAGM_DESIGN') {
-    rightRows.push({ label: 'Max Allowed Rise Rate', value: `${result.maxAllowedRiseRate} kPa/s` });
+    rightRows.push({
+      label: 'Max Allowed Rise Rate',
+      value: `${result.maxAllowedRiseRate} mbar/s`,
+    });
   }
 
   return (
@@ -104,7 +107,7 @@ export const VacuumBreakerReportPDF = ({
             },
             { label: 'Number of Breakers', value: `${result.numberOfBreakers}` },
             { label: 'Equalization Time', value: formatTime(result.equalizationTimeSec) },
-            { label: 'Peak Rise Rate', value: `${fmt(result.peakPressureRiseRate, 3)} kPa/s` },
+            { label: 'Peak Rise Rate', value: `${fmt(result.peakPressureRiseRate, 3)} mbar/s` },
           ]}
         />
 
@@ -117,7 +120,7 @@ export const VacuumBreakerReportPDF = ({
                   { label: 'Total Volume', value: `${inputs.totalVolume} m³` },
                   { label: 'Number of Breakers', value: inputs.numberOfBreakers },
                   { label: 'Volume per Breaker', value: `${fmt(result.volumePerBreaker)} m³` },
-                  { label: 'Operating Pressure', value: `${inputs.operatingPressure} kPa abs` },
+                  { label: 'Operating Pressure', value: `${inputs.operatingPressure} mbar abs` },
                   { label: 'Ambient Temperature', value: `${inputs.ambientTemperature} °C` },
                   ...(result.mode === 'MANUAL_VALVE'
                     ? [
@@ -155,7 +158,7 @@ export const VacuumBreakerReportPDF = ({
               },
               {
                 label: 'Peak Pressure Rise Rate',
-                value: `${fmt(result.peakPressureRiseRate, 3)} kPa/s`,
+                value: `${fmt(result.peakPressureRiseRate, 3)} mbar/s`,
               },
               ...(result.mode === 'MANUAL_VALVE'
                 ? [
@@ -181,8 +184,8 @@ export const VacuumBreakerReportPDF = ({
           <ReportTable
             columns={[
               { key: 'time', header: 'Time (min)', width: '20%', align: 'right' },
-              { key: 'pressure', header: 'Pressure (kPa)', width: '20%', align: 'right' },
-              { key: 'riseRate', header: 'dP/dt (kPa/s)', width: '20%', align: 'right' },
+              { key: 'pressure', header: 'Pressure (mbar)', width: '20%', align: 'right' },
+              { key: 'riseRate', header: 'dP/dt (mbar/s)', width: '20%', align: 'right' },
               { key: 'flowRate', header: 'Flow (kg/s)', width: '20%', align: 'right' },
               { key: 'regime', header: 'Regime', width: '20%' },
             ]}

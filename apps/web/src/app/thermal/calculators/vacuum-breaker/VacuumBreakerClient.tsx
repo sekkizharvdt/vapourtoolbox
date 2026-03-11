@@ -28,7 +28,7 @@ export default function VacuumBreakerClient() {
   // Diaphragm inputs
   const [burstPressure, setBurstPressure] = useState<string>('50');
   const [selectedDN, setSelectedDN] = useState<string>('50');
-  const [maxRiseRate, setMaxRiseRate] = useState<string>('0.5');
+  const [maxRiseRate, setMaxRiseRate] = useState<string>('5');
 
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
 
@@ -41,7 +41,7 @@ export default function VacuumBreakerClient() {
     setValveType('BUTTERFLY');
     setBurstPressure('50');
     setSelectedDN('50');
-    setMaxRiseRate('0.5');
+    setMaxRiseRate('5');
   };
 
   const computed = useMemo(() => {
@@ -66,7 +66,7 @@ export default function VacuumBreakerClient() {
       const base = {
         totalVolume: vol,
         numberOfBreakers: breakers,
-        operatingPressureKPa: pressure,
+        operatingPressureMbar: pressure,
         ambientTemperature: temp,
       };
 
@@ -239,11 +239,11 @@ export default function VacuumBreakerClient() {
               <strong>Air mass:</strong> m = (P_atm - P_vessel) &times; V / (R_air &times; T)
             </li>
             <li>
-              <strong>Choked flow</strong> (P_vessel &lt; 53.5 kPa): constant mass flux through
+              <strong>Choked flow</strong> (P_vessel &lt; 535 mbar): constant mass flux through
               orifice
             </li>
             <li>
-              <strong>Subsonic flow</strong> (P_vessel &gt; 53.5 kPa): isentropic nozzle equation
+              <strong>Subsonic flow</strong> (P_vessel &gt; 535 mbar): isentropic nozzle equation
               with pressure ratio
             </li>
             <li>

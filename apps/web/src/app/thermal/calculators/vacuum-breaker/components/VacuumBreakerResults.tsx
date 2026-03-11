@@ -157,9 +157,9 @@ export function VacuumBreakerResults({ result, inputs }: VacuumBreakerResultsPro
             variant="outlined"
             sx={{
               borderColor:
-                result.peakPressureRiseRate > 5
+                result.peakPressureRiseRate > 50
                   ? 'error.main'
-                  : result.peakPressureRiseRate > 1
+                  : result.peakPressureRiseRate > 10
                     ? 'warning.main'
                     : undefined,
             }}
@@ -171,16 +171,16 @@ export function VacuumBreakerResults({ result, inputs }: VacuumBreakerResultsPro
               <Typography
                 variant="h6"
                 color={
-                  result.peakPressureRiseRate > 5
+                  result.peakPressureRiseRate > 50
                     ? 'error.main'
-                    : result.peakPressureRiseRate > 1
+                    : result.peakPressureRiseRate > 10
                       ? 'warning.main'
                       : undefined
                 }
               >
                 {result.peakPressureRiseRate}
               </Typography>
-              <Typography variant="caption">kPa/s</Typography>
+              <Typography variant="caption">mbar/s</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -209,7 +209,7 @@ export function VacuumBreakerResults({ result, inputs }: VacuumBreakerResultsPro
               <TableRow>
                 <TableCell sx={{ border: 0, py: 0.5 }}>Choked &rarr; subsonic transition</TableCell>
                 <TableCell align="right" sx={{ border: 0, py: 0.5, fontFamily: 'monospace' }}>
-                  {result.transitionPressureKPa} kPa abs
+                  {result.transitionPressureMbar} mbar abs
                 </TableCell>
               </TableRow>
               <TableRow>
@@ -230,7 +230,7 @@ export function VacuumBreakerResults({ result, inputs }: VacuumBreakerResultsPro
                 <TableRow>
                   <TableCell sx={{ border: 0, py: 0.5 }}>Max allowed rise rate</TableCell>
                   <TableCell align="right" sx={{ border: 0, py: 0.5, fontFamily: 'monospace' }}>
-                    {result.maxAllowedRiseRate} kPa/s
+                    {result.maxAllowedRiseRate} mbar/s
                   </TableCell>
                 </TableRow>
               )}
@@ -250,8 +250,8 @@ export function VacuumBreakerResults({ result, inputs }: VacuumBreakerResultsPro
               <TableHead>
                 <TableRow>
                   <TableCell>Time (min)</TableCell>
-                  <TableCell align="right">Pressure (kPa abs)</TableCell>
-                  <TableCell align="right">dP/dt (kPa/s)</TableCell>
+                  <TableCell align="right">Pressure (mbar abs)</TableCell>
+                  <TableCell align="right">dP/dt (mbar/s)</TableCell>
                   <TableCell align="right">Flow (kg/s)</TableCell>
                   <TableCell align="center">Regime</TableCell>
                 </TableRow>

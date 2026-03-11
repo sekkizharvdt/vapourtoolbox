@@ -42,7 +42,7 @@ export function GenerateReportDialog({ open, onClose, result, inputs }: Generate
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Peak Rise Rate:</span>
-              <strong>{result.peakPressureRiseRate} kPa/s</strong>
+              <strong>{result.peakPressureRiseRate} mbar/s</strong>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Breakers:</span>
