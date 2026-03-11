@@ -23,6 +23,8 @@ import {
   Alert,
   Autocomplete,
   Chip,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import type { DisciplineCode, ProjectMember } from '@vapour/types';
@@ -32,6 +34,7 @@ import {
   getNumberingConfig,
   generateDocumentNumber,
   getNextSequenceNumber,
+  STANDARD_DISCIPLINE_CODES,
 } from '@/lib/documents/documentNumberingService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Timestamp } from 'firebase/firestore';
@@ -175,6 +178,12 @@ export default function CreateDocumentDialog({
       } else {
         // Manual mode
         documentNumber = manualDocumentNumber.trim();
+        if (disciplineCode) {
+          resolvedDisciplineCode = disciplineCode;
+          const selectedDisc = STANDARD_DISCIPLINE_CODES.find((d) => d.code === disciplineCode);
+          disciplineName = selectedDisc?.name || disciplineCode;
+          resolvedSubCode = subCode.trim() || undefined;
+        }
       }
 
       // Create master document
@@ -275,16 +284,16 @@ export default function CreateDocumentDialog({
                 </Alert>
               )}
 
-              {/* Discipline Code */}
+              {/* Discipline Code (auto mode — uses project-specific disciplines) */}
               <FormControl required fullWidth>
-                <InputLabel>Discipline Code</InputLabel>
+                <InputLabel>Discipline</InputLabel>
                 <Select
                   value={disciplineCode}
                   onChange={(e) => {
                     setDisciplineCode(e.target.value);
                     setSubCode('');
                   }}
-                  label="Discipline Code"
+                  label="Discipline"
                 >
                   {disciplines.map((disc) => (
                     <MenuItem key={disc.code} value={disc.code}>
@@ -316,16 +325,46 @@ export default function CreateDocumentDialog({
               )}
             </>
           ) : (
-            /* Manual document number entry */
-            <TextField
-              label="Document Number"
-              value={manualDocumentNumber}
-              onChange={(e) => setManualDocumentNumber(e.target.value)}
-              required
-              fullWidth
-              placeholder="e.g., PRJ-001-01-001"
-              helperText="Enter the document number manually. Set up auto-numbering to generate numbers automatically."
-            />
+            <>
+              {/* Manual document number entry */}
+              <TextField
+                label="Document Number"
+                value={manualDocumentNumber}
+                onChange={(e) => setManualDocumentNumber(e.target.value)}
+                required
+                fullWidth
+                placeholder="e.g., PRJ-001-01-001"
+                helperText="Enter the document number manually. Set up auto-numbering to generate numbers automatically."
+              />
+
+              {/* Discipline Code (manual mode — uses standard codes) */}
+              <FormControl fullWidth>
+                <InputLabel>Discipline</InputLabel>
+                <Select
+                  value={disciplineCode}
+                  onChange={(e) => setDisciplineCode(e.target.value)}
+                  label="Discipline"
+                >
+                  <MenuItem value="">
+                    <em>None</em>
+                  </MenuItem>
+                  {STANDARD_DISCIPLINE_CODES.map((disc) => (
+                    <MenuItem key={disc.code} value={disc.code}>
+                      {disc.code} - {disc.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {/* Sub-code */}
+              <TextField
+                label="Sub-code (Optional)"
+                value={subCode}
+                onChange={(e) => setSubCode(e.target.value)}
+                fullWidth
+                placeholder="e.g., 01, 02"
+              />
+            </>
           )}
 
           {/* Title */}
@@ -358,33 +397,27 @@ export default function CreateDocumentDialog({
             placeholder="e.g., Drawing, Calculation, Specification"
           />
 
-          {/* Priority */}
-          <FormControl fullWidth>
-            <InputLabel>Priority</InputLabel>
-            <Select
-              value={priority}
-              onChange={(e) => setPriority(e.target.value as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT')}
-              label="Priority"
-            >
-              <MenuItem value="LOW">Low</MenuItem>
-              <MenuItem value="MEDIUM">Medium</MenuItem>
-              <MenuItem value="HIGH">High</MenuItem>
-              <MenuItem value="URGENT">Urgent</MenuItem>
-            </Select>
-          </FormControl>
-
-          {/* Visibility */}
-          <FormControl fullWidth>
-            <InputLabel>Visibility</InputLabel>
-            <Select
-              value={visibility}
-              onChange={(e) => setVisibility(e.target.value as 'CLIENT_VISIBLE' | 'INTERNAL_ONLY')}
-              label="Visibility"
-            >
-              <MenuItem value="CLIENT_VISIBLE">Client Visible</MenuItem>
-              <MenuItem value="INTERNAL_ONLY">Internal Only</MenuItem>
-            </Select>
-          </FormControl>
+          {/* Client Visibility */}
+          <FormControlLabel
+            control={
+              <Switch
+                checked={visibility === 'CLIENT_VISIBLE'}
+                onChange={(e) =>
+                  setVisibility(e.target.checked ? 'CLIENT_VISIBLE' : 'INTERNAL_ONLY')
+                }
+              />
+            }
+            label={
+              <Stack>
+                <Typography variant="body2">Client Visible</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {visibility === 'CLIENT_VISIBLE'
+                    ? 'Document is visible to client'
+                    : 'Document is internal only'}
+                </Typography>
+              </Stack>
+            }
+          />
 
           {/* Assigned To */}
           {teamMembers.length > 0 && (

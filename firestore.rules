@@ -910,6 +910,22 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Document Folders Collection
+    // ============================================
+
+    match /documentFolders/{folderId} {
+      // Read: All authenticated internal users
+      allow read: if isInternalUser();
+
+      // Create/Update: All authenticated internal users
+      allow create, update: if isInternalUser();
+
+      // Delete: Folder creator or super admins
+      allow delete: if (isAuthenticated() && isOwner(resource.data.createdBy)) ||
+                       isSuperAdmin();
+    }
+
+    // ============================================
     // Tasks Collection
     // ============================================
 

@@ -9,8 +9,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import { Container, Box, Typography, Alert } from '@mui/material';
-import { PageHeader, LoadingState } from '@vapour/ui';
+import { Box } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 import { PERMISSION_FLAGS, hasAnyPermission } from '@vapour/constants';
 import { DocumentBrowser, UploadDocumentDialog } from '@/components/documents/browser';
@@ -18,6 +17,7 @@ import { getFirebase } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { COLLECTIONS } from '@vapour/firebase';
 import type { DocumentRecord, Project } from '@vapour/types';
+import { ProjectSubPageWrapper } from '../components/ProjectSubPageWrapper';
 
 export default function ProjectFilesClient() {
   const pathname = usePathname();
@@ -33,7 +33,7 @@ export default function ProjectFilesClient() {
   // Extract project ID from pathname
   const projectId = pathname?.split('/projects/')[1]?.split('/')[0] || '';
 
-  // Check permissions - user needs VIEW_ALL_PROJECTS or ASSIGN_PROJECTS (can view assigned projects)
+  // Check permissions
   const hasViewAccess = claims?.permissions
     ? hasAnyPermission(
         claims.permissions,
@@ -100,54 +100,16 @@ export default function ProjectFilesClient() {
     setRefreshKey((k) => k + 1);
   }, []);
 
-  if (loading) {
-    return (
-      <Container maxWidth="xl">
-        <LoadingState message="Loading project..." variant="page" />
-      </Container>
-    );
-  }
-
-  if (error) {
-    return (
-      <Container maxWidth="xl">
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Project Files
-          </Typography>
-          <Alert severity="error">{error}</Alert>
-        </Box>
-      </Container>
-    );
-  }
-
-  if (!hasViewAccess) {
-    return (
-      <Container maxWidth="xl">
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Project Files
-          </Typography>
-          <Typography variant="body1" color="error">
-            You do not have permission to access this project.
-          </Typography>
-        </Box>
-      </Container>
-    );
-  }
-
-  const projectTitle = project ? `${project.code} - ${project.name}` : 'Project';
-
   return (
-    <Container maxWidth="xl" sx={{ height: 'calc(100vh - 120px)' }}>
-      <Box sx={{ mb: 2 }}>
-        <PageHeader
-          title={`${projectTitle} Files`}
-          subtitle="Browse and manage all documents for this project"
-        />
-      </Box>
-
-      <Box sx={{ height: 'calc(100% - 80px)' }}>
+    <ProjectSubPageWrapper
+      project={project}
+      projectId={projectId}
+      loading={loading}
+      error={error}
+      hasViewAccess={hasViewAccess}
+      title="Project Files"
+    >
+      <Box sx={{ height: 'calc(100vh - 280px)' }}>
         <DocumentBrowser
           key={refreshKey}
           module="PROJECTS"
@@ -169,6 +131,6 @@ export default function ProjectFilesClient() {
         module="PROJECTS"
         projectId={projectId}
       />
-    </Container>
+    </ProjectSubPageWrapper>
   );
 }
