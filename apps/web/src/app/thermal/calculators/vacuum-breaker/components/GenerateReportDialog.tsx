@@ -6,6 +6,12 @@ import type { VacuumBreakerResult } from '@/lib/thermal/vacuumBreakerCalculator'
 import { VacuumBreakerReportPDF } from './VacuumBreakerReportPDF';
 import type { VacuumBreakerReportInputs } from './VacuumBreakerResults';
 
+function formatTime(seconds: number): string {
+  if (seconds < 60) return `${seconds.toFixed(1)} s`;
+  if (seconds < 3600) return `${(seconds / 60).toFixed(1)} min`;
+  return `${(seconds / 3600).toFixed(2)} hr`;
+}
+
 interface GenerateReportDialogProps {
   open: boolean;
   onClose: () => void;
@@ -25,17 +31,21 @@ export function GenerateReportDialog({ open, onClose, result, inputs }: Generate
         <Box sx={{ bgcolor: 'action.hover', p: 2, borderRadius: 1 }}>
           <Stack spacing={0.5}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Selected Valve:</span>
+              <span>Selected Size:</span>
               <strong>
                 DN {result.selectedValve.dn} ({result.selectedValve.nps})
               </strong>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Required Area:</span>
-              <strong>{result.requiredOrificeArea} cm&sup2;</strong>
+              <span>Equalization Time:</span>
+              <strong>{formatTime(result.equalizationTimeSec)}</strong>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Number of Breakers:</span>
+              <span>Peak Rise Rate:</span>
+              <strong>{result.peakPressureRiseRate} kPa/s</strong>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Breakers:</span>
               <strong>{result.numberOfBreakers}</strong>
             </Box>
           </Stack>

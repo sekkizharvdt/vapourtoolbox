@@ -4,18 +4,31 @@ import { useState, useMemo } from 'react';
 import { Container, Typography, Box, Paper, Grid, Alert, Chip, Stack, Button } from '@mui/material';
 import { FolderOpen as LoadIcon, RestartAlt as ResetIcon } from '@mui/icons-material';
 import { CalculatorBreadcrumb } from '../components/CalculatorBreadcrumb';
-import { calculateVacuumBreaker, type ValveType } from '@/lib/thermal/vacuumBreakerCalculator';
+import {
+  calculateVacuumBreaker,
+  type CalculationMode,
+  type ValveType,
+} from '@/lib/thermal/vacuumBreakerCalculator';
 import { VacuumBreakerInputs } from './components/VacuumBreakerInputs';
 import { VacuumBreakerResults } from './components/VacuumBreakerResults';
 import { LoadCalculationDialog } from '../siphon-sizing/components/LoadCalculationDialog';
 
 export default function VacuumBreakerClient() {
+  // Shared inputs
+  const [calcMode, setCalcMode] = useState<CalculationMode>('MANUAL_VALVE');
   const [totalVolume, setTotalVolume] = useState<string>('');
   const [numberOfBreakers, setNumberOfBreakers] = useState<string>('2');
   const [operatingPressure, setOperatingPressure] = useState<string>('');
-  const [equalizationTime, setEqualizationTime] = useState<string>('60');
   const [ambientTemperature, setAmbientTemperature] = useState<string>('35');
+
+  // Manual valve inputs
+  const [equalizationTime, setEqualizationTime] = useState<string>('60');
   const [valveType, setValveType] = useState<ValveType>('BUTTERFLY');
+
+  // Diaphragm inputs
+  const [burstPressure, setBurstPressure] = useState<string>('50');
+  const [selectedDN, setSelectedDN] = useState<string>('50');
+  const [maxRiseRate, setMaxRiseRate] = useState<string>('0.5');
 
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
 
@@ -23,9 +36,12 @@ export default function VacuumBreakerClient() {
     setTotalVolume('');
     setNumberOfBreakers('2');
     setOperatingPressure('');
-    setEqualizationTime('60');
     setAmbientTemperature('35');
+    setEqualizationTime('60');
     setValveType('BUTTERFLY');
+    setBurstPressure('50');
+    setSelectedDN('50');
+    setMaxRiseRate('0.5');
   };
 
   const computed = useMemo(() => {
@@ -33,7 +49,6 @@ export default function VacuumBreakerClient() {
       const vol = parseFloat(totalVolume);
       const breakers = parseInt(numberOfBreakers, 10);
       const pressure = parseFloat(operatingPressure);
-      const time = parseFloat(equalizationTime);
       const temp = parseFloat(ambientTemperature);
 
       if (
@@ -43,46 +58,87 @@ export default function VacuumBreakerClient() {
         breakers < 1 ||
         isNaN(pressure) ||
         pressure <= 0 ||
-        isNaN(time) ||
-        time <= 0 ||
         isNaN(temp)
       ) {
         return null;
       }
 
-      return {
-        result: calculateVacuumBreaker({
-          totalVolume: vol,
-          numberOfBreakers: breakers,
-          operatingPressureKPa: pressure,
-          equalizationTimeMin: time,
-          ambientTemperature: temp,
-          valveType,
-        }),
-        error: null,
+      const base = {
+        totalVolume: vol,
+        numberOfBreakers: breakers,
+        operatingPressureKPa: pressure,
+        ambientTemperature: temp,
       };
+
+      if (calcMode === 'MANUAL_VALVE') {
+        const time = parseFloat(equalizationTime);
+        if (isNaN(time) || time <= 0) return null;
+        return {
+          result: calculateVacuumBreaker({
+            ...base,
+            mode: 'MANUAL_VALVE',
+            equalizationTimeMin: time,
+            valveType,
+          }),
+          error: null,
+        };
+      } else if (calcMode === 'DIAPHRAGM_ANALYSIS') {
+        const burst = parseFloat(burstPressure);
+        const dn = parseInt(selectedDN, 10);
+        if (isNaN(burst) || burst <= 0 || isNaN(dn)) return null;
+        return {
+          result: calculateVacuumBreaker({
+            ...base,
+            mode: 'DIAPHRAGM_ANALYSIS',
+            burstPressureMbar: burst,
+            selectedDN: dn,
+          }),
+          error: null,
+        };
+      } else {
+        const burst = parseFloat(burstPressure);
+        const rate = parseFloat(maxRiseRate);
+        if (isNaN(burst) || burst <= 0 || isNaN(rate) || rate <= 0) return null;
+        return {
+          result: calculateVacuumBreaker({
+            ...base,
+            mode: 'DIAPHRAGM_DESIGN',
+            burstPressureMbar: burst,
+            maxPressureRiseRate: rate,
+          }),
+          error: null,
+        };
+      }
     } catch (err) {
       return { result: null, error: err instanceof Error ? err.message : 'Calculation error' };
     }
   }, [
+    calcMode,
     totalVolume,
     numberOfBreakers,
     operatingPressure,
-    equalizationTime,
     ambientTemperature,
+    equalizationTime,
     valveType,
+    burstPressure,
+    selectedDN,
+    maxRiseRate,
   ]);
 
   const result = computed?.result ?? null;
   const error = computed?.error ?? null;
 
   const reportInputs = {
+    calcMode,
     totalVolume,
     numberOfBreakers,
     operatingPressure,
-    equalizationTime,
     ambientTemperature,
+    equalizationTime,
     valveType,
+    burstPressure,
+    selectedDN,
+    maxRiseRate,
   };
 
   return (
@@ -97,9 +153,8 @@ export default function VacuumBreakerClient() {
           <Chip label="HEI / Compressible Flow" size="small" color="primary" variant="outlined" />
         </Stack>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
-          Size vacuum breaker valves for MED thermal desalination plants. Uses isentropic
-          compressible flow theory with time-stepping integration, based on HEI surface condenser
-          methodology.
+          Size vacuum breakers for MED thermal desalination plants — manual valves or burst
+          diaphragms. Uses isentropic compressible flow with time-stepping integration.
         </Typography>
         <Stack direction="row" spacing={1}>
           <Button startIcon={<LoadIcon />} size="small" onClick={() => setLoadDialogOpen(true)}>
@@ -118,18 +173,26 @@ export default function VacuumBreakerClient() {
               Input Parameters
             </Typography>
             <VacuumBreakerInputs
+              calcMode={calcMode}
               totalVolume={totalVolume}
               numberOfBreakers={numberOfBreakers}
               operatingPressure={operatingPressure}
-              equalizationTime={equalizationTime}
               ambientTemperature={ambientTemperature}
+              equalizationTime={equalizationTime}
               valveType={valveType}
+              burstPressure={burstPressure}
+              selectedDN={selectedDN}
+              maxRiseRate={maxRiseRate}
+              onCalcModeChange={setCalcMode}
               onTotalVolumeChange={setTotalVolume}
               onNumberOfBreakersChange={setNumberOfBreakers}
               onOperatingPressureChange={setOperatingPressure}
-              onEqualizationTimeChange={setEqualizationTime}
               onAmbientTemperatureChange={setAmbientTemperature}
+              onEqualizationTimeChange={setEqualizationTime}
               onValveTypeChange={setValveType}
+              onBurstPressureChange={setBurstPressure}
+              onSelectedDNChange={setSelectedDN}
+              onMaxRiseRateChange={setMaxRiseRate}
             />
           </Paper>
 
@@ -173,26 +236,27 @@ export default function VacuumBreakerClient() {
         <Typography variant="body2" color="text.secondary" component="div">
           <ul style={{ margin: 0, paddingLeft: 20 }}>
             <li>
-              <strong>Air mass:</strong> m = (P_atm - P_operating) &times; V / (R_air &times; T)
+              <strong>Air mass:</strong> m = (P_atm - P_vessel) &times; V / (R_air &times; T)
             </li>
             <li>
-              <strong>Choked flow</strong> (P_vessel &lt; 0.528 &times; P_atm): &#7745; = C_d
-              &times; A &times; P_1 &times; &radic;(&gamma;/(R&middot;T)) &times;
-              [2/(&gamma;+1)]^((&gamma;+1)/(2(&gamma;-1)))
+              <strong>Choked flow</strong> (P_vessel &lt; 53.5 kPa): constant mass flux through
+              orifice
             </li>
             <li>
-              <strong>Subsonic flow</strong> (P_vessel &gt; 0.528 &times; P_atm): standard
-              isentropic nozzle equation with pressure ratio
+              <strong>Subsonic flow</strong> (P_vessel &gt; 53.5 kPa): isentropic nozzle equation
+              with pressure ratio
             </li>
             <li>
-              <strong>Time-stepping:</strong> 500-step numerical integration accounts for pressure
-              rise and choked-to-subsonic transition
+              <strong>Diaphragm:</strong> C_d = 0.60 (sharp-edged orifice after burst)
+            </li>
+            <li>
+              <strong>Tube protection:</strong> Pressure rise rate limited to prevent mechanical
+              disturbance to tubes with rubber grommets
             </li>
           </ul>
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          <strong>Reference:</strong> HEI Tech Sheet #131 — Vacuum Breaker Valve; HEI Standards for
-          Steam Surface Condensers (HEI 2629); ISO 9300 — Compressible Flow
+          <strong>Reference:</strong> HEI Tech Sheet #131; HEI 2629; ISO 9300
         </Typography>
       </Box>
 
@@ -201,16 +265,20 @@ export default function VacuumBreakerClient() {
         onClose={() => setLoadDialogOpen(false)}
         calculatorType="VACUUM_BREAKER"
         onLoad={(inputs) => {
+          if (typeof inputs.calcMode === 'string') setCalcMode(inputs.calcMode as CalculationMode);
           if (typeof inputs.totalVolume === 'string') setTotalVolume(inputs.totalVolume);
           if (typeof inputs.numberOfBreakers === 'string')
             setNumberOfBreakers(inputs.numberOfBreakers);
           if (typeof inputs.operatingPressure === 'string')
             setOperatingPressure(inputs.operatingPressure);
-          if (typeof inputs.equalizationTime === 'string')
-            setEqualizationTime(inputs.equalizationTime);
           if (typeof inputs.ambientTemperature === 'string')
             setAmbientTemperature(inputs.ambientTemperature);
+          if (typeof inputs.equalizationTime === 'string')
+            setEqualizationTime(inputs.equalizationTime);
           if (typeof inputs.valveType === 'string') setValveType(inputs.valveType as ValveType);
+          if (typeof inputs.burstPressure === 'string') setBurstPressure(inputs.burstPressure);
+          if (typeof inputs.selectedDN === 'string') setSelectedDN(inputs.selectedDN);
+          if (typeof inputs.maxRiseRate === 'string') setMaxRiseRate(inputs.maxRiseRate);
         }}
       />
     </Container>

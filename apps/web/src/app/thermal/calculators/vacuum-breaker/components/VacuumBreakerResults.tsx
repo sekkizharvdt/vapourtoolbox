@@ -16,6 +16,7 @@ import {
   TableRow,
   TableHead,
   Button,
+  Chip,
 } from '@mui/material';
 import { Download as DownloadIcon, Save as SaveIcon } from '@mui/icons-material';
 import type { VacuumBreakerResult } from '@/lib/thermal/vacuumBreakerCalculator';
@@ -23,12 +24,16 @@ import { GenerateReportDialog } from './GenerateReportDialog';
 import { SaveCalculationDialog } from '../../siphon-sizing/components/SaveCalculationDialog';
 
 export interface VacuumBreakerReportInputs {
+  calcMode: string;
   totalVolume: string;
   numberOfBreakers: string;
   operatingPressure: string;
-  equalizationTime: string;
   ambientTemperature: string;
+  equalizationTime: string;
   valveType: string;
+  burstPressure: string;
+  selectedDN: string;
+  maxRiseRate: string;
 }
 
 interface VacuumBreakerResultsProps {
@@ -36,9 +41,22 @@ interface VacuumBreakerResultsProps {
   inputs: VacuumBreakerReportInputs;
 }
 
+function formatTime(seconds: number): string {
+  if (seconds < 60) return `${seconds.toFixed(1)} s`;
+  if (seconds < 3600) return `${(seconds / 60).toFixed(1)} min`;
+  return `${(seconds / 3600).toFixed(2)} hr`;
+}
+
 export function VacuumBreakerResults({ result, inputs }: VacuumBreakerResultsProps) {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+
+  const modeLabel =
+    result.mode === 'MANUAL_VALVE'
+      ? 'Manual Valve'
+      : result.mode === 'DIAPHRAGM_ANALYSIS'
+        ? 'Diaphragm Analysis'
+        : 'Diaphragm Design';
 
   return (
     <Paper sx={{ p: 3 }}>
@@ -56,9 +74,10 @@ export function VacuumBreakerResults({ result, inputs }: VacuumBreakerResultsPro
         </Button>
       </Box>
 
-      <Typography variant="h6" gutterBottom>
-        Vacuum Breaker Sizing Result
-      </Typography>
+      <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+        <Typography variant="h6">Vacuum Breaker Sizing Result</Typography>
+        <Chip label={modeLabel} size="small" color="secondary" variant="outlined" />
+      </Stack>
 
       {/* Primary result */}
       <Card
@@ -67,16 +86,23 @@ export function VacuumBreakerResults({ result, inputs }: VacuumBreakerResultsPro
       >
         <CardContent>
           <Typography variant="caption" sx={{ opacity: 0.8 }}>
-            Selected Valve Size ({result.numberOfBreakers} identical breakers)
+            Selected Size ({result.numberOfBreakers} identical{' '}
+            {result.mode === 'MANUAL_VALVE' ? 'valves' : 'diaphragms'})
           </Typography>
           <Stack direction="row" alignItems="baseline" spacing={2}>
             <Typography variant="h3">DN {result.selectedValve.dn}</Typography>
             <Typography variant="h6">({result.selectedValve.nps})</Typography>
           </Stack>
           <Typography variant="body2" sx={{ opacity: 0.9, mt: 1 }}>
-            Required orifice area: {result.requiredOrificeArea} cm&sup2; | Valve bore:{' '}
-            {result.selectedValve.boreArea} cm&sup2;
+            Bore area: {result.selectedValve.boreArea} cm&sup2; | C_d ={' '}
+            {result.dischargeCoefficient}
           </Typography>
+          {result.mode === 'MANUAL_VALVE' && (
+            <Typography variant="body2" sx={{ opacity: 0.9 }}>
+              Required orifice area: {result.requiredOrificeArea} cm&sup2; (
+              {result.requiredOrificeDiameter} mm dia.)
+            </Typography>
+          )}
         </CardContent>
       </Card>
 
@@ -117,21 +143,44 @@ export function VacuumBreakerResults({ result, inputs }: VacuumBreakerResultsPro
           <Card variant="outlined">
             <CardContent sx={{ textAlign: 'center', py: 1 }}>
               <Typography variant="caption" color="text.secondary">
-                Orifice Diameter
+                Equalization Time
               </Typography>
-              <Typography variant="h6">{result.requiredOrificeDiameter}</Typography>
-              <Typography variant="caption">mm</Typography>
+              <Typography variant="h6">{formatTime(result.equalizationTimeSec)}</Typography>
+              <Typography variant="caption">
+                {result.mode === 'MANUAL_VALVE' ? '(with selected valve)' : '(after burst)'}
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid size={{ xs: 6, sm: 3 }}>
-          <Card variant="outlined">
+          <Card
+            variant="outlined"
+            sx={{
+              borderColor:
+                result.peakPressureRiseRate > 5
+                  ? 'error.main'
+                  : result.peakPressureRiseRate > 1
+                    ? 'warning.main'
+                    : undefined,
+            }}
+          >
             <CardContent sx={{ textAlign: 'center', py: 1 }}>
               <Typography variant="caption" color="text.secondary">
-                Avg. Flow Rate
+                Peak Rise Rate
               </Typography>
-              <Typography variant="h6">{result.averageMassFlowRate}</Typography>
-              <Typography variant="caption">kg/s</Typography>
+              <Typography
+                variant="h6"
+                color={
+                  result.peakPressureRiseRate > 5
+                    ? 'error.main'
+                    : result.peakPressureRiseRate > 1
+                      ? 'warning.main'
+                      : undefined
+                }
+              >
+                {result.peakPressureRiseRate}
+              </Typography>
+              <Typography variant="caption">kPa/s</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -158,7 +207,7 @@ export function VacuumBreakerResults({ result, inputs }: VacuumBreakerResultsPro
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ border: 0, py: 0.5 }}>Choked → subsonic transition</TableCell>
+                <TableCell sx={{ border: 0, py: 0.5 }}>Choked &rarr; subsonic transition</TableCell>
                 <TableCell align="right" sx={{ border: 0, py: 0.5, fontFamily: 'monospace' }}>
                   {result.transitionPressureKPa} kPa abs
                 </TableCell>
@@ -169,16 +218,32 @@ export function VacuumBreakerResults({ result, inputs }: VacuumBreakerResultsPro
                   {result.chokedFluxPerCd} kg/(s&middot;m&sup2;)
                 </TableCell>
               </TableRow>
+              {(result.mode === 'DIAPHRAGM_ANALYSIS' || result.mode === 'DIAPHRAGM_DESIGN') && (
+                <TableRow>
+                  <TableCell sx={{ border: 0, py: 0.5 }}>Diaphragm burst pressure</TableCell>
+                  <TableCell align="right" sx={{ border: 0, py: 0.5, fontFamily: 'monospace' }}>
+                    {result.burstPressureMbar} mbar abs
+                  </TableCell>
+                </TableRow>
+              )}
+              {result.mode === 'DIAPHRAGM_DESIGN' && (
+                <TableRow>
+                  <TableCell sx={{ border: 0, py: 0.5 }}>Max allowed rise rate</TableCell>
+                  <TableCell align="right" sx={{ border: 0, py: 0.5, fontFamily: 'monospace' }}>
+                    {result.maxAllowedRiseRate} kPa/s
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      {/* Pressure Profile Table (sampled) */}
+      {/* Pressure Profile Table */}
       <Card variant="outlined">
         <CardContent>
           <Typography variant="subtitle2" gutterBottom>
-            Pressure Equalization Profile (with DN {result.selectedValve.dn} valve)
+            Pressure Equalization Profile (DN {result.selectedValve.dn})
           </Typography>
           <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
             <Table size="small" stickyHeader>
@@ -186,7 +251,8 @@ export function VacuumBreakerResults({ result, inputs }: VacuumBreakerResultsPro
                 <TableRow>
                   <TableCell>Time (min)</TableCell>
                   <TableCell align="right">Pressure (kPa abs)</TableCell>
-                  <TableCell align="right">Flow Rate (kg/s)</TableCell>
+                  <TableCell align="right">dP/dt (kPa/s)</TableCell>
+                  <TableCell align="right">Flow (kg/s)</TableCell>
                   <TableCell align="center">Regime</TableCell>
                 </TableRow>
               </TableHead>
@@ -200,10 +266,13 @@ export function VacuumBreakerResults({ result, inputs }: VacuumBreakerResultsPro
                       {step.pressure.toFixed(2)}
                     </TableCell>
                     <TableCell align="right" sx={{ fontFamily: 'monospace' }}>
+                      {step.pressureRiseRate.toFixed(3)}
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontFamily: 'monospace' }}>
                       {step.massFlowRate.toFixed(4)}
                     </TableCell>
                     <TableCell align="center">
-                      {step.regime === 'choked' ? '🔴 Choked' : '🟢 Subsonic'}
+                      {step.regime === 'choked' ? 'Choked' : 'Subsonic'}
                     </TableCell>
                   </TableRow>
                 ))}

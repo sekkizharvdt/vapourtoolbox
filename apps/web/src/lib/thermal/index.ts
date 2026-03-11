@@ -309,10 +309,18 @@ export {
   STANDARD_DN_SIZES,
   VALVE_TYPE_LABELS as VB_VALVE_TYPE_LABELS,
   VALVE_CD as VB_VALVE_CD,
+  MODE_LABELS as VB_MODE_LABELS,
   type ValveType as VBValveType,
+  type CalculationMode as VBCalculationMode,
   type DNValveSize,
   type VacuumBreakerInput,
   type VacuumBreakerResult,
+  type ManualValveInput,
+  type ManualValveResult,
+  type DiaphragmAnalysisInput,
+  type DiaphragmAnalysisResult,
+  type DiaphragmDesignInput,
+  type DiaphragmDesignResult,
   type TimeStep,
 } from './vacuumBreakerCalculator';
 

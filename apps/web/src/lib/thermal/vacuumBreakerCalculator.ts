@@ -1,22 +1,22 @@
 /**
  * Vacuum Breaker Sizing Calculator
  *
- * Sizes vacuum breaker valves for MED thermal desalination plants using
- * compressible flow theory based on the HEI Standards for Steam Surface
- * Condensers approach (HEI Tech Sheet #131 / HEI 2629).
+ * Three calculation modes for MED thermal desalination plants:
  *
- * Methodology:
- * 1. Calculate the mass of air required to equalize pressure from operating
- *    vacuum to atmospheric pressure within the vessel volume.
- * 2. Determine the required mass flow rate based on the equalization time.
- * 3. Use isentropic compressible flow equations (choked and subsonic) to
- *    size the orifice area.
- * 4. A time-stepping integration is used for accuracy since the downstream
- *    pressure rises as air enters, transitioning from choked to subsonic flow.
- * 5. Select the next standard DN valve size.
+ * 1. MANUAL_VALVE — Size a manually-operated valve to equalize pressure
+ *    within a specified time. Uses bisection to find the required orifice area.
  *
- * Reference: HEI Standards for Steam Surface Condensers, Isentropic
- * compressible flow through orifices (ISO 9300).
+ * 2. DIAPHRAGM_ANALYSIS — Given a burst diaphragm DN size, compute the
+ *    pressure equalization profile, total time, and peak pressure rise rate.
+ *
+ * 3. DIAPHRAGM_DESIGN — Given a maximum allowable pressure rise rate
+ *    (to protect tubes with rubber grommets from mechanical disturbance),
+ *    find the largest diaphragm that stays within the limit.
+ *
+ * All modes use isentropic compressible flow theory with 500-step
+ * time-stepping integration (choked → subsonic transition).
+ *
+ * Reference: HEI Tech Sheet #131, HEI 2629, ISO 9300.
  */
 
 // ---------------------------------------------------------------------------
@@ -35,7 +35,10 @@ const P_ATM = 101325;
 /** Critical pressure ratio for air — choked flow below this ratio */
 const CRITICAL_RATIO = Math.pow(2 / (GAMMA + 1), GAMMA / (GAMMA - 1)); // ≈ 0.528
 
-/** Choked flow function constant: sqrt(gamma/R) × (2/(gamma+1))^((gamma+1)/(2(gamma-1))) */
+/** Cd for a burst diaphragm (sharp-edged orifice) */
+const DIAPHRAGM_CD = 0.6;
+
+/** Choked mass flux: P1 × sqrt(γ/(R·T1)) × [2/(γ+1)]^((γ+1)/(2(γ-1))) */
 function chokedMassFlux(P1: number, T1: number): number {
   const term = Math.pow(2 / (GAMMA + 1), (GAMMA + 1) / (2 * (GAMMA - 1)));
   return P1 * term * Math.sqrt(GAMMA / (R_AIR * T1));
@@ -51,13 +54,13 @@ function subsonicMassFlux(P1: number, T1: number, pressureRatio: number): number
 }
 
 // ---------------------------------------------------------------------------
-// Standard DN valve sizes with orifice areas
+// Standard DN sizes
 // ---------------------------------------------------------------------------
 
 export interface DNValveSize {
-  dn: number; // Nominal diameter (mm)
-  nps: string; // Nominal pipe size (inches)
-  boreArea: number; // Bore area (cm²)
+  dn: number;
+  nps: string;
+  boreArea: number; // cm²
 }
 
 export const STANDARD_DN_SIZES: DNValveSize[] = [
@@ -83,7 +86,7 @@ export const STANDARD_DN_SIZES: DNValveSize[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Discharge coefficient presets
+// Valve type presets (for MANUAL_VALVE mode)
 // ---------------------------------------------------------------------------
 
 export type ValveType = 'GLOBE' | 'BUTTERFLY' | 'BALL' | 'SHARP_ORIFICE';
@@ -103,183 +106,260 @@ export const VALVE_CD: Record<ValveType, number> = {
 };
 
 // ---------------------------------------------------------------------------
-// Input / Output Types
+// Calculation mode
 // ---------------------------------------------------------------------------
 
-export interface VacuumBreakerInput {
-  /** Total volume of all effects (m³) */
-  totalVolume: number;
-  /** Number of vacuum breakers (volume is split equally) */
-  numberOfBreakers: number;
-  /** Operating vacuum pressure (kPa absolute) */
-  operatingPressureKPa: number;
-  /** Allowable pressure equalization time (minutes) */
-  equalizationTimeMin: number;
-  /** Ambient air temperature (°C) */
-  ambientTemperature: number;
-  /** Valve type (determines Cd) */
-  valveType: ValveType;
-  /** Custom discharge coefficient (overrides valve type if provided) */
-  customCd?: number;
-}
+export type CalculationMode = 'MANUAL_VALVE' | 'DIAPHRAGM_ANALYSIS' | 'DIAPHRAGM_DESIGN';
+
+export const MODE_LABELS: Record<CalculationMode, string> = {
+  MANUAL_VALVE: 'Manual Valve — Size for Target Time',
+  DIAPHRAGM_ANALYSIS: 'Burst Diaphragm — Analyse Given Size',
+  DIAPHRAGM_DESIGN: 'Burst Diaphragm — Design for Max Rise Rate',
+};
+
+// ---------------------------------------------------------------------------
+// Shared types
+// ---------------------------------------------------------------------------
 
 export interface TimeStep {
-  /** Time (seconds) */
-  time: number;
-  /** Vessel pressure (kPa abs) */
-  pressure: number;
-  /** Instantaneous mass flow rate (kg/s) */
-  massFlowRate: number;
-  /** Flow regime at this step */
+  time: number; // seconds
+  pressure: number; // kPa abs
+  massFlowRate: number; // kg/s
+  pressureRiseRate: number; // kPa/s
   regime: 'choked' | 'subsonic';
 }
 
-export interface VacuumBreakerResult {
-  /** Volume per breaker (m³) */
-  volumePerBreaker: number;
-  /** Total air mass required per breaker (kg) */
-  airMassRequired: number;
-  /** Average mass flow rate per breaker (kg/s) */
-  averageMassFlowRate: number;
-  /** Required orifice area per breaker (cm²) */
-  requiredOrificeArea: number;
-  /** Required orifice diameter (mm) */
-  requiredOrificeDiameter: number;
-  /** Selected DN valve size */
-  selectedValve: DNValveSize;
-  /** Discharge coefficient used */
-  dischargeCoefficient: number;
-  /** Operating pressure (kPa abs) */
-  operatingPressureKPa: number;
-  /** Equalization time (minutes) */
-  equalizationTimeMin: number;
-  /** Number of breakers */
+// ---------------------------------------------------------------------------
+// Input types
+// ---------------------------------------------------------------------------
+
+interface BaseInput {
+  totalVolume: number; // m³
   numberOfBreakers: number;
-  /** Critical pressure ratio */
+  operatingPressureKPa: number; // lowest operating vacuum pressure (kPa abs)
+  ambientTemperature: number; // °C
+}
+
+export interface ManualValveInput extends BaseInput {
+  mode: 'MANUAL_VALVE';
+  equalizationTimeMin: number;
+  valveType: ValveType;
+}
+
+export interface DiaphragmAnalysisInput extends BaseInput {
+  mode: 'DIAPHRAGM_ANALYSIS';
+  burstPressureMbar: number; // burst pressure (mbar abs)
+  selectedDN: number; // user-selected DN size (mm)
+}
+
+export interface DiaphragmDesignInput extends BaseInput {
+  mode: 'DIAPHRAGM_DESIGN';
+  burstPressureMbar: number;
+  maxPressureRiseRate: number; // kPa/s — limit to protect tubes
+}
+
+export type VacuumBreakerInput = ManualValveInput | DiaphragmAnalysisInput | DiaphragmDesignInput;
+
+// ---------------------------------------------------------------------------
+// Result types
+// ---------------------------------------------------------------------------
+
+interface BaseResult {
+  mode: CalculationMode;
+  volumePerBreaker: number; // m³
+  airMassRequired: number; // kg
+  numberOfBreakers: number;
+  dischargeCoefficient: number;
   criticalPressureRatio: number;
-  /** Pressure at which flow transitions from choked to subsonic (kPa abs) */
   transitionPressureKPa: number;
-  /** Choked mass flux at atmospheric conditions (kg/(s·m²)) per unit Cd */
-  chokedFluxPerCd: number;
-  /** Pressure equalization profile (time-stepping) */
+  chokedFluxPerCd: number; // kg/(s·m²)
+  selectedValve: DNValveSize;
   pressureProfile: TimeStep[];
-  /** Warnings */
+  equalizationTimeSec: number; // actual time to reach ~99% atmospheric
+  peakPressureRiseRate: number; // kPa/s — max dP/dt in the profile
   warnings: string[];
 }
 
+export interface ManualValveResult extends BaseResult {
+  mode: 'MANUAL_VALVE';
+  requiredOrificeArea: number; // cm²
+  requiredOrificeDiameter: number; // mm
+  averageMassFlowRate: number; // kg/s
+  targetEqualizationTimeMin: number;
+}
+
+export interface DiaphragmAnalysisResult extends BaseResult {
+  mode: 'DIAPHRAGM_ANALYSIS';
+  burstPressureMbar: number;
+}
+
+export interface DiaphragmDesignResult extends BaseResult {
+  mode: 'DIAPHRAGM_DESIGN';
+  burstPressureMbar: number;
+  maxAllowedRiseRate: number; // kPa/s (the constraint)
+}
+
+export type VacuumBreakerResult =
+  | ManualValveResult
+  | DiaphragmAnalysisResult
+  | DiaphragmDesignResult;
+
 // ---------------------------------------------------------------------------
-// Calculator
+// Simulation engine (shared across all modes)
 // ---------------------------------------------------------------------------
 
-export function calculateVacuumBreaker(input: VacuumBreakerInput): VacuumBreakerResult {
-  const {
-    totalVolume,
-    numberOfBreakers,
-    operatingPressureKPa,
-    equalizationTimeMin,
-    ambientTemperature,
-    valveType,
-    customCd,
-  } = input;
+const NUM_STEPS = 500;
 
-  const warnings: string[] = [];
+interface SimResult {
+  finalPressure: number;
+  profile: TimeStep[];
+  equalizationTimeSec: number;
+  peakRiseRate: number;
+}
 
-  // Validate inputs
-  if (totalVolume <= 0) throw new Error('Total volume must be positive');
-  if (numberOfBreakers < 1) throw new Error('Number of breakers must be at least 1');
-  if (operatingPressureKPa <= 0) throw new Error('Operating pressure must be positive');
-  if (operatingPressureKPa >= 101.325)
-    throw new Error('Operating pressure must be below atmospheric (101.325 kPa)');
-  if (equalizationTimeMin <= 0) throw new Error('Equalization time must be positive');
-  if (ambientTemperature < -20 || ambientTemperature > 60) {
-    throw new Error('Ambient temperature must be between -20°C and 60°C');
-  }
+function simulate(
+  areaM2: number,
+  Cd: number,
+  P2_initial: number, // Pa
+  P1: number, // Pa
+  T1: number, // K
+  volumePerBreaker: number,
+  totalTimeSec: number
+): SimResult {
+  const dt = totalTimeSec / NUM_STEPS;
+  const targetPressure = P1 * 0.99;
+  let P2 = P2_initial;
+  let equalizationTimeSec = totalTimeSec;
+  let equalized = false;
+  let peakRiseRate = 0;
+  const profile: TimeStep[] = [];
 
-  const Cd = customCd ?? VALVE_CD[valveType];
-  if (Cd <= 0 || Cd > 1) throw new Error('Discharge coefficient must be between 0 and 1');
+  for (let i = 0; i <= NUM_STEPS; i++) {
+    const t = i * dt;
+    const ratio = P2 / P1;
+    let massFlux: number;
+    let regime: 'choked' | 'subsonic';
 
-  const volumePerBreaker = totalVolume / numberOfBreakers;
-  const T1 = ambientTemperature + 273.15; // K
-  const P1 = P_ATM; // Pa (atmospheric — upstream)
-  const P2_initial = operatingPressureKPa * 1000; // Pa (vessel — downstream)
-  const equalizationTimeSec = equalizationTimeMin * 60;
-
-  // Total air mass to fill one breaker's volume from vacuum to atmospheric
-  const airMassRequired = ((P1 - P2_initial) * volumePerBreaker) / (R_AIR * T1);
-  const averageMassFlowRate = airMassRequired / equalizationTimeSec;
-
-  // Critical pressure ratio and transition pressure
-  const transitionPressurePa = CRITICAL_RATIO * P1;
-  const transitionPressureKPa = transitionPressurePa / 1000;
-
-  // Choked mass flux (per unit area, per unit Cd)
-  const chokedFlux = chokedMassFlux(P1, T1);
-
-  // Time-stepping integration to find required area
-  // We iterate: guess area → simulate pressure rise → check if equalization
-  // happens within the required time. Use bisection.
-
-  const NUM_STEPS = 500;
-  const dt = equalizationTimeSec / NUM_STEPS;
-  const targetPressure = P1 * 0.99; // 99% of atmospheric = considered equalized
-
-  // Function to simulate pressure equalization for a given area
-  function simulate(area: number): { finalPressure: number; profile: TimeStep[] } {
-    let P2 = P2_initial;
-    const profile: TimeStep[] = [];
-
-    for (let i = 0; i <= NUM_STEPS; i++) {
-      const t = i * dt;
-      const ratio = P2 / P1;
-      let massFlux: number;
-      let regime: 'choked' | 'subsonic';
-
-      if (ratio <= CRITICAL_RATIO) {
-        // Choked flow
-        massFlux = chokedMassFlux(P1, T1);
-        regime = 'choked';
-      } else {
-        // Subsonic flow
-        massFlux = subsonicMassFlux(P1, T1, ratio);
-        regime = 'subsonic';
-      }
-
-      const mdot = Cd * area * massFlux;
-
-      // Record every 10th step for the profile (50 points)
-      if (i % 10 === 0 || i === NUM_STEPS) {
-        profile.push({
-          time: Math.round(t * 10) / 10,
-          pressure: Math.round((P2 / 1000) * 100) / 100, // kPa
-          massFlowRate: Math.round(mdot * 10000) / 10000,
-          regime,
-        });
-      }
-
-      if (i < NUM_STEPS) {
-        // Pressure rise: dP = mdot * R * T / V * dt
-        const dP = (mdot * R_AIR * T1 * dt) / volumePerBreaker;
-        P2 = Math.min(P2 + dP, P1);
-      }
+    if (ratio <= CRITICAL_RATIO) {
+      massFlux = chokedMassFlux(P1, T1);
+      regime = 'choked';
+    } else {
+      massFlux = subsonicMassFlux(P1, T1, ratio);
+      regime = 'subsonic';
     }
 
-    return { finalPressure: P2, profile };
+    const mdot = Cd * areaM2 * massFlux;
+    const riseRate = (mdot * R_AIR * T1) / (volumePerBreaker * 1000); // kPa/s
+
+    if (riseRate > peakRiseRate) peakRiseRate = riseRate;
+
+    // Record every 10th step (≈50 points) + first and last
+    if (i % 10 === 0 || i === NUM_STEPS) {
+      profile.push({
+        time: Math.round(t * 10) / 10,
+        pressure: Math.round((P2 / 1000) * 100) / 100,
+        massFlowRate: Math.round(mdot * 10000) / 10000,
+        pressureRiseRate: Math.round(riseRate * 1000) / 1000,
+        regime,
+      });
+    }
+
+    if (!equalized && P2 >= targetPressure) {
+      equalizationTimeSec = t;
+      equalized = true;
+    }
+
+    if (i < NUM_STEPS) {
+      const dP = (mdot * R_AIR * T1 * dt) / volumePerBreaker;
+      P2 = Math.min(P2 + dP, P1);
+    }
   }
 
-  // Bisection to find the required area
-  let areaLow = 1e-8; // m² (very small)
-  let areaHigh = 10.0; // m² (very large)
+  return { finalPressure: P2, profile, equalizationTimeSec, peakRiseRate };
+}
 
-  // First check if even the maximum area is insufficient (shouldn't happen)
-  const testMax = simulate(areaHigh);
+// ---------------------------------------------------------------------------
+// Shared validation & derived values
+// ---------------------------------------------------------------------------
+
+function validateBase(input: BaseInput) {
+  if (input.totalVolume <= 0) throw new Error('Total volume must be positive');
+  if (input.numberOfBreakers < 1) throw new Error('Number of breakers must be at least 1');
+  if (input.operatingPressureKPa <= 0) throw new Error('Operating pressure must be positive');
+  if (input.operatingPressureKPa >= 101.325)
+    throw new Error('Operating pressure must be below atmospheric (101.325 kPa)');
+  if (input.ambientTemperature < -20 || input.ambientTemperature > 60)
+    throw new Error('Ambient temperature must be between -20°C and 60°C');
+}
+
+function deriveBase(input: BaseInput) {
+  const volumePerBreaker = input.totalVolume / input.numberOfBreakers;
+  const T1 = input.ambientTemperature + 273.15;
+  const P1 = P_ATM;
+  const P2_initial = input.operatingPressureKPa * 1000;
+  const airMassRequired = ((P1 - P2_initial) * volumePerBreaker) / (R_AIR * T1);
+  const transitionPressureKPa = Math.round((CRITICAL_RATIO * P1) / 10) / 100;
+  const chokedFlux = chokedMassFlux(P1, T1);
+  return {
+    volumePerBreaker,
+    T1,
+    P1,
+    P2_initial,
+    airMassRequired,
+    transitionPressureKPa,
+    chokedFlux,
+  };
+}
+
+function selectDN(requiredAreaCm2: number): DNValveSize {
+  const largestDN = STANDARD_DN_SIZES[STANDARD_DN_SIZES.length - 1]!;
+  return STANDARD_DN_SIZES.find((v) => v.boreArea >= requiredAreaCm2) ?? largestDN;
+}
+
+function tubeWarning(peakRate: number): string | null {
+  if (peakRate > 5) {
+    return `Peak pressure rise rate (${peakRate.toFixed(2)} kPa/s) is very high. Risk of mechanical disturbance to tubes with rubber grommets.`;
+  }
+  if (peakRate > 1) {
+    return `Peak pressure rise rate (${peakRate.toFixed(2)} kPa/s) is elevated. Verify tube retention is adequate for this rate.`;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Mode 1: MANUAL_VALVE
+// ---------------------------------------------------------------------------
+
+function calculateManualValve(input: ManualValveInput): ManualValveResult {
+  validateBase(input);
+  if (input.equalizationTimeMin <= 0) throw new Error('Equalization time must be positive');
+
+  const Cd = VALVE_CD[input.valveType];
+  const {
+    volumePerBreaker,
+    T1,
+    P1,
+    P2_initial,
+    airMassRequired,
+    transitionPressureKPa,
+    chokedFlux,
+  } = deriveBase(input);
+  const equalizationTimeSec = input.equalizationTimeMin * 60;
+  const targetPressure = P1 * 0.99;
+  const warnings: string[] = [];
+
+  // Bisection to find required area
+  let areaLow = 1e-8;
+  let areaHigh = 10.0;
+
+  const testMax = simulate(areaHigh, Cd, P2_initial, P1, T1, volumePerBreaker, equalizationTimeSec);
   if (testMax.finalPressure < targetPressure) {
     throw new Error('Cannot find suitable area — check inputs');
   }
 
-  // Bisection — 50 iterations gives precision of ~10^-15 * initial range
   for (let iter = 0; iter < 50; iter++) {
     const areaMid = (areaLow + areaHigh) / 2;
-    const result = simulate(areaMid);
+    const result = simulate(areaMid, Cd, P2_initial, P1, T1, volumePerBreaker, equalizationTimeSec);
     if (result.finalPressure >= targetPressure) {
       areaHigh = areaMid;
     } else {
@@ -288,51 +368,212 @@ export function calculateVacuumBreaker(input: VacuumBreakerInput): VacuumBreaker
   }
 
   const requiredAreaM2 = areaHigh;
-  const requiredAreaCm2 = Math.round(requiredAreaM2 * 1e4 * 100) / 100; // m² to cm², 2 dp
+  const requiredAreaCm2 = Math.round(requiredAreaM2 * 1e4 * 100) / 100;
   const requiredDiameterMm = Math.round(Math.sqrt((4 * requiredAreaM2) / Math.PI) * 1000 * 10) / 10;
 
-  // Select the next standard DN valve size
-  // In the simulation: mdot = Cd * A * massFlux, so A is the geometric area.
-  // requiredAreaM2 is the geometric area. Valve bore area should be >= requiredAreaCm2.
+  const selectedValve = selectDN(requiredAreaCm2);
   const largestDN = STANDARD_DN_SIZES[STANDARD_DN_SIZES.length - 1]!;
-  const selectedValve: DNValveSize =
-    STANDARD_DN_SIZES.find((v) => v.boreArea >= requiredAreaCm2) ?? largestDN;
-
   if (requiredAreaCm2 > largestDN.boreArea) {
     warnings.push(
-      `Required orifice area (${requiredAreaCm2} cm²) exceeds the largest standard DN size (DN ${largestDN.dn}). Consider using multiple smaller valves or increasing equalization time.`
+      `Required orifice area (${requiredAreaCm2} cm²) exceeds DN ${largestDN.dn}. Consider more breakers or longer time.`
     );
   }
 
-  // Generate the final pressure profile with the selected valve's actual bore area
-  const actualAreaM2 = selectedValve.boreArea / 1e4; // cm² to m²
-  const finalSim = simulate(actualAreaM2);
+  // Final profile with actual valve bore
+  const actualAreaM2 = selectedValve.boreArea / 1e4;
+  const finalSim = simulate(
+    actualAreaM2,
+    Cd,
+    P2_initial,
+    P1,
+    T1,
+    volumePerBreaker,
+    equalizationTimeSec
+  );
 
-  // Add warnings for specific conditions
-  if (operatingPressureKPa < 5) {
+  if (input.operatingPressureKPa < 5) {
     warnings.push('Very deep vacuum (< 5 kPa abs). Ensure vessel is rated for full vacuum.');
   }
-  if (equalizationTimeMin > 120) {
+  if (input.equalizationTimeMin > 120) {
+    warnings.push('Equalization time exceeds 2 hours. Verify this is acceptable.');
+  }
+  const tw = tubeWarning(finalSim.peakRiseRate);
+  if (tw) warnings.push(tw);
+
+  return {
+    mode: 'MANUAL_VALVE',
+    volumePerBreaker: Math.round(volumePerBreaker * 100) / 100,
+    airMassRequired: Math.round(airMassRequired * 1000) / 1000,
+    numberOfBreakers: input.numberOfBreakers,
+    dischargeCoefficient: Cd,
+    criticalPressureRatio: Math.round(CRITICAL_RATIO * 1000) / 1000,
+    transitionPressureKPa,
+    chokedFluxPerCd: Math.round(chokedFlux * 100) / 100,
+    selectedValve,
+    pressureProfile: finalSim.profile,
+    equalizationTimeSec: Math.round(finalSim.equalizationTimeSec * 10) / 10,
+    peakPressureRiseRate: Math.round(finalSim.peakRiseRate * 1000) / 1000,
+    requiredOrificeArea: requiredAreaCm2,
+    requiredOrificeDiameter: requiredDiameterMm,
+    averageMassFlowRate: Math.round((airMassRequired / equalizationTimeSec) * 10000) / 10000,
+    targetEqualizationTimeMin: input.equalizationTimeMin,
+    warnings,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Mode 2: DIAPHRAGM_ANALYSIS
+// ---------------------------------------------------------------------------
+
+function calculateDiaphragmAnalysis(input: DiaphragmAnalysisInput): DiaphragmAnalysisResult {
+  validateBase(input);
+  if (input.burstPressureMbar <= 0) throw new Error('Burst pressure must be positive');
+  if (input.burstPressureMbar >= 1013.25)
+    throw new Error('Burst pressure must be below atmospheric (1013.25 mbar)');
+
+  const Cd = DIAPHRAGM_CD;
+  const { volumePerBreaker, T1, P1, airMassRequired, transitionPressureKPa, chokedFlux } =
+    deriveBase(input);
+  const P2_burst = input.burstPressureMbar * 100; // mbar → Pa
+  const warnings: string[] = [];
+
+  // Find the selected DN size from user input
+  const selectedValve = STANDARD_DN_SIZES.find((v) => v.dn === input.selectedDN);
+  if (!selectedValve) throw new Error(`DN ${input.selectedDN} is not a standard size`);
+
+  const areaM2 = selectedValve.boreArea / 1e4;
+
+  // Simulate for a generous total time and find when equalization happens
+  // Start with 2 hours, if not enough double until it works
+  let totalTimeSec = 7200;
+  let sim = simulate(areaM2, Cd, P2_burst, P1, T1, volumePerBreaker, totalTimeSec);
+  while (sim.finalPressure < P1 * 0.99 && totalTimeSec < 86400) {
+    totalTimeSec *= 2;
+    sim = simulate(areaM2, Cd, P2_burst, P1, T1, volumePerBreaker, totalTimeSec);
+  }
+
+  if (input.operatingPressureKPa < 5) {
+    warnings.push('Very deep vacuum (< 5 kPa abs). Ensure vessel is rated for full vacuum.');
+  }
+  if (input.burstPressureMbar < input.operatingPressureKPa * 10) {
     warnings.push(
-      'Equalization time exceeds 2 hours. Verify this is acceptable for the application.'
+      `Burst pressure (${input.burstPressureMbar} mbar) is below operating vacuum (${(input.operatingPressureKPa * 10).toFixed(0)} mbar). Diaphragm will burst during normal operation.`
+    );
+  }
+  const tw = tubeWarning(sim.peakRiseRate);
+  if (tw) warnings.push(tw);
+
+  return {
+    mode: 'DIAPHRAGM_ANALYSIS',
+    volumePerBreaker: Math.round(volumePerBreaker * 100) / 100,
+    airMassRequired: Math.round(airMassRequired * 1000) / 1000,
+    numberOfBreakers: input.numberOfBreakers,
+    dischargeCoefficient: Cd,
+    criticalPressureRatio: Math.round(CRITICAL_RATIO * 1000) / 1000,
+    transitionPressureKPa,
+    chokedFluxPerCd: Math.round(chokedFlux * 100) / 100,
+    selectedValve,
+    pressureProfile: sim.profile,
+    equalizationTimeSec: Math.round(sim.equalizationTimeSec * 10) / 10,
+    peakPressureRiseRate: Math.round(sim.peakRiseRate * 1000) / 1000,
+    burstPressureMbar: input.burstPressureMbar,
+    warnings,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Mode 3: DIAPHRAGM_DESIGN
+// ---------------------------------------------------------------------------
+
+function calculateDiaphragmDesign(input: DiaphragmDesignInput): DiaphragmDesignResult {
+  validateBase(input);
+  if (input.burstPressureMbar <= 0) throw new Error('Burst pressure must be positive');
+  if (input.burstPressureMbar >= 1013.25)
+    throw new Error('Burst pressure must be below atmospheric (1013.25 mbar)');
+  if (input.maxPressureRiseRate <= 0) throw new Error('Max pressure rise rate must be positive');
+
+  const Cd = DIAPHRAGM_CD;
+  const { volumePerBreaker, T1, P1, airMassRequired, transitionPressureKPa, chokedFlux } =
+    deriveBase(input);
+  const P2_burst = input.burstPressureMbar * 100;
+  const warnings: string[] = [];
+
+  // The peak rise rate occurs at the start (choked flow, maximum ΔP).
+  // dP/dt = Cd × A × massFlux × R × T / V (in Pa/s), convert to kPa/s.
+  // For choked flow: massFlux = chokedMassFlux(P1, T1)
+  // So: peakRate_kPa = Cd × A × chokedFlux × R_AIR × T1 / (V × 1000)
+  // Solve for A: A = maxRate × V × 1000 / (Cd × chokedFlux × R_AIR × T1)
+
+  const maxRatePaPerS = input.maxPressureRiseRate * 1000;
+  const requiredAreaM2 =
+    (maxRatePaPerS * volumePerBreaker) / (Cd * chokedMassFlux(P1, T1) * R_AIR * T1);
+  const requiredAreaCm2 = Math.round(requiredAreaM2 * 1e4 * 100) / 100;
+
+  // Find the largest DN that doesn't exceed the required area
+  let selectedValve: DNValveSize | undefined;
+  for (let i = STANDARD_DN_SIZES.length - 1; i >= 0; i--) {
+    if (STANDARD_DN_SIZES[i]!.boreArea <= requiredAreaCm2) {
+      selectedValve = STANDARD_DN_SIZES[i]!;
+      break;
+    }
+  }
+  if (!selectedValve) {
+    selectedValve = STANDARD_DN_SIZES[0]!;
+    warnings.push(
+      `Even the smallest DN (${selectedValve.dn}) exceeds the max rise rate. Consider increasing volume or relaxing the constraint.`
     );
   }
 
+  // Simulate with actual valve
+  const areaM2 = selectedValve.boreArea / 1e4;
+  let totalTimeSec = 7200;
+  let sim = simulate(areaM2, Cd, P2_burst, P1, T1, volumePerBreaker, totalTimeSec);
+  while (sim.finalPressure < P1 * 0.99 && totalTimeSec < 86400) {
+    totalTimeSec *= 2;
+    sim = simulate(areaM2, Cd, P2_burst, P1, T1, volumePerBreaker, totalTimeSec);
+  }
+
+  if (input.operatingPressureKPa < 5) {
+    warnings.push('Very deep vacuum (< 5 kPa abs). Ensure vessel is rated for full vacuum.');
+  }
+  if (input.burstPressureMbar < input.operatingPressureKPa * 10) {
+    warnings.push(
+      `Burst pressure (${input.burstPressureMbar} mbar) is below operating vacuum (${(input.operatingPressureKPa * 10).toFixed(0)} mbar). Diaphragm will burst during normal operation.`
+    );
+  }
+  const tw = tubeWarning(sim.peakRiseRate);
+  if (tw) warnings.push(tw);
+
   return {
+    mode: 'DIAPHRAGM_DESIGN',
     volumePerBreaker: Math.round(volumePerBreaker * 100) / 100,
     airMassRequired: Math.round(airMassRequired * 1000) / 1000,
-    averageMassFlowRate: Math.round(averageMassFlowRate * 10000) / 10000,
-    requiredOrificeArea: requiredAreaCm2,
-    requiredOrificeDiameter: requiredDiameterMm,
-    selectedValve,
+    numberOfBreakers: input.numberOfBreakers,
     dischargeCoefficient: Cd,
-    operatingPressureKPa,
-    equalizationTimeMin,
-    numberOfBreakers,
     criticalPressureRatio: Math.round(CRITICAL_RATIO * 1000) / 1000,
-    transitionPressureKPa: Math.round(transitionPressureKPa * 100) / 100,
+    transitionPressureKPa,
     chokedFluxPerCd: Math.round(chokedFlux * 100) / 100,
-    pressureProfile: finalSim.profile,
+    selectedValve,
+    pressureProfile: sim.profile,
+    equalizationTimeSec: Math.round(sim.equalizationTimeSec * 10) / 10,
+    peakPressureRiseRate: Math.round(sim.peakRiseRate * 1000) / 1000,
+    burstPressureMbar: input.burstPressureMbar,
+    maxAllowedRiseRate: input.maxPressureRiseRate,
     warnings,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Main entry point
+// ---------------------------------------------------------------------------
+
+export function calculateVacuumBreaker(input: VacuumBreakerInput): VacuumBreakerResult {
+  switch (input.mode) {
+    case 'MANUAL_VALVE':
+      return calculateManualValve(input);
+    case 'DIAPHRAGM_ANALYSIS':
+      return calculateDiaphragmAnalysis(input);
+    case 'DIAPHRAGM_DESIGN':
+      return calculateDiaphragmDesign(input);
+  }
 }
