@@ -256,7 +256,7 @@ export async function createInterprojectLoan(
     notes,
     userId,
     userName,
-    entityId,
+    entityId: _entityId,
   } = input;
 
   try {
@@ -298,7 +298,7 @@ export async function createInterprojectLoan(
     const journalEntryNumber = await generateTransactionNumber('JOURNAL_ENTRY');
 
     // Resolve intercompany accounts from Chart of Accounts
-    const systemAccounts = await getSystemAccountIds(db, entityId);
+    const systemAccounts = await getSystemAccountIds(db, 'default-entity');
     if (!systemAccounts.intercompanyReceivable || !systemAccounts.intercompanyPayable) {
       throw new InterprojectLoanError(
         'Intercompany accounts (1400, 2400) not found in Chart of Accounts. Please set up Intercompany Loan Receivable and Payable accounts.',
@@ -510,8 +510,15 @@ export async function recordRepayment(
   db: Firestore,
   input: RecordRepaymentInput
 ): Promise<InterprojectLoanResult> {
-  const { loanId, repaymentDate, principalAmount, interestAmount, userId, userName, entityId } =
-    input;
+  const {
+    loanId,
+    repaymentDate,
+    principalAmount,
+    interestAmount,
+    userId,
+    userName,
+    entityId: _entityId2,
+  } = input;
 
   try {
     const loan = await getInterprojectLoan(db, loanId);
@@ -536,7 +543,7 @@ export async function recordRepayment(
     const journalEntryNumber = await generateTransactionNumber('JOURNAL_ENTRY');
 
     // Resolve intercompany accounts from Chart of Accounts
-    const systemAccounts = await getSystemAccountIds(db, entityId);
+    const systemAccounts = await getSystemAccountIds(db, 'default-entity');
     if (!systemAccounts.intercompanyReceivable || !systemAccounts.intercompanyPayable) {
       throw new InterprojectLoanError(
         'Intercompany accounts (1400, 2400) not found in Chart of Accounts',

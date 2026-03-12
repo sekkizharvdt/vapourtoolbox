@@ -39,7 +39,8 @@ export async function generateInvoiceGLEntries(
 
   try {
     // Fetch system accounts
-    const accounts = await getSystemAccountIds(db, input.entityId || '');
+    // System accounts use 'default-entity' as the tenant marker (not the counterparty entityId)
+    const accounts = await getSystemAccountIds(db, 'default-entity');
 
     // Validate required accounts exist
     if (!accounts.accountsReceivable) {
@@ -208,7 +209,8 @@ export async function generateBillGLEntries(
 
   try {
     // Fetch system accounts
-    const accounts = await getSystemAccountIds(db, input.entityId || '');
+    // System accounts use 'default-entity' as the tenant marker (not the counterparty entityId)
+    const accounts = await getSystemAccountIds(db, 'default-entity');
 
     // Validate required accounts
     if (!accounts.expenses) {
@@ -391,8 +393,8 @@ export async function generateCustomerPaymentGLEntries(
   const entries: LedgerEntry[] = [];
 
   try {
-    // Fetch system accounts to get Accounts Receivable
-    const accounts = await getSystemAccountIds(db, input.entityId || '');
+    // System accounts use 'default-entity' as the tenant marker (not the counterparty entityId)
+    const accounts = await getSystemAccountIds(db, 'default-entity');
 
     // Use provided account or fall back to system account
     const receivableAccountId = input.receivableOrPayableAccountId || accounts.accountsReceivable;
@@ -483,8 +485,8 @@ export async function generateVendorPaymentGLEntries(
   const entries: LedgerEntry[] = [];
 
   try {
-    // Fetch system accounts to get Accounts Payable
-    const accounts = await getSystemAccountIds(db, input.entityId || '');
+    // System accounts use 'default-entity' as the tenant marker (not the counterparty entityId)
+    const accounts = await getSystemAccountIds(db, 'default-entity');
 
     // Use provided account or fall back to system account
     const payableAccountId = input.receivableOrPayableAccountId || accounts.accountsPayable;
