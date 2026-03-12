@@ -256,7 +256,6 @@ export async function createInterprojectLoan(
     notes,
     userId,
     userName,
-    entityId: _entityId,
   } = input;
 
   try {
@@ -510,15 +509,7 @@ export async function recordRepayment(
   db: Firestore,
   input: RecordRepaymentInput
 ): Promise<InterprojectLoanResult> {
-  const {
-    loanId,
-    repaymentDate,
-    principalAmount,
-    interestAmount,
-    userId,
-    userName,
-    entityId: _entityId2,
-  } = input;
+  const { loanId, repaymentDate, principalAmount, interestAmount, userId, userName } = input;
 
   try {
     const loan = await getInterprojectLoan(db, loanId);
