@@ -85,12 +85,16 @@ export interface EvaporatorSizingResult {
   tubeMaterial: TubeMaterial;
   /** Approximate bundle diameter in mm */
   bundleDiameter: number;
-  /** Wetting rate in kg/(m·s) */
+  /** Wetting rate in kg/(m·s) — without recirculation */
   wettingRate: number;
+  /** Wetting rate in kg/(m·s) — with recirculation applied */
+  wettingRateWithRecirc: number;
   /** Minimum wetting rate in kg/(m·s) */
   minimumWettingRate: number;
-  /** Wetting status */
+  /** Wetting status (based on effective wetting rate, with recirc if enabled) */
   wettingStatus: 'excellent' | 'good' | 'marginal' | 'poor';
+  /** Recommended recirculation ratio to achieve 1.5× minimum wetting rate */
+  recommendedRecircRatio: number;
   /** Demister required area in m² */
   demisterArea: number;
   /** Demister pressure drop in Pa */
@@ -299,7 +303,19 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
   // For horizontal tubes: Γ = flow / (N_tubes × L × 2) ... per side
   const wettingRate = sprayFlow / (2 * totalTubeLength);
   const minimumWettingRate = MIN_WETTING_RATE;
-  const wettingRatio = wettingRate / minimumWettingRate;
+
+  // Recommended recirculation ratio to achieve 1.5× minimum wetting rate (target = 0.045 kg/(m·s))
+  const targetWettingRate = minimumWettingRate * 1.5;
+  const recommendedRecircRatio =
+    wettingRate >= targetWettingRate ? 1.0 : Math.ceil((targetWettingRate / wettingRate) * 10) / 10;
+
+  // Apply recirculation if enabled via inputs
+  const recircRatio = inputs.brineRecirculation
+    ? (inputs.brineRecirculationRatio ?? recommendedRecircRatio)
+    : 1.0;
+  const wettingRateWithRecirc = wettingRate * recircRatio;
+  const effectiveWettingRate = wettingRateWithRecirc;
+  const wettingRatio = effectiveWettingRate / minimumWettingRate;
 
   let wettingStatus: 'excellent' | 'good' | 'marginal' | 'poor';
   if (wettingRatio >= 2.0) wettingStatus = 'excellent';
@@ -308,7 +324,7 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
   else {
     wettingStatus = 'poor';
     warnings.push(
-      `Effect ${effect.effectNumber}: Wetting rate (${wettingRate.toFixed(4)} kg/(m·s)) below minimum (${minimumWettingRate}). Consider brine recirculation.`
+      `Effect ${effect.effectNumber}: Wetting rate (${effectiveWettingRate.toFixed(4)} kg/(m·s)) below minimum (${minimumWettingRate}). ${inputs.brineRecirculation ? 'Increase recirculation ratio.' : 'Enable brine recirculation.'}`
     );
   }
 
@@ -359,7 +375,12 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
     rognoniCompare('Overall U', overallHTC, rognoniU, 'W/(m²·K)'),
     rognoniCompare('Required Area', requiredArea, rognoniRequiredArea, 'm²'),
     rognoniCompare('Design Area', designArea, rognoniDesignArea, 'm²'),
-    rognoniCompare('Wetting Rate', wettingRate, ROGNONI_REFERENCE.wettingRate, 'kg/(m·s)'),
+    rognoniCompare(
+      'Wetting Rate',
+      wettingRateWithRecirc,
+      ROGNONI_REFERENCE.wettingRate,
+      'kg/(m·s)'
+    ),
   ];
 
   return {
@@ -377,8 +398,10 @@ function sizeEvaporator(effect: MEDEffectResult, inputs: MEDPlantInputs): Evapor
     tubeMaterial,
     bundleDiameter: Math.round(bundleDiameter),
     wettingRate: Math.round(wettingRate * 10000) / 10000,
+    wettingRateWithRecirc: Math.round(wettingRateWithRecirc * 10000) / 10000,
     minimumWettingRate,
     wettingStatus,
+    recommendedRecircRatio: Math.round(recommendedRecircRatio * 10) / 10,
     demisterArea: Math.round(demisterArea * 100) / 100,
     demisterPressureDrop: Math.round(demisterPressureDrop * 10) / 10,
     rognoniComparisons,
@@ -649,8 +672,10 @@ function emptyEvaporatorResult(
     tubeMaterial,
     bundleDiameter: 0,
     wettingRate: 0,
+    wettingRateWithRecirc: 0,
     minimumWettingRate: MIN_WETTING_RATE,
     wettingStatus: 'poor',
+    recommendedRecircRatio: 1.0,
     demisterArea: 0,
     demisterPressureDrop: 0,
     rognoniComparisons: [],

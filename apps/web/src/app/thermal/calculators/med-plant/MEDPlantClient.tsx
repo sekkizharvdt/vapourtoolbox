@@ -22,12 +22,20 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
+import Stepper from '@mui/material/Stepper';
+import Step from '@mui/material/Step';
+import StepLabel from '@mui/material/StepLabel';
+import StepContent from '@mui/material/StepContent';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SaveIcon from '@mui/icons-material/Save';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 
 import { DEFAULT_MED_PLANT_INPUTS } from '@vapour/constants';
 import type {
@@ -70,6 +78,14 @@ const TUBE_MATERIAL_OPTIONS: { value: TubeMaterial; label: string }[] = [
 ];
 
 const d = DEFAULT_MED_PLANT_INPUTS;
+
+const STEP_LABELS = [
+  'Plant Configuration',
+  'Steam & Seawater',
+  'Design Parameters',
+  'Tube Specifications',
+  'Advanced Options',
+];
 
 // ============================================================================
 // Component
@@ -122,6 +138,12 @@ export default function MEDPlantClient() {
   const [tvcMotivePressure, setTvcMotivePressure] = useState('3');
   const [tvcEntrainedEffect, setTvcEntrainedEffect] = useState('');
 
+  // Brine recirculation
+  const [brineRecirculation, setBrineRecirculation] = useState(false);
+
+  // Stepper state
+  const [activeStep, setActiveStep] = useState(0);
+
   // ---- Dialog state ----
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
@@ -165,6 +187,7 @@ export default function MEDPlantClient() {
         length: parseFloat(condTubeLength) || 4,
         material: condTubeMaterial,
       },
+      brineRecirculation,
       ...(plantType === 'MED_TVC' && {
         tvcMotivePressure: parseFloat(tvcMotivePressure) || 3,
         tvcEntrainedEffect: tvcEntrainedEffect ? parseInt(tvcEntrainedEffect) : undefined,
@@ -195,6 +218,7 @@ export default function MEDPlantClient() {
     condTubeThickness,
     condTubeLength,
     condTubeMaterial,
+    brineRecirculation,
     tvcMotivePressure,
     tvcEntrainedEffect,
   ]);
@@ -265,8 +289,10 @@ export default function MEDPlantClient() {
     setDistillateTemp(String(d.distillateTemp));
     setCondensateExtraction(d.condensateExtraction);
     setFoulingFactor(String(d.foulingFactor));
+    setBrineRecirculation(false);
     setTvcMotivePressure('3');
     setTvcEntrainedEffect('');
+    setActiveStep(0);
   }, []);
 
   // ---- Load callback ----
@@ -291,6 +317,8 @@ export default function MEDPlantClient() {
     if (typeof saved.condensateExtraction === 'string')
       setCondensateExtraction(saved.condensateExtraction as CondensateExtraction);
     if (saved.foulingFactor != null) setFoulingFactor(String(saved.foulingFactor));
+    if (typeof saved.brineRecirculation === 'boolean')
+      setBrineRecirculation(saved.brineRecirculation);
     if (saved.tvcMotivePressure != null) setTvcMotivePressure(String(saved.tvcMotivePressure));
     if (saved.tvcEntrainedEffect != null) setTvcEntrainedEffect(String(saved.tvcEntrainedEffect));
   }, []);
@@ -313,9 +341,14 @@ export default function MEDPlantClient() {
     distillateTemp,
     condensateExtraction,
     foulingFactor,
+    brineRecirculation,
     tvcMotivePressure,
     tvcEntrainedEffect,
   };
+
+  // ---- Stepper navigation ----
+  const handleNext = () => setActiveStep((prev) => Math.min(prev + 1, STEP_LABELS.length - 1));
+  const handleBack = () => setActiveStep((prev) => Math.max(prev - 1, 0));
 
   // ---- Render ----
   return (
@@ -329,7 +362,7 @@ export default function MEDPlantClient() {
             <Box
               sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
             >
-              <Typography variant="h6">Plant Configuration</Typography>
+              <Typography variant="h6">Design Inputs</Typography>
               <Box>
                 <Tooltip title="Load saved">
                   <IconButton size="small" onClick={() => setLoadOpen(true)}>
@@ -344,393 +377,552 @@ export default function MEDPlantClient() {
               </Box>
             </Box>
 
-            {/* Plant Configuration */}
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  label="Plant Type"
-                  value={plantType}
-                  onChange={(e) => setPlantType(e.target.value as MEDPlantType)}
-                >
-                  {PLANT_TYPE_OPTIONS.map((o) => (
-                    <MenuItem key={o.value} value={o.value}>
-                      {o.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Number of Effects"
-                  type="number"
-                  value={numberOfEffects}
-                  onChange={(e) => setNumberOfEffects(e.target.value)}
-                  inputProps={{ min: 2, max: 16, step: 1 }}
-                />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Capacity (T/h)"
-                  type="number"
-                  value={capacity}
-                  onChange={(e) => setCapacity(e.target.value)}
-                  inputProps={{ min: 0.5, step: 0.5 }}
-                />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="GOR Target"
-                  type="number"
-                  value={gorTarget}
-                  onChange={(e) => setGorTarget(e.target.value)}
-                  inputProps={{ min: 2, max: 16, step: 0.5 }}
-                />
-              </Grid>
-            </Grid>
-
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" gutterBottom>
-              Steam Conditions
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Pressure (bar abs)"
-                  type="number"
-                  value={steamPressure}
-                  onChange={(e) => setSteamPressure(e.target.value)}
-                  inputProps={{ min: 0.05, step: 0.01 }}
-                />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Temperature (\u00B0C)"
-                  type="number"
-                  value={steamTemperature}
-                  onChange={(e) => setSteamTemperature(e.target.value)}
-                  inputProps={{ step: 0.1 }}
-                />
-              </Grid>
-            </Grid>
-
-            {/* TVC Parameters — only shown for MED-TVC */}
-            {plantType === 'MED_TVC' && (
-              <>
-                <Divider sx={{ my: 2 }} />
-                <Typography variant="subtitle2" gutterBottom>
-                  TVC Parameters
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 6 }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Motive Steam (bar abs)"
-                      type="number"
-                      value={tvcMotivePressure}
-                      onChange={(e) => setTvcMotivePressure(e.target.value)}
-                      inputProps={{ min: 1, max: 45, step: 0.5 }}
-                      helperText="High-pressure steam to ejector"
-                    />
+            <Stepper activeStep={activeStep} orientation="vertical" nonLinear>
+              {/* Step 1: Plant Configuration */}
+              <Step completed={false}>
+                <StepLabel onClick={() => setActiveStep(0)} sx={{ cursor: 'pointer' }}>
+                  {STEP_LABELS[0]}
+                </StepLabel>
+                <StepContent>
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        select
+                        fullWidth
+                        size="small"
+                        label="Plant Type"
+                        value={plantType}
+                        onChange={(e) => setPlantType(e.target.value as MEDPlantType)}
+                      >
+                        {PLANT_TYPE_OPTIONS.map((o) => (
+                          <MenuItem key={o.value} value={o.value}>
+                            {o.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Number of Effects"
+                        type="number"
+                        value={numberOfEffects}
+                        onChange={(e) => setNumberOfEffects(e.target.value)}
+                        inputProps={{ min: 2, max: 16, step: 1 }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Capacity (T/h)"
+                        type="number"
+                        value={capacity}
+                        onChange={(e) => setCapacity(e.target.value)}
+                        inputProps={{ min: 0.5, step: 0.5 }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="GOR Target"
+                        type="number"
+                        value={gorTarget}
+                        onChange={(e) => setGorTarget(e.target.value)}
+                        inputProps={{ min: 2, max: 16, step: 0.5 }}
+                      />
+                    </Grid>
                   </Grid>
-                  <Grid size={{ xs: 6 }}>
-                    <TextField
-                      fullWidth
+                  <Box sx={{ mt: 2 }}>
+                    <Button
                       size="small"
-                      label="Entrained Effect #"
-                      type="number"
-                      value={tvcEntrainedEffect}
-                      onChange={(e) => setTvcEntrainedEffect(e.target.value)}
-                      inputProps={{ min: 1, max: parseInt(numberOfEffects) || 16 }}
-                      helperText={`Default: last effect (${numberOfEffects})`}
-                    />
-                  </Grid>
-                </Grid>
-              </>
-            )}
-
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" gutterBottom>
-              Seawater Conditions
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 4 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Inlet (\u00B0C)"
-                  type="number"
-                  value={seawaterInletTemp}
-                  onChange={(e) => setSeawaterInletTemp(e.target.value)}
-                />
-              </Grid>
-              <Grid size={{ xs: 4 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Discharge (\u00B0C)"
-                  type="number"
-                  value={seawaterDischargeTemp}
-                  onChange={(e) => setSeawaterDischargeTemp(e.target.value)}
-                />
-              </Grid>
-              <Grid size={{ xs: 4 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Salinity (ppm)"
-                  type="number"
-                  value={seawaterSalinity}
-                  onChange={(e) => setSeawaterSalinity(e.target.value)}
-                />
-              </Grid>
-            </Grid>
-
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" gutterBottom>
-              Design Parameters
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Top Brine Temp (\u00B0C)"
-                  type="number"
-                  value={topBrineTemp}
-                  onChange={(e) => setTopBrineTemp(e.target.value)}
-                />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Brine Conc. Factor"
-                  type="number"
-                  value={brineConcentrationFactor}
-                  onChange={(e) => setBrineConcentrationFactor(e.target.value)}
-                  inputProps={{ min: 1.1, max: 2.0, step: 0.05 }}
-                />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Condenser Approach (\u00B0C)"
-                  type="number"
-                  value={condenserApproachTemp}
-                  onChange={(e) => setCondenserApproachTemp(e.target.value)}
-                />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Distillate Temp (\u00B0C)"
-                  type="number"
-                  value={distillateTemp}
-                  onChange={(e) => setDistillateTemp(e.target.value)}
-                />
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  label="Condensate From"
-                  value={condensateExtraction}
-                  onChange={(e) => setCondensateExtraction(e.target.value as CondensateExtraction)}
-                >
-                  {CONDENSATE_OPTIONS.map((o) => (
-                    <MenuItem key={o.value} value={o.value}>
-                      {o.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Fouling Factor (m\u00B2\u00B7\u00B0C/W)"
-                  type="number"
-                  value={foulingFactor}
-                  onChange={(e) => setFoulingFactor(e.target.value)}
-                  inputProps={{ step: 0.00005 }}
-                />
-              </Grid>
-            </Grid>
-
-            {/* Preheaters */}
-            <Divider sx={{ my: 2 }} />
-            <Box
-              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}
-            >
-              <Typography variant="subtitle2">Preheaters</Typography>
-              <Button size="small" startIcon={<AddIcon />} onClick={addPreheater}>
-                Add
-              </Button>
-            </Box>
-            {preheaters.length === 0 && (
-              <Typography variant="body2" color="text.secondary">
-                No preheaters configured. Click Add to divert vapor from an effect.
-              </Typography>
-            )}
-            {preheaters.map((ph, idx) => (
-              <Grid container spacing={1} key={idx} sx={{ mb: 1 }} alignItems="center">
-                <Grid size={{ xs: 5 }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Effect #"
-                    type="number"
-                    value={ph.effectNumber}
-                    onChange={(e) => updatePreheater(idx, 'effectNumber', e.target.value)}
-                    inputProps={{ min: 2, max: parseInt(numberOfEffects) || 16 }}
-                  />
-                </Grid>
-                <Grid size={{ xs: 5 }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Vapor (kg/hr)"
-                    type="number"
-                    value={ph.vaporFlow}
-                    onChange={(e) => updatePreheater(idx, 'vaporFlow', e.target.value)}
-                    inputProps={{ min: 0, step: 25 }}
-                  />
-                </Grid>
-                <Grid size={{ xs: 2 }}>
-                  <IconButton size="small" onClick={() => removePreheater(idx)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Grid>
-              </Grid>
-            ))}
-
-            {/* Tube Specs (collapsible) */}
-            <Accordion sx={{ mt: 2 }} disableGutters>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle2">Tube Specifications</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Typography variant="caption" color="text.secondary" gutterBottom>
-                  Evaporator Tubes
-                </Typography>
-                <Grid container spacing={2} sx={{ mb: 2 }}>
-                  <Grid size={{ xs: 3 }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="OD (mm)"
-                      type="number"
-                      value={evapTubeOd}
-                      onChange={(e) => setEvapTubeOd(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 3 }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Thk (mm)"
-                      type="number"
-                      value={evapTubeThickness}
-                      onChange={(e) => setEvapTubeThickness(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 3 }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Length (m)"
-                      type="number"
-                      value={evapTubeLength}
-                      onChange={(e) => setEvapTubeLength(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 3 }}>
-                    <TextField
-                      select
-                      fullWidth
-                      size="small"
-                      label="Material"
-                      value={evapTubeMaterial}
-                      onChange={(e) => setEvapTubeMaterial(e.target.value as TubeMaterial)}
+                      variant="contained"
+                      onClick={handleNext}
+                      endIcon={<NavigateNextIcon />}
                     >
-                      {TUBE_MATERIAL_OPTIONS.map((o) => (
-                        <MenuItem key={o.value} value={o.value}>
-                          {o.label}
-                        </MenuItem>
-                      ))}
-                    </TextField>
+                      Next
+                    </Button>
+                  </Box>
+                </StepContent>
+              </Step>
+
+              {/* Step 2: Steam & Seawater */}
+              <Step completed={false}>
+                <StepLabel onClick={() => setActiveStep(1)} sx={{ cursor: 'pointer' }}>
+                  {STEP_LABELS[1]}
+                </StepLabel>
+                <StepContent>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mb: 1, display: 'block' }}
+                  >
+                    Steam Conditions
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Pressure (bar abs)"
+                        type="number"
+                        value={steamPressure}
+                        onChange={(e) => setSteamPressure(e.target.value)}
+                        inputProps={{ min: 0.05, step: 0.01 }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Temperature (°C)"
+                        type="number"
+                        value={steamTemperature}
+                        onChange={(e) => setSteamTemperature(e.target.value)}
+                        inputProps={{ step: 0.1 }}
+                      />
+                    </Grid>
                   </Grid>
-                </Grid>
-                <Typography variant="caption" color="text.secondary" gutterBottom>
-                  Condenser Tubes
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 3 }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="OD (mm)"
-                      type="number"
-                      value={condTubeOd}
-                      onChange={(e) => setCondTubeOd(e.target.value)}
-                    />
+
+                  {plantType === 'MED_TVC' && (
+                    <>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ mt: 2, mb: 1, display: 'block' }}
+                      >
+                        TVC Parameters
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid size={{ xs: 6 }}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            label="Motive Steam (bar abs)"
+                            type="number"
+                            value={tvcMotivePressure}
+                            onChange={(e) => setTvcMotivePressure(e.target.value)}
+                            inputProps={{ min: 1, max: 45, step: 0.5 }}
+                            helperText="High-pressure steam to ejector"
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 6 }}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            label="Entrained Effect #"
+                            type="number"
+                            value={tvcEntrainedEffect}
+                            onChange={(e) => setTvcEntrainedEffect(e.target.value)}
+                            inputProps={{ min: 1, max: parseInt(numberOfEffects) || 16 }}
+                            helperText={`Default: last effect (${numberOfEffects})`}
+                          />
+                        </Grid>
+                      </Grid>
+                    </>
+                  )}
+
+                  <Divider sx={{ my: 2 }} />
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mb: 1, display: 'block' }}
+                  >
+                    Seawater Conditions
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 4 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Inlet (°C)"
+                        type="number"
+                        value={seawaterInletTemp}
+                        onChange={(e) => setSeawaterInletTemp(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 4 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Discharge (°C)"
+                        type="number"
+                        value={seawaterDischargeTemp}
+                        onChange={(e) => setSeawaterDischargeTemp(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 4 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Salinity (ppm)"
+                        type="number"
+                        value={seawaterSalinity}
+                        onChange={(e) => setSeawaterSalinity(e.target.value)}
+                      />
+                    </Grid>
                   </Grid>
-                  <Grid size={{ xs: 3 }}>
-                    <TextField
-                      fullWidth
+                  <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                    <Button size="small" onClick={handleBack} startIcon={<NavigateBeforeIcon />}>
+                      Back
+                    </Button>
+                    <Button
                       size="small"
-                      label="Thk (mm)"
-                      type="number"
-                      value={condTubeThickness}
-                      onChange={(e) => setCondTubeThickness(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 3 }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Length (m)"
-                      type="number"
-                      value={condTubeLength}
-                      onChange={(e) => setCondTubeLength(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 3 }}>
-                    <TextField
-                      select
-                      fullWidth
-                      size="small"
-                      label="Material"
-                      value={condTubeMaterial}
-                      onChange={(e) => setCondTubeMaterial(e.target.value as TubeMaterial)}
+                      variant="contained"
+                      onClick={handleNext}
+                      endIcon={<NavigateNextIcon />}
                     >
-                      {TUBE_MATERIAL_OPTIONS.map((o) => (
-                        <MenuItem key={o.value} value={o.value}>
-                          {o.label}
-                        </MenuItem>
-                      ))}
-                    </TextField>
+                      Next
+                    </Button>
+                  </Box>
+                </StepContent>
+              </Step>
+
+              {/* Step 3: Design Parameters */}
+              <Step completed={false}>
+                <StepLabel onClick={() => setActiveStep(2)} sx={{ cursor: 'pointer' }}>
+                  {STEP_LABELS[2]}
+                </StepLabel>
+                <StepContent>
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Top Brine Temp (°C)"
+                        type="number"
+                        value={topBrineTemp}
+                        onChange={(e) => setTopBrineTemp(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Brine Conc. Factor"
+                        type="number"
+                        value={brineConcentrationFactor}
+                        onChange={(e) => setBrineConcentrationFactor(e.target.value)}
+                        inputProps={{ min: 1.1, max: 2.0, step: 0.05 }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Condenser Approach (°C)"
+                        type="number"
+                        value={condenserApproachTemp}
+                        onChange={(e) => setCondenserApproachTemp(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Distillate Temp (°C)"
+                        type="number"
+                        value={distillateTemp}
+                        onChange={(e) => setDistillateTemp(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        select
+                        fullWidth
+                        size="small"
+                        label="Condensate From"
+                        value={condensateExtraction}
+                        onChange={(e) =>
+                          setCondensateExtraction(e.target.value as CondensateExtraction)
+                        }
+                      >
+                        {CONDENSATE_OPTIONS.map((o) => (
+                          <MenuItem key={o.value} value={o.value}>
+                            {o.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Fouling Factor (m²·°C/W)"
+                        type="number"
+                        value={foulingFactor}
+                        onChange={(e) => setFoulingFactor(e.target.value)}
+                        inputProps={{ step: 0.00005 }}
+                      />
+                    </Grid>
                   </Grid>
-                </Grid>
-              </AccordionDetails>
-            </Accordion>
+                  <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                    <Button size="small" onClick={handleBack} startIcon={<NavigateBeforeIcon />}>
+                      Back
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={handleNext}
+                      endIcon={<NavigateNextIcon />}
+                    >
+                      Next
+                    </Button>
+                  </Box>
+                </StepContent>
+              </Step>
+
+              {/* Step 4: Tube Specifications */}
+              <Step completed={false}>
+                <StepLabel onClick={() => setActiveStep(3)} sx={{ cursor: 'pointer' }}>
+                  {STEP_LABELS[3]}
+                </StepLabel>
+                <StepContent>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mb: 1, display: 'block' }}
+                  >
+                    Evaporator Tubes
+                  </Typography>
+                  <Grid container spacing={1} sx={{ mb: 2 }}>
+                    <Grid size={{ xs: 3 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="OD (mm)"
+                        type="number"
+                        value={evapTubeOd}
+                        onChange={(e) => setEvapTubeOd(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 3 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Thk (mm)"
+                        type="number"
+                        value={evapTubeThickness}
+                        onChange={(e) => setEvapTubeThickness(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 3 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Length (m)"
+                        type="number"
+                        value={evapTubeLength}
+                        onChange={(e) => setEvapTubeLength(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 3 }}>
+                      <TextField
+                        select
+                        fullWidth
+                        size="small"
+                        label="Material"
+                        value={evapTubeMaterial}
+                        onChange={(e) => setEvapTubeMaterial(e.target.value as TubeMaterial)}
+                      >
+                        {TUBE_MATERIAL_OPTIONS.map((o) => (
+                          <MenuItem key={o.value} value={o.value}>
+                            {o.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                  </Grid>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mb: 1, display: 'block' }}
+                  >
+                    Condenser Tubes
+                  </Typography>
+                  <Grid container spacing={1}>
+                    <Grid size={{ xs: 3 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="OD (mm)"
+                        type="number"
+                        value={condTubeOd}
+                        onChange={(e) => setCondTubeOd(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 3 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Thk (mm)"
+                        type="number"
+                        value={condTubeThickness}
+                        onChange={(e) => setCondTubeThickness(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 3 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Length (m)"
+                        type="number"
+                        value={condTubeLength}
+                        onChange={(e) => setCondTubeLength(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 3 }}>
+                      <TextField
+                        select
+                        fullWidth
+                        size="small"
+                        label="Material"
+                        value={condTubeMaterial}
+                        onChange={(e) => setCondTubeMaterial(e.target.value as TubeMaterial)}
+                      >
+                        {TUBE_MATERIAL_OPTIONS.map((o) => (
+                          <MenuItem key={o.value} value={o.value}>
+                            {o.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                  </Grid>
+                  <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                    <Button size="small" onClick={handleBack} startIcon={<NavigateBeforeIcon />}>
+                      Back
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={handleNext}
+                      endIcon={<NavigateNextIcon />}
+                    >
+                      Next
+                    </Button>
+                  </Box>
+                </StepContent>
+              </Step>
+
+              {/* Step 5: Advanced Options */}
+              <Step completed={false}>
+                <StepLabel onClick={() => setActiveStep(4)} sx={{ cursor: 'pointer' }}>
+                  {STEP_LABELS[4]}
+                </StepLabel>
+                <StepContent>
+                  {/* Preheaters */}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="caption" color="text.secondary">
+                      Preheaters
+                    </Typography>
+                    <Button size="small" startIcon={<AddIcon />} onClick={addPreheater}>
+                      Add
+                    </Button>
+                  </Box>
+                  {preheaters.length === 0 && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      No preheaters configured. Click Add to divert vapor from an effect.
+                    </Typography>
+                  )}
+                  {preheaters.map((ph, idx) => (
+                    <Grid container spacing={1} key={idx} sx={{ mb: 1 }} alignItems="center">
+                      <Grid size={{ xs: 5 }}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Effect #"
+                          type="number"
+                          value={ph.effectNumber}
+                          onChange={(e) => updatePreheater(idx, 'effectNumber', e.target.value)}
+                          inputProps={{
+                            min: 2,
+                            max: parseInt(numberOfEffects) || 16,
+                          }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 5 }}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Vapor %"
+                          type="number"
+                          value={ph.vaporFlow}
+                          onChange={(e) => updatePreheater(idx, 'vaporFlow', e.target.value)}
+                          inputProps={{ min: 5, max: 100, step: 5 }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 2 }}>
+                        <IconButton size="small" onClick={() => removePreheater(idx)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Grid>
+                    </Grid>
+                  ))}
+
+                  {/* Brine Recirculation */}
+                  <Divider sx={{ my: 2 }} />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={brineRecirculation}
+                        onChange={(e) => setBrineRecirculation(e.target.checked)}
+                        size="small"
+                      />
+                    }
+                    label={<Typography variant="body2">Brine Recirculation</Typography>}
+                  />
+                  {brineRecirculation && equipmentSizing && (
+                    <Alert severity="info" sx={{ mt: 1 }}>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        Auto-recommended ratios per effect (targeting 1.5&times; minimum wetting
+                        rate):
+                      </Typography>
+                      {equipmentSizing.evaporators
+                        .filter((ev) => ev.recommendedRecircRatio > 1.0)
+                        .map((ev) => (
+                          <Typography key={ev.effectNumber} variant="body2">
+                            Effect {ev.effectNumber}: {ev.recommendedRecircRatio.toFixed(1)}&times;{' '}
+                            (tube length {ev.tubeLength} m, base wetting {ev.wettingRate.toFixed(4)}{' '}
+                            kg/(m&middot;s))
+                          </Typography>
+                        ))}
+                      {equipmentSizing.evaporators.every(
+                        (ev) => ev.recommendedRecircRatio <= 1.0
+                      ) && (
+                        <Typography variant="body2">
+                          All effects have adequate wetting rate — no recirculation needed.
+                        </Typography>
+                      )}
+                    </Alert>
+                  )}
+                  {!brineRecirculation &&
+                    equipmentSizing &&
+                    equipmentSizing.evaporators.some((ev) => ev.wettingStatus === 'poor') && (
+                      <Alert severity="warning" sx={{ mt: 1 }}>
+                        <Typography variant="body2">
+                          Poor wetting rate detected. Enable brine recirculation to improve tube
+                          wetting.
+                        </Typography>
+                      </Alert>
+                    )}
+
+                  <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                    <Button size="small" onClick={handleBack} startIcon={<NavigateBeforeIcon />}>
+                      Back
+                    </Button>
+                  </Box>
+                </StepContent>
+              </Step>
+            </Stepper>
 
             {/* Save button */}
             {result && (
@@ -784,7 +976,7 @@ export default function MEDPlantClient() {
                     {
                       label: 'STE',
                       value: result.performance.specificThermalEnergy_kWh,
-                      unit: 'kWh/m\u00B3',
+                      unit: 'kWh/m³',
                     },
                     {
                       label: 'Seawater Intake',
@@ -874,7 +1066,7 @@ export default function MEDPlantClient() {
                       {
                         label: 'Vapor to Eff. 1',
                         value: result.tvcResult.vaporToEffect1Temp.toFixed(1),
-                        unit: '\u00B0C',
+                        unit: '°C',
                       },
                       {
                         label: 'Superheated',
@@ -1111,7 +1303,14 @@ export default function MEDPlantClient() {
                           ))}
                         </TableRow>
                         <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                          <TableCell>Wetting Rate</TableCell>
+                          <TableCell>
+                            Wetting Rate
+                            {brineRecirculation && (
+                              <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                                (with recirc.)
+                              </Typography>
+                            )}
+                          </TableCell>
                           <TableCell>kg/(m&middot;s)</TableCell>
                           {equipmentSizing.evaporators.map((ev) => (
                             <TableCell key={ev.effectNumber} align="right">
@@ -1126,8 +1325,20 @@ export default function MEDPlantClient() {
                                         : 'success.main',
                                 }}
                               >
-                                {ev.wettingRate.toFixed(4)}
+                                {(brineRecirculation
+                                  ? ev.wettingRateWithRecirc
+                                  : ev.wettingRate
+                                ).toFixed(4)}
                               </Box>
+                              {brineRecirculation && ev.recommendedRecircRatio > 1.0 && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  display="block"
+                                >
+                                  {ev.recommendedRecircRatio.toFixed(1)}&times; recirc.
+                                </Typography>
+                              )}
                             </TableCell>
                           ))}
                         </TableRow>
@@ -1296,22 +1507,22 @@ export default function MEDPlantClient() {
                       {
                         label: 'Total Evaporator Area',
                         value: equipmentSizing.totalEvaporatorArea.toFixed(1),
-                        unit: 'm\u00B2',
+                        unit: 'm²',
                       },
                       {
                         label: 'Condenser Area',
                         value: equipmentSizing.totalCondenserArea.toFixed(1),
-                        unit: 'm\u00B2',
+                        unit: 'm²',
                       },
                       {
                         label: 'Preheater Area',
                         value: equipmentSizing.totalPreheaterArea.toFixed(1),
-                        unit: 'm\u00B2',
+                        unit: 'm²',
                       },
                       {
                         label: 'Grand Total Area',
                         value: equipmentSizing.grandTotalArea.toFixed(1),
-                        unit: 'm\u00B2',
+                        unit: 'm²',
                       },
                       {
                         label: 'Condenser Tubes',

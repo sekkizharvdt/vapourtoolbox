@@ -677,6 +677,12 @@ export interface MEDPlantInputs {
   /** Final condenser tube specification */
   condenserTubes: TubeSpec;
 
+  // --- Brine recirculation ---
+  /** Whether brine recirculation is enabled (improves wetting rate on long tubes) */
+  brineRecirculation?: boolean;
+  /** Recirculation ratio override — if omitted, uses auto-recommended value per effect */
+  brineRecirculationRatio?: number;
+
   // --- TVC parameters (only when plantType = 'MED_TVC') ---
   /** Motive steam pressure for TVC in bar abs */
   tvcMotivePressure?: number;
